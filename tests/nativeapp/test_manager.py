@@ -1440,6 +1440,7 @@ def test_validate_use_scratch_stage(mock_execute, mock_deploy, temp_dir, mock_cu
     pd = wm._project_definition  # noqa: SLF001
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
     mock_deploy.assert_called_with(
+        action_ctx=wm.action_ctx,
         bundle_map=None,
         prune=True,
         recursive=True,
@@ -1518,6 +1519,7 @@ def test_validate_failing_drops_scratch_stage(
     pd = wm._project_definition  # noqa: SLF001
     pkg_model: ApplicationPackageEntityModel = pd.entities["app_pkg"]
     mock_deploy.assert_called_with(
+        action_ctx=wm.action_ctx,
         bundle_map=None,
         prune=True,
         recursive=True,
@@ -1579,7 +1581,10 @@ def test_validate_raw_returns_data(mock_execute, temp_dir, mock_cursor):
     pkg = wm.get_entity("app_pkg")
     assert (
         pkg.get_validation_result(
-            use_scratch_stage=False, interactive=False, force=True
+            action_ctx=wm.action_ctx,
+            use_scratch_stage=False,
+            interactive=False,
+            force=True,
         )
         == failure_data
     )

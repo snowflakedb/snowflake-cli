@@ -15,12 +15,15 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
+from functools import cache
 from textwrap import dedent
 from typing import Any, Dict, List
 
 from snowflake.cli._plugins.connection.util import UIParameter, get_ui_parameter
 from snowflake.cli._plugins.nativeapp.constants import (
     AUTHORIZE_TELEMETRY_COL,
+    CHANNEL_COL,
+    DEFAULT_CHANNEL,
     DEFAULT_DIRECTIVE,
     NAME_COL,
     SPECIAL_COMMENT,
@@ -642,6 +645,7 @@ class SnowflakeSQLFacade:
         warehouse: str,
         debug_mode: bool | None,
         should_authorize_event_sharing: bool | None,
+        release_channel: str | None = None,
     ) -> list[tuple[str]]:
         """
         Upgrades an application object using the provided clauses
@@ -653,17 +657,36 @@ class SnowflakeSQLFacade:
         @param warehouse: Warehouse which is required to create an application object
         @param debug_mode: Whether to enable debug mode; None means not explicitly enabled or disabled
         @param should_authorize_event_sharing: Whether to enable event sharing; None means not explicitly enabled or disabled
+        @param release_channel [Optional]: Release channel to use when upgrading the application
         """
+
+        name = to_identifier(name)
+        release_channel = to_identifier(release_channel) if release_channel else None
+
         install_method.ensure_app_usable(
             app_name=name,
             app_role=role,
             show_app_row=self.get_existing_app_info(name, role),
         )
+
         # If all the above checks are in order, proceed to upgrade
+
+        @cache  # only cache within the scope of this method
+        def get_app_properties():
+            return self.get_app_properties(name, role)
 
         with self._use_role_optional(role), self._use_warehouse_optional(warehouse):
             try:
                 using_clause = install_method.using_clause(path_to_version_directory)
+                if release_channel:
+                    current_release_channel = get_app_properties().get(
+                        CHANNEL_COL, DEFAULT_CHANNEL
+                    )
+                    if not same_identifiers(release_channel, current_release_channel):
+                        raise UpgradeApplicationRestrictionError(
+                            f"Application {name} is currently on release channel {current_release_channel}. Cannot upgrade to release channel {release_channel}."
+                        )
+
                 upgrade_cursor = self._sql_executor.execute_query(
                     f"alter application {name} upgrade {using_clause}",
                 )
@@ -674,6 +697,9 @@ class SnowflakeSQLFacade:
                         self._sql_executor.execute_query(
                             f"alter application {name} set debug_mode = {debug_mode}"
                         )
+
+            except UpgradeApplicationRestrictionError as err:
+                raise err
             except ProgrammingError as err:
                 if err.errno in UPGRADE_RESTRICTION_CODES:
                     raise UpgradeApplicationRestrictionError(err.msg) from err
@@ -692,7 +718,7 @@ class SnowflakeSQLFacade:
                 # Only update event sharing if the current value is different as the one we want to set
                 if should_authorize_event_sharing is not None:
                     current_authorize_event_sharing = (
-                        self.get_app_properties(name, role)
+                        get_app_properties()
                         .get(AUTHORIZE_TELEMETRY_COL, "false")
                         .lower()
                         == "true"
@@ -738,6 +764,7 @@ class SnowflakeSQLFacade:
         warehouse: str,
         debug_mode: bool | None,
         should_authorize_event_sharing: bool | None,
+        release_channel: str | None = None,
     ) -> list[tuple[str]]:
         """
         Creates a new application object using an application package,
@@ -751,7 +778,11 @@ class SnowflakeSQLFacade:
         @param warehouse: Warehouse which is required to create an application object
         @param debug_mode: Whether to enable debug mode; None means not explicitly enabled or disabled
         @param should_authorize_event_sharing: Whether to enable event sharing; None means not explicitly enabled or disabled
+        @param release_channel [Optional]: Release channel to use when creating the application
         """
+        package_name = to_identifier(package_name)
+        name = to_identifier(name)
+        release_channel = to_identifier(release_channel) if release_channel else None
 
         # by default, applications are created in debug mode when possible;
         # this can be overridden in the project definition
@@ -766,18 +797,28 @@ class SnowflakeSQLFacade:
                 "Setting AUTHORIZE_TELEMETRY_EVENT_SHARING to %s",
                 should_authorize_event_sharing,
             )
-            authorize_telemetry_clause = f" AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(should_authorize_event_sharing).upper()}"
+            authorize_telemetry_clause = f"AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(should_authorize_event_sharing).upper()}"
 
         using_clause = install_method.using_clause(path_to_version_directory)
+        release_channel_clause = (
+            f"using release channel {release_channel}" if release_channel else ""
+        )
+
         with self._use_role_optional(role), self._use_warehouse_optional(warehouse):
             try:
                 create_cursor = self._sql_executor.execute_query(
                     dedent(
-                        f"""\
-                    create application {name}
-                        from application package {package_name} {using_clause} {debug_mode_clause}{authorize_telemetry_clause}
-                        comment = {SPECIAL_COMMENT}
-                    """
+                        _strip_empty_lines(
+                            f"""\
+                                create application {name}
+                                    from application package {package_name}
+                                    {using_clause}
+                                    {release_channel_clause}
+                                    {debug_mode_clause}
+                                    {authorize_telemetry_clause}
+                                    comment = {SPECIAL_COMMENT}
+                            """
+                        )
                     ),
                 )
             except ProgrammingError as err:
@@ -828,10 +869,10 @@ class SnowflakeSQLFacade:
                     dedent(
                         _strip_empty_lines(
                             f"""\
-                            create application package {package_name}
-                                comment = {SPECIAL_COMMENT}
-                                distribution = {distribution}
-                                {enable_release_channels_clause}
+                                create application package {package_name}
+                                    comment = {SPECIAL_COMMENT}
+                                    distribution = {distribution}
+                                    {enable_release_channels_clause}
                             """
                         )
                     )
@@ -867,9 +908,9 @@ class SnowflakeSQLFacade:
                     self._sql_executor.execute_query(
                         dedent(
                             f"""\
-                            alter application package {package_name}
-                                set enable_release_channels = {str(enable_release_channels).lower()}
-                        """
+                                alter application package {package_name}
+                                    set enable_release_channels = {str(enable_release_channels).lower()}
+                            """
                         )
                     )
                 except ProgrammingError as err:

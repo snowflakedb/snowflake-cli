@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
-from typing import Any, List, Literal, Optional, Union
+from typing import Any, List, Literal, Optional, Set, Union
 
 import typer
 from click import BadOptionUsage, ClickException
@@ -15,6 +16,7 @@ from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
     VersionInfo,
     build_bundle,
+    find_setup_script_file,
     find_version_info_in_manifest_file,
 )
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
@@ -30,6 +32,9 @@ from snowflake.cli._plugins.nativeapp.constants import (
     OWNER_COL,
     PATCH_COL,
     VERSION_COL,
+)
+from snowflake.cli._plugins.nativeapp.entities.application_package_child_interface import (
+    ApplicationPackageChildInterface,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
@@ -49,7 +54,11 @@ from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     InsufficientPrivilegesError,
 )
-from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
+from snowflake.cli._plugins.nativeapp.utils import needs_confirmation, sanitize_dir_name
+from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
+    FunctionEntityModel,
+    ProcedureEntityModel,
+)
 from snowflake.cli._plugins.stage.diff import DiffResult, compute_stage_diff
 from snowflake.cli._plugins.stage.manager import (
     DefaultStagePathParts,
@@ -57,6 +66,9 @@ from snowflake.cli._plugins.stage.manager import (
     StagePathParts,
 )
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
+from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
+    StreamlitEntityModel,
+)
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import span
 from snowflake.cli.api.entities.common import (
@@ -81,6 +93,7 @@ from snowflake.cli.api.project.schemas.entities.common import (
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
     IdentifierField,
+    UpdatableModel,
 )
 from snowflake.cli.api.project.schemas.v1.native_app.package import DistributionOptions
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
@@ -99,6 +112,43 @@ from snowflake.cli.api.utils.cursor import find_all_rows
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 
+ApplicationPackageChildrenTypes = (
+    StreamlitEntityModel | FunctionEntityModel | ProcedureEntityModel
+)
+
+
+class ApplicationPackageChildIdentifier(UpdatableModel):
+    schema_: Optional[str] = Field(
+        title="Child entity schema", alias="schema", default=None
+    )
+
+
+class EnsureUsableByField(UpdatableModel):
+    application_roles: Optional[Union[str, Set[str]]] = Field(
+        title="One or more application roles to be granted with the required privileges",
+        default=None,
+    )
+
+    @field_validator("application_roles")
+    @classmethod
+    def ensure_app_roles_is_a_set(
+        cls, application_roles: Optional[Union[str, Set[str]]]
+    ) -> Optional[Union[Set[str]]]:
+        if isinstance(application_roles, str):
+            return set([application_roles])
+        return application_roles
+
+
+class ApplicationPackageChildField(UpdatableModel):
+    target: str = Field(title="The key of the entity to include in this package")
+    ensure_usable_by: Optional[EnsureUsableByField] = Field(
+        title="Automatically grant the required privileges on the child object and its schema",
+        default=None,
+    )
+    identifier: ApplicationPackageChildIdentifier = Field(
+        title="Entity identifier", default=None
+    )
+
 
 class ApplicationPackageEntityModel(EntityModelBase):
     type: Literal["application package"] = DiscriminatorField()  # noqa: A003
@@ -106,23 +156,27 @@ class ApplicationPackageEntityModel(EntityModelBase):
         title="List of paths or file source/destination pairs to add to the deploy root",
     )
     bundle_root: Optional[str] = Field(
-        title="Folder at the root of your project where artifacts necessary to perform the bundle step are stored.",
+        title="Folder at the root of your project where artifacts necessary to perform the bundle step are stored",
         default="output/bundle/",
     )
     deploy_root: Optional[str] = Field(
         title="Folder at the root of your project where the build step copies the artifacts",
         default="output/deploy/",
     )
+    children_artifacts_dir: Optional[str] = Field(
+        title="Folder under deploy_root where the child artifacts will be stored",
+        default="_children/",
+    )
     generated_root: Optional[str] = Field(
-        title="Subdirectory of the deploy root where files generated by the Snowflake CLI will be written.",
+        title="Subdirectory of the deploy root where files generated by the Snowflake CLI will be written",
         default="__generated/",
     )
     stage: Optional[str] = IdentifierField(
-        title="Identifier of the stage that stores the application artifacts.",
+        title="Identifier of the stage that stores the application artifacts",
         default="app_src.stage",
     )
     scratch_stage: Optional[str] = IdentifierField(
-        title="Identifier of the stage that stores temporary scratch data used by the Snowflake CLI.",
+        title="Identifier of the stage that stores temporary scratch data used by the Snowflake CLI",
         default="app_src.stage_snowflake_cli_scratch",
     )
     distribution: Optional[DistributionOptions] = Field(
@@ -138,6 +192,19 @@ class ApplicationPackageEntityModel(EntityModelBase):
         title="Subfolder in stage to upload the artifacts to, instead of the root of the application package's stage",
         default="",
     )
+    children: Optional[List[ApplicationPackageChildField]] = Field(
+        title="Entities that will be bundled and deployed as part of this application package",
+        default=[],
+    )
+
+    @field_validator("children")
+    @classmethod
+    def verify_children_behind_flag(
+        cls, input_value: Optional[List[ApplicationPackageChildField]]
+    ) -> Optional[List[ApplicationPackageChildField]]:
+        if input_value and not FeatureFlag.ENABLE_NATIVE_APP_CHILDREN.is_enabled():
+            raise AttributeError("Application package children are not supported yet")
+        return input_value
 
     @field_validator("identifier")
     @classmethod
@@ -198,6 +265,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
 
     @property
+    def children_artifacts_deploy_root(self) -> Path:
+        return self.deploy_root / self._entity_model.children_artifacts_dir
+
+    @property
     def bundle_root(self) -> Path:
         return self.project_root / self._entity_model.bundle_root
 
@@ -239,7 +310,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         return model.meta and model.meta.post_deploy
 
     def action_bundle(self, action_ctx: ActionContext, *args, **kwargs):
-        return self._bundle()
+        return self._bundle(action_ctx)
 
     def action_diff(
         self, action_ctx: ActionContext, print_to_console: bool, *args, **kwargs
@@ -271,6 +342,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         **kwargs,
     ):
         return self._deploy(
+            action_ctx=action_ctx,
             bundle_map=None,
             prune=prune,
             recursive=recursive,
@@ -370,6 +442,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         **kwargs,
     ):
         self.validate_setup_script(
+            action_ctx=action_ctx,
             use_scratch_stage=use_scratch_stage,
             interactive=interactive,
             force=force,
@@ -424,7 +497,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         else:
             git_policy = AllowAlwaysPolicy()
 
-        bundle_map = self._bundle()
+        bundle_map = self._bundle(action_ctx)
         resolved_version, resolved_patch, resolved_label = self.resolve_version_info(
             version=version,
             patch=patch,
@@ -438,6 +511,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             self.check_index_changes_in_git_repo(policy=policy, interactive=interactive)
 
         self._deploy(
+            action_ctx=action_ctx,
             bundle_map=bundle_map,
             prune=True,
             recursive=True,
@@ -541,7 +615,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     """
                 )
             )
-            self._bundle()
+            self._bundle(action_ctx)
             version_info = find_version_info_in_manifest_file(self.deploy_root)
             version = version_info.version_name
             if not version:
@@ -726,7 +800,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             role=self.role,
         )
 
-    def _bundle(self):
+    def _bundle(self, action_ctx: ActionContext = None):
         model = self._entity_model
         bundle_map = build_bundle(self.project_root, self.deploy_root, model.artifacts)
         bundle_context = BundleContext(
@@ -739,10 +813,80 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
         compiler = NativeAppCompiler(bundle_context)
         compiler.compile_artifacts()
+
+        if self._entity_model.children:
+            # Bundle children and append their SQL to setup script
+            # TODO Consider re-writing the logic below as a processor
+            children_sql = self._bundle_children(action_ctx=action_ctx)
+            setup_file_path = find_setup_script_file(deploy_root=self.deploy_root)
+            with open(setup_file_path, "r", encoding="utf-8") as file:
+                existing_setup_script = file.read()
+            if setup_file_path.is_symlink():
+                setup_file_path.unlink()
+            with open(setup_file_path, "w", encoding="utf-8") as file:
+                file.write(existing_setup_script)
+                file.write("\n-- AUTO GENERATED CHILDREN SECTION\n")
+                file.write("\n".join(children_sql))
+                file.write("\n")
+
         return bundle_map
+
+    def _bundle_children(self, action_ctx: ActionContext) -> List[str]:
+        # Create _children directory
+        children_artifacts_dir = self.children_artifacts_deploy_root
+        os.makedirs(children_artifacts_dir)
+        children_sql = []
+        for child in self._entity_model.children:
+            # Create child sub directory
+            child_artifacts_dir = children_artifacts_dir / sanitize_dir_name(
+                child.target
+            )
+            try:
+                os.makedirs(child_artifacts_dir)
+            except FileExistsError:
+                raise ClickException(
+                    f"Could not create sub-directory at {child_artifacts_dir}. Make sure child entity names do not collide with each other."
+                )
+            child_entity: ApplicationPackageChildInterface = action_ctx.get_entity(
+                child.target
+            )
+            child_entity.bundle(child_artifacts_dir)
+            app_role = (
+                to_identifier(
+                    child.ensure_usable_by.application_roles.pop()  # TODO Support more than one application role
+                )
+                if child.ensure_usable_by and child.ensure_usable_by.application_roles
+                else None
+            )
+            child_schema = (
+                to_identifier(child.identifier.schema_)
+                if child.identifier and child.identifier.schema_
+                else None
+            )
+            children_sql.append(
+                child_entity.get_deploy_sql(
+                    artifacts_dir=child_artifacts_dir.relative_to(self.deploy_root),
+                    schema=child_schema,
+                )
+            )
+            if app_role:
+                children_sql.append(
+                    f"CREATE APPLICATION ROLE IF NOT EXISTS {app_role};"
+                )
+                if child_schema:
+                    children_sql.append(
+                        f"GRANT USAGE ON SCHEMA {child_schema} TO APPLICATION ROLE {app_role};"
+                    )
+                children_sql.append(
+                    child_entity.get_usage_grant_sql(
+                        app_role=app_role, schema=child_schema
+                    )
+                )
+        return children_sql
 
     def _deploy(
         self,
+        action_ctx: ActionContext,
         bundle_map: BundleMap | None,
         prune: bool,
         recursive: bool,
@@ -767,7 +911,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         stage_path = stage_path or self.stage_path
 
         # 1. Create a bundle if one wasn't passed in
-        bundle_map = bundle_map or self._bundle()
+        bundle_map = bundle_map or self._bundle(action_ctx)
 
         # 2. Create an empty application package, if none exists
         try:
@@ -797,6 +941,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         if validate:
             self.validate_setup_script(
+                action_ctx=action_ctx,
                 use_scratch_stage=False,
                 interactive=interactive,
                 force=force,
@@ -1086,7 +1231,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
 
     def validate_setup_script(
-        self, use_scratch_stage: bool, interactive: bool, force: bool
+        self,
+        action_ctx: ActionContext,
+        use_scratch_stage: bool,
+        interactive: bool,
+        force: bool,
     ):
         workspace_ctx = self._workspace_ctx
         console = workspace_ctx.console
@@ -1094,6 +1243,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         """Validates Native App setup script SQL."""
         with console.phase(f"Validating Snowflake Native App setup script."):
             validation_result = self.get_validation_result(
+                action_ctx=action_ctx,
                 use_scratch_stage=use_scratch_stage,
                 force=force,
                 interactive=interactive,
@@ -1115,13 +1265,18 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
     @span("validate_setup_script")
     def get_validation_result(
-        self, use_scratch_stage: bool, interactive: bool, force: bool
+        self,
+        action_ctx: ActionContext,
+        use_scratch_stage: bool,
+        interactive: bool,
+        force: bool,
     ):
         """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
         stage_path = self.stage_path
         if use_scratch_stage:
             stage_path = self.scratch_stage_path
             self._deploy(
+                action_ctx=action_ctx,
                 bundle_map=None,
                 prune=True,
                 recursive=True,

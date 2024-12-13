@@ -63,3 +63,4 @@ class FeatureFlag(FeatureFlagMixin):
     ENABLE_STREAMLIT_VERSIONED_STAGE = BooleanFlag(
         "ENABLE_STREAMLIT_VERSIONED_STAGE", False
     )
+    ENABLE_SPCS_LOG_STREAMING = BooleanFlag("ENABLE_SPCS_LOG_STREAMING", False)

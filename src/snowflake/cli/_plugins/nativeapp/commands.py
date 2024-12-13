@@ -142,6 +142,12 @@ def app_run(
         The command fails if no release directive exists for your Snowflake account for a given application package, which is determined from the project definition file. Default: unset.""",
         is_flag=True,
     ),
+    channel: str = typer.Option(
+        None,
+        show_default=False,
+        help=f"""The name of the release channel to use when creating or upgrading an application instance from a release directive.
+        Requires the `--from-release-directive` flag to be set. If unset, the default channel will be used.""",
+    ),
     interactive: bool = InteractiveOption,
     force: Optional[bool] = ForceOption,
     validate: bool = ValidateOption,
@@ -170,6 +176,7 @@ def app_run(
         paths=[],
         interactive=interactive,
         force=force,
+        release_channel=channel,
     )
     app = ws.get_entity(app_id)
     return MessageResult(
@@ -364,7 +371,10 @@ def app_validate(
     if cli_context.output_format == OutputFormat.JSON:
         return ObjectResult(
             package.get_validation_result(
-                use_scratch_stage=True, interactive=False, force=True
+                action_ctx=ws.action_ctx,
+                use_scratch_stage=True,
+                interactive=False,
+                force=True,
             )
         )
 

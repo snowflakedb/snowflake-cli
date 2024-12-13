@@ -85,6 +85,7 @@ from tests.nativeapp.utils import (
     SQL_FACADE_GET_EVENT_DEFINITIONS,
     SQL_FACADE_GET_EXISTING_APP_INFO,
     SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE,
+    SQL_FACADE_SHOW_RELEASE_CHANNELS,
     SQL_FACADE_UPGRADE_APPLICATION,
     TYPER_CONFIRM,
     mock_execute_helper,
@@ -275,6 +276,7 @@ def test_create_dev_app_w_warehouse_access_exception(
         should_authorize_event_sharing=None,
         role=DEFAULT_ROLE,
         warehouse=DEFAULT_WAREHOUSE,
+        release_channel=None,
     )
     assert mock_sql_facade_grant_privileges_to_role.mock_calls == [
         mock.call(
@@ -346,6 +348,7 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
     mock_sql_facade_get_event_definitions.assert_called_once_with(
@@ -419,6 +422,7 @@ def test_create_or_upgrade_dev_app_with_warning(
                 should_authorize_event_sharing=None,
                 role=DEFAULT_ROLE,
                 warehouse=DEFAULT_WAREHOUSE,
+                release_channel=None,
             )
         ]
         mock_sql_facade_upgrade_application.assert_not_called()
@@ -433,6 +437,7 @@ def test_create_or_upgrade_dev_app_with_warning(
                 should_authorize_event_sharing=None,
                 role=DEFAULT_ROLE,
                 warehouse=DEFAULT_WAREHOUSE,
+                release_channel=None,
             )
         ]
 
@@ -487,6 +492,7 @@ def test_create_dev_app_create_new_with_additional_privileges(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
     assert mock_sql_facade_grant_privileges_to_role.mock_calls == [
@@ -564,6 +570,7 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
 
@@ -675,6 +682,7 @@ def test_create_dev_app_incorrect_owner(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
 
@@ -728,6 +736,7 @@ def test_create_dev_app_no_diff_changes(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
     mock_sql_facade_get_event_definitions.assert_called_once_with(
@@ -784,6 +793,7 @@ def test_create_dev_app_w_diff_changes(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
     mock_sql_facade_get_event_definitions.assert_called_once_with(
@@ -908,6 +918,7 @@ def test_create_dev_app_create_new_quoted(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
     mock_sql_facade_get_event_definitions.assert_called_once_with(
@@ -965,6 +976,7 @@ def test_create_dev_app_create_new_quoted_override(
         should_authorize_event_sharing=None,
         role=DEFAULT_ROLE,
         warehouse=DEFAULT_WAREHOUSE,
+        release_channel=None,
     )
     mock_sql_facade_get_event_definitions.assert_called_once_with(
         '"My Application"', DEFAULT_ROLE
@@ -1047,6 +1059,7 @@ def test_create_dev_app_recreate_app_when_orphaned(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
     assert mock_sql_facade_create_application.mock_calls == [
@@ -1059,6 +1072,7 @@ def test_create_dev_app_recreate_app_when_orphaned(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
     assert mock_sql_facade_grant_privileges_to_role.mock_calls == [
@@ -1186,6 +1200,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
 
@@ -1199,6 +1214,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
 
@@ -1323,6 +1339,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
     assert mock_sql_facade_create_application.mock_calls == [
@@ -1335,6 +1352,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
     assert mock_sql_facade_grant_privileges_to_role.mock_calls == [
@@ -1480,6 +1498,7 @@ def test_upgrade_app_incorrect_owner(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
 
@@ -1535,6 +1554,7 @@ def test_upgrade_app_succeeds(
         should_authorize_event_sharing=None,
         role=DEFAULT_ROLE,
         warehouse=DEFAULT_WAREHOUSE,
+        release_channel=None,
     )
     mock_sql_facade_get_event_definitions.assert_called_once_with(
         DEFAULT_APP_ID, DEFAULT_ROLE
@@ -1594,6 +1614,7 @@ def test_upgrade_app_fails_generic_error(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
 
@@ -1675,6 +1696,7 @@ def test_upgrade_app_fails_upgrade_restriction_error(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
     assert mock_execute.mock_calls == expected
@@ -1755,6 +1777,7 @@ def test_versioned_app_upgrade_to_unversioned(
         should_authorize_event_sharing=None,
         role=DEFAULT_ROLE,
         warehouse=DEFAULT_WAREHOUSE,
+        release_channel=None,
     )
 
     mock_sql_facade_create_application.assert_called_with(
@@ -1766,6 +1789,7 @@ def test_versioned_app_upgrade_to_unversioned(
         should_authorize_event_sharing=None,
         role=DEFAULT_ROLE,
         warehouse=DEFAULT_WAREHOUSE,
+        release_channel=None,
     )
 
     assert mock_sql_facade_grant_privileges_to_role.mock_calls == [
@@ -1874,6 +1898,7 @@ def test_upgrade_app_fails_drop_fails(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
 
@@ -1955,6 +1980,7 @@ def test_upgrade_app_recreate_app(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
     assert mock_sql_facade_create_application.mock_calls == [
@@ -1967,6 +1993,7 @@ def test_upgrade_app_recreate_app(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
     assert mock_sql_facade_grant_privileges_to_role.mock_calls == [
@@ -2136,6 +2163,7 @@ def test_upgrade_app_recreate_app_from_version(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
     assert mock_sql_facade_create_application.mock_calls == [
@@ -2148,6 +2176,7 @@ def test_upgrade_app_recreate_app_from_version(
             should_authorize_event_sharing=None,
             role=DEFAULT_ROLE,
             warehouse=DEFAULT_WAREHOUSE,
+            release_channel=None,
         )
     ]
 
@@ -2177,6 +2206,511 @@ def test_upgrade_app_recreate_app_from_version(
 
     mock_sql_facade_get_event_definitions.assert_called_once_with(
         DEFAULT_APP_ID, DEFAULT_ROLE
+    )
+
+
+@mock.patch(
+    APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
+    return_value={"key": "val"},
+)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(
+    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
+)
+@mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
+    },
+)
+@pytest.mark.parametrize("policy_param", [allow_always_policy, ask_always_policy])
+def test_run_app_from_release_directive_with_channel(
+    mock_param,
+    mock_conn,
+    mock_typer_confirm,
+    mock_show_release_channels,
+    mock_get_existing_app_info,
+    mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_grant_privileges_to_role,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
+    mock_existing,
+    policy_param,
+    temp_dir,
+    mock_cursor,
+    mock_bundle_map,
+):
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "comment": SPECIAL_COMMENT,
+        "owner": "app_role",
+    }
+    mock_show_release_channels.return_value = [{"name": "my_channel"}]
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (None, mock.call("use role app_role")),
+            (None, mock.call("drop application myapp")),
+            (None, mock.call("use role old_role")),
+        ]
+    )
+    mock_conn.return_value = MockConnectionCtx()
+    mock_execute.side_effect = side_effects
+    mock_sql_facade_upgrade_application.side_effect = (
+        UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE)
+    )
+    mock_sql_facade_create_application.side_effect = mock_cursor(
+        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
+    )
+
+    setup_project_file(os.getcwd())
+
+    wm = _get_wm()
+    wm.perform_action(
+        "app_pkg",
+        EntityActions.BUNDLE,
+    )
+    wm.perform_action(
+        "myapp",
+        EntityActions.DEPLOY,
+        from_release_directive=True,
+        prune=True,
+        recursive=True,
+        paths=[],
+        validate=False,
+        version="v1",
+        release_channel="my_channel",
+    )
+    assert mock_execute.mock_calls == expected
+    assert mock_sql_facade_upgrade_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+            release_channel="my_channel",
+        )
+    ]
+    assert mock_sql_facade_create_application.mock_calls == [
+        mock.call(
+            name=DEFAULT_APP_ID,
+            package_name=DEFAULT_PKG_ID,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=DEFAULT_STAGE_FQN,
+            debug_mode=True,
+            should_authorize_event_sharing=None,
+            role=DEFAULT_ROLE,
+            warehouse=DEFAULT_WAREHOUSE,
+            release_channel="my_channel",
+        )
+    ]
+
+    assert mock_sql_facade_grant_privileges_to_role.mock_calls == [
+        mock.call(
+            privileges=["install", "develop"],
+            object_type=ObjectType.APPLICATION_PACKAGE,
+            object_identifier="app_pkg",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["usage"],
+            object_type=ObjectType.SCHEMA,
+            object_identifier="app_pkg.app_src",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+        mock.call(
+            privileges=["read"],
+            object_type=ObjectType.STAGE,
+            object_identifier="app_pkg.app_src.stage",
+            role_to_grant="app_role",
+            role_to_use="package_role",
+        ),
+    ]
+
+    mock_sql_facade_get_event_definitions.assert_called_once_with(
+        DEFAULT_APP_ID, DEFAULT_ROLE
+    )
+
+
+@mock.patch(
+    APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
+    return_value={"key": "val"},
+)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(
+    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
+)
+@mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
+    },
+)
+def test_run_app_from_release_directive_with_channel_but_not_from_release_directive(
+    mock_param,
+    mock_conn,
+    mock_typer_confirm,
+    mock_show_release_channels,
+    mock_get_existing_app_info,
+    mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_grant_privileges_to_role,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
+    mock_existing,
+    temp_dir,
+    mock_cursor,
+    mock_bundle_map,
+):
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "comment": SPECIAL_COMMENT,
+        "owner": "app_role",
+    }
+    mock_show_release_channels.return_value = []
+    mock_conn.return_value = MockConnectionCtx()
+    mock_sql_facade_upgrade_application.side_effect = (
+        UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE)
+    )
+    mock_sql_facade_create_application.side_effect = mock_cursor(
+        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
+    )
+
+    setup_project_file(os.getcwd())
+
+    wm = _get_wm()
+    wm.perform_action(
+        "app_pkg",
+        EntityActions.BUNDLE,
+    )
+    with pytest.raises(UsageError) as err:
+        wm.perform_action(
+            "myapp",
+            EntityActions.DEPLOY,
+            from_release_directive=False,
+            prune=True,
+            recursive=True,
+            paths=[],
+            validate=False,
+            version="v1",
+            release_channel="my_channel",
+        )
+
+    assert (
+        str(err.value)
+        == "Release channel is only supported when --from-release-directive is used."
+    )
+    mock_sql_facade_upgrade_application.assert_not_called()
+    mock_sql_facade_create_application.assert_not_called()
+
+
+# Provide a release channel that is not in the list of available release channels -> error:
+@mock.patch(
+    APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
+    return_value={"key": "val"},
+)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(
+    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
+)
+@mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
+    },
+)
+def test_run_app_from_release_directive_with_channel_not_in_list(
+    mock_param,
+    mock_conn,
+    mock_typer_confirm,
+    mock_show_release_channels,
+    mock_get_existing_app_info,
+    mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_grant_privileges_to_role,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
+    mock_existing,
+    temp_dir,
+    mock_cursor,
+    mock_bundle_map,
+):
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "comment": SPECIAL_COMMENT,
+        "owner": "app_role",
+    }
+    mock_show_release_channels.return_value = [
+        {"name": "channel1"},
+        {"name": "channel2"},
+    ]
+    mock_conn.return_value = MockConnectionCtx()
+    mock_sql_facade_upgrade_application.side_effect = (
+        UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE)
+    )
+    mock_sql_facade_create_application.side_effect = mock_cursor(
+        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
+    )
+
+    setup_project_file(os.getcwd())
+
+    wm = _get_wm()
+    wm.perform_action(
+        "app_pkg",
+        EntityActions.BUNDLE,
+    )
+    with pytest.raises(UsageError) as err:
+        wm.perform_action(
+            "myapp",
+            EntityActions.DEPLOY,
+            from_release_directive=True,
+            prune=True,
+            recursive=True,
+            paths=[],
+            validate=False,
+            version="v1",
+            release_channel="unknown_channel",
+        )
+
+    assert (
+        str(err.value)
+        == "Release channel 'unknown_channel' is not available for application package app_pkg. Available release channels: (channel1, channel2)."
+    )
+    mock_sql_facade_upgrade_application.assert_not_called()
+    mock_sql_facade_create_application.assert_not_called()
+
+
+@mock.patch(
+    APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
+    return_value={"key": "val"},
+)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(
+    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
+)
+@mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
+    },
+)
+def test_run_app_from_release_directive_with_non_default_channel_but_release_channels_not_enabled(
+    mock_param,
+    mock_conn,
+    mock_typer_confirm,
+    mock_show_release_channels,
+    mock_get_existing_app_info,
+    mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_grant_privileges_to_role,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
+    mock_existing,
+    temp_dir,
+    mock_cursor,
+    mock_bundle_map,
+):
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "comment": SPECIAL_COMMENT,
+        "owner": "app_role",
+    }
+    mock_show_release_channels.return_value = []
+    mock_conn.return_value = MockConnectionCtx()
+    mock_sql_facade_upgrade_application.side_effect = (
+        UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE)
+    )
+    mock_sql_facade_create_application.side_effect = mock_cursor(
+        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
+    )
+
+    setup_project_file(os.getcwd())
+
+    wm = _get_wm()
+    wm.perform_action(
+        "app_pkg",
+        EntityActions.BUNDLE,
+    )
+    with pytest.raises(UsageError) as err:
+        wm.perform_action(
+            "myapp",
+            EntityActions.DEPLOY,
+            from_release_directive=True,
+            prune=True,
+            recursive=True,
+            paths=[],
+            validate=False,
+            version="v1",
+            release_channel="my_channel",
+        )
+
+    assert (
+        str(err.value)
+        == "Release channels are not enabled for application package app_pkg."
+    )
+    mock_sql_facade_upgrade_application.assert_not_called()
+    mock_sql_facade_create_application.assert_not_called()
+
+
+# test with default release channel when release channels not enabled -> success:
+@mock.patch(
+    APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
+    return_value={"key": "val"},
+)
+@mock.patch(SQL_FACADE_CREATE_APPLICATION)
+@mock.patch(SQL_FACADE_UPGRADE_APPLICATION)
+@mock.patch(SQL_FACADE_GRANT_PRIVILEGES_TO_ROLE)
+@mock.patch(SQL_FACADE_GET_EVENT_DEFINITIONS)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+@mock.patch(SQL_FACADE_GET_EXISTING_APP_INFO)
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(
+    f"snowflake.cli._plugins.nativeapp.policy.{TYPER_CONFIRM}", return_value=True
+)
+@mock_connection()
+@mock.patch(
+    GET_UI_PARAMETERS,
+    return_value={
+        UIParameter.NA_EVENT_SHARING_V2: False,
+        UIParameter.NA_ENFORCE_MANDATORY_FILTERS: False,
+    },
+)
+def test_run_app_from_release_directive_with_default_channel_when_release_channels_not_enabled(
+    mock_param,
+    mock_conn,
+    mock_typer_confirm,
+    mock_show_release_channels,
+    mock_get_existing_app_info,
+    mock_execute,
+    mock_sql_facade_get_event_definitions,
+    mock_sql_facade_grant_privileges_to_role,
+    mock_sql_facade_upgrade_application,
+    mock_sql_facade_create_application,
+    mock_existing,
+    temp_dir,
+    mock_cursor,
+    mock_bundle_map,
+):
+    mock_get_existing_app_info.return_value = {
+        "name": "myapp",
+        "comment": SPECIAL_COMMENT,
+        "owner": "app_role",
+    }
+    mock_show_release_channels.return_value = []
+    mock_conn.return_value = MockConnectionCtx()
+    mock_sql_facade_upgrade_application.side_effect = (
+        UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE)
+    )
+    mock_sql_facade_create_application.side_effect = mock_cursor(
+        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
+    )
+
+    setup_project_file(os.getcwd())
+
+    wm = _get_wm()
+    wm.perform_action(
+        "app_pkg",
+        EntityActions.BUNDLE,
+    )
+    wm.perform_action(
+        "myapp",
+        EntityActions.DEPLOY,
+        from_release_directive=True,
+        prune=True,
+        recursive=True,
+        paths=[],
+        validate=False,
+        version="v1",
+        release_channel="default",
+    )
+
+    mock_sql_facade_upgrade_application.assert_called_once_with(
+        name=DEFAULT_APP_ID,
+        install_method=SameAccountInstallMethod.release_directive(),
+        stage_fqn=DEFAULT_STAGE_FQN,
+        debug_mode=True,
+        should_authorize_event_sharing=None,
+        role=DEFAULT_ROLE,
+        warehouse=DEFAULT_WAREHOUSE,
+        release_channel=None,
+    )
+    mock_sql_facade_create_application.assert_called_once_with(
+        name=DEFAULT_APP_ID,
+        package_name=DEFAULT_PKG_ID,
+        install_method=SameAccountInstallMethod.release_directive(),
+        stage_fqn=DEFAULT_STAGE_FQN,
+        debug_mode=True,
+        should_authorize_event_sharing=None,
+        role=DEFAULT_ROLE,
+        warehouse=DEFAULT_WAREHOUSE,
+        release_channel=None,
+    )
+
+    mock_sql_facade_grant_privileges_to_role.assert_has_calls(
+        [
+            mock.call(
+                privileges=["install", "develop"],
+                object_type=ObjectType.APPLICATION_PACKAGE,
+                object_identifier="app_pkg",
+                role_to_grant="app_role",
+                role_to_use="package_role",
+            ),
+            mock.call(
+                privileges=["usage"],
+                object_type=ObjectType.SCHEMA,
+                object_identifier="app_pkg.app_src",
+                role_to_grant="app_role",
+                role_to_use="package_role",
+            ),
+            mock.call(
+                privileges=["read"],
+                object_type=ObjectType.STAGE,
+                object_identifier="app_pkg.app_src.stage",
+                role_to_grant="app_role",
+                role_to_use="package_role",
+            ),
+        ]
     )
 
 
