@@ -44,6 +44,7 @@ from snowflake.cli.api.exceptions import (
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
+    CollectionResult,
     CommandResult,
     MessageResult,
     QueryJsonValueResult,
@@ -295,6 +296,152 @@ def logs(
         )
 
     return StreamResult(cast(Generator[CommandResult, None, None], stream))
+
+
+@app.command(requires_connection=True)
+def events(
+    name: FQN = ServiceNameArgument,
+    container_name: str = typer.Option(
+        ...,
+        "--container-name",
+        help="Name of the container.",
+        show_default=False,
+    ),
+    instance_id: str = typer.Option(
+        ...,
+        "--instance-id",
+        help="ID of the service instance, starting with 0.",
+        show_default=False,
+    ),
+    since: str = typer.Option(
+        default="",
+        help="Fetch events that are newer than this time ago, in Snowflake interval syntax.",
+    ),
+    until: str = typer.Option(
+        default="",
+        help="Fetch events that are older than this time ago, in Snowflake interval syntax.",
+    ),
+    first: int = typer.Option(
+        default=-1,
+        show_default=False,
+        help="Fetch only the first N events. Cannot be used with --last.",
+    ),
+    last: int = typer.Option(
+        default=-1,
+        show_default=False,
+        help="Fetch only the last N events. Cannot be used with --first.",
+    ),
+    **options,
+):
+    """Fetches events for this app from the event table configured in Snowflake."""
+    if first >= 0 and last >= 0:
+        raise IncompatibleParametersError(["--first", "--last"])
+
+    manager = ServiceManager()
+    column_names = [
+        "TIMESTAMP",
+        "START_TIMESTAMP",
+        "OBSERVED_TIMESTAMP",
+        "TRACE",
+        "RESOURCE",
+        "RESOURCE_ATTRIBUTES",
+        "SCOPE",
+        "SCOPE_ATTRIBUTES",
+        "RECORD_TYPE",
+        "RECORD",
+        "RECORD_ATTRIBUTES",
+        "VALUE",
+        "EXEMPLARS",
+    ]
+
+    events = manager.get_events(
+        service_name=name.identifier,
+        container_name=container_name,
+        instance_id=instance_id,
+        since=since,
+        until=until,
+        first=first,
+        last=last,
+    )
+    transformed_events = [dict(zip(column_names, event)) for event in events]
+
+    if not transformed_events:
+        return MessageResult("No events found.")
+
+    return CollectionResult(transformed_events)
+
+
+@app.command(requires_connection=True)
+def metrics(
+    name: FQN = ServiceNameArgument,
+    container_name: str = typer.Option(
+        ...,
+        "--container-name",
+        help="Name of the container.",
+        show_default=False,
+    ),
+    instance_id: str = typer.Option(
+        ...,
+        "--instance-id",
+        help="ID of the service instance, starting with 0.",
+        show_default=False,
+    ),
+    since: str = typer.Option(
+        default="",
+        help="Fetch events that are newer than this time ago, in Snowflake interval syntax.",
+    ),
+    until: str = typer.Option(
+        default="",
+        help="Fetch events that are older than this time ago, in Snowflake interval syntax.",
+    ),
+    first: int = typer.Option(
+        default=-1,
+        show_default=False,
+        help="Fetch only the first N events. Cannot be used with --last.",
+    ),
+    last: int = typer.Option(
+        default=-1,
+        show_default=False,
+        help="Fetch only the last N events. Cannot be used with --first.",
+    ),
+    **options,
+):
+    """Fetches events for this app from the event table configured in Snowflake."""
+    if first >= 0 and last >= 0:
+        raise IncompatibleParametersError(["--first", "--last"])
+
+    manager = ServiceManager()
+    column_names = [
+        "TIMESTAMP",
+        "START_TIMESTAMP",
+        "OBSERVED_TIMESTAMP",
+        "TRACE",
+        "RESOURCE",
+        "RESOURCE_ATTRIBUTES",
+        "SCOPE",
+        "SCOPE_ATTRIBUTES",
+        "RECORD_TYPE",
+        "RECORD",
+        "RECORD_ATTRIBUTES",
+        "VALUE",
+        "EXEMPLARS",
+    ]
+
+    metrics = manager.get_metrics(
+        service_name=name.identifier,
+        container_name=container_name,
+        instance_id=instance_id,
+        since=since,
+        until=until,
+        first=first,
+        last=last,
+    )
+    transformed_metrics = [dict(zip(column_names, metrix)) for metrix in metrics]
+
+    if not transformed_metrics:
+        return MessageResult("No metrics found.")
+
+    return CollectionResult(transformed_metrics)
 
 
 @app.command(requires_connection=True)
