@@ -333,7 +333,12 @@ def events(
     ),
     **options,
 ):
-    """Fetches events for this app from the event table configured in Snowflake."""
+    if FeatureFlag.ENABLE_SPCS_SERVICE_EVENTS.is_disabled():
+        raise FeatureNotEnabledError(
+            "ENABLE_SPCS_SERVICE_EVENTS",
+            "Service events collection from SPCS event table is disabled.",
+        )
+
     if first >= 0 and last >= 0:
         raise IncompatibleParametersError(["--first", "--last"])
 
@@ -406,7 +411,12 @@ def metrics(
     ),
     **options,
 ):
-    """Fetches events for this app from the event table configured in Snowflake."""
+    if FeatureFlag.ENABLE_SPCS_SERVICE_METRICS.is_disabled():
+        raise FeatureNotEnabledError(
+            "ENABLE_SPCS_SERVICE_METRICS",
+            "Service metrics collection from SPCS event table is disabled.",
+        )
+
     if first >= 0 and last >= 0:
         raise IncompatibleParametersError(["--first", "--last"])
 

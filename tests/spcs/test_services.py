@@ -699,6 +699,76 @@ def test_logs_streaming_disabled(mock_is_disabled, runner):
     ), f"Expected formatted output not found: {result.output}"
 
 
+@patch(
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_SERVICE_EVENTS.is_disabled"
+)
+def test_service_events_disabled(mock_is_disabled, runner):
+    mock_is_disabled.return_value = True
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "events",
+            "LOG_EVENT",
+            "--container-name",
+            "log-printer",
+            "--instance-id",
+            "0",
+            "--since",
+            "1 minute",
+        ]
+    )
+    assert (
+        result.exit_code != 0
+    ), "Expected a non-zero exit code due to feature flag being disabled"
+
+    expected_output = (
+        "+- Error ----------------------------------------------------------------------+\n"
+        "| Service events collection from SPCS event table is disabled. To enable it,   |\n"
+        "| add 'ENABLE_SPCS_SERVICE_EVENTS = true' to '[cli.features]' section of your  |\n"
+        "| configuration file.                                                          |\n"
+        "+------------------------------------------------------------------------------+\n"
+    )
+    assert (
+        result.output == expected_output
+    ), f"Expected formatted output not found: {result.output}"
+
+
+@patch(
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_SERVICE_METRICS.is_disabled"
+)
+def test_service_metrics_disabled(mock_is_disabled, runner):
+    mock_is_disabled.return_value = True
+    result = runner.invoke(
+        [
+            "spcs",
+            "service",
+            "metrics",
+            "LOG_EVENT",
+            "--container-name",
+            "log-printer",
+            "--instance-id",
+            "0",
+            "--since",
+            "1 minute",
+        ]
+    )
+    assert (
+        result.exit_code != 0
+    ), "Expected a non-zero exit code due to feature flag being disabled"
+
+    expected_output = (
+        "+- Error ----------------------------------------------------------------------+\n"
+        "| Service metrics collection from SPCS event table is disabled. To enable it,  |\n"
+        "| add 'ENABLE_SPCS_SERVICE_METRICS = true' to '[cli.features]' section of your |\n"
+        "| configuration file.                                                          |\n"
+        "+------------------------------------------------------------------------------+\n"
+    )
+    assert (
+        result.output == expected_output
+    ), f"Expected formatted output not found: {result.output}"
+
+
 def test_read_yaml(other_directory):
     tmp_dir = Path(other_directory)
     spec_path = tmp_dir / "spec.yml"
