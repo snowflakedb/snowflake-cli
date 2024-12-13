@@ -33,7 +33,7 @@ class StreamlitEntity(
 
     @property
     def deploy_root(self) -> Path:
-        return self.project_root / "output" / "deploy"
+        return self.project_root / "output" / "bundle" / "streamlit"
 
     def action_bundle(
         self,
@@ -47,7 +47,9 @@ class StreamlitEntity(
             self.project_root,
             bundle_root or self.deploy_root,
             [
-                PathMapping(src=str(artifact))
+                PathMapping(
+                    src=artifact.src, dest=artifact.dest, processors=artifact.processors
+                )
                 for artifact in self._entity_model.artifacts
             ],
         )
