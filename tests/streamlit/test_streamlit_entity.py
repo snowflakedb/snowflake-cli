@@ -41,7 +41,7 @@ def test_nativeapp_children_interface(temp_dir):
         sl = StreamlitEntity(model, ctx)
 
         sl.bundle()
-        bundle_artifact = Path(temp_dir) / "output" / "deploy" / main_file
+        bundle_artifact = Path(temp_dir) / "output" / "bundle" / "streamlit" / main_file
         deploy_sql_str = sl.get_deploy_sql()
         grant_sql_str = sl.get_usage_grant_sql(app_role="app_role")
 

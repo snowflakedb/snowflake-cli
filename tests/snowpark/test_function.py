@@ -18,6 +18,9 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.snowpark.package_utils import (
+    DownloadUnavailablePackagesResult,
+)
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.connector import ProgrammingError
 
@@ -155,6 +158,7 @@ def test_deploy_function_secrets_without_external_access(
     project_directory,
     os_agnostic_snapshot,
     project_name,
+    enable_snowpark_glob_support_feature_flag,
 ):
     mock_object_manager.return_value.show.return_value = [
         {"name": "external_1", "type": "EXTERNAL_ACCESS"},
@@ -164,6 +168,15 @@ def test_deploy_function_secrets_without_external_access(
     mock_conn.return_value = ctx
 
     with project_directory(project_name):
+        result = runner.invoke(
+            [
+                "snowpark",
+                "build",
+                "--ignore-anaconda",
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
         result = runner.invoke(
             [
                 "snowpark",
@@ -179,15 +192,21 @@ def test_deploy_function_secrets_without_external_access(
     "project_name", ["snowpark_functions", "snowpark_functions_v2"]
 )
 @mock.patch("snowflake.connector.connect")
+@mock.patch(
+    "snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages"
+)
 @mock_session_has_warehouse
 def test_deploy_function_no_changes(
+    mock_download,
     mock_connector,
     runner,
     mock_ctx,
     mock_cursor,
     project_directory,
     project_name,
+    enable_snowpark_glob_support_feature_flag,
 ):
+    mock_download.return_value = DownloadUnavailablePackagesResult()
     rows = [
         ("packages", '["foo==1.2.3", "bar>=3.0.0"]'),
         ("handler", "app.func1_handler"),
@@ -217,7 +236,11 @@ def test_deploy_function_no_changes(
     ]
     assert queries == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/ auto_compress=false parallel=4 overwrite=True",
+        _put_query(
+            Path(project_dir),
+            "my_snowpark_project/app.py",
+            "@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/",
+        ),
     ]
 
 
@@ -225,10 +248,21 @@ def test_deploy_function_no_changes(
     "project_name", ["snowpark_functions", "snowpark_functions_v2"]
 )
 @mock.patch("snowflake.connector.connect")
+@mock.patch(
+    "snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages"
+)
 @mock_session_has_warehouse
 def test_deploy_function_needs_update_because_packages_changes(
-    mock_connector, runner, mock_ctx, mock_cursor, project_directory, project_name
+    mock_download,
+    mock_connector,
+    runner,
+    mock_ctx,
+    mock_cursor,
+    project_directory,
+    project_name,
+    enable_snowpark_glob_support_feature_flag,
 ):
+    mock_download.return_value = DownloadUnavailablePackagesResult()
     rows = [
         ("packages", '["foo==1.2.3"]'),
         ("handler", "main.py:app"),
@@ -256,7 +290,11 @@ def test_deploy_function_needs_update_because_packages_changes(
     ]
     assert queries == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/ auto_compress=false parallel=4 overwrite=True",
+        _put_query(
+            Path(project_dir),
+            "my_snowpark_project/app.py",
+            "@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/",
+        ),
         dedent(
             """\
             create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a string default 'default value', b variant)
@@ -276,10 +314,21 @@ def test_deploy_function_needs_update_because_packages_changes(
     "project_name", ["snowpark_functions", "snowpark_functions_v2"]
 )
 @mock.patch("snowflake.connector.connect")
+@mock.patch(
+    "snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages"
+)
 @mock_session_has_warehouse
 def test_deploy_function_needs_update_because_handler_changes(
-    mock_connector, runner, mock_ctx, mock_cursor, project_directory, project_name
+    mock_download,
+    mock_connector,
+    runner,
+    mock_ctx,
+    mock_cursor,
+    project_directory,
+    project_name,
+    enable_snowpark_glob_support_feature_flag,
 ):
+    mock_download.return_value = DownloadUnavailablePackagesResult()
     rows = [
         ("packages", '["foo==1.2.3", "bar>=3.0.0"]'),
         ("handler", "main.py:oldApp"),
@@ -307,8 +356,11 @@ def test_deploy_function_needs_update_because_handler_changes(
     ]
     assert queries == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
-        f"put file://{Path(project_dir).resolve()}/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/"
-        f" auto_compress=false parallel=4 overwrite=True",
+        _put_query(
+            Path(project_dir),
+            "my_snowpark_project/app.py",
+            "@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/",
+        ),
         dedent(
             """\
             create or replace function IDENTIFIER('MockDatabase.MockSchema.func1')(a string default 'default value', b variant)
@@ -334,8 +386,12 @@ def test_deploy_function_needs_update_because_handler_changes(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock.patch(
+    "snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages"
+)
 @mock_session_has_warehouse
 def test_deploy_function_fully_qualified_name_duplicated_database(
+    mock_download,
     mock_om_show,
     mock_om_describe,
     mock_conn,
@@ -345,7 +401,9 @@ def test_deploy_function_fully_qualified_name_duplicated_database(
     alter_snowflake_yml,
     os_agnostic_snapshot,
     project_name,
+    enable_snowpark_glob_support_feature_flag,
 ):
+    mock_download.return_value = DownloadUnavailablePackagesResult()
     number_of_functions_in_project = 6
     mock_om_describe.side_effect = [
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
@@ -353,7 +411,16 @@ def test_deploy_function_fully_qualified_name_duplicated_database(
     ctx = mock_ctx()
     mock_conn.return_value = ctx
 
-    with project_directory(project_name) as tmp_dir:
+    with project_directory(project_name):
+        result = runner.invoke(
+            [
+                "snowpark",
+                "build",
+                "--ignore-anaconda",
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
         result = runner.invoke(["snowpark", "deploy"])
         assert result.output == os_agnostic_snapshot(name="database error")
 
@@ -371,8 +438,12 @@ def test_deploy_function_fully_qualified_name_duplicated_database(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock.patch(
+    "snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages"
+)
 @mock_session_has_warehouse
 def test_deploy_function_fully_qualified_name_duplicated_schema(
+    mock_download,
     mock_om_show,
     mock_om_describe,
     mock_conn,
@@ -383,7 +454,9 @@ def test_deploy_function_fully_qualified_name_duplicated_schema(
     os_agnostic_snapshot,
     project_name,
     path_in_project_file,
+    enable_snowpark_glob_support_feature_flag,
 ):
+    mock_download.return_value = DownloadUnavailablePackagesResult()
     number_of_functions_in_project = 6
     mock_om_describe.side_effect = [
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
@@ -397,6 +470,15 @@ def test_deploy_function_fully_qualified_name_duplicated_schema(
             parameter_path=path_in_project_file,
             value="custom_schema.fqn_function_error",
         )
+        result = runner.invoke(
+            [
+                "snowpark",
+                "build",
+                "--ignore-anaconda",
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
         result = runner.invoke(["snowpark", "deploy"])
         assert result.output == os_agnostic_snapshot(name="schema error")
 
@@ -414,8 +496,12 @@ def test_deploy_function_fully_qualified_name_duplicated_schema(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.describe")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager.show")
+@mock.patch(
+    "snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages"
+)
 @mock_session_has_warehouse
 def test_deploy_function_fully_qualified_name(
+    mock_download,
     mock_om_show,
     mock_om_describe,
     mock_conn,
@@ -426,7 +512,9 @@ def test_deploy_function_fully_qualified_name(
     os_agnostic_snapshot,
     project_name,
     parameter_path,
+    enable_snowpark_glob_support_feature_flag,
 ):
+    mock_download.return_value = DownloadUnavailablePackagesResult()
     number_of_functions_in_project = 6
     mock_om_describe.side_effect = [
         ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
@@ -440,6 +528,15 @@ def test_deploy_function_fully_qualified_name(
             parameter_path=parameter_path,
             value="fqn_function3",
         )
+        result = runner.invoke(
+            [
+                "snowpark",
+                "build",
+                "--ignore-anaconda",
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
         result = runner.invoke(["snowpark", "deploy"])
         assert result.exit_code == 0
         assert result.output == os_agnostic_snapshot(name="ok")
@@ -472,8 +569,12 @@ def test_deploy_function_fully_qualified_name(
 )
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.snowpark.commands.ObjectManager")
+@mock.patch(
+    "snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages"
+)
 @mock_session_has_warehouse
 def test_deploy_function_with_empty_default_value(
+    mock_download,
     mock_object_manager,
     mock_connector,
     mock_ctx,
@@ -485,7 +586,9 @@ def test_deploy_function_with_empty_default_value(
     project_name,
     signature_path,
     runtime_path,
+    enable_snowpark_glob_support_feature_flag,
 ):
+    mock_download.return_value = DownloadUnavailablePackagesResult()
     mock_object_manager.return_value.describe.side_effect = ProgrammingError(
         errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
     )
@@ -504,6 +607,15 @@ def test_deploy_function_with_empty_default_value(
             parameter_path=runtime_path,
             value="3.10",
         )
+        result = runner.invoke(
+            [
+                "snowpark",
+                "build",
+                "--ignore-anaconda",
+            ],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
         result = runner.invoke(
             ["snowpark", "deploy", "--format", "json"], catch_exceptions=False
         )
@@ -569,6 +681,15 @@ def _deploy_function(
             result = runner.invoke(
                 [
                     "snowpark",
+                    "build",
+                    "--ignore-anaconda",
+                ],
+                catch_exceptions=False,
+            )
+            assert result.exit_code == 0, result.output
+            result = runner.invoke(
+                [
+                    "snowpark",
                     "deploy",
                     "--format",
                     "json",
@@ -602,3 +723,9 @@ def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
 
     queries = ctx.get_queries()
     assert queries[0] == queries[1]
+
+
+def _put_query(project_root: Path, source: str, dest: str):
+    return dedent(
+        f"put file://{project_root.resolve() / 'output' / 'bundle' / 'snowpark' / source} {dest} auto_compress=false parallel=4 overwrite=True"
+    )

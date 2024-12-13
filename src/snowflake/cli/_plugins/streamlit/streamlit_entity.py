@@ -10,7 +10,7 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
 from snowflake.cli.api.entities.common import EntityBase
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.schemas.entities.common import PathMapping
 
 
 # WARNING: This entity is not implemented yet. The logic below is only for demonstrating the
@@ -33,7 +33,7 @@ class StreamlitEntity(
 
     @property
     def deploy_root(self) -> Path:
-        return self.project_root / "output" / "deploy"
+        return self.project_root / "output" / "bundle" / "streamlit"
 
     def action_bundle(
         self,
@@ -47,7 +47,9 @@ class StreamlitEntity(
             self.project_root,
             bundle_root or self.deploy_root,
             [
-                PathMapping(src=str(artifact))
+                PathMapping(
+                    src=artifact.src, dest=artifact.dest, processors=artifact.processors
+                )
                 for artifact in self._entity_model.artifacts
             ],
         )
