@@ -20,6 +20,7 @@ import pytest
 from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.nativeapp.constants import (
     AUTHORIZE_TELEMETRY_COL,
+    CHANNEL_COL,
     COMMENT_COL,
     NAME_COL,
     SPECIAL_COMMENT,
@@ -34,6 +35,7 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     InvalidSQLError,
     UnknownConnectorError,
     UnknownSQLError,
+    UpgradeApplicationRestrictionError,
     UserInputError,
     UserScriptError,
 )
@@ -2063,6 +2065,91 @@ def test_upgrade_application_converts_unexpected_programmingerrors_to_unclassifi
     assert_programmingerror_cause_with_errno(err, SQL_COMPILATION_ERROR)
 
 
+def test_upgrade_application_with_release_channel_same_as_app_properties(
+    mock_get_app_properties,
+    mock_get_existing_app_info,
+    mock_use_warehouse,
+    mock_use_role,
+    mock_execute_query,
+    mock_cursor,
+):
+    app_name = "test_app"
+    stage_fqn = "app_pkg.app_src.stage"
+    role = "test_role"
+    warehouse = "test_warehouse"
+    release_channel = "test_channel"
+    mock_get_app_properties.return_value = {
+        COMMENT_COL: SPECIAL_COMMENT,
+        AUTHORIZE_TELEMETRY_COL: "true",
+        CHANNEL_COL: release_channel,
+    }
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([], []),
+                mock.call(f"alter application {app_name} upgrade "),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_warehouse, mock.call(warehouse)),
+    ]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.upgrade_application(
+            name=app_name,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=stage_fqn,
+            debug_mode=True,
+            should_authorize_event_sharing=True,
+            role=role,
+            warehouse=warehouse,
+            release_channel=release_channel,
+        )
+
+
+def test_upgrade_application_with_release_channel_not_same_as_app_properties_then_upgrade_error(
+    mock_get_app_properties,
+    mock_get_existing_app_info,
+    mock_use_warehouse,
+    mock_use_role,
+    mock_execute_query,
+    mock_cursor,
+):
+    app_name = "test_app"
+    stage_fqn = "app_pkg.app_src.stage"
+    role = "test_role"
+    warehouse = "test_warehouse"
+    release_channel = "test_channel"
+    mock_get_app_properties.return_value = {
+        COMMENT_COL: SPECIAL_COMMENT,
+        AUTHORIZE_TELEMETRY_COL: "true",
+        CHANNEL_COL: "different_channel",
+    }
+
+    with pytest.raises(UpgradeApplicationRestrictionError) as err:
+        sql_facade.upgrade_application(
+            name=app_name,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=stage_fqn,
+            debug_mode=True,
+            should_authorize_event_sharing=True,
+            role=role,
+            warehouse=warehouse,
+            release_channel=release_channel,
+        )
+
+    assert (
+        str(err.value)
+        == f"Application {app_name} is currently on release channel different_channel. Cannot upgrade to release channel {release_channel}."
+    )
+
+
 def test_create_application_with_minimal_clauses(
     mock_use_warehouse,
     mock_use_role,
@@ -2083,7 +2170,7 @@ def test_create_application_with_minimal_clauses(
                     dedent(
                         f"""\
                         create application {app_name}
-                            from application package {pkg_name}  
+                            from application package {pkg_name}
                             comment = {SPECIAL_COMMENT}
                         """
                     )
@@ -2132,7 +2219,10 @@ def test_create_application_with_all_clauses(
                     dedent(
                         f"""\
                         create application {app_name}
-                            from application package {pkg_name} using @{stage_fqn} debug_mode = True AUTHORIZE_TELEMETRY_EVENT_SHARING = TRUE
+                            from application package {pkg_name}
+                            using @{stage_fqn}
+                            debug_mode = True
+                            AUTHORIZE_TELEMETRY_EVENT_SHARING = TRUE
                             comment = {SPECIAL_COMMENT}
                         """
                     )
@@ -2182,7 +2272,7 @@ def test_create_application_converts_expected_programmingerrors_to_user_errors(
                     dedent(
                         f"""\
                         create application {app_name}
-                            from application package {pkg_name}  
+                            from application package {pkg_name}
                             comment = {SPECIAL_COMMENT}
                         """
                     )
@@ -2241,7 +2331,10 @@ def test_create_application_special_message_for_event_sharing_error(
                     dedent(
                         f"""\
                         create application {app_name}
-                            from application package {pkg_name} using version "3" patch 1 debug_mode = False AUTHORIZE_TELEMETRY_EVENT_SHARING = FALSE
+                            from application package {pkg_name}
+                            using version "3" patch 1
+                            debug_mode = False
+                            AUTHORIZE_TELEMETRY_EVENT_SHARING = FALSE
                             comment = {SPECIAL_COMMENT}
                         """
                     )
@@ -2299,7 +2392,7 @@ def test_create_application_converts_unexpected_programmingerrors_to_unclassifie
                     dedent(
                         f"""\
                         create application {app_name}
-                            from application package {pkg_name}  
+                            from application package {pkg_name}
                             comment = {SPECIAL_COMMENT}
                         """
                     )
@@ -2331,6 +2424,58 @@ def test_create_application_converts_unexpected_programmingerrors_to_unclassifie
         )
 
     assert_programmingerror_cause_with_errno(err, SQL_COMPILATION_ERROR)
+
+
+def test_create_application_with_release_channel(
+    mock_use_warehouse,
+    mock_use_role,
+    mock_execute_query,
+    mock_cursor,
+):
+    app_name = "test_app"
+    pkg_name = "test_pkg"
+    stage_fqn = "app_pkg.app_src.stage"
+    role = "test_role"
+    warehouse = "test_warehouse"
+    release_channel = "test_channel"
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([], []),
+                mock.call(
+                    dedent(
+                        f"""\
+                        create application {app_name}
+                            from application package {pkg_name}
+                            using release channel {release_channel}
+                            comment = {SPECIAL_COMMENT}
+                        """
+                    )
+                ),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_warehouse, mock.call(warehouse)),
+    ]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.create_application(
+            name=app_name,
+            package_name=pkg_name,
+            install_method=SameAccountInstallMethod.release_directive(),
+            stage_fqn=stage_fqn,
+            debug_mode=None,
+            should_authorize_event_sharing=None,
+            role=role,
+            warehouse=warehouse,
+            release_channel=release_channel,
+        )
 
 
 @pytest.mark.parametrize(
