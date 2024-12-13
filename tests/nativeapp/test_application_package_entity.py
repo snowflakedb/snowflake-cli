@@ -102,7 +102,7 @@ def package_with_subdir_factory():
 def test_bundle_with_subdir(project_directory):
     package_with_subdir_factory()
     app_pkg, bundle_ctx, mock_console = _get_app_pkg_entity(
-        project_directory, {"stage_subdirectory": "v1"}
+        project_directory, package_overrides={"stage_subdirectory": "v1"}
     )
 
     bundle_result = app_pkg.action_bundle(bundle_ctx)
@@ -291,7 +291,7 @@ def test_deploy_w_stage_subdir(
     mock_execute.side_effect = side_effects
 
     app_pkg, bundle_ctx, mock_console = _get_app_pkg_entity(
-        project_directory, {"stage_subdirectory": "v1"}
+        project_directory, package_overrides={"stage_subdirectory": "v1"}
     )
 
     app_pkg.action_deploy(

@@ -2104,7 +2104,7 @@ def test_upgrade_application_with_release_channel_same_as_app_properties(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -2136,7 +2136,7 @@ def test_upgrade_application_with_release_channel_not_same_as_app_properties_the
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -2469,7 +2469,7 @@ def test_create_application_with_release_channel(
             name=app_name,
             package_name=pkg_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=None,
             should_authorize_event_sharing=None,
             role=role,
