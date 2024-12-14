@@ -19,7 +19,10 @@ from unittest import mock
 from click import Command
 from pydantic.json_schema import GenerateJsonSchema, model_json_schema
 from snowflake.cli._app.cli_app import app_context_holder
-from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
+from snowflake.cli.api.project.schemas.project_definition import (
+    DefinitionV11,
+    DefinitionV20,
+)
 
 
 @mock.patch(
@@ -64,7 +67,7 @@ def test_definition_file_format_generated_from_json(mock_generate, runner, temp_
     project_definition_path = (
         Path(temp_dir)
         / "gen_docs"
-        / "project_definition"
+        / "project_definition_V11"
         / "definition_section_demo.txt"
     )
 
@@ -115,7 +118,7 @@ def test_files_generated_for_each_optional_project_definition_property(
     runner, temp_dir
 ):
     runner.invoke(["--docs"])
-    project_definition_path = Path(temp_dir) / "gen_docs" / "project_definition"
+    project_definition_path = Path(temp_dir) / "gen_docs" / "project_definition_V11"
     errors = []
 
     model_json = model_json_schema(DefinitionV11, schema_generator=GenerateJsonSchema)
@@ -123,6 +126,25 @@ def test_files_generated_for_each_optional_project_definition_property(
         if property_name in model_json["required"]:
             continue
         if not (project_definition_path / f"definition_{property_name}.txt").exists():
+            errors.append(f"Section `{property_name}` was not properly generated")
+
+    assert len(errors) == 0, "\n".join(errors)
+
+
+def test_files_generated_for_each_entity_definition(runner, temp_dir):
+    runner.invoke(["--docs"])
+    project_definition_path = Path(temp_dir) / "gen_docs" / "project_definition_V20"
+    errors = []
+
+    model_json = model_json_schema(DefinitionV20, schema_generator=GenerateJsonSchema)
+    mapping = model_json["properties"]["entities"]["additionalProperties"][
+        "discriminator"
+    ]["mapping"]
+    for property_name, _ in mapping.items():
+        if not (
+            project_definition_path
+            / f"definition_entities_{property_name.replace(' ', '_')}.txt"
+        ).exists():
             errors.append(f"Section `{property_name}` was not properly generated")
 
     assert len(errors) == 0, "\n".join(errors)
