@@ -28,7 +28,7 @@ from unittest import mock
 
 import pytest
 import yaml
-from snowflake.cli._app.cli_app import app_factory
+from snowflake.cli._app.cli_app import CliAppFactory
 from snowflake.cli._plugins.nativeapp.codegen.snowpark.models import (
     NativeAppExtensionFunction,
 )
@@ -55,6 +55,8 @@ REQUIREMENTS_TXT = "requirements.txt"
 TEST_DIR = Path(__file__).parent.parent
 
 
+# TODO new runner per each command invocation
+# TODO think if it's good idea in context of LSP API
 class SnowCLIRunner(CliRunner):
     def __init__(self, app: Typer, test_snowcli_config: str):
         super().__init__()
@@ -233,15 +235,24 @@ def package_file():
 
 
 @pytest.fixture(scope="function")
-def runner(test_snowcli_config):
-    app = app_factory()
-    yield SnowCLIRunner(app, test_snowcli_config)
+def app_factory():
+    yield CliAppFactory()
 
 
 @pytest.fixture(scope="function")
-def build_runner(test_snowcli_config):
+def get_click_context(app_factory):
+    yield lambda: app_factory.get_click_context()
+
+
+@pytest.fixture(scope="function")
+def runner(build_runner):
+    yield build_runner()
+
+
+@pytest.fixture(scope="function")
+def build_runner(app_factory, test_snowcli_config):
     def func():
-        app = app_factory()
+        app = app_factory.create_or_get_app()
         return SnowCLIRunner(app, test_snowcli_config)
 
     return func
