@@ -18,6 +18,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
+import pytz
 import yaml
 from click import ClickException
 from snowflake.cli._plugins.connection.util import UIParameter
@@ -867,34 +868,14 @@ def test_given_release_channels_with_proper_values_when_list_release_channels_th
 
     created_on_mock = mock.MagicMock()
     updated_on_mock = mock.MagicMock()
-    created_on_mock.astimezone.return_value = datetime(2024, month=12, day=3)
-    updated_on_mock.astimezone.return_value = datetime(2024, month=12, day=5)
+    created_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=3, tzinfo=pytz.utc
+    )
+    updated_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=5, tzinfo=pytz.utc
+    )
 
-    show_release_channels.return_value = [
-        {
-            "name": "channel1",
-            "description": "desc",
-            "created_on": created_on_mock,
-            "updated_on": updated_on_mock,
-            "extra_fields": "any",
-            "versions": '["v1", "v2"]',
-            "targets": '{"accounts": ["org1.acc1", "org2.acc2"]}',
-        },
-        {
-            "name": "channel2",
-            "description": "desc2",
-            "created_on": created_on_mock,
-            "updated_on": updated_on_mock,
-            "extra_fields": "any",
-            "versions": '["v3"]',
-            "targets": '{"accounts": ["org3.acc3"]}',
-        },
-    ]
-
-    result = application_package_entity.action_release_channel_list(action_context)
-    captured = capsys.readouterr()
-
-    assert result == [
+    release_channels = [
         {
             "name": "channel1",
             "description": "desc",
@@ -912,11 +893,19 @@ def test_given_release_channels_with_proper_values_when_list_release_channels_th
             "targets": {"accounts": ["org3.acc3"]},
         },
     ]
+    show_release_channels.return_value = release_channels
+
+    result = application_package_entity.action_release_channel_list(
+        action_context, release_channel=None
+    )
+    captured = capsys.readouterr()
+
+    assert result == release_channels
     assert captured.out == os_agnostic_snapshot
 
 
 @mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
-def test_given_release_channel_with_no_target_account_then_show_all_accounts_in_snapshot(
+def test_given_release_channel_with_no_target_account_or_version_then_show_all_accounts_in_snapshot(
     show_release_channels,
     application_package_entity,
     action_context,
@@ -930,34 +919,32 @@ def test_given_release_channel_with_no_target_account_then_show_all_accounts_in_
 
     created_on_mock = mock.MagicMock()
     updated_on_mock = mock.MagicMock()
-    created_on_mock.astimezone.return_value = datetime(2024, month=12, day=3)
-    updated_on_mock.astimezone.return_value = datetime(2024, month=12, day=5)
+    created_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=3, tzinfo=pytz.utc
+    )
+    updated_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=5, tzinfo=pytz.utc
+    )
 
-    show_release_channels.return_value = [
+    release_channels = [
         {
             "name": "channel1",
             "description": "desc",
             "created_on": created_on_mock,
             "updated_on": updated_on_mock,
-            "extra_fields": "any",
-            "versions": '["v1", "v2"]',
-            "targets": None,
-        }
-    ]
-
-    result = application_package_entity.action_release_channel_list(action_context)
-    captured = capsys.readouterr()
-
-    assert result == [
-        {
-            "name": "channel1",
-            "description": "desc",
-            "created_on": created_on_mock,
-            "updated_on": updated_on_mock,
-            "versions": ["v1", "v2"],
+            "versions": [],
             "targets": {},
         }
     ]
+
+    show_release_channels.return_value = release_channels
+
+    result = application_package_entity.action_release_channel_list(
+        action_context, release_channel=None
+    )
+    captured = capsys.readouterr()
+
+    assert result == release_channels
     assert captured.out == os_agnostic_snapshot
 
 
@@ -976,45 +963,12 @@ def test_given_no_release_channels_when_list_release_channels_then_success(
 
     show_release_channels.return_value = []
 
-    result = application_package_entity.action_release_channel_list(action_context)
+    result = application_package_entity.action_release_channel_list(
+        action_context, release_channel=None
+    )
     captured = capsys.readouterr()
 
     assert result == []
-    assert captured.out == os_agnostic_snapshot
-
-
-@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
-def test_given_release_channel_with_missing_info_when_list_release_channels_then_success(
-    show_release_channels,
-    application_package_entity,
-    action_context,
-    capsys,
-    os_agnostic_snapshot,
-):
-    pkg_model = application_package_entity._entity_model  # noqa SLF001
-    application_package_entity._workspace_ctx.console = cli_console  # noqa SLF001
-
-    pkg_model.meta.role = "package_role"
-
-    show_release_channels.return_value = [
-        {
-            "name": "channel1",
-        }
-    ]
-
-    result = application_package_entity.action_release_channel_list(action_context)
-    captured = capsys.readouterr()
-
-    assert result == [
-        {
-            "name": "channel1",
-            "description": "",
-            "created_on": None,
-            "updated_on": None,
-            "versions": [],
-            "targets": {},
-        }
-    ]
     assert captured.out == os_agnostic_snapshot
 
 
@@ -1033,42 +987,38 @@ def test_given_release_channels_with_a_selected_channel_to_filter_when_list_rele
 
     created_on_mock = mock.MagicMock()
     updated_on_mock = mock.MagicMock()
-    created_on_mock.astimezone.return_value = datetime(2024, month=12, day=3)
-    updated_on_mock.astimezone.return_value = datetime(2024, month=12, day=5)
+    created_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=3, tzinfo=pytz.utc
+    )
+    updated_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=5, tzinfo=pytz.utc
+    )
 
+    test_channel_1 = {
+        "name": "channel1",
+        "description": "desc",
+        "created_on": created_on_mock,
+        "updated_on": updated_on_mock,
+        "versions": ["v1", "v2"],
+        "targets": {"accounts": ["org1.acc1", "org2.acc2"]},
+    }
+
+    test_channel_2 = {
+        "name": "channel2",
+        "description": "desc2",
+        "created_on": created_on_mock,
+        "updated_on": updated_on_mock,
+        "versions": ["v3"],
+        "targets": {"accounts": ["org3.acc3"]},
+    }
     show_release_channels.return_value = [
-        {
-            "name": "chAnnEl1",
-            "description": "desc",
-            "created_on": created_on_mock,
-            "updated_on": updated_on_mock,
-            "extra_fields": "any",
-            "versions": '["v1", "v2"]',
-            "targets": '{"accounts": ["org1.acc1", "org2.acc2"]}',
-        },
-        {
-            "name": "chANnel2",
-            "description": "desc2",
-            "created_on": created_on_mock,
-            "updated_on": updated_on_mock,
-            "extra_fields": "any",
-            "versions": '["v3"]',
-            "targets": '{"accounts": ["org3.acc3"]}',
-        },
+        test_channel_1,
+        test_channel_2,
     ]
 
     result = application_package_entity.action_release_channel_list(
         action_context, release_channel="channel1"
     )
 
-    assert result == [
-        {
-            "name": "chAnnEl1",
-            "description": "desc",
-            "created_on": created_on_mock,
-            "updated_on": updated_on_mock,
-            "versions": ["v1", "v2"],
-            "targets": {"accounts": ["org1.acc1", "org2.acc2"]},
-        }
-    ]
+    assert result == [test_channel_1]
     assert capsys.readouterr().out == os_agnostic_snapshot

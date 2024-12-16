@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import re
-from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, List, Literal, Optional, Set, Union
@@ -54,6 +53,7 @@ from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     InsufficientPrivilegesError,
 )
+from snowflake.cli._plugins.nativeapp.sf_sql_facade import ReleaseChannel
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation, sanitize_dir_name
 from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     FunctionEntityModel,
@@ -66,7 +66,6 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
 )
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import span
-from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.entities.common import (
     EntityBase,
     attach_spans_to_entity_actions,
@@ -134,99 +133,6 @@ class EnsureUsableByField(UpdatableModel):
         if isinstance(application_roles, str):
             return set([application_roles])
         return application_roles
-
-
-class ReleaseChannel(dict[str, Any]):
-    """
-    Represents a release channel.
-
-    This class is a dictionary with the following keys:
-    - name: The name of the release channel.
-    - description: The description of the release channel.
-    - created_on: The timestamp when the release channel was created.
-    - updated_on: The timestamp when the release channel was last updated.
-    - targets: The target accounts for the release channel.
-    - versions: The versions added to the release channel.
-    """
-
-    def __init__(self, data: dict[str, Any]):
-        targets = json.loads(str(data.get("targets"))) if data.get("targets") else {}
-        versions = json.loads(str(data.get("versions"))) if data.get("versions") else []
-
-        super().__init__(
-            {
-                "name": data.get("name") or "",
-                "description": data.get("description") or "",
-                "created_on": data.get("created_on"),
-                "updated_on": data.get("updated_on"),
-                "targets": targets,
-                "versions": versions,
-            }
-        )
-
-    @property
-    def name(self) -> str:
-        return self.get("name")  # type: ignore
-
-    @property
-    def description(self) -> str:
-        return self.get("description")  # type: ignore
-
-    @property
-    def created_on(self) -> Optional[datetime]:
-        return self.get("created_on")  # type: ignore
-
-    @property
-    def updated_on(self) -> Optional[datetime]:
-        return self.get("updated_on")  # type: ignore
-
-    @property
-    def targets(self) -> dict[str, Any]:
-        return self.get("targets")  # type: ignore
-
-    @property
-    def versions(self) -> list[str]:
-        return self.get("versions")  # type: ignore
-
-    def print_to_console(self, console: AbstractConsole) -> None:
-        """
-        Prints the release channel details to the console.
-        """
-        console.message(f"""[bold]{self.name}[/bold]""")
-        accounts_list: Optional[list[str]] = self.targets.get("accounts")
-        target_accounts = (
-            f"({', '.join(accounts_list)})"
-            if accounts_list is not None
-            else "ALL ACCOUNTS"
-        )
-
-        formatted_created_on = (
-            self.created_on.astimezone().strftime("%Y-%m-%d %H:%M:%S.%f %Z")
-            if self.created_on
-            else ""
-        )
-
-        formatted_updated_on = (
-            self.updated_on.astimezone().strftime("%Y-%m-%d %H:%M:%S.%f %Z")
-            if self.updated_on
-            else ""
-        )
-        with console.indented():
-            console.message(f"Description: {self.description}")
-            console.message(f"Versions: ({', '.join(self.versions)})")
-            console.message(f"Created on: {formatted_created_on}")
-            console.message(f"Updated on: {formatted_updated_on}")
-            console.message(f"Target accounts: {target_accounts}")
-
-    def matches_identifier(self, identifier: Optional[str]) -> bool:
-        """
-        Checks if the release channel matches the provided identifier.
-        If the identifier is None, it matches everything.
-        """
-        if identifier is None:
-            return True
-
-        return same_identifiers(self.name, identifier)
 
 
 class ApplicationPackageChildField(UpdatableModel):
@@ -861,10 +767,42 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             role=self.role,
         )
 
+    def _print_channel_to_console(self, channel: ReleaseChannel) -> None:
+        """
+        Prints the release channel details to the console.
+        """
+        console = self._workspace_ctx.console
+
+        console.message(f"""[bold]{channel["name"]}[/bold]""")
+        accounts_list: Optional[list[str]] = channel["targets"].get("accounts")
+        target_accounts = (
+            f"({', '.join(accounts_list)})"
+            if accounts_list is not None
+            else "ALL ACCOUNTS"
+        )
+
+        formatted_created_on = (
+            channel["created_on"].astimezone().strftime("%Y-%m-%d %H:%M:%S.%f %Z")
+            if channel["created_on"]
+            else ""
+        )
+
+        formatted_updated_on = (
+            channel["updated_on"].astimezone().strftime("%Y-%m-%d %H:%M:%S.%f %Z")
+            if channel["updated_on"]
+            else ""
+        )
+        with console.indented():
+            console.message(f"Description: {channel['description']}")
+            console.message(f"Versions: ({', '.join(channel['versions'])})")
+            console.message(f"Created on: {formatted_created_on}")
+            console.message(f"Updated on: {formatted_updated_on}")
+            console.message(f"Target accounts: {target_accounts}")
+
     def action_release_channel_list(
         self,
         action_ctx: ActionContext,
-        release_channel: Optional[str] = None,
+        release_channel: Optional[str],
         *args,
         **kwargs,
     ) -> list[ReleaseChannel]:
@@ -873,24 +811,22 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         If `release_channel` is provided, only the specified release channel is listed.
         """
         console = self._workspace_ctx.console
-        available_channels = [
-            ReleaseChannel(channel)
-            for channel in get_snowflake_facade().show_release_channels(
-                self.name, self.role
-            )
-        ]
+        available_channels = get_snowflake_facade().show_release_channels(
+            self.name, self.role
+        )
 
         filtered_channels = [
             channel
             for channel in available_channels
-            if channel.matches_identifier(release_channel)
+            if release_channel is None
+            or same_identifiers(channel["name"], release_channel)
         ]
 
         if not filtered_channels:
             console.message("No release channels found.")
         else:
             for channel in filtered_channels:
-                channel.print_to_console(console)
+                self._print_channel_to_console(channel)
 
         return filtered_channels
 
