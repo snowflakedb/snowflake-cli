@@ -17,6 +17,7 @@
 ## Backward incompatibility
 
 ## Deprecations
+* Added deprecation message for default Streamlit warehouse
 
 ## New additions
 * Add Release Directives support by introducing the following commands:
