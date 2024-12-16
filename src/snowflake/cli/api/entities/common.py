@@ -63,6 +63,10 @@ class EntityBase(Generic[T]):
         self._entity_model = entity_model
         self._workspace_ctx = workspace_ctx
 
+    @property
+    def entity_id(self):
+        return self._entity_model.entity_id
+
     @classmethod
     def get_entity_model_type(cls) -> Type[T]:
         """

@@ -17,6 +17,7 @@
 ## Backward incompatibility
 
 ## Deprecations
+* Added deprecation message for default Streamlit warehouse
 
 ## New additions
 * Add Release Directives support by introducing the following commands:
@@ -25,10 +26,12 @@
   * `snow app release-directive unset`
 * Add support for release channels feature in native app version creation/drop.
 * `snow app version create` now returns version, patch, and label in JSON format.
+* Add ability to specify release channel when creating application instance from release directive: `snow app run --from-release-directive --channel=<channel>`
 
 ## Fixes and improvements
 * Fixed inability to add patches to lowercase quoted versions
 * Fixes label being set to blank instead of None when not provided.
+* Added a feature flag `ENABLE_SPCS_LOG_STREAMING` to control the rollout of the log streaming feature
 
 
 # v3.2.2

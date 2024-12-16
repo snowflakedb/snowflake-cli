@@ -494,3 +494,75 @@ def test_nativeapp_force_cross_upgrade(
         assert result.exit_code == 0
         if is_cross_upgrade:
             assert f"Dropping application object {app_name}." in result.output
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "test_project",
+    [
+        "napp_init_v2",
+    ],
+)
+def test_nativeapp_upgrade_from_release_directive_and_default_channel(
+    test_project,
+    nativeapp_project_directory,
+    runner,
+):
+
+    with nativeapp_project_directory(test_project):
+        # Create version
+        result = runner.invoke_with_connection(["app", "version", "create", "v1"])
+        assert result.exit_code == 0
+
+        # Set default release directive
+        result = runner.invoke_with_connection(
+            ["app", "release-directive", "set", "default", "--version=v1", "--patch=0"]
+        )
+        assert result.exit_code == 0
+
+        # Initial create
+        result = runner.invoke_with_connection(["app", "run"])
+        assert result.exit_code == 0
+
+        # (Cross-)upgrade
+        result = runner.invoke_with_connection(
+            [
+                "app",
+                "run",
+                "--from-release-directive",
+                "--channel",
+                "default",
+                "--force",
+            ]
+        )
+        assert result.exit_code == 0
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "test_project",
+    [
+        "napp_init_v2",
+    ],
+)
+def test_nativeapp_create_from_release_directive_and_default_channel(
+    test_project,
+    nativeapp_project_directory,
+    runner,
+):
+    with nativeapp_project_directory(test_project):
+        # Create version
+        result = runner.invoke_with_connection(["app", "version", "create", "v1"])
+        assert result.exit_code == 0
+
+        # Set default release directive
+        result = runner.invoke_with_connection(
+            ["app", "release-directive", "set", "default", "--version=v1", "--patch=0"]
+        )
+        assert result.exit_code == 0
+
+        # Initial create
+        result = runner.invoke_with_connection(
+            ["app", "run", "--from-release-directive", "--channel", "default"]
+        )
+        assert result.exit_code == 0

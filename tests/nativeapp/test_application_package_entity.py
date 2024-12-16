@@ -45,8 +45,8 @@ from tests.nativeapp.utils import (
 )
 
 
-def _get_app_pkg_entity(project_directory):
-    with project_directory("workspaces_simple") as project_root:
+def _get_app_pkg_entity(project_directory, test_dir="workspaces_simple"):
+    with project_directory(test_dir) as project_root:
         with Path(project_root / "snowflake.yml").open() as definition_file_path:
             project_definition = yaml.safe_load(definition_file_path)
             model = ApplicationPackageEntityModel(
