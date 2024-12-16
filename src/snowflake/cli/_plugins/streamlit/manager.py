@@ -104,8 +104,15 @@ class StreamlitManager(SqlExecutionMixin):
         query.append(f"MAIN_FILE = '{streamlit.main_file}'")
         if streamlit.imports:
             query.append(streamlit.get_imports_sql())
-        if streamlit.query_warehouse:
+
+        if not streamlit.query_warehouse:
+            cli_console.warning(
+                "[Deprecation] In next major version we will remove default query_warehouse='streamlit'."
+            )
+            query.append(f"QUERY_WAREHOUSE = 'streamlit'")
+        else:
             query.append(f"QUERY_WAREHOUSE = {streamlit.query_warehouse}")
+
         if streamlit.title:
             query.append(f"TITLE = '{streamlit.title}'")
 

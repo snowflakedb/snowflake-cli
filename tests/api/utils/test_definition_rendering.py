@@ -196,7 +196,6 @@ def test_resolve_variables_in_project_cross_project_dependencies():
             "streamlit": {
                 "name": "my_app",
                 "main_file": "streamlit_app.py",
-                "query_warehouse": "streamlit",
                 "stage": "streamlit",
             },
             "env": ProjectEnvironment(
