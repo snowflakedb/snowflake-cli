@@ -57,6 +57,7 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         pass
 
     def get_usage_grant_sql(self):
+        pass
 
 class FunctionEntity(SnowparkEntity[FunctionEntityModel]):
     """
