@@ -51,7 +51,7 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         pass
 
     def get_describe_sql(self):
-        pass
+        return f"DESCRIBE {self.model.name}"
 
     def get_drop_sql(self):
         pass
