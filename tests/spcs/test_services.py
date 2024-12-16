@@ -905,7 +905,7 @@ def test_service_metrics_disabled(mock_is_disabled, runner):
 
 
 @patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_SERVICE_EVENTS.is_disabled"
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_SERVICE_METRICS.is_disabled"
 )
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_metrics_all_filters(mock_execute_query, mock_is_disabled, runner):
