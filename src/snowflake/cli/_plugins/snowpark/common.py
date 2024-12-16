@@ -97,7 +97,7 @@ class SnowparkObjectManager(SqlExecutionMixin):
 
         return self.execute_query("\n".join(query))
 
-    def deploy_entity(
+    def  deploy_entity(
         self,
         entity: SnowparkEntityModel,
         existing_objects: Dict[str, SnowflakeCursor],
