@@ -40,7 +40,7 @@ def example_streamlit_workspace(project_directory):
                     get_default_warehouse=lambda: "test_warehouse",
                 )
 
-                return (
+                yield (
                     StreamlitEntity(
                         workspace_ctx=workspace_context, entity_model=model
                     ),
@@ -140,7 +140,7 @@ def test_share(mock_connect, example_streamlit_workspace):
     entity.action_share(action_ctx, to_role="test_role")
 
     mock_connect.assert_called_with(
-        "grant usage on streamlit IDENTIFIER('test_streamlit') to role test_role;"
+        "GRANT USAGE ON STREAMLIT IDENTIFIER('test_streamlit') TO ROLE test_role;"
     )
 
 

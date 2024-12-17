@@ -49,10 +49,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
     def action_deploy(self, action_ctx: ActionContext, *args, **kwargs):
         # After adding bundle map- we should use it's mapping here
+        # To copy artifacts to destination on stage.
 
-        query = self.get_deploy_sql()
-        result = self._sql_executor.execute_query(query)
-        return result
+        return self._sql_executor.execute_query(self.get_deploy_sql())
 
     def action_drop(self, action_ctx: ActionContext, *args, **kwargs):
         return self._sql_executor.execute_query(self.get_drop_sql())
@@ -157,7 +156,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         return f"EXECUTE STREAMLIT {self._entity_model.fqn}();"
 
     def get_share_sql(self, to_role: str) -> str:
-        return f"grant usage on streamlit {self.model.fqn.sql_identifier} to role {to_role};"
+        return f"GRANT USAGE ON STREAMLIT {self.model.fqn.sql_identifier} TO ROLE {to_role};"
 
     def get_usage_grant_sql(self, app_role: str, schema: Optional[str] = None) -> str:
         entity_id = self.entity_id
