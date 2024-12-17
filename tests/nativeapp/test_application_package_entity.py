@@ -13,10 +13,12 @@
 # limitations under the License.
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
 import pytest
+import pytz
 import yaml
 from click import ClickException
 from snowflake.cli._plugins.connection.util import UIParameter
@@ -30,6 +32,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
 )
 from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
+from snowflake.cli.api.console import cli_console
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.factories import (
@@ -1000,7 +1003,7 @@ def test_given_channels_enabled_and_non_existing_channel_selected_when_release_d
 
 @mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[{"name": "default"}])
 @mock.patch(SQL_FACADE_UNSET_RELEASE_DIRECTIVE)
-def test_given_default_directive_selected_when_directive_unset_then_error(
+def test_given_default_directive_selected_when_release_directive_unset_then_error(
     unset_release_directive,
     show_release_channels,
     application_package_entity,
@@ -1024,3 +1027,174 @@ def test_given_default_directive_selected_when_directive_unset_then_error(
     show_release_channels.assert_not_called()
 
     unset_release_directive.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+def test_given_release_channels_with_proper_values_when_list_release_channels_then_success(
+    show_release_channels,
+    application_package_entity,
+    action_context,
+    capsys,
+    os_agnostic_snapshot,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    application_package_entity._workspace_ctx.console = cli_console  # noqa SLF001
+
+    pkg_model.meta.role = "package_role"
+
+    created_on_mock = mock.MagicMock()
+    updated_on_mock = mock.MagicMock()
+    created_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=3, tzinfo=pytz.utc
+    )
+    updated_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=5, tzinfo=pytz.utc
+    )
+
+    release_channels = [
+        {
+            "name": "channel1",
+            "description": "desc",
+            "created_on": created_on_mock,
+            "updated_on": updated_on_mock,
+            "versions": ["v1", "v2"],
+            "targets": {"accounts": ["org1.acc1", "org2.acc2"]},
+        },
+        {
+            "name": "channel2",
+            "description": "desc2",
+            "created_on": created_on_mock,
+            "updated_on": updated_on_mock,
+            "versions": ["v3"],
+            "targets": {"accounts": ["org3.acc3"]},
+        },
+    ]
+    show_release_channels.return_value = release_channels
+
+    result = application_package_entity.action_release_channel_list(
+        action_context, release_channel=None
+    )
+    captured = capsys.readouterr()
+
+    assert result == release_channels
+    assert captured.out == os_agnostic_snapshot
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+def test_given_release_channel_with_no_target_account_or_version_then_show_all_accounts_in_snapshot(
+    show_release_channels,
+    application_package_entity,
+    action_context,
+    capsys,
+    os_agnostic_snapshot,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    application_package_entity._workspace_ctx.console = cli_console  # noqa SLF001
+
+    pkg_model.meta.role = "package_role"
+
+    created_on_mock = mock.MagicMock()
+    updated_on_mock = mock.MagicMock()
+    created_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=3, tzinfo=pytz.utc
+    )
+    updated_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=5, tzinfo=pytz.utc
+    )
+
+    release_channels = [
+        {
+            "name": "channel1",
+            "description": "desc",
+            "created_on": created_on_mock,
+            "updated_on": updated_on_mock,
+            "versions": [],
+            "targets": {},
+        }
+    ]
+
+    show_release_channels.return_value = release_channels
+
+    result = application_package_entity.action_release_channel_list(
+        action_context, release_channel=None
+    )
+    captured = capsys.readouterr()
+
+    assert result == release_channels
+    assert captured.out == os_agnostic_snapshot
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+def test_given_no_release_channels_when_list_release_channels_then_success(
+    show_release_channels,
+    application_package_entity,
+    action_context,
+    capsys,
+    os_agnostic_snapshot,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    application_package_entity._workspace_ctx.console = cli_console  # noqa SLF001
+
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = []
+
+    result = application_package_entity.action_release_channel_list(
+        action_context, release_channel=None
+    )
+    captured = capsys.readouterr()
+
+    assert result == []
+    assert captured.out == os_agnostic_snapshot
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+def test_given_release_channels_with_a_selected_channel_to_filter_when_list_release_channels_then_returned_selected_channel(
+    show_release_channels,
+    application_package_entity,
+    action_context,
+    capsys,
+    os_agnostic_snapshot,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    application_package_entity._workspace_ctx.console = cli_console  # noqa SLF001
+
+    pkg_model.meta.role = "package_role"
+
+    created_on_mock = mock.MagicMock()
+    updated_on_mock = mock.MagicMock()
+    created_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=3, tzinfo=pytz.utc
+    )
+    updated_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=5, tzinfo=pytz.utc
+    )
+
+    test_channel_1 = {
+        "name": "channel1",
+        "description": "desc",
+        "created_on": created_on_mock,
+        "updated_on": updated_on_mock,
+        "versions": ["v1", "v2"],
+        "targets": {"accounts": ["org1.acc1", "org2.acc2"]},
+    }
+
+    test_channel_2 = {
+        "name": "channel2",
+        "description": "desc2",
+        "created_on": created_on_mock,
+        "updated_on": updated_on_mock,
+        "versions": ["v3"],
+        "targets": {"accounts": ["org3.acc3"]},
+    }
+    show_release_channels.return_value = [
+        test_channel_1,
+        test_channel_2,
+    ]
+
+    result = application_package_entity.action_release_channel_list(
+        action_context, release_channel="channel1"
+    )
+
+    assert result == [test_channel_1]
+    assert capsys.readouterr().out == os_agnostic_snapshot

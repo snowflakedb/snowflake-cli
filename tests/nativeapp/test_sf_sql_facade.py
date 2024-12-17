@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from contextlib import contextmanager
+from datetime import datetime
 from textwrap import dedent
 from unittest import mock
 from unittest.mock import _Call as Call
@@ -51,6 +52,7 @@ from snowflake.cli.api.errno import (
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
     CANNOT_DISABLE_RELEASE_CHANNELS,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
     INSUFFICIENT_PRIVILEGES,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
     RELEASE_DIRECTIVE_DOES_NOT_EXIST,
@@ -2917,16 +2919,68 @@ def test_show_release_channels_when_feature_enabled(
     )
     mock_cursor_results = [
         {
-            "NAME": "test_channel",
-            "VERSIONS": '["V1"]',
-            "TARGETS": '{"accounts": []}',
+            "name": "test_channel",
+            "description": "test_description",
+            "versions": '["V1"]',
+            "created_on": datetime(2021, 2, 1),
+            "updated_on": datetime(2021, 4, 3),
+            "targets": '{"accounts": ["org1.acc1", "org2.acc2"]}',
         }
     ]
     mock_execute_query.side_effect = [mock_cursor(mock_cursor_results, [])]
 
     result = sql_facade.show_release_channels(package_name)
 
-    assert result == mock_cursor_results
+    # assert result is same as mock_cursor_results except for keys "targets" and "versions":
+    assert result == [
+        {
+            "name": "test_channel",
+            "description": "test_description",
+            "created_on": datetime(2021, 2, 1),
+            "updated_on": datetime(2021, 4, 3),
+            "targets": {"accounts": ["org1.acc1", "org2.acc2"]},
+            "versions": ["V1"],
+        }
+    ]
+
+    mock_get_ui_parameter.assert_called_once_with(
+        UIParameter.NA_FEATURE_RELEASE_CHANNELS, True
+    )
+    mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
+
+
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value=True)
+def test_show_release_channels_with_no_accounts_and_no_versions(
+    mock_get_ui_parameter, mock_execute_query, mock_cursor
+):
+    package_name = "test_package"
+
+    expected_query = f"show release channels in application package {package_name}"
+    mock_cursor_results = [
+        {
+            "name": "test_channel",
+            "description": "test_description",
+            "created_on": datetime(2021, 2, 1),
+            "updated_on": datetime(2021, 4, 3),
+            "targets": "",
+            "versions": "[]",
+        }
+    ]
+    mock_execute_query.side_effect = [mock_cursor(mock_cursor_results, [])]
+
+    result = sql_facade.show_release_channels(package_name)
+
+    assert result == [
+        {
+            "name": "test_channel",
+            "description": "test_description",
+            "created_on": datetime(2021, 2, 1),
+            "updated_on": datetime(2021, 4, 3),
+            "targets": {},
+            "versions": [],
+        }
+    ]
+
     mock_get_ui_parameter.assert_called_once_with(
         UIParameter.NA_FEATURE_RELEASE_CHANNELS, True
     )
@@ -2943,6 +2997,26 @@ def test_show_release_channels_when_error(
     mock_execute_query.side_effect = ProgrammingError()
 
     with pytest.raises(InvalidSQLError):
+        sql_facade.show_release_channels(package_name)
+
+    mock_get_ui_parameter.assert_called_once_with(
+        UIParameter.NA_FEATURE_RELEASE_CHANNELS, True
+    )
+    mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
+
+
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value=True)
+def test_show_release_channels_when_package_does_not_exist(
+    mock_get_ui_parameter, mock_execute_query, mock_cursor
+):
+    package_name = "test_package"
+
+    expected_query = f"show release channels in application package {package_name}"
+    mock_execute_query.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+
+    with pytest.raises(UserInputError):
         sql_facade.show_release_channels(package_name)
 
     mock_get_ui_parameter.assert_called_once_with(

@@ -54,6 +54,7 @@ from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     InsufficientPrivilegesError,
 )
+from snowflake.cli._plugins.nativeapp.sf_sql_facade import ReleaseChannel
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation, sanitize_dir_name
 from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     FunctionEntityModel,
@@ -799,6 +800,69 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             release_channel=release_channel if available_release_channels else None,
             role=self.role,
         )
+
+    def _print_channel_to_console(self, channel: ReleaseChannel) -> None:
+        """
+        Prints the release channel details to the console.
+        """
+        console = self._workspace_ctx.console
+
+        console.message(f"""[bold]{channel["name"]}[/bold]""")
+        accounts_list: Optional[list[str]] = channel["targets"].get("accounts")
+        target_accounts = (
+            f"({', '.join(accounts_list)})"
+            if accounts_list is not None
+            else "ALL ACCOUNTS"
+        )
+
+        formatted_created_on = (
+            channel["created_on"].astimezone().strftime("%Y-%m-%d %H:%M:%S.%f %Z")
+            if channel["created_on"]
+            else ""
+        )
+
+        formatted_updated_on = (
+            channel["updated_on"].astimezone().strftime("%Y-%m-%d %H:%M:%S.%f %Z")
+            if channel["updated_on"]
+            else ""
+        )
+        with console.indented():
+            console.message(f"Description: {channel['description']}")
+            console.message(f"Versions: ({', '.join(channel['versions'])})")
+            console.message(f"Created on: {formatted_created_on}")
+            console.message(f"Updated on: {formatted_updated_on}")
+            console.message(f"Target accounts: {target_accounts}")
+
+    def action_release_channel_list(
+        self,
+        action_ctx: ActionContext,
+        release_channel: Optional[str],
+        *args,
+        **kwargs,
+    ) -> list[ReleaseChannel]:
+        """
+        Get all existing release channels for an application package.
+        If `release_channel` is provided, only the specified release channel is listed.
+        """
+        console = self._workspace_ctx.console
+        available_channels = get_snowflake_facade().show_release_channels(
+            self.name, self.role
+        )
+
+        filtered_channels = [
+            channel
+            for channel in available_channels
+            if release_channel is None
+            or same_identifiers(channel["name"], release_channel)
+        ]
+
+        if not filtered_channels:
+            console.message("No release channels found.")
+        else:
+            for channel in filtered_channels:
+                self._print_channel_to_console(channel)
+
+        return filtered_channels
 
     def _bundle(self, action_ctx: ActionContext = None):
         model = self._entity_model

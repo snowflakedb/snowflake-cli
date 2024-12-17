@@ -17,6 +17,7 @@
 ## Backward incompatibility
 
 ## Deprecations
+* Added deprecation message for default Streamlit warehouse
 
 ## New additions
 * Add Release Directives support by introducing the following commands:
@@ -26,6 +27,7 @@
 * Add support for release channels feature in native app version creation/drop.
 * `snow app version create` now returns version, patch, and label in JSON format.
 * Add ability to specify release channel when creating application instance from release directive: `snow app run --from-release-directive --channel=<channel>`
+* Add ability to list release channels through `snow app release-channel list` command
 * Add an optional `stage_subdirectory` field to `application package` entity. When specified, application artifacts are uploaded to this subdirectory instead of the root of the application package's stage.
 
 ## Fixes and improvements

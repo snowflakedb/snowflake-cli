@@ -13,11 +13,13 @@
 # limitations under the License.
 from __future__ import annotations
 
+import json
 import logging
 from contextlib import contextmanager
+from datetime import datetime
 from functools import cache
 from textwrap import dedent
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TypedDict
 
 from snowflake.cli._plugins.connection.util import UIParameter, get_ui_parameter
 from snowflake.cli._plugins.nativeapp.constants import (
@@ -53,6 +55,7 @@ from snowflake.cli.api.errno import (
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
     CANNOT_DISABLE_RELEASE_CHANNELS,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
     INSUFFICIENT_PRIVILEGES,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
     RELEASE_DIRECTIVE_DOES_NOT_EXIST,
@@ -73,6 +76,18 @@ from snowflake.cli.api.project.util import (
 from snowflake.cli.api.sql_execution import BaseSqlExecutor
 from snowflake.cli.api.utils.cursor import find_first_row
 from snowflake.connector import DictCursor, ProgrammingError
+
+ReleaseChannel = TypedDict(
+    "ReleaseChannel",
+    {
+        "name": str,
+        "description": str,
+        "created_on": datetime,
+        "updated_on": datetime,
+        "targets": dict[str, Any],
+        "versions": list[str],
+    },
+)
 
 
 class SnowflakeSQLFacade:
@@ -1146,7 +1161,7 @@ class SnowflakeSQLFacade:
 
     def show_release_channels(
         self, package_name: str, role: str | None = None
-    ) -> list[dict[str, Any]]:
+    ) -> list[ReleaseChannel]:
         """
         Show release channels in a package.
         @param package_name: Name of the package
@@ -1160,6 +1175,7 @@ class SnowflakeSQLFacade:
             return []
 
         package_identifier = to_identifier(package_name)
+        results = []
         with self._use_role_optional(role):
             try:
                 cursor = self._sql_executor.execute_query(
@@ -1171,11 +1187,31 @@ class SnowflakeSQLFacade:
                 if err.errno == SQL_COMPILATION_ERROR:
                     # Release not out yet and param not out yet
                     return []
+                if err.errno == DOES_NOT_EXIST_OR_NOT_AUTHORIZED:
+                    raise UserInputError(
+                        f"Application package {package_name} does not exist or you are not authorized to access it."
+                    ) from err
                 handle_unclassified_error(
                     err,
                     f"Failed to show release channels for application package {package_name}.",
                 )
-            return cursor.fetchall()
+            rows = cursor.fetchall()
+
+            for row in rows:
+                targets = json.loads(row["targets"]) if row.get("targets") else {}
+                versions = json.loads(row["versions"]) if row.get("versions") else []
+                results.append(
+                    ReleaseChannel(
+                        name=row["name"],
+                        description=row["description"],
+                        created_on=row["created_on"],
+                        updated_on=row["updated_on"],
+                        targets=targets,
+                        versions=versions,
+                    )
+                )
+
+            return results
 
 
 def _strip_empty_lines(text: str) -> str:
