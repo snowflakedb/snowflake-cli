@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from shlex import split
+from textwrap import dedent
 from typing import Any, Union
 
 import yaml
@@ -102,13 +103,6 @@ def temporary_role(request, snowflake_session, resource_suffix):
             "ws version drop --entity-id=pkg",
             "napp_init_v2",
         ],
-        [
-            "stage_w_subdirs",
-            "app version create --package-entity-id=pkg_v1",
-            "app version list --package-entity-id=pkg_v1",
-            "app version drop --package-entity-id=pkg_v1",
-            "napp_stage_subdirs",
-        ],
     ],
 )
 def test_nativeapp_version_create_and_drop(
@@ -124,6 +118,51 @@ def test_nativeapp_version_create_and_drop(
     test_project,
 ):
     with nativeapp_project_directory(test_project):
+        result_create = runner.invoke_with_connection_json(
+            [*split(create_command), "v1", "--force", "--skip-git-check"]
+        )
+        assert result_create.exit_code == 0
+
+        # package exist
+        package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show application packages like '{package_name}'",
+                )
+            ),
+            dict(name=package_name),
+        )
+
+        # app package contains version v1
+        expect = snowflake_session.execute_string(
+            f"show versions in application package {package_name}"
+        )
+        actual = runner.invoke_with_connection_json(split(list_command))
+        assert actual.json == row_from_snowflake_session(expect)
+
+        result_drop = runner.invoke_with_connection_json(
+            [*split(drop_command), "v1", "--force"]
+        )
+        assert result_drop.exit_code == 0
+        actual = runner.invoke_with_connection_json(split(list_command))
+        assert len(actual.json) == 0
+
+
+@pytest.mark.integration
+def test_nativeapp_version_create_and_drop_stage_subdir(
+    runner,
+    snowflake_session,
+    default_username,
+    resource_suffix,
+    nativeapp_teardown,
+    setup_v2_project_w_subdir,
+):
+    project_name, _ = setup_v2_project_w_subdir()
+    drop_command = "app version drop --package-entity-id=pkg_v1"
+    list_command = "app version list --package-entity-id=pkg_v1"
+    create_command = "app version create --package-entity-id=pkg_v1"
+    with nativeapp_teardown():
         result_create = runner.invoke_with_connection_json(
             [*split(create_command), "v1", "--force", "--skip-git-check"]
         )
@@ -207,15 +246,16 @@ def test_nativeapp_upgrade_w_subdirs(
     snowflake_session,
     default_username,
     resource_suffix,
-    nativeapp_project_directory,
+    nativeapp_teardown,
+    setup_v2_project_w_subdir,
 ):
-    project_name = "stage_w_subdirs"
+    project_name, _ = setup_v2_project_w_subdir()
     create_command = (
         "app version create v1 --package-entity-id=pkg_v1 --force --skip-git-check"
     )
     list_command = "app version list --package-entity-id=pkg_v1"
     drop_command = "app version drop --package-entity-id=pkg_v1"
-    with nativeapp_project_directory("napp_stage_subdirs"):
+    with nativeapp_teardown():
         runner.invoke_with_connection_json(["app", "run", "--app-entity-id=app_v1"])
         runner.invoke_with_connection_json(split(create_command))
 

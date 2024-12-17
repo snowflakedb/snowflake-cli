@@ -23,6 +23,7 @@ from tests.project.fixtures import *
 from tests_integration.testing_utils import (
     assert_that_result_failed_with_message_containing,
 )
+from tests_integration.testing_utils.project_fixtures import *
 
 
 @pytest.fixture
@@ -323,10 +324,13 @@ def test_nativeapp_bundle_deletes_existing_deploy_root(template_setup):
 
 
 @pytest.mark.integration
-def test_nativeapp_can_bundle_with_subdirs(runner, nativeapp_project_directory):
+def test_nativeapp_can_bundle_with_subdirs(
+    runner, nativeapp_teardown, setup_v2_project_w_subdir
+):
     command = "app bundle --package-entity-id=pkg_v1"
     subdir = "v1"
-    with nativeapp_project_directory("napp_stage_subdirs") as project_root:
+    project_name, project_root = setup_v2_project_w_subdir()
+    with nativeapp_teardown():
         result = runner.invoke_json(split(command))
         assert result.exit_code == 0
 
@@ -337,9 +341,12 @@ def test_nativeapp_can_bundle_with_subdirs(runner, nativeapp_project_directory):
 
 
 @pytest.mark.integration
-def test_nativeapp_bundle_subdirs_dont_overwrite(runner, nativeapp_project_directory):
+def test_nativeapp_bundle_subdirs_dont_overwrite(
+    runner, nativeapp_teardown, setup_v2_project_w_subdir_w_snowpark
+):
+    project_name, project_root = setup_v2_project_w_subdir_w_snowpark()
 
-    with nativeapp_project_directory("napp_stage_subdirs_w_snowpark") as project_root:
+    with nativeapp_teardown():
         result_1 = runner.invoke_json(split("app bundle --package-entity-id=pkg_v1"))
         assert result_1.exit_code == 0
 

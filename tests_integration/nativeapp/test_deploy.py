@@ -17,12 +17,13 @@ from shlex import split
 
 from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 from tests.nativeapp.utils import touch
-
+from tests_integration.testing_utils.project_fixtures import *
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
+    row_from_cursor,
 )
 from tests_integration.testing_utils import (
     assert_that_result_failed_with_message_containing,
@@ -108,7 +109,7 @@ def test_nativeapp_deploy(
 
 @pytest.mark.integration
 def test_nativeapp_deploy_w_stage_subdir(
-    nativeapp_project_directory,
+    nativeapp_teardown,
     runner,
     snowflake_session,
     default_username,
@@ -116,9 +117,13 @@ def test_nativeapp_deploy_w_stage_subdir(
     sanitize_deploy_output,
     snapshot,
     print_paths_as_posix,
+    setup_v2_project_w_subdir,
 ):
-    project_name = "stage_w_subdirs_pkg"
-    with nativeapp_project_directory("napp_stage_subdirs"):
+    (
+        project_name,
+        _,
+    ) = setup_v2_project_w_subdir()  # make this a fixture, don't pass temp_dir
+    with nativeapp_teardown():
         result = runner.invoke_with_connection(
             split("app deploy --package-entity-id=pkg_v1")
         )
@@ -127,8 +132,9 @@ def test_nativeapp_deploy_w_stage_subdir(
         assert sanitize_deploy_output(result.output) == snapshot
 
         # package exist
-        package_name = f"{project_name}_{default_username}{resource_suffix}".upper()
-        app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
+        package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+        app_name = f"{project_name}_app_v1_{default_username}{resource_suffix}".upper()
+
         assert contains_row_with(
             row_from_snowflake_session(
                 snowflake_session.execute_string(
@@ -139,7 +145,7 @@ def test_nativeapp_deploy_w_stage_subdir(
         )
 
         # manifest file exists
-        stage_name = "app_src.stage/v1"  # as defined in native-apps-templates/basic
+        stage_name = "app_src.stage/v1"
         stage_files = runner.invoke_with_connection_json(
             ["stage", "list-files", f"{package_name}.{stage_name}"]
         )
@@ -274,17 +280,17 @@ def test_nativeapp_deploy_prune_w_stage_subdir(
     command,
     contains,
     not_contains,
-    nativeapp_project_directory,
+    nativeapp_teardown,
     runner,
     snapshot,
     print_paths_as_posix,
     default_username,
     resource_suffix,
     sanitize_deploy_output,
+    setup_v2_project_w_subdir,
 ):
-    test_project = "napp_stage_subdirs"
-    project_name = "stage_w_subdirs_pkg"
-    with nativeapp_project_directory(test_project):
+    project_name, _ = setup_v2_project_w_subdir()
+    with nativeapp_teardown():
         result = runner.invoke_with_connection_json(
             ["app", "deploy", "--package-entity-id=pkg_v1"]
         )
@@ -299,7 +305,7 @@ def test_nativeapp_deploy_prune_w_stage_subdir(
         assert sanitize_deploy_output(result.output) == snapshot
 
         # verify the file does not exist on the stage
-        package_name = f"{project_name}_{default_username}{resource_suffix}".upper()
+        package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
         stage_name = "app_src.stage/v1"  # as defined in native-apps-templates/basic
         stage_files = runner.invoke_with_connection_json(
             ["stage", "list-files", f"{package_name}.{stage_name}"]
@@ -355,16 +361,17 @@ def test_nativeapp_deploy_files(
 
 @pytest.mark.integration
 def test_nativeapp_deploy_files_w_stage_subdir(
-    nativeapp_project_directory,
+    nativeapp_teardown,
     runner,
     snapshot,
     print_paths_as_posix,
     default_username,
     resource_suffix,
     sanitize_deploy_output,
+    setup_v2_project_w_subdir,
 ):
-    project_name = "stage_w_subdirs_pkg"
-    with nativeapp_project_directory("napp_stage_subdirs"):
+    project_name, _ = setup_v2_project_w_subdir()
+    with nativeapp_teardown():
         # sync only two specific files to stage
         touch("app/v2/file.txt")
         result = runner.invoke_with_connection(
@@ -379,7 +386,7 @@ def test_nativeapp_deploy_files_w_stage_subdir(
         assert sanitize_deploy_output(result.output) == snapshot
 
         # manifest and script files exist, readme doesn't exist
-        package_name = f"{project_name}_{default_username}{resource_suffix}".upper()
+        package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
         stage_name = "app_src.stage/v2"  # as defined in native-apps-templates/basic
         stage_files = runner.invoke_with_connection_json(
             ["stage", "list-files", f"{package_name}.{stage_name}"]
