@@ -30,7 +30,7 @@ from tests.nativeapp.factories import (
 )
 from tests.project.fixtures import *
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
-
+from tests_integration.testing_utils.project_fixtures import *
 
 # A minimal set of fields to compare when checking version output
 VERSION_FIELDS_TO_OUTPUT = [
