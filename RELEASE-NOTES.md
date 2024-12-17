@@ -27,6 +27,7 @@
 * Add support for release channels feature in native app version creation/drop.
 * `snow app version create` now returns version, patch, and label in JSON format.
 * Add ability to specify release channel when creating application instance from release directive: `snow app run --from-release-directive --channel=<channel>`
+* Add ability to list release channels through `snow app release-channel list` command
 
 ## Fixes and improvements
 * Fixed crashes with older x86_64 Intel CPUs.
