@@ -1,12 +1,18 @@
 import functools
-from typing import Generic, TypeVar, List
+from pathlib import Path
+from typing import Generic, TypeVar, List, Optional
 
+from requests.packages import package
+
+from snowflake.cli._plugins.snowpark import package_utils
 from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     FunctionEntityModel,
     ProcedureEntityModel,
 )
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
+from snowflake.cli.api.secure_path import SecurePath
+from test_data.test_data import requirements, anaconda_response
 
 T = TypeVar("T")
 
@@ -14,7 +20,7 @@ T = TypeVar("T")
 class SnowparkEntity(EntityBase[Generic[T]]):
 
     @property
-    def project_root(self):
+    def root(self):
         return self._workspace_ctx.project_root
 
     @property
@@ -52,9 +58,36 @@ class SnowparkEntity(EntityBase[Generic[T]]):
     def action_execute(self, action_ctx: ActionContext, execution_arguments: List[str] = None, *args, **kwargs):
         return self._sql_executor.execute_query(self.get_execute_sql(execution_arguments))
 
-    def bundle(self, bundle_root):
-        pass
+    def bundle(self, output_dir: Optional[Path]):
+        #0 Create a directory for the entity
+        if not output_dir:
+            output_dir = self.root / "output" / self.model.stage
+        output_dir.mkdir(parents=True, exist_ok=True)
 
+        output_files = []
+
+        #1 Check if requirements exits
+        if (self.root / "requirements.txt").exists():
+
+        #2 If so- parse the requirements file and prepare
+
+        #3 get the artifacts list
+        artifacts = self.model.artifacts
+
+        for artifact in artifacts:
+            output_file = output_dir / artifact.name
+
+            if artifact.is_file():
+                SecurePath(artifact).copy(output_file)
+            elif artifact.is_dir():
+                output_file.mkdir(parents=True, exist_ok=True)
+
+            output_files.append(output_file)
+
+        return output_files
+
+
+        pass
     def get_deploy_sql(self):
         pass
 
@@ -69,6 +102,12 @@ class SnowparkEntity(EntityBase[Generic[T]]):
 
     def get_usage_grant_sql(self):
         pass
+
+    def _process_requirements(self, requirements_file: Optional[Path]):
+        with SecurePath.temporary_directory as tmp_dir:
+            requirements = package_utils.parse_requirements(requirements_file)
+            anaconda_packages
+
 
 class FunctionEntity(SnowparkEntity[FunctionEntityModel]):
     """
