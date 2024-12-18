@@ -53,6 +53,7 @@ from snowflake.cli.api.errno import (
     APPLICATION_REQUIRES_TELEMETRY_SHARING,
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
     CANNOT_DISABLE_RELEASE_CHANNELS,
+    CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
     INSUFFICIENT_PRIVILEGES,
@@ -1159,7 +1160,8 @@ class SnowflakeSQLFacade:
     ) -> list[ReleaseChannel]:
         """
         Show release channels in a package.
-        @param package_name: Name of the package
+
+        @param package_name: Name of the application package
         @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
         """
 
@@ -1207,6 +1209,98 @@ class SnowflakeSQLFacade:
                 )
 
             return results
+
+    def add_accounts_to_release_channel(
+        self,
+        package_name: str,
+        release_channel: str,
+        target_accounts: List[str],
+        role: str | None = None,
+    ):
+        """
+        Adds accounts to a release channel.
+
+        @param package_name: Name of the application package
+        @param release_channel: Name of the release channel
+        @param target_accounts: List of target accounts to add to the release channel
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel)
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    f"alter application package {package_name} modify release channel {release_channel} add accounts = ({','.join(target_accounts)})"
+                )
+            except ProgrammingError as err:
+                if (
+                    err.errno == ACCOUNT_DOES_NOT_EXIST
+                    or err.errno == ACCOUNT_HAS_TOO_MANY_QUALIFIERS
+                ):
+                    raise UserInputError(
+                        f"Invalid account passed in.\n{str(err.msg)}"
+                    ) from err
+                if err.errno == CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS:
+                    raise UserInputError(
+                        f"Cannot modify accounts for release channel {release_channel} in application package {package_name}."
+                    ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to add accounts to release channel {release_channel} in application package {package_name}.",
+                )
+            except Exception as err:
+                handle_unclassified_error(
+                    err,
+                    f"Failed to add accounts to release channel {release_channel} in application package {package_name}.",
+                )
+
+    def remove_accounts_from_release_channel(
+        self,
+        package_name: str,
+        release_channel: str,
+        target_accounts: List[str],
+        role: str | None = None,
+    ):
+        """
+        Removes accounts from a release channel.
+
+        @param package_name: Name of the application package
+        @param release_channel: Name of the release channel
+        @param target_accounts: List of target accounts to remove from the release channel
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel)
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    f"alter application package {package_name} modify release channel {release_channel} remove accounts = ({','.join(target_accounts)})"
+                )
+            except ProgrammingError as err:
+                if (
+                    err.errno == ACCOUNT_DOES_NOT_EXIST
+                    or err.errno == ACCOUNT_HAS_TOO_MANY_QUALIFIERS
+                ):
+                    raise UserInputError(
+                        f"Invalid account passed in.\n{str(err.msg)}"
+                    ) from err
+                if err.errno == CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS:
+                    raise UserInputError(
+                        f"Cannot modify accounts for release channel {release_channel} in application package {package_name}."
+                    ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to remove accounts from release channel {release_channel} in application package {package_name}.",
+                )
+            except Exception as err:
+                handle_unclassified_error(
+                    err,
+                    f"Failed to remove accounts from release channel {release_channel} in application package {package_name}.",
+                )
 
 
 def _strip_empty_lines(text: str) -> str:

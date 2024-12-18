@@ -38,8 +38,10 @@ from tests.nativeapp.utils import (
     APP_PACKAGE_ENTITY,
     APPLICATION_PACKAGE_ENTITY_MODULE,
     SQL_EXECUTOR_EXECUTE,
+    SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_CHANNEL,
     SQL_FACADE_GET_UI_PARAMETER,
     SQL_FACADE_MODIFY_RELEASE_DIRECTIVE,
+    SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_CHANNEL,
     SQL_FACADE_SET_RELEASE_DIRECTIVE,
     SQL_FACADE_SHOW_RELEASE_CHANNELS,
     SQL_FACADE_SHOW_RELEASE_DIRECTIVES,
@@ -1022,3 +1024,177 @@ def test_given_release_channels_with_a_selected_channel_to_filter_when_list_rele
 
     assert result == [test_channel_1]
     assert capsys.readouterr().out == os_agnostic_snapshot
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_CHANNEL)
+def test_given_release_channel_and_accounts_when_add_accounts_to_release_channel_then_success(
+    add_accounts_to_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    application_package_entity.action_release_channel_add_accounts(
+        action_ctx=action_context,
+        release_channel="test_channel",
+        target_accounts=["org1.acc1", "org2.acc2"],
+    )
+
+    add_accounts_to_release_channel.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel="test_channel",
+        target_accounts=["org1.acc1", "org2.acc2"],
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_CHANNEL)
+def test_given_invalid_release_channel_when_add_accounts_to_release_channel_then_error(
+    add_accounts_to_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = []
+
+    with pytest.raises(ClickException) as e:
+        application_package_entity.action_release_channel_add_accounts(
+            action_ctx=action_context,
+            release_channel="invalid_channel",
+            target_accounts=["org1.acc1", "org2.acc2"],
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channel invalid_channel does not exist in application package {pkg_model.fqn.name}."
+    )
+
+    add_accounts_to_release_channel.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_CHANNEL)
+@pytest.mark.parametrize(
+    "account_name", ["org1", "org1.", ".account1", "org1.acc.ount1"]
+)
+def test_given_invalid_account_names_when_add_accounts_to_release_channel_then_error(
+    add_accounts_to_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+    account_name,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    with pytest.raises(ClickException) as e:
+        application_package_entity.action_release_channel_add_accounts(
+            action_ctx=action_context,
+            release_channel="test_channel",
+            target_accounts=[account_name],
+        )
+
+    assert (
+        str(e.value)
+        == f"Target account {account_name} is not in a valid format. Make sure you provide the target account in the format 'org.account'."
+    )
+
+    add_accounts_to_release_channel.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_CHANNEL)
+def test_given_release_channel_and_accounts_when_remove_accounts_from_release_channel_then_success(
+    remove_accounts_from_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    application_package_entity.action_release_channel_remove_accounts(
+        action_ctx=action_context,
+        release_channel="test_channel",
+        target_accounts=["org1.acc1", "org2.acc2"],
+    )
+
+    remove_accounts_from_release_channel.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel="test_channel",
+        target_accounts=["org1.acc1", "org2.acc2"],
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_CHANNEL)
+def test_given_invalid_release_channel_when_remove_accounts_from_release_channel_then_error(
+    remove_accounts_from_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = []
+
+    with pytest.raises(ClickException) as e:
+        application_package_entity.action_release_channel_remove_accounts(
+            action_ctx=action_context,
+            release_channel="invalid_channel",
+            target_accounts=["org1.acc1", "org2.acc2"],
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channel invalid_channel does not exist in application package {pkg_model.fqn.name}."
+    )
+
+    remove_accounts_from_release_channel.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_CHANNEL)
+@pytest.mark.parametrize(
+    "account_name", ["org1", "org1.", ".account1", "org1.acc.ount1"]
+)
+def test_given_invalid_account_names_when_remove_accounts_from_release_channel_then_error(
+    remove_accounts_from_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+    account_name,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    with pytest.raises(ClickException) as e:
+        application_package_entity.action_release_channel_remove_accounts(
+            action_ctx=action_context,
+            release_channel="test_channel",
+            target_accounts=[account_name],
+        )
+
+    assert (
+        str(e.value)
+        == f"Target account {account_name} is not in a valid format. Make sure you provide the target account in the format 'org.account'."
+    )
+
+    remove_accounts_from_release_channel.assert_not_called()

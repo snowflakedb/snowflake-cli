@@ -30,6 +30,7 @@ from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
+    MessageResult,
 )
 
 app = SnowTyperFactory(
@@ -69,3 +70,71 @@ def release_channel_list(
 
     if cli_context.output_format == OutputFormat.JSON:
         return CollectionResult(channels)
+
+
+@app.command("add-accounts", requires_connection=True)
+@with_project_definition()
+@force_project_definition_v2()
+def release_channel_add_accounts(
+    channel: str = typer.Argument(
+        show_default=False,
+        help="The release channel to add accounts to.",
+    ),
+    target_accounts: list[str] = typer.Option(
+        show_default=False,
+        help="The accounts to add to the release channel. Format has to be `org1.account1,org2.account2`.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Adds accounts to a release channel.
+    """
+
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    package_id = options["package_entity_id"]
+    ws.perform_action(
+        package_id,
+        EntityActions.RELEASE_CHANNEL_ADD_ACCOUNTS,
+        release_channel=channel,
+        target_accounts=target_accounts,
+    )
+
+    return MessageResult("Successfully added accounts to the release channel.")
+
+
+@app.command("remove-accounts", requires_connection=True)
+@with_project_definition()
+@force_project_definition_v2()
+def release_channel_remove_accounts(
+    channel: str = typer.Argument(
+        show_default=False,
+        help="The release channel to remove accounts from.",
+    ),
+    target_accounts: list[str] = typer.Option(
+        show_default=False,
+        help="The accounts to remove from the release channel. Format has to be `org1.account1,org2.account2`.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Removes accounts from a release channel.
+    """
+
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    package_id = options["package_entity_id"]
+    ws.perform_action(
+        package_id,
+        EntityActions.RELEASE_CHANNEL_REMOVE_ACCOUNTS,
+        release_channel=channel,
+        target_accounts=target_accounts,
+    )
+
+    return MessageResult("Successfully removed accounts from the release channel.")

@@ -861,6 +861,86 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         return bundle_map
 
+    def action_release_channel_add_accounts(
+        self,
+        action_ctx: ActionContext,
+        release_channel: str,
+        target_accounts: list[str],
+        *args,
+        **kwargs,
+    ):
+        """
+        Adds target accounts to a release channel.
+        """
+
+        if not target_accounts:
+            raise ClickException("No target accounts provided.")
+
+        available_channels = get_snowflake_facade().show_release_channels(
+            self.name, self.role
+        )
+
+        release_channel_names = [c.get("name") for c in available_channels]
+        if not identifier_in_list(release_channel, release_channel_names):
+            raise ClickException(
+                f"Release channel {release_channel} does not exist in application package {self.name}."
+            )
+
+        for account in target_accounts:
+            if not re.fullmatch(
+                f"{VALID_IDENTIFIER_REGEX}\\.{VALID_IDENTIFIER_REGEX}", account
+            ):
+                raise ClickException(
+                    f"Target account {account} is not in a valid format. Make sure you provide the target account in the format 'org.account'."
+                )
+
+        get_snowflake_facade().add_accounts_to_release_channel(
+            package_name=self.name,
+            release_channel=release_channel,
+            target_accounts=target_accounts,
+            role=self.role,
+        )
+
+    def action_release_channel_remove_accounts(
+        self,
+        action_ctx: ActionContext,
+        release_channel: str,
+        target_accounts: list[str],
+        *args,
+        **kwargs,
+    ):
+        """
+        Removes target accounts from a release channel.
+        """
+
+        if not target_accounts:
+            raise ClickException("No target accounts provided.")
+
+        available_channels = get_snowflake_facade().show_release_channels(
+            self.name, self.role
+        )
+
+        release_channel_names = [c.get("name") for c in available_channels]
+        if not identifier_in_list(release_channel, release_channel_names):
+            raise ClickException(
+                f"Release channel {release_channel} does not exist in application package {self.name}."
+            )
+
+        for account in target_accounts:
+            if not re.fullmatch(
+                f"{VALID_IDENTIFIER_REGEX}\\.{VALID_IDENTIFIER_REGEX}", account
+            ):
+                raise ClickException(
+                    f"Target account {account} is not in a valid format. Make sure you provide the target account in the format 'org.account'."
+                )
+
+        get_snowflake_facade().remove_accounts_from_release_channel(
+            package_name=self.name,
+            release_channel=release_channel,
+            target_accounts=target_accounts,
+            role=self.role,
+        )
+
     def _bundle_children(self, action_ctx: ActionContext) -> List[str]:
         # Create _children directory
         children_artifacts_dir = self.children_artifacts_deploy_root
