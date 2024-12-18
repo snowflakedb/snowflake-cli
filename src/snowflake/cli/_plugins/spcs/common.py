@@ -208,7 +208,7 @@ def format_event_row(event_dict: dict) -> dict:
             "EVENT VALUE": event_value,
         }
     except (json.JSONDecodeError, KeyError) as e:
-        raise RecordProcessingError(f"Error processing event row: {str(e)}")
+        raise RecordProcessingError(f"Error processing event row.")
 
 
 def format_metric_row(metric_dict: dict) -> dict:
@@ -238,7 +238,7 @@ def format_metric_row(metric_dict: dict) -> dict:
             "METRIC VALUE": metric_value,
         }
     except (json.JSONDecodeError, KeyError) as e:
-        raise RecordProcessingError(f"Error processing metric row: {str(e)}")
+        raise RecordProcessingError(f"Error processing metric row.")
 
 
 class RecordProcessingError(ClickException):
