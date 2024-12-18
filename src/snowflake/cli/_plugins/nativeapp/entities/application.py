@@ -26,7 +26,6 @@ from snowflake.cli._plugins.nativeapp.common_flags import (
 from snowflake.cli._plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
-    DEFAULT_CHANNEL,
     OWNER_COL,
 )
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
@@ -86,8 +85,6 @@ from snowflake.cli.api.project.util import (
     append_test_resource_suffix,
     extract_schema,
     identifier_for_url,
-    identifier_in_list,
-    same_identifiers,
     to_identifier,
     unquote_identifier,
 )
@@ -360,8 +357,8 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
 
         # same-account release directive
         if from_release_directive:
-            release_channel = _get_verified_release_channel(
-                package_entity, release_channel
+            release_channel = package_entity.get_sanitized_release_channel(
+                release_channel
             )
 
             self.create_or_upgrade_app(
@@ -1025,28 +1022,3 @@ def _application_objects_to_str(
 
 def _application_object_to_str(obj: ApplicationOwnedObject) -> str:
     return f"({obj['type']}) {obj['name']}"
-
-
-def _get_verified_release_channel(
-    package_entity: ApplicationPackageEntity,
-    release_channel: Optional[str],
-) -> Optional[str]:
-    release_channel = release_channel or DEFAULT_CHANNEL
-    available_release_channels = get_snowflake_facade().show_release_channels(
-        package_entity.name, role=package_entity.role
-    )
-    if available_release_channels:
-        release_channel_names = [c["name"] for c in available_release_channels]
-        if not identifier_in_list(release_channel, release_channel_names):
-            raise UsageError(
-                f"Release channel '{release_channel}' is not available for application package {package_entity.name}. Available release channels: ({', '.join(release_channel_names)})."
-            )
-    else:
-        if same_identifiers(release_channel, DEFAULT_CHANNEL):
-            return None
-        else:
-            raise UsageError(
-                f"Release channels are not enabled for application package {package_entity.name}."
-            )
-
-    return release_channel
