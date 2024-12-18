@@ -7115,6 +7115,7 @@
   |                                       be used with --last.                   |
   |    --last                    INTEGER  Fetch only the last N events. Cannot   |
   |                                       be used with --first.                  |
+  |    --all                              Fetch all columns.                     |
   |    --help            -h               Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -7864,22 +7865,17 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | *  --container-name          TEXT     Name of the container.                 |
-  |                                       [required]                             |
-  | *  --instance-id             TEXT     ID of the service instance, starting   |
-  |                                       with 0.                                |
-  |                                       [required]                             |
-  |    --since                   TEXT     Fetch events that are newer than this  |
-  |                                       time ago, in Snowflake interval        |
-  |                                       syntax.                                |
-  |    --until                   TEXT     Fetch events that are older than this  |
-  |                                       time ago, in Snowflake interval        |
-  |                                       syntax.                                |
-  |    --first                   INTEGER  Fetch only the first N events. Cannot  |
-  |                                       be used with --last.                   |
-  |    --last                    INTEGER  Fetch only the last N events. Cannot   |
-  |                                       be used with --first.                  |
-  |    --help            -h               Show this message and exit.            |
+  | *  --container-name          TEXT  Name of the container.                    |
+  |                                    [required]                                |
+  | *  --instance-id             TEXT  ID of the service instance, starting with |
+  |                                    0.                                        |
+  |                                    [required]                                |
+  |    --since                   TEXT  Fetch events that are newer than this     |
+  |                                    time ago, in Snowflake interval syntax.   |
+  |    --until                   TEXT  Fetch events that are older than this     |
+  |                                    time ago, in Snowflake interval syntax.   |
+  |    --all                           Fetch all columns.                        |
+  |    --help            -h            Show this message and exit.               |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |

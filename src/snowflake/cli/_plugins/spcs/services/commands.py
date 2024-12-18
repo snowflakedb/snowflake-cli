@@ -331,6 +331,12 @@ def events(
         show_default=False,
         help="Fetch only the last N events. Cannot be used with --first.",
     ),
+    show_all_columns: bool = typer.Option(
+        False,
+        "--all",
+        is_flag=True,
+        help="Fetch all columns.",
+    ),
     **options,
 ):
     if FeatureFlag.ENABLE_SPCS_SERVICE_EVENTS.is_disabled():
@@ -343,22 +349,6 @@ def events(
         raise IncompatibleParametersError(["--first", "--last"])
 
     manager = ServiceManager()
-    column_names = [
-        "TIMESTAMP",
-        "START_TIMESTAMP",
-        "OBSERVED_TIMESTAMP",
-        "TRACE",
-        "RESOURCE",
-        "RESOURCE_ATTRIBUTES",
-        "SCOPE",
-        "SCOPE_ATTRIBUTES",
-        "RECORD_TYPE",
-        "RECORD",
-        "RECORD_ATTRIBUTES",
-        "VALUE",
-        "EXEMPLARS",
-    ]
-
     events = manager.get_events(
         service_name=name.identifier,
         container_name=container_name,
@@ -367,13 +357,9 @@ def events(
         until=until,
         first=first,
         last=last,
+        show_all_columns=show_all_columns,
     )
-    transformed_events = [dict(zip(column_names, event)) for event in events]
-
-    if not transformed_events:
-        return MessageResult("No events found.")
-
-    return CollectionResult(transformed_events)
+    return CollectionResult(events)
 
 
 @app.command(requires_connection=True)
@@ -399,15 +385,11 @@ def metrics(
         default="",
         help="Fetch events that are older than this time ago, in Snowflake interval syntax.",
     ),
-    first: int = typer.Option(
-        default=-1,
-        show_default=False,
-        help="Fetch only the first N events. Cannot be used with --last.",
-    ),
-    last: int = typer.Option(
-        default=-1,
-        show_default=False,
-        help="Fetch only the last N events. Cannot be used with --first.",
+    show_all_columns: bool = typer.Option(
+        False,
+        "--all",
+        is_flag=True,
+        help="Fetch all columns.",
     ),
     **options,
 ):
@@ -417,41 +399,28 @@ def metrics(
             "Service metrics collection from SPCS event table is disabled.",
         )
 
-    if first >= 0 and last >= 0:
-        raise IncompatibleParametersError(["--first", "--last"])
-
     manager = ServiceManager()
-    column_names = [
-        "TIMESTAMP",
-        "START_TIMESTAMP",
-        "OBSERVED_TIMESTAMP",
-        "TRACE",
-        "RESOURCE",
-        "RESOURCE_ATTRIBUTES",
-        "SCOPE",
-        "SCOPE_ATTRIBUTES",
-        "RECORD_TYPE",
-        "RECORD",
-        "RECORD_ATTRIBUTES",
-        "VALUE",
-        "EXEMPLARS",
-    ]
+    if since or until:
+        metrics = manager.get_all_metrics(
+            service_name=name.identifier,
+            container_name=container_name,
+            instance_id=instance_id,
+            since=since,
+            until=until,
+            show_all_columns=show_all_columns,
+        )
+    else:
+        metrics = manager.get_latest_metrics(
+            service_name=name.identifier,
+            container_name=container_name,
+            instance_id=instance_id,
+            show_all_columns=show_all_columns,
+        )
 
-    metrics = manager.get_metrics(
-        service_name=name.identifier,
-        container_name=container_name,
-        instance_id=instance_id,
-        since=since,
-        until=until,
-        first=first,
-        last=last,
-    )
-    transformed_metrics = [dict(zip(column_names, metrix)) for metrix in metrics]
-
-    if not transformed_metrics:
+    if not metrics:
         return MessageResult("No metrics found.")
 
-    return CollectionResult(transformed_metrics)
+    return CollectionResult(metrics)
 
 
 @app.command(requires_connection=True)

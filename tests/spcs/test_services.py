@@ -747,37 +747,39 @@ def test_events_all_filters(mock_execute_query, mock_is_disabled, runner):
                 "value": "event_table_db.data_schema.snowservices_logs",
             }
         ],
-        [
-            (
-                "2024-12-14 22:27:25.420",
-                None,
-                "2024-12-14 22:27:25.420",
-                None,
-                None,
-                json.dumps(
-                    {
-                        "snow.compute_pool.id": 230,
-                        "snow.compute_pool.name": "MY_POOL",
-                        "snow.database.id": 5,
-                        "snow.database.name": "TESTDB",
-                        "snow.schema.id": 5,
-                        "snow.schema.name": "PUBLIC",
-                        "snow.service.container.name": "log-printer",
-                        "snow.service.id": 1568,
-                        "snow.service.instance": "0",
-                        "snow.service.name": "LOG_EVENT",
-                        "snow.service.type": "SERVICE",
-                    }
-                ),
-                json.dumps({"name": "snow.spcs.platform"}),
-                None,
-                "LOG",
-                json.dumps({"severity_text": "INFO"}),
-                json.dumps({"event.name": "CONTAINER.STATUS_CHANGE"}),
-                json.dumps({"message": "Running", "status": "READY"}),
-                None,
-            )
-        ],
+        Mock(
+            fetchall=lambda: [
+                (
+                    "2024-12-14 22:27:25.420",
+                    None,
+                    "2024-12-14 22:27:25.420",
+                    None,
+                    None,
+                    json.dumps(
+                        {
+                            "snow.compute_pool.id": 230,
+                            "snow.compute_pool.name": "MY_POOL",
+                            "snow.database.id": 5,
+                            "snow.database.name": "TESTDB",
+                            "snow.schema.id": 5,
+                            "snow.schema.name": "PUBLIC",
+                            "snow.service.container.name": "log-printer",
+                            "snow.service.id": 1568,
+                            "snow.service.instance": "0",
+                            "snow.service.name": "LOG_EVENT",
+                            "snow.service.type": "SERVICE",
+                        }
+                    ),
+                    json.dumps({"name": "snow.spcs.platform"}),
+                    None,
+                    "LOG",
+                    json.dumps({"severity_text": "INFO"}),
+                    json.dumps({"event.name": "CONTAINER.STATUS_CHANGE"}),
+                    json.dumps({"message": "Running", "status": "READY"}),
+                    None,
+                )
+            ]
+        ),
     ]
 
     result = runner.invoke(
@@ -812,23 +814,22 @@ def test_events_all_filters(mock_execute_query, mock_is_disabled, runner):
 
     actual_query = mock_execute_query.mock_calls[1].args[0]
     expected_query = (
-        "                select * from (\n"
-        "                    select *\n"
-        "                    from event_table_db.data_schema.snowservices_logs\n"
-        "                    where (\n"
-        '                        resource_attributes:"snow.service.name" = '
-        "'LOG_EVENT' and (resource_attributes:\"snow.service.instance\" = '0' OR "
-        "resource_attributes:\"snow.service.container.instance\" = '0') and "
-        "resource_attributes:\"snow.service.container.name\" = 'log-printer'\n"
-        "                        and timestamp >= sysdate() - interval '2 hours'\n"
-        "                        and timestamp <= sysdate() - interval '1 hour'\n"
+        "                     select *\n"
+        "                    from (\n"
+        "                        select *\n"
+        "                        from event_table_db.data_schema.snowservices_logs\n"
+        "                        where (\n"
+        "                            resource_attributes:\"snow.service.name\" = 'LOG_EVENT' and (resource_attributes:\"snow.service.instance\" = '0' OR resource_attributes:\"snow.service.container.instance\" = '0') and resource_attributes:\"snow.service.container.name\" = 'log-printer'\n"
+        "                            and timestamp >= sysdate() - interval '2 hours'\n"
+        "                            and timestamp <= sysdate() - interval '1 hour'\n"
+        "                        )\n"
+        "                        and record_type = 'LOG'\n"
+        "                        and scope['name'] = 'snow.spcs.platform'\n"
+        "                        order by timestamp desc\n"
+        "                        limit 10\n"
         "                    )\n"
-        "                    AND RECORD_TYPE = 'LOG'\n"
-        "                    AND SCOPE['name'] = 'snow.spcs.platform'\n"
-        "                    order by timestamp desc\n"
-        "                    limit 10\n"
-        "                ) order by timestamp asc\n"
-        "                \n"
+        "                    order by timestamp asc\n"
+        "                    \n"
         "                "
     )
 
@@ -908,7 +909,7 @@ def test_service_metrics_disabled(mock_is_disabled, runner):
     "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_SERVICE_METRICS.is_disabled"
 )
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
-def test_metrics_all_filters(mock_execute_query, mock_is_disabled, runner):
+def test_latest_metrics(mock_execute_query, mock_is_disabled, runner):
     mock_is_disabled.return_value = False
     mock_execute_query.side_effect = [
         [
@@ -917,31 +918,35 @@ def test_metrics_all_filters(mock_execute_query, mock_is_disabled, runner):
                 "value": "event_table_db.data_schema.snowservices_logs",
             }
         ],
-        [
-            (
-                datetime(2024, 12, 10, 18, 53, 21, 809000),
-                datetime(2024, 12, 10, 18, 52, 51, 809000),
-                None,
-                None,
-                None,
-                json.dumps(
-                    {
-                        "snow.account.name": "XACCOUNTTEST1",
-                        "snow.compute_pool.id": 20641,
-                        "snow.compute_pool.name": "MY_POOL",
-                        "snow.service.container.name": "log-printer",
-                        "snow.service.name": "LOG_EVENT",
-                    }
-                ),
-                json.dumps({"name": "snow.spcs.platform"}),
-                None,
-                "METRIC",
-                json.dumps({"metric": {"name": "container.cpu.usage", "unit": "cpu"}}),
-                None,
-                "0.0005007168666666691",
-                None,
-            )
-        ],
+        Mock(
+            fetchall=lambda: [
+                (
+                    datetime(2024, 12, 10, 18, 53, 21, 809000),
+                    datetime(2024, 12, 10, 18, 52, 51, 809000),
+                    None,
+                    None,
+                    None,
+                    json.dumps(
+                        {
+                            "snow.account.name": "XACCOUNTTEST1",
+                            "snow.compute_pool.id": 20641,
+                            "snow.compute_pool.name": "MY_POOL",
+                            "snow.service.container.name": "log-printer",
+                            "snow.service.name": "LOG_EVENT",
+                        }
+                    ),
+                    json.dumps({"name": "snow.spcs.platform"}),
+                    None,
+                    "METRIC",
+                    json.dumps(
+                        {"metric": {"name": "container.cpu.usage", "unit": "cpu"}}
+                    ),
+                    None,
+                    "0.0005007168666666691",
+                    None,
+                )
+            ]
+        ),
     ]
 
     result = runner.invoke(
@@ -954,12 +959,6 @@ def test_metrics_all_filters(mock_execute_query, mock_is_disabled, runner):
             "log-printer",
             "--instance-id",
             "0",
-            "--since",
-            "2 hours",
-            "--until",
-            "1 hour",
-            "--last",
-            "10",
             "--warehouse",
             "XSMALL",
             "--role",
@@ -976,36 +975,77 @@ def test_metrics_all_filters(mock_execute_query, mock_is_disabled, runner):
 
     actual_query = mock_execute_query.mock_calls[1].args[0]
     expected_query = (
-        "                select * from (\n"
-        "                    select *\n"
-        "                    from event_table_db.data_schema.snowservices_logs\n"
-        "                    where (\n"
-        '                        resource_attributes:"snow.service.name" = '
-        "'LOG_EVENT' and (resource_attributes:\"snow.service.instance\" = '0' OR "
-        "resource_attributes:\"snow.service.container.instance\" = '0') and "
-        "resource_attributes:\"snow.service.container.name\" = 'log-printer'\n"
-        "                        and timestamp >= sysdate() - interval '2 hours'\n"
-        "                        and timestamp <= sysdate() - interval '1 hour'\n"
-        "                    )\n"
-        "                    AND RECORD_TYPE = 'METRIC'\n"
-        "                    AND SCOPE['name'] = 'snow.spcs.platform'\n"
-        "                    order by timestamp desc\n"
-        "                    limit 10\n"
-        "                ) order by timestamp asc\n"
-        "                \n"
-        "                "
+        "\n"
+        "            with rankedmetrics as (\n"
+        "                select \n"
+        "                    *,\n"
+        "                    row_number() over (\n"
+        "                        partition by record['metric']['name'] \n"
+        "                        order by timestamp desc\n"
+        "                    ) as rank\n"
+        "                from event_table_db.data_schema.snowservices_logs\n"
+        "                where \n"
+        "                    record_type = 'METRIC'\n"
+        "                    and scope['name'] = 'snow.spcs.platform'\n"
+        "                    and resource_attributes:\"snow.service.name\" = 'LOG_EVENT' and (resource_attributes:\"snow.service.instance\" = '0' OR resource_attributes:\"snow.service.container.instance\" = '0') and resource_attributes:\"snow.service.container.name\" = 'log-printer'  \n"
+        "                    and timestamp > dateadd('hour', -1, current_timestamp)  \n"
+        "            )\n"
+        "            select *\n"
+        "            from rankedmetrics\n"
+        "            where rank = 1\n"
+        "            order by timestamp desc;\n"
+        "        "
     )
 
     assert (
         actual_query == expected_query
-    ), f"Generated query does not match expected query.\n\nActual:\n{actual_query}\n\nExpected:\n{expected_query}"
+    ), f"Generated query does not match expected query.\n\nActual:\n{repr(actual_query)}\n\nExpected:\n{repr(expected_query)}"
 
 
 @patch(
     "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_SERVICE_METRICS.is_disabled"
 )
-def test_metrics_first_last_incompatibility(mock_is_disabled, runner):
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+def test_metrics_all_filters(mock_execute_query, mock_is_disabled, runner):
     mock_is_disabled.return_value = False
+    mock_execute_query.side_effect = [
+        [
+            {
+                "key": "EVENT_TABLE",
+                "value": "event_table_db.data_schema.snowservices_logs",
+            }
+        ],
+        Mock(
+            fetchall=lambda: [
+                (
+                    datetime(2024, 12, 10, 18, 53, 21, 809000),
+                    datetime(2024, 12, 10, 18, 52, 51, 809000),
+                    None,
+                    None,
+                    None,
+                    json.dumps(
+                        {
+                            "snow.account.name": "XACCOUNTTEST1",
+                            "snow.compute_pool.id": 20641,
+                            "snow.compute_pool.name": "MY_POOL",
+                            "snow.service.container.name": "log-printer",
+                            "snow.service.name": "LOG_EVENT",
+                        }
+                    ),
+                    json.dumps({"name": "snow.spcs.platform"}),
+                    None,
+                    "METRIC",
+                    json.dumps(
+                        {"metric": {"name": "container.cpu.usage", "unit": "cpu"}}
+                    ),
+                    None,
+                    "0.0005007168666666691",
+                    None,
+                )
+            ]
+        ),
+    ]
+
     result = runner.invoke(
         [
             "spcs",
@@ -1016,10 +1056,10 @@ def test_metrics_first_last_incompatibility(mock_is_disabled, runner):
             "log-printer",
             "--instance-id",
             "0",
-            "--first",
-            "10",
-            "--last",
-            "5",
+            "--since",
+            "2 hour",
+            "--until",
+            "1 hour",
             "--warehouse",
             "XSMALL",
             "--role",
@@ -1027,10 +1067,31 @@ def test_metrics_first_last_incompatibility(mock_is_disabled, runner):
         ]
     )
 
-    assert result.exit_code != 0, result.output
+    assert result.exit_code == 0, f"Command failed with output: {result.output}"
 
-    expected_error = "Parameters '--first' and '--last' are incompatible"
-    assert expected_error in result.output
+    call_0 = mock_execute_query.mock_calls[0].args[0]
+    assert (
+        call_0 == "show parameters like 'event_table' in account"
+    ), f"Unexpected query in Call 0: {call_0}"
+
+    actual_query = mock_execute_query.mock_calls[1].args[0]
+    expected_query = (
+        "                    select *\n"
+        "                    from event_table_db.data_schema.snowservices_logs\n"
+        "                    where (\n"
+        "                        resource_attributes:\"snow.service.name\" = 'LOG_EVENT' and (resource_attributes:\"snow.service.instance\" = '0' OR resource_attributes:\"snow.service.container.instance\" = '0') and resource_attributes:\"snow.service.container.name\" = 'log-printer'\n"
+        "                        and timestamp >= sysdate() - interval '2 hour'\n"
+        "                        and timestamp <= sysdate() - interval '1 hour'\n"
+        "                    )\n"
+        "                    and record_type = 'METRIC'\n"
+        "                    and scope['name'] = 'snow.spcs.platform'\n"
+        "                    order by timestamp desc\n"
+        "                "
+    )
+
+    assert (
+        actual_query == expected_query
+    ), f"Generated query does not match expected query.\n\nActual:\n{actual_query}\n\nExpected:\n{expected_query}"
 
 
 def test_read_yaml(other_directory):
