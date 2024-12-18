@@ -1,6 +1,4 @@
 import json
-import os
-from unittest import mock
 
 import pytest
 
@@ -18,7 +16,6 @@ def _assert_json_output_matches_snapshot(snapshot):
 
 
 @pytest.mark.e2e
-@mock.patch.dict(os.environ, {}, clear=True)
 def test_import_of_snowsql_connections(
     snowcli, test_root_path, empty_config_file, _assert_json_output_matches_snapshot
 ):
@@ -64,7 +61,6 @@ def test_import_of_snowsql_connections(
 
 
 @pytest.mark.e2e
-@mock.patch.dict(os.environ, {}, clear=True)
 def test_import_error_on_conflict_with_existing_cli_connection(
     snowcli, test_root_path, config_file, snapshot
 ):
