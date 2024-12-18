@@ -1,0 +1,30 @@
+[connections]
+databasename = "default_connection_database_override"
+
+
+[connections.snowsql1]
+host = "h1_override"
+
+[connections.snowsql3]
+accountname = "a3"
+username = "u3"
+password = "p3"
+host = "h3"
+databasename = "d3"
+schemaname = "public"
+warehousename = "w3"
+rolename = "r3"
+
+
+[variables]
+example_variable=28
+
+
+[options]
+auto_completion = True
+log_file = /tmp/snowsql.log
+log_level = DEBUG
+timing = True
+output_format = psql
+key_bindings = emacs
+repository_base_url = https://sfc-repo.snowflakecomputing.com/snowsql
