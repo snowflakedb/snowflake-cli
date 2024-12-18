@@ -22,7 +22,7 @@ T = TypeVar("T")
 class SnowparkEntity(EntityBase[Generic[T]], ApplicationPackageChildInterface):
     def __init__(self, *args, **kwargs):
         if not FeatureFlag.ENABLE_NATIVE_APP_CHILDREN.is_enabled():
-            raise NotImplementedError("Streamlit entity is not implemented yet")
+            raise NotImplementedError("Snowpark entities are not implemented yet")
         super().__init__(*args, **kwargs)
 
     @property
@@ -79,7 +79,7 @@ class SnowparkEntity(EntityBase[Generic[T]], ApplicationPackageChildInterface):
                     )
                     imports.append(f"'{str(file_path_relative_to_deploy_root)}'")
 
-        entity_type = model.get_type()
+        entity_type = model.get_type().upper()
 
         query = [
             f"CREATE OR REPLACE {entity_type} {self._get_identifier_for_sql(schema=schema)}",
@@ -93,7 +93,7 @@ class SnowparkEntity(EntityBase[Generic[T]], ApplicationPackageChildInterface):
         return "\n".join(query)
 
     def get_usage_grant_sql(self, app_role: str, schema: Optional[str] = None):
-        entity_type = self._entity_model.get_type()
+        entity_type = self._entity_model.get_type().upper()
         return f"GRANT USAGE ON {entity_type} {self._get_identifier_for_sql(schema=schema, arg_names=False)} TO APPLICATION ROLE {app_role};"
 
 
