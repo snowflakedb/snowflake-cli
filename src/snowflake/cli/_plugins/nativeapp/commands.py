@@ -31,6 +31,9 @@ from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEnt
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
+from snowflake.cli._plugins.nativeapp.release_channel.commands import (
+    app as release_channels_app,
+)
 from snowflake.cli._plugins.nativeapp.release_directive.commands import (
     app as release_directives_app,
 )
@@ -71,6 +74,7 @@ app = SnowTyperFactory(
 )
 app.add_typer(versions_app)
 app.add_typer(release_directives_app)
+app.add_typer(release_channels_app)
 
 log = logging.getLogger(__name__)
 
