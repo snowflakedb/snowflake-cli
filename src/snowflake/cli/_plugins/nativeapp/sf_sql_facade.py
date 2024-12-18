@@ -13,11 +13,13 @@
 # limitations under the License.
 from __future__ import annotations
 
+import json
 import logging
 from contextlib import contextmanager
+from datetime import datetime
 from functools import cache
 from textwrap import dedent
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TypedDict
 
 from snowflake.cli._plugins.connection.util import UIParameter, get_ui_parameter
 from snowflake.cli._plugins.nativeapp.constants import (
@@ -51,7 +53,9 @@ from snowflake.cli.api.errno import (
     APPLICATION_REQUIRES_TELEMETRY_SHARING,
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
     CANNOT_DISABLE_RELEASE_CHANNELS,
+    CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
     INSUFFICIENT_PRIVILEGES,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
     RELEASE_DIRECTIVE_DOES_NOT_EXIST,
@@ -72,6 +76,18 @@ from snowflake.cli.api.project.util import (
 from snowflake.cli.api.sql_execution import BaseSqlExecutor
 from snowflake.cli.api.utils.cursor import find_first_row
 from snowflake.connector import DictCursor, ProgrammingError
+
+ReleaseChannel = TypedDict(
+    "ReleaseChannel",
+    {
+        "name": str,
+        "description": str,
+        "created_on": datetime,
+        "updated_on": datetime,
+        "targets": dict[str, Any],
+        "versions": list[str],
+    },
+)
 
 
 class SnowflakeSQLFacade:
@@ -1141,10 +1157,11 @@ class SnowflakeSQLFacade:
 
     def show_release_channels(
         self, package_name: str, role: str | None = None
-    ) -> list[dict[str, Any]]:
+    ) -> list[ReleaseChannel]:
         """
         Show release channels in a package.
-        @param package_name: Name of the package
+
+        @param package_name: Name of the application package
         @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
         """
 
@@ -1155,6 +1172,7 @@ class SnowflakeSQLFacade:
             return []
 
         package_identifier = to_identifier(package_name)
+        results = []
         with self._use_role_optional(role):
             try:
                 cursor = self._sql_executor.execute_query(
@@ -1166,11 +1184,123 @@ class SnowflakeSQLFacade:
                 if err.errno == SQL_COMPILATION_ERROR:
                     # Release not out yet and param not out yet
                     return []
+                if err.errno == DOES_NOT_EXIST_OR_NOT_AUTHORIZED:
+                    raise UserInputError(
+                        f"Application package {package_name} does not exist or you are not authorized to access it."
+                    ) from err
                 handle_unclassified_error(
                     err,
                     f"Failed to show release channels for application package {package_name}.",
                 )
-            return cursor.fetchall()
+            rows = cursor.fetchall()
+
+            for row in rows:
+                targets = json.loads(row["targets"]) if row.get("targets") else {}
+                versions = json.loads(row["versions"]) if row.get("versions") else []
+                results.append(
+                    ReleaseChannel(
+                        name=row["name"],
+                        description=row["description"],
+                        created_on=row["created_on"],
+                        updated_on=row["updated_on"],
+                        targets=targets,
+                        versions=versions,
+                    )
+                )
+
+            return results
+
+    def add_accounts_to_release_channel(
+        self,
+        package_name: str,
+        release_channel: str,
+        target_accounts: List[str],
+        role: str | None = None,
+    ):
+        """
+        Adds accounts to a release channel.
+
+        @param package_name: Name of the application package
+        @param release_channel: Name of the release channel
+        @param target_accounts: List of target accounts to add to the release channel
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel)
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    f"alter application package {package_name} modify release channel {release_channel} add accounts = ({','.join(target_accounts)})"
+                )
+            except ProgrammingError as err:
+                if (
+                    err.errno == ACCOUNT_DOES_NOT_EXIST
+                    or err.errno == ACCOUNT_HAS_TOO_MANY_QUALIFIERS
+                ):
+                    raise UserInputError(
+                        f"Invalid account passed in.\n{str(err.msg)}"
+                    ) from err
+                if err.errno == CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS:
+                    raise UserInputError(
+                        f"Cannot modify accounts for release channel {release_channel} in application package {package_name}."
+                    ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to add accounts to release channel {release_channel} in application package {package_name}.",
+                )
+            except Exception as err:
+                handle_unclassified_error(
+                    err,
+                    f"Failed to add accounts to release channel {release_channel} in application package {package_name}.",
+                )
+
+    def remove_accounts_from_release_channel(
+        self,
+        package_name: str,
+        release_channel: str,
+        target_accounts: List[str],
+        role: str | None = None,
+    ):
+        """
+        Removes accounts from a release channel.
+
+        @param package_name: Name of the application package
+        @param release_channel: Name of the release channel
+        @param target_accounts: List of target accounts to remove from the release channel
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel)
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    f"alter application package {package_name} modify release channel {release_channel} remove accounts = ({','.join(target_accounts)})"
+                )
+            except ProgrammingError as err:
+                if (
+                    err.errno == ACCOUNT_DOES_NOT_EXIST
+                    or err.errno == ACCOUNT_HAS_TOO_MANY_QUALIFIERS
+                ):
+                    raise UserInputError(
+                        f"Invalid account passed in.\n{str(err.msg)}"
+                    ) from err
+                if err.errno == CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS:
+                    raise UserInputError(
+                        f"Cannot modify accounts for release channel {release_channel} in application package {package_name}."
+                    ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to remove accounts from release channel {release_channel} in application package {package_name}.",
+                )
+            except Exception as err:
+                handle_unclassified_error(
+                    err,
+                    f"Failed to remove accounts from release channel {release_channel} in application package {package_name}.",
+                )
 
 
 def _strip_empty_lines(text: str) -> str:

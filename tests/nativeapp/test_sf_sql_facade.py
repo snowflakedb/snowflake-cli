@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from contextlib import contextmanager
+from datetime import datetime
 from textwrap import dedent
 from unittest import mock
 from unittest.mock import _Call as Call
@@ -50,7 +51,9 @@ from snowflake.cli.api.errno import (
     APPLICATION_REQUIRES_TELEMETRY_SHARING,
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
     CANNOT_DISABLE_RELEASE_CHANNELS,
+    CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
     INSUFFICIENT_PRIVILEGES,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
     RELEASE_DIRECTIVE_DOES_NOT_EXIST,
@@ -2917,16 +2920,68 @@ def test_show_release_channels_when_feature_enabled(
     )
     mock_cursor_results = [
         {
-            "NAME": "test_channel",
-            "VERSIONS": '["V1"]',
-            "TARGETS": '{"accounts": []}',
+            "name": "test_channel",
+            "description": "test_description",
+            "versions": '["V1"]',
+            "created_on": datetime(2021, 2, 1),
+            "updated_on": datetime(2021, 4, 3),
+            "targets": '{"accounts": ["org1.acc1", "org2.acc2"]}',
         }
     ]
     mock_execute_query.side_effect = [mock_cursor(mock_cursor_results, [])]
 
     result = sql_facade.show_release_channels(package_name)
 
-    assert result == mock_cursor_results
+    # assert result is same as mock_cursor_results except for keys "targets" and "versions":
+    assert result == [
+        {
+            "name": "test_channel",
+            "description": "test_description",
+            "created_on": datetime(2021, 2, 1),
+            "updated_on": datetime(2021, 4, 3),
+            "targets": {"accounts": ["org1.acc1", "org2.acc2"]},
+            "versions": ["V1"],
+        }
+    ]
+
+    mock_get_ui_parameter.assert_called_once_with(
+        UIParameter.NA_FEATURE_RELEASE_CHANNELS, True
+    )
+    mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
+
+
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value=True)
+def test_show_release_channels_with_no_accounts_and_no_versions(
+    mock_get_ui_parameter, mock_execute_query, mock_cursor
+):
+    package_name = "test_package"
+
+    expected_query = f"show release channels in application package {package_name}"
+    mock_cursor_results = [
+        {
+            "name": "test_channel",
+            "description": "test_description",
+            "created_on": datetime(2021, 2, 1),
+            "updated_on": datetime(2021, 4, 3),
+            "targets": "",
+            "versions": "[]",
+        }
+    ]
+    mock_execute_query.side_effect = [mock_cursor(mock_cursor_results, [])]
+
+    result = sql_facade.show_release_channels(package_name)
+
+    assert result == [
+        {
+            "name": "test_channel",
+            "description": "test_description",
+            "created_on": datetime(2021, 2, 1),
+            "updated_on": datetime(2021, 4, 3),
+            "targets": {},
+            "versions": [],
+        }
+    ]
+
     mock_get_ui_parameter.assert_called_once_with(
         UIParameter.NA_FEATURE_RELEASE_CHANNELS, True
     )
@@ -2943,6 +2998,26 @@ def test_show_release_channels_when_error(
     mock_execute_query.side_effect = ProgrammingError()
 
     with pytest.raises(InvalidSQLError):
+        sql_facade.show_release_channels(package_name)
+
+    mock_get_ui_parameter.assert_called_once_with(
+        UIParameter.NA_FEATURE_RELEASE_CHANNELS, True
+    )
+    mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
+
+
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value=True)
+def test_show_release_channels_when_package_does_not_exist(
+    mock_get_ui_parameter, mock_execute_query, mock_cursor
+):
+    package_name = "test_package"
+
+    expected_query = f"show release channels in application package {package_name}"
+    mock_execute_query.side_effect = ProgrammingError(
+        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
+    )
+
+    with pytest.raises(UserInputError):
         sql_facade.show_release_channels(package_name)
 
     mock_get_ui_parameter.assert_called_once_with(
@@ -3639,3 +3714,185 @@ def test_drop_version_from_package_with_error(
             sql_facade.drop_version_from_package(
                 package_name=package_name, version=version, role=role
             )
+
+
+def test_add_accounts_to_release_channel_valid_input_then_success(
+    mock_use_role, mock_execute_query
+):
+    package_name = "test_package"
+    release_channel = "test_channel"
+    accounts = ["org1.acc1", "org2.acc2"]
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                "alter application package test_package modify release channel test_channel add accounts = (org1.acc1,org2.acc2)"
+            ),
+        ),
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.add_accounts_to_release_channel(
+            package_name, release_channel, accounts, role
+        )
+
+
+def test_add_accounts_to_release_channel_with_special_chars_in_names(
+    mock_use_role, mock_execute_query
+):
+    package_name = "test.package"
+    release_channel = "test.channel"
+    accounts = ["org1.acc1", "org2.acc2"]
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                'alter application package "test.package" modify release channel "test.channel" add accounts = (org1.acc1,org2.acc2)'
+            ),
+        ),
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.add_accounts_to_release_channel(
+            package_name, release_channel, accounts, role
+        )
+
+
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=ACCOUNT_DOES_NOT_EXIST),
+            UserInputError,
+            "Invalid account passed in.",
+        ),
+        (
+            ProgrammingError(errno=ACCOUNT_HAS_TOO_MANY_QUALIFIERS),
+            UserInputError,
+            "Invalid account passed in.",
+        ),
+        (
+            ProgrammingError(errno=CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS),
+            UserInputError,
+            "Cannot modify accounts for release channel test_channel in application package test_package.",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to add accounts to release channel test_channel in application package test_package.",
+        ),
+    ],
+)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_add_accounts_to_release_channel_error(
+    mock_execute_query, error_raised, error_caught, error_message, mock_use_role
+):
+    mock_execute_query.side_effect = error_raised
+
+    with pytest.raises(error_caught) as err:
+        sql_facade.add_accounts_to_release_channel(
+            "test_package", "test_channel", ["org1.acc1"], "test_role"
+        )
+
+    assert error_message in str(err)
+
+
+def test_remove_accounts_from_release_channel_valid_input_then_success(
+    mock_use_role, mock_execute_query
+):
+    package_name = "test_package"
+    release_channel = "test_channel"
+    accounts = ["org1.acc1", "org2.acc2"]
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                "alter application package test_package modify release channel test_channel remove accounts = (org1.acc1,org2.acc2)"
+            ),
+        ),
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.remove_accounts_from_release_channel(
+            package_name, release_channel, accounts, role
+        )
+
+
+def test_remove_accounts_from_release_channel_with_special_chars_in_names(
+    mock_use_role, mock_execute_query
+):
+    package_name = "test.package"
+    release_channel = "test.channel"
+    accounts = ["org1.acc1", "org2.acc2"]
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                'alter application package "test.package" modify release channel "test.channel" remove accounts = (org1.acc1,org2.acc2)'
+            ),
+        ),
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.remove_accounts_from_release_channel(
+            package_name, release_channel, accounts, role
+        )
+
+
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=ACCOUNT_DOES_NOT_EXIST),
+            UserInputError,
+            "Invalid account passed in.",
+        ),
+        (
+            ProgrammingError(errno=ACCOUNT_HAS_TOO_MANY_QUALIFIERS),
+            UserInputError,
+            "Invalid account passed in.",
+        ),
+        (
+            ProgrammingError(errno=CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS),
+            UserInputError,
+            "Cannot modify accounts for release channel test_channel in application package test_package.",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to remove accounts from release channel test_channel in application package test_package.",
+        ),
+    ],
+)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_remove_accounts_from_release_channel_error(
+    mock_execute_query, error_raised, error_caught, error_message, mock_use_role
+):
+    mock_execute_query.side_effect = error_raised
+
+    with pytest.raises(error_caught) as err:
+        sql_facade.remove_accounts_from_release_channel(
+            "test_package", "test_channel", ["org1.acc1"], "test_role"
+        )
+
+    assert error_message in str(err)

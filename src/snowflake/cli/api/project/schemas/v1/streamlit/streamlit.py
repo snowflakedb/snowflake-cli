@@ -27,7 +27,7 @@ class Streamlit(UpdatableModel, ObjectIdentifierModel(object_name="Streamlit")):
         title="Stage in which the app’s artifacts will be stored", default="streamlit"
     )
     query_warehouse: str = Field(
-        title="Snowflake warehouse to host the app", default="streamlit"
+        title="Snowflake warehouse to host the app", default=None
     )
     main_file: Optional[Path] = Field(
         title="Entrypoint file of the Streamlit app", default="streamlit_app.py"
