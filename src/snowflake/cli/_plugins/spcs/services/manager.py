@@ -23,8 +23,14 @@ from typing import List, Optional
 import yaml
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.spcs.common import (
+    EVENT_COLUMN_NAMES,
     NoPropertiesProvidedError,
+    SPCSEventTableError,
+    build_resource_clause,
+    build_time_clauses,
     filter_log_timestamp,
+    format_event_row,
+    format_metric_row,
     handle_object_already_exists,
     new_logs_only,
     strip_empty_lines,
@@ -200,10 +206,15 @@ class ServiceManager(SqlExecutionMixin):
         except KeyboardInterrupt:
             return
 
-    def get_account_event_table(self) -> str:
+    def get_account_event_table(self):
         query = "show parameters like 'event_table' in account"
         results = self.execute_query(query, cursor_class=DictCursor)
-        return next((r["value"] for r in results if r["key"] == "EVENT_TABLE"), "")
+        event_table = next(
+            (r["value"] for r in results if r["key"] == "EVENT_TABLE"), ""
+        )
+        if not event_table:
+            raise SPCSEventTableError("No SPCS event table configured in the account.")
+        return event_table
 
     def get_events(
         self,
@@ -214,115 +225,70 @@ class ServiceManager(SqlExecutionMixin):
         until: str | datetime | None = None,
         first: int = -1,
         last: int = -1,
+        show_all_columns: bool = False,
     ):
 
         account_event_table = self.get_account_event_table()
-        if not account_event_table:
-            return []
-
-        resource_filters = []
-        if service_name:
-            resource_filters.append(
-                f"resource_attributes:\"snow.service.name\" = '{service_name}'"
-            )
-        if instance_id:
-            resource_filters.append(
-                f"(resource_attributes:\"snow.service.instance\" = '{instance_id}' OR resource_attributes:\"snow.service.container.instance\" = '{instance_id}')"
-            )
-        if container_name:
-            resource_filters.append(
-                f"resource_attributes:\"snow.service.container.name\" = '{container_name}'"
-            )
-
-        resource_clause = " and ".join(resource_filters) if resource_filters else "1=1"
-
-        if isinstance(since, datetime):
-            since_clause = f"and timestamp >= '{since}'"
-        elif isinstance(since, str) and since:
-            since_clause = f"and timestamp >= sysdate() - interval '{since}'"
-        else:
-            since_clause = ""
-
-        if isinstance(until, datetime):
-            until_clause = f"and timestamp <= '{until}'"
-        elif isinstance(until, str) and until:
-            until_clause = f"and timestamp <= sysdate() - interval '{until}'"
-        else:
-            until_clause = ""
+        resource_clause = build_resource_clause(
+            service_name, instance_id, container_name
+        )
+        since_clause, until_clause = build_time_clauses(since, until)
 
         first_clause = f"limit {first}" if first >= 0 else ""
         last_clause = f"limit {last}" if last >= 0 else ""
 
-        query = self.execute_query(
-            f"""\
-                select * from (
-                    select *
-                    from {account_event_table}
-                    where (
-                        {resource_clause}
-                        {since_clause}
-                        {until_clause}
+        query = f"""\
+                     select *
+                    from (
+                        select *
+                        from {account_event_table}
+                        where (
+                            {resource_clause}
+                            {since_clause}
+                            {until_clause}
+                        )
+                        and record_type = 'LOG'
+                        and scope['name'] = 'snow.spcs.platform'
+                        order by timestamp desc
+                        {last_clause}
                     )
-                    AND RECORD_TYPE = 'LOG'
-                    AND SCOPE['name'] = 'snow.spcs.platform'
-                    order by timestamp desc
-                    {last_clause}
-                ) order by timestamp asc
-                {first_clause}
+                    order by timestamp asc
+                    {first_clause}
                 """
-        )
-        return query
 
-    def get_metrics(
+        cursor = self.execute_query(query)
+        raw_events = cursor.fetchall()
+        if not raw_events:
+            return []
+
+        if show_all_columns:
+            return [dict(zip(EVENT_COLUMN_NAMES, event)) for event in raw_events]
+
+        formatted_events = []
+        for raw_event in raw_events:
+            event_dict = dict(zip(EVENT_COLUMN_NAMES, raw_event))
+            formatted = format_event_row(event_dict)
+            formatted_events.append(formatted)
+
+        return formatted_events
+
+    def get_all_metrics(
         self,
         service_name: str,
         instance_id: str,
         container_name: str,
         since: str | datetime | None = None,
         until: str | datetime | None = None,
-        first: int = -1,
-        last: int = -1,
+        show_all_columns: bool = False,
     ):
+
         account_event_table = self.get_account_event_table()
-        if not account_event_table:
-            return []
+        resource_clause = build_resource_clause(
+            service_name, instance_id, container_name
+        )
+        since_clause, until_clause = build_time_clauses(since, until)
 
-        resource_filters = []
-        if service_name:
-            resource_filters.append(
-                f"resource_attributes:\"snow.service.name\" = '{service_name}'"
-            )
-        if instance_id:
-            resource_filters.append(
-                f"(resource_attributes:\"snow.service.instance\" = '{instance_id}' OR resource_attributes:\"snow.service.container.instance\" = '{instance_id}')"
-            )
-        if container_name:
-            resource_filters.append(
-                f"resource_attributes:\"snow.service.container.name\" = '{container_name}'"
-            )
-
-        resource_clause = " and ".join(resource_filters) if resource_filters else "1=1"
-
-        if isinstance(since, datetime):
-            since_clause = f"and timestamp >= '{since}'"
-        elif isinstance(since, str) and since:
-            since_clause = f"and timestamp >= sysdate() - interval '{since}'"
-        else:
-            since_clause = ""
-
-        if isinstance(until, datetime):
-            until_clause = f"and timestamp <= '{until}'"
-        elif isinstance(until, str) and until:
-            until_clause = f"and timestamp <= sysdate() - interval '{until}'"
-        else:
-            until_clause = ""
-
-        first_clause = f"limit {first}" if first >= 0 else ""
-        last_clause = f"limit {last}" if last >= 0 else ""
-
-        query = self.execute_query(
-            f"""\
-                select * from (
+        query = f"""\
                     select *
                     from {account_event_table}
                     where (
@@ -330,15 +296,76 @@ class ServiceManager(SqlExecutionMixin):
                         {since_clause}
                         {until_clause}
                     )
-                    AND RECORD_TYPE = 'METRIC'
-                    AND SCOPE['name'] = 'snow.spcs.platform'
+                    and record_type = 'METRIC'
+                    and scope['name'] = 'snow.spcs.platform'
                     order by timestamp desc
-                    {last_clause}
-                ) order by timestamp asc
-                {first_clause}
                 """
+
+        cursor = self.execute_query(query)
+        raw_metrics = cursor.fetchall()
+        if not raw_metrics:
+            return []
+
+        if show_all_columns:
+            return [dict(zip(EVENT_COLUMN_NAMES, metric)) for metric in raw_metrics]
+
+        formatted_metrics = []
+        for raw_metric in raw_metrics:
+            metric_dict = dict(zip(EVENT_COLUMN_NAMES, raw_metric))
+            formatted = format_metric_row(metric_dict)
+            formatted_metrics.append(formatted)
+
+        return formatted_metrics
+
+    def get_latest_metrics(
+        self,
+        service_name: str,
+        instance_id: str,
+        container_name: str,
+        show_all_columns: bool = False,
+    ):
+
+        account_event_table = self.get_account_event_table()
+        resource_clause = build_resource_clause(
+            service_name, instance_id, container_name
         )
-        return query
+
+        query = f"""
+            with rankedmetrics as (
+                select
+                    *,
+                    row_number() over (
+                        partition by record['metric']['name']
+                        order by timestamp desc
+                    ) as rank
+                from {account_event_table}
+                where
+                    record_type = 'METRIC'
+                    and scope['name'] = 'snow.spcs.platform'
+                    and {resource_clause}
+                    and timestamp > dateadd('hour', -1, current_timestamp)
+            )
+            select *
+            from rankedmetrics
+            where rank = 1
+            order by timestamp desc;
+        """
+
+        cursor = self.execute_query(query)
+        raw_metrics = cursor.fetchall()
+        if not raw_metrics:
+            return []
+
+        if show_all_columns:
+            return [dict(zip(EVENT_COLUMN_NAMES, metric)) for metric in raw_metrics]
+
+        formatted_metrics = []
+        for raw_metric in raw_metrics:
+            metric_dict = dict(zip(EVENT_COLUMN_NAMES, raw_metric))
+            formatted = format_metric_row(metric_dict)
+            formatted_metrics.append(formatted)
+
+        return formatted_metrics
 
     def upgrade_spec(self, service_name: str, spec_path: Path):
         spec = self._read_yaml(spec_path)
