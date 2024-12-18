@@ -17,7 +17,7 @@ from shlex import split
 
 from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 from tests.nativeapp.utils import touch
-from tests_integration.testing_utils.project_fixtures import *
+from tests_integration.testing_utils.project_fixtures import setup_v2_project_w_subdir
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
     contains_row_with,
@@ -378,7 +378,7 @@ def test_nativeapp_deploy_files_w_stage_subdir(
             [
                 *split("app deploy --package-entity-id=pkg_v2"),
                 "app/v2/manifest.yml",
-                "app/v2/setup_script.sql",
+                "app/v2/setup.sql",
                 "app/v2/README.md",
             ]
         )
@@ -392,9 +392,7 @@ def test_nativeapp_deploy_files_w_stage_subdir(
             ["stage", "list-files", f"{package_name}.{stage_name}"]
         )
         assert contains_row_with(stage_files.json, {"name": "stage/v2/manifest.yml"})
-        assert contains_row_with(
-            stage_files.json, {"name": "stage/v2/setup_script.sql"}
-        )
+        assert contains_row_with(stage_files.json, {"name": "stage/v2/setup.sql"})
         assert contains_row_with(stage_files.json, {"name": "stage/v2/README.md"})
         assert not_contains_row_with(stage_files.json, {"name": "stage/v2/file.txt"})
 

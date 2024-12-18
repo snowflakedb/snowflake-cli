@@ -23,7 +23,10 @@ from tests.project.fixtures import *
 from tests_integration.testing_utils import (
     assert_that_result_failed_with_message_containing,
 )
-from tests_integration.testing_utils.project_fixtures import *
+from tests_integration.testing_utils.project_fixtures import (
+    setup_v2_project_w_subdir_w_snowpark,
+    setup_v2_project_w_subdir,
+)
 
 
 @pytest.fixture
@@ -336,7 +339,7 @@ def test_nativeapp_can_bundle_with_subdirs(
 
         deploy_root = Path(project_root, "output", "deploy", subdir)
         assert Path(deploy_root, "manifest.yml").is_file()
-        assert Path(deploy_root, "setup_script.sql").is_file()
+        assert Path(deploy_root, "setup.sql").is_file()
         assert Path(deploy_root, "README.md").is_file()
 
 
@@ -356,7 +359,7 @@ def test_nativeapp_bundle_subdirs_dont_overwrite(
         for subdir in ["v1", "v2"]:
             deploy_root = Path(project_root, "output", "deploy", subdir)
             assert Path(deploy_root, "manifest.yml").is_file()
-            assert Path(deploy_root, "setup_script.sql").is_file()
+            assert Path(deploy_root, "setup.sql").is_file()
             assert Path(deploy_root, "README.md").is_file()
             assert Path(deploy_root, f"module-echo-{subdir}").is_dir()
             assert Path(

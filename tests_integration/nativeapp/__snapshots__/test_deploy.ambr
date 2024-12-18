@@ -80,7 +80,7 @@
   Local changes to be deployed:
     added:    app/v2/README.md -> README.md
     added:    app/v2/manifest.yml -> manifest.yml
-    added:    app/v2/setup_script.sql -> setup_script.sql
+    added:    app/v2/setup.sql -> setup.sql
   Updating the Snowflake stage from your local @@DEPLOY_ROOT@@/v2 directory.
   Validating Snowflake Native App setup script.
   Deployed successfully. Application package and stage are up-to-date.
@@ -230,7 +230,7 @@
   Local changes to be deployed:
     added:    app/v1/README.md -> README.md
     added:    app/v1/manifest.yml -> manifest.yml
-    added:    app/v1/setup_script.sql -> setup_script.sql
+    added:    app/v1/setup.sql -> setup.sql
   Updating the Snowflake stage from your local @@DEPLOY_ROOT@@/v1 directory.
   Validating Snowflake Native App setup script.
   Deployed successfully. Application package and stage are up-to-date.

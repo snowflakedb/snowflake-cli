@@ -6,22 +6,11 @@ from tests.nativeapp.factories import (
     ProjectV2Factory,
     ApplicationPackageEntityModelFactory,
     ApplicationEntityModelFactory,
+    ManifestFactory,
 )
 
 
-MANIFEST_BASIC = dedent(
-    """\
-            manifest_version: 1
-
-            version:
-                name: dev
-
-            artifacts:
-                setup_script: setup_script.sql
-                readme: README.md
-                extension_code: true
-        """
-)
+MANIFEST_BASIC = ManifestFactory()
 
 PYTHON_W_SNOWPARK = dedent(
     """\
@@ -72,10 +61,10 @@ def setup_v2_project_w_subdir(temp_dir):
             files={
                 "app/v1/manifest.yml": MANIFEST_BASIC,
                 "app/v1/README.md": readme_v1,
-                "app/v1/setup_script.sql": "SELECT 1;",
+                "app/v1/setup.sql": "SELECT 1;",
                 "app/v2/manifest.yml": MANIFEST_BASIC,
                 "app/v2/README.md": readme_v2,
-                "app/v2/setup_script.sql": "SELECT 1;",
+                "app/v2/setup.sql": "SELECT 1;",
             },
         )
         return project_name, temp_dir
@@ -124,11 +113,11 @@ def setup_v2_project_w_subdir_w_snowpark(temp_dir):
             files={
                 "app/v1/manifest.yml": MANIFEST_BASIC,
                 "app/v1/README.md": "\n",
-                "app/v1/setup_script.sql": setup_script,
+                "app/v1/setup.sql": setup_script,
                 "app/v1/module-echo-v1/echo-v1.py": PYTHON_W_SNOWPARK,
                 "app/v2/manifest.yml": MANIFEST_BASIC,
                 "app/v2/README.md": "\n",
-                "app/v2/setup_script.sql": setup_script,
+                "app/v2/setup.sql": setup_script,
                 "app/v2/module-echo-v2/echo-v2.py": PYTHON_W_SNOWPARK,
             },
         )
