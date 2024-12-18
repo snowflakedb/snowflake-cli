@@ -77,7 +77,7 @@ class SnowparkEntity(EntityBase[Generic[T]], ApplicationPackageChildInterface):
                     file_path_relative_to_deploy_root = (
                         Path(root).relative_to(self.deploy_root) / f
                     )
-                    imports.append(f"'{str(file_path_relative_to_deploy_root)}'")
+                    imports.append(f"'/{str(file_path_relative_to_deploy_root)}'")
 
         entity_type = model.get_type().upper()
 
