@@ -28,6 +28,13 @@
 * `snow app version create` now returns version, patch, and label in JSON format.
 * Add ability to specify release channel when creating application instance from release directive: `snow app run --from-release-directive --channel=<channel>`
 * Add ability to list release channels through `snow app release-channel list` command
+* Add `snow spcs service events` command to retrieve service-specific events:
+  * Supports filtering by service name, container name, instance ID, time intervals (`--since`, `--until`), and pagination (`--first`, `--last`).
+  * Use `--all` to fetch all columns.
+* Add `snow spcs service metrics` command to fetch service metrics:
+  * Supports filtering by service name, container name, instance ID, and time intervals (`--since`, `--until`).
+  * Use `--all` to fetch all columns.
+
 
 ## Fixes and improvements
 * Fixed crashes with older x86_64 Intel CPUs.
