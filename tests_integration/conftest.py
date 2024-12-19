@@ -31,7 +31,7 @@ import yaml
 from typer import Typer
 from typer.testing import CliRunner
 
-from snowflake.cli._app.cli_app import app_factory
+from snowflake.cli._app.cli_app import CliAppFactory
 from snowflake.cli.api.cli_global_context import (
     fork_cli_context,
     get_cli_context_manager,
@@ -188,7 +188,7 @@ class SnowCLIRunner(CliRunner):
 
 @pytest.fixture
 def runner(test_snowcli_config_provider, default_username, resource_suffix):
-    app = app_factory()
+    app = CliAppFactory().create_or_get_app()
     yield SnowCLIRunner(
         app,
         test_snowcli_config_provider,
