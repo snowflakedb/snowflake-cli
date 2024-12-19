@@ -163,8 +163,22 @@ def project_directory(temp_dir, test_root_path):
 
 
 @pytest.fixture()
-def config_file(test_root_path, temp_dir):
-    config_file_path = SecurePath(test_root_path) / "config" / "config.toml"
-    target_file_path = Path(temp_dir) / "config.toml"
-    config_file_path.copy(target_file_path)
-    yield target_file_path
+def prepare_test_config_file(temp_dir):
+    def f(config_file_path: SecurePath):
+        target_file_path = Path(temp_dir) / "config.toml"
+        config_file_path.copy(target_file_path)
+        return target_file_path
+
+    return f
+
+
+@pytest.fixture()
+def config_file(test_root_path, prepare_test_config_file):
+    yield prepare_test_config_file(
+        SecurePath(test_root_path) / "config" / "config.toml"
+    )
+
+
+@pytest.fixture()
+def empty_config_file(test_root_path, prepare_test_config_file):
+    yield prepare_test_config_file(SecurePath(test_root_path) / "config" / "empty.toml")
