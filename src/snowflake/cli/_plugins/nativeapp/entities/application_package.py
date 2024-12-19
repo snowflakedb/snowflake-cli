@@ -930,6 +930,46 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             role=self.role,
         )
 
+    def action_release_channel_add_version(
+        self,
+        action_ctx: ActionContext,
+        release_channel: str,
+        version: str,
+        *args,
+        **kwargs,
+    ):
+        """
+        Adds a version to a release channel.
+        """
+
+        self.validate_release_channel(release_channel)
+        get_snowflake_facade().add_version_to_release_channel(
+            package_name=self.name,
+            release_channel=release_channel,
+            version=version,
+            role=self.role,
+        )
+
+    def action_release_channel_remove_version(
+        self,
+        action_ctx: ActionContext,
+        release_channel: str,
+        version: str,
+        *args,
+        **kwargs,
+    ):
+        """
+        Removes a version from a release channel.
+        """
+
+        self.validate_release_channel(release_channel)
+        get_snowflake_facade().remove_version_from_release_channel(
+            package_name=self.name,
+            release_channel=release_channel,
+            version=version,
+            role=self.role,
+        )
+
     def _bundle_children(self, action_ctx: ActionContext) -> List[str]:
         # Create _children directory
         children_artifacts_dir = self.children_artifacts_deploy_root

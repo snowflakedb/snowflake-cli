@@ -63,6 +63,7 @@ from snowflake.cli.api.errno import (
     SQL_COMPILATION_ERROR,
     VERSION_DOES_NOT_EXIST,
     VERSION_NOT_ADDED_TO_RELEASE_CHANNEL,
+    VERSION_NOT_IN_RELEASE_CHANNEL,
 )
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.metrics import CLICounterField
@@ -1300,6 +1301,86 @@ class SnowflakeSQLFacade:
                 handle_unclassified_error(
                     err,
                     f"Failed to remove accounts from release channel {release_channel} in application package {package_name}.",
+                )
+
+    def add_version_to_release_channel(
+        self,
+        package_name: str,
+        release_channel: str,
+        version: str,
+        role: str | None = None,
+    ):
+        """
+        Adds a version to a release channel.
+
+        @param package_name: Name of the application package
+        @param release_channel: Name of the release channel
+        @param version: Version to add to the release channel
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel)
+        version = to_identifier(version)
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    f"alter application package {package_name} modify release channel {release_channel} add version {version}"
+                )
+            except ProgrammingError as err:
+                if err.errno == VERSION_DOES_NOT_EXIST:
+                    raise UserInputError(
+                        f"Version {version} does not exist in application package {package_name}."
+                    ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to add version {version} to release channel {release_channel} in application package {package_name}.",
+                )
+            except Exception as err:
+                handle_unclassified_error(
+                    err,
+                    f"Failed to add version {version} to release channel {release_channel} in application package {package_name}.",
+                )
+
+    def remove_version_from_release_channel(
+        self,
+        package_name: str,
+        release_channel: str,
+        version: str,
+        role: str | None = None,
+    ):
+        """
+        Removes a version from a release channel.
+
+        @param package_name: Name of the application package
+        @param release_channel: Name of the release channel
+        @param version: Version to remove from the release channel
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel)
+        version = to_identifier(version)
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    f"alter application package {package_name} modify release channel {release_channel} drop version {version}"
+                )
+            except ProgrammingError as err:
+                if err.errno == VERSION_NOT_IN_RELEASE_CHANNEL:
+                    raise UserInputError(
+                        f"Version {version} is not found in release channel {release_channel}."
+                    ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to remove version {version} from release channel {release_channel} in application package {package_name}.",
+                )
+            except Exception as err:
+                handle_unclassified_error(
+                    err,
+                    f"Failed to remove version {version} from release channel {release_channel} in application package {package_name}.",
                 )
 
 
