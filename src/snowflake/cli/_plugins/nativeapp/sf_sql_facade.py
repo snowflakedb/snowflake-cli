@@ -57,13 +57,16 @@ from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
     INSUFFICIENT_PRIVILEGES,
+    MAX_VERSIONS_IN_RELEASE_CHANNEL_REACHED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
     RELEASE_DIRECTIVE_DOES_NOT_EXIST,
     RELEASE_DIRECTIVES_VERSION_PATCH_NOT_FOUND,
     SQL_COMPILATION_ERROR,
+    VERSION_ALREADY_ADDED_TO_RELEASE_CHANNEL,
     VERSION_DOES_NOT_EXIST,
     VERSION_NOT_ADDED_TO_RELEASE_CHANNEL,
     VERSION_NOT_IN_RELEASE_CHANNEL,
+    VERSION_REFERENCED_BY_RELEASE_DIRECTIVE,
 )
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.metrics import CLICounterField
@@ -1328,16 +1331,20 @@ class SnowflakeSQLFacade:
                 self._sql_executor.execute_query(
                     f"alter application package {package_name} modify release channel {release_channel} add version {version}"
                 )
-            except ProgrammingError as err:
-                if err.errno == VERSION_DOES_NOT_EXIST:
-                    raise UserInputError(
-                        f"Version {version} does not exist in application package {package_name}."
-                    ) from err
-                handle_unclassified_error(
-                    err,
-                    f"Failed to add version {version} to release channel {release_channel} in application package {package_name}.",
-                )
             except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno == VERSION_DOES_NOT_EXIST:
+                        raise UserInputError(
+                            f"Version {version} does not exist in application package {package_name}."
+                        ) from err
+                    if err.errno == VERSION_ALREADY_ADDED_TO_RELEASE_CHANNEL:
+                        raise UserInputError(
+                            f"Version {version} is already added to release channel {release_channel}."
+                        ) from err
+                    if err.errno == MAX_VERSIONS_IN_RELEASE_CHANNEL_REACHED:
+                        raise UserInputError(
+                            f"Maximum number of versions allowed in release channel {release_channel} has been reached."
+                        ) from err
                 handle_unclassified_error(
                     err,
                     f"Failed to add version {version} to release channel {release_channel} in application package {package_name}.",
@@ -1368,16 +1375,16 @@ class SnowflakeSQLFacade:
                 self._sql_executor.execute_query(
                     f"alter application package {package_name} modify release channel {release_channel} drop version {version}"
                 )
-            except ProgrammingError as err:
-                if err.errno == VERSION_NOT_IN_RELEASE_CHANNEL:
-                    raise UserInputError(
-                        f"Version {version} is not found in release channel {release_channel}."
-                    ) from err
-                handle_unclassified_error(
-                    err,
-                    f"Failed to remove version {version} from release channel {release_channel} in application package {package_name}.",
-                )
             except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno == VERSION_NOT_IN_RELEASE_CHANNEL:
+                        raise UserInputError(
+                            f"Version {version} is not found in release channel {release_channel}."
+                        ) from err
+                    if err.errno == VERSION_REFERENCED_BY_RELEASE_DIRECTIVE:
+                        raise UserInputError(
+                            f"Cannot remove version {version} from release channel {release_channel} as it is referenced by a release directive."
+                        ) from err
                 handle_unclassified_error(
                     err,
                     f"Failed to remove version {version} from release channel {release_channel} in application package {package_name}.",
