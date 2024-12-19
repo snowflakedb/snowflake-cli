@@ -2506,7 +2506,7 @@ def test_run_app_from_release_directive_with_channel_not_in_list(
 
     assert (
         str(err.value)
-        == "Release channel 'unknown_channel' is not available for application package app_pkg. Available release channels: (channel1, channel2)."
+        == "Release channel unknown_channel is not available in application package app_pkg. Available release channels are: (channel1, channel2)."
     )
     mock_sql_facade_upgrade_application.assert_not_called()
     mock_sql_facade_create_application.assert_not_called()

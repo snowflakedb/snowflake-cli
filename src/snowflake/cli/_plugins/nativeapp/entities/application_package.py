@@ -8,7 +8,7 @@ from textwrap import dedent
 from typing import Any, List, Literal, Optional, Set, Union
 
 import typer
-from click import BadOptionUsage, ClickException
+from click import BadOptionUsage, ClickException, UsageError
 from pydantic import Field, field_validator
 from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.nativeapp.artifacts import (
@@ -97,7 +97,6 @@ from snowflake.cli.api.project.util import (
     VALID_IDENTIFIER_REGEX,
     append_test_resource_suffix,
     extract_schema,
-    identifier_in_list,
     identifier_to_show_like_pattern,
     same_identifiers,
     sql_match,
@@ -622,6 +621,69 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             f"Version {version} in application package {self.name} dropped successfully."
         )
 
+    def _validate_target_accounts(self, accounts: list[str]) -> None:
+        """
+        Validates the target accounts provided by the user.
+        """
+        for account in accounts:
+            if not re.fullmatch(
+                f"{VALID_IDENTIFIER_REGEX}\\.{VALID_IDENTIFIER_REGEX}", account
+            ):
+                raise ClickException(
+                    f"Target account {account} is not in a valid format. Make sure you provide the target account in the format 'org.account'."
+                )
+
+    def get_sanitized_release_channel(
+        self, release_channel: Optional[str]
+    ) -> Optional[str]:
+        """
+        Sanitize the release channel name provided by the user and validate it against the available release channels.
+
+        A return value of None indicates that release channels should not be used. Returns None if:
+        - Release channel is not provided
+        - Release channels are not enabled in the application package and the user provided the default release channel
+        """
+        if not release_channel:
+            return None
+
+        available_release_channels = get_snowflake_facade().show_release_channels(
+            self.name, self.role
+        )
+
+        if not available_release_channels and same_identifiers(
+            release_channel, DEFAULT_CHANNEL
+        ):
+            return None
+
+        self.validate_release_channel(release_channel, available_release_channels)
+        return release_channel
+
+    def validate_release_channel(
+        self,
+        release_channel: str,
+        available_release_channels: Optional[list[ReleaseChannel]] = None,
+    ) -> None:
+        """
+        Validates the release channel provided by the user and make sure it is a valid release channel for the application package.
+        """
+
+        if available_release_channels is None:
+            available_release_channels = get_snowflake_facade().show_release_channels(
+                self.name, self.role
+            )
+        if not available_release_channels:
+            raise UsageError(
+                f"Release channels are not enabled for application package {self.name}."
+            )
+        for channel in available_release_channels:
+            if same_identifiers(release_channel, channel["name"]):
+                return
+
+        raise UsageError(
+            f"Release channel {release_channel} is not available in application package {self.name}. "
+            f"Available release channels are: ({', '.join(channel['name'] for channel in available_release_channels)})."
+        )
+
     def action_release_directive_list(
         self,
         action_ctx: ActionContext,
@@ -636,25 +698,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         If `like` is provided, only release directives matching the SQL LIKE pattern are listed.
         """
-        available_release_channels = get_snowflake_facade().show_release_channels(
-            self.name, self.role
-        )
-
-        # assume no release channel used if user selects default channel and release channels are not enabled
-        if (
-            release_channel
-            and same_identifiers(release_channel, DEFAULT_CHANNEL)
-            and not available_release_channels
-        ):
-            release_channel = None
-
-        release_channel_names = [c.get("name") for c in available_release_channels]
-        if release_channel and not identifier_in_list(
-            release_channel, release_channel_names
-        ):
-            raise ClickException(
-                f"Release channel {release_channel} does not exist in application package {self.name}."
-            )
+        release_channel = self.get_sanitized_release_channel(release_channel)
 
         release_directives = get_snowflake_facade().show_release_directives(
             package_name=self.name,
@@ -686,13 +730,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         For non-default release directives, update the existing release directive if target accounts are not provided.
         """
         if target_accounts:
-            for account in target_accounts:
-                if not re.fullmatch(
-                    f"{VALID_IDENTIFIER_REGEX}\\.{VALID_IDENTIFIER_REGEX}", account
-                ):
-                    raise ClickException(
-                        f"Target account {account} is not in a valid format. Make sure you provide the target account in the format 'org.account'."
-                    )
+            self._validate_target_accounts(target_accounts)
 
         if target_accounts and same_identifiers(release_directive, DEFAULT_DIRECTIVE):
             raise BadOptionUsage(
@@ -700,18 +738,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 "Target accounts can only be specified for non-default named release directives.",
             )
 
-        available_release_channels = get_snowflake_facade().show_release_channels(
-            self.name, self.role
-        )
-
-        release_channel_names = [c.get("name") for c in available_release_channels]
-
-        if not same_identifiers(
-            release_channel, DEFAULT_CHANNEL
-        ) and not identifier_in_list(release_channel, release_channel_names):
-            raise ClickException(
-                f"Release channel {release_channel} does not exist in application package {self.name}."
-            )
+        sanitized_release_channel = self.get_sanitized_release_channel(release_channel)
 
         if (
             not same_identifiers(release_directive, DEFAULT_DIRECTIVE)
@@ -722,7 +749,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             get_snowflake_facade().modify_release_directive(
                 package_name=self.name,
                 release_directive=release_directive,
-                release_channel=release_channel,
+                release_channel=sanitized_release_channel,
                 version=version,
                 patch=patch,
                 role=self.role,
@@ -731,7 +758,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             get_snowflake_facade().set_release_directive(
                 package_name=self.name,
                 release_directive=release_directive,
-                release_channel=release_channel if available_release_channels else None,
+                release_channel=sanitized_release_channel,
                 target_accounts=target_accounts,
                 version=version,
                 patch=patch,
@@ -739,7 +766,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             )
 
     def action_release_directive_unset(
-        self, action_ctx: ActionContext, release_directive: str, release_channel: str
+        self,
+        action_ctx: ActionContext,
+        release_directive: str,
+        release_channel: str,
     ):
         """
         Unsets a release directive from the specified release channel.
@@ -749,21 +779,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 "Cannot unset default release directive. Please specify a non-default release directive."
             )
 
-        available_release_channels = get_snowflake_facade().show_release_channels(
-            self.name, self.role
-        )
-        release_channel_names = [c.get("name") for c in available_release_channels]
-        if not same_identifiers(
-            release_channel, DEFAULT_CHANNEL
-        ) and not identifier_in_list(release_channel, release_channel_names):
-            raise ClickException(
-                f"Release channel {release_channel} does not exist in application package {self.name}."
-            )
-
         get_snowflake_facade().unset_release_directive(
             package_name=self.name,
             release_directive=release_directive,
-            release_channel=release_channel if available_release_channels else None,
+            release_channel=self.get_sanitized_release_channel(release_channel),
             role=self.role,
         )
 
@@ -861,6 +880,56 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         return bundle_map
 
+    def action_release_channel_add_accounts(
+        self,
+        action_ctx: ActionContext,
+        release_channel: str,
+        target_accounts: list[str],
+        *args,
+        **kwargs,
+    ):
+        """
+        Adds target accounts to a release channel.
+        """
+
+        if not target_accounts:
+            raise ClickException("No target accounts provided.")
+
+        self.validate_release_channel(release_channel)
+        self._validate_target_accounts(target_accounts)
+
+        get_snowflake_facade().add_accounts_to_release_channel(
+            package_name=self.name,
+            release_channel=release_channel,
+            target_accounts=target_accounts,
+            role=self.role,
+        )
+
+    def action_release_channel_remove_accounts(
+        self,
+        action_ctx: ActionContext,
+        release_channel: str,
+        target_accounts: list[str],
+        *args,
+        **kwargs,
+    ):
+        """
+        Removes target accounts from a release channel.
+        """
+
+        if not target_accounts:
+            raise ClickException("No target accounts provided.")
+
+        self.validate_release_channel(release_channel)
+        self._validate_target_accounts(target_accounts)
+
+        get_snowflake_facade().remove_accounts_from_release_channel(
+            package_name=self.name,
+            release_channel=release_channel,
+            target_accounts=target_accounts,
+            role=self.role,
+        )
+
     def _bundle_children(self, action_ctx: ActionContext) -> List[str]:
         # Create _children directory
         children_artifacts_dir = self.children_artifacts_deploy_root
@@ -897,6 +966,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 child_entity.get_deploy_sql(
                     artifacts_dir=child_artifacts_dir.relative_to(self.deploy_root),
                     schema=child_schema,
+                    # TODO Allow users to override the hard-coded value for specific children
+                    replace=True,
                 )
             )
             if app_role:
