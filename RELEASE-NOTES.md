@@ -28,6 +28,7 @@
 * `snow app version create` now returns version, patch, and label in JSON format.
 * Add ability to specify release channel when creating application instance from release directive: `snow app run --from-release-directive --channel=<channel>`
 * Add ability to list release channels through `snow app release-channel list` command
+* Added a new command: `snow helpers import-snowsql-connections` allowing to import configuration of connections from SnowSQL.
 
 ## Fixes and improvements
 * Fixed crashes with older x86_64 Intel CPUs.

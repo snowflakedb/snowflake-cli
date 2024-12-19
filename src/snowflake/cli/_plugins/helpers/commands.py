@@ -102,7 +102,7 @@ def v1_to_v2(
     return MessageResult("Project definition migrated to version 2.")
 
 
-@app.command(name="import-snowsql-connections", requires_connection=False, hidden=True)
+@app.command(name="import-snowsql-connections", requires_connection=False)
 def import_snowsql_connections(
     custom_snowsql_config_files: Optional[List[Path]] = typer.Option(
         None,
@@ -118,7 +118,7 @@ def import_snowsql_connections(
     ),
     **options,
 ) -> CommandResult:
-    """Copy your existing connections from your SnowSQL configuration"""
+    """Import your existing connections from your SnowSQL configuration."""
 
     snowsql_config_files: list[Path] = custom_snowsql_config_files or [
         Path("/etc/snowsql.cnf"),
