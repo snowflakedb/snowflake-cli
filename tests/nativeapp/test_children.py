@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from textwrap import dedent
 
 import pytest
 import yaml
@@ -139,13 +140,15 @@ def test_children_bundle_with_custom_dir(project_directory):
             setup_script_content = f.read()
             custom_dir_path = Path("_entities", "my_streamlit")
             assert setup_script_content.endswith(
-                f"""
--- AUTO GENERATED CHILDREN SECTION
-CREATE OR REPLACE STREAMLIT IDENTIFIER('v_schema.my_streamlit')
-FROM = '{custom_dir_path}'
-MAIN_FILE = 'streamlit_app.py';
-CREATE APPLICATION ROLE IF NOT EXISTS my_app_role;
-GRANT USAGE ON SCHEMA v_schema TO APPLICATION ROLE my_app_role;
-GRANT USAGE ON STREAMLIT v_schema.my_streamlit TO APPLICATION ROLE my_app_role;
+                dedent(
+                    f"""
+                    -- AUTO GENERATED CHILDREN SECTION
+                    CREATE OR REPLACE STREAMLIT IDENTIFIER('v_schema.my_streamlit')
+                    FROM '{custom_dir_path}'
+                    MAIN_FILE = 'streamlit_app.py';
+                    CREATE APPLICATION ROLE IF NOT EXISTS my_app_role;
+                    GRANT USAGE ON SCHEMA v_schema TO APPLICATION ROLE my_app_role;
+                    GRANT USAGE ON STREAMLIT v_schema.my_streamlit TO APPLICATION ROLE my_app_role;
 """
+                )
             )
