@@ -138,3 +138,75 @@ def release_channel_remove_accounts(
     )
 
     return MessageResult("Successfully removed accounts from the release channel.")
+
+
+@app.command("add-version", requires_connection=True)
+@with_project_definition()
+@force_project_definition_v2()
+def release_channel_add_version(
+    channel: str = typer.Argument(
+        show_default=False,
+        help="The release channel to add a version to.",
+    ),
+    version: str = typer.Option(
+        show_default=False,
+        help="The version to add to the release channel.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Adds a version to a release channel.
+    """
+
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    package_id = options["package_entity_id"]
+    ws.perform_action(
+        package_id,
+        EntityActions.RELEASE_CHANNEL_ADD_VERSION,
+        release_channel=channel,
+        version=version,
+    )
+
+    return MessageResult(
+        f"Successfully added version {version} to the release channel."
+    )
+
+
+@app.command("remove-version", requires_connection=True)
+@with_project_definition()
+@force_project_definition_v2()
+def release_channel_remove_version(
+    channel: str = typer.Argument(
+        show_default=False,
+        help="The release channel to remove a version from.",
+    ),
+    version: str = typer.Option(
+        show_default=False,
+        help="The version to remove from the release channel.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Removes a version from a release channel.
+    """
+
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    package_id = options["package_entity_id"]
+    ws.perform_action(
+        package_id,
+        EntityActions.RELEASE_CHANNEL_REMOVE_VERSION,
+        release_channel=channel,
+        version=version,
+    )
+
+    return MessageResult(
+        f"Successfully removed version {version} from the release channel."
+    )

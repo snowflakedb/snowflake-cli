@@ -61,6 +61,7 @@ from snowflake.cli.api.errno import (
     SQL_COMPILATION_ERROR,
     VERSION_DOES_NOT_EXIST,
     VERSION_NOT_ADDED_TO_RELEASE_CHANNEL,
+    VERSION_NOT_IN_RELEASE_CHANNEL,
 )
 from snowflake.connector import DatabaseError, DictCursor, Error
 from snowflake.connector.errors import (
@@ -3893,6 +3894,169 @@ def test_remove_accounts_from_release_channel_error(
     with pytest.raises(error_caught) as err:
         sql_facade.remove_accounts_from_release_channel(
             "test_package", "test_channel", ["org1.acc1"], "test_role"
+        )
+
+    assert error_message in str(err)
+
+
+def test_add_version_to_release_channel_valid_input_then_success(
+    mock_use_role, mock_execute_query
+):
+    package_name = "test_package"
+    release_channel = "test_channel"
+    version = "v1"
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                f"alter application package {package_name} modify release channel {release_channel} add version {version}"
+            ),
+        ),
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.add_version_to_release_channel(
+            package_name, release_channel, version, role
+        )
+
+
+def test_add_version_to_release_channel_with_special_chars_in_names(
+    mock_use_role, mock_execute_query
+):
+    package_name = "test.package"
+    release_channel = "test.channel"
+    version = "v1.0"
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                f'alter application package "{package_name}" modify release channel "{release_channel}" add version "{version}"'
+            ),
+        ),
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.add_version_to_release_channel(
+            package_name, release_channel, version, role
+        )
+
+
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=VERSION_DOES_NOT_EXIST),
+            UserInputError,
+            "Version v1 does not exist in application package test_package.",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to add version v1 to release channel test_channel in application package test_package.",
+        ),
+    ],
+)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_add_version_to_release_channel_error(
+    mock_execute_query, error_raised, error_caught, error_message, mock_use_role
+):
+    mock_execute_query.side_effect = error_raised
+
+    with pytest.raises(error_caught) as err:
+        sql_facade.add_version_to_release_channel(
+            "test_package", "test_channel", "v1", "test_role"
+        )
+
+    assert error_message in str(err)
+
+
+# same tests but for remove_version_from_release_channel
+def test_remove_version_from_release_channel_valid_input_then_success(
+    mock_use_role, mock_execute_query
+):
+    package_name = "test_package"
+    release_channel = "test_channel"
+    version = "v1"
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                f"alter application package {package_name} modify release channel {release_channel} drop version {version}"
+            ),
+        ),
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.remove_version_from_release_channel(
+            package_name, release_channel, version, role
+        )
+
+
+def test_remove_version_from_release_channel_with_special_chars_in_names(
+    mock_use_role, mock_execute_query
+):
+    package_name = "test.package"
+    release_channel = "test.channel"
+    version = "v1.0"
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                f'alter application package "{package_name}" modify release channel "{release_channel}" drop version "{version}"'
+            ),
+        ),
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.remove_version_from_release_channel(
+            package_name, release_channel, version, role
+        )
+
+
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=VERSION_NOT_IN_RELEASE_CHANNEL),
+            UserInputError,
+            "Version v1 is not found in release channel test_channel.",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to remove version v1 from release channel test_channel in application package test_package.",
+        ),
+    ],
+)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_remove_version_from_release_channel_error(
+    mock_execute_query, error_raised, error_caught, error_message, mock_use_role
+):
+    mock_execute_query.side_effect = error_raised
+
+    with pytest.raises(error_caught) as err:
+        sql_facade.remove_version_from_release_channel(
+            "test_package", "test_channel", "v1", "test_role"
         )
 
     assert error_message in str(err)
