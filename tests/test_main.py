@@ -26,7 +26,6 @@ from unittest import mock
 
 import pytest
 from click import Command
-from snowflake.cli._app.cli_app import app_context_holder
 from snowflake.connector.config_manager import CONFIG_MANAGER
 from typer.core import TyperArgument, TyperOption
 
@@ -89,11 +88,10 @@ def test_docs_callback(runner):
     assert result.exit_code == 0, result.output
 
 
-def test_all_commands_have_proper_documentation(runner):
+def test_all_commands_have_proper_documentation(runner, get_click_context):
     # invoke any command to populate app context (plugins registration)
     runner.invoke("--help")
 
-    ctx = app_context_holder.app_context
     errors = []
 
     def _check(command: Command, path: t.Optional[t.List] = None):
@@ -128,15 +126,14 @@ def test_all_commands_have_proper_documentation(runner):
                             f"Command `snow {' '.join(path)}` is missing help for `{param.name}` option"
                         )
 
-    _check(ctx.command)
+    _check(get_click_context().command)
 
     assert len(errors) == 0, "\n".join(errors)
 
 
-def test_if_there_are_no_option_duplicates(runner):
+def test_if_there_are_no_option_duplicates(runner, get_click_context):
     runner.invoke("--help")
 
-    ctx = app_context_holder.app_context
     duplicates = {}
 
     def _check(command: Command, path: t.Optional[t.List] = None):
@@ -161,7 +158,7 @@ def test_if_there_are_no_option_duplicates(runner):
             ]
         )
 
-    _check(ctx.command)
+    _check(get_click_context().command)
 
     assert duplicates == {}, "\n".join(duplicates)
 
