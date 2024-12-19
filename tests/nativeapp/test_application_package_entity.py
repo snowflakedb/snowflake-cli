@@ -39,9 +39,11 @@ from tests.nativeapp.utils import (
     APPLICATION_PACKAGE_ENTITY_MODULE,
     SQL_EXECUTOR_EXECUTE,
     SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_CHANNEL,
+    SQL_FACADE_ADD_VERSION_TO_RELEASE_CHANNEL,
     SQL_FACADE_GET_UI_PARAMETER,
     SQL_FACADE_MODIFY_RELEASE_DIRECTIVE,
     SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_CHANNEL,
+    SQL_FACADE_REMOVE_VERSION_FROM_RELEASE_CHANNEL,
     SQL_FACADE_SET_RELEASE_DIRECTIVE,
     SQL_FACADE_SHOW_RELEASE_CHANNELS,
     SQL_FACADE_SHOW_RELEASE_DIRECTIVES,
@@ -1241,3 +1243,177 @@ def test_given_invalid_account_names_when_remove_accounts_from_release_channel_t
     )
 
     remove_accounts_from_release_channel.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_ADD_VERSION_TO_RELEASE_CHANNEL)
+def test_given_release_channel_and_version_when_release_channel_add_version_then_success(
+    add_version_to_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    application_package_entity.action_release_channel_add_version(
+        action_ctx=action_context,
+        release_channel="test_channel",
+        version="1.0",
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    add_version_to_release_channel.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel="test_channel",
+        version="1.0",
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_ADD_VERSION_TO_RELEASE_CHANNEL)
+def test_given_release_channels_disabled_when_release_channel_add_version_then_error(
+    add_version_to_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = []
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_channel_add_version(
+            action_ctx=action_context,
+            release_channel="invalid_channel",
+            version="1.0",
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channels are not enabled for application package {pkg_model.fqn.name}."
+    )
+
+    add_version_to_release_channel.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_ADD_VERSION_TO_RELEASE_CHANNEL)
+def test_given_invalid_release_channel_when_release_channel_add_version_then_error(
+    add_version_to_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_channel_add_version(
+            action_ctx=action_context,
+            release_channel="invalid_channel",
+            version="1.0",
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channel invalid_channel is not available in application package {pkg_model.fqn.name}. Available release channels are: (test_channel)."
+    )
+
+    add_version_to_release_channel.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_REMOVE_VERSION_FROM_RELEASE_CHANNEL)
+def test_given_release_channel_and_version_when_release_channel_remove_version_then_success(
+    remove_version_from_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    application_package_entity.action_release_channel_remove_version(
+        action_ctx=action_context,
+        release_channel="test_channel",
+        version="1.0",
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    remove_version_from_release_channel.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel="test_channel",
+        version="1.0",
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_REMOVE_VERSION_FROM_RELEASE_CHANNEL)
+def test_given_release_channels_disabled_when_release_channel_remove_version_then_error(
+    remove_version_from_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = []
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_channel_remove_version(
+            action_ctx=action_context,
+            release_channel="invalid_channel",
+            version="1.0",
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channels are not enabled for application package {pkg_model.fqn.name}."
+    )
+
+    remove_version_from_release_channel.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_REMOVE_VERSION_FROM_RELEASE_CHANNEL)
+def test_given_invalid_release_channel_when_release_channel_remove_version_then_error(
+    remove_version_from_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_channel_remove_version(
+            action_ctx=action_context,
+            release_channel="invalid_channel",
+            version="1.0",
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channel invalid_channel is not available in application package {pkg_model.fqn.name}. Available release channels are: (test_channel)."
+    )
+
+    remove_version_from_release_channel.assert_not_called()

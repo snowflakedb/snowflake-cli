@@ -684,6 +684,109 @@
   
   '''
 # ---
+# name: test_help_messages[app.release-channel.add-version]
+  '''
+                                                                                  
+   Usage: default app release-channel add-version [OPTIONS] CHANNEL               
+                                                                                  
+   Adds a version to a release channel.                                           
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    channel      TEXT  The release channel to add a version to.             |
+  |                         [required]                                           |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | *  --version                    TEXT  The version to add to the release      |
+  |                                       channel.                               |
+  |                                       [required]                             |
+  |    --package-entity-id          TEXT  The ID of the package entity on which  |
+  |                                       to operate when definition_version is  |
+  |                                       2 or higher.                           |
+  |    --app-entity-id              TEXT  The ID of the application entity on    |
+  |                                       which to operate when                  |
+  |                                       definition_version is 2 or higher.     |
+  |    --project            -p      TEXT  Path where Snowflake project resides.  |
+  |                                       Defaults to current working directory. |
+  |    --env                        TEXT  String in format of key=value.         |
+  |                                       Overrides variables from env section   |
+  |                                       used for templates.                    |
+  |    --help               -h            Show this message and exit.            |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses connection defined with |
+  |                                                 command line parameters,     |
+  |                                                 instead of one defined in    |
+  |                                                 config                       |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Run Python connector         |
+  |                                                 diagnostic test              |
+  | --diag-log-path                        TEXT     Diagnostic report path       |
+  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
+  |                                                 optional allowlist           |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[app.release-channel.list]
   '''
                                                                                   
@@ -888,6 +991,109 @@
   
   '''
 # ---
+# name: test_help_messages[app.release-channel.remove-version]
+  '''
+                                                                                  
+   Usage: default app release-channel remove-version [OPTIONS] CHANNEL            
+                                                                                  
+   Removes a version from a release channel.                                      
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    channel      TEXT  The release channel to remove a version from.        |
+  |                         [required]                                           |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | *  --version                    TEXT  The version to remove from the release |
+  |                                       channel.                               |
+  |                                       [required]                             |
+  |    --package-entity-id          TEXT  The ID of the package entity on which  |
+  |                                       to operate when definition_version is  |
+  |                                       2 or higher.                           |
+  |    --app-entity-id              TEXT  The ID of the application entity on    |
+  |                                       which to operate when                  |
+  |                                       definition_version is 2 or higher.     |
+  |    --project            -p      TEXT  Path where Snowflake project resides.  |
+  |                                       Defaults to current working directory. |
+  |    --env                        TEXT  String in format of key=value.         |
+  |                                       Overrides variables from env section   |
+  |                                       used for templates.                    |
+  |    --help               -h            Show this message and exit.            |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses connection defined with |
+  |                                                 command line parameters,     |
+  |                                                 instead of one defined in    |
+  |                                                 config                       |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Run Python connector         |
+  |                                                 diagnostic test              |
+  | --diag-log-path                        TEXT     Diagnostic report path       |
+  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
+  |                                                 optional allowlist           |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[app.release-channel]
   '''
                                                                                   
@@ -900,9 +1106,11 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | add-accounts      Adds accounts to a release channel.                        |
+  | add-version       Adds a version to a release channel.                       |
   | list              Lists the release channels available for an application    |
   |                   package.                                                   |
   | remove-accounts   Removes accounts from a release channel.                   |
+  | remove-version    Removes a version from a release channel.                  |
   +------------------------------------------------------------------------------+
   
   
@@ -10465,9 +10673,11 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | add-accounts      Adds accounts to a release channel.                        |
+  | add-version       Adds a version to a release channel.                       |
   | list              Lists the release channels available for an application    |
   |                   package.                                                   |
   | remove-accounts   Removes accounts from a release channel.                   |
+  | remove-version    Removes a version from a release channel.                  |
   +------------------------------------------------------------------------------+
   
   
