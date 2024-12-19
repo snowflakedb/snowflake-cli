@@ -1,0 +1,49 @@
+# serializer version: 1
+# name: test_get_deploy_sql[kwargs0]
+  '''
+  CREATE OR REPLACE STREAMLIT IDENTIFIER('test_streamlit') 
+   MAIN_FILE = 'streamlit_app.py' 
+   QUERY_WAREHOUSE = 'test_warehouse' 
+   TITLE = 'My Fancy Streamlit' 
+  
+  '''
+# ---
+# name: test_get_deploy_sql[kwargs1]
+  '''
+  CREATE IF NOT EXISTS STREAMLIT IDENTIFIER('test_streamlit') 
+   MAIN_FILE = 'streamlit_app.py' 
+   QUERY_WAREHOUSE = 'test_warehouse' 
+   TITLE = 'My Fancy Streamlit' 
+  
+  '''
+# ---
+# name: test_get_deploy_sql[kwargs2]
+  '''
+  CREATE STREAMLIT IDENTIFIER('test_streamlit') 
+   ROOT_LOCATION = 'test_stage' 
+   MAIN_FILE = 'streamlit_app.py' 
+   QUERY_WAREHOUSE = 'test_warehouse' 
+   TITLE = 'My Fancy Streamlit' 
+  
+  '''
+# ---
+# name: test_get_deploy_sql[kwargs3]
+  '''
+  CREATE OR REPLACE STREAMLIT IDENTIFIER('test_streamlit') 
+   ROOT_LOCATION = 'test_stage' 
+   MAIN_FILE = 'streamlit_app.py' 
+   QUERY_WAREHOUSE = 'test_warehouse' 
+   TITLE = 'My Fancy Streamlit' 
+  
+  '''
+# ---
+# name: test_get_deploy_sql[kwargs4]
+  '''
+  CREATE IF NOT EXISTS STREAMLIT IDENTIFIER('test_streamlit') 
+   ROOT_LOCATION = 'test_stage' 
+   MAIN_FILE = 'streamlit_app.py' 
+   QUERY_WAREHOUSE = 'test_warehouse' 
+   TITLE = 'My Fancy Streamlit' 
+  
+  '''
+# ---
