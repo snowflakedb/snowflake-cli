@@ -20,22 +20,23 @@
 * Added deprecation message for default Streamlit warehouse
 
 ## New additions
-* Add Release Directives support by introducing the following commands:
+* Add support for Release Directives by introducing the following commands:
   * `snow app release-directive list`
   * `snow app release-directive set`
   * `snow app release-directive unset`
-* Add support for release channels feature in native app version creation/drop.
 * `snow app version create` now returns version, patch, and label in JSON format.
-* Add ability to specify release channel when creating application instance from release directive: `snow app run --from-release-directive --channel=<channel>`
-* Add ability to list release channels through `snow app release-channel list` command
-* Add ability to add and remove accounts from release channels through `snow app release-channel add-accounts` and snow app release-channel remove-accounts` commands.
+* Add support for release channels:
+  * Add support for release channels feature in native app version creation/drop.
+  * Add ability to specify release channel when creating application instance from release directive: `snow app run --from-release-directive --channel=<channel>`
+  * Add ability to list release channels through `snow app release-channel list` command
+  * Add ability to add and remove accounts from release channels through `snow app release-channel add-accounts` and snow app release-channel remove-accounts` commands.
+  * Add ability to add/remove versions to/from release channels through `snow app release-channel add-version` and `snow app release-channel remove-version` commands.
 * Add `snow spcs service events` command to retrieve service-specific events:
   * Supports filtering by service name, container name, instance ID, time intervals (`--since`, `--until`), and pagination (`--first`, `--last`).
   * Use `--all` to fetch all columns.
 * Add `snow spcs service metrics` command to fetch service metrics:
   * Supports filtering by service name, container name, instance ID, and time intervals (`--since`, `--until`).
   * Use `--all` to fetch all columns.
-
 
 ## Fixes and improvements
 * Fixed crashes with older x86_64 Intel CPUs.
