@@ -108,10 +108,11 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         artifacts = self.model.artifacts
 
         for artifact in artifacts:
-            output_file = output_dir / artifact.src.name
+            output_file = output_dir / artifact.dest / artifact.src.name
 
-            if artifact.is_file():
-                SecurePath(artifact).copy(output_file)
+            if artifact.src.is_file():
+                output_file.touch(exist_ok=True)
+                SecurePath(artifact.src).copy(output_file)
             elif artifact.is_dir():
                 output_file.mkdir(parents=True, exist_ok=True)
 
