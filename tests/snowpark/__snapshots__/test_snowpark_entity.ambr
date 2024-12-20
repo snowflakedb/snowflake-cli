@@ -17,3 +17,30 @@
 # name: test_function_get_execute_sql[execution_arguments2]
   'SELECT func1(foo, 42, bar)'
 # ---
+# name: test_get_deploy_sql[CREATE IF NOT EXISTS]
+  '''
+  CREATE IF NOT EXISTS FUNCTION IDENTIFIER('func1')
+  COPY GRANTS
+  RETURNS string
+  LANGUAGE PYTHON
+  RUNTIME_VERSION '3.10'
+  '''
+# ---
+# name: test_get_deploy_sql[CREATE OR REPLACE]
+  '''
+  CREATE OR REPLACE FUNCTION IDENTIFIER('func1')
+  COPY GRANTS
+  RETURNS string
+  LANGUAGE PYTHON
+  RUNTIME_VERSION '3.10'
+  '''
+# ---
+# name: test_get_deploy_sql[CREATE]
+  '''
+  CREATE FUNCTION IDENTIFIER('func1')
+  COPY GRANTS
+  RETURNS string
+  LANGUAGE PYTHON
+  RUNTIME_VERSION '3.10'
+  '''
+# ---

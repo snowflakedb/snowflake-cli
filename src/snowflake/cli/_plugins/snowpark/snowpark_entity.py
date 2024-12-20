@@ -1,11 +1,14 @@
 import functools
+from enum import Enum
 from pathlib import Path
 from typing import Generic, List, Optional, TypeVar
 
 from click import ClickException
-
+from markdown_it.rules_inline import entity
+from snowflake.core import CreateMode
 
 from snowflake.cli._plugins.snowpark import package_utils
+from snowflake.cli._plugins.snowpark.common import DEFAULT_RUNTIME
 from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
     AnacondaPackagesManager,
@@ -17,11 +20,18 @@ from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     FunctionEntityModel,
     ProcedureEntityModel,
 )
+from snowflake.cli._plugins.snowpark.zipper import zip_dir
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.cli._plugins.snowpark.zipper import zip_dir
+from snowflake.connector import ProgrammingError
+
 T = TypeVar("T")
+
+class DeployMode(str, Enum):  # This should probably be moved to some common place, think where
+    create = "CREATE"
+    create_or_replace = "CREATE OR REPLACE"
+    create_if_not_exists = "CREATE IF NOT EXISTS"
 
 
 class SnowparkEntity(EntityBase[Generic[T]]):
@@ -51,8 +61,24 @@ class SnowparkEntity(EntityBase[Generic[T]]):
     def model(self):
         return self._entity_model  # noqa
 
-    def action_bundle(self, action_ctx: ActionContext, output_dir: Path | None, ignore_anaconda: bool, skip_version_check: bool, index_url: str | None = None, allow_shared_libraries: bool = False,  *args, **kwargs):
-        return self.bundle(output_dir, ignore_anaconda, skip_version_check, index_url, allow_shared_libraries)
+    def action_bundle(
+        self,
+        action_ctx: ActionContext,
+        output_dir: Path | None,
+        ignore_anaconda: bool,
+        skip_version_check: bool,
+        index_url: str | None = None,
+        allow_shared_libraries: bool = False,
+        *args,
+        **kwargs,
+    ):
+        return self.bundle(
+            output_dir,
+            ignore_anaconda,
+            skip_version_check,
+            index_url,
+            allow_shared_libraries,
+        )
 
     def action_deploy(self, action_ctx: ActionContext, *args, **kwargs):
         pass
@@ -74,8 +100,15 @@ class SnowparkEntity(EntityBase[Generic[T]]):
             self.get_execute_sql(execution_arguments)
         )
 
-    def bundle(self, output_dir: Path | None, ignore_anaconda: bool, skip_version_check: bool, index_url: str | None = None, allow_shared_libraries: bool = False) -> List[Path]:
-        '''
+    def bundle(
+        self,
+        output_dir: Path | None,
+        ignore_anaconda: bool,
+        skip_version_check: bool,
+        index_url: str | None = None,
+        allow_shared_libraries: bool = False,
+    ) -> List[Path]:
+        """
         Bundles the entity artifacts and dependencies into a directory.
         Parameters:
             output_dir: The directory to output the bundled artifacts to. Defaults to otput dir in project root
@@ -84,7 +117,7 @@ class SnowparkEntity(EntityBase[Generic[T]]):
             index_url: The index URL to use when downloading packages, if none set - default pip index is used (in most cases- Pypi)
             allow_shared_libraries: If not set to True, using dependency with .so/.dll files will raise an exception
         Returns:
-        '''
+        """
         # 0 Create a directory for the entity
         if not output_dir:
             output_dir = self.root / "output" / self.model.stage
@@ -95,14 +128,14 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         # 1 Check if requirements exits
         if (self.root / "requirements.txt").exists():
             download_results = self._process_requirements(
-                bundle_dir= output_dir,
-                archive_name= "dependencies.zip",
+                bundle_dir=output_dir,
+                archive_name="dependencies.zip",
                 requirements_file=SecurePath(self.root / "requirements.txt"),
                 ignore_anaconda=ignore_anaconda,
                 skip_version_check=skip_version_check,
                 index_url=index_url,
-                allow_shared_libraries=allow_shared_libraries)
-
+                allow_shared_libraries=allow_shared_libraries,
+            )
 
         # 3 get the artifacts list
         artifacts = self.model.artifacts
@@ -111,7 +144,7 @@ class SnowparkEntity(EntityBase[Generic[T]]):
             output_file = output_dir / artifact.dest / artifact.src.name
 
             if artifact.src.is_file():
-                output_file.touch(exist_ok=True)
+                output_file.mkdir(parents=True, exist_ok=True)
                 SecurePath(artifact.src).copy(output_file)
             elif artifact.is_dir():
                 output_file.mkdir(parents=True, exist_ok=True)
@@ -120,10 +153,37 @@ class SnowparkEntity(EntityBase[Generic[T]]):
 
         return output_files
 
-        pass
+    def check_if_exists(
+        self, action_ctx: ActionContext
+    ) -> bool:  # TODO it should return current state, so we know if update is necessary
+        try:
+            current_state = self.action_describe(action_ctx)
+            return True
+        except ProgrammingError:
+            return False
 
-    def get_deploy_sql(self):
-        raise NotImplementedError
+    def get_deploy_sql(self, mode: DeployMode):
+        query = [
+            f"{mode.value} {self.model.type.upper()} {self.identifier}",
+            "COPY GRANTS",
+            f"RETURNS {self.model.returns}",
+            f"LANGUAGE PYTHON",
+            f"RUNTIME_VERSION '{self.model.runtime or DEFAULT_RUNTIME}'",
+            f"IMPORTS={','.join(self.model.imports)}", # TODO: Add source files here after introducing bundlemap
+            f"HANDLER='{self.model.handler}'",
+
+        ]
+
+        if self.model.external_access_integrations:
+            query.append(self.model.get_external_access_integrations_sql())
+
+        if self.model.secrets:
+            query.append(self.model.get_secrets_sql())
+
+        if self.model.type == "procedure" and self.model.execute_as_caller:
+            query.append("EXECUTE AS CALLER")
+
+        return "\n".join(query)
 
     def get_describe_sql(self):
         raise NotImplementedError
@@ -137,7 +197,7 @@ class SnowparkEntity(EntityBase[Generic[T]]):
     def get_usage_grant_sql(self):
         pass
 
-    def _process_requirements( #TODO: maybe leave all the logic with requirements here - so download, write requirements file etc.
+    def _process_requirements(  # TODO: maybe leave all the logic with requirements here - so download, write requirements file etc.
         self,
         bundle_dir: Path,
         archive_name: str,  # TODO: not the best name, think of something else
@@ -147,11 +207,11 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         index_url: Optional[str] = None,
         allow_shared_libraries: bool = False,
     ) -> DownloadUnavailablePackagesResult:
-        '''
+        """
         Processes the requirements file and downloads the dependencies
         Parameters:
 
-        '''
+        """
         anaconda_packages_manager = AnacondaPackagesManager()
         with SecurePath.temporary_directory() as tmp_dir:
             requirements = package_utils.parse_requirements(requirements_file)
@@ -194,19 +254,20 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         return download_result
 
 
-
 class FunctionEntity(SnowparkEntity[FunctionEntityModel]):
     """
     A single UDF
     """
+
     def get_describe_sql(self):
-        return f"DESCRIBE FUNCTION {self.identifier}"
+        return f"DESCRIBE {self.model.type.upper()} {self.identifier}"
 
     def get_drop_sql(self):
-        return f"DROP FUNCTION {self.identifier}"
+        return f"DROP {self.model.type.upper()}  {self.identifier}"
 
-    def get_deploy_sql(self):
-        pass
+
+        # TO THINK OF
+        # Where will we get imports? Should we rely on bundle map? Or should it be self-sufficient in this matter?
 
     def get_execute_sql(self, execution_arguments: List[str] = None, *args, **kwargs):
         if not execution_arguments:
@@ -216,11 +277,11 @@ class FunctionEntity(SnowparkEntity[FunctionEntityModel]):
         )
 
 
-
 class ProcedureEntity(SnowparkEntity[ProcedureEntityModel]):
     """
     A stored procedure
     """
+
     def get_describe_sql(self):
         return f"DESCRIBE PROCEDURE {self.identifier}"
 

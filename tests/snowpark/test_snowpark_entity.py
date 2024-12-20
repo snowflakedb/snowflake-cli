@@ -3,17 +3,21 @@ from unittest import mock
 
 import pytest
 import yaml
-
-from snowflake.cli._plugins.snowpark.snowpark_entity import FunctionEntity
+from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
+    AnacondaPackages,
+    AvailablePackage,
+)
+from snowflake.cli._plugins.snowpark.snowpark_entity import FunctionEntity, DeployMode
 from snowflake.cli._plugins.snowpark.snowpark_entity_model import FunctionEntityModel
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
-from snowflake.cli._plugins.snowpark.package.anaconda_packages import AnacondaPackages, AvailablePackage
-from testing_utils.mock_config import mock_config_key
+
+from tests.testing_utils.mock_config import mock_config_key
 
 CONNECTOR = "snowflake.connector.connect"
 CONTEXT = ""
 EXECUTE_QUERY = "snowflake.cli.api.sql_execution.BaseSqlExecutor.execute_query"
 ANACONDA_PACKAGES = "snowflake.cli._plugins.snowpark.package.anaconda_packages.AnacondaPackagesManager.find_packages_available_in_snowflake_anaconda"
+
 
 @pytest.fixture
 def example_function_workspace(
@@ -70,19 +74,25 @@ def test_action_execute(
 
     mock_execute.assert_called_with(snapshot)
 
+
 @mock.patch(ANACONDA_PACKAGES)
 def test_bundle(mock_anaconda, example_function_workspace):
-    mock_anaconda.return_value = AnacondaPackages({
-        "pandas": AvailablePackage("pandas",  "1.2.3"),
-        "numpy": AvailablePackage("numpy",  "1.2.3"),
-        "snowflake_snowpark_python": AvailablePackage("snowflake_snowpark_python", "1.2.3")
-    })
+    mock_anaconda.return_value = AnacondaPackages(
+        {
+            "pandas": AvailablePackage("pandas", "1.2.3"),
+            "numpy": AvailablePackage("numpy", "1.2.3"),
+            "snowflake_snowpark_python": AvailablePackage(
+                "snowflake_snowpark_python", "1.2.3"
+            ),
+        }
+    )
     entity, action_context = example_function_workspace
     entity.action_bundle(action_context, None, False, False, None, False)
 
     output = entity.root / "output" / entity._entity_model.stage  # noqa
     assert output.exists()
-    assert (output / "app.py").exists()
+    assert (output / "my_snowpark_project" / "app.py").exists()
+
 
 def test_describe_function_sql(example_function_workspace):
     entity, _ = example_function_workspace
@@ -102,3 +112,8 @@ def test_function_get_execute_sql(
 ):
     entity, _ = example_function_workspace
     assert entity.get_execute_sql(execution_arguments) == snapshot
+
+@pytest.mark.parametrize("mode", [DeployMode.create, DeployMode.create_or_replace, DeployMode.create_if_not_exists])
+def test_get_deploy_sql(mode,example_function_workspace, snapshot):
+    entity, _ = example_function_workspace
+    assert entity.get_deploy_sql(mode) == snapshot
