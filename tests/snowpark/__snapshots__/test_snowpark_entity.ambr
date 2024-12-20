@@ -24,6 +24,8 @@
   RETURNS string
   LANGUAGE PYTHON
   RUNTIME_VERSION '3.10'
+  IMPORTS=
+  HANDLER='app.func1_handler'
   '''
 # ---
 # name: test_get_deploy_sql[CREATE OR REPLACE]
@@ -33,6 +35,8 @@
   RETURNS string
   LANGUAGE PYTHON
   RUNTIME_VERSION '3.10'
+  IMPORTS=
+  HANDLER='app.func1_handler'
   '''
 # ---
 # name: test_get_deploy_sql[CREATE]
@@ -42,5 +46,7 @@
   RETURNS string
   LANGUAGE PYTHON
   RUNTIME_VERSION '3.10'
+  IMPORTS=
+  HANDLER='app.func1_handler'
   '''
 # ---

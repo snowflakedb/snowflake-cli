@@ -7,7 +7,7 @@ from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
     AvailablePackage,
 )
-from snowflake.cli._plugins.snowpark.snowpark_entity import FunctionEntity, DeployMode
+from snowflake.cli._plugins.snowpark.snowpark_entity import DeployMode, FunctionEntity, ProcedureEntity
 from snowflake.cli._plugins.snowpark.snowpark_entity_model import FunctionEntityModel
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 
@@ -45,6 +45,14 @@ def example_function_workspace(
                     ),
                 )
 
+def test_cannot_instantiate_without_feature_flag():
+    with pytest.raises(NotImplementedError) as err:
+        FunctionEntity()
+    assert str(err.value) == "Snowpark entities are not implemented yet"
+
+    with pytest.raises(NotImplementedError) as err:
+        ProcedureEntity()
+    assert str(err.value) == "Snowpark entities are not implemented yet"
 
 @mock.patch(EXECUTE_QUERY)
 def test_action_describe(mock_execute, example_function_workspace):
@@ -113,7 +121,15 @@ def test_function_get_execute_sql(
     entity, _ = example_function_workspace
     assert entity.get_execute_sql(execution_arguments) == snapshot
 
-@pytest.mark.parametrize("mode", [DeployMode.create, DeployMode.create_or_replace, DeployMode.create_if_not_exists])
-def test_get_deploy_sql(mode,example_function_workspace, snapshot):
+
+@pytest.mark.parametrize(
+    "mode",
+    [DeployMode.create, DeployMode.create_or_replace, DeployMode.create_if_not_exists],
+)
+def test_get_deploy_sql(mode, example_function_workspace, snapshot):
     entity, _ = example_function_workspace
     assert entity.get_deploy_sql(mode) == snapshot
+
+def test_get_usage_grant_sql(example_function_workspace):
+    entity, _ = example_function_workspace
+    assert entity.get_usage_grant_sql("test_role") == "GRANT USAGE ON FUNCTION IDENTIFIER('func1') TO ROLE test_role"

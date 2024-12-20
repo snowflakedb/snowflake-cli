@@ -4,9 +4,8 @@ from pathlib import Path
 from typing import Generic, List, Optional, TypeVar
 
 from click import ClickException
-from markdown_it.rules_inline import entity
-from snowflake.core import CreateMode
 
+from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli._plugins.snowpark import package_utils
 from snowflake.cli._plugins.snowpark.common import DEFAULT_RUNTIME
 from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
@@ -28,13 +27,23 @@ from snowflake.connector import ProgrammingError
 
 T = TypeVar("T")
 
-class DeployMode(str, Enum):  # This should probably be moved to some common place, think where
+
+class DeployMode(
+    str, Enum
+):  # This should probably be moved to some common place, think where
     create = "CREATE"
     create_or_replace = "CREATE OR REPLACE"
     create_if_not_exists = "CREATE IF NOT EXISTS"
 
 
 class SnowparkEntity(EntityBase[Generic[T]]):
+
+    def __init__(self, *args, **kwargs):
+
+        if not FeatureFlag.ENABLE_NATIVE_APP_CHILDREN.is_enabled():
+            raise NotImplementedError("Streamlit entity is not implemented yet")
+        super().__init__(*args, **kwargs)
+
     @property
     def root(self):
         return self._workspace_ctx.project_root
@@ -80,8 +89,11 @@ class SnowparkEntity(EntityBase[Generic[T]]):
             allow_shared_libraries,
         )
 
-    def action_deploy(self, action_ctx: ActionContext, *args, **kwargs):
-        pass
+    def action_deploy(
+        self, action_ctx: ActionContext, mode: DeployMode, *args, **kwargs
+    ):
+        # TODO: After introducing bundle map, we should introduce file copying part here
+        return self._sql_executor.execute_query(self.get_deploy_sql(mode))
 
     def action_drop(self, action_ctx: ActionContext, *args, **kwargs):
         return self._sql_executor.execute_query(self.get_drop_sql())
@@ -92,7 +104,7 @@ class SnowparkEntity(EntityBase[Generic[T]]):
     def action_execute(
         self,
         action_ctx: ActionContext,
-        execution_arguments: List[str] = None,
+        execution_arguments: List[str] | None = None,
         *args,
         **kwargs,
     ):
@@ -111,7 +123,7 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         """
         Bundles the entity artifacts and dependencies into a directory.
         Parameters:
-            output_dir: The directory to output the bundled artifacts to. Defaults to otput dir in project root
+            output_dir: The directory to output the bundled artifacts to. Defaults to output dir in project root
             ignore_anaconda: If True, ignores anaconda chceck and tries to download all packages using pip
             skip_version_check: If True, skips version check when downloading packages
             index_url: The index URL to use when downloading packages, if none set - default pip index is used (in most cases- Pypi)
@@ -121,14 +133,14 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         # 0 Create a directory for the entity
         if not output_dir:
             output_dir = self.root / "output" / self.model.stage
-        output_dir.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)  # type: ignore
 
         output_files = []
 
         # 1 Check if requirements exits
         if (self.root / "requirements.txt").exists():
             download_results = self._process_requirements(
-                bundle_dir=output_dir,
+                bundle_dir=output_dir,  # type: ignore
                 archive_name="dependencies.zip",
                 requirements_file=SecurePath(self.root / "requirements.txt"),
                 ignore_anaconda=ignore_anaconda,
@@ -169,9 +181,8 @@ class SnowparkEntity(EntityBase[Generic[T]]):
             f"RETURNS {self.model.returns}",
             f"LANGUAGE PYTHON",
             f"RUNTIME_VERSION '{self.model.runtime or DEFAULT_RUNTIME}'",
-            f"IMPORTS={','.join(self.model.imports)}", # TODO: Add source files here after introducing bundlemap
+            f"IMPORTS={','.join(self.model.imports)}",  # TODO: Add source files here after introducing bundlemap
             f"HANDLER='{self.model.handler}'",
-
         ]
 
         if self.model.external_access_integrations:
@@ -186,16 +197,16 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         return "\n".join(query)
 
     def get_describe_sql(self):
-        raise NotImplementedError
+        return f"DESCRIBE {self.model.type.upper()} {self.identifier}"
 
     def get_drop_sql(self):
+        return f"DROP {self.model.type.upper()} {self.identifier}"
+
+    def get_execute_sql(self, execution_arguments: List[str] | None = None):
         raise NotImplementedError
 
-    def get_execute_sql(self):
-        raise NotImplementedError
-
-    def get_usage_grant_sql(self):
-        pass
+    def get_usage_grant_sql(self, app_role: str):
+        return f"GRANT USAGE ON {self.model.type.upper()} {self.identifier} TO ROLE {app_role}"
 
     def _process_requirements(  # TODO: maybe leave all the logic with requirements here - so download, write requirements file etc.
         self,
@@ -259,17 +270,12 @@ class FunctionEntity(SnowparkEntity[FunctionEntityModel]):
     A single UDF
     """
 
-    def get_describe_sql(self):
-        return f"DESCRIBE {self.model.type.upper()} {self.identifier}"
+    # TO THINK OF
+    # Where will we get imports? Should we rely on bundle map? Or should it be self-sufficient in this matter?
 
-    def get_drop_sql(self):
-        return f"DROP {self.model.type.upper()}  {self.identifier}"
-
-
-        # TO THINK OF
-        # Where will we get imports? Should we rely on bundle map? Or should it be self-sufficient in this matter?
-
-    def get_execute_sql(self, execution_arguments: List[str] = None, *args, **kwargs):
+    def get_execute_sql(
+        self, execution_arguments: List[str] | None = None, *args, **kwargs
+    ):
         if not execution_arguments:
             execution_arguments = []
         return (
@@ -282,18 +288,9 @@ class ProcedureEntity(SnowparkEntity[ProcedureEntityModel]):
     A stored procedure
     """
 
-    def get_describe_sql(self):
-        return f"DESCRIBE PROCEDURE {self.identifier}"
-
-    def get_drop_sql(self):
-        return f"DROP PROCEDURE {self.identifier}"
-
-    def get_deploy_sql(self):
-        pass
-
     def get_execute_sql(
         self,
-        execution_arguments: List[str] = None,
+        execution_arguments: List[str] | None = None,
     ):
         if not execution_arguments:
             execution_arguments = []
