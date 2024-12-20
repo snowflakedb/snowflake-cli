@@ -7,7 +7,11 @@ from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
     AvailablePackage,
 )
-from snowflake.cli._plugins.snowpark.snowpark_entity import DeployMode, FunctionEntity, ProcedureEntity
+from snowflake.cli._plugins.snowpark.snowpark_entity import (
+    DeployMode,
+    FunctionEntity,
+    ProcedureEntity,
+)
 from snowflake.cli._plugins.snowpark.snowpark_entity_model import FunctionEntityModel
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 
@@ -45,14 +49,46 @@ def example_function_workspace(
                     ),
                 )
 
+
 def test_cannot_instantiate_without_feature_flag():
     with pytest.raises(NotImplementedError) as err:
         FunctionEntity()
-    assert str(err.value) == "Snowpark entities are not implemented yet"
+    assert str(err.value) == "Snowpark entity is not implemented yet"
 
     with pytest.raises(NotImplementedError) as err:
         ProcedureEntity()
-    assert str(err.value) == "Snowpark entities are not implemented yet"
+    assert str(err.value) == "Snowpark entity is not implemented yet"
+
+
+@mock.patch(ANACONDA_PACKAGES)
+def test_nativeapp_children_interface(
+    mock_anaconda, example_function_workspace, snapshot
+):
+    mock_anaconda.return_value = AnacondaPackages(
+        {
+            "pandas": AvailablePackage("pandas", "1.2.3"),
+            "numpy": AvailablePackage("numpy", "1.2.3"),
+            "snowflake_snowpark_python": AvailablePackage(
+                "snowflake_snowpark_python", "1.2.3"
+            ),
+        }
+    )
+
+    sl, action_context = example_function_workspace
+
+    sl.bundle(None, False, False, None, False)
+    bundle_artifact = (
+        sl.root / "output" / sl.model.stage / "my_snowpark_project" / "app.py"
+    )
+    deploy_sql_str = sl.get_deploy_sql(DeployMode.create)
+    grant_sql_str = sl.get_usage_grant_sql(app_role="app_role")
+
+    assert bundle_artifact.exists()
+    assert deploy_sql_str == snapshot
+    assert (
+        grant_sql_str == f"GRANT USAGE ON FUNCTION IDENTIFIER('func1') TO ROLE app_role"
+    )
+
 
 @mock.patch(EXECUTE_QUERY)
 def test_action_describe(mock_execute, example_function_workspace):
@@ -130,6 +166,10 @@ def test_get_deploy_sql(mode, example_function_workspace, snapshot):
     entity, _ = example_function_workspace
     assert entity.get_deploy_sql(mode) == snapshot
 
+
 def test_get_usage_grant_sql(example_function_workspace):
     entity, _ = example_function_workspace
-    assert entity.get_usage_grant_sql("test_role") == "GRANT USAGE ON FUNCTION IDENTIFIER('func1') TO ROLE test_role"
+    assert (
+        entity.get_usage_grant_sql("test_role")
+        == "GRANT USAGE ON FUNCTION IDENTIFIER('func1') TO ROLE test_role"
+    )

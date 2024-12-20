@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Generic, List, Optional, TypeVar
 
 from click import ClickException
-
 from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli._plugins.snowpark import package_utils
 from snowflake.cli._plugins.snowpark.common import DEFAULT_RUNTIME
@@ -37,11 +36,10 @@ class DeployMode(
 
 
 class SnowparkEntity(EntityBase[Generic[T]]):
-
     def __init__(self, *args, **kwargs):
 
         if not FeatureFlag.ENABLE_NATIVE_APP_CHILDREN.is_enabled():
-            raise NotImplementedError("Streamlit entity is not implemented yet")
+            raise NotImplementedError("Snowpark entity is not implemented yet")
         super().__init__(*args, **kwargs)
 
     @property
