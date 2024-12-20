@@ -1,19 +1,21 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Literal, Optional, Union
+from typing import Any, List, Literal, Optional, Set, Union
 
 import typer
-from click import BadOptionUsage, ClickException
+from click import BadOptionUsage, ClickException, UsageError
 from pydantic import Field, field_validator
 from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.nativeapp.artifacts import (
     BundleMap,
     VersionInfo,
     build_bundle,
+    find_setup_script_file,
     find_version_info_in_manifest_file,
 )
 from snowflake.cli._plugins.nativeapp.bundle_context import BundleContext
@@ -21,12 +23,17 @@ from snowflake.cli._plugins.nativeapp.codegen.compiler import NativeAppCompiler
 from snowflake.cli._plugins.nativeapp.constants import (
     ALLOWED_SPECIAL_COMMENTS,
     COMMENT_COL,
+    DEFAULT_CHANNEL,
+    DEFAULT_DIRECTIVE,
     EXTERNAL_DISTRIBUTION,
     INTERNAL_DISTRIBUTION,
     NAME_COL,
     OWNER_COL,
     PATCH_COL,
     VERSION_COL,
+)
+from snowflake.cli._plugins.nativeapp.entities.application_package_child_interface import (
+    ApplicationPackageChildInterface,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import (
     ApplicationPackageAlreadyExistsError,
@@ -46,9 +53,17 @@ from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     InsufficientPrivilegesError,
 )
-from snowflake.cli._plugins.nativeapp.utils import needs_confirmation
+from snowflake.cli._plugins.nativeapp.sf_sql_facade import ReleaseChannel
+from snowflake.cli._plugins.nativeapp.utils import needs_confirmation, sanitize_dir_name
+from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
+    FunctionEntityModel,
+    ProcedureEntityModel,
+)
 from snowflake.cli._plugins.stage.diff import DiffResult
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
+    StreamlitEntityModel,
+)
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.cli_global_context import span
 from snowflake.cli.api.entities.common import (
@@ -73,20 +88,61 @@ from snowflake.cli.api.project.schemas.entities.common import (
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
     IdentifierField,
+    UpdatableModel,
 )
 from snowflake.cli.api.project.schemas.v1.native_app.package import DistributionOptions
 from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
     SCHEMA_AND_NAME,
+    VALID_IDENTIFIER_REGEX,
     append_test_resource_suffix,
     extract_schema,
     identifier_to_show_like_pattern,
+    same_identifiers,
+    sql_match,
     to_identifier,
     unquote_identifier,
 )
 from snowflake.cli.api.utils.cursor import find_all_rows
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
+
+ApplicationPackageChildrenTypes = (
+    StreamlitEntityModel | FunctionEntityModel | ProcedureEntityModel
+)
+
+
+class ApplicationPackageChildIdentifier(UpdatableModel):
+    schema_: Optional[str] = Field(
+        title="Child entity schema", alias="schema", default=None
+    )
+
+
+class EnsureUsableByField(UpdatableModel):
+    application_roles: Optional[Union[str, Set[str]]] = Field(
+        title="One or more application roles to be granted with the required privileges",
+        default=None,
+    )
+
+    @field_validator("application_roles")
+    @classmethod
+    def ensure_app_roles_is_a_set(
+        cls, application_roles: Optional[Union[str, Set[str]]]
+    ) -> Optional[Union[Set[str]]]:
+        if isinstance(application_roles, str):
+            return set([application_roles])
+        return application_roles
+
+
+class ApplicationPackageChildField(UpdatableModel):
+    target: str = Field(title="The key of the entity to include in this package")
+    ensure_usable_by: Optional[EnsureUsableByField] = Field(
+        title="Automatically grant the required privileges on the child object and its schema",
+        default=None,
+    )
+    identifier: ApplicationPackageChildIdentifier = Field(
+        title="Entity identifier", default=None
+    )
 
 
 class ApplicationPackageEntityModel(EntityModelBase):
@@ -95,23 +151,27 @@ class ApplicationPackageEntityModel(EntityModelBase):
         title="List of paths or file source/destination pairs to add to the deploy root",
     )
     bundle_root: Optional[str] = Field(
-        title="Folder at the root of your project where artifacts necessary to perform the bundle step are stored.",
+        title="Folder at the root of your project where artifacts necessary to perform the bundle step are stored",
         default="output/bundle/",
     )
     deploy_root: Optional[str] = Field(
         title="Folder at the root of your project where the build step copies the artifacts",
         default="output/deploy/",
     )
+    children_artifacts_dir: Optional[str] = Field(
+        title="Folder under deploy_root where the child artifacts will be stored",
+        default="_children/",
+    )
     generated_root: Optional[str] = Field(
-        title="Subdirectory of the deploy root where files generated by the Snowflake CLI will be written.",
+        title="Subdirectory of the deploy root where files generated by the Snowflake CLI will be written",
         default="__generated/",
     )
     stage: Optional[str] = IdentifierField(
-        title="Identifier of the stage that stores the application artifacts.",
+        title="Identifier of the stage that stores the application artifacts",
         default="app_src.stage",
     )
     scratch_stage: Optional[str] = IdentifierField(
-        title="Identifier of the stage that stores temporary scratch data used by the Snowflake CLI.",
+        title="Identifier of the stage that stores temporary scratch data used by the Snowflake CLI",
         default="app_src.stage_snowflake_cli_scratch",
     )
     distribution: Optional[DistributionOptions] = Field(
@@ -122,6 +182,19 @@ class ApplicationPackageEntityModel(EntityModelBase):
         title="Path to manifest.yml. Unused and deprecated starting with Snowflake CLI 3.2",
         default="",
     )
+    children: Optional[List[ApplicationPackageChildField]] = Field(
+        title="Entities that will be bundled and deployed as part of this application package",
+        default=[],
+    )
+
+    @field_validator("children")
+    @classmethod
+    def verify_children_behind_flag(
+        cls, input_value: Optional[List[ApplicationPackageChildField]]
+    ) -> Optional[List[ApplicationPackageChildField]]:
+        if input_value and not FeatureFlag.ENABLE_NATIVE_APP_CHILDREN.is_enabled():
+            raise AttributeError("Application package children are not supported yet")
+        return input_value
 
     @field_validator("identifier")
     @classmethod
@@ -178,6 +251,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         return self.project_root / self._entity_model.deploy_root
 
     @property
+    def children_artifacts_deploy_root(self) -> Path:
+        return self.deploy_root / self._entity_model.children_artifacts_dir
+
+    @property
     def bundle_root(self) -> Path:
         return self.project_root / self._entity_model.bundle_root
 
@@ -215,7 +292,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         return model.meta and model.meta.post_deploy
 
     def action_bundle(self, action_ctx: ActionContext, *args, **kwargs):
-        return self._bundle()
+        return self._bundle(action_ctx)
 
     def action_deploy(
         self,
@@ -231,6 +308,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         **kwargs,
     ):
         return self._deploy(
+            action_ctx=action_ctx,
             bundle_map=None,
             prune=prune,
             recursive=recursive,
@@ -330,6 +408,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         **kwargs,
     ):
         self.validate_setup_script(
+            action_ctx=action_ctx,
             use_scratch_stage=use_scratch_stage,
             interactive=interactive,
             force=force,
@@ -364,7 +443,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         force: bool,
         *args,
         **kwargs,
-    ):
+    ) -> VersionInfo:
         """
         Create a version and/or patch for a new or existing application package.
         Always performs a deploy action before creating version or patch.
@@ -384,7 +463,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         else:
             git_policy = AllowAlwaysPolicy()
 
-        bundle_map = self._bundle()
+        bundle_map = self._bundle(action_ctx)
         resolved_version, resolved_patch, resolved_label = self.resolve_version_info(
             version=version,
             patch=patch,
@@ -398,6 +477,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             self.check_index_changes_in_git_repo(policy=policy, interactive=interactive)
 
         self._deploy(
+            action_ctx=action_ctx,
             bundle_map=bundle_map,
             prune=True,
             recursive=True,
@@ -447,12 +527,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         # Define a new version in the application package
         if not self.get_existing_version_info(resolved_version):
             self.add_new_version(version=resolved_version, label=resolved_label)
-            return  # A new version created automatically has patch 0, we do not need to further increment the patch.
+            # A new version created automatically has patch 0, we do not need to further increment the patch.
+            return VersionInfo(resolved_version, 0, resolved_label)
 
         # Add a new patch to an existing (old) version
-        self.add_new_patch_to_version(
+        patch = self.add_new_patch_to_version(
             version=resolved_version, patch=resolved_patch, label=resolved_label
         )
+        return VersionInfo(resolved_version, patch, resolved_label)
 
     def action_version_drop(
         self,
@@ -499,7 +581,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                     """
                 )
             )
-            self._bundle()
+            self._bundle(action_ctx)
             version_info = find_version_info_in_manifest_file(self.deploy_root)
             version = version_info.version_name
             if not version:
@@ -531,20 +613,243 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 raise typer.Exit(1)
 
         # Drop the version
-        sql_executor = get_sql_executor()
-        with sql_executor.use_role(self.role):
-            try:
-                sql_executor.execute_query(
-                    f"alter application package {self.name} drop version {version}"
-                )
-            except ProgrammingError as err:
-                raise err  # e.g. version is referenced in a release directive(s)
+        get_snowflake_facade().drop_version_from_package(
+            package_name=self.name, version=version, role=self.role
+        )
 
         console.message(
             f"Version {version} in application package {self.name} dropped successfully."
         )
 
-    def _bundle(self):
+    def _validate_target_accounts(self, accounts: list[str]) -> None:
+        """
+        Validates the target accounts provided by the user.
+        """
+        for account in accounts:
+            if not re.fullmatch(
+                f"{VALID_IDENTIFIER_REGEX}\\.{VALID_IDENTIFIER_REGEX}", account
+            ):
+                raise ClickException(
+                    f"Target account {account} is not in a valid format. Make sure you provide the target account in the format 'org.account'."
+                )
+
+    def get_sanitized_release_channel(
+        self, release_channel: Optional[str]
+    ) -> Optional[str]:
+        """
+        Sanitize the release channel name provided by the user and validate it against the available release channels.
+
+        A return value of None indicates that release channels should not be used. Returns None if:
+        - Release channel is not provided
+        - Release channels are not enabled in the application package and the user provided the default release channel
+        """
+        if not release_channel:
+            return None
+
+        available_release_channels = get_snowflake_facade().show_release_channels(
+            self.name, self.role
+        )
+
+        if not available_release_channels and same_identifiers(
+            release_channel, DEFAULT_CHANNEL
+        ):
+            return None
+
+        self.validate_release_channel(release_channel, available_release_channels)
+        return release_channel
+
+    def validate_release_channel(
+        self,
+        release_channel: str,
+        available_release_channels: Optional[list[ReleaseChannel]] = None,
+    ) -> None:
+        """
+        Validates the release channel provided by the user and make sure it is a valid release channel for the application package.
+        """
+
+        if available_release_channels is None:
+            available_release_channels = get_snowflake_facade().show_release_channels(
+                self.name, self.role
+            )
+        if not available_release_channels:
+            raise UsageError(
+                f"Release channels are not enabled for application package {self.name}."
+            )
+        for channel in available_release_channels:
+            if same_identifiers(release_channel, channel["name"]):
+                return
+
+        raise UsageError(
+            f"Release channel {release_channel} is not available in application package {self.name}. "
+            f"Available release channels are: ({', '.join(channel['name'] for channel in available_release_channels)})."
+        )
+
+    def action_release_directive_list(
+        self,
+        action_ctx: ActionContext,
+        release_channel: Optional[str],
+        like: str,
+        *args,
+        **kwargs,
+    ) -> list[dict[str, Any]]:
+        """
+        Get all existing release directives for an application package.
+        Limit the results to a specific release channel, if provided.
+
+        If `like` is provided, only release directives matching the SQL LIKE pattern are listed.
+        """
+        release_channel = self.get_sanitized_release_channel(release_channel)
+
+        release_directives = get_snowflake_facade().show_release_directives(
+            package_name=self.name,
+            role=self.role,
+            release_channel=release_channel,
+        )
+
+        return [
+            directive
+            for directive in release_directives
+            if sql_match(pattern=like, value=directive.get("name", ""))
+        ]
+
+    def action_release_directive_set(
+        self,
+        action_ctx: ActionContext,
+        version: str,
+        patch: int,
+        release_directive: str,
+        release_channel: str,
+        target_accounts: Optional[list[str]],
+        *args,
+        **kwargs,
+    ):
+        """
+        Sets a release directive to the specified version and patch using the specified release channel.
+        Target accounts can only be specified for non-default release directives.
+
+        For non-default release directives, update the existing release directive if target accounts are not provided.
+        """
+        if target_accounts:
+            self._validate_target_accounts(target_accounts)
+
+        if target_accounts and same_identifiers(release_directive, DEFAULT_DIRECTIVE):
+            raise BadOptionUsage(
+                "target_accounts",
+                "Target accounts can only be specified for non-default named release directives.",
+            )
+
+        sanitized_release_channel = self.get_sanitized_release_channel(release_channel)
+
+        if (
+            not same_identifiers(release_directive, DEFAULT_DIRECTIVE)
+            and not target_accounts
+        ):
+            # if it is a non-default release directive with no target accounts specified,
+            # it means that the user wants to modify existing release directive
+            get_snowflake_facade().modify_release_directive(
+                package_name=self.name,
+                release_directive=release_directive,
+                release_channel=sanitized_release_channel,
+                version=version,
+                patch=patch,
+                role=self.role,
+            )
+        else:
+            get_snowflake_facade().set_release_directive(
+                package_name=self.name,
+                release_directive=release_directive,
+                release_channel=sanitized_release_channel,
+                target_accounts=target_accounts,
+                version=version,
+                patch=patch,
+                role=self.role,
+            )
+
+    def action_release_directive_unset(
+        self,
+        action_ctx: ActionContext,
+        release_directive: str,
+        release_channel: str,
+    ):
+        """
+        Unsets a release directive from the specified release channel.
+        """
+        if same_identifiers(release_directive, DEFAULT_DIRECTIVE):
+            raise ClickException(
+                "Cannot unset default release directive. Please specify a non-default release directive."
+            )
+
+        get_snowflake_facade().unset_release_directive(
+            package_name=self.name,
+            release_directive=release_directive,
+            release_channel=self.get_sanitized_release_channel(release_channel),
+            role=self.role,
+        )
+
+    def _print_channel_to_console(self, channel: ReleaseChannel) -> None:
+        """
+        Prints the release channel details to the console.
+        """
+        console = self._workspace_ctx.console
+
+        console.message(f"""[bold]{channel["name"]}[/bold]""")
+        accounts_list: Optional[list[str]] = channel["targets"].get("accounts")
+        target_accounts = (
+            f"({', '.join(accounts_list)})"
+            if accounts_list is not None
+            else "ALL ACCOUNTS"
+        )
+
+        formatted_created_on = (
+            channel["created_on"].astimezone().strftime("%Y-%m-%d %H:%M:%S.%f %Z")
+            if channel["created_on"]
+            else ""
+        )
+
+        formatted_updated_on = (
+            channel["updated_on"].astimezone().strftime("%Y-%m-%d %H:%M:%S.%f %Z")
+            if channel["updated_on"]
+            else ""
+        )
+        with console.indented():
+            console.message(f"Description: {channel['description']}")
+            console.message(f"Versions: ({', '.join(channel['versions'])})")
+            console.message(f"Created on: {formatted_created_on}")
+            console.message(f"Updated on: {formatted_updated_on}")
+            console.message(f"Target accounts: {target_accounts}")
+
+    def action_release_channel_list(
+        self,
+        action_ctx: ActionContext,
+        release_channel: Optional[str],
+        *args,
+        **kwargs,
+    ) -> list[ReleaseChannel]:
+        """
+        Get all existing release channels for an application package.
+        If `release_channel` is provided, only the specified release channel is listed.
+        """
+        console = self._workspace_ctx.console
+        available_channels = get_snowflake_facade().show_release_channels(
+            self.name, self.role
+        )
+
+        filtered_channels = [
+            channel
+            for channel in available_channels
+            if release_channel is None
+            or same_identifiers(channel["name"], release_channel)
+        ]
+
+        if not filtered_channels:
+            console.message("No release channels found.")
+        else:
+            for channel in filtered_channels:
+                self._print_channel_to_console(channel)
+
+        return filtered_channels
+
+    def _bundle(self, action_ctx: ActionContext = None):
         model = self._entity_model
         bundle_map = build_bundle(self.project_root, self.deploy_root, model.artifacts)
         bundle_context = BundleContext(
@@ -557,10 +862,172 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
         compiler = NativeAppCompiler(bundle_context)
         compiler.compile_artifacts()
+
+        if self._entity_model.children:
+            # Bundle children and append their SQL to setup script
+            # TODO Consider re-writing the logic below as a processor
+            children_sql = self._bundle_children(action_ctx=action_ctx)
+            setup_file_path = find_setup_script_file(deploy_root=self.deploy_root)
+            with open(setup_file_path, "r", encoding="utf-8") as file:
+                existing_setup_script = file.read()
+            if setup_file_path.is_symlink():
+                setup_file_path.unlink()
+            with open(setup_file_path, "w", encoding="utf-8") as file:
+                file.write(existing_setup_script)
+                file.write("\n-- AUTO GENERATED CHILDREN SECTION\n")
+                file.write("\n".join(children_sql))
+                file.write("\n")
+
         return bundle_map
+
+    def action_release_channel_add_accounts(
+        self,
+        action_ctx: ActionContext,
+        release_channel: str,
+        target_accounts: list[str],
+        *args,
+        **kwargs,
+    ):
+        """
+        Adds target accounts to a release channel.
+        """
+
+        if not target_accounts:
+            raise ClickException("No target accounts provided.")
+
+        self.validate_release_channel(release_channel)
+        self._validate_target_accounts(target_accounts)
+
+        get_snowflake_facade().add_accounts_to_release_channel(
+            package_name=self.name,
+            release_channel=release_channel,
+            target_accounts=target_accounts,
+            role=self.role,
+        )
+
+    def action_release_channel_remove_accounts(
+        self,
+        action_ctx: ActionContext,
+        release_channel: str,
+        target_accounts: list[str],
+        *args,
+        **kwargs,
+    ):
+        """
+        Removes target accounts from a release channel.
+        """
+
+        if not target_accounts:
+            raise ClickException("No target accounts provided.")
+
+        self.validate_release_channel(release_channel)
+        self._validate_target_accounts(target_accounts)
+
+        get_snowflake_facade().remove_accounts_from_release_channel(
+            package_name=self.name,
+            release_channel=release_channel,
+            target_accounts=target_accounts,
+            role=self.role,
+        )
+
+    def action_release_channel_add_version(
+        self,
+        action_ctx: ActionContext,
+        release_channel: str,
+        version: str,
+        *args,
+        **kwargs,
+    ):
+        """
+        Adds a version to a release channel.
+        """
+
+        self.validate_release_channel(release_channel)
+        get_snowflake_facade().add_version_to_release_channel(
+            package_name=self.name,
+            release_channel=release_channel,
+            version=version,
+            role=self.role,
+        )
+
+    def action_release_channel_remove_version(
+        self,
+        action_ctx: ActionContext,
+        release_channel: str,
+        version: str,
+        *args,
+        **kwargs,
+    ):
+        """
+        Removes a version from a release channel.
+        """
+
+        self.validate_release_channel(release_channel)
+        get_snowflake_facade().remove_version_from_release_channel(
+            package_name=self.name,
+            release_channel=release_channel,
+            version=version,
+            role=self.role,
+        )
+
+    def _bundle_children(self, action_ctx: ActionContext) -> List[str]:
+        # Create _children directory
+        children_artifacts_dir = self.children_artifacts_deploy_root
+        os.makedirs(children_artifacts_dir)
+        children_sql = []
+        for child in self._entity_model.children:
+            # Create child sub directory
+            child_artifacts_dir = children_artifacts_dir / sanitize_dir_name(
+                child.target
+            )
+            try:
+                os.makedirs(child_artifacts_dir)
+            except FileExistsError:
+                raise ClickException(
+                    f"Could not create sub-directory at {child_artifacts_dir}. Make sure child entity names do not collide with each other."
+                )
+            child_entity: ApplicationPackageChildInterface = action_ctx.get_entity(
+                child.target
+            )
+            child_entity.bundle(child_artifacts_dir)
+            app_role = (
+                to_identifier(
+                    child.ensure_usable_by.application_roles.pop()  # TODO Support more than one application role
+                )
+                if child.ensure_usable_by and child.ensure_usable_by.application_roles
+                else None
+            )
+            child_schema = (
+                to_identifier(child.identifier.schema_)
+                if child.identifier and child.identifier.schema_
+                else None
+            )
+            children_sql.append(
+                child_entity.get_deploy_sql(
+                    artifacts_dir=child_artifacts_dir.relative_to(self.deploy_root),
+                    schema=child_schema,
+                    # TODO Allow users to override the hard-coded value for specific children
+                    replace=True,
+                )
+            )
+            if app_role:
+                children_sql.append(
+                    f"CREATE APPLICATION ROLE IF NOT EXISTS {app_role};"
+                )
+                if child_schema:
+                    children_sql.append(
+                        f"GRANT USAGE ON SCHEMA {child_schema} TO APPLICATION ROLE {app_role};"
+                    )
+                children_sql.append(
+                    child_entity.get_usage_grant_sql(
+                        app_role=app_role, schema=child_schema
+                    )
+                )
+        return children_sql
 
     def _deploy(
         self,
+        action_ctx: ActionContext,
         bundle_map: BundleMap | None,
         prune: bool,
         recursive: bool,
@@ -585,7 +1052,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         stage_fqn = stage_fqn or self.stage_fqn
 
         # 1. Create a bundle if one wasn't passed in
-        bundle_map = bundle_map or self._bundle()
+        bundle_map = bundle_map or self._bundle(action_ctx)
 
         # 2. Create an empty application package, if none exists
         try:
@@ -617,6 +1084,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         if validate:
             self.validate_setup_script(
+                action_ctx=action_ctx,
                 use_scratch_stage=False,
                 interactive=interactive,
                 force=force,
@@ -664,7 +1132,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         It executes a 'show release directives in application package' query and returns the filtered results, if they exist.
         """
         release_directives = get_snowflake_facade().show_release_directives(
-            self.name, self.role
+            package_name=self.name, role=self.role
         )
         return [
             directive
@@ -695,9 +1163,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
     def add_new_patch_to_version(
         self, version: str, patch: int | None = None, label: str | None = None
-    ):
+    ) -> int:
         """
         Add a new patch, optionally a custom one, to an existing version in an application package.
+        Returns the patch number of the newly created patch.
         """
         console = self._workspace_ctx.console
 
@@ -717,6 +1186,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         console.message(
             f"Patch {new_patch}{with_label_prompt} created for version {version} defined in application package {self.name}."
         )
+        return new_patch
 
     def check_index_changes_in_git_repo(
         self, policy: PolicyBase, interactive: bool
@@ -904,7 +1374,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         )
 
     def validate_setup_script(
-        self, use_scratch_stage: bool, interactive: bool, force: bool
+        self,
+        action_ctx: ActionContext,
+        use_scratch_stage: bool,
+        interactive: bool,
+        force: bool,
     ):
         workspace_ctx = self._workspace_ctx
         console = workspace_ctx.console
@@ -912,6 +1386,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         """Validates Native App setup script SQL."""
         with console.phase(f"Validating Snowflake Native App setup script."):
             validation_result = self.get_validation_result(
+                action_ctx=action_ctx,
                 use_scratch_stage=use_scratch_stage,
                 force=force,
                 interactive=interactive,
@@ -933,13 +1408,18 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
     @span("validate_setup_script")
     def get_validation_result(
-        self, use_scratch_stage: bool, interactive: bool, force: bool
+        self,
+        action_ctx: ActionContext,
+        use_scratch_stage: bool,
+        interactive: bool,
+        force: bool,
     ):
         """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
         stage_fqn = self.stage_fqn
         if use_scratch_stage:
             stage_fqn = self.scratch_stage_fqn
             self._deploy(
+                action_ctx=action_ctx,
                 bundle_map=None,
                 prune=True,
                 recursive=True,
@@ -983,7 +1463,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         bundle_map: BundleMap | None,
         policy: PolicyBase,
         interactive: bool,
-    ):
+    ) -> VersionInfo:
         """Determine version name, patch number, and label from CLI provided values and manifest.yml version entry.
         @param [Optional] version: version name as specified in the command
         @param [Optional] patch: patch number as specified in the command
@@ -991,12 +1471,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         @param [Optional] bundle_map: bundle_map if a deploy_root is prepared. _bundle() is performed otherwise.
         @param policy: CLI policy
         @param interactive: True if command is run in interactive mode, otherwise False
+
+        @return VersionInfo: version_name, patch_number, label resolved from CLI and manifest.yml
         """
         console = self._workspace_ctx.console
 
         resolved_version = None
         resolved_patch = None
-        resolved_label = ""
+        resolved_label = None
 
         # If version is specified in CLI, no version information from manifest.yml is used (except for comment, we can't control comment as of now).
         if version is not None:
@@ -1004,7 +1486,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 "Ignoring version information from the application manifest since a version was explicitly specified with the command."
             )
             resolved_patch = patch
-            resolved_label = label if label is not None else ""
+            resolved_label = label
             resolved_version = version
 
         # When version is not set by CLI, version name is read from manifest.yml. patch and label from CLI will be used, if provided.
@@ -1060,7 +1542,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         # Check if patch needs to throw a bad option error, either if application package does not exist or if version does not exist
         if resolved_patch is not None:
             try:
-                if not self.get_existing_version_info(resolved_version):
+                if not self.get_existing_version_info(to_identifier(resolved_version)):
                     raise BadOptionUsage(
                         option_name="patch",
                         message=f"Cannot create patch {resolved_patch} when version {resolved_version} is not defined in the application package {self.name}. Try again without specifying a patch.",

@@ -13,10 +13,14 @@
 # limitations under the License.
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
+import pytest
+import pytz
 import yaml
+from click import ClickException, UsageError
 from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
@@ -27,19 +31,29 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
+from snowflake.cli.api.console import cli_console
 from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.utils import (
     APP_PACKAGE_ENTITY,
     APPLICATION_PACKAGE_ENTITY_MODULE,
     SQL_EXECUTOR_EXECUTE,
+    SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_CHANNEL,
+    SQL_FACADE_ADD_VERSION_TO_RELEASE_CHANNEL,
     SQL_FACADE_GET_UI_PARAMETER,
+    SQL_FACADE_MODIFY_RELEASE_DIRECTIVE,
+    SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_CHANNEL,
+    SQL_FACADE_REMOVE_VERSION_FROM_RELEASE_CHANNEL,
+    SQL_FACADE_SET_RELEASE_DIRECTIVE,
+    SQL_FACADE_SHOW_RELEASE_CHANNELS,
+    SQL_FACADE_SHOW_RELEASE_DIRECTIVES,
+    SQL_FACADE_UNSET_RELEASE_DIRECTIVE,
     mock_execute_helper,
 )
 
 
-def _get_app_pkg_entity(project_directory):
-    with project_directory("workspaces_simple") as project_root:
+def _get_app_pkg_entity(project_directory, test_dir="workspaces_simple"):
+    with project_directory(test_dir) as project_root:
         with Path(project_root / "snowflake.yml").open() as definition_file_path:
             project_definition = yaml.safe_load(definition_file_path)
             model = ApplicationPackageEntityModel(
@@ -197,3 +211,1209 @@ def test_version_list(
     mock_execute.side_effect = side_effects
     application_package_entity.action_version_list(action_context)
     assert mock_execute.mock_calls == expected
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[])
+@mock.patch(SQL_FACADE_SHOW_RELEASE_DIRECTIVES, return_value=[])
+def test_given_channels_disabled_and_no_directives_when_release_directive_list_then_success(
+    show_release_directives,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    result = application_package_entity.action_release_directive_list(
+        action_ctx=action_context, release_channel=None, like="%%"
+    )
+
+    assert result == []
+
+    show_release_directives.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel=None,
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[])
+@mock.patch(SQL_FACADE_SHOW_RELEASE_DIRECTIVES, return_value=[{"name": "my_directive"}])
+def test_given_channels_disabled_and_directives_present_when_release_directive_list_then_success(
+    show_release_directives,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    result = application_package_entity.action_release_directive_list(
+        action_ctx=action_context, release_channel=None, like="%%"
+    )
+
+    assert result == [{"name": "my_directive"}]
+
+    show_release_directives.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel=None,
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[])
+@mock.patch(
+    SQL_FACADE_SHOW_RELEASE_DIRECTIVES,
+    return_value=[{"name": "abcdef"}, {"name": "ghijkl"}],
+)
+def test_given_multiple_directives_and_like_pattern_when_release_directive_list_then_filter_results(
+    show_release_directives,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    result = application_package_entity.action_release_directive_list(
+        action_ctx=action_context, release_channel=None, like="abc%"
+    )
+
+    assert result == [{"name": "abcdef"}]
+
+    show_release_directives.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel=None,
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[{"name": "my_channel"}])
+@mock.patch(SQL_FACADE_SHOW_RELEASE_DIRECTIVES, return_value=[{"name": "my_directive"}])
+def test_given_channels_enabled_and_no_channel_specified_when_release_directive_list_then_success(
+    show_release_directives,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    result = application_package_entity.action_release_directive_list(
+        action_ctx=action_context, release_channel=None, like="%%"
+    )
+
+    assert result == [{"name": "my_directive"}]
+
+    show_release_directives.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel=None,
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[])
+@mock.patch(SQL_FACADE_SHOW_RELEASE_DIRECTIVES, return_value=[{"name": "my_directive"}])
+def test_given_channels_disabled_and_default_channel_selected_when_release_directive_list_then_ignore_channel(
+    show_release_directives,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    result = application_package_entity.action_release_directive_list(
+        action_ctx=action_context, release_channel="default", like="%%"
+    )
+
+    assert result == [{"name": "my_directive"}]
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    show_release_directives.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel=None,
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[])
+@mock.patch(SQL_FACADE_SHOW_RELEASE_DIRECTIVES, return_value=[{"name": "my_directive"}])
+def test_given_channels_disabled_and_non_default_channel_selected_when_release_directive_list_then_error(
+    show_release_directives,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_directive_list(
+            action_ctx=action_context, release_channel="non_default", like="%%"
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channels are not enabled for application package {pkg_model.fqn.name}."
+    )
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    show_release_directives.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[{"name": "my_channel"}])
+@mock.patch(SQL_FACADE_SHOW_RELEASE_DIRECTIVES, return_value=[{"name": "my_directive"}])
+def test_given_channels_enabled_and_invalid_channel_selected_when_release_directive_list_then_error(
+    show_release_directives,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_directive_list(
+            action_ctx=action_context, release_channel="invalid_channel", like="%%"
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channel invalid_channel is not available in application package {pkg_model.fqn.name}. Available release channels are: (my_channel)."
+    )
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    show_release_directives.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[{"name": "my_channel"}])
+@mock.patch(SQL_FACADE_SHOW_RELEASE_DIRECTIVES, return_value=[{"name": "my_directive"}])
+def test_given_channels_enabled_and_valid_channel_selected_when_release_directive_list_then_success(
+    show_release_directives,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    result = application_package_entity.action_release_directive_list(
+        action_ctx=action_context, release_channel="my_channel", like="%%"
+    )
+
+    assert result == [{"name": "my_directive"}]
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    show_release_directives.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel="my_channel",
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[{"name": "test_channel"}])
+@mock.patch(SQL_FACADE_SET_RELEASE_DIRECTIVE)
+def test_given_named_directive_with_accounts_when_release_directive_set_then_success(
+    set_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    application_package_entity.action_release_directive_set(
+        action_ctx=action_context,
+        version="1.0",
+        patch=2,
+        release_channel="test_channel",
+        release_directive="directive",
+        target_accounts=["org1.account1", "org2.account2"],
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    set_release_directive.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        version="1.0",
+        patch=2,
+        release_channel="test_channel",
+        release_directive="directive",
+        target_accounts=["org1.account1", "org2.account2"],
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[{"name": "test_channel"}])
+@mock.patch(SQL_FACADE_SET_RELEASE_DIRECTIVE)
+def test_given_default_directive_with_no_accounts_when_release_directive_set_then_success(
+    set_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    application_package_entity.action_release_directive_set(
+        action_ctx=action_context,
+        version="1.0",
+        patch=2,
+        release_channel="test_channel",
+        release_directive="default",
+        target_accounts=None,
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    set_release_directive.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        version="1.0",
+        patch=2,
+        release_channel="test_channel",
+        release_directive="default",
+        target_accounts=None,
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[])
+@mock.patch(SQL_FACADE_SET_RELEASE_DIRECTIVE)
+def test_given_no_channels_with_default_channel_used_when_release_directive_set_then_success(
+    set_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    application_package_entity.action_release_directive_set(
+        action_ctx=action_context,
+        version="1.0",
+        patch=2,
+        release_channel="default",
+        release_directive="default",
+        target_accounts=None,
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    set_release_directive.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        version="1.0",
+        patch=2,
+        release_channel=None,
+        release_directive="default",
+        target_accounts=None,
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[])
+@mock.patch(SQL_FACADE_SET_RELEASE_DIRECTIVE)
+def test_given_no_channels_with_non_default_channel_used_when_release_directive_set_then_error(
+    set_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_directive_set(
+            action_ctx=action_context,
+            version="1.0",
+            patch=2,
+            release_channel="non_default",
+            release_directive="default",
+            target_accounts=None,
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channels are not enabled for application package {pkg_model.fqn.name}."
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    set_release_directive.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[{"name": "test_channel"}])
+@mock.patch(SQL_FACADE_MODIFY_RELEASE_DIRECTIVE)
+def test_given_named_directive_with_no_accounts_when_release_directive_set_then_modify_existing_directive(
+    modify_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    application_package_entity.action_release_directive_set(
+        action_ctx=action_context,
+        version="1.0",
+        patch=2,
+        release_channel="test_channel",
+        release_directive="directive",
+        target_accounts=None,
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    modify_release_directive.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        version="1.0",
+        patch=2,
+        release_channel="test_channel",
+        release_directive="directive",
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[{"name": "test_channel"}])
+@mock.patch(SQL_FACADE_SET_RELEASE_DIRECTIVE)
+def test_given_default_directive_with_accounts_when_release_directive_set_then_error(
+    set_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    with pytest.raises(ClickException) as e:
+        application_package_entity.action_release_directive_set(
+            action_ctx=action_context,
+            version="1.0",
+            patch=2,
+            release_channel="test_channel",
+            release_directive="default",
+            target_accounts=["org1.account1", "org2.account2"],
+        )
+
+    assert (
+        str(e.value)
+        == "Target accounts can only be specified for non-default named release directives."
+    )
+
+    set_release_directive.assert_not_called()
+
+
+# test with target_account not in org.account format:
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[{"name": "test_channel"}])
+@mock.patch(SQL_FACADE_SET_RELEASE_DIRECTIVE)
+@pytest.mark.parametrize(
+    "account_name", ["org1", "org1.", ".account1", "org1.acc.ount1"]
+)
+def test_given_invalid_account_names_when_release_directive_set_then_error(
+    set_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+    account_name,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    with pytest.raises(ClickException) as e:
+        application_package_entity.action_release_directive_set(
+            action_ctx=action_context,
+            version="1.0",
+            patch=2,
+            release_channel="test_channel",
+            release_directive="directive",
+            target_accounts=[account_name],
+        )
+
+    assert (
+        str(e.value)
+        == f"Target account {account_name} is not in a valid format. Make sure you provide the target account in the format 'org.account'."
+    )
+
+    show_release_channels.assert_not_called()
+    set_release_directive.assert_not_called()
+
+
+@mock.patch(
+    SQL_FACADE_SHOW_RELEASE_CHANNELS,
+    return_value=[{"name": "my_channel"}, {"name": "default"}],
+)
+@mock.patch(SQL_FACADE_UNSET_RELEASE_DIRECTIVE)
+def test_given_channels_enabled_and_default_channel_selected_when_release_directive_unset_then_success(
+    unset_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    application_package_entity.action_release_directive_unset(
+        action_ctx=action_context,
+        release_channel="default",
+        release_directive="directive",
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    unset_release_directive.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel="default",
+        release_directive="directive",
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[{"name": "my_channel"}])
+@mock.patch(SQL_FACADE_UNSET_RELEASE_DIRECTIVE)
+def test_given_channels_enabled_and_non_default_channel_selected_when_release_directive_unset_then_success(
+    unset_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    application_package_entity.action_release_directive_unset(
+        action_ctx=action_context,
+        release_channel="my_channel",
+        release_directive="directive",
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    unset_release_directive.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel="my_channel",
+        release_directive="directive",
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[])
+@mock.patch(SQL_FACADE_UNSET_RELEASE_DIRECTIVE)
+def test_given_channels_disabled_and_default_channel_selected_when_release_directive_unset_then_success(
+    unset_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    application_package_entity.action_release_directive_unset(
+        action_ctx=action_context,
+        release_channel="default",
+        release_directive="directive",
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    unset_release_directive.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel=None,
+        release_directive="directive",
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[])
+@mock.patch(SQL_FACADE_UNSET_RELEASE_DIRECTIVE)
+def test_given_channels_disabled_and_non_default_channel_selected_when_release_directive_unset_then_error(
+    unset_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_directive_unset(
+            action_ctx=action_context,
+            release_channel="non_default",
+            release_directive="directive",
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channels are not enabled for application package {pkg_model.fqn.name}."
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    unset_release_directive.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[{"name": "my_channel"}])
+@mock.patch(SQL_FACADE_UNSET_RELEASE_DIRECTIVE)
+def test_given_channels_enabled_and_non_existing_channel_selected_when_release_directive_unset_then_error(
+    unset_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_directive_unset(
+            action_ctx=action_context,
+            release_channel="non_existing",
+            release_directive="directive",
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channel non_existing is not available in application package {pkg_model.fqn.name}. Available release channels are: (my_channel)."
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    unset_release_directive.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[{"name": "default"}])
+@mock.patch(SQL_FACADE_UNSET_RELEASE_DIRECTIVE)
+def test_given_default_directive_selected_when_release_directive_unset_then_error(
+    unset_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    with pytest.raises(ClickException) as e:
+        application_package_entity.action_release_directive_unset(
+            action_ctx=action_context,
+            release_channel="default",
+            release_directive="default",
+        )
+
+    assert (
+        str(e.value)
+        == "Cannot unset default release directive. Please specify a non-default release directive."
+    )
+
+    show_release_channels.assert_not_called()
+
+    unset_release_directive.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+def test_given_release_channels_with_proper_values_when_list_release_channels_then_success(
+    show_release_channels,
+    application_package_entity,
+    action_context,
+    capsys,
+    os_agnostic_snapshot,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    application_package_entity._workspace_ctx.console = cli_console  # noqa SLF001
+
+    pkg_model.meta.role = "package_role"
+
+    created_on_mock = mock.MagicMock()
+    updated_on_mock = mock.MagicMock()
+    created_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=3, tzinfo=pytz.utc
+    )
+    updated_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=5, tzinfo=pytz.utc
+    )
+
+    release_channels = [
+        {
+            "name": "channel1",
+            "description": "desc",
+            "created_on": created_on_mock,
+            "updated_on": updated_on_mock,
+            "versions": ["v1", "v2"],
+            "targets": {"accounts": ["org1.acc1", "org2.acc2"]},
+        },
+        {
+            "name": "channel2",
+            "description": "desc2",
+            "created_on": created_on_mock,
+            "updated_on": updated_on_mock,
+            "versions": ["v3"],
+            "targets": {"accounts": ["org3.acc3"]},
+        },
+    ]
+    show_release_channels.return_value = release_channels
+
+    result = application_package_entity.action_release_channel_list(
+        action_context, release_channel=None
+    )
+    captured = capsys.readouterr()
+
+    assert result == release_channels
+    assert captured.out == os_agnostic_snapshot
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+def test_given_release_channel_with_no_target_account_or_version_then_show_all_accounts_in_snapshot(
+    show_release_channels,
+    application_package_entity,
+    action_context,
+    capsys,
+    os_agnostic_snapshot,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    application_package_entity._workspace_ctx.console = cli_console  # noqa SLF001
+
+    pkg_model.meta.role = "package_role"
+
+    created_on_mock = mock.MagicMock()
+    updated_on_mock = mock.MagicMock()
+    created_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=3, tzinfo=pytz.utc
+    )
+    updated_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=5, tzinfo=pytz.utc
+    )
+
+    release_channels = [
+        {
+            "name": "channel1",
+            "description": "desc",
+            "created_on": created_on_mock,
+            "updated_on": updated_on_mock,
+            "versions": [],
+            "targets": {},
+        }
+    ]
+
+    show_release_channels.return_value = release_channels
+
+    result = application_package_entity.action_release_channel_list(
+        action_context, release_channel=None
+    )
+    captured = capsys.readouterr()
+
+    assert result == release_channels
+    assert captured.out == os_agnostic_snapshot
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+def test_given_no_release_channels_when_list_release_channels_then_success(
+    show_release_channels,
+    application_package_entity,
+    action_context,
+    capsys,
+    os_agnostic_snapshot,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    application_package_entity._workspace_ctx.console = cli_console  # noqa SLF001
+
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = []
+
+    result = application_package_entity.action_release_channel_list(
+        action_context, release_channel=None
+    )
+    captured = capsys.readouterr()
+
+    assert result == []
+    assert captured.out == os_agnostic_snapshot
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+def test_given_release_channels_with_a_selected_channel_to_filter_when_list_release_channels_then_returned_selected_channel(
+    show_release_channels,
+    application_package_entity,
+    action_context,
+    capsys,
+    os_agnostic_snapshot,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    application_package_entity._workspace_ctx.console = cli_console  # noqa SLF001
+
+    pkg_model.meta.role = "package_role"
+
+    created_on_mock = mock.MagicMock()
+    updated_on_mock = mock.MagicMock()
+    created_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=3, tzinfo=pytz.utc
+    )
+    updated_on_mock.astimezone.return_value = datetime(
+        year=2024, month=12, day=5, tzinfo=pytz.utc
+    )
+
+    test_channel_1 = {
+        "name": "channel1",
+        "description": "desc",
+        "created_on": created_on_mock,
+        "updated_on": updated_on_mock,
+        "versions": ["v1", "v2"],
+        "targets": {"accounts": ["org1.acc1", "org2.acc2"]},
+    }
+
+    test_channel_2 = {
+        "name": "channel2",
+        "description": "desc2",
+        "created_on": created_on_mock,
+        "updated_on": updated_on_mock,
+        "versions": ["v3"],
+        "targets": {"accounts": ["org3.acc3"]},
+    }
+    show_release_channels.return_value = [
+        test_channel_1,
+        test_channel_2,
+    ]
+
+    result = application_package_entity.action_release_channel_list(
+        action_context, release_channel="channel1"
+    )
+
+    assert result == [test_channel_1]
+    assert capsys.readouterr().out == os_agnostic_snapshot
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_CHANNEL)
+def test_given_release_channel_and_accounts_when_add_accounts_to_release_channel_then_success(
+    add_accounts_to_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    application_package_entity.action_release_channel_add_accounts(
+        action_ctx=action_context,
+        release_channel="test_channel",
+        target_accounts=["org1.acc1", "org2.acc2"],
+    )
+
+    add_accounts_to_release_channel.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel="test_channel",
+        target_accounts=["org1.acc1", "org2.acc2"],
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_CHANNEL)
+def test_given_release_channels_disabled_when_add_accounts_to_release_channel_then_error(
+    add_accounts_to_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = []
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_channel_add_accounts(
+            action_ctx=action_context,
+            release_channel="invalid_channel",
+            target_accounts=["org1.acc1", "org2.acc2"],
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channels are not enabled for application package {pkg_model.fqn.name}."
+    )
+
+    add_accounts_to_release_channel.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_CHANNEL)
+def test_given_invalid_release_channel_when_add_accounts_to_release_channel_then_error(
+    add_accounts_to_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_channel_add_accounts(
+            action_ctx=action_context,
+            release_channel="invalid_channel",
+            target_accounts=["org1.acc1", "org2.acc2"],
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channel invalid_channel is not available in application package {pkg_model.fqn.name}. Available release channels are: (test_channel)."
+    )
+
+    add_accounts_to_release_channel.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_CHANNEL)
+@pytest.mark.parametrize(
+    "account_name", ["org1", "org1.", ".account1", "org1.acc.ount1"]
+)
+def test_given_invalid_account_names_when_add_accounts_to_release_channel_then_error(
+    add_accounts_to_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+    account_name,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    with pytest.raises(ClickException) as e:
+        application_package_entity.action_release_channel_add_accounts(
+            action_ctx=action_context,
+            release_channel="test_channel",
+            target_accounts=[account_name],
+        )
+
+    assert (
+        str(e.value)
+        == f"Target account {account_name} is not in a valid format. Make sure you provide the target account in the format 'org.account'."
+    )
+
+    add_accounts_to_release_channel.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_CHANNEL)
+def test_given_release_channel_and_accounts_when_remove_accounts_from_release_channel_then_success(
+    remove_accounts_from_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    application_package_entity.action_release_channel_remove_accounts(
+        action_ctx=action_context,
+        release_channel="test_channel",
+        target_accounts=["org1.acc1", "org2.acc2"],
+    )
+
+    remove_accounts_from_release_channel.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel="test_channel",
+        target_accounts=["org1.acc1", "org2.acc2"],
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_CHANNEL)
+def test_given_release_channel_disabled_when_remove_accounts_from_release_channel_then_error(
+    remove_accounts_from_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = []
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_channel_remove_accounts(
+            action_ctx=action_context,
+            release_channel="invalid_channel",
+            target_accounts=["org1.acc1", "org2.acc2"],
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channels are not enabled for application package {pkg_model.fqn.name}."
+    )
+
+    remove_accounts_from_release_channel.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_CHANNEL)
+def test_given_invalid_release_channel_when_remove_accounts_from_release_channel_then_error(
+    remove_accounts_from_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_channel_remove_accounts(
+            action_ctx=action_context,
+            release_channel="invalid_channel",
+            target_accounts=["org1.acc1", "org2.acc2"],
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channel invalid_channel is not available in application package {pkg_model.fqn.name}. Available release channels are: (test_channel)."
+    )
+
+    remove_accounts_from_release_channel.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_CHANNEL)
+@pytest.mark.parametrize(
+    "account_name", ["org1", "org1.", ".account1", "org1.acc.ount1"]
+)
+def test_given_invalid_account_names_when_remove_accounts_from_release_channel_then_error(
+    remove_accounts_from_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+    account_name,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    with pytest.raises(ClickException) as e:
+        application_package_entity.action_release_channel_remove_accounts(
+            action_ctx=action_context,
+            release_channel="test_channel",
+            target_accounts=[account_name],
+        )
+
+    assert (
+        str(e.value)
+        == f"Target account {account_name} is not in a valid format. Make sure you provide the target account in the format 'org.account'."
+    )
+
+    remove_accounts_from_release_channel.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_ADD_VERSION_TO_RELEASE_CHANNEL)
+def test_given_release_channel_and_version_when_release_channel_add_version_then_success(
+    add_version_to_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    application_package_entity.action_release_channel_add_version(
+        action_ctx=action_context,
+        release_channel="test_channel",
+        version="1.0",
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    add_version_to_release_channel.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel="test_channel",
+        version="1.0",
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_ADD_VERSION_TO_RELEASE_CHANNEL)
+def test_given_release_channels_disabled_when_release_channel_add_version_then_error(
+    add_version_to_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = []
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_channel_add_version(
+            action_ctx=action_context,
+            release_channel="invalid_channel",
+            version="1.0",
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channels are not enabled for application package {pkg_model.fqn.name}."
+    )
+
+    add_version_to_release_channel.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_ADD_VERSION_TO_RELEASE_CHANNEL)
+def test_given_invalid_release_channel_when_release_channel_add_version_then_error(
+    add_version_to_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_channel_add_version(
+            action_ctx=action_context,
+            release_channel="invalid_channel",
+            version="1.0",
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channel invalid_channel is not available in application package {pkg_model.fqn.name}. Available release channels are: (test_channel)."
+    )
+
+    add_version_to_release_channel.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_REMOVE_VERSION_FROM_RELEASE_CHANNEL)
+def test_given_release_channel_and_version_when_release_channel_remove_version_then_success(
+    remove_version_from_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    application_package_entity.action_release_channel_remove_version(
+        action_ctx=action_context,
+        release_channel="test_channel",
+        version="1.0",
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    remove_version_from_release_channel.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel="test_channel",
+        version="1.0",
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_REMOVE_VERSION_FROM_RELEASE_CHANNEL)
+def test_given_release_channels_disabled_when_release_channel_remove_version_then_error(
+    remove_version_from_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = []
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_channel_remove_version(
+            action_ctx=action_context,
+            release_channel="invalid_channel",
+            version="1.0",
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channels are not enabled for application package {pkg_model.fqn.name}."
+    )
+
+    remove_version_from_release_channel.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_REMOVE_VERSION_FROM_RELEASE_CHANNEL)
+def test_given_invalid_release_channel_when_release_channel_remove_version_then_error(
+    remove_version_from_release_channel,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    show_release_channels.return_value = [{"name": "test_channel"}]
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_release_channel_remove_version(
+            action_ctx=action_context,
+            release_channel="invalid_channel",
+            version="1.0",
+        )
+
+    assert (
+        str(e.value)
+        == f"Release channel invalid_channel is not available in application package {pkg_model.fqn.name}. Available release channels are: (test_channel)."
+    )
+
+    remove_version_from_release_channel.assert_not_called()

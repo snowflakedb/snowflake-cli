@@ -31,6 +31,12 @@ from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEnt
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
+from snowflake.cli._plugins.nativeapp.release_channel.commands import (
+    app as release_channels_app,
+)
+from snowflake.cli._plugins.nativeapp.release_directive.commands import (
+    app as release_directives_app,
+)
 from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     find_entity,
@@ -67,6 +73,8 @@ app = SnowTyperFactory(
     help="Manages a Snowflake Native App",
 )
 app.add_typer(versions_app)
+app.add_typer(release_directives_app)
+app.add_typer(release_channels_app)
 
 log = logging.getLogger(__name__)
 
@@ -147,6 +155,12 @@ def app_run(
         The command fails if no release directive exists for your Snowflake account for a given application package, which is determined from the project definition file. Default: unset.""",
         is_flag=True,
     ),
+    channel: str = typer.Option(
+        None,
+        show_default=False,
+        help=f"""The name of the release channel to use when creating or upgrading an application instance from a release directive.
+        Requires the `--from-release-directive` flag to be set. If unset, the default channel will be used.""",
+    ),
     interactive: bool = InteractiveOption,
     force: Optional[bool] = ForceOption,
     validate: bool = ValidateOption,
@@ -175,6 +189,7 @@ def app_run(
         paths=[],
         interactive=interactive,
         force=force,
+        release_channel=channel,
     )
     app = ws.get_entity(app_id)
     return MessageResult(
@@ -358,7 +373,10 @@ def app_validate(
     if cli_context.output_format == OutputFormat.JSON:
         return ObjectResult(
             package.get_validation_result(
-                use_scratch_stage=True, interactive=False, force=True
+                action_ctx=ws.action_ctx,
+                use_scratch_stage=True,
+                interactive=False,
+                force=True,
             )
         )
 

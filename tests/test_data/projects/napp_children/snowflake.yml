@@ -1,0 +1,21 @@
+definition_version: 2
+entities:
+  pkg:
+    type: application package
+    identifier: my_pkg
+    artifacts:
+      - src: app/*
+        dest: ./
+    children_artifacts_dir: _entities
+    children:
+      - target: my_streamlit
+        identifier:
+          schema: v_schema
+        ensure_usable_by:
+          application_roles: ["my_app_role"]
+
+  my_streamlit:
+    type: streamlit
+    main_file: streamlit_app.py
+    artifacts:
+      - streamlit_app.py

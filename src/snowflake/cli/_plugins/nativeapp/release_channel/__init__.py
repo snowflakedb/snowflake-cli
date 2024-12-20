@@ -11,18 +11,3 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from enum import unique
-
-from snowflake.cli.api.feature_flags import BooleanFlag, FeatureFlagMixin
-
-
-@unique
-class FeatureFlag(
-    FeatureFlagMixin
-):  # TODO move this to snowflake.cli.api.feature_flags
-    ENABLE_NATIVE_APP_PYTHON_SETUP = BooleanFlag(
-        "ENABLE_NATIVE_APP_PYTHON_SETUP", False
-    )
-    ENABLE_NATIVE_APP_CHILDREN = BooleanFlag("ENABLE_NATIVE_APP_CHILDREN", False)
-    ENABLE_RELEASE_CHANNELS = BooleanFlag("ENABLE_RELEASE_CHANNELS", None)
