@@ -1,9 +1,14 @@
+import functools
 from enum import Enum
+from pathlib import Path
 from typing import Generic, Type, TypeVar, get_args
 
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.cli_global_context import span
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutor
+from snowflake.connector import SnowflakeConnection
+from snowflake.connector.cursor import SnowflakeCursor
 
 
 class EntityActions(str, Enum):
@@ -66,8 +71,8 @@ class EntityBase(Generic[T]):
         self._workspace_ctx = workspace_ctx
 
     @property
-    def entity_id(self):
-        return self._entity_model.entity_id
+    def entity_id(self) -> str:
+        return self._entity_model.entity_id  # type: ignore
 
     @classmethod
     def get_entity_model_type(cls) -> Type[T]:
@@ -91,6 +96,44 @@ class EntityBase(Generic[T]):
         Performs the requested action.
         """
         return getattr(self, action)(action_ctx, *args, **kwargs)
+
+    @property
+    def root(self) -> Path:
+        return self._workspace_ctx.project_root
+
+    @property
+    def identifier(self) -> str:
+        return self.model.fqn.sql_identifier
+
+    @property
+    def fqn(self) -> FQN:
+        return self._entity_model.fqn  # type: ignore[attr-defined]
+
+    @functools.cached_property
+    def _sql_executor(
+        self,
+    ) -> SqlExecutor:
+        return get_sql_executor()
+
+    def _execute_query(self, sql: str) -> SnowflakeCursor:
+        return self._sql_executor.execute_query(sql)
+
+    @functools.cached_property
+    def _conn(self) -> SnowflakeConnection:
+        return self._sql_executor._conn  # noqa
+
+    @property
+    def model(self):
+        return self._entity_model
+
+    def get_usage_grant_sql(self, app_role: str) -> str:
+        return f"GRANT USAGE ON {self.model.type.upper()} {self.identifier} TO ROLE {app_role};"
+
+    def get_describe_sql(self) -> str:
+        return f"DESCRIBE {self.model.type.upper()} {self.identifier};"
+
+    def get_drop_sql(self) -> str:
+        return f"DROP {self.model.type.upper()} {self.identifier};"
 
 
 def get_sql_executor() -> SqlExecutor:

@@ -149,14 +149,11 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         return query + ";"
 
-    def get_drop_sql(self):
-        return f"DROP STREAMLIT {self._entity_model.fqn};"
+    def get_share_sql(self, to_role: str) -> str:
+        return f"GRANT USAGE ON STREAMLIT {self.model.fqn.sql_identifier} TO ROLE {to_role};"
 
     def get_execute_sql(self):
         return f"EXECUTE STREAMLIT {self._entity_model.fqn}();"
-
-    def get_share_sql(self, to_role: str) -> str:
-        return f"GRANT USAGE ON STREAMLIT {self.model.fqn.sql_identifier} TO ROLE {to_role};"
 
     def get_usage_grant_sql(self, app_role: str, schema: Optional[str] = None) -> str:
         entity_id = self.entity_id

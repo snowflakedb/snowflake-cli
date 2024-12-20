@@ -98,7 +98,7 @@ def test_drop(mock_execute, example_streamlit_workspace):
     entity, action_ctx = example_streamlit_workspace
     entity.action_drop(action_ctx)
 
-    mock_execute.assert_called_with(f"DROP STREAMLIT {STREAMLIT_NAME};")
+    mock_execute.assert_called_with(f"DROP STREAMLIT IDENTIFIER('{STREAMLIT_NAME}');")
 
 
 @mock.patch(CONNECTOR)
@@ -163,7 +163,7 @@ def test_get_drop_sql(example_streamlit_workspace):
     entity, action_ctx = example_streamlit_workspace
     drop_sql = entity.get_drop_sql()
 
-    assert drop_sql == f"DROP STREAMLIT {STREAMLIT_NAME};"
+    assert drop_sql == f"DROP STREAMLIT IDENTIFIER('{STREAMLIT_NAME}');"
 
 
 @pytest.mark.parametrize(

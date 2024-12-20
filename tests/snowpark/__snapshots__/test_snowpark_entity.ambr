@@ -50,3 +50,14 @@
   HANDLER='app.func1_handler'
   '''
 # ---
+# name: test_nativeapp_children_interface
+  '''
+  CREATE FUNCTION IDENTIFIER('func1')
+  COPY GRANTS
+  RETURNS string
+  LANGUAGE PYTHON
+  RUNTIME_VERSION '3.10'
+  IMPORTS=
+  HANDLER='app.func1_handler'
+  '''
+# ---

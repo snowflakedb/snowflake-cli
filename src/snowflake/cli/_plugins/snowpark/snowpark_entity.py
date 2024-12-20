@@ -1,10 +1,8 @@
-import functools
 from enum import Enum
 from pathlib import Path
 from typing import Generic, List, Optional, TypeVar
 
 from click import ClickException
-
 from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli._plugins.snowpark import package_utils
 from snowflake.cli._plugins.snowpark.common import DEFAULT_RUNTIME
@@ -21,14 +19,14 @@ from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
 )
 from snowflake.cli._plugins.snowpark.zipper import zip_dir
 from snowflake.cli._plugins.workspace.context import ActionContext
-from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
+from snowflake.cli.api.entities.common import EntityBase
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import ProgrammingError
 
 T = TypeVar("T")
 
 
-class DeployMode(
+class CreateMode(
     str, Enum
 ):  # This should probably be moved to some common place, think where
     create = "CREATE"
@@ -37,38 +35,11 @@ class DeployMode(
 
 
 class SnowparkEntity(EntityBase[Generic[T]]):
-
     def __init__(self, *args, **kwargs):
 
         if not FeatureFlag.ENABLE_NATIVE_APP_CHILDREN.is_enabled():
-            raise NotImplementedError("Streamlit entity is not implemented yet")
+            raise NotImplementedError("Snowpark entity is not implemented yet")
         super().__init__(*args, **kwargs)
-
-    @property
-    def root(self):
-        return self._workspace_ctx.project_root
-
-    @property
-    def identifier(self):
-        return self.model.fqn.sql_identifier
-
-    @property
-    def fqn(self):
-        return self.model.fqn
-
-    @functools.cached_property
-    def _sql_executor(
-        self,
-    ):  # maybe this could be moved to parent class, as it is used in streamlit entity as well
-        return get_sql_executor()
-
-    @functools.cached_property
-    def _conn(self):
-        return self._sql_executor._conn  # noqa
-
-    @property
-    def model(self):
-        return self._entity_model  # noqa
 
     def action_bundle(
         self,
@@ -80,7 +51,7 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         allow_shared_libraries: bool = False,
         *args,
         **kwargs,
-    ):
+    ) -> List[Path]:
         return self.bundle(
             output_dir,
             ignore_anaconda,
@@ -90,16 +61,16 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         )
 
     def action_deploy(
-        self, action_ctx: ActionContext, mode: DeployMode, *args, **kwargs
+        self, action_ctx: ActionContext, mode: CreateMode, *args, **kwargs
     ):
         # TODO: After introducing bundle map, we should introduce file copying part here
-        return self._sql_executor.execute_query(self.get_deploy_sql(mode))
+        return self._execute_query(self.get_deploy_sql(mode))
 
     def action_drop(self, action_ctx: ActionContext, *args, **kwargs):
-        return self._sql_executor.execute_query(self.get_drop_sql())
+        return self._execute_query(self.get_drop_sql())
 
     def action_describe(self, action_ctx: ActionContext, *args, **kwargs):
-        return self._sql_executor.execute_query(self.get_describe_sql())
+        return self._execute_query(self.get_describe_sql())
 
     def action_execute(
         self,
@@ -108,9 +79,7 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         *args,
         **kwargs,
     ):
-        return self._sql_executor.execute_query(
-            self.get_execute_sql(execution_arguments)
-        )
+        return self._execute_query(self.get_execute_sql(execution_arguments))
 
     def bundle(
         self,
@@ -174,7 +143,7 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         except ProgrammingError:
             return False
 
-    def get_deploy_sql(self, mode: DeployMode):
+    def get_deploy_sql(self, mode: CreateMode):
         query = [
             f"{mode.value} {self.model.type.upper()} {self.identifier}",
             "COPY GRANTS",
@@ -196,17 +165,8 @@ class SnowparkEntity(EntityBase[Generic[T]]):
 
         return "\n".join(query)
 
-    def get_describe_sql(self):
-        return f"DESCRIBE {self.model.type.upper()} {self.identifier}"
-
-    def get_drop_sql(self):
-        return f"DROP {self.model.type.upper()} {self.identifier}"
-
     def get_execute_sql(self, execution_arguments: List[str] | None = None):
         raise NotImplementedError
-
-    def get_usage_grant_sql(self, app_role: str):
-        return f"GRANT USAGE ON {self.model.type.upper()} {self.identifier} TO ROLE {app_role}"
 
     def _process_requirements(  # TODO: maybe leave all the logic with requirements here - so download, write requirements file etc.
         self,
