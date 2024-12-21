@@ -22,7 +22,7 @@ from snowflake.cli._app.dev.docs.project_definition_generate_json_schema import 
     ProjectDefinitionGenerateJsonSchema,
 )
 from snowflake.cli._app.dev.docs.template_utils import get_template_environment
-from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
+from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 from snowflake.cli.api.secure_path import SecurePath
 
 log = logging.getLogger(__name__)
@@ -30,7 +30,9 @@ log = logging.getLogger(__name__)
 DEFINITION_DESCRIPTION = "definition_description.rst.jinja2"
 
 
-def generate_project_definition_docs(root: SecurePath):
+def generate_project_definition_docs(
+    root: SecurePath, definition: type[UpdatableModel]
+) -> None:
     """
     Recursively traverses the generated project definition schema,
     creating a file for each section that mirrors the YAML structure.
@@ -39,7 +41,7 @@ def generate_project_definition_docs(root: SecurePath):
 
     root.mkdir(exist_ok=True)
     list_of_sections = model_json_schema(
-        DefinitionV11, schema_generator=ProjectDefinitionGenerateJsonSchema
+        definition, schema_generator=ProjectDefinitionGenerateJsonSchema
     )["result"]
     for section in list_of_sections:
         _render_definition_description(root, section)

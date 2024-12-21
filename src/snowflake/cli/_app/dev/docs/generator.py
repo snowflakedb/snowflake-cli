@@ -21,6 +21,10 @@ from snowflake.cli._app.dev.docs.commands_docs_generator import generate_command
 from snowflake.cli._app.dev.docs.project_definition_docs_generator import (
     generate_project_definition_docs,
 )
+from snowflake.cli.api.project.schemas.project_definition import (
+    DefinitionV11,
+    DefinitionV20,
+)
 from snowflake.cli.api.secure_path import SecurePath
 
 log = logging.getLogger(__name__)
@@ -32,4 +36,5 @@ def generate_docs(root: SecurePath, command: Command):
     """
     root.mkdir(exist_ok=True)
     generate_command_docs(root / "commands", command)
-    generate_project_definition_docs(root / "project_definition")
+    generate_project_definition_docs(root / "project_definition_V11", DefinitionV11)
+    generate_project_definition_docs(root / "project_definition_V20", DefinitionV20)
