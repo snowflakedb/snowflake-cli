@@ -113,3 +113,4 @@ def test_create_image_repository(runner, test_database):
     assert result.json == {
         "status": f"Image Repository {repo_name.upper()} successfully created."
     }
+    runner.invoke_with_connection_json(["spcs", "image-repository", "drop", repo_name])
