@@ -25,7 +25,9 @@ The following table describes the project definition properties.
   * - **{{property["path"]}}**
 
       *{{"Required" if property["required"] else "Optional"}}*{{ (", *"+property["types"]+"*") if property["types"]}}
-
+{% if property["default"] %}
+      Default: `{{ property["default"] }}`
+{% else %}{% endif %}
     - {{property["title"]}}
 {% if property["description"] %}
       {{ property["description"] }}

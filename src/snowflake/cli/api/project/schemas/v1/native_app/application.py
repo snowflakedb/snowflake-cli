@@ -28,14 +28,27 @@ from snowflake.cli.api.project.util import append_test_resource_suffix
 class Application(UpdatableModel):
     role: Optional[str] = Field(
         title="Role to use when creating the application object and consumer-side objects",
+        description=f"""If you do not specify a role, Snowflake CLI attempts to use the default role assigned to your
+        user in your Snowflake account. Typically, you specify this value in the snowflake.local.yml as described in
+        {NativeAppReference.PROJECT_DEFINITION_OVERRIDES.value.get_link_text()}.
+        """,
         default=None,
     )
     name: Optional[str] = Field(
         title="Name of the application object created when you run the snow app run command",
+        description=f"""Based on your platform, Snowflake CLI uses the $USER, $USERNAME, or $LOGNAME environment
+        variables. As with native_app.name, both unquoted and quoted identifiers are supported.
+        Typically, you specify this value in the snowflake.local.yml as described in
+        {NativeAppReference.PROJECT_DEFINITION_OVERRIDES.value.get_link_text()}.
+        """,
         default=None,
     )
     warehouse: Optional[str] = IdentifierField(
         title="Name of the application object created when you run the snow app run command",
+        description=f"""If you do not specify a warehouse, Snowflake CLI attempts to use the default warehouse assigned
+        to your user in your Snowflake account.. Typically, you specify this value in the snowflake.local.yml as
+        described in {NativeAppReference.PROJECT_DEFINITION_OVERRIDES.value.get_link_text()}.
+    """,
         default=None,
     )
     debug: Optional[bool] = Field(
