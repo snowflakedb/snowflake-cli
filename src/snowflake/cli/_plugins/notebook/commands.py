@@ -15,6 +15,7 @@
 import logging
 
 import typer
+from click import UsageError
 from snowflake.cli._plugins.notebook.manager import NotebookManager
 from snowflake.cli._plugins.notebook.types import NotebookStagePath
 from snowflake.cli.api.commands.flags import identifier_argument
@@ -76,11 +77,21 @@ def open_cmd(
 def create(
     identifier: Annotated[FQN, NOTEBOOK_IDENTIFIER],
     notebook_file: Annotated[NotebookStagePath, NotebookFile],
+    query_warehouse: Annotated[str, typer.Option("--query-warehouse")],
+    runtime_name: Annotated[str, typer.Option("--runtime-name")],
+    compute_pool: Annotated[str, typer.Option("--compute-pool")],
     **options,
 ):
     """Creates notebook from stage."""
+    if runtime_name and not compute_pool:
+        raise UsageError("Runtime name requires compute pool.")
+    if compute_pool and not runtime_name:
+        raise UsageError("Compute pool requires runtime name.")
     notebook_url = NotebookManager().create(
         notebook_name=identifier,
         notebook_file=notebook_file,
+        query_warehouse=query_warehouse,
+        runtime_name=runtime_name,
+        compute_pool=compute_pool,
     )
     return MessageResult(message=notebook_url)
