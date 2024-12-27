@@ -973,6 +973,21 @@ def test_share_streamlit(mock_connector, runner, mock_ctx):
 
 
 @mock.patch("snowflake.connector.connect")
+def test_share_streamlit_wth_grant_option(mock_connector, runner, mock_ctx):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    role = "other_role"
+
+    result = runner.invoke(["streamlit", "share", STREAMLIT_NAME, role, "--with-grant-option"])
+
+    assert result.exit_code == 0, result.output
+    assert (
+        ctx.get_query()
+        == f"grant usage on streamlit IDENTIFIER('{STREAMLIT_NAME}') to role {role} with grant option"
+    )
+
+
+@mock.patch("snowflake.connector.connect")
 def test_drop_streamlit(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx

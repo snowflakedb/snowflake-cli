@@ -101,10 +101,11 @@ def streamlit_share(
         help="Role with which to share the Streamlit app.",
         show_default=False,
     ),
-    with_grant_option: bool = typer.Argument(
-        default=False,
+    with_grant_option: bool = typer.Option(
+        False,
+        "--with-grant-option",
         help="Share the Streamlit app with the grant option, giving the role the ability to also share the Streamlit app.",
-        show_default=True,
+        is_flag=True,
     ),
     **options,
 ) -> CommandResult:
