@@ -60,6 +60,38 @@ app = SnowTyperFactory(
     short_help="Manages services.",
 )
 
+# Define common options
+container_name_option = typer.Option(
+    ...,
+    "--container-name",
+    help="Name of the container.",
+    show_default=False,
+)
+
+instance_id_option = typer.Option(
+    ...,
+    "--instance-id",
+    help="ID of the service instance, starting with 0.",
+    show_default=False,
+)
+
+since_option = typer.Option(
+    default="",
+    help="Fetch events that are newer than this time ago, in Snowflake interval syntax.",
+)
+
+until_option = typer.Option(
+    default="",
+    help="Fetch events that are older than this time ago, in Snowflake interval syntax.",
+)
+
+show_all_columns_option = typer.Option(
+    False,
+    "--all",
+    is_flag=True,
+    help="Fetch all columns.",
+)
+
 
 def _service_name_callback(name: FQN) -> FQN:
     if not is_valid_object_name(name.identifier, max_depth=2, allow_quoted=False):
@@ -214,18 +246,8 @@ def status(name: FQN = ServiceNameArgument, **options) -> CommandResult:
 @app.command(requires_connection=True)
 def logs(
     name: FQN = ServiceNameArgument,
-    container_name: str = typer.Option(
-        ...,
-        "--container-name",
-        help="Name of the container.",
-        show_default=False,
-    ),
-    instance_id: str = typer.Option(
-        ...,
-        "--instance-id",
-        help="ID of the service instance, starting with 0.",
-        show_default=False,
-    ),
+    container_name: str = container_name_option,
+    instance_id: str = instance_id_option,
     num_lines: int = typer.Option(
         DEFAULT_NUM_LINES, "--num-lines", help="Number of lines to retrieve."
     ),
@@ -301,51 +323,33 @@ def logs(
 @app.command(requires_connection=True)
 def events(
     name: FQN = ServiceNameArgument,
-    container_name: str = typer.Option(
-        ...,
-        "--container-name",
-        help="Name of the container.",
-        show_default=False,
-    ),
-    instance_id: str = typer.Option(
-        ...,
-        "--instance-id",
-        help="ID of the service instance, starting with 0.",
-        show_default=False,
-    ),
-    since: str = typer.Option(
-        default="",
-        help="Fetch events that are newer than this time ago, in Snowflake interval syntax.",
-    ),
-    until: str = typer.Option(
-        default="",
-        help="Fetch events that are older than this time ago, in Snowflake interval syntax.",
-    ),
+    container_name: str = container_name_option,
+    instance_id: str = instance_id_option,
+    since: str = since_option,
+    until: str = until_option,
     first: int = typer.Option(
-        default=-1,
+        default=None,
         show_default=False,
         help="Fetch only the first N events. Cannot be used with --last.",
     ),
     last: int = typer.Option(
-        default=-1,
+        default=None,
         show_default=False,
         help="Fetch only the last N events. Cannot be used with --first.",
     ),
-    show_all_columns: bool = typer.Option(
-        False,
-        "--all",
-        is_flag=True,
-        help="Fetch all columns.",
-    ),
+    show_all_columns: bool = show_all_columns_option,
     **options,
 ):
+    """
+    Retrieve platform events for a service container.
+    """
     if FeatureFlag.ENABLE_SPCS_SERVICE_EVENTS.is_disabled():
         raise FeatureNotEnabledError(
             "ENABLE_SPCS_SERVICE_EVENTS",
             "Service events collection from SPCS event table is disabled.",
         )
 
-    if first >= 0 and last >= 0:
+    if first is not None and last is not None:
         raise IncompatibleParametersError(["--first", "--last"])
 
     manager = ServiceManager()
@@ -359,40 +363,26 @@ def events(
         last=last,
         show_all_columns=show_all_columns,
     )
+
+    if not events:
+        return MessageResult("No events found.")
+
     return CollectionResult(events)
 
 
 @app.command(requires_connection=True)
 def metrics(
     name: FQN = ServiceNameArgument,
-    container_name: str = typer.Option(
-        ...,
-        "--container-name",
-        help="Name of the container.",
-        show_default=False,
-    ),
-    instance_id: str = typer.Option(
-        ...,
-        "--instance-id",
-        help="ID of the service instance, starting with 0.",
-        show_default=False,
-    ),
-    since: str = typer.Option(
-        default="",
-        help="Fetch events that are newer than this time ago, in Snowflake interval syntax.",
-    ),
-    until: str = typer.Option(
-        default="",
-        help="Fetch events that are older than this time ago, in Snowflake interval syntax.",
-    ),
-    show_all_columns: bool = typer.Option(
-        False,
-        "--all",
-        is_flag=True,
-        help="Fetch all columns.",
-    ),
+    container_name: str = container_name_option,
+    instance_id: str = instance_id_option,
+    since: str = since_option,
+    until: str = until_option,
+    show_all_columns: bool = show_all_columns_option,
     **options,
 ):
+    """
+    Retrieve platform metrics for a service container.
+    """
     if FeatureFlag.ENABLE_SPCS_SERVICE_METRICS.is_disabled():
         raise FeatureNotEnabledError(
             "ENABLE_SPCS_SERVICE_METRICS",

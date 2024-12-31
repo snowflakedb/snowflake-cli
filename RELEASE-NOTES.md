@@ -44,7 +44,6 @@
   * Supports filtering by service name, container name, instance ID, and time intervals (`--since`, `--until`).
   * Use `--all` to fetch all columns.
 
-
 ## Fixes and improvements
 * Fixed inability to add patches to lowercase quoted versions
 * Fixes label being set to blank instead of None when not provided.
