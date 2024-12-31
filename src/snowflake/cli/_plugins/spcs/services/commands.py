@@ -322,12 +322,12 @@ def events(
         help="Fetch events that are older than this time ago, in Snowflake interval syntax.",
     ),
     first: int = typer.Option(
-        default=-1,
+        default=None,
         show_default=False,
         help="Fetch only the first N events. Cannot be used with --last.",
     ),
     last: int = typer.Option(
-        default=-1,
+        default=None,
         show_default=False,
         help="Fetch only the last N events. Cannot be used with --first.",
     ),
@@ -339,13 +339,16 @@ def events(
     ),
     **options,
 ):
+    """
+    Retrieve platform events for a service container.
+    """
     if FeatureFlag.ENABLE_SPCS_SERVICE_EVENTS.is_disabled():
         raise FeatureNotEnabledError(
             "ENABLE_SPCS_SERVICE_EVENTS",
             "Service events collection from SPCS event table is disabled.",
         )
 
-    if first >= 0 and last >= 0:
+    if first is not None and last is not None:
         raise IncompatibleParametersError(["--first", "--last"])
 
     manager = ServiceManager()
@@ -359,6 +362,10 @@ def events(
         last=last,
         show_all_columns=show_all_columns,
     )
+
+    if not events:
+        return MessageResult("No events found.")
+
     return CollectionResult(events)
 
 
@@ -393,6 +400,9 @@ def metrics(
     ),
     **options,
 ):
+    """
+    Retrieve platform metrics for a service container.
+    """
     if FeatureFlag.ENABLE_SPCS_SERVICE_METRICS.is_disabled():
         raise FeatureNotEnabledError(
             "ENABLE_SPCS_SERVICE_METRICS",

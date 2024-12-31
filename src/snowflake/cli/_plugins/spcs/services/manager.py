@@ -223,8 +223,8 @@ class ServiceManager(SqlExecutionMixin):
         container_name: str,
         since: str | datetime | None = None,
         until: str | datetime | None = None,
-        first: int = -1,
-        last: int = -1,
+        first: Optional[int] = None,
+        last: Optional[int] = None,
         show_all_columns: bool = False,
     ):
 
@@ -234,8 +234,8 @@ class ServiceManager(SqlExecutionMixin):
         )
         since_clause, until_clause = build_time_clauses(since, until)
 
-        first_clause = f"limit {first}" if first >= 0 else ""
-        last_clause = f"limit {last}" if last >= 0 else ""
+        first_clause = f"limit {first}" if first is not None else ""
+        last_clause = f"limit {last}" if last is not None else ""
 
         query = f"""\
                      select *

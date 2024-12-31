@@ -13,6 +13,7 @@
 # limitations under the License.
 import itertools
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
@@ -997,9 +998,13 @@ def test_latest_metrics(mock_execute_query, mock_is_disabled, runner):
         "        "
     )
 
-    assert (
-        actual_query == expected_query
-    ), f"Generated query does not match expected query.\n\nActual:\n{repr(actual_query)}\n\nExpected:\n{repr(expected_query)}"
+    actual_normalized = normalize_query(actual_query)
+    expected_normalized = normalize_query(expected_query)
+
+    assert actual_normalized == expected_normalized, (
+        f"Generated query does not match expected query.\n\n"
+        f"Actual:\n{actual_query}\n\nExpected:\n{expected_query}"
+    )
 
 
 @patch(
@@ -1547,3 +1552,8 @@ def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
 
     queries = ctx.get_queries()
     assert queries[0] == queries[1]
+
+
+def normalize_query(query):
+    """Normalize SQL query by stripping extra whitespace and formatting."""
+    return re.sub(r"\s+", " ", query.strip())
