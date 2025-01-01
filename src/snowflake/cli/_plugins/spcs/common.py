@@ -14,7 +14,9 @@
 
 from __future__ import annotations
 
+import json
 import sys
+from datetime import datetime
 from typing import TextIO
 
 from click import ClickException
@@ -22,6 +24,22 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import ObjectAlreadyExistsError
 from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.connector.errors import ProgrammingError
+
+EVENT_COLUMN_NAMES = [
+    "TIMESTAMP",
+    "START_TIMESTAMP",
+    "OBSERVED_TIMESTAMP",
+    "TRACE",
+    "RESOURCE",
+    "RESOURCE_ATTRIBUTES",
+    "SCOPE",
+    "SCOPE_ATTRIBUTES",
+    "RECORD_TYPE",
+    "RECORD",
+    "RECORD_ATTRIBUTES",
+    "VALUE",
+    "EXEMPLARS",
+]
 
 if not sys.stdout.closed and sys.stdout.isatty():
     GREEN = "\033[32m"
@@ -122,6 +140,117 @@ def new_logs_only(prev_log_records: list[str], new_log_records: list[str]) -> li
             new_log_records_sorted.remove(prev_log)
 
     return new_log_records_sorted
+
+
+def build_resource_clause(
+    service_name: str, instance_id: str, container_name: str
+) -> str:
+    resource_filters = []
+    if service_name:
+        resource_filters.append(
+            f"resource_attributes:\"snow.service.name\" = '{service_name}'"
+        )
+    if instance_id:
+        resource_filters.append(
+            f"(resource_attributes:\"snow.service.instance\" = '{instance_id}' "
+            f"OR resource_attributes:\"snow.service.container.instance\" = '{instance_id}')"
+        )
+    if container_name:
+        resource_filters.append(
+            f"resource_attributes:\"snow.service.container.name\" = '{container_name}'"
+        )
+    return " and ".join(resource_filters) if resource_filters else "1=1"
+
+
+def build_time_clauses(
+    since: str | datetime | None, until: str | datetime | None
+) -> tuple[str, str]:
+    since_clause = ""
+    until_clause = ""
+
+    if isinstance(since, datetime):
+        since_clause = f"and timestamp >= '{since}'"
+    elif isinstance(since, str) and since:
+        since_clause = f"and timestamp >= sysdate() - interval '{since}'"
+
+    if isinstance(until, datetime):
+        until_clause = f"and timestamp <= '{until}'"
+    elif isinstance(until, str) and until:
+        until_clause = f"and timestamp <= sysdate() - interval '{until}'"
+
+    return since_clause, until_clause
+
+
+def format_event_row(event_dict: dict) -> dict:
+    try:
+        resource_attributes = json.loads(event_dict.get("RESOURCE_ATTRIBUTES", "{}"))
+        record_attributes = json.loads(event_dict.get("RECORD_ATTRIBUTES", "{}"))
+        record = json.loads(event_dict.get("RECORD", "{}"))
+
+        database_name = resource_attributes.get("snow.database.name", "N/A")
+        schema_name = resource_attributes.get("snow.schema.name", "N/A")
+        service_name = resource_attributes.get("snow.service.name", "N/A")
+        instance_name = resource_attributes.get("snow.service.instance", "N/A")
+        container_name = resource_attributes.get("snow.service.container.name", "N/A")
+        event_name = record_attributes.get("event.name", "Unknown Event")
+        event_value = event_dict.get("VALUE", "Unknown Value")
+        severity = record.get("severity_text", "Unknown Severity")
+
+        return {
+            "TIMESTAMP": event_dict.get("TIMESTAMP", "N/A"),
+            "DATABASE NAME": database_name,
+            "SCHEMA NAME": schema_name,
+            "SERVICE NAME": service_name,
+            "INSTANCE ID": instance_name,
+            "CONTAINER NAME": container_name,
+            "SEVERITY": severity,
+            "EVENT NAME": event_name,
+            "EVENT VALUE": event_value,
+        }
+    except (json.JSONDecodeError, KeyError) as e:
+        raise RecordProcessingError(f"Error processing event row.")
+
+
+def format_metric_row(metric_dict: dict) -> dict:
+    try:
+        resource_attributes = json.loads(metric_dict["RESOURCE_ATTRIBUTES"])
+        record = json.loads(metric_dict["RECORD"])
+
+        database_name = resource_attributes.get("snow.database.name", "N/A")
+        schema_name = resource_attributes.get("snow.schema.name", "N/A")
+        service_name = resource_attributes.get("snow.service.name", "N/A")
+        instance_name = resource_attributes.get(
+            "snow.service.container.instance", "N/A"
+        )
+        container_name = resource_attributes.get("snow.service.container.name", "N/A")
+
+        metric_name = record["metric"].get("name", "Unknown Metric")
+        metric_value = metric_dict.get("VALUE", "Unknown Value")
+
+        return {
+            "TIMESTAMP": metric_dict.get("TIMESTAMP", "N/A"),
+            "DATABASE NAME": database_name,
+            "SCHEMA NAME": schema_name,
+            "SERVICE NAME": service_name,
+            "INSTANCE ID": instance_name,
+            "CONTAINER NAME": container_name,
+            "METRIC NAME": metric_name,
+            "METRIC VALUE": metric_value,
+        }
+    except (json.JSONDecodeError, KeyError) as e:
+        raise RecordProcessingError(f"Error processing metric row.")
+
+
+class RecordProcessingError(ClickException):
+    """Raised when processing an event or metric record fails due to invalid data."""
+
+    pass
+
+
+class SPCSEventTableError(ClickException):
+    """Raised when there is an issue related to the SPCS event table."""
+
+    pass
 
 
 class NoPropertiesProvidedError(ClickException):
