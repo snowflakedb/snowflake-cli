@@ -31,6 +31,7 @@
   * Add ability to list release channels through `snow app release-channel list` command
   * Add ability to add and remove accounts from release channels through `snow app release-channel add-accounts` and snow app release-channel remove-accounts` commands.
   * Add ability to add/remove versions to/from release channels through `snow app release-channel add-version` and `snow app release-channel remove-version` commands.
+* Added `--with-grant-option` to `snow streamlit share` to grant the ability for the role to share the Streamlit app that is being shared.
 
 ## Fixes and improvements
 * Fixed crashes with older x86_64 Intel CPUs.

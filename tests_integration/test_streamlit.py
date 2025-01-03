@@ -84,6 +84,14 @@ def test_streamlit_deploy(
             {"status": "Statement executed successfully."},
         )
 
+        result = runner.invoke_with_connection_json(
+            ["streamlit", "share", streamlit_name, _new_streamlit_role, "--with-grant-option"]
+        )
+        assert contains_row_with(
+            result.json,
+            {"status": "Statement executed successfully."},
+        )
+
         result = snowflake_session.execute_string("select current_role()")
         current_role = row_from_snowflake_session(result)[0]["CURRENT_ROLE()"]
         try:
@@ -215,6 +223,15 @@ def test_streamlit_deploy_experimental_twice(
             result.json,
             {"status": "Statement executed successfully."},
         )
+
+        result = runner.invoke_with_connection_json(
+            ["streamlit", "share", streamlit_name, _new_streamlit_role, "--with-grant-option"]
+        )
+        assert contains_row_with(
+            result.json,
+            {"status": "Statement executed successfully."},
+        )
+
         result = snowflake_session.execute_string("select current_role()")
         current_role = row_from_snowflake_session(result)[0]["CURRENT_ROLE()"]
         try:

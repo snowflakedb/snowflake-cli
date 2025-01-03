@@ -47,10 +47,11 @@ class StreamlitManager(SqlExecutionMixin):
         query = f"EXECUTE STREAMLIT {app_name.sql_identifier}()"
         return self.execute_query(query=query)
 
-    def share(self, streamlit_name: FQN, to_role: str) -> SnowflakeCursor:
-        return self.execute_query(
-            f"grant usage on streamlit {streamlit_name.sql_identifier} to role {to_role}"
-        )
+    def share(self, streamlit_name: FQN, to_role: str, with_grant_option: bool) -> SnowflakeCursor:
+        grant_statement = f"grant usage on streamlit {streamlit_name.sql_identifier} to role {to_role}"
+        if with_grant_option:
+            grant_statement += " with grant option"
+        return self.execute_query(grant_statement)
 
     def _put_streamlit_files(
         self,

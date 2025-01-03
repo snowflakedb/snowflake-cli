@@ -101,12 +101,18 @@ def streamlit_share(
         help="Role with which to share the Streamlit app.",
         show_default=False,
     ),
+    with_grant_option: bool = typer.Option(
+        False,
+        "--with-grant-option",
+        help="Share the Streamlit app with the grant option, giving the role the ability to also share the Streamlit app.",
+        is_flag=True,
+    ),
     **options,
 ) -> CommandResult:
     """
     Shares a Streamlit app with another role.
     """
-    cursor = StreamlitManager().share(streamlit_name=name, to_role=to_role)
+    cursor = StreamlitManager().share(streamlit_name=name, to_role=to_role, with_grant_option=with_grant_option)
     return SingleQueryResult(cursor)
 
 
