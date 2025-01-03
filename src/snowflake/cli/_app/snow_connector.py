@@ -21,7 +21,9 @@ from typing import Dict, Optional
 
 import snowflake.connector
 from click.exceptions import ClickException
+from snowflake.cli.__about__ import VERSION
 from snowflake.cli._app.constants import (
+    INTERNAL_APPLICATION_NAME,
     PARAM_APPLICATION_NAME,
 )
 from snowflake.cli._app.secret import SecretType
@@ -157,6 +159,8 @@ def connect_to_snowflake(
         # Redirecting both stdout and stderr for offline usage.
         with contextlib.redirect_stdout(None), contextlib.redirect_stderr(None):
             return snowflake.connector.connect(
+                internal_application_name=INTERNAL_APPLICATION_NAME,
+                internal_application_version=VERSION,
                 application=command_info(),
                 **connection_parameters,
             )
