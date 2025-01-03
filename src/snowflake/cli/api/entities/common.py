@@ -1,12 +1,15 @@
 import functools
 from enum import Enum
 from pathlib import Path
-from typing import Generic, Type, TypeVar, get_args
+from typing import Any, Generic, List, Type, TypeVar, get_args
 
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.cli_global_context import span
+from snowflake.cli.api.exceptions import CycleDetectedError
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.schemas.entities.common import Dependency
 from snowflake.cli.api.sql_execution import SqlExecutor
+from snowflake.cli.api.utils.graph import Graph, Node
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -74,29 +77,6 @@ class EntityBase(Generic[T]):
     def entity_id(self) -> str:
         return self._entity_model.entity_id  # type: ignore
 
-    @classmethod
-    def get_entity_model_type(cls) -> Type[T]:
-        """
-        Returns the generic model class specified in each entity class.
-
-        For example, calling ApplicationEntity.get_entity_model_type() will return the ApplicationEntityModel class.
-        """
-        return get_args(cls.__orig_bases__[0])[0]  # type: ignore[attr-defined]
-
-    def supports(self, action: EntityActions) -> bool:
-        """
-        Checks whether this entity supports the given action. An entity is considered to support an action if it implements a method with the action name.
-        """
-        return callable(getattr(self, action, None))
-
-    def perform(
-        self, action: EntityActions, action_ctx: ActionContext, *args, **kwargs
-    ):
-        """
-        Performs the requested action.
-        """
-        return getattr(self, action)(action_ctx, *args, **kwargs)
-
     @property
     def root(self) -> Path:
         return self._workspace_ctx.project_root
@@ -126,6 +106,99 @@ class EntityBase(Generic[T]):
     def model(self):
         return self._entity_model
 
+    @classmethod
+    def get_entity_model_type(cls) -> Type[T]:
+        """
+        Returns the generic model class specified in each entity class.
+
+        For example, calling ApplicationEntity.get_entity_model_type() will return the ApplicationEntityModel class.
+        """
+        return get_args(cls.__orig_bases__[0])[0]  # type: ignore[attr-defined]
+
+    def supports(self, action: EntityActions) -> bool:
+        """
+        Checks whether this entity supports the given action. An entity is considered to support an action if it implements a method with the action name.
+        """
+        return callable(getattr(self, action, None))
+
+    def perform(
+        self, action: EntityActions, action_ctx: ActionContext, *args, **kwargs
+    ):
+        """
+        Performs the requested action.
+        """
+        return getattr(self, action)(action_ctx, *args, **kwargs)
+
+    def dependent_entities(self, action_ctx: ActionContext) -> List[Dependency]:
+        """
+        Returns a list of entities that this entity depends on.
+        """
+        graph = self._create_dependency_graph(action_ctx)
+        sorted_dependecies = self._check_dependency_graph_for_cycles(graph)
+
+        return sorted_dependecies
+
+    def _create_dependency_graph(self, action_ctx: ActionContext) -> Graph[Dependency]:
+        """
+        Creates a graph for dependencies. We need the graph, instead of a simple list, because we need to check if
+        calling dependencies actions in selected order is possible.
+        """
+        graph = Graph()
+        depends_on = self._entity_model.depends_on or []  # type: ignore
+        self_dependency = Dependency(id=self.model.entity_id)  # type: ignore
+        resolved_nodes = set()
+
+        graph.add(Node(key=self_dependency.entity_id, data=self_dependency))
+
+        def _resolve_dependencies(parent_id: str, dependency: Dependency) -> None:
+
+            if not graph.contains_node(dependency.entity_id):
+                dependency_node = Node(key=dependency.entity_id, data=dependency)
+                graph.add(dependency_node)
+
+            graph.add_directed_edge(parent_id, dependency.entity_id)
+
+            resolved_nodes.add(dependency_node.key)
+
+            for child_dependency in action_ctx.get_entity(
+                dependency.entity_id
+            ).model.depends_on:
+                if child_dependency.entity_id not in resolved_nodes:
+                    _resolve_dependencies(dependency_node.key, child_dependency)
+                else:
+                    graph.add_directed_edge(
+                        dependency_node.key, child_dependency.entity_id
+                    )
+
+        for dependency in depends_on:
+            _resolve_dependencies(self_dependency.entity_id, dependency)
+
+        return graph
+
+    def _check_dependency_graph_for_cycles(
+        self, graph: Graph[Dependency]
+    ) -> List[Dependency]:
+        """
+        This function is used to check, if dependency graph have any cycles, that would make it impossible to
+        deploy entities in correct order.
+        If cycle is detected, it raises CycleDetectedError
+        The result list, shows entities this one depends on, in order they should be called.
+        Last item is removed from the result list, as it is this entity itself.
+        """
+        result = []
+
+        def _on_cycle(node: Node[T]) -> None:
+            raise CycleDetectedError(
+                f"Cycle detected in entity dependencies: {node.key}"
+            )
+
+        def _on_visit(node: Node[T]) -> None:
+            result.append(node.data)
+
+        graph.dfs(on_cycle_action=_on_cycle, visit_action=_on_visit)
+
+        return clear_duplicates_from_list(result)[:-1]
+
     def get_usage_grant_sql(self, app_role: str) -> str:
         return f"GRANT USAGE ON {self.model.type.upper()} {self.identifier} TO ROLE {app_role};"
 
@@ -139,3 +212,11 @@ class EntityBase(Generic[T]):
 def get_sql_executor() -> SqlExecutor:
     """Returns an SQL Executor that uses the connection from the current CLI context"""
     return SqlExecutor()
+
+
+def clear_duplicates_from_list(input_list: list[Any]) -> list[Any]:
+    """
+    Removes duplicates from the input list and returns a new list.
+    """
+    seen = set()
+    return [x for x in input_list if not (x in seen or seen.add(x))]  # type: ignore

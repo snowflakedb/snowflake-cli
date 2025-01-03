@@ -20,6 +20,8 @@ from typing import List, Literal, Optional, Union
 from pydantic import Field, field_validator
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import (
+    Dependency,  # noqa  # noqa
+    DependsOnBaseModel,
     EntityModelBase,
     ExternalAccessBaseModel,
     ImportsBaseModel,
@@ -44,7 +46,9 @@ class PathMapping(UpdatableModel):
     )
 
 
-class SnowparkEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBaseModel):
+class SnowparkEntityModel(
+    EntityModelBase, ExternalAccessBaseModel, ImportsBaseModel, DependsOnBaseModel
+):
     handler: str = Field(
         title="Function’s or procedure’s implementation of the object inside source module",
         examples=["functions.hello_function"],

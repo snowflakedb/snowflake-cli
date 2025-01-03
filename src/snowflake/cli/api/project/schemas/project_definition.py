@@ -28,6 +28,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
 )
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.common import (
+    Dependency,  # noqa  # fmt: off  # noqa
     TargetField,
 )
 from snowflake.cli.api.project.schemas.entities.entities import (
@@ -261,6 +262,20 @@ class DefinitionV20(_ProjectDefinitionBase):
         # Apply entity data on top of mixins
         data = cls._merge_data(data, entity)
         return data
+
+    @model_validator(mode="after")
+    def validate_dependencies(self):
+        """
+        Checks if entities listed in depends_on section exist in the project
+        """
+
+        for entity_id, entity in self.entities.items():
+            if entity.depends_on:
+                for dependency in entity.depends_on:
+                    if dependency.entity_id not in self.entities:
+                        raise ValueError(
+                            f"Entity {entity_id} depends on non-existing entity {dependency.entity_id}"
+                        )
 
     @classmethod
     def _merge_data(

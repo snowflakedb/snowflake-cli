@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Generic, TypeVar
+from typing import Callable, Dict, Generic, Set, TypeVar
 
 T = TypeVar("T")
 
@@ -42,6 +42,9 @@ class Node(Generic[T]):
 class Graph(Generic[T]):
     def __init__(self):
         self._graph_nodes_map: dict[str, Node[T]] = {}
+
+    def contains_node(self, key: str) -> bool:
+        return self.__contains__(key)
 
     def get(self, key: str) -> Node[T]:
         if key in self._graph_nodes_map:
@@ -92,6 +95,25 @@ class Graph(Generic[T]):
         nodes_status: dict[str, VisitStatus] = {}
         for node in self._graph_nodes_map.values():
             Graph._dfs_visit(nodes_status, node, visit_action, on_cycle_action)
+
+    def layers(
+        self, starting_node_id: str
+    ):  # TODO: probably can be removed as it is not used
+        """
+        Creates a list of graph layers, relative to the starting node
+        """
+        result: Dict[int, Set] = {}
+
+        def _add_layer(node: Node[T], layer_number: int):
+            if not result.get(layer_number):
+                result[layer_number] = set()
+            result[layer_number].add(node)
+            for neighbor in node.neighbors:
+                _add_layer(neighbor, layer_number + 1)
+
+        _add_layer(self.get(starting_node_id), 0)
+
+        return [tuple(result[key]) for key in sorted(result.keys())]
 
     def __contains__(self, key: str) -> bool:
         return key in self._graph_nodes_map

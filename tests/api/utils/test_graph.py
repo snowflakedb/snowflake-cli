@@ -122,3 +122,23 @@ def test_graph_dfs_with_cycle(nodes: list[Node]):
     graph.dfs(on_cycle_action=cycle_detected_action)
 
     assert cycles_detected["count"] == 1
+
+
+def test_layers(nodes):
+    graph = Graph()
+    for i in range(5):
+        graph.add(nodes[i])
+
+    graph.add_directed_edge(nodes[0].key, nodes[1].key)
+    graph.add_directed_edge(nodes[0].key, nodes[2].key)
+    graph.add_directed_edge(nodes[2].key, nodes[3].key)
+    graph.add_directed_edge(nodes[2].key, nodes[4].key)
+
+    result = graph.layers(nodes[0].key)
+
+    assert len(result) == 3
+    assert nodes[0] in result[0]
+    assert nodes[1] in result[1]
+    assert nodes[2] in result[1]
+    assert nodes[3] in result[2]
+    assert nodes[4] in result[2]

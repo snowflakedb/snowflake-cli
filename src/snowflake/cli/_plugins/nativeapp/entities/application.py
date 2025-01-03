@@ -75,6 +75,7 @@ from snowflake.cli.api.errno import (
 )
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
+    DependsOnBaseModel,
     EntityModelBase,
     Identifier,
     PostDeployHook,
@@ -246,7 +247,7 @@ class EventSharingHandler:
         return sorted(list(set(events_names)))
 
 
-class ApplicationEntityModel(EntityModelBase):
+class ApplicationEntityModel(EntityModelBase, DependsOnBaseModel):
     type: Literal["application"] = DiscriminatorField()  # noqa A003
     from_: TargetField[ApplicationPackageEntityModel] = Field(
         alias="from",

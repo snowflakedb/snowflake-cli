@@ -162,3 +162,23 @@ class ExternalAccessBaseModel:
             return None
         secrets = ", ".join(f"'{key}'={value}" for key, value in self.secrets.items())
         return f"secrets=({secrets})"
+
+
+class Dependency(UpdatableModel):
+    entity_id: str = Field(title="Id of the entity", alias="id")
+    arguments: Optional[str] = Field(
+        title="Arguments that will be passed to entity build and deploy actions",
+        default="",
+    )
+
+    def __eq__(self, other):
+        return self.entity_id == other.entity_id
+
+    def __hash__(self):
+        return hash(self.entity_id)
+
+
+class DependsOnBaseModel:
+    depends_on: Optional[List[Dependency]] = Field(
+        title="Entities that need to be deployed before this one", default=[]
+    )

@@ -32,6 +32,7 @@ def example_streamlit_workspace(project_directory):
                 model = StreamlitEntityModel(
                     **definition.get("entities", {}).get("test_streamlit")
                 )
+                model.set_entity_id("test_streamlit")
 
                 workspace_context = WorkspaceContext(
                     console=mock.MagicMock(),
@@ -67,7 +68,8 @@ def test_nativeapp_children_interface(example_streamlit_workspace, snapshot):
     assert bundle_artifact.exists()
     assert deploy_sql_str == snapshot
     assert (
-        grant_sql_str == f"GRANT USAGE ON STREAMLIT None TO APPLICATION ROLE app_role;"
+        grant_sql_str
+        == f"GRANT USAGE ON STREAMLIT test_streamlit TO APPLICATION ROLE app_role;"
     )
 
 

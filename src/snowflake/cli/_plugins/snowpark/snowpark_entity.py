@@ -19,7 +19,7 @@ from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
 )
 from snowflake.cli._plugins.snowpark.zipper import zip_dir
 from snowflake.cli._plugins.workspace.context import ActionContext
-from snowflake.cli.api.entities.common import EntityBase
+from snowflake.cli.api.entities.bundle_and_deploy import BundleAndDeploy
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import ProgrammingError
 
@@ -34,7 +34,7 @@ class CreateMode(
     create_if_not_exists = "CREATE IF NOT EXISTS"
 
 
-class SnowparkEntity(EntityBase[Generic[T]]):
+class SnowparkEntity(BundleAndDeploy[Generic[T]]):
     def __init__(self, *args, **kwargs):
 
         if not FeatureFlag.ENABLE_NATIVE_APP_CHILDREN.is_enabled():
