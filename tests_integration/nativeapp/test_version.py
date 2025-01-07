@@ -637,3 +637,85 @@ def test_version_create_with_json_result(runner, nativeapp_project_directory):
             "label": None,
             "message": "Version create is now complete.",
         }
+
+
+@pytest.mark.integration
+def test_version_from_stage(runner, nativeapp_project_directory):
+    with nativeapp_project_directory("napp_init_v2"):
+        # Deploy:
+        result = runner.invoke_with_connection_json(["app", "deploy"])
+        assert result.exit_code == 0
+
+        # Add a file and make sure it shows up in the diff against the stage:
+        with open("app/TEST_UPDATE.md", "w") as f:
+            f.write("Hello world!")
+        result = runner.invoke_with_connection(["app", "diff"])
+        assert result.exit_code == 0
+        assert "TEST_UPDATE.md" in result.output
+
+        # Test version creation:
+        result = runner.invoke_with_connection_json(
+            [
+                "app",
+                "version",
+                "create",
+                "v1",
+                "--force",
+                "--skip-git-check",
+                "--from-stage",
+            ]
+        )
+        assert result.exit_code == 0
+        assert result.json == {
+            "version": "v1",
+            "patch": 0,
+            "label": None,
+            "message": "Version create is now complete.",
+        }
+
+        # Make sure the file still hasn't been deployed yet:
+        result = runner.invoke_with_connection(["app", "diff"])
+        assert result.exit_code == 0
+        assert "TEST_UPDATE.md" in result.output
+
+        # Create patch:
+        result = runner.invoke_with_connection_json(
+            [
+                "app",
+                "version",
+                "create",
+                "v1",
+                "--force",
+                "--skip-git-check",
+                "--from-stage",
+            ]
+        )
+        assert result.exit_code == 0
+        assert result.json == {
+            "version": "v1",
+            "patch": 1,
+            "label": None,
+            "message": "Version create is now complete.",
+        }
+
+        # Make sure the file still hasn't been deployed yet:
+        result = runner.invoke_with_connection(["app", "diff"])
+        assert result.exit_code == 0
+        assert "TEST_UPDATE.md" in result.output
+
+        # Create patch but don't use --from-stage:
+        result = runner.invoke_with_connection_json(
+            ["app", "version", "create", "v1", "--force", "--skip-git-check"]
+        )
+        assert result.exit_code == 0
+        assert result.json == {
+            "version": "v1",
+            "patch": 2,
+            "label": None,
+            "message": "Version create is now complete.",
+        }
+
+        # Make sure the file has been actually deployed:
+        result = runner.invoke_with_connection(["app", "diff"])
+        assert result.exit_code == 0
+        assert "TEST_UPDATE.md" not in result.output

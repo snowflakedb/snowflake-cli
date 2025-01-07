@@ -428,6 +428,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         skip_git_check: bool,
         interactive: bool,
         force: bool,
+        from_stage: Optional[bool],
         *args,
         **kwargs,
     ) -> VersionInfo:
@@ -463,18 +464,29 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         if git_policy.should_proceed():
             self.check_index_changes_in_git_repo(policy=policy, interactive=interactive)
 
-        self._deploy(
-            action_ctx=action_ctx,
-            bundle_map=bundle_map,
-            prune=True,
-            recursive=True,
-            paths=[],
-            print_diff=True,
-            validate=True,
-            stage_fqn=self.stage_fqn,
-            interactive=interactive,
-            force=force,
-        )
+        # if user is asking to create the version from the current stage,
+        # then do not re-deploy the artifacts or touch the stage
+        if from_stage:
+            # verify package exists:
+            show_obj_row = self.get_existing_app_pkg_info()
+            if not show_obj_row:
+                raise ClickException(
+                    "Cannot create version from stage because the application package does not exist yet. "
+                    "Try removing --from-stage flag or executing `snow app deploy` to deploy the application package first."
+                )
+        else:
+            self._deploy(
+                action_ctx=action_ctx,
+                bundle_map=bundle_map,
+                prune=True,
+                recursive=True,
+                paths=[],
+                print_diff=True,
+                validate=True,
+                stage_fqn=self.stage_fqn,
+                interactive=interactive,
+                force=force,
+            )
 
         # Warn if the version exists in a release directive(s)
         try:
