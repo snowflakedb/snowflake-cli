@@ -27,6 +27,8 @@ class EntityActions(str, Enum):
     RELEASE_CHANNEL_ADD_VERSION = "action_release_channel_add_version"
     RELEASE_CHANNEL_REMOVE_VERSION = "action_release_channel_remove_version"
 
+    PUBLISH = "action_publish"
+
 
 T = TypeVar("T")
 
