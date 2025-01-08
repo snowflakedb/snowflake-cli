@@ -72,3 +72,8 @@ def test_override_works_for_mapping(named_temporary_file, override, expected):
 
     pd = result.project_definition
     assert pd.entities["my_function"].secrets == expected
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

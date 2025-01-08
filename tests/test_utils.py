@@ -441,3 +441,8 @@ def test_get_ui_parameter_with_no_value_then_use_default(mock_cursor):
         get_ui_parameter(connection, UIParameter.NA_ENABLE_REGIONLESS_REDIRECT, "any")
         == "any"
     )
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

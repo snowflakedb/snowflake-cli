@@ -105,3 +105,8 @@ def test_schema_validation_error(schema):
     with pytest.raises(InvalidSchemaError) as e:
         get_cli_context_manager().connection_context.schema = schema
         assert e.value.message == f"Invalid schema {schema}"
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

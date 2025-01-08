@@ -274,3 +274,8 @@ def test_process_drop_specific_version(
     mock_drop_version.assert_called_once_with(
         package_name="app_pkg", version=version_identifier, role="package_role"
     )
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

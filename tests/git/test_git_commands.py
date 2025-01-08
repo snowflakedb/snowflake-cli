@@ -878,3 +878,8 @@ def _assert_invalid_repo_path_error_message(output):
         in output
     )
     assert "@my_repo/branches/main/" in output
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

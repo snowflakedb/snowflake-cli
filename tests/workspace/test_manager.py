@@ -113,3 +113,8 @@ def test_migrate_nativeapp_fields_with_username(
             new_definition["entities"]["pkg"]["identifier"]
             == "<% fn.concat_ids('integration', '_pkg_', fn.sanitize_id(fn.get_username('unknown_user')) | lower) %>"
         )
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

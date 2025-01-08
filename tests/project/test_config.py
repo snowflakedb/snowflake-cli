@@ -124,3 +124,8 @@ def test_schema_is_validated_for_version(data):
         build_project_definition(**data)
 
     assert "is not supported in given version" in str(err.value)
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

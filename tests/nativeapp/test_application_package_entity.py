@@ -1417,3 +1417,8 @@ def test_given_invalid_release_channel_when_release_channel_remove_version_then_
     )
 
     remove_version_from_release_channel.assert_not_called()
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

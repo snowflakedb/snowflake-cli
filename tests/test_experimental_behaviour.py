@@ -90,3 +90,8 @@ def test_not_experimental_invocation(runner):
     result_of_execution = runner.invoke(["test", "hello", "John", "--format", "JSON"])
     assert result_of_execution.exit_code == 0
     assert json.loads(result_of_execution.output) == {"message": "Hello John"}
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

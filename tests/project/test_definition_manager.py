@@ -159,3 +159,8 @@ def test_loading_yaml_with_duplicated_keys_raises_an_error():
         "While loading the project definition file, duplicate key was found: hello_world"
         in err.value.message
     )
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

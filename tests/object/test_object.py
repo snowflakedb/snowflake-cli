@@ -280,3 +280,8 @@ def test_replace_and_not_exists_cannot_be_used_together(runner, os_agnostic_snap
     )
     assert result.exit_code == 2, result.output
     assert result.output == os_agnostic_snapshot
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

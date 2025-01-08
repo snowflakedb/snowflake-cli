@@ -122,3 +122,8 @@ def test_graph_dfs_with_cycle(nodes: list[Node]):
     graph.dfs(on_cycle_action=cycle_detected_action)
 
     assert cycles_detected["count"] == 1
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

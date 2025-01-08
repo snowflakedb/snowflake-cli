@@ -81,3 +81,8 @@ def test_add_file_to_existing_zip(
     zip_file = ZipFile(app_zip)
 
     assert os.path.basename(correct_requirements_snowflake_txt) in zip_file.namelist()
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

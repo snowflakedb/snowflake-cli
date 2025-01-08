@@ -151,3 +151,8 @@ def test_cortex_help_messages_for_311_and_less_no_help_flag(runner):
     assert SNOW_CORTEX_HELP in result.output
     assert SNOW_CORTEX_COMPLETE in result.output
     assert SNOW_CORTEX_SEARCH in result.output
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

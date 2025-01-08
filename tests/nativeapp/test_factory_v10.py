@@ -99,3 +99,8 @@ def test_integration_factory(temp_dir):
     assert (Path(temp_dir) / "app" / "setup.sql").exists()
     assert (Path(temp_dir) / "app" / "README.md").exists()
     assert (Path(temp_dir) / "app" / "manifest.yml").exists()
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

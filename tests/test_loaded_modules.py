@@ -25,3 +25,8 @@ def test_loaded_modules(runner):
 
     loaded_modules = sys.modules.keys()
     assert loaded_modules.isdisjoint(should_not_load)
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

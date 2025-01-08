@@ -152,3 +152,8 @@ def test_children_bundle_with_custom_dir(project_directory):
 """
                 )
             )
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

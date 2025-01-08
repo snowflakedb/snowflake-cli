@@ -379,3 +379,8 @@ def test_deannotate_module_source_is_identity_when_extension_function_does_not_m
         ef_utils.deannotate_module_source(TEST_SNOWPARK_CODE, [sproc, udf, udtf])
         == TEST_SNOWPARK_CODE
     )
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

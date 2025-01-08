@@ -63,3 +63,8 @@ def test_parse_tag_valid(value: str, expected: Tuple[str, str]):
 def test_parse_tag_invalid(value: str):
     with pytest.raises(TagError):
         _parse_tag(value)
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

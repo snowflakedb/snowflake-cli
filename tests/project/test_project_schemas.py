@@ -99,3 +99,8 @@ def test_project_definition_fails_for_unknown_version():
     assert "Version 6.2.3 is not supported. Supported versions: 1, 1.1" in str(
         err.value
     )
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

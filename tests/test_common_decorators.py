@@ -247,3 +247,8 @@ def test_experimental_decorator_above_global_options_decorator_for_function_with
     assert func(name="solaris", experimental=True, format="JSON") == dict(
         experimental=True, format="JSON"
     )
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

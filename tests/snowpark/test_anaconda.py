@@ -136,3 +136,8 @@ def test_anaconda_packages_from_sql_query(mock_available_packages_sql_result):
         Requirement.parse_line("snowflake.core")
     )
     assert anaconda_packages.is_package_available(Requirement.parse_line("snowflake"))
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

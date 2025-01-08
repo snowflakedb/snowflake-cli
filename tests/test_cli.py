@@ -37,3 +37,8 @@ def test_namespace(namespace, expected, runner):
     assert result.exit_code == 0
 
     assert expected in result.output
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

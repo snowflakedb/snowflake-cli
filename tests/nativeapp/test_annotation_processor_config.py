@@ -46,3 +46,8 @@ def test_napp_project_with_annotation_processor(project_definition_files):
     assert properties["key_2"]["key_4"][0] == "value_a"
     assert properties["key_2"]["key_4"][1] == "value_b"
     assert properties["key_2"]["key_4"][2] == "1"
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

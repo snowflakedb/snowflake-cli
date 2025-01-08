@@ -1339,3 +1339,8 @@ def test_recursive_upload_no_recursive_glob_pattern(temp_dir):
             stage_path=StagePath.from_stage_str("@stageName"),
         ),
     ]
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

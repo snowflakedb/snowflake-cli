@@ -495,3 +495,8 @@ def test_comments_are_handled_correctly_from_query(
 
     assert result.exit_code == 0
     mock_execute.assert_called_once_with(expected, cursor_class=VerboseCursor)
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

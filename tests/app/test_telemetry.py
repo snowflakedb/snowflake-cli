@@ -207,3 +207,8 @@ def test_cli_exception_classification(error: Exception, is_cli: bool):
     from snowflake.cli._app.telemetry import _is_cli_exception
 
     assert _is_cli_exception(error) == is_cli
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

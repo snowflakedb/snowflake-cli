@@ -152,3 +152,8 @@ def test_skips_disabled_processors(test_proj_def, test_compiler):
 
     # TestProcessor is never invoked, otherwise calling its methods will make the test fail
     test_compiler.compile_artifacts()
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

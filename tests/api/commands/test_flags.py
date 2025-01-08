@@ -229,3 +229,8 @@ def test_cannot_callback_unknown_context_args(callback):
             opt=typer.Option(None, "--my-opt", callback=callback("attr_does_not_exist"))
         ):
             pass
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

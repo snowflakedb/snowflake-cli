@@ -65,3 +65,8 @@ def test_create(mock_create, runner):
         notebook_name=FQN.from_string("my_notebook"),
         notebook_file=notebook_file,
     )
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

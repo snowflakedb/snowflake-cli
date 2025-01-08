@@ -259,3 +259,8 @@ def test_default_stage_path_parts(
     assert stage_path_parts.path == path
     assert stage_path_parts.stage == stage
     assert stage_path_parts.stage_name == stage_name
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

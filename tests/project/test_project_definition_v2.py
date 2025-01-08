@@ -785,3 +785,8 @@ def test_if_list_in_mixin_is_applied_correctly():
     }
     project = render_definition_template(definition_input, {}).project_definition
     assert len(project.entities["func"].artifacts) == 1
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

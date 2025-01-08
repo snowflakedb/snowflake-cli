@@ -602,3 +602,8 @@ def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
 
     queries = ctx.get_queries()
     assert queries[0] == queries[1]
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

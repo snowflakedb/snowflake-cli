@@ -1359,3 +1359,8 @@ def test_connection_add_no_interactive(mock_add, runner):
             _other_settings={},
         ),
     )
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

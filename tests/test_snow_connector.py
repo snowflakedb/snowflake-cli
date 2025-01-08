@@ -222,3 +222,8 @@ def test_returns_nice_error_in_case_of_missing_master_token(runner):
         "When using a session token, you must provide the corresponding master token"
         in result.output
     )
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

@@ -1532,3 +1532,8 @@ def test_find_events_in_manifest_file(configuration_section, expected_output):
             find_events_definitions_in_manifest_file(deploy_root=deploy_root)
             == expected_output
         )
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

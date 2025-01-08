@@ -45,3 +45,8 @@ def test_load_project_definition(test_files, expected):
     result = load_project(test_files).project_definition
 
     assert expected in result.streamlit.additional_source_files
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

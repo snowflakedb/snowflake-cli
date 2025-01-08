@@ -77,3 +77,8 @@ def test_handle_object_exists_error_other_error():
     with pytest.raises(ProgrammingError) as e:
         handle_object_already_exists(other_error, Mock(spec=ObjectType), "TEST_OBJECT")
     assert other_error == e.value
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

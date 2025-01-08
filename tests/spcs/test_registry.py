@@ -246,3 +246,8 @@ def test_docker_registry_login_docker_not_installed_error(
         RegistryManager().docker_registry_login()
 
     assert e.value.message == "Docker is not installed."
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

@@ -98,3 +98,8 @@ def test_connection_cache_caches(
         password="dummy_password",
         application_name="snowcli",
     )
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

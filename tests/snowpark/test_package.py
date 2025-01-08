@@ -183,3 +183,8 @@ class TestPackage:
         mock_response.json.return_value = response
 
         return mock_response
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

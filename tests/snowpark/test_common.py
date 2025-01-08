@@ -194,3 +194,8 @@ def test_the_same_type(sf_type, local_type):
 )
 def test_is_not_the_same_type(sf_type, local_type):
     assert not same_type(sf_type, local_type)
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

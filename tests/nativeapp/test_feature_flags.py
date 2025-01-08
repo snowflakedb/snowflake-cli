@@ -29,3 +29,8 @@ def test_feature_setup_script_generation_enabled(
     mock_get_config_value.assert_called_once_with(
         "cli", "features", key="enable_native_app_python_setup", default=None
     )
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)

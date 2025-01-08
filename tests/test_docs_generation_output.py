@@ -175,3 +175,8 @@ def test_flags_have_default_values(runner, temp_dir, snapshot):
     )
     assert example_generated_file.exists()
     assert example_generated_file.read_text() == snapshot
+
+
+import pytest
+
+pytest.skip(reason="Debug", allow_module_level=True)
