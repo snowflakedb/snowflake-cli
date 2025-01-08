@@ -160,12 +160,14 @@ def test_deploy_streamlit_with_default_warehouse(
         identifier="my_streamlit_app",
         title="MyStreamlit",
         main_file=str(main_file),
-        artifacts=[main_file],
+        artifacts=["main.py"],
         comment="This is a test comment",
     )
 
     StreamlitManager(MagicMock(database="DB", schema="SH")).deploy(
-        streamlit=st, replace=False
+        streamlit=st,
+        streamlit_project_paths=StreamlitProjectPaths(Path(temp_dir)),
+        replace=False,
     )
 
     mock_execute_query.assert_called_once_with(

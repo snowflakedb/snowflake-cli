@@ -60,7 +60,7 @@ def test_nativeapp_children_interface(example_streamlit_workspace, snapshot):
     sl, action_context = example_streamlit_workspace
 
     sl.bundle()
-    bundle_artifact = sl.root / "output" / "bundle" / sl.model.stage / "streamlit_app.py"
+    bundle_artifact = sl.root / "output" / "bundle" / "streamlit" / "streamlit_app.py"
     deploy_sql_str = sl.get_deploy_sql()
     grant_sql_str = sl.get_usage_grant_sql(app_role="app_role")
 
@@ -75,7 +75,7 @@ def test_bundle(example_streamlit_workspace):
     entity, action_ctx = example_streamlit_workspace
     entity.action_bundle(action_ctx)
 
-    output = entity.root / "output" / entity._entity_model.stage  # noqa
+    output = entity.root / "output" / "bundle" / "streamlit"  # noqa
 
     assert output.exists()
     assert (output / "streamlit_app.py").exists()
