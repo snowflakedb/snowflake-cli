@@ -32,10 +32,10 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
+    CollectionResult,
     CommandResult,
     MessageResult,
     ObjectResult,
-    QueryResult,
 )
 from snowflake.cli.api.project.util import to_identifier
 
@@ -130,7 +130,7 @@ def version_list(
         package_id,
         EntityActions.VERSION_LIST,
     )
-    return QueryResult(cursor)
+    return CollectionResult(cursor)
 
 
 @app.command(requires_connection=True)

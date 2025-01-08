@@ -532,3 +532,51 @@ class EventResult(ObjectResult, MessageResult):
     @property
     def result(self):
         return self._element
+
+
+@app.command("publish", requires_connection=True)
+@with_project_definition()
+@force_project_definition_v2()
+def app_publish(
+    version: str = typer.Option(
+        show_default=False,
+        help="The version to publish to the release channel. The version must be created fist using 'snow app version create'.",
+    ),
+    patch: int = typer.Option(
+        show_default=False,
+        help="The patch number under the given version. The patch number must be created first using 'snow app version create'.",
+    ),
+    channel: Optional[str] = typer.Option(
+        "DEFAULT",
+        help="The name of the release channel to publish to. If not provided, the default release channel is used.",
+    ),
+    directive: Optional[str] = typer.Option(
+        "DEFAULT",
+        help="The name of the release directive to update with the specified version and patch. If not provided, the default release directive is used.",
+    ),
+    interactive: bool = InteractiveOption,
+    force: Optional[bool] = ForceOption,
+    **options,
+) -> CommandResult:
+    """
+    Adds the version to the release channel and updates the release directive with the new version and patch.
+    """
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    package_id = options["package_entity_id"]
+    ws.perform_action(
+        package_id,
+        EntityActions.PUBLISH,
+        version=version,
+        patch=patch,
+        release_channel=channel,
+        release_directive=directive,
+        interactive=interactive,
+        force=force,
+    )
+    return MessageResult(
+        f"Version {version} and patch {patch} published to release directive {directive} of release channel {channel}."
+    )

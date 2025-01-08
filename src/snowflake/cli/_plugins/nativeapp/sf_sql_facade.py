@@ -97,6 +97,17 @@ ReleaseChannel = TypedDict(
     },
 )
 
+Version = TypedDict(
+    "Version",
+    {
+        "version": str,
+        "patch": int,
+        "label": str | None,
+        "created_on": datetime,
+        "review_status": str,
+    },
+)
+
 
 class SnowflakeSQLFacade:
     def __init__(self, sql_executor: BaseSqlExecutor | None = None):
@@ -1412,6 +1423,38 @@ class SnowflakeSQLFacade:
                     err,
                     f"Failed to remove version {version} from release channel {release_channel} in application package {package_name}.",
                 )
+
+    def show_versions(
+        self,
+        package_name: str,
+        role: str | None = None,
+    ) -> list[Version]:
+        """
+        Show all versions in an application package.
+
+        @param package_name: Name of the application package
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+        package_name = to_identifier(package_name)
+
+        with self._use_role_optional(role):
+            try:
+                cursor = self._sql_executor.execute_query(
+                    f"show versions in application package {package_name}",
+                    cursor_class=DictCursor,
+                )
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno == DOES_NOT_EXIST_OR_NOT_AUTHORIZED:
+                        raise UserInputError(
+                            f"Application package {package_name} does not exist or you are not authorized to access it."
+                        ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to show versions for application package {package_name}.",
+                )
+
+            return cursor.fetchall()
 
 
 def _strip_empty_lines(text: str) -> str:
