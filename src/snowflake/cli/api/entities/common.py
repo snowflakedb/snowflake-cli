@@ -23,6 +23,8 @@ class EntityActions(str, Enum):
     RELEASE_DIRECTIVE_LIST = "action_release_directive_list"
 
     RELEASE_CHANNEL_LIST = "action_release_channel_list"
+    RELEASE_CHANNEL_ADD_ACCOUNTS = "action_release_channel_add_accounts"
+    RELEASE_CHANNEL_REMOVE_ACCOUNTS = "action_release_channel_remove_accounts"
     RELEASE_CHANNEL_ADD_VERSION = "action_release_channel_add_version"
     RELEASE_CHANNEL_REMOVE_VERSION = "action_release_channel_remove_version"
 
