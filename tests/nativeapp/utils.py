@@ -62,6 +62,10 @@ APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME = (
     f"{APP_PACKAGE_ENTITY}.verify_project_distribution"
 )
 
+CODE_GEN = "snowflake.cli._plugins.nativeapp.codegen"
+TEMPLATE_PROCESSOR = f"{CODE_GEN}.templates.templates_processor"
+ARTIFACT_PROCESSOR = f"{CODE_GEN}.artifact_processor"
+
 SQL_EXECUTOR_EXECUTE = f"{API_MODULE}.sql_execution.BaseSqlExecutor.execute_query"
 SQL_EXECUTOR_EXECUTE_QUERIES = (
     f"{API_MODULE}.sql_execution.BaseSqlExecutor.execute_queries"
@@ -85,6 +89,25 @@ SQL_FACADE_ALTER_APP_PKG_PROPERTIES = (
     f"{SQL_FACADE}.alter_application_package_properties"
 )
 SQL_FACADE_CREATE_APP_PKG = f"{SQL_FACADE}.create_application_package"
+SQL_FACADE_SHOW_RELEASE_DIRECTIVES = f"{SQL_FACADE}.show_release_directives"
+SQL_FACADE_SET_RELEASE_DIRECTIVE = f"{SQL_FACADE}.set_release_directive"
+SQL_FACADE_MODIFY_RELEASE_DIRECTIVE = f"{SQL_FACADE}.modify_release_directive"
+SQL_FACADE_UNSET_RELEASE_DIRECTIVE = f"{SQL_FACADE}.unset_release_directive"
+SQL_FACADE_SHOW_RELEASE_CHANNELS = f"{SQL_FACADE}.show_release_channels"
+SQL_FACADE_DROP_VERSION = f"{SQL_FACADE}.drop_version_from_package"
+SQL_FACADE_CREATE_VERSION = f"{SQL_FACADE}.create_version_in_package"
+SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_CHANNEL = (
+    f"{SQL_FACADE}.add_accounts_to_release_channel"
+)
+SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_CHANNEL = (
+    f"{SQL_FACADE}.remove_accounts_from_release_channel"
+)
+SQL_FACADE_ADD_VERSION_TO_RELEASE_CHANNEL = (
+    f"{SQL_FACADE}.add_version_to_release_channel"
+)
+SQL_FACADE_REMOVE_VERSION_FROM_RELEASE_CHANNEL = (
+    f"{SQL_FACADE}.remove_version_from_release_channel"
+)
 
 mock_snowflake_yml_file = dedent(
     """\

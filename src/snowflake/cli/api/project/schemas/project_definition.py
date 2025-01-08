@@ -15,12 +15,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from types import UnionType
+from typing import Any, Dict, List, Optional, Union, get_args, get_origin
 
 from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
 from pydantic_core.core_schema import ValidationInfo
 from snowflake.cli._plugins.nativeapp.entities.application import ApplicationEntityModel
+from snowflake.cli._plugins.nativeapp.entities.application_package import (
+    ApplicationPackageChildrenTypes,
+    ApplicationPackageEntityModel,
+)
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.common import (
     TargetField,
@@ -159,6 +164,12 @@ class DefinitionV20(_ProjectDefinitionBase):
                 target_object = entity.from_
                 target_type = target_object.get_type()
                 cls._validate_target_field(target_key, target_type, entities)
+        elif entity.type == ApplicationPackageEntityModel.get_type():
+            for child_entity in entity.children:
+                target_key = child_entity.target
+                cls._validate_target_field(
+                    target_key, ApplicationPackageChildrenTypes, entities
+                )
 
     @classmethod
     def _validate_target_field(
@@ -168,11 +179,20 @@ class DefinitionV20(_ProjectDefinitionBase):
             raise ValueError(f"No such target: {target_key}")
 
         # Validate the target type
-        actual_target_type = entities[target_key].__class__
-        if target_type and target_type is not actual_target_type:
-            raise ValueError(
-                f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
-            )
+        if target_type:
+            actual_target_type = entities[target_key].__class__
+            if get_origin(target_type) in (Union, UnionType):
+                if actual_target_type not in get_args(target_type):
+                    expected_types_str = ", ".join(
+                        [t.__name__ for t in get_args(target_type)]
+                    )
+                    raise ValueError(
+                        f"Target type mismatch. Expected one of [{expected_types_str}], got {actual_target_type.__name__}"
+                    )
+            elif target_type is not actual_target_type:
+                raise ValueError(
+                    f"Target type mismatch. Expected {target_type.__name__}, got {actual_target_type.__name__}"
+                )
 
     @model_validator(mode="before")
     @classmethod
@@ -200,6 +220,7 @@ class DefinitionV20(_ProjectDefinitionBase):
                     mixin_defs=data["mixins"],
                 )
                 entities[entity_name] = merged_values
+
         return data
 
     @classmethod

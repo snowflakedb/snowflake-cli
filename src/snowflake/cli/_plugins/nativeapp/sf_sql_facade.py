@@ -13,14 +13,20 @@
 # limitations under the License.
 from __future__ import annotations
 
+import json
 import logging
 from contextlib import contextmanager
+from datetime import datetime
+from functools import cache
 from textwrap import dedent
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TypedDict
 
 from snowflake.cli._plugins.connection.util import UIParameter, get_ui_parameter
 from snowflake.cli._plugins.nativeapp.constants import (
     AUTHORIZE_TELEMETRY_COL,
+    CHANNEL_COL,
+    DEFAULT_CHANNEL,
+    DEFAULT_DIRECTIVE,
     NAME_COL,
     SPECIAL_COMMENT,
 )
@@ -42,25 +48,54 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.errno import (
+    ACCOUNT_DOES_NOT_EXIST,
+    ACCOUNT_HAS_TOO_MANY_QUALIFIERS,
+    APPLICATION_PACKAGE_MAX_VERSIONS_HIT,
     APPLICATION_REQUIRES_TELEMETRY_SHARING,
+    CANNOT_DEREGISTER_VERSION_ASSOCIATED_WITH_CHANNEL,
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
+    CANNOT_DISABLE_RELEASE_CHANNELS,
+    CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
+    DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
     INSUFFICIENT_PRIVILEGES,
+    MAX_UNBOUND_VERSIONS_REACHED,
+    MAX_VERSIONS_IN_RELEASE_CHANNEL_REACHED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
+    RELEASE_DIRECTIVE_DOES_NOT_EXIST,
+    RELEASE_DIRECTIVES_VERSION_PATCH_NOT_FOUND,
+    SQL_COMPILATION_ERROR,
+    VERSION_ALREADY_ADDED_TO_RELEASE_CHANNEL,
+    VERSION_DOES_NOT_EXIST,
+    VERSION_NOT_ADDED_TO_RELEASE_CHANNEL,
+    VERSION_NOT_IN_RELEASE_CHANNEL,
+    VERSION_REFERENCED_BY_RELEASE_DIRECTIVE,
 )
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.v1.native_app.package import DistributionOptions
 from snowflake.cli.api.project.util import (
     identifier_to_show_like_pattern,
-    is_valid_unquoted_identifier,
+    same_identifiers,
     to_identifier,
-    to_quoted_identifier,
     to_string_literal,
+    unquote_identifier,
 )
 from snowflake.cli.api.sql_execution import BaseSqlExecutor
 from snowflake.cli.api.utils.cursor import find_first_row
 from snowflake.connector import DictCursor, ProgrammingError
+
+ReleaseChannel = TypedDict(
+    "ReleaseChannel",
+    {
+        "name": str,
+        "description": str,
+        "created_on": datetime,
+        "updated_on": datetime,
+        "targets": dict[str, Any],
+        "versions": list[str],
+    },
+)
 
 
 class SnowflakeSQLFacade:
@@ -78,12 +113,10 @@ class SnowflakeSQLFacade:
         """
         try:
             self._sql_executor.execute_query(f"use {object_type} {name}")
-        except ProgrammingError as err:
-            if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
-                raise CouldNotUseObjectError(object_type, name) from err
-            else:
-                handle_unclassified_error(err, f"Failed to use {object_type} {name}.")
         except Exception as err:
+            if isinstance(err, ProgrammingError):
+                if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
+                    raise CouldNotUseObjectError(object_type, name) from err
             handle_unclassified_error(err, f"Failed to use {object_type} {name}.")
 
     @contextmanager
@@ -111,7 +144,7 @@ class SnowflakeSQLFacade:
         except IndexError:
             prev_obj = None
 
-        if prev_obj is not None and _same_identifier(prev_obj, name):
+        if prev_obj is not None and same_identifiers(prev_obj, name):
             yield
             return
 
@@ -257,27 +290,82 @@ class SnowflakeSQLFacade:
         @param [Optional] label: Label for this version, visible to consumers.
         """
 
-        # Make the version a valid identifier, adding quotes if necessary
         version = to_identifier(version)
+        package_name = to_identifier(package_name)
+
+        available_release_channels = self.show_release_channels(package_name, role)
 
         # Label must be a string literal
-        with_label_cause = (
-            f"\nlabel={to_string_literal(label)}" if label is not None else ""
+        with_label_clause = (
+            f"label={to_string_literal(label)}" if label is not None else ""
         )
-        add_version_query = dedent(
-            f"""\
-                alter application package {package_name}
-                    add version {version}
-                    using @{stage_fqn}{with_label_cause}
-            """
+
+        action = "register" if available_release_channels else "add"
+
+        query = dedent(
+            _strip_empty_lines(
+                f"""\
+                    alter application package {package_name}
+                        {action} version {version}
+                        using @{stage_fqn}
+                        {with_label_clause}
+                """
+            )
         )
+
         with self._use_role_optional(role):
             try:
-                self._sql_executor.execute_query(add_version_query)
+                self._sql_executor.execute_query(query)
             except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno == MAX_UNBOUND_VERSIONS_REACHED:
+                        raise UserInputError(
+                            f"Maximum unbound versions reached for application package {package_name}. "
+                            "Please drop the other unbound version first, or add it to a release channel."
+                        ) from err
+                    if err.errno == APPLICATION_PACKAGE_MAX_VERSIONS_HIT:
+                        raise UserInputError(
+                            f"Maximum versions reached for application package {package_name}. "
+                            "Please drop the other versions first."
+                        ) from err
                 handle_unclassified_error(
                     err,
-                    f"Failed to add version {version} to application package {package_name}.",
+                    f"Failed to {action} version {version} to application package {package_name}.",
+                )
+
+    def drop_version_from_package(
+        self, package_name: str, version: str, role: str | None = None
+    ):
+        """
+        Drops a version from an existing application package.
+        @param package_name: Name of the application package to alter.
+        @param version: Version name to drop.
+        @param [Optional] role: Switch to this role while executing drop version.
+        """
+
+        version = to_identifier(version)
+        package_name = to_identifier(package_name)
+
+        release_channels = self.show_release_channels(package_name, role)
+        action = "deregister" if release_channels else "drop"
+
+        query = f"alter application package {package_name} {action} version {version}"
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(query)
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno == VERSION_REFERENCED_BY_RELEASE_DIRECTIVE:
+                        raise UserInputError(
+                            f"Cannot drop version {version} from application package {package_name} because it is in use by one or more release directives."
+                        ) from err
+                    if err.errno == CANNOT_DEREGISTER_VERSION_ASSOCIATED_WITH_CHANNEL:
+                        raise UserInputError(
+                            f"Cannot drop version {version} from application package {package_name} because it is associated with a release channel."
+                        ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to {action} version {version} from application package {package_name}.",
                 )
 
     def add_patch_to_package_version(
@@ -421,13 +509,14 @@ class SnowflakeSQLFacade:
                 self._sql_executor.execute_query(
                     f"create schema if not exists {identifier}"
                 )
-            except ProgrammingError as err:
-                if err.errno == INSUFFICIENT_PRIVILEGES:
-                    raise InsufficientPrivilegesError(
-                        f"Insufficient privileges to create schema {name}",
-                        role=role,
-                        database=database,
-                    ) from err
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno == INSUFFICIENT_PRIVILEGES:
+                        raise InsufficientPrivilegesError(
+                            f"Insufficient privileges to create schema {name}",
+                            role=role,
+                            database=database,
+                        ) from err
                 handle_unclassified_error(err, f"Failed to create schema {name}.")
 
     def stage_exists(
@@ -465,16 +554,17 @@ class SnowflakeSQLFacade:
                     results = self._sql_executor.execute_query(
                         f"show stages like {pattern}{in_schema_clause}",
                     )
-                except ProgrammingError as err:
-                    if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
-                        return False
-                    if err.errno == INSUFFICIENT_PRIVILEGES:
-                        raise InsufficientPrivilegesError(
-                            f"Insufficient privileges to check if stage {name} exists",
-                            role=role,
-                            database=database,
-                            schema=schema,
-                        ) from err
+                except Exception as err:
+                    if isinstance(err, ProgrammingError):
+                        if err.errno == DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED:
+                            return False
+                        if err.errno == INSUFFICIENT_PRIVILEGES:
+                            raise InsufficientPrivilegesError(
+                                f"Insufficient privileges to check if stage {name} exists",
+                                role=role,
+                                database=database,
+                                schema=schema,
+                            ) from err
                     handle_unclassified_error(
                         err, f"Failed to check if stage {name} exists."
                     )
@@ -517,18 +607,22 @@ class SnowflakeSQLFacade:
         ):
             try:
                 self._sql_executor.execute_query(query)
-            except ProgrammingError as err:
-                if err.errno == INSUFFICIENT_PRIVILEGES:
-                    raise InsufficientPrivilegesError(
-                        f"Insufficient privileges to create stage {name}",
-                        role=role,
-                        database=database,
-                        schema=schema,
-                    ) from err
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno == INSUFFICIENT_PRIVILEGES:
+                        raise InsufficientPrivilegesError(
+                            f"Insufficient privileges to create stage {name}",
+                            role=role,
+                            database=database,
+                            schema=schema,
+                        ) from err
                 handle_unclassified_error(err, f"Failed to create stage {name}.")
 
     def show_release_directives(
-        self, package_name: str, role: str | None = None
+        self,
+        package_name: str,
+        release_channel: str | None = None,
+        role: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Show release directives for a package
@@ -536,21 +630,27 @@ class SnowflakeSQLFacade:
         @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
         """
         package_identifier = to_identifier(package_name)
+
+        query = f"show release directives in application package {package_identifier}"
+        if release_channel:
+            query += f" for release channel {to_identifier(release_channel)}"
+
         with self._use_role_optional(role):
             try:
                 cursor = self._sql_executor.execute_query(
-                    f"show release directives in application package {package_identifier}",
+                    query,
                     cursor_class=DictCursor,
                 )
-            except ProgrammingError as err:
-                if err.errno == INSUFFICIENT_PRIVILEGES:
-                    raise InsufficientPrivilegesError(
-                        f"Insufficient privileges to show release directives for package {package_name}",
-                        role=role,
-                    ) from err
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno == INSUFFICIENT_PRIVILEGES:
+                        raise InsufficientPrivilegesError(
+                            f"Insufficient privileges to show release directives for application package {package_name}",
+                            role=role,
+                        ) from err
                 handle_unclassified_error(
                     err,
-                    f"Failed to show release directives for package {package_name}.",
+                    f"Failed to show release directives for application package {package_name}.",
                 )
             return cursor.fetchall()
 
@@ -569,7 +669,9 @@ class SnowflakeSQLFacade:
                 )
 
                 show_obj_row = find_first_row(
-                    show_obj_cursor, lambda row: _same_identifier(row[NAME_COL], name)
+                    # row[NAME_COL] is not an identifier. It is the unquoted internal representation
+                    show_obj_cursor,
+                    lambda row: row[NAME_COL] == unquote_identifier(name),
                 )
             except Exception as err:
                 handle_unclassified_error(
@@ -586,6 +688,7 @@ class SnowflakeSQLFacade:
         warehouse: str,
         debug_mode: bool | None,
         should_authorize_event_sharing: bool | None,
+        release_channel: str | None = None,
     ) -> list[tuple[str]]:
         """
         Upgrades an application object using the provided clauses
@@ -597,17 +700,36 @@ class SnowflakeSQLFacade:
         @param warehouse: Warehouse which is required to create an application object
         @param debug_mode: Whether to enable debug mode; None means not explicitly enabled or disabled
         @param should_authorize_event_sharing: Whether to enable event sharing; None means not explicitly enabled or disabled
+        @param release_channel [Optional]: Release channel to use when upgrading the application
         """
+
+        name = to_identifier(name)
+        release_channel = to_identifier(release_channel) if release_channel else None
+
         install_method.ensure_app_usable(
             app_name=name,
             app_role=role,
             show_app_row=self.get_existing_app_info(name, role),
         )
+
         # If all the above checks are in order, proceed to upgrade
+
+        @cache  # only cache within the scope of this method
+        def get_app_properties():
+            return self.get_app_properties(name, role)
 
         with self._use_role_optional(role), self._use_warehouse_optional(warehouse):
             try:
                 using_clause = install_method.using_clause(stage_fqn)
+                if release_channel:
+                    current_release_channel = get_app_properties().get(
+                        CHANNEL_COL, DEFAULT_CHANNEL
+                    )
+                    if not same_identifiers(release_channel, current_release_channel):
+                        raise UpgradeApplicationRestrictionError(
+                            f"Application {name} is currently on release channel {current_release_channel}. Cannot upgrade to release channel {release_channel}."
+                        )
+
                 upgrade_cursor = self._sql_executor.execute_query(
                     f"alter application {name} upgrade {using_clause}",
                 )
@@ -618,25 +740,28 @@ class SnowflakeSQLFacade:
                         self._sql_executor.execute_query(
                             f"alter application {name} set debug_mode = {debug_mode}"
                         )
-            except ProgrammingError as err:
-                if err.errno in UPGRADE_RESTRICTION_CODES:
-                    raise UpgradeApplicationRestrictionError(err.msg) from err
-                elif (
-                    err.errno in CREATE_OR_UPGRADE_APPLICATION_EXPECTED_USER_ERROR_CODES
-                ):
-                    raise UserInputError(
-                        f"Failed to upgrade application {name} with the following error message:\n"
-                        f"{err.msg}"
-                    ) from err
-                handle_unclassified_error(err, f"Failed to upgrade application {name}.")
+
+            except UpgradeApplicationRestrictionError as err:
+                raise err
             except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno in UPGRADE_RESTRICTION_CODES:
+                        raise UpgradeApplicationRestrictionError(err.msg) from err
+                    if (
+                        err.errno
+                        in CREATE_OR_UPGRADE_APPLICATION_EXPECTED_USER_ERROR_CODES
+                    ):
+                        raise UserInputError(
+                            f"Failed to upgrade application {name} with the following error message:\n"
+                            f"{err.msg}"
+                        ) from err
                 handle_unclassified_error(err, f"Failed to upgrade application {name}.")
 
             try:
                 # Only update event sharing if the current value is different as the one we want to set
                 if should_authorize_event_sharing is not None:
                     current_authorize_event_sharing = (
-                        self.get_app_properties(name, role)
+                        get_app_properties()
                         .get(AUTHORIZE_TELEMETRY_COL, "false")
                         .lower()
                         == "true"
@@ -652,19 +777,15 @@ class SnowflakeSQLFacade:
                         self._sql_executor.execute_query(
                             f"alter application {name} set AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(should_authorize_event_sharing).upper()}"
                         )
-            except ProgrammingError as err:
-                if err.errno == CANNOT_DISABLE_MANDATORY_TELEMETRY:
-                    get_cli_context().metrics.set_counter(
-                        CLICounterField.EVENT_SHARING_ERROR, 1
-                    )
-                    raise UserInputError(
-                        "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
-                    ) from err
-                handle_unclassified_error(
-                    err,
-                    f"Failed to set AUTHORIZE_TELEMETRY_EVENT_SHARING when upgrading application {name}.",
-                )
             except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno == CANNOT_DISABLE_MANDATORY_TELEMETRY:
+                        get_cli_context().metrics.set_counter(
+                            CLICounterField.EVENT_SHARING_ERROR, 1
+                        )
+                        raise UserInputError(
+                            "Could not disable telemetry event sharing for the application because it contains mandatory events. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
+                        ) from err
                 handle_unclassified_error(
                     err,
                     f"Failed to set AUTHORIZE_TELEMETRY_EVENT_SHARING when upgrading application {name}.",
@@ -682,6 +803,7 @@ class SnowflakeSQLFacade:
         warehouse: str,
         debug_mode: bool | None,
         should_authorize_event_sharing: bool | None,
+        release_channel: str | None = None,
     ) -> list[tuple[str]]:
         """
         Creates a new application object using an application package,
@@ -695,7 +817,11 @@ class SnowflakeSQLFacade:
         @param warehouse: Warehouse which is required to create an application object
         @param debug_mode: Whether to enable debug mode; None means not explicitly enabled or disabled
         @param should_authorize_event_sharing: Whether to enable event sharing; None means not explicitly enabled or disabled
+        @param release_channel [Optional]: Release channel to use when creating the application
         """
+        package_name = to_identifier(package_name)
+        name = to_identifier(name)
+        release_channel = to_identifier(release_channel) if release_channel else None
 
         # by default, applications are created in debug mode when possible;
         # this can be overridden in the project definition
@@ -710,37 +836,47 @@ class SnowflakeSQLFacade:
                 "Setting AUTHORIZE_TELEMETRY_EVENT_SHARING to %s",
                 should_authorize_event_sharing,
             )
-            authorize_telemetry_clause = f" AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(should_authorize_event_sharing).upper()}"
+            authorize_telemetry_clause = f"AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(should_authorize_event_sharing).upper()}"
 
         using_clause = install_method.using_clause(stage_fqn)
+        release_channel_clause = (
+            f"using release channel {release_channel}" if release_channel else ""
+        )
+
         with self._use_role_optional(role), self._use_warehouse_optional(warehouse):
             try:
                 create_cursor = self._sql_executor.execute_query(
                     dedent(
-                        f"""\
-                    create application {name}
-                        from application package {package_name} {using_clause} {debug_mode_clause}{authorize_telemetry_clause}
-                        comment = {SPECIAL_COMMENT}
-                    """
+                        _strip_empty_lines(
+                            f"""\
+                                create application {name}
+                                    from application package {package_name}
+                                    {using_clause}
+                                    {release_channel_clause}
+                                    {debug_mode_clause}
+                                    {authorize_telemetry_clause}
+                                    comment = {SPECIAL_COMMENT}
+                            """
+                        )
                     ),
                 )
-            except ProgrammingError as err:
-                if err.errno == APPLICATION_REQUIRES_TELEMETRY_SHARING:
-                    get_cli_context().metrics.set_counter(
-                        CLICounterField.EVENT_SHARING_ERROR, 1
-                    )
-                    raise UserInputError(
-                        "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
-                    ) from err
-                elif (
-                    err.errno in CREATE_OR_UPGRADE_APPLICATION_EXPECTED_USER_ERROR_CODES
-                ):
-                    raise UserInputError(
-                        f"Failed to create application {name} with the following error message:\n"
-                        f"{err.msg}"
-                    ) from err
-                handle_unclassified_error(err, f"Failed to create application {name}.")
             except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno == APPLICATION_REQUIRES_TELEMETRY_SHARING:
+                        get_cli_context().metrics.set_counter(
+                            CLICounterField.EVENT_SHARING_ERROR, 1
+                        )
+                        raise UserInputError(
+                            "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
+                        ) from err
+                    if (
+                        err.errno
+                        in CREATE_OR_UPGRADE_APPLICATION_EXPECTED_USER_ERROR_CODES
+                    ):
+                        raise UserInputError(
+                            f"Failed to create application {name} with the following error message:\n"
+                            f"{err.msg}"
+                        ) from err
                 handle_unclassified_error(err, f"Failed to create application {name}.")
 
             return create_cursor.fetchall()
@@ -772,20 +908,21 @@ class SnowflakeSQLFacade:
                     dedent(
                         _strip_empty_lines(
                             f"""\
-                            create application package {package_name}
-                                comment = {SPECIAL_COMMENT}
-                                distribution = {distribution}
-                                {enable_release_channels_clause}
+                                create application package {package_name}
+                                    comment = {SPECIAL_COMMENT}
+                                    distribution = {distribution}
+                                    {enable_release_channels_clause}
                             """
                         )
                     )
                 )
-            except ProgrammingError as err:
-                if err.errno == INSUFFICIENT_PRIVILEGES:
-                    raise InsufficientPrivilegesError(
-                        f"Insufficient privileges to create application package {package_name}",
-                        role=role,
-                    ) from err
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno == INSUFFICIENT_PRIVILEGES:
+                        raise InsufficientPrivilegesError(
+                            f"Insufficient privileges to create application package {package_name}",
+                            role=role,
+                        ) from err
                 handle_unclassified_error(
                     err, f"Failed to create application package {package_name}."
                 )
@@ -811,17 +948,22 @@ class SnowflakeSQLFacade:
                     self._sql_executor.execute_query(
                         dedent(
                             f"""\
-                            alter application package {package_name}
-                                set enable_release_channels = {str(enable_release_channels).lower()}
-                        """
+                                alter application package {package_name}
+                                    set enable_release_channels = {str(enable_release_channels).lower()}
+                            """
                         )
                     )
-                except ProgrammingError as err:
-                    if err.errno == INSUFFICIENT_PRIVILEGES:
-                        raise InsufficientPrivilegesError(
-                            f"Insufficient privileges update enable_release_channels for application package {package_name}",
-                            role=role,
-                        ) from err
+                except Exception as err:
+                    if isinstance(err, ProgrammingError):
+                        if err.errno == INSUFFICIENT_PRIVILEGES:
+                            raise InsufficientPrivilegesError(
+                                f"Insufficient privileges to update enable_release_channels for application package {package_name}",
+                                role=role,
+                            ) from err
+                        if err.errno == CANNOT_DISABLE_RELEASE_CHANNELS:
+                            raise UserInputError(
+                                f"Cannot disable release channels for application package {package_name} after it is enabled. Try recreating the application package."
+                            ) from err
                     handle_unclassified_error(
                         err,
                         f"Failed to update enable_release_channels for application package {package_name}.",
@@ -839,30 +981,471 @@ class SnowflakeSQLFacade:
 
         return get_ui_parameter(connection, parameter, default)
 
+    def set_release_directive(
+        self,
+        package_name: str,
+        release_directive: str,
+        release_channel: str | None,
+        target_accounts: List[str] | None,
+        version: str,
+        patch: int,
+        role: str | None = None,
+    ):
+        """
+        Sets a release directive for an application package.
+        Default release directive does not support target accounts.
+        Non-default release directives require target accounts to be specified.
 
-# TODO move this to src/snowflake/cli/api/project/util.py in a separate
-# PR since it's codeowned by the CLI team
-def _same_identifier(id1: str, id2: str) -> bool:
-    """
-    Returns whether two identifiers refer to the same object.
+        @param package_name: Name of the application package to alter.
+        @param release_directive: Name of the release directive to set.
+        @param release_channel: Name of the release channel to set the release directive for.
+        @param target_accounts: List of target accounts for the release directive.
+        @param version: Version to set the release directive for.
+        @param patch: Patch number to set the release directive for.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
 
-    Two unquoted identifiers are considered the same if they are equal when both are converted to uppercase
-    Two quoted identifiers are considered the same if they are exactly equal
-    An unquoted identifier and a quoted identifier are considered the same
-      if the quoted identifier is equal to the unquoted identifier
-      when the unquoted identifier is converted to uppercase and quoted
-    """
-    # Canonicalize the identifiers by converting unquoted identifiers to uppercase and leaving quoted identifiers as is
-    canonical_id1 = id1.upper() if is_valid_unquoted_identifier(id1) else id1
-    canonical_id2 = id2.upper() if is_valid_unquoted_identifier(id2) else id2
+        if same_identifiers(release_directive, DEFAULT_DIRECTIVE) and target_accounts:
+            raise UserInputError(
+                "Default release directive does not support target accounts."
+            )
 
-    # The canonical identifiers are equal if they are equal when both are quoted
-    # (if they are already quoted, this is a no-op)
-    return to_quoted_identifier(canonical_id1) == to_quoted_identifier(canonical_id2)
+        if (
+            not same_identifiers(release_directive, DEFAULT_DIRECTIVE)
+            and not target_accounts
+        ):
+            raise UserInputError(
+                "Non-default release directives require target accounts to be specified."
+            )
+
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel) if release_channel else None
+        release_directive = to_identifier(release_directive)
+        version = to_identifier(version)
+
+        release_directive_statement = (
+            "set default release directive"
+            if same_identifiers(release_directive, DEFAULT_DIRECTIVE)
+            else f"set release directive {release_directive}"
+        )
+
+        release_channel_statement = (
+            f"modify release channel {release_channel}" if release_channel else ""
+        )
+
+        accounts_statement = (
+            f"accounts = ({','.join(target_accounts)})" if target_accounts else ""
+        )
+
+        full_query = dedent(
+            _strip_empty_lines(
+                f"""\
+                    alter application package {package_name}
+                        {release_channel_statement}
+                        {release_directive_statement}
+                        {accounts_statement}
+                        version = {version} patch = {patch}
+                """
+            )
+        )
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(full_query)
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if (
+                        err.errno == ACCOUNT_DOES_NOT_EXIST
+                        or err.errno == ACCOUNT_HAS_TOO_MANY_QUALIFIERS
+                    ):
+                        raise UserInputError(
+                            f"Invalid account passed in.\n{str(err.msg)}"
+                        ) from err
+                    _handle_release_directive_version_error(
+                        err,
+                        package_name=package_name,
+                        release_channel=release_channel,
+                        version=version,
+                        patch=patch,
+                    )
+                handle_unclassified_error(
+                    err,
+                    f"Failed to set release directive {release_directive} for application package {package_name}.",
+                )
+
+    def modify_release_directive(
+        self,
+        package_name: str,
+        release_directive: str,
+        release_channel: str | None,
+        version: str,
+        patch: int,
+        role: str | None = None,
+    ):
+        """
+        Modifies a release directive for an application package.
+        Release directive must already exist in the application package.
+        Accepts both default and non-default release directives.
+
+        @param package_name: Name of the application package to alter.
+        @param release_directive: Name of the release directive to modify.
+        @param release_channel: Name of the release channel to modify the release directive for.
+        @param version: Version to modify the release directive for.
+        @param patch: Patch number to modify the release directive for.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel) if release_channel else None
+        release_directive = to_identifier(release_directive)
+        version = to_identifier(version)
+
+        release_directive_statement = (
+            "modify default release directive"
+            if same_identifiers(release_directive, DEFAULT_DIRECTIVE)
+            else f"modify release directive {release_directive}"
+        )
+
+        release_channel_statement = (
+            f"modify release channel {release_channel}" if release_channel else ""
+        )
+
+        full_query = dedent(
+            _strip_empty_lines(
+                f"""\
+                    alter application package {package_name}
+                        {release_channel_statement}
+                        {release_directive_statement}
+                        version = {version} patch = {patch}
+                """
+            )
+        )
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(full_query)
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno == RELEASE_DIRECTIVE_DOES_NOT_EXIST:
+                        raise UserInputError(
+                            f"Release directive {release_directive} does not exist in application package {package_name}. Please create it first by specifying the target accounts."
+                        ) from err
+                    _handle_release_directive_version_error(
+                        err,
+                        package_name=package_name,
+                        release_channel=release_channel,
+                        version=version,
+                        patch=patch,
+                    )
+                handle_unclassified_error(
+                    err,
+                    f"Failed to modify release directive {release_directive} for application package {package_name}.",
+                )
+
+    def unset_release_directive(
+        self,
+        package_name: str,
+        release_directive: str,
+        release_channel: str | None,
+        role: str | None = None,
+    ):
+        """
+        Unsets a release directive for an application package.
+        Release directive must already exist in the application package.
+        Does not accept default release directive.
+
+        @param package_name: Name of the application package to alter.
+        @param release_directive: Name of the release directive to unset.
+        @param release_channel: Name of the release channel to unset the release directive for.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel) if release_channel else None
+        release_directive = to_identifier(release_directive)
+
+        if same_identifiers(release_directive, DEFAULT_DIRECTIVE):
+            raise UserInputError(
+                "Cannot unset default release directive. Please specify a non-default release directive."
+            )
+
+        release_channel_statement = ""
+        if release_channel:
+            release_channel_statement = f" modify release channel {release_channel}"
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    f"alter application package {package_name}{release_channel_statement} unset release directive {release_directive}"
+                )
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno == RELEASE_DIRECTIVE_DOES_NOT_EXIST:
+                        raise UserInputError(
+                            f"Release directive {release_directive} does not exist in application package {package_name}."
+                        ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to unset release directive {release_directive} for application package {package_name}.",
+                )
+
+    def show_release_channels(
+        self, package_name: str, role: str | None = None
+    ) -> list[ReleaseChannel]:
+        """
+        Show release channels in a package.
+
+        @param package_name: Name of the application package
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        if (
+            self.get_ui_parameter(UIParameter.NA_FEATURE_RELEASE_CHANNELS, True)
+            is False
+        ):
+            return []
+
+        package_identifier = to_identifier(package_name)
+        results = []
+        with self._use_role_optional(role):
+            try:
+                cursor = self._sql_executor.execute_query(
+                    f"show release channels in application package {package_identifier}",
+                    cursor_class=DictCursor,
+                )
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    # TODO: Temporary check for syntax until UI Parameter is available in production
+                    if err.errno == SQL_COMPILATION_ERROR:
+                        # Release not out yet and param not out yet
+                        return []
+                    if err.errno == DOES_NOT_EXIST_OR_NOT_AUTHORIZED:
+                        raise UserInputError(
+                            f"Application package {package_name} does not exist or you are not authorized to access it."
+                        ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to show release channels for application package {package_name}.",
+                )
+
+            rows = cursor.fetchall()
+
+            for row in rows:
+                targets = json.loads(row["targets"]) if row.get("targets") else {}
+                versions = json.loads(row["versions"]) if row.get("versions") else []
+                results.append(
+                    ReleaseChannel(
+                        name=row["name"],
+                        description=row["description"],
+                        created_on=row["created_on"],
+                        updated_on=row["updated_on"],
+                        targets=targets,
+                        versions=versions,
+                    )
+                )
+
+            return results
+
+    def add_accounts_to_release_channel(
+        self,
+        package_name: str,
+        release_channel: str,
+        target_accounts: List[str],
+        role: str | None = None,
+    ):
+        """
+        Adds accounts to a release channel.
+
+        @param package_name: Name of the application package
+        @param release_channel: Name of the release channel
+        @param target_accounts: List of target accounts to add to the release channel
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel)
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    f"alter application package {package_name} modify release channel {release_channel} add accounts = ({','.join(target_accounts)})"
+                )
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if (
+                        err.errno == ACCOUNT_DOES_NOT_EXIST
+                        or err.errno == ACCOUNT_HAS_TOO_MANY_QUALIFIERS
+                    ):
+                        raise UserInputError(
+                            f"Invalid account passed in.\n{str(err.msg)}"
+                        ) from err
+                    if err.errno == CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS:
+                        raise UserInputError(
+                            f"Cannot modify accounts for release channel {release_channel} in application package {package_name}."
+                        ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to add accounts to release channel {release_channel} in application package {package_name}.",
+                )
+
+    def remove_accounts_from_release_channel(
+        self,
+        package_name: str,
+        release_channel: str,
+        target_accounts: List[str],
+        role: str | None = None,
+    ):
+        """
+        Removes accounts from a release channel.
+
+        @param package_name: Name of the application package
+        @param release_channel: Name of the release channel
+        @param target_accounts: List of target accounts to remove from the release channel
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel)
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    f"alter application package {package_name} modify release channel {release_channel} remove accounts = ({','.join(target_accounts)})"
+                )
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if (
+                        err.errno == ACCOUNT_DOES_NOT_EXIST
+                        or err.errno == ACCOUNT_HAS_TOO_MANY_QUALIFIERS
+                    ):
+                        raise UserInputError(
+                            f"Invalid account passed in.\n{str(err.msg)}"
+                        ) from err
+                    if err.errno == CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS:
+                        raise UserInputError(
+                            f"Cannot modify accounts for release channel {release_channel} in application package {package_name}."
+                        ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to remove accounts from release channel {release_channel} in application package {package_name}.",
+                )
+
+    def add_version_to_release_channel(
+        self,
+        package_name: str,
+        release_channel: str,
+        version: str,
+        role: str | None = None,
+    ):
+        """
+        Adds a version to a release channel.
+
+        @param package_name: Name of the application package
+        @param release_channel: Name of the release channel
+        @param version: Version to add to the release channel
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel)
+        version = to_identifier(version)
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    f"alter application package {package_name} modify release channel {release_channel} add version {version}"
+                )
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno == VERSION_DOES_NOT_EXIST:
+                        raise UserInputError(
+                            f"Version {version} does not exist in application package {package_name}."
+                        ) from err
+                    if err.errno == VERSION_ALREADY_ADDED_TO_RELEASE_CHANNEL:
+                        raise UserInputError(
+                            f"Version {version} is already added to release channel {release_channel}."
+                        ) from err
+                    if err.errno == MAX_VERSIONS_IN_RELEASE_CHANNEL_REACHED:
+                        raise UserInputError(
+                            f"Maximum number of versions allowed in release channel {release_channel} has been reached."
+                        ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to add version {version} to release channel {release_channel} in application package {package_name}.",
+                )
+
+    def remove_version_from_release_channel(
+        self,
+        package_name: str,
+        release_channel: str,
+        version: str,
+        role: str | None = None,
+    ):
+        """
+        Removes a version from a release channel.
+
+        @param package_name: Name of the application package
+        @param release_channel: Name of the release channel
+        @param version: Version to remove from the release channel
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel)
+        version = to_identifier(version)
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    f"alter application package {package_name} modify release channel {release_channel} drop version {version}"
+                )
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno == VERSION_NOT_IN_RELEASE_CHANNEL:
+                        raise UserInputError(
+                            f"Version {version} is not found in release channel {release_channel}."
+                        ) from err
+                    if err.errno == VERSION_REFERENCED_BY_RELEASE_DIRECTIVE:
+                        raise UserInputError(
+                            f"Cannot remove version {version} from release channel {release_channel} as it is referenced by a release directive."
+                        ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to remove version {version} from release channel {release_channel} in application package {package_name}.",
+                )
 
 
 def _strip_empty_lines(text: str) -> str:
     """
     Strips empty lines from the input string.
+    Preserves the new line at the end of the string if it exists.
     """
-    return "\n".join(line for line in text.splitlines() if line.strip())
+    all_lines = text.splitlines()
+
+    # join all non-empty lines, but preserve the new line at the end if it exists
+    last_line = all_lines[-1]
+    other_lines = [line for line in all_lines[:-1] if line.strip()]
+
+    return "\n".join(other_lines) + "\n" + last_line
+
+
+def _handle_release_directive_version_error(
+    err: ProgrammingError,
+    *,
+    package_name: str,
+    release_channel: str | None,
+    version: str,
+    patch: int,
+) -> None:
+
+    if err.errno == VERSION_NOT_ADDED_TO_RELEASE_CHANNEL:
+        raise UserInputError(
+            f"Version {version} is not added to release channel {release_channel}. Please add it to the release channel first."
+        ) from err
+    if err.errno == RELEASE_DIRECTIVES_VERSION_PATCH_NOT_FOUND:
+        raise UserInputError(
+            f"Patch {patch} for version {version} not found in application package {package_name}."
+        ) from err
+    if err.errno == VERSION_DOES_NOT_EXIST:
+        raise UserInputError(
+            f"Version {version} does not exist in application package {package_name}."
+        ) from err

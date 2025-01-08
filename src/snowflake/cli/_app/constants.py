@@ -17,3 +17,7 @@ from __future__ import annotations
 from typing import Literal
 
 PARAM_APPLICATION_NAME: Literal["snowcli"] = "snowcli"
+
+# This is also defined on server side. Changing this parameter would require
+# a change in https://github.com/snowflakedb/snowflake
+INTERNAL_APPLICATION_NAME: Literal["SNOWFLAKE_CLI"] = "SNOWFLAKE_CLI"
