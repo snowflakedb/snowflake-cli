@@ -48,19 +48,24 @@ from snowflake.cli.api.errno import (
     ACCOUNT_DOES_NOT_EXIST,
     ACCOUNT_HAS_TOO_MANY_QUALIFIERS,
     APPLICATION_INSTANCE_FAILED_TO_RUN_SETUP_SCRIPT,
+    APPLICATION_PACKAGE_MAX_VERSIONS_HIT,
     APPLICATION_REQUIRES_TELEMETRY_SHARING,
+    CANNOT_DEREGISTER_VERSION_ASSOCIATED_WITH_CHANNEL,
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
     CANNOT_DISABLE_RELEASE_CHANNELS,
     CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
     INSUFFICIENT_PRIVILEGES,
+    MAX_UNBOUND_VERSIONS_REACHED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
     RELEASE_DIRECTIVE_DOES_NOT_EXIST,
     RELEASE_DIRECTIVES_VERSION_PATCH_NOT_FOUND,
     SQL_COMPILATION_ERROR,
     VERSION_DOES_NOT_EXIST,
     VERSION_NOT_ADDED_TO_RELEASE_CHANNEL,
+    VERSION_NOT_IN_RELEASE_CHANNEL,
+    VERSION_REFERENCED_BY_RELEASE_DIRECTIVE,
 )
 from snowflake.connector import DatabaseError, DictCursor, Error
 from snowflake.connector.errors import (
@@ -1386,26 +1391,44 @@ def test_create_schema_uses_database_from_fqn(
         sql_facade.create_schema(schema_fqn, role=role, database="not_database")
 
 
-def test_create_schema_raises_insufficient_privileges_error(
-    mock_execute_query, mock_use_role, mock_use_database
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=INSUFFICIENT_PRIVILEGES),
+            InsufficientPrivilegesError,
+            "Insufficient privileges to create schema test_schema",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Invalid SQL error occurred. Failed to create schema test_schema. Unknown error",
+        ),
+        (
+            DatabaseError("Database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to create schema test_schema. Database error",
+        ),
+    ],
+)
+def test_create_schema_with_error(
+    mock_execute_query,
+    mock_use_role,
+    mock_use_database,
+    error_raised,
+    error_caught,
+    error_message,
 ):
     schema = "test_schema"
     database = "test_db"
     role = "test_role"
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                ProgrammingError(errno=INSUFFICIENT_PRIVILEGES),
-                mock.call.execute_query(f"create schema if not exists {schema}"),
-            )
-        ]
-    )
-    mock_execute_query.side_effect = side_effects
 
-    with pytest.raises(InsufficientPrivilegesError):
+    mock_execute_query.side_effect = error_raised
+
+    with pytest.raises(error_caught) as err:
         sql_facade.create_schema(schema, role=role, database=database)
 
-    mock_execute_query.assert_has_calls(expected)
+    assert error_message in str(err)
 
 
 def test_stage_exists(
@@ -1506,22 +1529,42 @@ def test_stage_exists_returns_false_for_does_not_exist_error(
     assert not sql_facade.stage_exists(stage)
 
 
-def test_stage_exists_raises_insufficient_privileges_error(
-    mock_execute_query, mock_cursor, mock_use_role, mock_use_database, mock_use_schema
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=INSUFFICIENT_PRIVILEGES),
+            InsufficientPrivilegesError,
+            "Insufficient privileges to check if stage test_stage exists",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Invalid SQL error occurred. Failed to check if stage test_stage exists. Unknown error",
+        ),
+        (
+            DatabaseError("Database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to check if stage test_stage exists. Database error",
+        ),
+    ],
+)
+def test_stage_exists_with_error(
+    mock_execute_query,
+    mock_use_role,
+    mock_use_database,
+    mock_use_schema,
+    error_raised,
+    error_caught,
+    error_message,
 ):
     stage = "test_stage"
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                ProgrammingError(errno=INSUFFICIENT_PRIVILEGES),
-                mock.call("show stages like 'TEST\\\\_STAGE' in schema"),
-            )
-        ]
-    )
-    mock_execute_query.side_effect = side_effects
+    mock_execute_query.side_effect = error_raised
 
-    with pytest.raises(InsufficientPrivilegesError):
+    with pytest.raises(error_caught) as err:
         assert sql_facade.stage_exists(stage)
+
+    assert error_message in str(err)
 
 
 def test_create_stage(
@@ -1651,28 +1694,44 @@ def test_create_stage_uses_database_from_fqn(
         sql_facade.create_stage(stage_fqn, role=role, database="not_database")
 
 
-def test_create_stage_raises_insufficient_privileges_error(
-    mock_execute_query, mock_use_role, mock_use_database, mock_use_schema
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=INSUFFICIENT_PRIVILEGES),
+            InsufficientPrivilegesError,
+            "Insufficient privileges to create stage test_stage",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Invalid SQL error occurred. Failed to create stage test_stage. Unknown error",
+        ),
+        (
+            DatabaseError("Database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to create stage test_stage. Database error",
+        ),
+    ],
+)
+def test_create_stage_with_error(
+    mock_execute_query,
+    mock_use_role,
+    mock_use_database,
+    mock_use_schema,
+    error_raised,
+    error_caught,
+    error_message,
 ):
     stage = "test_stage"
     database = "test_db"
     role = "test_role"
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                ProgrammingError(errno=INSUFFICIENT_PRIVILEGES),
-                mock.call.execute_query(
-                    f"create stage if not exists {stage} encryption = (type = 'SNOWFLAKE_SSE') directory = (enable = True)"
-                ),
-            )
-        ]
-    )
-    mock_execute_query.side_effect = side_effects
+    mock_execute_query.side_effect = error_raised
 
-    with pytest.raises(InsufficientPrivilegesError):
+    with pytest.raises(error_caught) as err:
         sql_facade.create_stage(stage, role=role, database=database)
 
-    mock_execute_query.assert_has_calls(expected)
+    assert error_message in str(err)
 
 
 @pytest.mark.parametrize(
@@ -1766,6 +1825,53 @@ def test_get_existing_app_info(
         result = sql_facade.get_existing_app_info(**args)
 
     assert result == {NAME_COL: args["name"].upper()}
+
+
+@pytest.mark.parametrize(
+    "value_from_col, app_name, expected_to_match",
+    [
+        # value_from_col is lowercase, implying quoted treatment
+        # but app_name is not quoted:
+        ("test_app", "test_app", False),
+        ("test_app", "TEST_APP", False),
+        # value_from_col is uppercase, implying unquoted treatment
+        ("TEST_APP", "test_app", True),
+        ("TEST_APP", "TEST_APP", True),
+        # value_from_col is lowercase, implying quoted treatment
+        # app_name implicitly quoted due to special characters
+        ("test.app", "test.app", True),
+        # app_name is quoted
+        ("test_app", '"test_app"', True),
+        ("test_app", '"test_APP"', False),
+        ("TEST_APP", '"test_app"', False),
+        ("TEST_APP", '"TEST_APP"', True),
+    ],
+)
+def test_get_existing_app_info_handling_of_app_names(
+    mock_use_role,
+    mock_execute_query,
+    mock_cursor,
+    value_from_col,
+    app_name,
+    expected_to_match,
+):
+    mock_execute_query.side_effect = [
+        mock_cursor(
+            [
+                {
+                    NAME_COL: value_from_col,
+                }
+            ],
+            [],
+        ),
+    ]
+
+    result = sql_facade.get_existing_app_info(name=app_name, role=None)
+
+    if expected_to_match:
+        assert result[NAME_COL] == value_from_col
+    else:
+        assert result is None
 
 
 def test_upgrade_application_unversioned(
@@ -2545,68 +2651,42 @@ def test_given_release_channels_when_create_application_package_then_success(
         )
 
 
-def test_given_programming_error_when_create_application_package_then_error(
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=INSUFFICIENT_PRIVILEGES),
+            InsufficientPrivilegesError,
+            "Insufficient privileges to create application package test_stage",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Invalid SQL error occurred. Failed to create application package test_stage. Unknown error",
+        ),
+        (
+            DatabaseError("Database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to create application package test_stage. Database error",
+        ),
+    ],
+)
+def test_create_application_package_with_error(
     mock_execute_query,
     mock_use_role,
+    error_raised,
+    error_caught,
+    error_message,
 ):
-    package_name = "test_package"
+    package_name = "test_stage"
     distribution = "INTERNAL"
     role = "test_role"
+    mock_execute_query.side_effect = error_raised
 
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                ProgrammingError(),
-                mock.call(
-                    dedent(
-                        f"""\
-                        create application package {package_name}
-                            comment = {SPECIAL_COMMENT}
-                            distribution = {distribution}
-                        """
-                    )
-                ),
-            )
-        ]
-    )
-    mock_execute_query.side_effect = side_effects
-
-    with pytest.raises(InvalidSQLError) as err:
+    with pytest.raises(error_caught) as err:
         sql_facade.create_application_package(package_name, distribution, role=role)
 
-    assert "Failed to create application package" in str(err)
-
-
-def test_given_privilege_error_when_create_application_package_then_raise_priv_error(
-    mock_execute_query,
-    mock_use_role,
-):
-    package_name = "test_package"
-    distribution = "INTERNAL"
-    role = "test_role"
-
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                ProgrammingError(errno=INSUFFICIENT_PRIVILEGES),
-                mock.call(
-                    dedent(
-                        f"""\
-                        create application package {package_name}
-                            comment = {SPECIAL_COMMENT}
-                            distribution = {distribution}
-                        """
-                    )
-                ),
-            )
-        ]
-    )
-    mock_execute_query.side_effect = side_effects
-
-    with pytest.raises(InsufficientPrivilegesError) as err:
-        sql_facade.create_application_package(package_name, distribution, role=role)
-
-    assert "Insufficient privileges to create application package" in str(err)
+    assert error_message in str(err)
 
 
 @pytest.mark.parametrize(
@@ -2649,101 +2729,48 @@ def test_given_no_enable_release_channel_flag_when_update_application_package_th
     assert mock_execute_query.call_count == 0
 
 
-def test_given_programming_error_when_update_application_package_then_raise_sql_error(
-    mock_execute_query, mock_use_role
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=INSUFFICIENT_PRIVILEGES),
+            InsufficientPrivilegesError,
+            "Insufficient privileges to update enable_release_channels for application package test_pkg",
+        ),
+        (
+            ProgrammingError(errno=CANNOT_DISABLE_RELEASE_CHANNELS),
+            UserInputError,
+            "Cannot disable release channels for application package test_pkg after it is enabled. Try recreating the application package",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Invalid SQL error occurred. Failed to update enable_release_channels for application package test_pkg. Unknown error",
+        ),
+        (
+            DatabaseError("Database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to update enable_release_channels for application package test_pkg. Database error",
+        ),
+    ],
+)
+def test_alter_application_pacakge_properties_for_enable_release_channels_with_error(
+    mock_execute_query,
+    mock_use_role,
+    error_raised,
+    error_caught,
+    error_message,
 ):
     pkg_name = "test_pkg"
     role = "test_role"
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                ProgrammingError(),
-                mock.call(
-                    dedent(
-                        f"""\
-                        alter application package {pkg_name}
-                            set enable_release_channels = True
-                        """
-                    )
-                ),
-            )
-        ]
-    )
-    mock_execute_query.side_effect = side_effects
+    mock_execute_query.side_effect = error_raised
 
-    with pytest.raises(InvalidSQLError) as err:
+    with pytest.raises(error_caught) as err:
         sql_facade.alter_application_package_properties(
             pkg_name, enable_release_channels=True, role=role
         )
 
-    assert "Failed to update enable_release_channels for application package" in str(
-        err
-    )
-
-
-def test_given_privilege_exception_when_update_application_package_then_raise_priv_error(
-    mock_execute_query,
-    mock_use_role,
-):
-    pkg_name = "test_pkg"
-    role = "test_role"
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                ProgrammingError(errno=INSUFFICIENT_PRIVILEGES),
-                mock.call(
-                    dedent(
-                        f"""\
-                        alter application package {pkg_name}
-                            set enable_release_channels = False
-                        """
-                    )
-                ),
-            )
-        ]
-    )
-    mock_execute_query.side_effect = side_effects
-
-    with pytest.raises(InsufficientPrivilegesError) as err:
-        sql_facade.alter_application_package_properties(
-            pkg_name, enable_release_channels=False, role=role
-        )
-
-    assert (
-        "Insufficient privileges update enable_release_channels for application package"
-        in str(err)
-    )
-
-
-def test_given_error_disabling_release_channel_when_update_application_package_then_raise_user_input_error(
-    mock_execute_query,
-    mock_use_role,
-):
-    pkg_name = "test_pkg"
-    role = "test_role"
-    side_effects, expected = mock_execute_helper(
-        [
-            (
-                ProgrammingError(errno=CANNOT_DISABLE_RELEASE_CHANNELS),
-                mock.call(
-                    dedent(
-                        f"""\
-                        alter application package {pkg_name}
-                            set enable_release_channels = False
-                        """
-                    )
-                ),
-            )
-        ]
-    )
-    mock_execute_query.side_effect = side_effects
-
-    with pytest.raises(UserInputError) as err:
-        sql_facade.alter_application_package_properties(
-            pkg_name, enable_release_channels=False, role=role
-        )
-
-    assert "Cannot disable release channels for application package" in str(err)
+    assert error_message in str(err)
 
 
 expected_ui_params_query = "call system$bootstrap_data_request('CLIENT_PARAMS_INFO')"
@@ -2863,28 +2890,37 @@ def test_show_release_directive_with_special_characters_in_names(mock_execute_qu
     mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
 
 
-def test_show_release_directive_with_error(mock_execute_query):
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to show release directives for application package test_package",
+        ),
+        (
+            ProgrammingError(errno=INSUFFICIENT_PRIVILEGES),
+            InsufficientPrivilegesError,
+            "Insufficient privileges to show release directives for application package test_package",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to show release directives for application package test_package. some database error",
+        ),
+    ],
+)
+def test_show_release_directive_with_error(
+    mock_execute_query, error_raised, error_caught, error_message
+):
     package_name = "test_package"
     release_channel = "test_channel"
-    expected_query = f"show release directives in application package {package_name} for release channel {release_channel}"
-    mock_execute_query.side_effect = ProgrammingError()
+    mock_execute_query.side_effect = error_raised
 
-    with pytest.raises(InvalidSQLError):
+    with pytest.raises(error_caught) as err:
         sql_facade.show_release_directives(package_name, release_channel)
 
-    mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
-
-
-def test_show_release_directive_with_permission_error(mock_execute_query):
-    package_name = "test_package"
-    release_channel = "test_channel"
-    expected_query = f"show release directives in application package {package_name} for release channel {release_channel}"
-    mock_execute_query.side_effect = ProgrammingError(errno=INSUFFICIENT_PRIVILEGES)
-
-    with pytest.raises(InsufficientPrivilegesError):
-        sql_facade.show_release_directives(package_name, release_channel)
-
-    mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
+    assert error_message in str(err)
 
 
 @mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value=False)
@@ -2988,38 +3024,39 @@ def test_show_release_channels_with_no_accounts_and_no_versions(
     mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
 
 
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to show release channels for application package test_package",
+        ),
+        (
+            ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+            UserInputError,
+            "Application package test_package does not exist or you are not authorized to access it.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to show release channels for application package test_package. some database error",
+        ),
+    ],
+)
 @mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value=True)
 def test_show_release_channels_when_error(
-    mock_get_ui_parameter, mock_execute_query, mock_cursor
+    mock_get_ui_parameter, mock_execute_query, error_raised, error_caught, error_message
 ):
     package_name = "test_package"
 
     expected_query = f"show release channels in application package {package_name}"
-    mock_execute_query.side_effect = ProgrammingError()
+    mock_execute_query.side_effect = error_raised
 
-    with pytest.raises(InvalidSQLError):
+    with pytest.raises(error_caught) as err:
         sql_facade.show_release_channels(package_name)
 
-    mock_get_ui_parameter.assert_called_once_with(
-        UIParameter.NA_FEATURE_RELEASE_CHANNELS, True
-    )
-    mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
-
-
-@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value=True)
-def test_show_release_channels_when_package_does_not_exist(
-    mock_get_ui_parameter, mock_execute_query, mock_cursor
-):
-    package_name = "test_package"
-
-    expected_query = f"show release channels in application package {package_name}"
-    mock_execute_query.side_effect = ProgrammingError(
-        errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED
-    )
-
-    with pytest.raises(UserInputError):
-        sql_facade.show_release_channels(package_name)
-
+    assert error_message in str(err)
     mock_get_ui_parameter.assert_called_once_with(
         UIParameter.NA_FEATURE_RELEASE_CHANNELS, True
     )
@@ -3073,36 +3110,40 @@ def test_unset_release_directive_without_release_channel(
     mock_execute_query.assert_called_once_with(expected_query)
 
 
-def test_unset_release_directive_where_directive_does_not_exist(
-    mock_execute_query,
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=RELEASE_DIRECTIVE_DOES_NOT_EXIST),
+            UserInputError,
+            "Release directive test_directive does not exist in application package test_package.",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to unset release directive test_directive for application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to unset release directive test_directive for application package test_package. some database error",
+        ),
+    ],
+)
+def test_unset_release_directive_with_error(
+    mock_execute_query, error_raised, error_caught, error_message
 ):
     package_name = "test_package"
     release_directive = "test_directive"
     release_channel = "test_channel"
-    mock_execute_query.side_effect = ProgrammingError(
-        errno=RELEASE_DIRECTIVE_DOES_NOT_EXIST
-    )
+    mock_execute_query.side_effect = error_raised
 
-    with pytest.raises(UserInputError):
+    with pytest.raises(error_caught) as err:
         sql_facade.unset_release_directive(
             package_name, release_directive, release_channel
         )
 
-    mock_execute_query.assert_called_once()
-
-
-def test_unset_release_directive_with_error(mock_execute_query):
-    package_name = "test_package"
-    release_directive = "test_directive"
-    release_channel = "test_channel"
-    mock_execute_query.side_effect = ProgrammingError()
-
-    with pytest.raises(InvalidSQLError):
-        sql_facade.unset_release_directive(
-            package_name, release_directive, release_channel
-        )
-
-    mock_execute_query.assert_called_once()
+    assert error_message in str(err)
 
 
 def test_set_release_directive_with_non_default_directive(
@@ -3285,7 +3326,12 @@ def test_set_default_release_directive_no_release_channel(
         (
             ProgrammingError(),
             InvalidSQLError,
-            "Failed to set release directive test_directive for package test_package.",
+            "Failed to set release directive test_directive for application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to set release directive test_directive for application package test_package. some database error",
         ),
     ],
 )
@@ -3471,7 +3517,12 @@ def test_modify_default_release_directive_no_release_channel(
         (
             ProgrammingError(),
             InvalidSQLError,
-            "Failed to modify release directive test_directive for package test_package.",
+            "Failed to modify release directive test_directive for application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to modify release directive test_directive for application package test_package. some database error",
         ),
     ],
 )
@@ -3622,24 +3673,60 @@ def test_create_version_with_special_characters(
 
 
 @pytest.mark.parametrize("release_channels_enabled", [True, False])
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=MAX_UNBOUND_VERSIONS_REACHED),
+            UserInputError,
+            "Maximum unbound versions reached for application package test_package. "
+            "Please drop the other unbound version first, or add it to a release channel.",
+        ),
+        (
+            ProgrammingError(errno=APPLICATION_PACKAGE_MAX_VERSIONS_HIT),
+            UserInputError,
+            "Maximum versions reached for application package test_package. "
+            "Please drop the other versions first.",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to ACTION_PLACEHOLDER version v1 to application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to ACTION_PLACEHOLDER version v1 to application package test_package. some database error",
+        ),
+    ],
+)
 def test_create_version_in_package_with_error(
-    release_channels_enabled, mock_use_role, mock_execute_query
+    release_channels_enabled,
+    mock_use_role,
+    mock_execute_query,
+    error_raised,
+    error_caught,
+    error_message,
 ):
     package_name = "test_package"
     version = "v1"
     role = "test_role"
     stage_fqn = f"{package_name}.app_src.stage"
 
-    mock_execute_query.side_effect = ProgrammingError()
+    action_placeholder = "register" if release_channels_enabled else "add"
+    error_message = error_message.replace("ACTION_PLACEHOLDER", action_placeholder)
+
+    mock_execute_query.side_effect = error_raised
 
     with mock_release_channels(sql_facade, release_channels_enabled):
-        with pytest.raises(InvalidSQLError):
+        with pytest.raises(error_caught) as err:
             sql_facade.create_version_in_package(
                 package_name=package_name,
                 version=version,
                 role=role,
                 stage_fqn=stage_fqn,
             )
+        assert error_message in str(err)
 
 
 @pytest.mark.parametrize("release_channels_enabled", [True, False])
@@ -3698,22 +3785,55 @@ def test_drop_version_from_package_with_special_characters(
             )
 
 
-@pytest.mark.parametrize("available_release_channels", [[], [{"name": "test_channel"}]])
+@pytest.mark.parametrize("release_channels_enabled", [True, False])
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=VERSION_REFERENCED_BY_RELEASE_DIRECTIVE),
+            UserInputError,
+            "Cannot drop version v1 from application package test_package because it is in use by one or more release directives.",
+        ),
+        (
+            ProgrammingError(errno=CANNOT_DEREGISTER_VERSION_ASSOCIATED_WITH_CHANNEL),
+            UserInputError,
+            "Cannot drop version v1 from application package test_package because it is associated with a release channel.",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to ACTION_PLACEHOLDER version v1 from application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to ACTION_PLACEHOLDER version v1 from application package test_package. some database error",
+        ),
+    ],
+)
 def test_drop_version_from_package_with_error(
-    available_release_channels, mock_use_role, mock_execute_query
+    release_channels_enabled,
+    mock_use_role,
+    mock_execute_query,
+    error_raised,
+    error_caught,
+    error_message,
 ):
     package_name = "test_package"
     version = "v1"
     role = "test_role"
 
-    mock_execute_query.side_effect = ProgrammingError()
+    mock_execute_query.side_effect = error_raised
+    action_placeholder = "deregister" if release_channels_enabled else "drop"
+    error_message = error_message.replace("ACTION_PLACEHOLDER", action_placeholder)
 
-    with mock_release_channels(sql_facade, bool(available_release_channels)):
+    with mock_release_channels(sql_facade, release_channels_enabled):
 
-        with pytest.raises(InvalidSQLError):
+        with pytest.raises(error_caught) as err:
             sql_facade.drop_version_from_package(
                 package_name=package_name, version=version, role=role
             )
+        assert error_message in str(err)
 
 
 def test_add_accounts_to_release_channel_valid_input_then_success(
@@ -3790,6 +3910,11 @@ def test_add_accounts_to_release_channel_with_special_chars_in_names(
             ProgrammingError(),
             InvalidSQLError,
             "Failed to add accounts to release channel test_channel in application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to add accounts to release channel test_channel in application package test_package. some database error",
         ),
     ],
 )
@@ -3882,6 +4007,11 @@ def test_remove_accounts_from_release_channel_with_special_chars_in_names(
             InvalidSQLError,
             "Failed to remove accounts from release channel test_channel in application package test_package.",
         ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to remove accounts from release channel test_channel in application package test_package. some database error",
+        ),
     ],
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
@@ -3893,6 +4023,179 @@ def test_remove_accounts_from_release_channel_error(
     with pytest.raises(error_caught) as err:
         sql_facade.remove_accounts_from_release_channel(
             "test_package", "test_channel", ["org1.acc1"], "test_role"
+        )
+
+    assert error_message in str(err)
+
+
+def test_add_version_to_release_channel_valid_input_then_success(
+    mock_use_role, mock_execute_query
+):
+    package_name = "test_package"
+    release_channel = "test_channel"
+    version = "v1"
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                f"alter application package {package_name} modify release channel {release_channel} add version {version}"
+            ),
+        ),
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.add_version_to_release_channel(
+            package_name, release_channel, version, role
+        )
+
+
+def test_add_version_to_release_channel_with_special_chars_in_names(
+    mock_use_role, mock_execute_query
+):
+    package_name = "test.package"
+    release_channel = "test.channel"
+    version = "v1.0"
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                f'alter application package "{package_name}" modify release channel "{release_channel}" add version "{version}"'
+            ),
+        ),
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.add_version_to_release_channel(
+            package_name, release_channel, version, role
+        )
+
+
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=VERSION_DOES_NOT_EXIST),
+            UserInputError,
+            "Version v1 does not exist in application package test_package.",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to add version v1 to release channel test_channel in application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to add version v1 to release channel test_channel in application package test_package. some database error",
+        ),
+    ],
+)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_add_version_to_release_channel_error(
+    mock_execute_query, error_raised, error_caught, error_message, mock_use_role
+):
+    mock_execute_query.side_effect = error_raised
+
+    with pytest.raises(error_caught) as err:
+        sql_facade.add_version_to_release_channel(
+            "test_package", "test_channel", "v1", "test_role"
+        )
+
+    assert error_message in str(err)
+
+
+# same tests but for remove_version_from_release_channel
+def test_remove_version_from_release_channel_valid_input_then_success(
+    mock_use_role, mock_execute_query
+):
+    package_name = "test_package"
+    release_channel = "test_channel"
+    version = "v1"
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                f"alter application package {package_name} modify release channel {release_channel} drop version {version}"
+            ),
+        ),
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.remove_version_from_release_channel(
+            package_name, release_channel, version, role
+        )
+
+
+def test_remove_version_from_release_channel_with_special_chars_in_names(
+    mock_use_role, mock_execute_query
+):
+    package_name = "test.package"
+    release_channel = "test.channel"
+    version = "v1.0"
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                f'alter application package "{package_name}" modify release channel "{release_channel}" drop version "{version}"'
+            ),
+        ),
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.remove_version_from_release_channel(
+            package_name, release_channel, version, role
+        )
+
+
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=VERSION_NOT_IN_RELEASE_CHANNEL),
+            UserInputError,
+            "Version v1 is not found in release channel test_channel.",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to remove version v1 from release channel test_channel in application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to remove version v1 from release channel test_channel in application package test_package. some database error",
+        ),
+    ],
+)
+@mock.patch(SQL_EXECUTOR_EXECUTE)
+def test_remove_version_from_release_channel_error(
+    mock_execute_query, error_raised, error_caught, error_message, mock_use_role
+):
+    mock_execute_query.side_effect = error_raised
+
+    with pytest.raises(error_caught) as err:
+        sql_facade.remove_version_from_release_channel(
+            "test_package", "test_channel", "v1", "test_role"
         )
 
     assert error_message in str(err)
