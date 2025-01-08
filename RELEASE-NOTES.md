@@ -32,6 +32,7 @@
   * Add ability to add and remove accounts from release channels through `snow app release-channel add-accounts` and snow app release-channel remove-accounts` commands.
   * Add ability to add/remove versions to/from release channels through `snow app release-channel add-version` and `snow app release-channel remove-version` commands.
 * Add an optional `stage_subdirectory` field to `application package` entity. When specified, application artifacts are uploaded to this subdirectory instead of the root of the application package's stage.
+
 ## Fixes and improvements
 * Fixed crashes with older x86_64 Intel CPUs.
 * Fixed inability to add patches to lowercase quoted versions
