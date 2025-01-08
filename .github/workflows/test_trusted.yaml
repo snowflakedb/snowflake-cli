@@ -41,4 +41,6 @@ jobs:
           SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
           SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_RAW }}
-        run: python -m hatch run ${{ inputs.hatch-run }}
+        run: |
+          pip freeze
+          python -m hatch run ${{ inputs.hatch-run }}
