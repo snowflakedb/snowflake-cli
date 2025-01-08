@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def test_builtin_plugins_registration(runner):
     result = runner.invoke(["-h"])
@@ -24,12 +28,15 @@ def test_builtin_plugins_registration(runner):
 def test_multiple_use_of_test_runner(runner):
     def assert_result_is_correct(result):
         assert result.exit_code == 0, result.output
+        print(result.output)
         assert result.output.count("Manages connections to Snowflake") == 1
         assert result.output.count("Manages a Streamlit app in Snowflake") == 1
         assert result.output.count("Manages Snowflake objects") == 1
         assert result.output.count("Executes Snowflake query") == 1
 
+    logger.info("first run")
     assert_result_is_correct(runner.invoke(["-h"]))
+    logger.info("second run")
     assert_result_is_correct(runner.invoke(["-h"]))
 
 
