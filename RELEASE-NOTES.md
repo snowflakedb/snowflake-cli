@@ -31,13 +31,36 @@
   * Add ability to list release channels through `snow app release-channel list` command
   * Add ability to add and remove accounts from release channels through `snow app release-channel add-accounts` and snow app release-channel remove-accounts` commands.
   * Add ability to add/remove versions to/from release channels through `snow app release-channel add-version` and `snow app release-channel remove-version` commands.
-* Add an optional `stage_subdirectory` field to `application package` entity. When specified, application artifacts are uploaded to this subdirectory instead of the root of the application package's stage.
+* Add support for restricting Snowflake user authentication policy to Snowflake CLI-only.
+* Add an optional `stage_subdirectory` field to `application package` entity. When specified, application artifacts are uploaded to this subdirectory instead of the root of the application package's stage. 
 
 ## Fixes and improvements
-* Fixed crashes with older x86_64 Intel CPUs.
 * Fixed inability to add patches to lowercase quoted versions
 * Fixes label being set to blank instead of None when not provided.
 * Added a feature flag `ENABLE_SPCS_LOG_STREAMING` to control the rollout of the log streaming feature
+
+
+# v3.2.2
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+* Fix "No module named 'pandas'" warning.
+
+
+# v3.2.1
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+* Fixed crashes with older x86_64 Intel CPUs.
+
 
 # v3.2.0
 
