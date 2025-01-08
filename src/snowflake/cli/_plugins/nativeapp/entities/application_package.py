@@ -468,8 +468,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         # then do not re-deploy the artifacts or touch the stage
         if from_stage:
             # verify package exists:
-            show_obj_row = self.get_existing_app_pkg_info()
-            if not show_obj_row:
+            if not self.get_existing_app_pkg_info():
                 raise ClickException(
                     "Cannot create version from stage because the application package does not exist yet. "
                     "Try removing --from-stage flag or executing `snow app deploy` to deploy the application package first."
