@@ -21,7 +21,9 @@ from typing import Dict, Optional
 
 import snowflake.connector
 from click.exceptions import ClickException
+from snowflake.cli.__about__ import VERSION
 from snowflake.cli._app.constants import (
+    INTERNAL_APPLICATION_NAME,
     PARAM_APPLICATION_NAME,
 )
 from snowflake.cli._app.secret import SecretType
@@ -35,6 +37,7 @@ from snowflake.cli.api.exceptions import (
     InvalidConnectionConfiguration,
     SnowflakeConnectionError,
 )
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.errors import DatabaseError, ForbiddenError
@@ -150,6 +153,8 @@ def connect_to_snowflake(
 
     _update_connection_application_name(connection_parameters)
 
+    _update_internal_application_info(connection_parameters)
+
     try:
         # Whatever output is generated when creating connection,
         # we don't want it in our output. This is particularly important
@@ -236,6 +241,13 @@ def _update_connection_application_name(connection_parameters: Dict):
         "application_name": PARAM_APPLICATION_NAME,
     }
     connection_parameters.update(connection_application_params)
+
+
+def _update_internal_application_info(connection_parameters: Dict):
+    """Update internal application data if ENABLE_SEPARATE_AUTHENTICATION_POLICY_ID is enabled."""
+    if FeatureFlag.ENABLE_SEPARATE_AUTHENTICATION_POLICY_ID.is_enabled():
+        connection_parameters["internal_application_name"] = INTERNAL_APPLICATION_NAME
+        connection_parameters["internal_application_version"] = VERSION
 
 
 def _load_pem_from_file(private_key_file: str) -> SecretType:
