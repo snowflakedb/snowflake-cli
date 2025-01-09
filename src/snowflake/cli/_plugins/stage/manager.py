@@ -537,7 +537,7 @@ class StageManager(SqlExecutionMixin):
                 stage_path_parts.get_standard_stage_path()
             )
         else:
-            stage_path_parts = self._stage_path_part_factory(stage_path_str)
+            stage_path_parts = self.stage_path_parts_from_str(stage_path_str)
             stage_path = self.build_path(stage_path_str)
 
         all_files_list = self._get_files_list_from_stage(stage_path.root_path())
@@ -605,12 +605,12 @@ class StageManager(SqlExecutionMixin):
         sm = StageManager()
 
         # Rewrite stage paths to temporary stage paths. Git paths become stage paths
-        original_path_parts = self._stage_path_part_factory(stage_path)  # noqa: SLF001
+        original_path_parts = self.stage_path_parts_from_str(stage_path)  # noqa: SLF001
 
         tmp_stage_name = f"snowflake_cli_tmp_stage_{int(time.time())}"
         tmp_stage_fqn = FQN.from_stage(tmp_stage_name).using_connection(conn=self._conn)
         tmp_stage = tmp_stage_fqn.identifier
-        stage_path_parts = sm._stage_path_part_factory(  # noqa: SLF001
+        stage_path_parts = sm.stage_path_parts_from_str(  # noqa: SLF001
             tmp_stage + "/" + original_path_parts.directory
         )
 
@@ -714,7 +714,8 @@ class StageManager(SqlExecutionMixin):
             return StageManager._error_result(file=original_file, msg=e.msg)
 
     @staticmethod
-    def _stage_path_part_factory(stage_path: str) -> StagePathParts:
+    def stage_path_parts_from_str(stage_path: str) -> StagePathParts:
+        """Create StagePathParts object from stage path string."""
         stage_path = StageManager.get_standard_stage_prefix(stage_path)
         if stage_path.startswith(USER_STAGE_PREFIX):
             return UserStagePathParts(stage_path)

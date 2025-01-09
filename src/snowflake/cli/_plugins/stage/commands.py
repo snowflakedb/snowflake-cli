@@ -193,7 +193,7 @@ def stage_diff(
     """
     diff: DiffResult = compute_stage_diff(
         local_root=Path(folder_name),
-        stage_path=StageManager._stage_path_part_factory(stage_name),  # noqa: SLF001
+        stage_path=StageManager.stage_path_parts_from_str(stage_name),  # noqa: SLF001
     )
     if get_cli_context().output_format == OutputFormat.JSON:
         return ObjectResult(diff.to_dict())
