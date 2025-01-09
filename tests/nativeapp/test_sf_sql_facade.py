@@ -49,6 +49,7 @@ from snowflake.cli.api.errno import (
     ACCOUNT_HAS_TOO_MANY_QUALIFIERS,
     APPLICATION_INSTANCE_FAILED_TO_RUN_SETUP_SCRIPT,
     APPLICATION_PACKAGE_MAX_VERSIONS_HIT,
+    APPLICATION_PACKAGE_PATCH_ALREADY_EXISTS,
     APPLICATION_REQUIRES_TELEMETRY_SHARING,
     CANNOT_DEREGISTER_VERSION_ASSOCIATED_WITH_CHANNEL,
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
@@ -3807,6 +3808,11 @@ def test_drop_version_from_package_with_special_characters(
             "Cannot drop version v1 from application package test_package because it is associated with a release channel.",
         ),
         (
+            ProgrammingError(errno=VERSION_DOES_NOT_EXIST),
+            UserInputError,
+            "Version v1 does not exist in application package test_package.",
+        ),
+        (
             ProgrammingError(),
             InvalidSQLError,
             "Failed to ACTION_PLACEHOLDER version v1 from application package test_package.",
@@ -3841,6 +3847,118 @@ def test_drop_version_from_package_with_error(
                 package_name=package_name, version=version, role=role
             )
         assert error_message in str(err)
+
+
+def test_add_patch_to_package_version_valid_input_then_success(
+    mock_use_role, mock_execute_query, mock_cursor
+):
+    package_name = "test_package"
+    version = "v1"
+    patch = 1
+    stage_fqn = "src.stage"
+
+    expected_query = dedent(
+        f"""\
+            alter application package test_package
+                add patch 1 for version v1
+                using @src.stage
+        """
+    )
+
+    mock_execute_query.side_effect = [mock_cursor([{"patch": 1}], [])]
+    result = sql_facade.add_patch_to_package_version(
+        package_name=package_name, stage_fqn=stage_fqn, version=version, patch=patch
+    )
+
+    assert result == patch
+    mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
+
+
+# patch 0 shouldn't be treated in a special way (rely on backend saying 0 already exists)
+def test_add_patch_to_package_version_valid_input_then_success_patch_0(
+    mock_use_role, mock_execute_query, mock_cursor
+):
+    package_name = "test_package"
+    version = "v1"
+    patch = 0
+    stage_fqn = "src.stage"
+
+    expected_query = dedent(
+        """\
+            alter application package test_package
+                add patch 0 for version v1
+                using @src.stage
+        """
+    )
+
+    mock_execute_query.side_effect = [mock_cursor([{"patch": 0}], [])]
+    result = sql_facade.add_patch_to_package_version(
+        package_name=package_name, stage_fqn=stage_fqn, version=version, patch=patch
+    )
+
+    assert result == patch
+    mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
+
+
+def test_add_patch_to_package_version_valid_input_then_success_no_patch_in_input(
+    mock_use_role, mock_execute_query, mock_cursor
+):
+    package_name = "test_package"
+    version = "v1"
+    stage_fqn = "src.stage"
+
+    expected_query = dedent(
+        """\
+            alter application package test_package
+                add patch for version v1
+                using @src.stage
+        """
+    )
+
+    mock_execute_query.side_effect = [mock_cursor([{"patch": 5}], [])]
+    result = sql_facade.add_patch_to_package_version(
+        package_name=package_name, stage_fqn=stage_fqn, version=version, patch=None
+    )
+
+    assert result == 5
+    mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
+
+
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=APPLICATION_PACKAGE_PATCH_ALREADY_EXISTS),
+            UserInputError,
+            "Patch 1 already exists for version v1 in application package test_package.",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to create patch 1 for version v1 in application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to create patch 1 for version v1 in application package test_package. some database error",
+        ),
+    ],
+)
+def test_add_patch_to_package_version_with_error(
+    mock_use_role, mock_execute_query, error_raised, error_caught, error_message
+):
+    package_name = "test_package"
+    version = "v1"
+    patch = 1
+    stage_fqn = "src.stage"
+
+    mock_execute_query.side_effect = error_raised
+
+    with pytest.raises(error_caught) as err:
+        sql_facade.add_patch_to_package_version(
+            package_name=package_name, stage_fqn=stage_fqn, version=version, patch=patch
+        )
+    assert error_message in str(err)
 
 
 def test_add_accounts_to_release_channel_valid_input_then_success(

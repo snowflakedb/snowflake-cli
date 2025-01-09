@@ -22,6 +22,7 @@ import pytz
 import yaml
 from click import ClickException, UsageError
 from snowflake.cli._plugins.connection.util import UIParameter
+from snowflake.cli._plugins.nativeapp.artifacts import VersionInfo
 from snowflake.cli._plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     SPECIAL_COMMENT,
@@ -1652,7 +1653,7 @@ def test_given_non_existing_version_when_publish_then_error(
 
     assert (
         str(e.value)
-        == f"Version 1.0 does not exist in application package {pkg_model.fqn.name}."
+        == f"Version 1.0 does not exist in application package {pkg_model.fqn.name}. Use --create-version flag to create a new version."
     )
 
     show_versions.assert_called_once_with(pkg_model.fqn.name, pkg_model.meta.role)
@@ -1697,7 +1698,7 @@ def test_given_non_existing_patch_when_publish_then_error(
 
     assert (
         str(e.value)
-        == f"Patch 1 does not exist for version 1.0 in application package {pkg_model.fqn.name}."
+        == f"Patch 1 does not exist for version 1.0 in application package {pkg_model.fqn.name}. Use --create-version flag to add a new patch."
     )
 
     show_versions.assert_called_once_with(pkg_model.fqn.name, pkg_model.meta.role)
@@ -1902,3 +1903,228 @@ def test_given_only_one_version_referenced_by_existing_release_directive_when_pu
     remove_version_from_release_channel.assert_not_called()
     add_version_to_release_channel.assert_not_called()
     set_release_directive.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_SHOW_RELEASE_DIRECTIVES)
+@mock.patch(SQL_FACADE_SHOW_VERSIONS)
+@mock.patch(SQL_FACADE_REMOVE_VERSION_FROM_RELEASE_CHANNEL)
+@mock.patch(SQL_FACADE_ADD_VERSION_TO_RELEASE_CHANNEL)
+@mock.patch(SQL_FACADE_SET_RELEASE_DIRECTIVE)
+@mock.patch(f"{APP_PACKAGE_ENTITY}.action_version_create")
+def test_given_release_channel_and_version_when_publish_with_create_version_then_success(
+    action_version_create,
+    set_release_directive,
+    add_version_to_release_channel,
+    remove_version_from_release_channel,
+    show_versions,
+    show_release_directives,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    action_version_create.return_value = VersionInfo(
+        version_name="1.0", patch_number=1, label=None
+    )
+
+    show_release_channels.return_value = [{"name": "TEST_CHANNEL", "versions": []}]
+    show_release_directives.return_value = [{"name": "TEST_DIRECTIVE"}]
+    show_versions.return_value = [{"version": "1.0", "patch": 1}]
+
+    application_package_entity.action_publish(
+        action_ctx=action_context,
+        release_channel="test_channel",
+        release_directive="test_directive",
+        version="x",
+        patch=33,
+        interactive=False,
+        force=False,
+        create_version=True,
+    )
+
+    action_version_create.assert_called_once_with(
+        action_ctx=action_context,
+        version="x",
+        patch=33,
+        label=None,
+        skip_git_check=True,
+        interactive=False,
+        force=False,
+        from_stage=False,
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+    show_release_directives.assert_not_called()
+    show_versions.assert_called_once_with(pkg_model.fqn.name, pkg_model.meta.role)
+    add_version_to_release_channel.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel="test_channel",
+        version="1.0",
+    )
+    remove_version_from_release_channel.assert_not_called()
+    set_release_directive.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        version="1.0",
+        patch=1,
+        release_channel="test_channel",
+        release_directive="test_directive",
+        target_accounts=None,
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_SHOW_RELEASE_DIRECTIVES)
+@mock.patch(SQL_FACADE_SHOW_VERSIONS)
+@mock.patch(SQL_FACADE_REMOVE_VERSION_FROM_RELEASE_CHANNEL)
+@mock.patch(SQL_FACADE_ADD_VERSION_TO_RELEASE_CHANNEL)
+@mock.patch(SQL_FACADE_SET_RELEASE_DIRECTIVE)
+@mock.patch(f"{APP_PACKAGE_ENTITY}.action_version_create")
+def test_given_release_channel_and_no_version_when_publish_with_create_version_then_success(
+    action_version_create,
+    set_release_directive,
+    add_version_to_release_channel,
+    remove_version_from_release_channel,
+    show_versions,
+    show_release_directives,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    action_version_create.return_value = VersionInfo(
+        version_name="1.0", patch_number=1, label=None
+    )
+
+    show_release_channels.return_value = [{"name": "TEST_CHANNEL", "versions": []}]
+    show_release_directives.return_value = [{"name": "TEST_DIRECTIVE"}]
+    show_versions.return_value = [{"version": "1.0", "patch": 1}]
+    application_package_entity.action_publish(
+        action_ctx=action_context,
+        release_channel="test_channel",
+        release_directive="test_directive",
+        version=None,
+        patch=None,
+        interactive=False,
+        force=False,
+        create_version=True,
+        from_stage=True,
+        label="some_label",
+    )
+
+    action_version_create.assert_called_once_with(
+        action_ctx=action_context,
+        version=None,
+        patch=None,
+        label="some_label",
+        skip_git_check=True,
+        interactive=False,
+        force=False,
+        from_stage=True,
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+    show_release_directives.assert_not_called()
+    show_versions.assert_called_once_with(pkg_model.fqn.name, pkg_model.meta.role)
+    add_version_to_release_channel.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel="test_channel",
+        version="1.0",
+    )
+    remove_version_from_release_channel.assert_not_called()
+    set_release_directive.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        version="1.0",
+        patch=1,
+        release_channel="test_channel",
+        release_directive="test_directive",
+        target_accounts=None,
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_SHOW_RELEASE_DIRECTIVES)
+@mock.patch(SQL_FACADE_SHOW_VERSIONS)
+@mock.patch(SQL_FACADE_REMOVE_VERSION_FROM_RELEASE_CHANNEL)
+@mock.patch(SQL_FACADE_ADD_VERSION_TO_RELEASE_CHANNEL)
+@mock.patch(SQL_FACADE_SET_RELEASE_DIRECTIVE)
+@mock.patch(f"{APP_PACKAGE_ENTITY}.action_version_create")
+def test_given_release_channel_and_from_stage_without_create_version_when_publish_then_error(
+    action_version_create,
+    set_release_directive,
+    add_version_to_release_channel,
+    remove_version_from_release_channel,
+    show_versions,
+    show_release_directives,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_publish(
+            action_ctx=action_context,
+            release_channel="test_channel",
+            release_directive="test_directive",
+            version=None,
+            patch=None,
+            interactive=False,
+            force=False,
+            create_version=False,
+            from_stage=True,
+        )
+
+    assert (
+        str(e.value) == "--from-stage flag can only be used with --create-version flag."
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
+@mock.patch(SQL_FACADE_SHOW_RELEASE_DIRECTIVES)
+@mock.patch(SQL_FACADE_SHOW_VERSIONS)
+@mock.patch(SQL_FACADE_REMOVE_VERSION_FROM_RELEASE_CHANNEL)
+@mock.patch(SQL_FACADE_ADD_VERSION_TO_RELEASE_CHANNEL)
+@mock.patch(SQL_FACADE_SET_RELEASE_DIRECTIVE)
+@mock.patch(f"{APP_PACKAGE_ENTITY}.action_version_create")
+def test_given_release_channel_and_label_without_create_version_when_publish_then_error(
+    action_version_create,
+    set_release_directive,
+    add_version_to_release_channel,
+    remove_version_from_release_channel,
+    show_versions,
+    show_release_directives,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    with pytest.raises(UsageError) as e:
+        application_package_entity.action_publish(
+            action_ctx=action_context,
+            release_channel="test_channel",
+            release_directive="test_directive",
+            version=None,
+            patch=None,
+            interactive=False,
+            force=False,
+            create_version=False,
+            label="label",
+        )
+
+    assert str(e.value) == "--label can only be used with --create-version flag."
