@@ -28,6 +28,7 @@ from snowflake.cli.api.config import (
     get_all_connections,
     set_config_value,
 )
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
@@ -152,19 +153,18 @@ def _read_all_connections_from_snowsql(
 
     for file in snowsql_config_files:
         if not file.exists():
-            log.debug(
-                "SnowSQL config file [%s] does not exist. Skipping.", str(file.path)
+            cli_console.step(
+                f"SnowSQL config file [{str(file.path)}] does not exist. Skipping."
             )
             continue
 
-        log.debug("Trying to read connections from [%s].", str(file.path))
+        cli_console.step(f"Trying to read connections from [{str(file.path)}].")
         snowsql_config = configparser.ConfigParser()
         snowsql_config.read(file.path)
 
         if "connections" in snowsql_config and snowsql_config.items("connections"):
-            log.debug(
-                "Reading SnowSQL's default connection configuration from [%s]",
-                str(file.path),
+            cli_console.step(
+                f"Reading SnowSQL's default connection configuration from [{str(file.path)}]"
             )
             snowsql_default_connection = snowsql_config.items("connections")
             imported_default_connection.update(
@@ -179,19 +179,15 @@ def _read_all_connections_from_snowsql(
             if section_name.startswith("connections.")
         ]
         for snowsql_connection_section_name in other_snowsql_connection_section_names:
-            log.debug(
-                "Reading SnowSQL's connection configuration [%s] from [%s]",
-                snowsql_connection_section_name,
-                str(file.path),
+            cli_console.step(
+                f"Reading SnowSQL's connection configuration [{snowsql_connection_section_name}] from [{str(file.path)}]"
             )
             snowsql_named_connection = snowsql_config.items(
                 snowsql_connection_section_name
             )
             if not snowsql_named_connection:
-                log.debug(
-                    "Empty connection configuration [%s] in [%s]. Skipping.",
-                    snowsql_connection_section_name,
-                    str(file.path),
+                cli_console.step(
+                    f"Empty connection configuration [{snowsql_connection_section_name}] in [{str(file.path)}]. Skipping."
                 )
                 continue
 
@@ -269,13 +265,12 @@ def _validate_and_save_connections_imported_from_snowsql(
         )
 
     for name, connection in all_imported_connections.items():
-        log.debug("Saving [%s] connection in Snowflake CLI's config.", name)
+        cli_console.step(f"Saving [{name}] connection in Snowflake CLI's config.")
         add_connection_to_proper_file(name, ConnectionConfig.from_dict(connection))
 
     if default_cli_connection_name in all_imported_connections:
-        log.debug(
-            "Setting [%s] connection as Snowflake CLI's default connection.",
-            default_cli_connection_name,
+        cli_console.step(
+            f"Setting [{default_cli_connection_name}] connection as Snowflake CLI's default connection."
         )
         set_config_value(
             section=None,
