@@ -107,7 +107,7 @@ def import_snowsql_connections(
     custom_snowsql_config_files: Optional[List[Path]] = typer.Option(
         None,
         "--snowsql-config-file",
-        help="Specifies file paths to SnowSQL configuration. The option can be used multiple times to specify more than 1 file.",
+        help="Specifies file paths to custom SnowSQL configuration. The option can be used multiple times to specify more than 1 file.",
         dir_okay=False,
         exists=True,
     ),
