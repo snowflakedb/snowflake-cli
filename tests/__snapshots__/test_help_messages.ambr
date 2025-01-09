@@ -2089,6 +2089,13 @@
   |                                                       untracked or stages    |
   |                                                       files in git. Default: |
   |                                                       unset.                 |
+  | --from-stage                                          When enabled, the      |
+  |                                                       Snowflake CLI creates  |
+  |                                                       a version from the     |
+  |                                                       current application    |
+  |                                                       package stage without  |
+  |                                                       syncing to the stage   |
+  |                                                       first.                 |
   | --interactive            --no-interactive             When enabled, this     |
   |                                                       option displays        |
   |                                                       prompts even if the    |

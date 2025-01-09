@@ -25,6 +25,7 @@
   * `snow app release-directive set`
   * `snow app release-directive unset`
 * `snow app version create` now returns version, patch, and label in JSON format.
+* Add `--from-stage` flag to `snow app version create` to allow version creation from the content of the stage without re-syncing to the stage.
 * Add support for release channels:
   * Add support for release channels feature in native app version creation/drop.
   * Add ability to specify release channel when creating application instance from release directive: `snow app run --from-release-directive --channel=<channel>`

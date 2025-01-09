@@ -42,10 +42,12 @@ from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.factories import ApplicationPackageEntityModelFactory, PdfV2Factory
 from tests.nativeapp.utils import (
+    APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
     APPLICATION_PACKAGE_ENTITY_MODULE,
     SQL_EXECUTOR_EXECUTE,
     SQL_FACADE,
     SQL_FACADE_CREATE_VERSION,
+    SQL_FACADE_SHOW_RELEASE_DIRECTIVES,
     mock_execute_helper,
     mock_snowflake_yml_file_v2,
 )
@@ -64,6 +66,7 @@ def _version_create(
     skip_git_check: bool,
     label: str | None = None,
     console: AbstractConsole | None = None,
+    from_stage: bool = False,
 ):
     dm = DefinitionManager()
     pd = dm.project_definition
@@ -83,6 +86,7 @@ def _version_create(
         force=force,
         interactive=interactive,
         skip_git_check=skip_git_check,
+        from_stage=from_stage,
     )
 
 
@@ -931,3 +935,62 @@ def test_patch_from_manifest(
     mock_console.warning.assert_called_with(
         f"Cannot resolve version. Found patch: {manifest_patch} in manifest.yml which is different from provided patch {cli_patch}."
     )
+
+
+@mock.patch(SQL_FACADE_CREATE_VERSION)
+@mock.patch(SQL_FACADE_SHOW_RELEASE_DIRECTIVES, return_value=[])
+@mock.patch.object(ApplicationPackageEntity, "_deploy")
+@mock.patch(
+    APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO, return_value=[{"name": "app_pkg"}]
+)
+@mock.patch.object(
+    ApplicationPackageEntity, "check_index_changes_in_git_repo", return_value=None
+)
+@mock.patch.object(
+    ApplicationPackageEntity, "get_existing_version_info", return_value=None
+)
+@mock.patch.object(ApplicationPackageEntity, "_bundle")
+def test_action_version_create_from_stage(
+    mock_bundle,
+    mock_get_existing_version_info,
+    mock_check_git,
+    mock_get_existing_pkg_info,
+    mock_deploy,
+    mock_show_release_directives,
+    mock_create_version,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    version = "v1"
+    result = application_package_entity.action_version_create(
+        action_ctx=action_context,
+        version=version,
+        patch=None,
+        label=None,
+        skip_git_check=False,
+        interactive=False,
+        force=False,
+        from_stage=True,
+    )
+
+    assert result == VersionInfo(version, 0, None)
+
+    mock_check_git.assert_called_once()
+    mock_show_release_directives.assert_called_once_with(
+        package_name=pkg_model.fqn.name, role=pkg_model.meta.role
+    )
+    mock_get_existing_version_info.assert_called_once_with(version)
+    mock_bundle.assert_called_once()
+    mock_create_version.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        version=version,
+        stage_fqn=application_package_entity.stage_fqn,
+        role=pkg_model.meta.role,
+        label=None,
+    )
+
+    # Deploy should not be called with --from-stage
+    mock_deploy.assert_not_called()
