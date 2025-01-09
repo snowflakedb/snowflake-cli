@@ -20,7 +20,7 @@
 * Added deprecation message for default Streamlit warehouse
 
 ## New additions
-* Add Release Directives support by introducing the following commands:
+* Add support for Release Directives by introducing the following commands:
   * `snow app release-directive list`
   * `snow app release-directive set`
   * `snow app release-directive unset`
@@ -31,13 +31,37 @@
   * Add ability to list release channels through `snow app release-channel list` command
   * Add ability to add and remove accounts from release channels through `snow app release-channel add-accounts` and snow app release-channel remove-accounts` commands.
   * Add ability to add/remove versions to/from release channels through `snow app release-channel add-version` and `snow app release-channel remove-version` commands.
+* Add publish command to make it easier to manage publishing versions to release channels and updating release directives: `snow app publish`
+* Add support for restricting Snowflake user authentication policy to Snowflake CLI-only.
 * Added a new command: `snow helpers import-snowsql-connections` allowing to import configuration of connections from SnowSQL.
 
 ## Fixes and improvements
-* Fixed crashes with older x86_64 Intel CPUs.
 * Fixed inability to add patches to lowercase quoted versions
 * Fixes label being set to blank instead of None when not provided.
 * Added a feature flag `ENABLE_SPCS_LOG_STREAMING` to control the rollout of the log streaming feature
+
+
+# v3.2.2
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+* Fix "No module named 'pandas'" warning.
+
+
+# v3.2.1
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+* Fixed crashes with older x86_64 Intel CPUs.
+
 
 # v3.2.0
 

@@ -34,7 +34,7 @@ from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.exceptions import IncompatibleParametersError
-from snowflake.cli.api.output.types import MessageResult, QueryResult
+from snowflake.cli.api.output.types import CollectionResult, MessageResult
 
 ws = SnowTyperFactory(
     name="ws",
@@ -243,7 +243,7 @@ def version_list(
         entity_id,
         EntityActions.VERSION_LIST,
     )
-    return QueryResult(cursor)
+    return CollectionResult(cursor)
 
 
 @version.command(name="create", requires_connection=True, hidden=True)

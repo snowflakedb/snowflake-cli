@@ -222,3 +222,32 @@ def test_returns_nice_error_in_case_of_missing_master_token(runner):
         "When using a session token, you must provide the corresponding master token"
         in result.output
     )
+
+
+@mock.patch("snowflake.connector.connect")
+@pytest.mark.parametrize("feature_flag", [None, True, False])
+def test_internal_application_data_is_sent_if_feature_flag_is_set(
+    mock_connect, runner, feature_flag
+):
+    expected_kwargs = {
+        "application": "SNOWCLI.SQL",
+        "database": "db_for_test",
+        "schema": "test_public",
+        "role": "test_role",
+        "warehouse": "xs",
+        "password": "dummy_password",
+        "application_name": "snowcli",
+    }
+    env = {}
+    if feature_flag is not None:
+        env["SNOWFLAKE_CLI_FEATURES_ENABLE_SEPARATE_AUTHENTICATION_POLICY_ID"] = str(
+            feature_flag
+        )
+    if feature_flag:
+        # internal app data should be disabled by default
+        expected_kwargs["internal_application_name"] = "SNOWFLAKE_CLI"
+        expected_kwargs["internal_application_version"] = "0.0.0-test_patched"
+    with mock.patch.dict(os.environ, env):
+        result = runner.invoke(["sql", "-q", "select 1"])
+    assert result.exit_code == 0
+    mock_connect.assert_called_once_with(**expected_kwargs)

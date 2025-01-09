@@ -228,7 +228,6 @@ def test_assert_in_context():
         sut()
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 def test_execute_with_role_wh_db(mock_execute_queries, mock_execute_query, mock_cursor):
     # Arrange
@@ -294,7 +293,6 @@ def test_execute_with_role_wh_db(mock_execute_queries, mock_execute_query, mock_
     mock_parent.assert_has_calls(all_execute_calls)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 def test_execute_no_db(mock_execute_queries, mock_execute_query, mock_cursor):
     # Arrange
@@ -346,7 +344,6 @@ def test_execute_no_db(mock_execute_queries, mock_execute_query, mock_cursor):
     mock_parent.assert_has_calls(all_execute_calls)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 def test_execute_no_wh(mock_execute_queries, mock_execute_query, mock_cursor):
     # Arrange
@@ -398,7 +395,6 @@ def test_execute_no_wh(mock_execute_queries, mock_execute_query, mock_cursor):
     mock_parent.assert_has_calls(all_execute_calls)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 def test_execute_no_role(mock_execute_queries, mock_execute_query, mock_cursor):
     # Arrange
@@ -453,7 +449,6 @@ def test_execute_no_role(mock_execute_queries, mock_execute_query, mock_cursor):
     mock_parent.assert_has_calls(all_execute_calls)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 def test_execute_no_wh_no_db(mock_execute_queries, mock_execute_query, mock_cursor):
     # Arrange
@@ -495,7 +490,6 @@ def test_execute_no_wh_no_db(mock_execute_queries, mock_execute_query, mock_curs
     mock_parent.assert_has_calls(all_execute_calls)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 def test_execute_no_role_no_wh(mock_execute_queries, mock_execute_query, mock_cursor):
     # Arrange
@@ -537,7 +531,6 @@ def test_execute_no_role_no_wh(mock_execute_queries, mock_execute_query, mock_cu
     mock_parent.assert_has_calls(all_execute_calls)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 def test_execute_no_role_no_db(mock_execute_queries, mock_execute_query, mock_cursor):
     # Arrange
@@ -579,7 +572,6 @@ def test_execute_no_role_no_db(mock_execute_queries, mock_execute_query, mock_cu
     mock_parent.assert_has_calls(all_execute_calls)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 def test_execute_no_role_no_wh_no_db(mock_execute_queries, mock_execute_query):
     # Arrange
@@ -682,7 +674,6 @@ def test_execute_catch_all_exception(
         (UseObjectType.WAREHOUSE, "test_wh"),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_object(mock_execute_query, object_type, object_name, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [(None, mock.call(f"use {object_type} {object_name}"))]
@@ -692,7 +683,6 @@ def test_use_object(mock_execute_query, object_type, object_name, mock_cursor):
     assert mock_execute_query.mock_calls == expected
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_object_catches_not_exists_error(mock_execute_query):
     object_type = UseObjectType.ROLE
     object_name = "test_err_role"
@@ -713,7 +703,6 @@ def test_use_object_catches_not_exists_error(mock_execute_query):
     )
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_object_catches_other_programming_error_raises_unknown_sql_error(
     mock_execute_query,
 ):
@@ -736,7 +725,6 @@ def test_use_object_catches_other_programming_error_raises_unknown_sql_error(
     )
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_object_catches_other_sql_error(mock_execute_query):
     object_type = UseObjectType.ROLE
     object_name = "test_err_role"
@@ -749,7 +737,6 @@ def test_use_object_catches_other_sql_error(mock_execute_query):
     assert "Failed to use role test_err_role." in str(err)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_warehouse_single_quoted_id(mock_execute_query, mock_cursor):
     single_quoted_name = "test warehouse"
     side_effects, expected = mock_execute_helper(
@@ -770,7 +757,6 @@ def test_use_warehouse_single_quoted_id(mock_execute_query, mock_cursor):
     assert mock_execute_query.mock_calls == expected
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_warehouse_same_id_single_quotes(mock_execute_query, mock_cursor):
     single_quoted_name = "test warehouse"
     side_effects, expected = mock_execute_helper(
@@ -789,7 +775,6 @@ def test_use_warehouse_same_id_single_quotes(mock_execute_query, mock_cursor):
     assert mock_execute_query.mock_calls == expected
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_role_single_quoted_id(mock_execute_query, mock_cursor):
     single_quoted_name = "test role"
     side_effects, expected = mock_execute_helper(
@@ -810,7 +795,6 @@ def test_use_role_single_quoted_id(mock_execute_query, mock_cursor):
     assert mock_execute_query.mock_calls == expected
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_role_same_id_single_quotes(mock_execute_query, mock_cursor):
     single_quoted_name = "test role"
     side_effects, expected = mock_execute_helper(
@@ -829,7 +813,6 @@ def test_use_role_same_id_single_quotes(mock_execute_query, mock_cursor):
     assert mock_execute_query.mock_calls == expected
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_db_single_quoted_id(mock_execute_query, mock_cursor):
     single_quoted_name = "test db"
     side_effects, expected = mock_execute_helper(
@@ -850,7 +833,6 @@ def test_use_db_single_quoted_id(mock_execute_query, mock_cursor):
     assert mock_execute_query.mock_calls == expected
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_db_same_id_single_quotes(mock_execute_query, mock_cursor):
     single_quoted_name = "test db"
     side_effects, expected = mock_execute_helper(
@@ -904,7 +886,6 @@ def test_use_db_same_id_single_quotes(mock_execute_query, mock_cursor):
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_warehouse_bubbles_errors(
     mock_execute_query, error_raised, error_caught, error_message, mock_cursor
 ):
@@ -962,7 +943,6 @@ def test_use_warehouse_bubbles_errors(
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_role_bubbles_errors(
     mock_execute_query, error_raised, error_caught, error_message, mock_cursor
 ):
@@ -1020,7 +1000,6 @@ def test_use_role_bubbles_errors(
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_db_bubbles_errors(
     mock_execute_query, error_raised, error_caught, error_message, mock_cursor
 ):
@@ -1043,7 +1022,6 @@ def test_use_db_bubbles_errors(
     assert error_message in str(err)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @pytest.mark.parametrize(
     "parameter_value,event_table",
     [
@@ -1076,7 +1054,6 @@ def test_account_event_table(
     assert sql_facade.get_account_event_table() == event_table
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_event_definitions_base_case(mock_execute_query, mock_cursor):
     app_name = "test_app"
     query = "show telemetry event definitions in application test_app"
@@ -1104,7 +1081,6 @@ def test_get_event_definitions_base_case(mock_execute_query, mock_cursor):
     assert result == events_definitions
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_event_definitions_with_non_safe_identifier(
     mock_execute_query, mock_cursor
 ):
@@ -1134,7 +1110,6 @@ def test_get_event_definitions_with_non_safe_identifier(
     assert result == events_definitions
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_event_definitions_with_role(mock_execute_query, mock_cursor):
     app_name = "test_app"
     role_name = "my_role"
@@ -1169,7 +1144,6 @@ def test_get_event_definitions_with_role(mock_execute_query, mock_cursor):
     assert result == events_definitions
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_event_definitions_bubbles_errors(mock_execute_query):
     app_name = "test_app"
     query = "show telemetry event definitions in application test_app"
@@ -1193,7 +1167,6 @@ def test_get_event_definitions_bubbles_errors(mock_execute_query):
     )
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_properties_base_case(mock_execute_query, mock_cursor):
     app_name = "test_app"
     query = f"desc application {app_name}"
@@ -1217,7 +1190,6 @@ def test_get_app_properties_base_case(mock_execute_query, mock_cursor):
     assert result == {"some_param": "param_value", "comment": "this is a test app"}
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_properties_with_non_safe_identifier(mock_execute_query, mock_cursor):
     app_name = "test.app"
     query = f'desc application "test.app"'
@@ -1241,7 +1213,6 @@ def test_get_app_properties_with_non_safe_identifier(mock_execute_query, mock_cu
     assert result == {"some_param": "param_value", "comment": "this is a test app"}
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_properties_with_role(mock_execute_query, mock_cursor):
     app_name = "test_app"
     role_name = "my_role"
@@ -1272,7 +1243,6 @@ def test_get_app_properties_with_role(mock_execute_query, mock_cursor):
     assert result == {"some_param": "param_value", "comment": "this is a test app"}
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_properties_bubbles_errors(mock_execute_query):
     app_name = "test_app"
     query = f"desc application {app_name}"
@@ -1293,7 +1263,6 @@ def test_get_app_properties_bubbles_errors(mock_execute_query):
     assert f"Failed to describe application {app_name}. {error_message}" in str(err)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @pytest.mark.parametrize(
     "events, expected_result",
     [
@@ -1313,8 +1282,7 @@ def test_share_telemetry_events(mock_execute_query, events, expected_result):
     mock_execute_query.assert_called_once_with(expected_result)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_share_telemtry_events_with_non_safe_identifier(mock_execute_query):
+def test_share_telemetry_events_with_non_safe_identifier(mock_execute_query):
     app_name = "test.app"
     events = ["SNOWFLAKE$EVENT1", "SNOWFLAKE$EVENT2"]
     mock_execute_query.return_value = None
@@ -2863,30 +2831,71 @@ def test_get_ui_parameter_with_no_value_then_use_default(mock_cursor):
         execute_str_mock.assert_called_once_with(expected_ui_params_query)
 
 
-def test_show_release_directives_no_release_channel_specified(mock_execute_query):
+def test_show_release_directives_no_release_channel_specified(
+    mock_execute_query, mock_cursor
+):
     package_name = "test_package"
     expected_query = f"show release directives in application package {package_name}"
+    mock_cursor_results = [
+        {
+            "name": "test_directive",
+            "created_on": datetime(2021, 2, 1),
+            "modified_on": datetime(2021, 4, 3),
+            "version": "v1",
+            "patch": 1,
+        }
+    ]
+    mock_execute_query.side_effect = [mock_cursor(mock_cursor_results, [])]
 
-    sql_facade.show_release_directives(package_name)
+    result = sql_facade.show_release_directives(package_name)
 
+    assert result == mock_cursor_results
     mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
 
 
-def test_show_release_directive_with_release_channel_specified(mock_execute_query):
+def test_show_release_directive_with_release_channel_specified(
+    mock_execute_query, mock_cursor
+):
     package_name = "test_package"
     release_channel = "test_channel"
     expected_query = f"show release directives in application package {package_name} for release channel {release_channel}"
-    sql_facade.show_release_directives(package_name, release_channel)
+    mock_cursor_results = [
+        {
+            "name": "test_directive",
+            "created_on": datetime(2021, 2, 1),
+            "modified_on": datetime(2021, 4, 3),
+            "version": "v1",
+            "patch": 1,
+        }
+    ]
+    mock_execute_query.side_effect = [mock_cursor(mock_cursor_results, [])]
 
+    result = sql_facade.show_release_directives(package_name, release_channel)
+
+    assert result == mock_cursor_results
     mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
 
 
-def test_show_release_directive_with_special_characters_in_names(mock_execute_query):
+def test_show_release_directive_with_special_characters_in_names(
+    mock_execute_query, mock_cursor
+):
     package_name = "test.package"
     release_channel = "test.channel"
     expected_query = f'show release directives in application package "{package_name}" for release channel "{release_channel}"'
-    sql_facade.show_release_directives(package_name, release_channel)
+    mock_cursor_results = [
+        {
+            "name": "test_directive",
+            "created_on": datetime(2021, 2, 1),
+            "modified_on": datetime(2021, 4, 3),
+            "version": "v1",
+            "patch": 1,
+        }
+    ]
+    mock_execute_query.side_effect = [mock_cursor(mock_cursor_results, [])]
 
+    result = sql_facade.show_release_directives(package_name, release_channel)
+
+    assert result == mock_cursor_results
     mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
 
 
@@ -3335,7 +3344,6 @@ def test_set_default_release_directive_no_release_channel(
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_set_release_directive_errors(
     mock_execute_query, error_raised, error_caught, error_message
 ):
@@ -3526,7 +3534,6 @@ def test_modify_default_release_directive_no_release_channel(
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_modify_release_directive_errors(
     mock_execute_query, error_raised, error_caught, error_message
 ):
@@ -3918,7 +3925,6 @@ def test_add_accounts_to_release_channel_with_special_chars_in_names(
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_add_accounts_to_release_channel_error(
     mock_execute_query, error_raised, error_caught, error_message, mock_use_role
 ):
@@ -4014,7 +4020,6 @@ def test_remove_accounts_from_release_channel_with_special_chars_in_names(
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_remove_accounts_from_release_channel_error(
     mock_execute_query, error_raised, error_caught, error_message, mock_use_role
 ):
@@ -4100,7 +4105,6 @@ def test_add_version_to_release_channel_with_special_chars_in_names(
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_add_version_to_release_channel_error(
     mock_execute_query, error_raised, error_caught, error_message, mock_use_role
 ):
@@ -4114,7 +4118,6 @@ def test_add_version_to_release_channel_error(
     assert error_message in str(err)
 
 
-# same tests but for remove_version_from_release_channel
 def test_remove_version_from_release_channel_valid_input_then_success(
     mock_use_role, mock_execute_query
 ):
@@ -4187,7 +4190,6 @@ def test_remove_version_from_release_channel_with_special_chars_in_names(
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_remove_version_from_release_channel_error(
     mock_execute_query, error_raised, error_caught, error_message, mock_use_role
 ):
@@ -4197,5 +4199,100 @@ def test_remove_version_from_release_channel_error(
         sql_facade.remove_version_from_release_channel(
             "test_package", "test_channel", "v1", "test_role"
         )
+
+    assert error_message in str(err)
+
+
+def test_get_versions_valid_input_then_success(
+    mock_execute_query, mock_use_role, mock_cursor
+):
+    package_name = "test_package"
+    role = "test_role"
+    expected_query = f"show versions in application package {package_name}"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_value = [
+        {"version": "v1", "patch": 0, "created_on": datetime(2021, 2, 1)},
+        {"version": "v2", "patch": 1, "created_on": datetime(2021, 2, 2)},
+    ]
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor(expected_value, []),
+                mock.call(expected_query, cursor_class=DictCursor),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        result = sql_facade.show_versions(package_name, role)
+
+    assert result == expected_value
+
+
+def test_get_versions_with_special_chars_in_names(
+    mock_execute_query, mock_use_role, mock_cursor
+):
+    package_name = "test.package"
+    role = "test_role"
+    expected_query = f'show versions in application package "{package_name}"'
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_value = [
+        {"version": "v1", "patch": 0, "created_on": datetime(2021, 2, 1)},
+        {"version": "v2", "patch": 1, "created_on": datetime(2021, 2, 2)},
+    ]
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor(expected_value, []),
+                mock.call(expected_query, cursor_class=DictCursor),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        result = sql_facade.show_versions(package_name, role)
+
+    assert result == expected_value
+
+
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to show versions for application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to show versions for application package test_package. some database error",
+        ),
+        (
+            ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+            UserInputError,
+            "Application package test_package does not exist or you are not authorized to access it.",
+        ),
+    ],
+)
+def test_get_versions_error(
+    mock_execute_query, error_raised, error_caught, error_message, mock_use_role
+):
+    mock_execute_query.side_effect = error_raised
+
+    with pytest.raises(error_caught) as err:
+        sql_facade.show_versions("test_package", "test_role")
 
     assert error_message in str(err)

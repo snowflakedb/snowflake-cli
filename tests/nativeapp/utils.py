@@ -96,6 +96,7 @@ SQL_FACADE_UNSET_RELEASE_DIRECTIVE = f"{SQL_FACADE}.unset_release_directive"
 SQL_FACADE_SHOW_RELEASE_CHANNELS = f"{SQL_FACADE}.show_release_channels"
 SQL_FACADE_DROP_VERSION = f"{SQL_FACADE}.drop_version_from_package"
 SQL_FACADE_CREATE_VERSION = f"{SQL_FACADE}.create_version_in_package"
+SQL_FACADE_SHOW_VERSIONS = f"{SQL_FACADE}.show_versions"
 SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_CHANNEL = (
     f"{SQL_FACADE}.add_accounts_to_release_channel"
 )
