@@ -247,7 +247,15 @@ class StreamlitManager(SqlExecutionMixin):
                 experimental=False,
             )
 
+            self.grant_privileges(streamlit)
+
         return self.get_url(streamlit_name=streamlit_id)
+
+    def grant_privileges(self, entity_model: StreamlitEntityModel):
+        if not entity_model.grants:
+            return
+        for grant in entity_model.grants:
+            self.execute_query(grant.get_grant_sql(entity_model))
 
     def get_url(self, streamlit_name: FQN) -> str:
         try:
