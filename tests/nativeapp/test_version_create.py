@@ -195,7 +195,7 @@ def test_add_new_patch_auto(
                     dedent(
                         f"""\
                         alter application package app_pkg
-                            add patch  for version {version_identifier}
+                            add patch for version {version_identifier}
                             using @app_pkg.app_src.stage
                     """
                     ),

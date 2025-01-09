@@ -589,87 +589,105 @@
    the new version and patch.                                                     
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | *  --version                                    TEXT     The version to      |
-  |                                                          publish to the      |
-  |                                                          release channel.    |
-  |                                                          The version must be |
-  |                                                          created fist using  |
-  |                                                          'snow app version   |
-  |                                                          create'.            |
-  |                                                          [required]          |
-  | *  --patch                                      INTEGER  The patch number    |
-  |                                                          under the given     |
-  |                                                          version. The patch  |
-  |                                                          number must be      |
-  |                                                          created first using |
-  |                                                          'snow app version   |
-  |                                                          create'.            |
-  |                                                          [required]          |
-  |    --channel                                    TEXT     The name of the     |
-  |                                                          release channel to  |
-  |                                                          publish to. If not  |
-  |                                                          provided, the       |
-  |                                                          default release     |
-  |                                                          channel is used.    |
-  |                                                          [default: DEFAULT]  |
-  |    --directive                                  TEXT     The name of the     |
-  |                                                          release directive   |
-  |                                                          to update with the  |
-  |                                                          specified version   |
-  |                                                          and patch. If not   |
-  |                                                          provided, the       |
-  |                                                          default release     |
-  |                                                          directive is used.  |
-  |                                                          [default: DEFAULT]  |
-  |    --interactive            --no-interactive             When enabled, this  |
-  |                                                          option displays     |
-  |                                                          prompts even if the |
-  |                                                          standard input and  |
-  |                                                          output are not      |
-  |                                                          terminal devices.   |
-  |                                                          Defaults to True in |
-  |                                                          an interactive      |
-  |                                                          shell environment,  |
-  |                                                          and False           |
-  |                                                          otherwise.          |
-  |    --force                                               When enabled, this  |
-  |                                                          option causes the   |
-  |                                                          command to          |
-  |                                                          implicitly approve  |
-  |                                                          any prompts that    |
-  |                                                          arise. You should   |
-  |                                                          enable this option  |
-  |                                                          if interactive mode |
-  |                                                          is not specified    |
-  |                                                          and if you want     |
-  |                                                          perform potentially |
-  |                                                          destructive         |
-  |                                                          actions. Defaults   |
-  |                                                          to unset.           |
-  |    --package-entity-id                          TEXT     The ID of the       |
-  |                                                          package entity on   |
-  |                                                          which to operate    |
-  |                                                          when                |
-  |                                                          definition_version  |
-  |                                                          is 2 or higher.     |
-  |    --app-entity-id                              TEXT     The ID of the       |
-  |                                                          application entity  |
-  |                                                          on which to operate |
-  |                                                          when                |
-  |                                                          definition_version  |
-  |                                                          is 2 or higher.     |
-  |    --project            -p                      TEXT     Path where          |
-  |                                                          Snowflake project   |
-  |                                                          resides. Defaults   |
-  |                                                          to current working  |
-  |                                                          directory.          |
-  |    --env                                        TEXT     String in format of |
-  |                                                          key=value.          |
-  |                                                          Overrides variables |
-  |                                                          from env section    |
-  |                                                          used for templates. |
-  |    --help               -h                               Show this message   |
-  |                                                          and exit.           |
+  | --version                                    TEXT     The version to publish |
+  |                                                       to the provided        |
+  |                                                       release channel and    |
+  |                                                       release directive.     |
+  |                                                       Version is required to |
+  |                                                       exist unless           |
+  |                                                       --create-version flag  |
+  |                                                       is used.               |
+  | --patch                                      INTEGER  The patch number under |
+  |                                                       the given version.     |
+  |                                                       This will be used when |
+  |                                                       setting the release    |
+  |                                                       directive. Patch is    |
+  |                                                       required to exist      |
+  |                                                       unless                 |
+  |                                                       --create-version flag  |
+  |                                                       is used.               |
+  | --channel                                    TEXT     The name of the        |
+  |                                                       release channel to     |
+  |                                                       publish to. If not     |
+  |                                                       provided, the default  |
+  |                                                       release channel is     |
+  |                                                       used.                  |
+  |                                                       [default: DEFAULT]     |
+  | --directive                                  TEXT     The name of the        |
+  |                                                       release directive to   |
+  |                                                       update with the        |
+  |                                                       specified version and  |
+  |                                                       patch. If not          |
+  |                                                       provided, the default  |
+  |                                                       release directive is   |
+  |                                                       used.                  |
+  |                                                       [default: DEFAULT]     |
+  | --interactive            --no-interactive             When enabled, this     |
+  |                                                       option displays        |
+  |                                                       prompts even if the    |
+  |                                                       standard input and     |
+  |                                                       output are not         |
+  |                                                       terminal devices.      |
+  |                                                       Defaults to True in an |
+  |                                                       interactive shell      |
+  |                                                       environment, and False |
+  |                                                       otherwise.             |
+  | --force                                               When enabled, this     |
+  |                                                       option causes the      |
+  |                                                       command to implicitly  |
+  |                                                       approve any prompts    |
+  |                                                       that arise. You should |
+  |                                                       enable this option if  |
+  |                                                       interactive mode is    |
+  |                                                       not specified and if   |
+  |                                                       you want perform       |
+  |                                                       potentially            |
+  |                                                       destructive actions.   |
+  |                                                       Defaults to unset.     |
+  | --create-version                                      Create a new version   |
+  |                                                       or patch based on the  |
+  |                                                       provided --version and |
+  |                                                       --patch values.        |
+  |                                                       Fallback to the        |
+  |                                                       manifest values if not |
+  |                                                       provided.              |
+  | --from-stage                                          When enabled, the      |
+  |                                                       Snowflake CLI creates  |
+  |                                                       a version from the     |
+  |                                                       current application    |
+  |                                                       package stage without  |
+  |                                                       syncing to the stage   |
+  |                                                       first. Can only be     |
+  |                                                       used with              |
+  |                                                       --create-version flag. |
+  | --label                                      TEXT     A label for the        |
+  |                                                       version that is        |
+  |                                                       displayed to           |
+  |                                                       consumers. Can only be |
+  |                                                       used with              |
+  |                                                       --create-version flag. |
+  |                                                       [default: None]        |
+  | --package-entity-id                          TEXT     The ID of the package  |
+  |                                                       entity on which to     |
+  |                                                       operate when           |
+  |                                                       definition_version is  |
+  |                                                       2 or higher.           |
+  | --app-entity-id                              TEXT     The ID of the          |
+  |                                                       application entity on  |
+  |                                                       which to operate when  |
+  |                                                       definition_version is  |
+  |                                                       2 or higher.           |
+  | --project            -p                      TEXT     Path where Snowflake   |
+  |                                                       project resides.       |
+  |                                                       Defaults to current    |
+  |                                                       working directory.     |
+  | --env                                        TEXT     String in format of    |
+  |                                                       key=value. Overrides   |
+  |                                                       variables from env     |
+  |                                                       section used for       |
+  |                                                       templates.             |
+  | --help               -h                               Show this message and  |
+  |                                                       exit.                  |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
