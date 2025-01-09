@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from datetime import datetime
 from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
@@ -28,6 +29,7 @@ from snowflake.cli._plugins.nativeapp.constants import (
     DEFAULT_DIRECTIVE,
     EXTERNAL_DISTRIBUTION,
     INTERNAL_DISTRIBUTION,
+    MAX_VERSIONS_IN_RELEASE_CHANNEL,
     NAME_COL,
     OWNER_COL,
     PATCH_COL,
@@ -54,7 +56,7 @@ from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     InsufficientPrivilegesError,
 )
-from snowflake.cli._plugins.nativeapp.sf_sql_facade import ReleaseChannel
+from snowflake.cli._plugins.nativeapp.sf_sql_facade import ReleaseChannel, Version
 from snowflake.cli._plugins.nativeapp.utils import needs_confirmation, sanitize_dir_name
 from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     FunctionEntityModel,
@@ -367,21 +369,14 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             )
             return
 
-        with sql_executor.use_role(self.role):
-            # 2. Check for versions in the application package
-            show_versions_query = f"show versions in application package {self.name}"
-            show_versions_cursor = sql_executor.execute_query(
-                show_versions_query, cursor_class=DictCursor
-            )
-            if show_versions_cursor.rowcount is None:
-                raise SnowflakeSQLExecutionError(show_versions_query)
-
-            if show_versions_cursor.rowcount > 0:
-                # allow dropping a package with versions when --force is set
-                if not force_drop:
-                    raise CouldNotDropApplicationPackageWithVersions(
-                        "Drop versions first, or use --force to override."
-                    )
+        # 2. Check for versions in the application package
+        versions_in_pkg = get_snowflake_facade().show_versions(self.name, self.role)
+        if len(versions_in_pkg) > 0:
+            # allow dropping a package with versions when --force is set
+            if not force_drop:
+                raise CouldNotDropApplicationPackageWithVersions(
+                    "Drop versions first, or use --force to override."
+                )
 
         # 3. Check distribution of the existing application package
         actual_distribution = self.get_app_pkg_distribution_in_snowflake()
@@ -456,15 +451,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         Get all existing versions, if defined, for an application package.
         It executes a 'show versions in application package' query and returns all the results.
         """
-        sql_executor = get_sql_executor()
-        with sql_executor.use_role(self.role):
-            show_obj_query = f"show versions in application package {self.name}"
-            show_obj_cursor = sql_executor.execute_query(show_obj_query)
-
-            if show_obj_cursor.rowcount is None:
-                raise SnowflakeSQLExecutionError(show_obj_query)
-
-            return show_obj_cursor
+        return get_snowflake_facade().show_versions(self.name, self.role)
 
     def action_version_create(
         self,
@@ -668,7 +655,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 )
 
     def get_sanitized_release_channel(
-        self, release_channel: Optional[str]
+        self,
+        release_channel: Optional[str],
+        available_release_channels: Optional[list[ReleaseChannel]] = None,
     ) -> Optional[str]:
         """
         Sanitize the release channel name provided by the user and validate it against the available release channels.
@@ -680,9 +669,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         if not release_channel:
             return None
 
-        available_release_channels = get_snowflake_facade().show_release_channels(
-            self.name, self.role
-        )
+        if available_release_channels is None:
+            available_release_channels = get_snowflake_facade().show_release_channels(
+                self.name, self.role
+            )
 
         if not available_release_channels and same_identifiers(
             release_channel, DEFAULT_CHANNEL
@@ -1001,6 +991,159 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             package_name=self.name,
             release_channel=release_channel,
             version=version,
+            role=self.role,
+        )
+
+    def _find_version_with_no_recent_update(
+        self, versions_info: list[Version], free_versions: set[str]
+    ) -> Optional[str]:
+        """
+        Finds the version with the oldest created_on date from the free versions.
+        """
+
+        if not free_versions:
+            return None
+
+        # map of versionId to last Updated Date. Last Updated Date is based on patch creation date.
+        last_updated_map: dict[str, datetime] = {}
+        for version_info in versions_info:
+            last_updated_value = last_updated_map.get(version_info["version"], None)
+            if (
+                not last_updated_value
+                or version_info["created_on"] > last_updated_value
+            ):
+                last_updated_map[version_info["version"]] = version_info["created_on"]
+
+        oldest_version = None
+        oldest_version_last_updated_on = None
+
+        for version in free_versions:
+            last_updated = last_updated_map[version]
+            if not oldest_version or last_updated < oldest_version_last_updated_on:
+                oldest_version = version
+                oldest_version_last_updated_on = last_updated
+
+        return oldest_version
+
+    def action_publish(
+        self,
+        action_ctx: ActionContext,
+        version: str,
+        patch: int,
+        release_channel: Optional[str],
+        release_directive: str,
+        interactive: bool,
+        force: bool,
+        *args,
+        **kwargs,
+    ) -> None:
+        """
+        Publishes a version and a patch to a release directive of a release channel.
+
+        The version is first added to the release channel,
+        and then the release directive is set to the version and patch provided.
+
+        If the number of versions in a release channel exceeds the maximum allowable versions,
+        the user is prompted to remove an existing version to make space for the new version.
+        """
+        if force:
+            policy = AllowAlwaysPolicy()
+        elif interactive:
+            policy = AskAlwaysPolicy()
+        else:
+            policy = DenyAlwaysPolicy()
+
+        console = self._workspace_ctx.console
+        versions_info = get_snowflake_facade().show_versions(self.name, self.role)
+
+        available_patches = [
+            version_info["patch"]
+            for version_info in versions_info
+            if version_info["version"] == unquote_identifier(version)
+        ]
+
+        if not available_patches:
+            raise ClickException(
+                f"Version {version} does not exist in application package {self.name}."
+            )
+
+        if patch not in available_patches:
+            raise ClickException(
+                f"Patch {patch} does not exist for version {version} in application package {self.name}."
+            )
+
+        available_release_channels = get_snowflake_facade().show_release_channels(
+            self.name, self.role
+        )
+
+        release_channel = self.get_sanitized_release_channel(
+            release_channel, available_release_channels
+        )
+
+        if release_channel:
+            release_channel_info = {}
+            for channel_info in available_release_channels:
+                if channel_info["name"] == unquote_identifier(release_channel):
+                    release_channel_info = channel_info
+                    break
+
+            versions_in_channel = release_channel_info["versions"]
+            if unquote_identifier(version) not in release_channel_info["versions"]:
+                if len(versions_in_channel) >= MAX_VERSIONS_IN_RELEASE_CHANNEL:
+                    # If we hit the maximum allowable versions in a release channel, we need to remove one version to make space for the new version
+                    all_release_directives = (
+                        get_snowflake_facade().show_release_directives(
+                            package_name=self.name,
+                            role=self.role,
+                            release_channel=release_channel,
+                        )
+                    )
+
+                    # check which versions are attached to any release directive
+                    targeted_versions = {d["version"] for d in all_release_directives}
+
+                    free_versions = {
+                        v for v in versions_in_channel if v not in targeted_versions
+                    }
+
+                    if not free_versions:
+                        raise ClickException(
+                            f"Maximum number of versions in release channel {release_channel} reached. Cannot add more versions."
+                        )
+
+                    version_to_remove = self._find_version_with_no_recent_update(
+                        versions_info, free_versions
+                    )
+                    user_prompt = f"Maximum number of versions in release channel reached. Would you like to remove version {version_to_remove} to make space for version {version}?"
+                    if not policy.should_proceed(user_prompt):
+                        raise ClickException(
+                            "Cannot proceed with publishing the new version. Please remove an existing version from the release channel to make space for the new version, or use --force to automatically clean up unused versions."
+                        )
+
+                    console.warning(
+                        f"Maximum number of versions in release channel reached. Removing version {version_to_remove} from release_channel {release_channel} to make space for version {version}."
+                    )
+                    get_snowflake_facade().remove_version_from_release_channel(
+                        package_name=self.name,
+                        release_channel=release_channel,
+                        version=version_to_remove,
+                        role=self.role,
+                    )
+
+                get_snowflake_facade().add_version_to_release_channel(
+                    package_name=self.name,
+                    release_channel=release_channel,
+                    version=version,
+                    role=self.role,
+                )
+
+        get_snowflake_facade().set_release_directive(
+            package_name=self.name,
+            release_directive=release_directive,
+            release_channel=release_channel,
+            target_accounts=None,
+            version=version,
+            patch=patch,
             role=self.role,
         )
 
