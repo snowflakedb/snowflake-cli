@@ -446,11 +446,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         else:
             policy = DenyAlwaysPolicy()
 
-        if skip_git_check:
-            git_policy = DenyAlwaysPolicy()
-        else:
-            git_policy = AllowAlwaysPolicy()
-
         bundle_map = self._bundle(action_ctx)
         resolved_version, resolved_patch, resolved_label = self.resolve_version_info(
             version=version,
@@ -461,7 +456,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             interactive=interactive,
         )
 
-        if git_policy.should_proceed():
+        if not skip_git_check:
             self.check_index_changes_in_git_repo(policy=policy, interactive=interactive)
 
         # if user is asking to create the version from the current stage,
@@ -1005,15 +1000,18 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     def action_publish(
         self,
         action_ctx: ActionContext,
-        version: str,
-        patch: int,
+        version: Optional[str],
+        patch: Optional[int],
         release_channel: Optional[str],
         release_directive: str,
         interactive: bool,
         force: bool,
         *args,
+        create_version: bool = False,
+        from_stage: bool = False,
+        label: Optional[str] = None,
         **kwargs,
-    ) -> None:
+    ) -> VersionInfo:
         """
         Publishes a version and a patch to a release directive of a release channel.
 
@@ -1030,7 +1028,37 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         else:
             policy = DenyAlwaysPolicy()
 
+        if from_stage and not create_version:
+            raise UsageError(
+                "--from-stage flag can only be used with --create-version flag."
+            )
+        if label is not None and not create_version:
+            raise UsageError("--label can only be used with --create-version flag.")
+
         console = self._workspace_ctx.console
+        if create_version:
+            result = self.action_version_create(
+                action_ctx=action_ctx,
+                version=version,
+                patch=patch,
+                label=label,
+                skip_git_check=True,
+                interactive=interactive,
+                force=force,
+                from_stage=from_stage,
+            )
+            version = result.version_name
+            patch = result.patch_number
+
+        if version is None:
+            raise UsageError(
+                "Please provide a version using --version or use --create-version flag to create a version based on the manifest file."
+            )
+        if patch is None:
+            raise UsageError(
+                "Please provide a patch number using --patch or use --create-version flag to auto create a patch."
+            )
+
         versions_info = get_snowflake_facade().show_versions(self.name, self.role)
 
         available_patches = [
@@ -1123,6 +1151,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             patch=patch,
             role=self.role,
         )
+        return VersionInfo(version, patch, None)
 
     def _bundle_children(self, action_ctx: ActionContext) -> List[str]:
         # Create _children directory
@@ -1694,7 +1723,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             resolved_label = label if label is not None else label_manifest
 
         # Check if patch needs to throw a bad option error, either if application package does not exist or if version does not exist
-        if resolved_patch is not None:
+        # If patch is 0 and version does not exist, it is a valid case, because patch 0 is the first patch in a version.
+        if resolved_patch:
             try:
                 if not self.get_existing_version_info(to_identifier(resolved_version)):
                     raise BadOptionUsage(

@@ -51,6 +51,7 @@ from snowflake.cli.api.errno import (
     ACCOUNT_DOES_NOT_EXIST,
     ACCOUNT_HAS_TOO_MANY_QUALIFIERS,
     APPLICATION_PACKAGE_MAX_VERSIONS_HIT,
+    APPLICATION_PACKAGE_PATCH_ALREADY_EXISTS,
     APPLICATION_REQUIRES_TELEMETRY_SHARING,
     CANNOT_DEREGISTER_VERSION_ASSOCIATED_WITH_CHANNEL,
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
@@ -374,6 +375,10 @@ class SnowflakeSQLFacade:
                         raise UserInputError(
                             f"Cannot drop version {version} from application package {package_name} because it is associated with a release channel."
                         ) from err
+                    if err.errno == VERSION_DOES_NOT_EXIST:
+                        raise UserInputError(
+                            f"Version {version} does not exist in application package {package_name}."
+                        ) from err
                 handle_unclassified_error(
                     err,
                     f"Failed to {action} version {version} from application package {package_name}.",
@@ -407,11 +412,12 @@ class SnowflakeSQLFacade:
         with_label_clause = (
             f"\nlabel={to_string_literal(label)}" if label is not None else ""
         )
-        patch_query = f"{patch}" if patch else ""
+
+        patch_query = f" {patch}" if patch is not None else ""
         add_patch_query = dedent(
             f"""\
                  alter application package {package_name}
-                     add patch {patch_query} for version {version}
+                     add patch{patch_query} for version {version}
                      using @{stage_fqn}{with_label_clause}
              """
         )
@@ -421,9 +427,14 @@ class SnowflakeSQLFacade:
                     add_patch_query, cursor_class=DictCursor
                 ).fetchall()
             except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if err.errno == APPLICATION_PACKAGE_PATCH_ALREADY_EXISTS:
+                        raise UserInputError(
+                            f"Patch {patch} already exists for version {version} in application package {package_name}."
+                        ) from err
                 handle_unclassified_error(
                     err,
-                    f"Failed to create patch {patch_query} for version {version} in application package {package_name}.",
+                    f"Failed to create patch{patch_query} for version {version} in application package {package_name}.",
                 )
             try:
                 show_row = result_cursor[0]
