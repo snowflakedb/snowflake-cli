@@ -2914,6 +2914,11 @@ def test_show_release_directive_with_special_characters_in_names(
             "Insufficient privileges to show release directives for application package test_package",
         ),
         (
+            ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+            UserInputError,
+            "Application package test_package does not exist or you are not authorized to access it.",
+        ),
+        (
             DatabaseError("some database error"),
             UnknownSQLError,
             "Unknown SQL error occurred. Failed to show release directives for application package test_package. some database error",
@@ -3334,6 +3339,11 @@ def test_set_default_release_directive_no_release_channel(
             "Invalid account passed in.",
         ),
         (
+            ProgrammingError(errno=RELEASE_DIRECTIVE_DOES_NOT_EXIST),
+            UserInputError,
+            "Release directive test_directive does not exist in application package test_package.",
+        ),
+        (
             ProgrammingError(),
             InvalidSQLError,
             "Failed to set release directive test_directive for application package test_package.",
@@ -3381,40 +3391,13 @@ def test_modify_release_directive_with_non_default_directive(
         """
     )
 
-    sql_facade.modify_release_directive(
-        package_name,
-        release_directive,
-        release_channel,
-        version,
-        patch,
-    )
-
-    mock_execute_query.assert_called_once_with(expected_query)
-
-
-def test_modify_release_directive_with_default_directive(
-    mock_execute_query,
-):
-    package_name = "test_package"
-    release_directive = "DEFAULT"
-    release_channel = "test_channel"
-    version = "1.0.0"
-    patch = 1
-    expected_query = dedent(
-        f"""\
-            alter application package {package_name}
-                modify release channel {release_channel}
-                modify default release directive
-                version = "{version}" patch = {patch}
-        """
-    )
-
-    sql_facade.modify_release_directive(
-        package_name,
-        release_directive,
-        release_channel,
-        version,
-        patch,
+    sql_facade.set_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=release_channel,
+        version=version,
+        patch=patch,
+        target_accounts=None,
     )
 
     mock_execute_query.assert_called_once_with(expected_query)
@@ -3437,12 +3420,13 @@ def test_modify_release_directive_with_special_chars_in_names(
         """
     )
 
-    sql_facade.modify_release_directive(
-        package_name,
-        release_directive,
-        release_channel,
-        version,
-        patch,
+    sql_facade.set_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=release_channel,
+        version=version,
+        patch=patch,
+        target_accounts=None,
     )
 
     mock_execute_query.assert_called_once_with(expected_query)
@@ -3463,93 +3447,16 @@ def test_modify_release_directive_no_release_channel(
         """
     )
 
-    sql_facade.modify_release_directive(
-        package_name,
-        release_directive,
-        None,
-        version,
-        patch,
+    sql_facade.set_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=None,
+        version=version,
+        patch=patch,
+        target_accounts=None,
     )
 
     mock_execute_query.assert_called_once_with(expected_query)
-
-
-def test_modify_default_release_directive_no_release_channel(
-    mock_execute_query,
-):
-    package_name = "test_package"
-    release_directive = "DEFAULT"
-    version = "1.0.0"
-    patch = 1
-    expected_query = dedent(
-        f"""\
-            alter application package {package_name}
-                modify default release directive
-                version = "{version}" patch = {patch}
-        """
-    )
-
-    sql_facade.modify_release_directive(
-        package_name,
-        release_directive,
-        None,
-        version,
-        patch,
-    )
-
-    mock_execute_query.assert_called_once_with(expected_query)
-
-
-@pytest.mark.parametrize(
-    "error_raised, error_caught, error_message",
-    [
-        (
-            ProgrammingError(errno=VERSION_NOT_ADDED_TO_RELEASE_CHANNEL),
-            UserInputError,
-            'Version "1.0.0" is not added to release channel test_channel. Please add it to the release channel first.',
-        ),
-        (
-            ProgrammingError(errno=RELEASE_DIRECTIVES_VERSION_PATCH_NOT_FOUND),
-            UserInputError,
-            'Patch 1 for version "1.0.0" not found in application package test_package.',
-        ),
-        (
-            ProgrammingError(errno=VERSION_DOES_NOT_EXIST),
-            UserInputError,
-            'Version "1.0.0" does not exist in application package test_package.',
-        ),
-        (
-            ProgrammingError(errno=RELEASE_DIRECTIVE_DOES_NOT_EXIST),
-            UserInputError,
-            "Release directive test_directive does not exist in application package test_package.",
-        ),
-        (
-            ProgrammingError(),
-            InvalidSQLError,
-            "Failed to modify release directive test_directive for application package test_package.",
-        ),
-        (
-            DatabaseError("some database error"),
-            UnknownSQLError,
-            "Unknown SQL error occurred. Failed to modify release directive test_directive for application package test_package. some database error",
-        ),
-    ],
-)
-def test_modify_release_directive_errors(
-    mock_execute_query, error_raised, error_caught, error_message
-):
-    mock_execute_query.side_effect = error_raised
-
-    with pytest.raises(error_caught) as err:
-        sql_facade.modify_release_directive(
-            "test_package",
-            "test_directive",
-            "test_channel",
-            "1.0.0",
-            1,
-        )
-
-    assert error_message in str(err)
 
 
 @contextmanager
@@ -3688,7 +3595,8 @@ def test_create_version_with_special_characters(
             ProgrammingError(errno=MAX_UNBOUND_VERSIONS_REACHED),
             UserInputError,
             "Maximum unbound versions reached for application package test_package. "
-            "Please drop the other unbound version first, or add it to a release channel.",
+            "Please drop other unbound versions first, or add them to a release channel. "
+            "Use `snow app version list` to view all versions.",
         ),
         (
             ProgrammingError(errno=APPLICATION_PACKAGE_MAX_VERSIONS_HIT),
