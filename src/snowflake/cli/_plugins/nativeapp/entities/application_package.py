@@ -672,7 +672,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 f"Release channels are not enabled for application package {self.name}."
             )
         for channel in available_release_channels:
-            if same_identifiers(release_channel, channel["name"]):
+            if unquote_identifier(release_channel) == channel["name"]:
                 return
 
         raise UsageError(
@@ -736,30 +736,15 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         sanitized_release_channel = self.get_sanitized_release_channel(release_channel)
 
-        if (
-            not same_identifiers(release_directive, DEFAULT_DIRECTIVE)
-            and not target_accounts
-        ):
-            # if it is a non-default release directive with no target accounts specified,
-            # it means that the user wants to modify existing release directive
-            get_snowflake_facade().modify_release_directive(
-                package_name=self.name,
-                release_directive=release_directive,
-                release_channel=sanitized_release_channel,
-                version=version,
-                patch=patch,
-                role=self.role,
-            )
-        else:
-            get_snowflake_facade().set_release_directive(
-                package_name=self.name,
-                release_directive=release_directive,
-                release_channel=sanitized_release_channel,
-                target_accounts=target_accounts,
-                version=version,
-                patch=patch,
-                role=self.role,
-            )
+        get_snowflake_facade().set_release_directive(
+            package_name=self.name,
+            release_directive=release_directive,
+            release_channel=sanitized_release_channel,
+            target_accounts=target_accounts,
+            version=version,
+            patch=patch,
+            role=self.role,
+        )
 
     def action_release_directive_unset(
         self,
@@ -834,7 +819,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             channel
             for channel in available_channels
             if release_channel is None
-            or same_identifiers(channel["name"], release_channel)
+            or unquote_identifier(release_channel) == channel["name"]
         ]
 
         if not filtered_channels:
@@ -1069,12 +1054,12 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         if not available_patches:
             raise ClickException(
-                f"Version {version} does not exist in application package {self.name}."
+                f"Version {version} does not exist in application package {self.name}. Use --create-version flag to create a new version."
             )
 
         if patch not in available_patches:
             raise ClickException(
-                f"Patch {patch} does not exist for version {version} in application package {self.name}."
+                f"Patch {patch} does not exist for version {version} in application package {self.name}. Use --create-version flag to add a new patch."
             )
 
         available_release_channels = get_snowflake_facade().show_release_channels(
