@@ -17,6 +17,7 @@ from __future__ import annotations
 from typing import Any, Dict, List, Optional, Union
 
 from pydantic import Field, field_validator
+from snowflake.cli.api.project.schemas.references import NativeAppReference
 from snowflake.cli.api.project.schemas.updatable_model import UpdatableModel
 
 
@@ -32,17 +33,26 @@ class ProcessorMapping(UpdatableModel):
 
 class PathMapping(UpdatableModel):
     src: str = Field(
-        title="Source path or glob pattern (relative to project root)", default=None
+        title="Source path or glob pattern (relative to project root)",
+        default=None,
+        examples=["app/*", "streamlit/*", "src/resources/images/snowflake.png"],
     )
 
     dest: Optional[str] = Field(
         title="Destination path on stage",
-        description="Paths are relative to stage root; paths ending with a slash indicate that the destination is a directory which source files should be copied into.",
+        description="""
+Paths are relative to stage root; paths ending with a slash indicate that the destination is a directory which source files should be copied into.
+        """,
         default=None,
+        examples=["./", "streamlit/", "streamlit/images"],
     )
 
     processors: Optional[List[Union[str, ProcessorMapping]]] = Field(
         title="List of processors to apply to matching source files during bundling.",
+        description=f"""
+Currently, the only value supported is snowpark. For more information about
+custom processing, see {NativeAppReference.AUTOMATIC_SQL_CODE_GENERATION.value.get_link_text()} and
+the {NativeAppReference.SNOW_APP_BUNDLE.value.get_link_text()} command.""",
         default=[],
     )
 
