@@ -18,6 +18,7 @@ import sys
 from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Optional
 
 import pytest
 from snowflake.cli import __about__
@@ -50,10 +51,10 @@ def _clean_output(text: str):
     )
 
 
-def subprocess_check_output(cmd):
+def subprocess_check_output(cmd, stdin: Optional[str] = None):
     try:
         output = subprocess.check_output(
-            cmd, shell=IS_WINDOWS, stderr=sys.stdout, encoding="utf-8"
+            cmd, input=stdin, shell=IS_WINDOWS, stderr=sys.stdout, encoding="utf-8"
         )
         return _clean_output(output)
     except subprocess.CalledProcessError as err:
@@ -61,9 +62,10 @@ def subprocess_check_output(cmd):
         raise
 
 
-def subprocess_run(cmd):
+def subprocess_run(cmd, stdin: Optional[str] = None):
     p = subprocess.run(
         cmd,
+        input=stdin,
         shell=IS_WINDOWS,
         capture_output=True,
         text=True,
@@ -182,3 +184,10 @@ def config_file(test_root_path, prepare_test_config_file):
 @pytest.fixture()
 def empty_config_file(test_root_path, prepare_test_config_file):
     yield prepare_test_config_file(SecurePath(test_root_path) / "config" / "empty.toml")
+
+
+@pytest.fixture()
+def example_connection_config_file(test_root_path, prepare_test_config_file):
+    yield prepare_test_config_file(
+        SecurePath(test_root_path) / "config" / "example_connection.toml"
+    )
