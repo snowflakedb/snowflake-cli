@@ -204,20 +204,33 @@ def _read_all_connections_from_snowsql(
             else:
                 imported_named_connections[connection_name] = imported_named_conenction
 
+    def imported_default_connection_as_named_connection():
+        name = _validate_imported_default_connection_name(
+            default_cli_connection_name, imported_named_connections
+        )
+        return {name: imported_default_connection}
+
     named_default_connection = (
-        {default_cli_connection_name: imported_default_connection}
+        imported_default_connection_as_named_connection()
         if imported_default_connection
         else {}
     )
-    if (
-        named_default_connection
-        and default_cli_connection_name in imported_named_connections
-    ):
-        raise ClickException(
-            f"Default connection name [{default_cli_connection_name}] conflicts with the name of one of connections from SnowSQL. Please specify a different name for your default connection."
-        )
 
     return imported_named_connections | named_default_connection
+
+
+def _validate_imported_default_connection_name(
+    name_candidate: str, other_snowsql_connections: dict[str, dict]
+) -> str:
+    if name_candidate in other_snowsql_connections:
+        new_name_candidate = typer.prompt(
+            f"Chosen default connection name '{name_candidate}' is already taken by other connection being imported from SnowSQL. Please choose a different name for your default connection"
+        )
+        return _validate_imported_default_connection_name(
+            new_name_candidate, other_snowsql_connections
+        )
+    else:
+        return name_candidate
 
 
 def _convert_connection_from_snowsql_config_section(
@@ -255,20 +268,24 @@ def _validate_and_save_connections_imported_from_snowsql(
     default_cli_connection_name: str, all_imported_connections: dict[str, Any]
 ):
     existing_cli_connection_names: set[str] = set(get_all_connections().keys())
-    all_imported_connection_names: set[str] = set(all_imported_connections.keys())
-    conflicting_connection_names = (
-        existing_cli_connection_names & all_imported_connection_names
-    )
-    if conflicting_connection_names:
-        raise ClickException(
-            f"Cannot import connections from SnowSQL because some of them conflict with existing CLI's connections. Please remove or rename the following connections: {', '.join(conflicting_connection_names)}."
-        )
+    imported_connections_to_save: dict[str, Any] = {}
+    for (
+        imported_connection_name,
+        imported_connection,
+    ) in all_imported_connections.items():
+        if imported_connection_name in existing_cli_connection_names:
+            override_cli_connection = typer.confirm(
+                f"Connection '{imported_connection_name}' already exists in Snowflake CLI, do you want to use SnowSQL definition and override existing connection in Snowflake CLI?"
+            )
+            if not override_cli_connection:
+                continue
+        imported_connections_to_save[imported_connection_name] = imported_connection
 
-    for name, connection in all_imported_connections.items():
+    for name, connection in imported_connections_to_save.items():
         cli_console.step(f"Saving [{name}] connection in Snowflake CLI's config.")
         add_connection_to_proper_file(name, ConnectionConfig.from_dict(connection))
 
-    if default_cli_connection_name in all_imported_connections:
+    if default_cli_connection_name in imported_connections_to_save:
         cli_console.step(
             f"Setting [{default_cli_connection_name}] connection as Snowflake CLI's default connection."
         )
