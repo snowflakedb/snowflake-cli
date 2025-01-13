@@ -35,8 +35,6 @@
 * Add publish command to make it easier to manage publishing versions to release channels and updating release directives: `snow app publish`
 * Add support for restricting Snowflake user authentication policy to Snowflake CLI-only.
 * Added a new command: `snow helpers import-snowsql-connections` allowing to import configuration of connections from SnowSQL.
-* Add ability to specify release channel when creating application instance from release directive: `snow app run --from-release-directive --channel=<channel>`
-* Add ability to list release channels through `snow app release-channel list` command
 * Add `snow spcs service events` command to retrieve service-specific events:
   * Supports filtering by service name, container name, instance ID, time intervals (`--since`, `--until`), and pagination (`--first`, `--last`).
   * Use `--all` to fetch all columns.
