@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
-from shutil import rmtree
+
+from snowflake.cli.api.secure_path import SecurePath
 
 
 @dataclass
@@ -13,7 +14,7 @@ class ProjectPaths:
 
     def remove_up_bundle_root(self) -> None:
         if self.bundle_root.exists():
-            rmtree(self.bundle_root)
+            SecurePath(self.bundle_root).rmdir(recursive=True)
 
 
 def bundle_root(root: Path, app_type: str | None = None) -> Path:

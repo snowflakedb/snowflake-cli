@@ -34,7 +34,7 @@ def _specifies_directory(s: str) -> bool:
 class BundleMap:
     """
     Computes the mapping between project directory artifacts (aka source artifacts) to their deploy root location
-    (aka destination artifact). This information is primarily used when bundling a native applications project.
+    (aka destination artifact).
 
     :param project_root: The root directory of the project and base for all relative paths. Must be an absolute path.
     :param deploy_root: The directory where artifacts should be copied to. Must be an absolute path.

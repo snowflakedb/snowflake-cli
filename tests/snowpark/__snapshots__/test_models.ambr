@@ -7,7 +7,7 @@
   | For field entities.hello_procedure.procedure.artifacts you provided          |
   | '['src/*']'. This caused: Value error, If you want to use glob patterns in   |
   | artifacts, you need to enable the Snowpark new build feature flag            |
-  | (ENABLE_SNOWPARK_GLOB_SUPPORT=true)                                          |
+  | (enable_snowpark_glob_support=true)                                          |
   +------------------------------------------------------------------------------+
   
   '''

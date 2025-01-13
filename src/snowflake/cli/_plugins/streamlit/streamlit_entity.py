@@ -72,7 +72,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         )
 
     def bundle(self, output_dir: Optional[Path] = None):
-        return build_bundle(
+        build_bundle(
             self.root,
             output_dir or bundle_root(self.root, "streamlit"),
             [

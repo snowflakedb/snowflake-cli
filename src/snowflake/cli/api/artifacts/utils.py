@@ -35,12 +35,12 @@ def symlink_or_copy(src: Path, dst: Path, deploy_root: Path) -> None:
             ssrc.copy(dst)
     else:
         # 1. Create a new directory in the deploy root
-        dst.mkdir(exist_ok=True)
+        sdst.mkdir(exist_ok=True)
         # 2. For all children of src, create their counterparts in dst now that it exists
         for root, _, files in sorted(os.walk(absolute_src, followlinks=True)):
             relative_root = Path(root).relative_to(absolute_src)
             absolute_root_in_deploy = Path(dst, relative_root)
-            absolute_root_in_deploy.mkdir(parents=True, exist_ok=True)
+            SecurePath(absolute_root_in_deploy).mkdir(parents=True, exist_ok=True)
             for file in sorted(files):
                 absolute_file_in_project = Path(absolute_src, relative_root, file)
                 absolute_file_in_deploy = Path(absolute_root_in_deploy, file)

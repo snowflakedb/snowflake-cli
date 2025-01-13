@@ -83,7 +83,7 @@ class StreamlitManager(SqlExecutionMixin):
             absolute=True, expand_directories=True
         ):
             if absolute_src.is_file():
-                # We treat the bundle root as deploy root
+                # We treat the bundle/streamlit root as deploy root
                 symlink_or_copy(
                     absolute_src,
                     absolute_dest,
