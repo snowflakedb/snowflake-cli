@@ -605,11 +605,7 @@ def test_stream_logs_with_include_timestamps_true(mock_sleep, mock_logs):
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
-@patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled"
-)
-def test_logs_incompatible_flags(mock_is_disabled, mock_execute_query, runner):
-    mock_is_disabled.return_value = False
+def test_logs_incompatible_flags(mock_execute_query, runner):
     result = runner.invoke(
         [
             "spcs",
@@ -632,13 +628,7 @@ def test_logs_incompatible_flags(mock_is_disabled, mock_execute_query, runner):
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
-@patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled"
-)
-def test_logs_incompatible_flags_follow_previous_logs(
-    mock_is_disabled, mock_execute_query, runner
-):
-    mock_is_disabled.return_value = False
+def test_logs_incompatible_flags_follow_previous_logs(mock_execute_query, runner):
     result = runner.invoke(
         [
             "spcs",
@@ -661,42 +651,6 @@ def test_logs_incompatible_flags_follow_previous_logs(
     assert (
         "Parameters '--follow' and '--previous-logs' are incompatible" in result.output
     )
-
-
-@patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled"
-)
-def test_logs_streaming_disabled(mock_is_disabled, runner):
-    mock_is_disabled.return_value = True
-    result = runner.invoke(
-        [
-            "spcs",
-            "service",
-            "logs",
-            "test_service",
-            "--container-name",
-            "test_container",
-            "--instance-id",
-            "0",
-            "--follow",
-            "--num-lines",
-            "100",
-        ]
-    )
-    assert (
-        result.exit_code != 0
-    ), "Expected a non-zero exit code due to feature flag disabled"
-
-    expected_output = (
-        "+- Error ----------------------------------------------------------------------+\n"
-        "| Streaming logs from spcs containers is disabled. To enable it, add           |\n"
-        "| 'ENABLE_SPCS_LOG_STREAMING = true' to '[cli.features]' section of your       |\n"
-        "| configuration file.                                                          |\n"
-        "+------------------------------------------------------------------------------+\n"
-    )
-    assert (
-        result.output == expected_output
-    ), f"Expected formatted output not found: {result.output}"
 
 
 def test_read_yaml(other_directory):

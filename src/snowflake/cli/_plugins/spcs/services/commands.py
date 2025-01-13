@@ -37,11 +37,7 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.exceptions import (
-    FeatureNotEnabledError,
-    IncompatibleParametersError,
-)
-from snowflake.cli.api.feature_flags import FeatureFlag
+from snowflake.cli.api.exceptions import IncompatibleParametersError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -254,11 +250,6 @@ def logs(
     Retrieves local logs from a service container.
     """
     if follow:
-        if FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled():
-            raise FeatureNotEnabledError(
-                "ENABLE_SPCS_LOG_STREAMING",
-                "Streaming logs from spcs containers is disabled.",
-            )
         if num_lines != DEFAULT_NUM_LINES:
             raise IncompatibleParametersError(["--follow", "--num-lines"])
         if previous_logs:
