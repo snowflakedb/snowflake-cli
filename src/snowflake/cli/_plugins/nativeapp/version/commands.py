@@ -72,6 +72,12 @@ def create(
         help="When enabled, the Snowflake CLI skips checking if your project has any untracked or stages files in git. Default: unset.",
         is_flag=True,
     ),
+    from_stage: bool = typer.Option(
+        False,
+        "--from-stage",
+        help="When enabled, the Snowflake CLI creates a version from the current application package stage without syncing to the stage first.",
+        is_flag=True,
+    ),
     interactive: bool = InteractiveOption,
     force: Optional[bool] = ForceOption,
     **options,
@@ -95,6 +101,7 @@ def create(
         force=force,
         interactive=interactive,
         skip_git_check=skip_git_check,
+        from_stage=from_stage,
     )
 
     message = "Version create is now complete."

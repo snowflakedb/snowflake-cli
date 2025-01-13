@@ -428,6 +428,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         skip_git_check: bool,
         interactive: bool,
         force: bool,
+        from_stage: Optional[bool],
         *args,
         **kwargs,
     ) -> VersionInfo:
@@ -445,11 +446,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         else:
             policy = DenyAlwaysPolicy()
 
-        if skip_git_check:
-            git_policy = DenyAlwaysPolicy()
-        else:
-            git_policy = AllowAlwaysPolicy()
-
         bundle_map = self._bundle(action_ctx)
         resolved_version, resolved_patch, resolved_label = self.resolve_version_info(
             version=version,
@@ -460,21 +456,31 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             interactive=interactive,
         )
 
-        if git_policy.should_proceed():
+        if not skip_git_check:
             self.check_index_changes_in_git_repo(policy=policy, interactive=interactive)
 
-        self._deploy(
-            action_ctx=action_ctx,
-            bundle_map=bundle_map,
-            prune=True,
-            recursive=True,
-            paths=[],
-            print_diff=True,
-            validate=True,
-            stage_fqn=self.stage_fqn,
-            interactive=interactive,
-            force=force,
-        )
+        # if user is asking to create the version from the current stage,
+        # then do not re-deploy the artifacts or touch the stage
+        if from_stage:
+            # verify package exists:
+            if not self.get_existing_app_pkg_info():
+                raise ClickException(
+                    "Cannot create version from stage because the application package does not exist yet. "
+                    "Try removing --from-stage flag or executing `snow app deploy` to deploy the application package first."
+                )
+        else:
+            self._deploy(
+                action_ctx=action_ctx,
+                bundle_map=bundle_map,
+                prune=True,
+                recursive=True,
+                paths=[],
+                print_diff=True,
+                validate=True,
+                stage_fqn=self.stage_fqn,
+                interactive=interactive,
+                force=force,
+            )
 
         # Warn if the version exists in a release directive(s)
         try:
@@ -666,7 +672,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 f"Release channels are not enabled for application package {self.name}."
             )
         for channel in available_release_channels:
-            if same_identifiers(release_channel, channel["name"]):
+            if unquote_identifier(release_channel) == channel["name"]:
                 return
 
         raise UsageError(
@@ -730,30 +736,15 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         sanitized_release_channel = self.get_sanitized_release_channel(release_channel)
 
-        if (
-            not same_identifiers(release_directive, DEFAULT_DIRECTIVE)
-            and not target_accounts
-        ):
-            # if it is a non-default release directive with no target accounts specified,
-            # it means that the user wants to modify existing release directive
-            get_snowflake_facade().modify_release_directive(
-                package_name=self.name,
-                release_directive=release_directive,
-                release_channel=sanitized_release_channel,
-                version=version,
-                patch=patch,
-                role=self.role,
-            )
-        else:
-            get_snowflake_facade().set_release_directive(
-                package_name=self.name,
-                release_directive=release_directive,
-                release_channel=sanitized_release_channel,
-                target_accounts=target_accounts,
-                version=version,
-                patch=patch,
-                role=self.role,
-            )
+        get_snowflake_facade().set_release_directive(
+            package_name=self.name,
+            release_directive=release_directive,
+            release_channel=sanitized_release_channel,
+            target_accounts=target_accounts,
+            version=version,
+            patch=patch,
+            role=self.role,
+        )
 
     def action_release_directive_unset(
         self,
@@ -828,7 +819,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             channel
             for channel in available_channels
             if release_channel is None
-            or same_identifiers(channel["name"], release_channel)
+            or unquote_identifier(release_channel) == channel["name"]
         ]
 
         if not filtered_channels:
@@ -994,15 +985,18 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     def action_publish(
         self,
         action_ctx: ActionContext,
-        version: str,
-        patch: int,
+        version: Optional[str],
+        patch: Optional[int],
         release_channel: Optional[str],
         release_directive: str,
         interactive: bool,
         force: bool,
         *args,
+        create_version: bool = False,
+        from_stage: bool = False,
+        label: Optional[str] = None,
         **kwargs,
-    ) -> None:
+    ) -> VersionInfo:
         """
         Publishes a version and a patch to a release directive of a release channel.
 
@@ -1019,7 +1013,37 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         else:
             policy = DenyAlwaysPolicy()
 
+        if from_stage and not create_version:
+            raise UsageError(
+                "--from-stage flag can only be used with --create-version flag."
+            )
+        if label is not None and not create_version:
+            raise UsageError("--label can only be used with --create-version flag.")
+
         console = self._workspace_ctx.console
+        if create_version:
+            result = self.action_version_create(
+                action_ctx=action_ctx,
+                version=version,
+                patch=patch,
+                label=label,
+                skip_git_check=True,
+                interactive=interactive,
+                force=force,
+                from_stage=from_stage,
+            )
+            version = result.version_name
+            patch = result.patch_number
+
+        if version is None:
+            raise UsageError(
+                "Please provide a version using --version or use --create-version flag to create a version based on the manifest file."
+            )
+        if patch is None:
+            raise UsageError(
+                "Please provide a patch number using --patch or use --create-version flag to auto create a patch."
+            )
+
         versions_info = get_snowflake_facade().show_versions(self.name, self.role)
 
         available_patches = [
@@ -1030,12 +1054,12 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         if not available_patches:
             raise ClickException(
-                f"Version {version} does not exist in application package {self.name}."
+                f"Version {version} does not exist in application package {self.name}. Use --create-version flag to create a new version."
             )
 
         if patch not in available_patches:
             raise ClickException(
-                f"Patch {patch} does not exist for version {version} in application package {self.name}."
+                f"Patch {patch} does not exist for version {version} in application package {self.name}. Use --create-version flag to add a new patch."
             )
 
         available_release_channels = get_snowflake_facade().show_release_channels(
@@ -1112,6 +1136,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             patch=patch,
             role=self.role,
         )
+        return VersionInfo(version, patch, None)
 
     def _bundle_children(self, action_ctx: ActionContext) -> List[str]:
         # Create _children directory
@@ -1683,7 +1708,8 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             resolved_label = label if label is not None else label_manifest
 
         # Check if patch needs to throw a bad option error, either if application package does not exist or if version does not exist
-        if resolved_patch is not None:
+        # If patch is 0 and version does not exist, it is a valid case, because patch 0 is the first patch in a version.
+        if resolved_patch:
             try:
                 if not self.get_existing_version_info(to_identifier(resolved_version)):
                     raise BadOptionUsage(

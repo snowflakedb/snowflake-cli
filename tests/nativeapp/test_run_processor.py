@@ -2253,7 +2253,7 @@ def test_run_app_from_release_directive_with_channel(
         "comment": SPECIAL_COMMENT,
         "owner": "app_role",
     }
-    mock_show_release_channels.return_value = [{"name": "my_channel"}]
+    mock_show_release_channels.return_value = [{"name": "MY_CHANNEL"}]
     side_effects, expected = mock_execute_helper(
         [
             (
