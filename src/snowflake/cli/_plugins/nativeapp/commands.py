@@ -22,6 +22,7 @@ from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
+from snowflake.cli._plugins.nativeapp.artifacts import VersionInfo
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
@@ -540,13 +541,15 @@ class EventResult(ObjectResult, MessageResult):
 @with_project_definition()
 @force_project_definition_v2()
 def app_publish(
-    version: str = typer.Option(
+    version: Optional[str] = typer.Option(
+        default=None,
         show_default=False,
-        help="The version to publish to the release channel. The version must be created fist using 'snow app version create'.",
+        help="The version to publish to the provided release channel and release directive. Version is required to exist unless `--create-version` flag is used.",
     ),
-    patch: int = typer.Option(
+    patch: Optional[int] = typer.Option(
+        default=None,
         show_default=False,
-        help="The patch number under the given version. The patch number must be created first using 'snow app version create'.",
+        help="The patch number under the given version. This will be used when setting the release directive. Patch is required to exist unless `--create-version` flag is used.",
     ),
     channel: Optional[str] = typer.Option(
         "DEFAULT",
@@ -558,6 +561,23 @@ def app_publish(
     ),
     interactive: bool = InteractiveOption,
     force: Optional[bool] = ForceOption,
+    create_version: bool = typer.Option(
+        False,
+        "--create-version",
+        help="Create a new version or patch based on the provided `--version` and `--patch` values. Fallback to the manifest values if not provided.",
+        is_flag=True,
+    ),
+    from_stage: bool = typer.Option(
+        False,
+        "--from-stage",
+        help="When enabled, the Snowflake CLI creates a version from the current application package stage without syncing to the stage first. Can only be used with `--create-version` flag.",
+        is_flag=True,
+    ),
+    label: Optional[str] = typer.Option(
+        None,
+        "--label",
+        help="A label for the version that is displayed to consumers. Can only be used with `--create-version` flag.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -569,7 +589,7 @@ def app_publish(
         project_root=cli_context.project_root,
     )
     package_id = options["package_entity_id"]
-    ws.perform_action(
+    version_info: VersionInfo = ws.perform_action(
         package_id,
         EntityActions.PUBLISH,
         version=version,
@@ -578,7 +598,10 @@ def app_publish(
         release_directive=directive,
         interactive=interactive,
         force=force,
+        create_version=create_version,
+        from_stage=from_stage,
+        label=label,
     )
     return MessageResult(
-        f"Version {version} and patch {patch} published to release directive {directive} of release channel {channel}."
+        f"Version {version_info.version_name} and patch {version_info.patch_number} published to release directive {directive} of release channel {channel}."
     )

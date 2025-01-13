@@ -293,6 +293,7 @@ def version_create(
         skip_git_check=skip_git_check,
         interactive=interactive,
         force=force,
+        from_stage=False,
     )
 
 

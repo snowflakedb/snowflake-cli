@@ -25,6 +25,7 @@
   * `snow app release-directive set`
   * `snow app release-directive unset`
 * `snow app version create` now returns version, patch, and label in JSON format.
+* Add `--from-stage` flag to `snow app version create` to allow version creation from the content of the stage without re-syncing to the stage.
 * Add support for release channels:
   * Add support for release channels feature in native app version creation/drop.
   * Add ability to specify release channel when creating application instance from release directive: `snow app run --from-release-directive --channel=<channel>`
@@ -33,6 +34,7 @@
   * Add ability to add/remove versions to/from release channels through `snow app release-channel add-version` and `snow app release-channel remove-version` commands.
 * Add publish command to make it easier to manage publishing versions to release channels and updating release directives: `snow app publish`
 * Add support for restricting Snowflake user authentication policy to Snowflake CLI-only.
+* Added a new command: `snow helpers import-snowsql-connections` allowing to import configuration of connections from SnowSQL.
 * Add an optional `stage_subdirectory` field to `application package` entity. When specified, application artifacts are uploaded to this subdirectory instead of the root of the application package's stage.
 
 ## Fixes and improvements

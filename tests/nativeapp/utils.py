@@ -91,7 +91,6 @@ SQL_FACADE_ALTER_APP_PKG_PROPERTIES = (
 SQL_FACADE_CREATE_APP_PKG = f"{SQL_FACADE}.create_application_package"
 SQL_FACADE_SHOW_RELEASE_DIRECTIVES = f"{SQL_FACADE}.show_release_directives"
 SQL_FACADE_SET_RELEASE_DIRECTIVE = f"{SQL_FACADE}.set_release_directive"
-SQL_FACADE_MODIFY_RELEASE_DIRECTIVE = f"{SQL_FACADE}.modify_release_directive"
 SQL_FACADE_UNSET_RELEASE_DIRECTIVE = f"{SQL_FACADE}.unset_release_directive"
 SQL_FACADE_SHOW_RELEASE_CHANNELS = f"{SQL_FACADE}.show_release_channels"
 SQL_FACADE_DROP_VERSION = f"{SQL_FACADE}.drop_version_from_package"
