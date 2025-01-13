@@ -1,0 +1,47 @@
+[connections]
+
+accountname = "default_connection_account"
+username = "default_connection_user"
+host = "localhost"
+databasename = "default_connection_database"
+schemaname = "public"
+warehousename = "default_connection_warehouse"
+rolename = "accountadmin"
+
+
+[connections.snowsql1]
+accountname = "a1"
+username = "u1"
+host = "h1"
+databasename = "d1"
+schemaname = "public"
+warehousename = "w1"
+rolename = "r1"
+
+[connections.snowsql2]
+accountname = "a2"
+username = "u2"
+host = "h2"
+databasename = "d2"
+schemaname = "public"
+warehousename = "w2"
+rolename = "r2"
+port = 1234
+
+[connections.example]
+accountname = accountname
+username = username
+
+
+[variables]
+example_variable=27
+
+
+[options]
+auto_completion = True
+log_file = /tmp/snowsql.log
+log_level = DEBUG
+timing = True
+output_format = psql
+key_bindings = emacs
+repository_base_url = https://sfc-repo.snowflakecomputing.com/snowsql

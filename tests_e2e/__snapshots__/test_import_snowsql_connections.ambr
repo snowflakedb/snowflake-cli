@@ -1,0 +1,25 @@
+# serializer version: 1
+# name: test_import_confirm_on_conflict_with_existing_cli_connection
+  '[{"connection_name": "example", "parameters": {"user": "u1", "schema": "public", "authenticator": "SNOWFLAKE_JWT"}, "is_default": false}]'
+# ---
+# name: test_import_confirm_on_conflict_with_existing_cli_connection.1
+  '[{"connection_name": "example", "parameters": {"account": "accountname", "user": "username"}, "is_default": false}, {"connection_name": "snowsql1", "parameters": {"account": "a1", "user": "u1", "host": "h1_override", "database": "d1", "schema": "public", "warehouse": "w1", "role": "r1"}, "is_default": false}, {"connection_name": "snowsql2", "parameters": {"account": "a2", "user": "u2", "host": "h2", "port": 1234, "database": "d2", "schema": "public", "warehouse": "w2", "role": "r2"}, "is_default": false}, {"connection_name": "snowsql3", "parameters": {"account": "a3", "user": "u3", "password": "****", "host": "h3", "database": "d3", "schema": "public", "warehouse": "w3", "role": "r3"}, "is_default": false}, {"connection_name": "default", "parameters": {"account": "default_connection_account", "user": "default_connection_user", "host": "localhost", "database": "default_connection_database_override", "schema": "public", "warehouse": "default_connection_warehouse", "role": "accountadmin"}, "is_default": true}]'
+# ---
+# name: test_import_of_snowsql_connections
+  '[]'
+# ---
+# name: test_import_of_snowsql_connections.1
+  '[{"connection_name": "snowsql1", "parameters": {"account": "a1", "user": "u1", "host": "h1_override", "database": "d1", "schema": "public", "warehouse": "w1", "role": "r1"}, "is_default": false}, {"connection_name": "snowsql2", "parameters": {"account": "a2", "user": "u2", "host": "h2", "port": 1234, "database": "d2", "schema": "public", "warehouse": "w2", "role": "r2"}, "is_default": false}, {"connection_name": "example", "parameters": {"account": "accountname", "user": "username"}, "is_default": false}, {"connection_name": "snowsql3", "parameters": {"account": "a3", "user": "u3", "password": "****", "host": "h3", "database": "d3", "schema": "public", "warehouse": "w3", "role": "r3"}, "is_default": false}, {"connection_name": "default", "parameters": {"account": "default_connection_account", "user": "default_connection_user", "host": "localhost", "database": "default_connection_database_override", "schema": "public", "warehouse": "default_connection_warehouse", "role": "accountadmin"}, "is_default": true}]'
+# ---
+# name: test_import_prompt_for_different_default_connection_name_on_conflict
+  '[]'
+# ---
+# name: test_import_prompt_for_different_default_connection_name_on_conflict.1
+  '[{"connection_name": "snowsql1", "parameters": {"account": "a1", "user": "u1", "host": "h1_override", "database": "d1", "schema": "public", "warehouse": "w1", "role": "r1"}, "is_default": false}, {"connection_name": "snowsql2", "parameters": {"account": "a2", "user": "u2", "host": "h2", "port": 1234, "database": "d2", "schema": "public", "warehouse": "w2", "role": "r2"}, "is_default": true}, {"connection_name": "example", "parameters": {"account": "accountname", "user": "username"}, "is_default": false}, {"connection_name": "snowsql3", "parameters": {"account": "a3", "user": "u3", "password": "****", "host": "h3", "database": "d3", "schema": "public", "warehouse": "w3", "role": "r3"}, "is_default": false}, {"connection_name": "default", "parameters": {"account": "default_connection_account", "user": "default_connection_user", "host": "localhost", "database": "default_connection_database_override", "schema": "public", "warehouse": "default_connection_warehouse", "role": "accountadmin"}, "is_default": false}]'
+# ---
+# name: test_import_reject_on_conflict_with_existing_cli_connection
+  '[{"connection_name": "example", "parameters": {"user": "u1", "schema": "public", "authenticator": "SNOWFLAKE_JWT"}, "is_default": false}]'
+# ---
+# name: test_import_reject_on_conflict_with_existing_cli_connection.1
+  '[{"connection_name": "example", "parameters": {"user": "u1", "schema": "public", "authenticator": "SNOWFLAKE_JWT"}, "is_default": false}, {"connection_name": "snowsql1", "parameters": {"account": "a1", "user": "u1", "host": "h1_override", "database": "d1", "schema": "public", "warehouse": "w1", "role": "r1"}, "is_default": false}, {"connection_name": "snowsql2", "parameters": {"account": "a2", "user": "u2", "host": "h2", "port": 1234, "database": "d2", "schema": "public", "warehouse": "w2", "role": "r2"}, "is_default": false}, {"connection_name": "snowsql3", "parameters": {"account": "a3", "user": "u3", "password": "****", "host": "h3", "database": "d3", "schema": "public", "warehouse": "w3", "role": "r3"}, "is_default": false}, {"connection_name": "default", "parameters": {"account": "default_connection_account", "user": "default_connection_user", "host": "localhost", "database": "default_connection_database_override", "schema": "public", "warehouse": "default_connection_warehouse", "role": "accountadmin"}, "is_default": true}]'
+# ---
