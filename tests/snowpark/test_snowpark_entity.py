@@ -78,7 +78,7 @@ def test_nativeapp_children_interface(
 
     sl.bundle(None, False, False, None, False)
     bundle_artifact = (
-        sl.root / "output" / sl.model.stage / "my_snowpark_project" / "app.py"
+        sl.root / "output" / "bundle" / "snowpark" / "my_snowpark_project" / "app.py"
     )
     deploy_sql_str = sl.get_deploy_sql(CreateMode.create)
     grant_sql_str = sl.get_usage_grant_sql(app_role="app_role")
@@ -134,7 +134,7 @@ def test_bundle(mock_anaconda, example_function_workspace):
     entity, action_context = example_function_workspace
     entity.action_bundle(action_context, None, False, False, None, False)
 
-    output = entity.root / "output" / entity._entity_model.stage  # noqa
+    output = entity.root / "output" / "bundle" / "snowpark"  # noqa
     assert output.exists()
     assert (output / "my_snowpark_project" / "app.py").exists()
 

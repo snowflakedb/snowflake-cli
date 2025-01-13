@@ -101,7 +101,7 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         """
         # 0 Create a directory for the entity
         if not output_dir:
-            output_dir = self.root / "output" / self.model.stage
+            output_dir = self.root / "output" / "bundle" / "snowpark"
         output_dir.mkdir(parents=True, exist_ok=True)  # type: ignore
 
         output_files = []
