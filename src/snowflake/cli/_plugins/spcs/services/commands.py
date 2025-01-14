@@ -44,6 +44,7 @@ from snowflake.cli.api.exceptions import (
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
+    CollectionResult,
     CommandResult,
     MessageResult,
     QueryJsonValueResult,
@@ -57,6 +58,38 @@ app = SnowTyperFactory(
     name="service",
     help="Manages Snowpark Container Services services.",
     short_help="Manages services.",
+)
+
+# Define common options
+container_name_option = typer.Option(
+    ...,
+    "--container-name",
+    help="Name of the container.",
+    show_default=False,
+)
+
+instance_id_option = typer.Option(
+    ...,
+    "--instance-id",
+    help="ID of the service instance, starting with 0.",
+    show_default=False,
+)
+
+since_option = typer.Option(
+    default="",
+    help="Fetch events that are newer than this time ago, in Snowflake interval syntax.",
+)
+
+until_option = typer.Option(
+    default="",
+    help="Fetch events that are older than this time ago, in Snowflake interval syntax.",
+)
+
+show_all_columns_option = typer.Option(
+    False,
+    "--all",
+    is_flag=True,
+    help="Fetch all columns.",
 )
 
 
@@ -213,18 +246,8 @@ def status(name: FQN = ServiceNameArgument, **options) -> CommandResult:
 @app.command(requires_connection=True)
 def logs(
     name: FQN = ServiceNameArgument,
-    container_name: str = typer.Option(
-        ...,
-        "--container-name",
-        help="Name of the container.",
-        show_default=False,
-    ),
-    instance_id: str = typer.Option(
-        ...,
-        "--instance-id",
-        help="ID of the service instance, starting with 0.",
-        show_default=False,
-    ),
+    container_name: str = container_name_option,
+    instance_id: str = instance_id_option,
     num_lines: int = typer.Option(
         DEFAULT_NUM_LINES, "--num-lines", help="Number of lines to retrieve."
     ),
@@ -295,6 +318,99 @@ def logs(
         )
 
     return StreamResult(cast(Generator[CommandResult, None, None], stream))
+
+
+@app.command(requires_connection=True)
+def events(
+    name: FQN = ServiceNameArgument,
+    container_name: str = container_name_option,
+    instance_id: str = instance_id_option,
+    since: str = since_option,
+    until: str = until_option,
+    first: int = typer.Option(
+        default=None,
+        show_default=False,
+        help="Fetch only the first N events. Cannot be used with --last.",
+    ),
+    last: int = typer.Option(
+        default=None,
+        show_default=False,
+        help="Fetch only the last N events. Cannot be used with --first.",
+    ),
+    show_all_columns: bool = show_all_columns_option,
+    **options,
+):
+    """
+    Retrieve platform events for a service container.
+    """
+    if FeatureFlag.ENABLE_SPCS_SERVICE_EVENTS.is_disabled():
+        raise FeatureNotEnabledError(
+            "ENABLE_SPCS_SERVICE_EVENTS",
+            "Service events collection from SPCS event table is disabled.",
+        )
+
+    if first is not None and last is not None:
+        raise IncompatibleParametersError(["--first", "--last"])
+
+    manager = ServiceManager()
+    events = manager.get_events(
+        service_name=name.identifier,
+        container_name=container_name,
+        instance_id=instance_id,
+        since=since,
+        until=until,
+        first=first,
+        last=last,
+        show_all_columns=show_all_columns,
+    )
+
+    if not events:
+        return MessageResult("No events found.")
+
+    return CollectionResult(events)
+
+
+@app.command(requires_connection=True)
+def metrics(
+    name: FQN = ServiceNameArgument,
+    container_name: str = container_name_option,
+    instance_id: str = instance_id_option,
+    since: str = since_option,
+    until: str = until_option,
+    show_all_columns: bool = show_all_columns_option,
+    **options,
+):
+    """
+    Retrieve platform metrics for a service container.
+    """
+    if FeatureFlag.ENABLE_SPCS_SERVICE_METRICS.is_disabled():
+        raise FeatureNotEnabledError(
+            "ENABLE_SPCS_SERVICE_METRICS",
+            "Service metrics collection from SPCS event table is disabled.",
+        )
+
+    manager = ServiceManager()
+    if since or until:
+        metrics = manager.get_all_metrics(
+            service_name=name.identifier,
+            container_name=container_name,
+            instance_id=instance_id,
+            since=since,
+            until=until,
+            show_all_columns=show_all_columns,
+        )
+    else:
+        metrics = manager.get_latest_metrics(
+            service_name=name.identifier,
+            container_name=container_name,
+            instance_id=instance_id,
+            show_all_columns=show_all_columns,
+        )
+
+    if not metrics:
+        return MessageResult("No metrics found.")
+
+    return CollectionResult(metrics)
 
 
 @app.command(requires_connection=True)

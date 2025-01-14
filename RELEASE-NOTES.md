@@ -44,6 +44,12 @@
 * Add publish command to make it easier to manage publishing versions to release channels and updating release directives: `snow app publish`.
 * Add support for restricting Snowflake user authentication policy to Snowflake CLI-only.
 * Added a new command: `snow helpers import-snowsql-connections` allowing to import configuration of connections from SnowSQL.
+* Add `snow spcs service events` command to retrieve service-specific events:
+  * Supports filtering by service name, container name, instance ID, time intervals (`--since`, `--until`), and pagination (`--first`, `--last`).
+  * Use `--all` to fetch all columns.
+* Add `snow spcs service metrics` command to fetch service metrics:
+  * Supports filtering by service name, container name, instance ID, and time intervals (`--since`, `--until`).
+  * Use `--all` to fetch all columns.
 
 ## Fixes and improvements
 * Fixed inability to add patches to lowercase quoted versions.
