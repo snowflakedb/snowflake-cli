@@ -267,13 +267,13 @@ def logs(
         "--follow",
         help="Stream logs in real-time.",
         is_flag=True,
-        hidden=FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled(),
+        hidden=True,
     ),
     follow_interval: int = typer.Option(
         2,
         "--follow-interval",
         help="Set custom polling intervals for log streaming (--follow flag) in seconds.",
-        hidden=FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled(),
+        hidden=True,
     ),
     **options,
 ):
