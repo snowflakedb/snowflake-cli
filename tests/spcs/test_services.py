@@ -16,6 +16,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from textwrap import dedent
 from unittest.mock import Mock, call, patch
 
@@ -55,6 +56,18 @@ SPEC_DICT = {
         "endpoints": [{"name": "cloudbeaver", "port": 80, "public": True}],
     }
 }
+
+
+@pytest.fixture()
+def enable_events_and_metrics_config():
+    with TemporaryDirectory() as tempdir:
+        config_toml = Path(tempdir) / "config.toml"
+        config_toml.write_text(
+            "[cli.features]\n"
+            "enable_spcs_service_events = true\n"
+            "enable_spcs_service_metrics = true\n"
+        )
+        yield config_toml
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
@@ -606,12 +619,11 @@ def test_stream_logs_with_include_timestamps_true(mock_sleep, mock_logs):
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
-@patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled"
-)
-def test_logs_incompatible_flags(mock_is_disabled, mock_execute_query, runner):
-    mock_is_disabled.return_value = False
-    result = runner.invoke(
+def test_logs_incompatible_flags(
+    mock_execute_query, runner, enable_events_and_metrics_config
+):
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
         [
             "spcs",
             "service",
@@ -624,7 +636,7 @@ def test_logs_incompatible_flags(mock_is_disabled, mock_execute_query, runner):
             "--follow",
             "--num-lines",
             "100",
-        ]
+        ],
     )
     assert (
         result.exit_code != 0
@@ -633,13 +645,7 @@ def test_logs_incompatible_flags(mock_is_disabled, mock_execute_query, runner):
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
-@patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled"
-)
-def test_logs_incompatible_flags_follow_previous_logs(
-    mock_is_disabled, mock_execute_query, runner
-):
-    mock_is_disabled.return_value = False
+def test_logs_incompatible_flags_follow_previous_logs(mock_execute_query, runner):
     result = runner.invoke(
         [
             "spcs",
@@ -664,48 +670,15 @@ def test_logs_incompatible_flags_follow_previous_logs(
     )
 
 
-@patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled"
-)
-def test_logs_streaming_disabled(mock_is_disabled, runner):
-    mock_is_disabled.return_value = True
-    result = runner.invoke(
-        [
-            "spcs",
-            "service",
-            "logs",
-            "test_service",
-            "--container-name",
-            "test_container",
-            "--instance-id",
-            "0",
-            "--follow",
-            "--num-lines",
-            "100",
-        ]
-    )
-    assert (
-        result.exit_code != 0
-    ), "Expected a non-zero exit code due to feature flag disabled"
-
-    expected_output = (
-        "+- Error ----------------------------------------------------------------------+\n"
-        "| Streaming logs from spcs containers is disabled. To enable it, add           |\n"
-        "| 'ENABLE_SPCS_LOG_STREAMING = true' to '[cli.features]' section of your       |\n"
-        "| configuration file.                                                          |\n"
-        "+------------------------------------------------------------------------------+\n"
-    )
-    assert (
-        result.output == expected_output
-    ), f"Expected formatted output not found: {result.output}"
+def test_logs_streaming_flag_is_hidden(runner):
+    result = runner.invoke(["spcs", "service", "logs", "--help"])
+    assert result.exit_code == 0
+    assert "--follow" not in result.output
 
 
-@patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_SERVICE_EVENTS.is_disabled"
-)
-def test_service_events_disabled(mock_is_disabled, runner):
-    mock_is_disabled.return_value = True
-    result = runner.invoke(
+def test_service_events_disabled(runner, empty_snowcli_config):
+    result = runner.invoke_with_config_file(
+        empty_snowcli_config,
         [
             "spcs",
             "service",
@@ -717,17 +690,17 @@ def test_service_events_disabled(mock_is_disabled, runner):
             "0",
             "--since",
             "1 minute",
-        ]
+        ],
     )
     assert (
         result.exit_code != 0
     ), "Expected a non-zero exit code due to feature flag being disabled"
 
     expected_output = (
+        "Usage: default spcs service [OPTIONS] COMMAND [ARGS]...\n"
+        "Try 'default spcs service --help' for help.\n"
         "+- Error ----------------------------------------------------------------------+\n"
-        "| Service events collection from SPCS event table is disabled. To enable it,   |\n"
-        "| add 'ENABLE_SPCS_SERVICE_EVENTS = true' to '[cli.features]' section of your  |\n"
-        "| configuration file.                                                          |\n"
+        "| No such command 'events'.                                                    |\n"
         "+------------------------------------------------------------------------------+\n"
     )
     assert (
@@ -735,12 +708,10 @@ def test_service_events_disabled(mock_is_disabled, runner):
     ), f"Expected formatted output not found: {result.output}"
 
 
-@patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_SERVICE_EVENTS.is_disabled"
-)
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
-def test_events_all_filters(mock_execute_query, mock_is_disabled, runner):
-    mock_is_disabled.return_value = False
+def test_events_all_filters(
+    mock_execute_query, runner, enable_events_and_metrics_config
+):
     mock_execute_query.side_effect = [
         [
             {
@@ -783,7 +754,8 @@ def test_events_all_filters(mock_execute_query, mock_is_disabled, runner):
         ),
     ]
 
-    result = runner.invoke(
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
         [
             "spcs",
             "service",
@@ -803,7 +775,7 @@ def test_events_all_filters(mock_execute_query, mock_is_disabled, runner):
             "XSMALL",
             "--role",
             "sysadmin",
-        ]
+        ],
     )
 
     assert result.exit_code == 0, f"Command failed with output: {result.output}"
@@ -839,12 +811,9 @@ def test_events_all_filters(mock_execute_query, mock_is_disabled, runner):
     ), f"Generated query does not match expected query.\n\nActual:\n{actual_query}\n\nExpected:\n{expected_query}"
 
 
-@patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_SERVICE_EVENTS.is_disabled"
-)
-def test_events_first_last_incompatibility(mock_is_disabled, runner):
-    mock_is_disabled.return_value = False
-    result = runner.invoke(
+def test_events_first_last_incompatibility(runner, enable_events_and_metrics_config):
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
         [
             "spcs",
             "service",
@@ -862,7 +831,7 @@ def test_events_first_last_incompatibility(mock_is_disabled, runner):
             "XSMALL",
             "--role",
             "sysadmin",
-        ]
+        ],
     )
 
     assert result.exit_code != 0, result.output
@@ -871,12 +840,9 @@ def test_events_first_last_incompatibility(mock_is_disabled, runner):
     assert expected_error in result.output
 
 
-@patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_SERVICE_METRICS.is_disabled"
-)
-def test_service_metrics_disabled(mock_is_disabled, runner):
-    mock_is_disabled.return_value = True
-    result = runner.invoke(
+def test_service_metrics_disabled(runner, empty_snowcli_config):
+    result = runner.invoke_with_config_file(
+        empty_snowcli_config,
         [
             "spcs",
             "service",
@@ -888,17 +854,17 @@ def test_service_metrics_disabled(mock_is_disabled, runner):
             "0",
             "--since",
             "1 minute",
-        ]
+        ],
     )
     assert (
         result.exit_code != 0
     ), "Expected a non-zero exit code due to feature flag being disabled"
 
     expected_output = (
+        "Usage: default spcs service [OPTIONS] COMMAND [ARGS]...\n"
+        "Try 'default spcs service --help' for help.\n"
         "+- Error ----------------------------------------------------------------------+\n"
-        "| Service metrics collection from SPCS event table is disabled. To enable it,  |\n"
-        "| add 'ENABLE_SPCS_SERVICE_METRICS = true' to '[cli.features]' section of your |\n"
-        "| configuration file.                                                          |\n"
+        "| No such command 'metrics'.                                                   |\n"
         "+------------------------------------------------------------------------------+\n"
     )
     assert (
@@ -906,13 +872,10 @@ def test_service_metrics_disabled(mock_is_disabled, runner):
     ), f"Expected formatted output not found: {result.output}"
 
 
-@patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_SERVICE_METRICS.is_disabled"
-)
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
-def test_latest_metrics(mock_execute_query, mock_is_disabled, runner, snapshot):
-
-    mock_is_disabled.return_value = False
+def test_latest_metrics(
+    mock_execute_query, runner, snapshot, enable_events_and_metrics_config
+):
     mock_execute_query.side_effect = [
         [
             {
@@ -951,7 +914,8 @@ def test_latest_metrics(mock_execute_query, mock_is_disabled, runner, snapshot):
         ),
     ]
 
-    result = runner.invoke(
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
         [
             "spcs",
             "service",
@@ -965,7 +929,7 @@ def test_latest_metrics(mock_execute_query, mock_is_disabled, runner, snapshot):
             "XSMALL",
             "--role",
             "sysadmin",
-        ]
+        ],
     )
 
     assert result.exit_code == 0, f"Command failed with output: {result.output}"
@@ -1009,12 +973,10 @@ def test_latest_metrics(mock_execute_query, mock_is_disabled, runner, snapshot):
     )
 
 
-@patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_SERVICE_METRICS.is_disabled"
-)
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
-def test_metrics_all_filters(mock_execute_query, mock_is_disabled, runner):
-    mock_is_disabled.return_value = False
+def test_metrics_all_filters(
+    mock_execute_query, runner, enable_events_and_metrics_config
+):
     mock_execute_query.side_effect = [
         [
             {
@@ -1053,7 +1015,8 @@ def test_metrics_all_filters(mock_execute_query, mock_is_disabled, runner):
         ),
     ]
 
-    result = runner.invoke(
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
         [
             "spcs",
             "service",
@@ -1071,7 +1034,7 @@ def test_metrics_all_filters(mock_execute_query, mock_is_disabled, runner):
             "XSMALL",
             "--role",
             "sysadmin",
-        ]
+        ],
     )
 
     assert result.exit_code == 0, f"Command failed with output: {result.output}"

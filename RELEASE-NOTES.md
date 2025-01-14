@@ -45,7 +45,6 @@
 ## Fixes and improvements
 * Fixed inability to add patches to lowercase quoted versions
 * Fixes label being set to blank instead of None when not provided.
-* Added a feature flag `ENABLE_SPCS_LOG_STREAMING` to control the rollout of the log streaming feature
 
 
 # v3.2.2
