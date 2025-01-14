@@ -242,9 +242,7 @@ def status(name: FQN = ServiceNameArgument, **options) -> CommandResult:
     return QueryJsonValueResult(cursor)
 
 
-@app.command(
-    requires_connection=True, hidden=FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled()
-)
+@app.command(requires_connection=True)
 def logs(
     name: FQN = ServiceNameArgument,
     container_name: str = container_name_option,
@@ -265,12 +263,17 @@ def logs(
         False, "--include-timestamps", help="Include timestamps in logs.", is_flag=True
     ),
     follow: bool = typer.Option(
-        False, "--follow", help="Stream logs in real-time.", is_flag=True
+        False,
+        "--follow",
+        help="Stream logs in real-time.",
+        is_flag=True,
+        hidden=FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled(),
     ),
     follow_interval: int = typer.Option(
         2,
         "--follow-interval",
         help="Set custom polling intervals for log streaming (--follow flag) in seconds.",
+        hidden=FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled(),
     ),
     **options,
 ):
