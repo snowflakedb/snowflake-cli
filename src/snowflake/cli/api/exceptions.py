@@ -229,13 +229,3 @@ class ShowSpecificObjectMultipleRowsError(RuntimeError):
         super().__init__(
             f"Received multiple rows from result of SQL statement: {show_obj_query}. Usage of 'show_specific_object' may not be properly scoped."
         )
-
-
-class FeatureNotEnabledError(ClickException):
-    def __init__(self, feature_name: str, custom_message: Optional[str] = None):
-        base_message = f"To enable it, add '{feature_name} = true' to '[cli.features]' section of your configuration file."
-        if custom_message:
-            message = f"{custom_message} {base_message}"
-        else:
-            message = base_message
-        super().__init__(message)
