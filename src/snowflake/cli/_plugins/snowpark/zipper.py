@@ -22,6 +22,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.secure_path import SecurePath
 
 log = logging.getLogger(__name__)
 
@@ -68,7 +69,7 @@ def zip_dir(
 ) -> None:
 
     if not dest_zip.parent.exists():
-        dest_zip.parent.mkdir(parents=True)
+        SecurePath(dest_zip).parent.mkdir(parents=True)
 
     if isinstance(source, Path):
         source = [source]
@@ -91,7 +92,7 @@ def zip_dir_using_bundle_map(
     mode: Literal["r", "w", "x", "a"] = "w",
 ) -> None:
     if not dest_zip.parent.exists():
-        dest_zip.parent.mkdir(parents=True)
+        SecurePath(dest_zip).parent.mkdir(parents=True)
 
     with ZipFile(dest_zip, mode, ZIP_DEFLATED, allowZip64=True) as package_zip:
         cli_console.step(f"Creating: {dest_zip}")

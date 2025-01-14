@@ -40,6 +40,8 @@ from snowflake.cli._plugins.snowpark.common import (
     SnowparkObject,
     SnowparkObjectManager,
     StageToArtefactMapping,
+    map_path_mapping_to_artifact,
+    zip_and_copy_artifacts_to_deploy,
 )
 from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
@@ -59,10 +61,8 @@ from snowflake.cli._plugins.snowpark.snowpark_shared import (
     IndexUrlOption,
     SkipVersionCheckOption,
 )
-from snowflake.cli._plugins.snowpark.zipper import zip_dir, zip_dir_using_bundle_map
+from snowflake.cli._plugins.snowpark.zipper import zip_dir
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli.api.artifacts.bundle_map import BundleMap
-from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.cli_global_context import (
     get_cli_context,
 )
@@ -94,7 +94,6 @@ from snowflake.cli.api.output.types import (
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
 )
-from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectDefinition,
     ProjectDefinitionV2,
@@ -381,37 +380,14 @@ def build(
 
     artifacts = set()
     with cli_console.phase("Preparing artifacts for source code"):
+        for entity in get_snowpark_entities(pd).values():
+            artifacts.update(
+                map_path_mapping_to_artifact(project_paths, entity.artifacts)
+            )
+
         if FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled():
-            for entity in get_snowpark_entities(pd).values():
-                for artifact in entity.artifacts:
-                    artifacts.add(project_paths.get_artefact_dto(artifact))
-
-            for artefact in artifacts:
-                bundle_map = BundleMap(
-                    project_root=artefact.project_root,
-                    deploy_root=project_paths.bundle_root,
-                )
-                bundle_map.add(PathMapping(src=str(artefact.path), dest=artefact.dest))
-
-                if artefact.path.is_file():
-                    for (absolute_src, absolute_dest) in bundle_map.all_mappings(
-                        absolute=True, expand_directories=False
-                    ):
-                        symlink_or_copy(
-                            absolute_src,
-                            absolute_dest,
-                            deploy_root=bundle_map.deploy_root(),
-                        )
-                else:
-                    zip_dir_using_bundle_map(
-                        bundle_map=bundle_map,
-                        dest_zip=artefact.post_build_path,
-                    )
+            zip_and_copy_artifacts_to_deploy(artifacts, project_paths.bundle_root)
         else:
-            for entity in get_snowpark_entities(pd).values():
-                for artifact in entity.artifacts:
-                    artifacts.add(project_paths.get_artefact_dto(artifact))
-
             for artefact in artifacts:
                 artefact.build()
 
