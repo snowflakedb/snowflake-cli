@@ -7820,6 +7820,111 @@
   
   '''
 # ---
+# name: test_help_messages[spcs.service.events]
+  '''
+                                                                                  
+   Usage: default spcs service events [OPTIONS] NAME                              
+                                                                                  
+   Retrieve platform events for a service container.                              
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    name      TEXT  Identifier of the service; for example: my_service      |
+  |                      [required]                                              |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | *  --container-name          TEXT     Name of the container.                 |
+  |                                       [required]                             |
+  | *  --instance-id             TEXT     ID of the service instance, starting   |
+  |                                       with 0.                                |
+  |                                       [required]                             |
+  |    --since                   TEXT     Fetch events that are newer than this  |
+  |                                       time ago, in Snowflake interval        |
+  |                                       syntax.                                |
+  |    --until                   TEXT     Fetch events that are older than this  |
+  |                                       time ago, in Snowflake interval        |
+  |                                       syntax.                                |
+  |    --first                   INTEGER  Fetch only the first N events. Cannot  |
+  |                                       be used with --last.                   |
+  |    --last                    INTEGER  Fetch only the last N events. Cannot   |
+  |                                       be used with --first.                  |
+  |    --all                              Fetch all columns.                     |
+  |    --help            -h               Show this message and exit.            |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses connection defined with |
+  |                                                 command line parameters,     |
+  |                                                 instead of one defined in    |
+  |                                                 config                       |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Run Python connector         |
+  |                                                 diagnostic test              |
+  | --diag-log-path                        TEXT     Diagnostic report path       |
+  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
+  |                                                 optional allowlist           |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[spcs.service.execute-job]
   '''
                                                                                   
@@ -8406,6 +8511,105 @@
   |                                           seconds.                           |
   |                                           [default: 2]                       |
   |    --help                -h               Show this message and exit.        |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses connection defined with |
+  |                                                 command line parameters,     |
+  |                                                 instead of one defined in    |
+  |                                                 config                       |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Run Python connector         |
+  |                                                 diagnostic test              |
+  | --diag-log-path                        TEXT     Diagnostic report path       |
+  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
+  |                                                 optional allowlist           |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[spcs.service.metrics]
+  '''
+                                                                                  
+   Usage: default spcs service metrics [OPTIONS] NAME                             
+                                                                                  
+   Retrieve platform metrics for a service container.                             
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    name      TEXT  Identifier of the service; for example: my_service      |
+  |                      [required]                                              |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | *  --container-name          TEXT  Name of the container.                    |
+  |                                    [required]                                |
+  | *  --instance-id             TEXT  ID of the service instance, starting with |
+  |                                    0.                                        |
+  |                                    [required]                                |
+  |    --since                   TEXT  Fetch events that are newer than this     |
+  |                                    time ago, in Snowflake interval syntax.   |
+  |    --until                   TEXT  Fetch events that are older than this     |
+  |                                    time ago, in Snowflake interval syntax.   |
+  |    --all                           Fetch all columns.                        |
+  |    --help            -h            Show this message and exit.               |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
@@ -9091,6 +9295,8 @@
   |                   schema.                                                    |
   | describe          Provides description of service.                           |
   | drop              Drops service with given name.                             |
+  | events            Retrieve platform events for a service                     |
+  |                   container.                                                 |
   | execute-job       Creates and executes a job service in the                  |
   |                   current schema.                                            |
   | list              Lists all available services.                              |
@@ -9099,6 +9305,8 @@
   | list-instances    Lists all service instances in a service.                  |
   | list-roles        Lists all service roles in a service.                      |
   | logs              Retrieves local logs from a service                        |
+  |                   container.                                                 |
+  | metrics           Retrieve platform metrics for a service                    |
   |                   container.                                                 |
   | resume            Resumes the service from a SUSPENDED state.                |
   | set               Sets one or more properties for the                        |
@@ -11196,6 +11404,8 @@
   |                   schema.                                                    |
   | describe          Provides description of service.                           |
   | drop              Drops service with given name.                             |
+  | events            Retrieve platform events for a service                     |
+  |                   container.                                                 |
   | execute-job       Creates and executes a job service in the                  |
   |                   current schema.                                            |
   | list              Lists all available services.                              |
@@ -11204,6 +11414,8 @@
   | list-instances    Lists all service instances in a service.                  |
   | list-roles        Lists all service roles in a service.                      |
   | logs              Retrieves local logs from a service                        |
+  |                   container.                                                 |
+  | metrics           Retrieve platform metrics for a service                    |
   |                   container.                                                 |
   | resume            Resumes the service from a SUSPENDED state.                |
   | set               Sets one or more properties for the                        |
