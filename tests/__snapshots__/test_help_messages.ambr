@@ -8400,11 +8400,6 @@
   |    --since                       TEXT     Start log retrieval from a         |
   |                                           specified UTC timestamp.           |
   |    --include-timestamps                   Include timestamps in logs.        |
-  |    --follow                               Stream logs in real-time.          |
-  |    --follow-interval             INTEGER  Set custom polling intervals for   |
-  |                                           log streaming (--follow flag) in   |
-  |                                           seconds.                           |
-  |                                           [default: 2]                       |
   |    --help                -h               Show this message and exit.        |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
