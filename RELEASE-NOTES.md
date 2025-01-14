@@ -19,6 +19,12 @@
 ## Deprecations
 
 ## New additions
+* Add `snow spcs service events` command to retrieve service-specific events:
+  * Supports filtering by service name, container name, instance ID, time intervals (`--since`, `--until`), and pagination (`--first`, `--last`).
+  * Use `--all` to fetch all columns.
+* Add `snow spcs service metrics` command to fetch service metrics:
+  * Supports filtering by service name, container name, instance ID, and time intervals (`--since`, `--until`).
+  * Use `--all` to fetch all columns.
 
 ## Fixes and improvements
 
@@ -48,7 +54,6 @@
 ## Fixes and improvements
 * Fixed inability to add patches to lowercase quoted versions.
 * Fixes label being set to blank instead of None when not provided.
-* Added a feature flag `ENABLE_SPCS_LOG_STREAMING` to control the rollout of the log streaming feature.
 
 
 # v3.2.2
