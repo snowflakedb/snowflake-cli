@@ -45,6 +45,7 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     UserScriptError,
     handle_unclassified_error,
 )
+from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.errno import (
@@ -288,7 +289,7 @@ class SnowflakeSQLFacade:
     def create_version_in_package(
         self,
         package_name: str,
-        stage_fqn: str,
+        path_to_version_directory: str,
         version: str,
         label: str | None = None,
         role: str | None = None,
@@ -296,7 +297,7 @@ class SnowflakeSQLFacade:
         """
         Creates a new version in an existing application package.
         @param package_name: Name of the application package to alter.
-        @param stage_fqn: Stage fully qualified name.
+        @param path_to_version_directory: Path to artifacts on the stage to create a version from.
         @param version: Version name to create.
         @param [Optional] role: Switch to this role while executing create version.
         @param [Optional] label: Label for this version, visible to consumers.
@@ -311,6 +312,9 @@ class SnowflakeSQLFacade:
         with_label_clause = (
             f"label={to_string_literal(label)}" if label is not None else ""
         )
+        using_clause = (
+            f"using {StageManager.quote_stage_name(path_to_version_directory)}"
+        )
 
         action = "register" if available_release_channels else "add"
 
@@ -319,7 +323,7 @@ class SnowflakeSQLFacade:
                 f"""\
                     alter application package {package_name}
                         {action} version {version}
-                        using @{stage_fqn}
+                        {using_clause}
                         {with_label_clause}
                 """
             )
@@ -388,7 +392,7 @@ class SnowflakeSQLFacade:
     def add_patch_to_package_version(
         self,
         package_name: str,
-        stage_fqn: str,
+        path_to_version_directory: str,
         version: str,
         patch: int | None = None,
         label: str | None = None,
@@ -397,7 +401,7 @@ class SnowflakeSQLFacade:
         """
         Add a new patch, optionally a custom one, to an existing version in an application package.
         @param package_name: Name of the application package to alter.
-        @param stage_fqn: Stage fully qualified name.
+        @param path_to_version_directory: Path to artifacts on the stage to create a version from.
         @param version: Version name to create.
         @param [Optional] patch: Patch number to create.
         @param [Optional] label: Label for this patch, visible to consumers.
@@ -415,13 +419,13 @@ class SnowflakeSQLFacade:
         )
 
         patch_query = f" {patch}" if patch is not None else ""
-
+        using_clause = StageManager.quote_stage_name(path_to_version_directory)
         # No space between patch and patch{patch_query} to avoid extra space when patch is None
         add_patch_query = dedent(
             f"""\
                  alter application package {package_name}
                      add patch{patch_query} for version {version}
-                     using @{stage_fqn}{with_label_clause}
+                     using {using_clause}{with_label_clause}
              """
         )
         with self._use_role_optional(role):
@@ -712,7 +716,7 @@ class SnowflakeSQLFacade:
         self,
         name: str,
         install_method: SameAccountInstallMethod,
-        stage_fqn: str,
+        path_to_version_directory: str,
         role: str,
         warehouse: str,
         debug_mode: bool | None,
@@ -724,7 +728,7 @@ class SnowflakeSQLFacade:
 
         @param name: Name of the application object
         @param install_method: Method of installing the application
-        @param stage_fqn: FQN of the stage housing the application artifacts
+        @param path_to_version_directory: Path to directory in stage housing the application artifacts
         @param role: Role to use when creating the application and provider-side objects
         @param warehouse: Warehouse which is required to create an application object
         @param debug_mode: Whether to enable debug mode; None means not explicitly enabled or disabled
@@ -749,7 +753,7 @@ class SnowflakeSQLFacade:
 
         with self._use_role_optional(role), self._use_warehouse_optional(warehouse):
             try:
-                using_clause = install_method.using_clause(stage_fqn)
+                using_clause = install_method.using_clause(path_to_version_directory)
                 if release_channel:
                     current_release_channel = get_app_properties().get(
                         CHANNEL_COL, DEFAULT_CHANNEL
@@ -827,7 +831,7 @@ class SnowflakeSQLFacade:
         name: str,
         package_name: str,
         install_method: SameAccountInstallMethod,
-        stage_fqn: str,
+        path_to_version_directory: str,
         role: str,
         warehouse: str,
         debug_mode: bool | None,
@@ -841,7 +845,7 @@ class SnowflakeSQLFacade:
         @param name: Name of the application object
         @param package_name: Name of the application package to install the application from
         @param install_method: Method of installing the application
-        @param stage_fqn: FQN of the stage housing the application artifacts
+        @param path_to_version_directory: Path to directory in stage housing the application artifacts
         @param role: Role to use when creating the application and provider-side objects
         @param warehouse: Warehouse which is required to create an application object
         @param debug_mode: Whether to enable debug mode; None means not explicitly enabled or disabled
@@ -867,7 +871,7 @@ class SnowflakeSQLFacade:
             )
             authorize_telemetry_clause = f"AUTHORIZE_TELEMETRY_EVENT_SHARING = {str(should_authorize_event_sharing).upper()}"
 
-        using_clause = install_method.using_clause(stage_fqn)
+        using_clause = install_method.using_clause(path_to_version_directory)
         release_channel_clause = (
             f"using release channel {release_channel}" if release_channel else ""
         )

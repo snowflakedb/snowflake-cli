@@ -44,11 +44,6 @@ from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     force_project_definition_v2,
 )
 from snowflake.cli._plugins.nativeapp.version.commands import app as versions_app
-from snowflake.cli._plugins.stage.diff import (
-    DiffResult,
-    compute_stage_diff,
-)
-from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
@@ -67,6 +62,7 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
     StreamResult,
 )
+from snowflake.cli.api.project.util import same_identifiers
 from typing_extensions import Annotated
 
 app = SnowTyperFactory(
@@ -118,20 +114,15 @@ def app_diff(
         project_root=cli_context.project_root,
     )
     package_id = options["package_entity_id"]
-    package = cli_context.project_definition.entities[package_id]
-    bundle_map = ws.perform_action(
+    diff = ws.perform_action(
         package_id,
-        EntityActions.BUNDLE,
-    )
-    stage_fqn = f"{package.fqn.name}.{package.stage}"
-    diff: DiffResult = compute_stage_diff(
-        local_root=Path(package.deploy_root), stage_fqn=stage_fqn
+        EntityActions.DIFF,
+        print_to_console=cli_context.output_format != OutputFormat.JSON,
     )
     if cli_context.output_format == OutputFormat.JSON:
         return ObjectResult(diff.to_dict())
-    else:
-        print_diff_to_console(diff, bundle_map)
-        return None  # don't print any output
+
+    return None
 
 
 @app.command("run", requires_connection=True)
@@ -263,11 +254,22 @@ def app_teardown(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
+
+    # TODO: get all apps created from this application package from snowflake, compare, confirm and drop.
+    # TODO: add messaging/confirmation here for extra apps found as part of above
+    all_packages_with_id = [
+        package_entity.entity_id
+        for package_entity in project.get_entities_by_type(
+            ApplicationPackageEntityModel.get_type()
+        ).values()
+        if same_identifiers(package_entity.fqn.name, app_package_entity.fqn.name)
+    ]
+
     for app_entity in project.get_entities_by_type(
         ApplicationEntityModel.get_type()
     ).values():
         # Drop each app
-        if app_entity.from_.target == app_package_entity.entity_id:
+        if app_entity.from_.target in all_packages_with_id:
             ws.perform_action(
                 app_entity.entity_id,
                 EntityActions.DROP,

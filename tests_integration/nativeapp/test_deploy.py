@@ -17,12 +17,13 @@ from shlex import split
 
 from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 from tests.nativeapp.utils import touch
-
+from tests_integration.testing_utils.project_fixtures import setup_v2_project_w_subdir
 from tests.project.fixtures import *
 from tests_integration.test_utils import (
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
+    row_from_cursor,
 )
 from tests_integration.testing_utils import (
     assert_that_result_failed_with_message_containing,
@@ -102,6 +103,68 @@ def test_nativeapp_deploy(
 
         # re-deploying should be a no-op; make sure we don't issue any PUT commands
         result = runner.invoke_with_connection([*split(command), "--debug"])
+        assert result.exit_code == 0
+        assert "Successfully uploaded chunk 0 of file" not in result.output
+
+
+@pytest.mark.integration
+def test_nativeapp_deploy_w_stage_subdir(
+    nativeapp_teardown,
+    runner,
+    snowflake_session,
+    default_username,
+    resource_suffix,
+    sanitize_deploy_output,
+    snapshot,
+    print_paths_as_posix,
+    setup_v2_project_w_subdir,
+):
+    (
+        project_name,
+        _,
+    ) = setup_v2_project_w_subdir()  # make this a fixture, don't pass temp_dir
+    with nativeapp_teardown():
+        result = runner.invoke_with_connection(
+            split("app deploy --package-entity-id=pkg_v1")
+        )
+        assert result.exit_code == 0
+        assert "Validating Snowflake Native App setup script." in result.output
+        assert sanitize_deploy_output(result.output) == snapshot
+
+        # package exist
+        package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+        app_name = f"{project_name}_app_v1_{default_username}{resource_suffix}".upper()
+
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show application packages like '{package_name}'",
+                )
+            ),
+            dict(name=package_name),
+        )
+
+        # manifest file exists
+        stage_name = "app_src.stage/v1"
+        stage_files = runner.invoke_with_connection_json(
+            ["stage", "list-files", f"{package_name}.{stage_name}"]
+        )
+        assert contains_row_with(stage_files.json, {"name": "stage/v1/manifest.yml"})
+
+        # app does not exist
+        assert not_contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show applications like '{app_name}'",
+                )
+            ),
+            dict(name=app_name),
+        )
+
+        # re-deploying should be a no-op; make sure we don't issue any PUT commands
+        result = runner.invoke_with_connection(
+            [*split("app deploy --package-entity-id=pkg_v1"), "--debug"]
+        )
         assert result.exit_code == 0
         assert "Successfully uploaded chunk 0 of file" not in result.output
 
@@ -189,6 +252,70 @@ def test_nativeapp_deploy_prune(
             assert not_contains_row_with(stage_files.json, {"name": name})
 
 
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "command,contains,not_contains",
+    [
+        # deploy --prune removes remote-only files
+        [
+            "app deploy --package-entity-id=pkg_v1 --prune --no-validate",
+            ["stage/v1/manifest.yml"],
+            ["stage/v1/README.md"],
+        ],
+        # deploy removes remote-only files (--prune is the default value)
+        [
+            "app deploy --package-entity-id=pkg_v1 --no-validate",
+            ["stage/v1/manifest.yml"],
+            ["stage/v1/README.md"],
+        ],
+        # deploy --no-prune does not delete remote-only files
+        [
+            "app deploy --package-entity-id=pkg_v1 --no-prune",
+            ["stage/v1/README.md"],
+            [],
+        ],
+    ],
+)
+def test_nativeapp_deploy_prune_w_stage_subdir(
+    command,
+    contains,
+    not_contains,
+    nativeapp_teardown,
+    runner,
+    snapshot,
+    print_paths_as_posix,
+    default_username,
+    resource_suffix,
+    sanitize_deploy_output,
+    setup_v2_project_w_subdir,
+):
+    project_name, _ = setup_v2_project_w_subdir()
+    with nativeapp_teardown():
+        result = runner.invoke_with_connection_json(
+            ["app", "deploy", "--package-entity-id=pkg_v1"]
+        )
+        assert result.exit_code == 0
+
+        # delete a file locally
+        os.remove(os.path.join("app", "v1", "README.md"))
+
+        # deploy
+        result = runner.invoke_with_connection(split(command))
+        assert result.exit_code == 0
+        assert sanitize_deploy_output(result.output) == snapshot
+
+        # verify the file does not exist on the stage
+        package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+        stage_name = "app_src.stage/v1"  # as defined in native-apps-templates/basic
+        stage_files = runner.invoke_with_connection_json(
+            ["stage", "list-files", f"{package_name}.{stage_name}"]
+        )
+        for name in contains:
+            assert contains_row_with(stage_files.json, {"name": name})
+        for name in not_contains:
+            assert not_contains_row_with(stage_files.json, {"name": name})
+
+
 # Tests a simple flow of executing "snow app deploy [files]", verifying that only the specified files are synced to the stage
 @pytest.mark.integration
 @pytest.mark.parametrize(
@@ -230,6 +357,44 @@ def test_nativeapp_deploy_files(
         assert contains_row_with(stage_files.json, {"name": "stage/manifest.yml"})
         assert contains_row_with(stage_files.json, {"name": "stage/setup_script.sql"})
         assert not_contains_row_with(stage_files.json, {"name": "stage/README.md"})
+
+
+@pytest.mark.integration
+def test_nativeapp_deploy_files_w_stage_subdir(
+    nativeapp_teardown,
+    runner,
+    snapshot,
+    print_paths_as_posix,
+    default_username,
+    resource_suffix,
+    sanitize_deploy_output,
+    setup_v2_project_w_subdir,
+):
+    project_name, _ = setup_v2_project_w_subdir()
+    with nativeapp_teardown():
+        # sync only two specific files to stage
+        touch("app/v2/file.txt")
+        result = runner.invoke_with_connection(
+            [
+                *split("app deploy --package-entity-id=pkg_v2"),
+                "app/v2/manifest.yml",
+                "app/v2/setup.sql",
+                "app/v2/README.md",
+            ]
+        )
+        assert result.exit_code == 0
+        assert sanitize_deploy_output(result.output) == snapshot
+
+        # manifest and script files exist, readme doesn't exist
+        package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+        stage_name = "app_src.stage/v2"  # as defined in native-apps-templates/basic
+        stage_files = runner.invoke_with_connection_json(
+            ["stage", "list-files", f"{package_name}.{stage_name}"]
+        )
+        assert contains_row_with(stage_files.json, {"name": "stage/v2/manifest.yml"})
+        assert contains_row_with(stage_files.json, {"name": "stage/v2/setup.sql"})
+        assert contains_row_with(stage_files.json, {"name": "stage/v2/README.md"})
+        assert not_contains_row_with(stage_files.json, {"name": "stage/v2/file.txt"})
 
 
 # Tests that files inside of a symlinked directory are deployed

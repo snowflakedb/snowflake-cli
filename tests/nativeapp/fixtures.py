@@ -38,14 +38,18 @@ def mock_bundle_map():
 
 
 @pytest.fixture()
-def application_package_entity(workspace_context) -> ApplicationPackageEntity:
-    data = ApplicationPackageEntityModelFactory(identifier=factory.Faker("word"))
+def application_package_entity(workspace_context, request) -> ApplicationPackageEntity:
+    pkg_params = getattr(request, "param", {})
+    data = ApplicationPackageEntityModelFactory(
+        identifier=factory.Faker("word"), **pkg_params
+    )
     model = ApplicationPackageEntityModel(**data)
     return ApplicationPackageEntity(model, workspace_context)
 
 
 @pytest.fixture()
-def application_entity(workspace_context):
-    data = ApplicationEntityModelFactory(identifier=factory.Faker("word"))
+def application_entity(workspace_context, request):
+    app_params = getattr(request, "param", {})
+    data = ApplicationEntityModelFactory(identifier=factory.Faker("word"), **app_params)
     model = ApplicationEntityModel(**data)
     return ApplicationEntity(model, workspace_context)

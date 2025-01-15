@@ -167,7 +167,7 @@ def test_add_version(
     mock_create_version.assert_called_once_with(
         package_name="app_pkg",
         version=version,
-        stage_fqn=f"app_pkg.{pkg_model.stage}",
+        path_to_version_directory=f"app_pkg.{pkg_model.stage}",
         role="package_role",
         label=None,
     )
@@ -703,7 +703,7 @@ def test_manifest_version_info_not_used(
     mock_create_version.assert_called_with(
         role=role,
         package_name="app_pkg",
-        stage_fqn=f"app_pkg.{stage}",
+        path_to_version_directory=f"app_pkg.{stage}",
         version=version_cli,
         label=None,
     )
@@ -771,7 +771,7 @@ def test_manifest_patch_is_not_used(
     mock_create_patch.assert_called_with(
         role=role,
         package_name="app_pkg",
-        stage_fqn=f"app_pkg.{stage}",
+        path_to_version_directory=f"app_pkg.{stage}",
         version=version_cli,
         patch=patch,
         # ensure empty label is used to replace label from manifest.yml
@@ -849,7 +849,7 @@ def test_version_from_manifest(
     mock_create_patch.assert_called_with(
         role=role,
         package_name="app_pkg",
-        stage_fqn=f"app_pkg.{stage}",
+        path_to_version_directory=f"app_pkg.{stage}",
         version="manifest_version",
         patch=manifest_patch,
         label=expected_label,
@@ -926,7 +926,7 @@ def test_patch_from_manifest(
     mock_create_patch.assert_called_with(
         role=role,
         package_name="app_pkg",
-        stage_fqn=f"app_pkg.{stage}",
+        path_to_version_directory=f"app_pkg.{stage}",
         version="manifest_version",
         # cli patch overrides the manifest
         patch=cli_patch,
@@ -987,7 +987,7 @@ def test_action_version_create_from_stage(
     mock_create_version.assert_called_once_with(
         package_name=pkg_model.fqn.name,
         version=version,
-        stage_fqn=application_package_entity.stage_fqn,
+        path_to_version_directory=application_package_entity.stage_path.full_path,
         role=pkg_model.meta.role,
         label=None,
     )

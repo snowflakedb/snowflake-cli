@@ -192,7 +192,8 @@ def stage_diff(
     Diffs a stage with a local folder.
     """
     diff: DiffResult = compute_stage_diff(
-        local_root=Path(folder_name), stage_fqn=stage_name
+        local_root=Path(folder_name),
+        stage_path=StageManager.stage_path_parts_from_str(stage_name),  # noqa: SLF001
     )
     if get_cli_context().output_format == OutputFormat.JSON:
         return ObjectResult(diff.to_dict())

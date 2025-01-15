@@ -17,6 +17,7 @@ class EntityActions(str, Enum):
     DROP = "action_drop"
     VALIDATE = "action_validate"
     EVENTS = "action_events"
+    DIFF = "action_diff"
 
     VERSION_LIST = "action_version_list"
     VERSION_CREATE = "action_version_create"

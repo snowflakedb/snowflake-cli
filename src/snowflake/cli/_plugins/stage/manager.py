@@ -41,7 +41,7 @@ from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import PYTHON_3_12
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.util import extract_schema, to_string_literal
+from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
@@ -65,6 +65,7 @@ EXECUTE_SUPPORTED_FILES_FORMATS = (
 
 # Replace magic numbers with constants
 OMIT_FIRST = slice(1, None)
+STAGE_PATH_REGEX = rf"(?P<prefix>@)?(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?P<name>{VALID_IDENTIFIER_REGEX})/?(?P<directory>([^/]*/?)*)?"
 
 
 @dataclass
@@ -132,14 +133,26 @@ class DefaultStagePathParts(StagePathParts):
     """
 
     def __init__(self, stage_path: str):
-        self.directory = self.get_directory(stage_path)
-        self.stage = StageManager.get_stage_from_path(stage_path)
-        stage_name = self.stage.split(".")[-1]
+        match = re.fullmatch(STAGE_PATH_REGEX, stage_path)
+        if match is None:
+            raise ClickException("Invalid stage path")
+        self.directory = match.group("directory")
+        self._schema = match.group("second_qualifier") or match.group("first_qualifier")
+        self.stage = stage_path.removesuffix(self.directory).rstrip("/")
+
+        stage_name = FQN.from_stage(self.stage).name
         stage_name = (
             stage_name[OMIT_FIRST] if stage_name.startswith("@") else stage_name
         )
         self.stage_name = stage_name
         self.is_directory = True if stage_path.endswith("/") else False
+
+    @classmethod
+    def from_fqn(
+        cls, stage_fqn: str, subdir: str | None = None
+    ) -> DefaultStagePathParts:
+        full_path = f"{stage_fqn}/{subdir}" if subdir else stage_fqn
+        return cls(full_path)
 
     @property
     def path(self) -> str:
@@ -151,7 +164,7 @@ class DefaultStagePathParts(StagePathParts):
 
     @property
     def schema(self) -> str | None:
-        return extract_schema(self.stage)
+        return self._schema
 
     def replace_stage_prefix(self, file_path: str) -> str:
         stage = Path(self.stage).parts[0]
@@ -524,7 +537,7 @@ class StageManager(SqlExecutionMixin):
                 stage_path_parts.get_standard_stage_path()
             )
         else:
-            stage_path_parts = self._stage_path_part_factory(stage_path_str)
+            stage_path_parts = self.stage_path_parts_from_str(stage_path_str)
             stage_path = self.build_path(stage_path_str)
 
         all_files_list = self._get_files_list_from_stage(stage_path.root_path())
@@ -592,12 +605,12 @@ class StageManager(SqlExecutionMixin):
         sm = StageManager()
 
         # Rewrite stage paths to temporary stage paths. Git paths become stage paths
-        original_path_parts = self._stage_path_part_factory(stage_path)  # noqa: SLF001
+        original_path_parts = self.stage_path_parts_from_str(stage_path)  # noqa: SLF001
 
         tmp_stage_name = f"snowflake_cli_tmp_stage_{int(time.time())}"
         tmp_stage_fqn = FQN.from_stage(tmp_stage_name).using_connection(conn=self._conn)
         tmp_stage = tmp_stage_fqn.identifier
-        stage_path_parts = sm._stage_path_part_factory(  # noqa: SLF001
+        stage_path_parts = sm.stage_path_parts_from_str(  # noqa: SLF001
             tmp_stage + "/" + original_path_parts.directory
         )
 
@@ -701,7 +714,8 @@ class StageManager(SqlExecutionMixin):
             return StageManager._error_result(file=original_file, msg=e.msg)
 
     @staticmethod
-    def _stage_path_part_factory(stage_path: str) -> StagePathParts:
+    def stage_path_parts_from_str(stage_path: str) -> StagePathParts:
+        """Create StagePathParts object from stage path string."""
         stage_path = StageManager.get_standard_stage_prefix(stage_path)
         if stage_path.startswith(USER_STAGE_PREFIX):
             return UserStagePathParts(stage_path)
