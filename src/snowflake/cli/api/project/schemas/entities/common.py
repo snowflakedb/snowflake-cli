@@ -212,7 +212,7 @@ class PathMapping(UpdatableModel):
 Artifacts = List[Union[PathMapping, str]]
 
 
-class ArtifactsBaseModel(EntityModelBase):
+class EntityModelBaseWithArtifacts(EntityModelBase):
     artifacts: Artifacts = Field(
         title="List of paths or file source/destination pairs to add to the deploy root",
     )

@@ -328,7 +328,7 @@ def build(
 
     anaconda_packages_manager = AnacondaPackagesManager()
 
-    # Clean up deploy root
+    # Clean up bundle root
     project_paths.remove_up_bundle_root()
 
     # Resolve dependencies

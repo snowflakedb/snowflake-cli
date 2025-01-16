@@ -76,7 +76,7 @@ class StreamlitManager(SqlExecutionMixin):
         for artifact in artifacts:
             bundle_map.add(PathMapping(src=str(artifact.src), dest=artifact.dest))
 
-        # Clean up deploy root
+        # Clean up bundle root
         streamlit_project_paths.remove_up_bundle_root()
 
         for (absolute_src, absolute_dest) in bundle_map.all_mappings(

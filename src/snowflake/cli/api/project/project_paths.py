@@ -6,6 +6,11 @@ from snowflake.cli.api.secure_path import SecurePath
 
 @dataclass
 class ProjectPaths:
+    """
+    This class allows you to manage files paths related to given project.
+    Class provides bundle root path and allows to remove it.
+    """
+
     project_root: Path
 
     @property

@@ -89,7 +89,7 @@ from snowflake.cli.api.entities.utils import (
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.entities.common import (
-    ArtifactsBaseModel,
+    EntityModelBaseWithArtifacts,
     Identifier,
     PostDeployHook,
 )
@@ -151,7 +151,7 @@ class ApplicationPackageChildField(UpdatableModel):
     )
 
 
-class ApplicationPackageEntityModel(ArtifactsBaseModel):
+class ApplicationPackageEntityModel(EntityModelBaseWithArtifacts):
     type: Literal["application package"] = DiscriminatorField()  # noqa: A003
     bundle_root: Optional[str] = Field(
         title="Folder at the root of your project where artifacts necessary to perform the bundle step are stored",

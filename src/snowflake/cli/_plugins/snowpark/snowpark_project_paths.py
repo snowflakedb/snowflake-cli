@@ -108,6 +108,11 @@ class Artefact:
 
     @property
     def _artefact_name(self) -> str:
+        """
+        Returns artefact name. Directories are mapped to corresponding .zip files.
+        For paths with glob patterns, the last part of the path is used.
+        For files, the file name is used.
+        """
         if glob.has_magic(str(self.path)):
             last_part = None
             for part in self.path.parts:
