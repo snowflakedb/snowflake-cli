@@ -12,15 +12,15 @@
         - snowpark_shared
       identifier:
         name: hello_procedure
+      artifacts:
+      - src: <% ctx.env.project_source %>
+        dest: <! project_name | to_snowflake_identifier !>
       handler: procedures.hello_procedure
       returns: string
       signature:
       - name: name
         type: string
       stage: <! stage | to_snowflake_identifier !>
-      artifacts:
-      - src: <% ctx.env.project_source %>
-        dest: <! project_name | to_snowflake_identifier !>
       type: procedure
       execute_as_caller: false
     test_procedure:
@@ -32,13 +32,13 @@
         - snowpark_shared
       identifier:
         name: test_procedure
+      artifacts:
+      - src: <% ctx.env.project_source %>
+        dest: <! project_name | to_snowflake_identifier !>
       handler: procedures.test_procedure
       returns: string
       signature: ''
       stage: <! stage | to_snowflake_identifier !>
-      artifacts:
-      - src: <% ctx.env.project_source %>
-        dest: <! project_name | to_snowflake_identifier !>
       type: procedure
       execute_as_caller: false
     hello_function:
@@ -50,15 +50,15 @@
         - snowpark_shared
       identifier:
         name: hello_function
+      artifacts:
+      - src: <% ctx.env.project_source %>
+        dest: <! project_name | to_snowflake_identifier !>
       handler: functions.hello_function
       returns: string
       signature:
       - name: name
         type: string
       stage: <! stage | to_snowflake_identifier !>
-      artifacts:
-      - src: <% ctx.env.project_source %>
-        dest: <! project_name | to_snowflake_identifier !>
       type: function
   env:
     project_source: app/
@@ -108,17 +108,17 @@
     streamlit_entity_1:
       identifier:
         name: <! name | to_snowflake_identifier !>
+      artifacts:
+      - src: streamlit_app.py
+      - src: environment.yml
+      - src: pages
+      - src: common/hello.py
       type: streamlit
       title: <% ctx.env.streamlit_title %>
       query_warehouse: <! query_warehouse | to_snowflake_identifier !>
       main_file: streamlit_app.py
       pages_dir: pages
       stage: <! stage | to_snowflake_identifier !>
-      artifacts:
-      - src: streamlit_app.py
-      - src: environment.yml
-      - src: pages
-      - src: common/hello.py
   env:
     streamlit_title: My Fancy Streamlit
   
@@ -181,15 +181,15 @@
         - snowpark_shared
       identifier:
         name: procedureName
+      artifacts:
+      - src: app/
+        dest: my_snowpark_project
       handler: hello
       returns: string
       signature:
       - name: name
         type: string
       stage: dev_deployment
-      artifacts:
-      - src: app/
-        dest: my_snowpark_project
       type: procedure
       execute_as_caller: false
     func1:
@@ -201,6 +201,9 @@
         - snowpark_shared
       identifier:
         name: func1
+      artifacts:
+      - src: app/
+        dest: my_snowpark_project
       handler: app.func1_handler
       returns: string
       signature:
@@ -211,23 +214,20 @@
         type: variant
       runtime: '3.1'
       stage: dev_deployment
-      artifacts:
-      - src: app/
-        dest: my_snowpark_project
       type: function
     test_streamlit:
       identifier:
         name: test_streamlit
+      artifacts:
+      - src: streamlit_app.py
+      - src: environment.yml
+      - src: pages
       type: streamlit
       title: My Fancy Streamlit
       query_warehouse: test_warehouse
       main_file: streamlit_app.py
       pages_dir: None
       stage: streamlit
-      artifacts:
-      - src: streamlit_app.py
-      - src: environment.yml
-      - src: pages
     pkg:
       meta:
         role: pkg_role
@@ -381,15 +381,15 @@
         - snowpark_shared
       identifier:
         name: procedureName
+      artifacts:
+      - src: app/
+        dest: my_snowpark_project
       handler: hello
       returns: string
       signature:
       - name: name
         type: string
       stage: dev_deployment
-      artifacts:
-      - src: app/
-        dest: my_snowpark_project
       type: procedure
       execute_as_caller: false
     func1:
@@ -401,6 +401,9 @@
         - snowpark_shared
       identifier:
         name: func1
+      artifacts:
+      - src: app/
+        dest: my_snowpark_project
       handler: app.func1_handler
       returns: string
       signature:
@@ -411,23 +414,20 @@
         type: variant
       runtime: '3.10'
       stage: dev_deployment
-      artifacts:
-      - src: app/
-        dest: my_snowpark_project
       type: function
     test_streamlit:
       identifier:
         name: test_streamlit
+      artifacts:
+      - src: streamlit_app.py
+      - src: environment.yml
+      - src: pages
       type: streamlit
       title: My Fancy Streamlit
       query_warehouse: test_warehouse
       main_file: streamlit_app.py
       pages_dir: None
       stage: streamlit
-      artifacts:
-      - src: streamlit_app.py
-      - src: environment.yml
-      - src: pages
     pkg:
       meta:
         role: pkg_role

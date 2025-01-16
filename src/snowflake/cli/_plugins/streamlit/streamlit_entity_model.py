@@ -15,20 +15,21 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field
 from snowflake.cli.api.project.schemas.entities.common import (
     Artifacts,
-    EntityModelBase,
+    EntityModelBaseWithArtifacts,
     ExternalAccessBaseModel,
     ImportsBaseModel,
-    PathMapping,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
 )
 
 
-class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBaseModel):
+class StreamlitEntityModel(
+    EntityModelBaseWithArtifacts, ExternalAccessBaseModel, ImportsBaseModel
+):
     type: Literal["streamlit"] = DiscriminatorField()  # noqa: A003
     title: Optional[str] = Field(
         title="Human-readable title for the Streamlit dashboard", default=None
@@ -44,20 +45,8 @@ class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBase
     stage: Optional[str] = Field(
         title="Stage in which the app’s artifacts will be stored", default="streamlit"
     )
+    # Artifacts were optional, so to avoid BCR, we need to make them optional here as well
     artifacts: Optional[Artifacts] = Field(
-        title="List of files which should be deployed. Each file needs to exist locally. "
-        "Main file needs to be included in the artifacts.",
+        title="List of paths or file source/destination pairs to add to the deploy root",
         default=None,
     )
-
-    @field_validator("artifacts")
-    @classmethod
-    def _convert_artifacts(cls, artifacts: Artifacts) -> Artifacts:
-        _artifacts = []
-        for artifact in artifacts:
-            if isinstance(artifact, PathMapping):
-                path_mapping = artifact
-            else:
-                path_mapping = PathMapping(src=artifact)
-            _artifacts.append(path_mapping)
-        return _artifacts
