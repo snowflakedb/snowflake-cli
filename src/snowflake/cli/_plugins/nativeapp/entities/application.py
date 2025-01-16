@@ -60,12 +60,12 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.entities.common import (
     EntityBase,
     attach_spans_to_entity_actions,
-    get_sql_executor,
 )
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
     execute_post_deploy_hooks,
     generic_sql_error_handler,
+    get_sql_executor,
     print_messages,
 )
 from snowflake.cli.api.errno import (

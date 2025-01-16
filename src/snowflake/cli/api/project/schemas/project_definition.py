@@ -262,6 +262,20 @@ class DefinitionV20(_ProjectDefinitionBase):
         data = cls._merge_data(data, entity)
         return data
 
+    @model_validator(mode="after")
+    def validate_dependencies(self):
+        """
+        Checks if entities listed in depends_on section exist in the project
+        """
+
+        for entity_id, entity in self.entities.items():
+            if entity.meta:
+                for dependency in entity.meta.depends_on:
+                    if dependency.entity_id not in self.entities:
+                        raise ValueError(
+                            f"Entity {entity_id} depends on non-existing entity {dependency.entity_id}"
+                        )
+
     @classmethod
     def _merge_data(
         cls,

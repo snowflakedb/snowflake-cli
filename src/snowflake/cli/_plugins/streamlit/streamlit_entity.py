@@ -1,4 +1,3 @@
-import functools
 from pathlib import Path
 from typing import Optional
 
@@ -9,7 +8,7 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
 from snowflake.cli._plugins.workspace.context import ActionContext
-from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
+from snowflake.cli.api.entities.common import EntityBase
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -32,18 +31,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
     def artifacts(self):
         return self._entity_model.artifacts
 
-    @functools.cached_property
-    def _sql_executor(self):
-        return get_sql_executor()
-
-    @functools.cached_property
-    def _conn(self):
-        return self._sql_executor._conn  # noqa
-
-    @property
-    def model(self):
-        return self._entity_model  # noqa
-
     def action_bundle(self, action_ctx: ActionContext, *args, **kwargs):
         return self.bundle()
 
@@ -51,15 +38,15 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         # After adding bundle map- we should use it's mapping here
         # To copy artifacts to destination on stage.
 
-        return self._sql_executor.execute_query(self.get_deploy_sql())
+        return self.deploy()
 
     def action_drop(self, action_ctx: ActionContext, *args, **kwargs):
-        return self._sql_executor.execute_query(self.get_drop_sql())
+        return self._execute_query(self.get_drop_sql())
 
     def action_execute(
         self, action_ctx: ActionContext, *args, **kwargs
     ) -> SnowflakeCursor:
-        return self._sql_executor.execute_query(self.get_execute_sql())
+        return self._execute_query(self.get_execute_sql())
 
     def action_get_url(
         self, action_ctx: ActionContext, *args, **kwargs
@@ -94,10 +81,13 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         return output_files
 
+    def deploy(self, *args, **kwargs):
+        return self._execute_query(self.get_deploy_sql())
+
     def action_share(
         self, action_ctx: ActionContext, to_role: str, *args, **kwargs
     ) -> SnowflakeCursor:
-        return self._sql_executor.execute_query(self.get_share_sql(to_role))
+        return self._execute_query(self.get_share_sql(to_role))
 
     def get_deploy_sql(
         self,

@@ -61,10 +61,14 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         )
 
     def action_deploy(
-        self, action_ctx: ActionContext, mode: CreateMode, *args, **kwargs
+        self,
+        action_ctx: ActionContext,
+        mode: CreateMode = CreateMode.create,
+        *args,
+        **kwargs,
     ):
         # TODO: After introducing bundle map, we should introduce file copying part here
-        return self._execute_query(self.get_deploy_sql(mode))
+        return self.deploy(mode, *args, **kwargs)
 
     def action_drop(self, action_ctx: ActionContext, *args, **kwargs):
         return self._execute_query(self.get_drop_sql())
@@ -142,6 +146,9 @@ class SnowparkEntity(EntityBase[Generic[T]]):
             return True
         except ProgrammingError:
             return False
+
+    def deploy(self, mode: CreateMode = CreateMode.create, *args, **kwargs):
+        return self._execute_query(self.get_deploy_sql(mode))
 
     def get_deploy_sql(self, mode: CreateMode):
         query = [

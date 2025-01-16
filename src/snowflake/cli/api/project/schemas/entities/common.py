@@ -44,6 +44,20 @@ class SqlScriptHookType(UpdatableModel):
 PostDeployHook = SqlScriptHookType
 
 
+class Dependency(UpdatableModel):
+    entity_id: str = Field(title="Id of the entity", alias="id")
+    arguments: Optional[str] = Field(
+        title="Arguments that will be passed to entity build and deploy actions",
+        default="",
+    )
+
+    def __eq__(self, other):
+        return self.entity_id == other.entity_id
+
+    def __hash__(self):
+        return hash(self.entity_id)
+
+
 class MetaField(UpdatableModel):
     warehouse: Optional[str] = IdentifierField(
         title="Warehouse used to run the scripts", default=None
@@ -59,6 +73,10 @@ class MetaField(UpdatableModel):
     use_mixins: Optional[List[str]] = Field(
         title="Name of the mixin used to fill the entity fields",
         default=None,
+    )
+
+    depends_on: Optional[List[Dependency]] = Field(
+        title="Entities that need to be deployed before this one", default=[]
     )
 
     @field_validator("use_mixins", mode="before")

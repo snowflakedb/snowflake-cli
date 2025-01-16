@@ -71,12 +71,12 @@ from snowflake.cli.api.cli_global_context import span
 from snowflake.cli.api.entities.common import (
     EntityBase,
     attach_spans_to_entity_actions,
-    get_sql_executor,
 )
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
     execute_post_deploy_hooks,
     generic_sql_error_handler,
+    get_sql_executor,
     sync_deploy_root_with_stage,
     validation_item_to_str,
 )

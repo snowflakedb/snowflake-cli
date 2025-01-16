@@ -1,4 +1,6 @@
 import os
+from dataclasses import dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Any, List, NoReturn, Optional
 
@@ -25,7 +27,6 @@ from snowflake.cli._plugins.stage.diff import (
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.console.abc import AbstractConsole
-from snowflake.cli.api.entities.common import get_sql_executor
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
@@ -41,6 +42,7 @@ from snowflake.cli.api.rendering.sql_templates import (
     choose_sql_jinja_env_based_on_template_syntax,
 )
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
+from snowflake.cli.api.sql_execution import SqlExecutor
 from snowflake.connector import ProgrammingError
 
 
@@ -336,3 +338,57 @@ def print_messages(console: AbstractConsole, cursor_results: list[tuple[str]]):
     for message in messages:
         console.warning(message)
     console.message("")
+
+
+@dataclass(frozen=True)
+class EntityAction:
+    action_name: str
+    method_name: str
+
+    def __str__(self):
+        return self.action_name
+
+
+class EntityActions(Enum):
+    BUNDLE = EntityAction("action_bundle", "bundle")
+    DEPLOY = EntityAction("action_deploy", "deploy")
+    DROP = EntityAction("action_drop", "drop")
+    VALIDATE = EntityAction("action_validate", "validate")
+    EVENTS = EntityAction("action_events", "events")
+
+    VERSION_LIST = EntityAction("action_version_list", "versions_list")
+    VERSION_CREATE = EntityAction("action_version_create", "version_create")
+    VERSION_DROP = EntityAction("action_version_drop", "version_drop")
+
+    RELEASE_DIRECTIVE_UNSET = EntityAction(
+        "action_release_directive_unset", "release_directive_unset"
+    )
+    RELEASE_DIRECTIVE_SET = EntityAction(
+        "action_release_directive_set", "release_directive_set"
+    )
+    RELEASE_DIRECTIVE_LIST = EntityAction(
+        "action_release_directive_list", "release_directive_list"
+    )
+
+    RELEASE_CHANNEL_LIST = EntityAction(
+        "action_release_channel_list", "release_channel_list"
+    )
+    RELEASE_CHANNEL_ADD_ACCOUNTS = EntityAction(
+        "action_release_channel_add_accounts", "release_channel_add_accounts"
+    )
+    RELEASE_CHANNEL_REMOVE_ACCOUNTS = EntityAction(
+        "action_release_channel_remove_accounts", "release_channel_remove_accounts"
+    )
+    RELEASE_CHANNEL_ADD_VERSION = EntityAction(
+        "action_release_channel_add_version", "release_channel_add_version"
+    )
+    RELEASE_CHANNEL_REMOVE_VERSION = EntityAction(
+        "action_release_channel_remove_version", "release_channel_remove_version"
+    )
+
+    PUBLISH = EntityAction("action_publish", "publish")
+
+
+def get_sql_executor() -> SqlExecutor:
+    """Returns an SQL Executor that uses the connection from the current CLI context"""
+    return SqlExecutor()
