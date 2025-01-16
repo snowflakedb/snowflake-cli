@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
+from pathlib import PurePosixPath
 from textwrap import dedent
 
 from snowflake.cli._plugins.connection.util import make_snowsight_url
@@ -36,11 +36,11 @@ class NotebookManager(SqlExecutionMixin):
         )
 
     @staticmethod
-    def parse_stage_as_path(notebook_file: str) -> Path:
+    def parse_stage_as_path(notebook_file: str) -> PurePosixPath:
         """Parses notebook file path to pathlib.Path."""
         if not notebook_file.endswith(".ipynb"):
             raise NotebookStagePathError(notebook_file)
-        stage_path = Path(notebook_file)
+        stage_path = PurePosixPath(notebook_file)
         if len(stage_path.parts) < 2:
             raise NotebookStagePathError(notebook_file)
 
