@@ -65,3 +65,30 @@ def test_create(mock_create, runner):
         notebook_name=FQN.from_string("my_notebook"),
         notebook_file=notebook_file,
     )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.notebook.manager.make_snowsight_url")
+def test_create_from_git_repository(
+    mock_make_snowsight_url, mock_connector, mock_ctx, runner
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    mock_make_snowsight_url.return_value = "mocked_snowsight.url"
+    notebook_name = "my_notebook"
+    notebook_file = "@git_repo_stage/branch/main/notebook.ipynb"
+    result = runner.invoke(
+        ["notebook", "create", notebook_name, "--notebook-file", notebook_file]
+    )
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "\n"
+        "CREATE OR REPLACE NOTEBOOK "
+        "IDENTIFIER('MockDatabase.MockSchema.my_notebook')\n"
+        "FROM '@git_repo_stage/branch/main'\n"
+        "QUERY_WAREHOUSE = 'MockWarehouse'\n"
+        "MAIN_FILE = 'notebook.ipynb';\n"
+        "// Cannot use IDENTIFIER(...)\n"
+        "ALTER NOTEBOOK MockDatabase.MockSchema.my_notebook ADD LIVE VERSION FROM "
+        "LAST;\n"
+    )
