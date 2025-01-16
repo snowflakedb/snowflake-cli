@@ -22,10 +22,10 @@ src/snowflake/cli/api/project/schemas/entities/ @snowflakedb/snowcli @snowflaked
 tests/workspace/ @snowflakedb/snowcli @snowflakedb/nade
 tests_integration/workspaces/ @snowflakedb/snowcli @snowflakedb/nade
 
-# Native Apps Owners
-**/nativeapp/ @snowflakedb/nade
-**/native_app/ @snowflakedb/nade
-tests_e2e/test_nativeapp.py @snowflakedb/nade
+# Native Apps Specific files (transfer to snowcli team in progress)
+**/nativeapp/ @snowflakedb/nade @snowflakedb/snowcli
+**/native_app/ @snowflakedb/nade @snowflakedb/snowcli
+tests_e2e/test_nativeapp.py @snowflakedb/nade @snowflakedb/snowcli
 
 # Project Definition Owners
 tests/project/ @snowflakedb/snowcli @snowflakedb/nade
