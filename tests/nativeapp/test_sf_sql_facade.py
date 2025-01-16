@@ -63,6 +63,7 @@ from snowflake.cli.api.errno import (
     RELEASE_DIRECTIVE_DOES_NOT_EXIST,
     RELEASE_DIRECTIVES_VERSION_PATCH_NOT_FOUND,
     SQL_COMPILATION_ERROR,
+    TARGET_ACCOUNT_USED_BY_OTHER_RELEASE_DIRECTIVE,
     VERSION_DOES_NOT_EXIST,
     VERSION_NOT_ADDED_TO_RELEASE_CHANNEL,
     VERSION_NOT_IN_RELEASE_CHANNEL,
@@ -1847,6 +1848,7 @@ def test_upgrade_application_unversioned(
     mock_get_existing_app_info,
     mock_use_warehouse,
     mock_use_role,
+    mock_get_app_properties,
     mock_execute_query,
     mock_cursor,
 ):
@@ -1985,6 +1987,7 @@ def test_upgrade_application_converts_expected_programmingerrors_to_user_errors(
     mock_get_existing_app_info,
     mock_use_warehouse,
     mock_use_role,
+    mock_get_app_properties,
     mock_execute_query,
 ):
     app_name = "test_app"
@@ -2101,6 +2104,7 @@ def test_upgrade_application_converts_unexpected_programmingerrors_to_unclassifi
     mock_get_existing_app_info,
     mock_use_warehouse,
     mock_use_role,
+    mock_get_app_properties,
     mock_execute_query,
 ):
     app_name = "test_app"
@@ -2159,7 +2163,7 @@ def test_upgrade_application_with_release_channel_same_as_app_properties(
     mock_get_app_properties.return_value = {
         COMMENT_COL: SPECIAL_COMMENT,
         AUTHORIZE_TELEMETRY_COL: "true",
-        CHANNEL_COL: release_channel,
+        CHANNEL_COL: release_channel.upper(),
     }
 
     side_effects, expected = mock_execute_helper(
@@ -3342,6 +3346,11 @@ def test_set_default_release_directive_no_release_channel(
             ProgrammingError(errno=RELEASE_DIRECTIVE_DOES_NOT_EXIST),
             UserInputError,
             "Release directive test_directive does not exist in application package test_package.",
+        ),
+        (
+            ProgrammingError(errno=TARGET_ACCOUNT_USED_BY_OTHER_RELEASE_DIRECTIVE),
+            UserInputError,
+            "Some target accounts are already referenced by other release directives in application package test_package.",
         ),
         (
             ProgrammingError(),

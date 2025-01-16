@@ -1749,12 +1749,12 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 if not self.get_existing_version_info(to_identifier(resolved_version)):
                     raise BadOptionUsage(
                         option_name="patch",
-                        message=f"Cannot create patch {resolved_patch} when version {resolved_version} is not defined in the application package {self.name}. Try again without specifying a patch.",
+                        message=f"Version {resolved_version} is not defined in the application package {self.name}. Try again with a patch of 0 or without specifying any patch.",
                     )
             except ApplicationPackageDoesNotExistError as app_err:
                 raise BadOptionUsage(
                     option_name="patch",
-                    message=f"Cannot create patch {resolved_patch} when application package {self.name} does not exist. Try again without specifying a patch.",
+                    message=f"Application package {self.name} does not exist yet. Try again with a patch of 0 or without specifying any patch.",
                 )
 
         return VersionInfo(

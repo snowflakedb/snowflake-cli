@@ -80,7 +80,7 @@ def release_channel_add_accounts(
         show_default=False,
         help="The release channel to add accounts to.",
     ),
-    target_accounts: list[str] = typer.Option(
+    target_accounts: str = typer.Option(
         show_default=False,
         help="The accounts to add to the release channel. Format has to be `org1.account1,org2.account2`.",
     ),
@@ -100,7 +100,7 @@ def release_channel_add_accounts(
         package_id,
         EntityActions.RELEASE_CHANNEL_ADD_ACCOUNTS,
         release_channel=channel,
-        target_accounts=target_accounts,
+        target_accounts=target_accounts.split(","),
     )
 
     return MessageResult("Successfully added accounts to the release channel.")
@@ -114,7 +114,7 @@ def release_channel_remove_accounts(
         show_default=False,
         help="The release channel to remove accounts from.",
     ),
-    target_accounts: list[str] = typer.Option(
+    target_accounts: str = typer.Option(
         show_default=False,
         help="The accounts to remove from the release channel. Format has to be `org1.account1,org2.account2`.",
     ),
@@ -134,7 +134,7 @@ def release_channel_remove_accounts(
         package_id,
         EntityActions.RELEASE_CHANNEL_REMOVE_ACCOUNTS,
         release_channel=channel,
-        target_accounts=target_accounts,
+        target_accounts=target_accounts.split(","),
     )
 
     return MessageResult("Successfully removed accounts from the release channel.")
