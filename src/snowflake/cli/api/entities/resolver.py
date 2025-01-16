@@ -90,7 +90,7 @@ class DependencyResolver:
          * Cycle detection in dependency
          * Clearing duplicate
 
-        In the first stage, if cycle is detected, it raises CycleDetectedError with node causing it speciefied.
+        In the first stage, if cycle is detected, it raises CycleDetectedError with node causing it specified.
         The result list, shows entities this one depends on, in order they should be called.
         Duplicates are removed in a way, that preserves earliest possible call.
         Last item is removed from the result list, as it is this entity itself.
@@ -127,7 +127,7 @@ class DependencyResolver:
 
 def clear_duplicates_from_list(input_list: list[Any]) -> list[Any]:
     """
-    Removes duplicates from the input list, preserving the first occurence.
+    Removes duplicates from the input list, preserving the first occurrence.
     """
     seen = set()
     return [x for x in input_list if not (x in seen or seen.add(x))]  # type: ignore

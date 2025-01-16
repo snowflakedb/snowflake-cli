@@ -360,6 +360,7 @@ class EntityActions(Enum):
     DROP = EntityAction("action_drop", "drop")
     VALIDATE = EntityAction("action_validate", "validate")
     EVENTS = EntityAction("action_events", "events")
+    DIFF = EntityAction("action_diff", "diff")
 
     VERSION_LIST = EntityAction("action_version_list", "versions_list")
     VERSION_CREATE = EntityAction("action_version_create", "version_create")

@@ -42,7 +42,7 @@
 * Add `snow spcs service metrics` command to fetch service metrics:
   * Supports filtering by service name, container name, instance ID, and time intervals (`--since`, `--until`).
   * Use `--all` to fetch all columns.
-* Added `depends_on` field for entities in `snowflake.yml` that allows to specify order of calling the entites
+* Added `depends_on` field for entities in `snowflake.yml` that allows to specify order of calling the entities
 
 ## Fixes and improvements
 * Fixed inability to add patches to lowercase quoted versions
