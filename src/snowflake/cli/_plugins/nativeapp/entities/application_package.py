@@ -4,6 +4,7 @@ import json
 import os
 import re
 from datetime import datetime
+from functools import cached_property
 from pathlib import Path
 from textwrap import dedent
 from typing import Any, List, Literal, Optional, Set, Union
@@ -61,8 +62,13 @@ from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     FunctionEntityModel,
     ProcedureEntityModel,
 )
-from snowflake.cli._plugins.stage.diff import DiffResult
-from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli._plugins.stage.diff import DiffResult, compute_stage_diff
+from snowflake.cli._plugins.stage.manager import (
+    DefaultStagePathParts,
+    StageManager,
+    StagePathParts,
+)
+from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
@@ -98,7 +104,6 @@ from snowflake.cli.api.project.util import (
     SCHEMA_AND_NAME,
     VALID_IDENTIFIER_REGEX,
     append_test_resource_suffix,
-    extract_schema,
     identifier_to_show_like_pattern,
     same_identifiers,
     sql_match,
@@ -184,6 +189,11 @@ class ApplicationPackageEntityModel(EntityModelBase):
         title="Path to manifest.yml. Unused and deprecated starting with Snowflake CLI 3.2",
         default="",
     )
+
+    stage_subdirectory: Optional[str] = Field(
+        title="Subfolder in stage to upload the artifacts to, instead of the root of the application package's stage",
+        default="",
+    )
     children: Optional[List[ApplicationPackageChildField]] = Field(
         title="Entities that will be bundled and deployed as part of this application package",
         default=[],
@@ -250,7 +260,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
     @property
     def deploy_root(self) -> Path:
-        return self.project_root / self._entity_model.deploy_root
+        return (
+            self.project_root
+            / self._entity_model.deploy_root
+            / self._entity_model.stage_subdirectory
+        )
 
     @property
     def children_artifacts_deploy_root(self) -> Path:
@@ -281,12 +295,16 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         ) or to_identifier(self._workspace_ctx.default_warehouse)
 
     @property
-    def stage_fqn(self) -> str:
-        return f"{self.name}.{self._entity_model.stage}"
+    def scratch_stage_path(self) -> DefaultStagePathParts:
+        return DefaultStagePathParts.from_fqn(
+            f"{self.name}.{self._entity_model.scratch_stage}"
+        )
 
-    @property
-    def scratch_stage_fqn(self) -> str:
-        return f"{self.name}.{self._entity_model.scratch_stage}"
+    @cached_property
+    def stage_path(self) -> DefaultStagePathParts:
+        stage_fqn = f"{self.name}.{self._entity_model.stage}"
+        subdir = self._entity_model.stage_subdirectory
+        return DefaultStagePathParts.from_fqn(stage_fqn, subdir)
 
     @property
     def post_deploy_hooks(self) -> list[PostDeployHook] | None:
@@ -295,6 +313,23 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
     def action_bundle(self, action_ctx: ActionContext, *args, **kwargs):
         return self._bundle(action_ctx)
+
+    def action_diff(
+        self, action_ctx: ActionContext, print_to_console: bool, *args, **kwargs
+    ):
+        """
+        Compute the diff between the local artifacts and the remote ones on the stage.
+        """
+        bundle_map = self._bundle()
+        diff = compute_stage_diff(
+            local_root=self.deploy_root,
+            stage_path=self.stage_path,
+        )
+
+        if print_to_console:
+            print_diff_to_console(diff, bundle_map)
+
+        return diff
 
     def action_deploy(
         self,
@@ -305,7 +340,6 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         validate: bool,
         interactive: bool,
         force: bool,
-        stage_fqn: Optional[str] = None,
         *args,
         **kwargs,
     ):
@@ -317,7 +351,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             paths=paths,
             print_diff=True,
             validate=validate,
-            stage_fqn=stage_fqn or self.stage_fqn,
+            stage_path=self.stage_path,
             interactive=interactive,
             force=force,
         )
@@ -477,7 +511,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 paths=[],
                 print_diff=True,
                 validate=True,
-                stage_fqn=self.stage_fqn,
+                stage_path=self.stage_path,
                 interactive=interactive,
                 force=force,
             )
@@ -1202,7 +1236,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         paths: list[Path],
         print_diff: bool,
         validate: bool,
-        stage_fqn: str,
+        stage_path: StagePathParts,
         interactive: bool,
         force: bool,
         run_post_deploy_hooks: bool = True,
@@ -1217,7 +1251,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             policy = DenyAlwaysPolicy()
 
         console = workspace_ctx.console
-        stage_fqn = stage_fqn or self.stage_fqn
+        stage_path = stage_path or self.stage_path
 
         # 1. Create a bundle if one wasn't passed in
         bundle_map = bundle_map or self._bundle(action_ctx)
@@ -1232,17 +1266,15 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         with get_sql_executor().use_role(self.role):
             # 3. Upload files from deploy root local folder to the above stage
-            stage_schema = extract_schema(stage_fqn)
             diff = sync_deploy_root_with_stage(
                 console=console,
                 deploy_root=self.deploy_root,
                 package_name=self.name,
-                stage_schema=stage_schema,
                 bundle_map=bundle_map,
                 role=self.role,
                 prune=prune,
                 recursive=recursive,
-                stage_fqn=stage_fqn,
+                stage_path=stage_path,
                 local_paths_to_sync=paths,
                 print_diff=print_diff,
             )
@@ -1321,7 +1353,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         get_snowflake_facade().create_version_in_package(
             role=self.role,
             package_name=self.name,
-            stage_fqn=self.stage_fqn,
+            path_to_version_directory=self.stage_path.full_path,
             version=version,
             label=label,
         )
@@ -1346,7 +1378,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         new_patch = get_snowflake_facade().add_patch_to_package_version(
             role=self.role,
             package_name=self.name,
-            stage_fqn=self.stage_fqn,
+            path_to_version_directory=self.stage_path.full_path,
             version=version,
             patch=patch,
             label=label,
@@ -1583,9 +1615,9 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         force: bool,
     ):
         """Call system$validate_native_app_setup() to validate deployed Native App setup script."""
-        stage_fqn = self.stage_fqn
+        stage_path = self.stage_path
         if use_scratch_stage:
-            stage_fqn = self.scratch_stage_fqn
+            stage_path = self.scratch_stage_path
             self._deploy(
                 action_ctx=action_ctx,
                 bundle_map=None,
@@ -1594,12 +1626,15 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 paths=[],
                 print_diff=False,
                 validate=False,
-                stage_fqn=self.scratch_stage_fqn,
+                stage_path=stage_path,
                 interactive=interactive,
                 force=force,
                 run_post_deploy_hooks=False,
             )
-        prefixed_stage_fqn = StageManager.get_standard_stage_prefix(stage_fqn)
+        prefixed_stage_fqn = StageManager.get_standard_stage_prefix(
+            stage_path.full_path
+        )
+
         sql_executor = get_sql_executor()
         try:
             cursor = sql_executor.execute_query(
@@ -1616,11 +1651,11 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         finally:
             if use_scratch_stage:
                 self._workspace_ctx.console.step(
-                    f"Dropping stage {self.scratch_stage_fqn}."
+                    f"Dropping stage {self.scratch_stage_path.stage}."
                 )
                 with sql_executor.use_role(self.role):
                     sql_executor.execute_query(
-                        f"drop stage if exists {self.scratch_stage_fqn}"
+                        f"drop stage if exists {self.scratch_stage_path.stage}"
                     )
 
     def resolve_version_info(

@@ -116,7 +116,7 @@ class GitManager(StageManager):
         return f"{'/'.join(path_parts[ONLY_STAGE])}/"
 
     @staticmethod
-    def _stage_path_part_factory(stage_path: str) -> StagePathParts:
+    def stage_path_parts_from_str(stage_path: str) -> StagePathParts:
         stage_path = StageManager.get_standard_stage_prefix(stage_path)
         if stage_path.startswith(USER_STAGE_PREFIX):
             return UserStagePathParts(stage_path)

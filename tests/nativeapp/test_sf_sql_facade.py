@@ -1875,7 +1875,7 @@ def test_upgrade_application_unversioned(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=None,
             should_authorize_event_sharing=None,
             role=role,
@@ -1926,7 +1926,7 @@ def test_upgrade_application_version_and_patch(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.versioned_dev("3", 2),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -1973,7 +1973,7 @@ def test_upgrade_application_from_release_directive(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -2019,7 +2019,7 @@ def test_upgrade_application_converts_expected_programmingerrors_to_user_errors(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -2084,7 +2084,7 @@ def test_upgrade_application_special_message_for_event_sharing_error(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.versioned_dev("v1"),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=False,
             should_authorize_event_sharing=False,
             role=role,
@@ -2133,7 +2133,7 @@ def test_upgrade_application_converts_unexpected_programmingerrors_to_unclassifi
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -2182,7 +2182,7 @@ def test_upgrade_application_with_release_channel_same_as_app_properties(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -2214,7 +2214,7 @@ def test_upgrade_application_with_release_channel_not_same_as_app_properties_the
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -2269,7 +2269,7 @@ def test_create_application_with_minimal_clauses(
             name=app_name,
             package_name=pkg_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=None,
             should_authorize_event_sharing=None,
             role=role,
@@ -2321,7 +2321,7 @@ def test_create_application_with_all_clauses(
             name=app_name,
             package_name=pkg_name,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -2374,7 +2374,7 @@ def test_create_application_converts_expected_programmingerrors_to_user_errors(
             name=app_name,
             package_name=pkg_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=None,
             should_authorize_event_sharing=None,
             role=role,
@@ -2436,7 +2436,7 @@ def test_create_application_special_message_for_event_sharing_error(
             name=app_name,
             package_name=pkg_name,
             install_method=SameAccountInstallMethod.versioned_dev("3", 1),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=False,
             should_authorize_event_sharing=False,
             role=role,
@@ -2494,7 +2494,7 @@ def test_create_application_converts_unexpected_programmingerrors_to_unclassifie
             name=app_name,
             package_name=pkg_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=None,
             should_authorize_event_sharing=None,
             role=role,
@@ -2547,7 +2547,7 @@ def test_create_application_with_release_channel(
             name=app_name,
             package_name=pkg_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=None,
             should_authorize_event_sharing=None,
             role=role,
@@ -3504,7 +3504,7 @@ def test_create_version_in_package(
                 package_name=package_name,
                 version=version,
                 role=role,
-                stage_fqn=stage_fqn,
+                path_to_version_directory=stage_fqn,
             )
 
 
@@ -3544,7 +3544,7 @@ def test_create_version_in_package_with_label(
                 package_name=package_name,
                 version=version,
                 role=role,
-                stage_fqn=stage_fqn,
+                path_to_version_directory=stage_fqn,
                 label=label,
             )
 
@@ -3583,7 +3583,7 @@ def test_create_version_with_special_characters(
                 package_name=package_name,
                 version=version,
                 role=role,
-                stage_fqn=stage_fqn,
+                path_to_version_directory=stage_fqn,
             )
 
 
@@ -3640,7 +3640,7 @@ def test_create_version_in_package_with_error(
                 package_name=package_name,
                 version=version,
                 role=role,
-                stage_fqn=stage_fqn,
+                path_to_version_directory=stage_fqn,
             )
         assert error_message in str(err)
 
@@ -3775,7 +3775,10 @@ def test_add_patch_to_package_version_valid_input_then_success(
 
     mock_execute_query.side_effect = [mock_cursor([{"patch": 1}], [])]
     result = sql_facade.add_patch_to_package_version(
-        package_name=package_name, stage_fqn=stage_fqn, version=version, patch=patch
+        package_name=package_name,
+        path_to_version_directory=stage_fqn,
+        version=version,
+        patch=patch,
     )
 
     assert result == patch
@@ -3801,7 +3804,10 @@ def test_add_patch_to_package_version_valid_input_then_success_patch_0(
 
     mock_execute_query.side_effect = [mock_cursor([{"patch": 0}], [])]
     result = sql_facade.add_patch_to_package_version(
-        package_name=package_name, stage_fqn=stage_fqn, version=version, patch=patch
+        package_name=package_name,
+        path_to_version_directory=stage_fqn,
+        version=version,
+        patch=patch,
     )
 
     assert result == patch
@@ -3825,7 +3831,10 @@ def test_add_patch_to_package_version_valid_input_then_success_no_patch_in_input
 
     mock_execute_query.side_effect = [mock_cursor([{"patch": 5}], [])]
     result = sql_facade.add_patch_to_package_version(
-        package_name=package_name, stage_fqn=stage_fqn, version=version, patch=None
+        package_name=package_name,
+        path_to_version_directory=stage_fqn,
+        version=version,
+        patch=None,
     )
 
     assert result == 5
@@ -3864,7 +3873,10 @@ def test_add_patch_to_package_version_with_error(
 
     with pytest.raises(error_caught) as err:
         sql_facade.add_patch_to_package_version(
-            package_name=package_name, stage_fqn=stage_fqn, version=version, patch=patch
+            package_name=package_name,
+            path_to_version_directory=stage_fqn,
+            version=version,
+            patch=patch,
         )
     assert error_message in str(err)
 

@@ -23,6 +23,10 @@ from tests.project.fixtures import *
 from tests_integration.testing_utils import (
     assert_that_result_failed_with_message_containing,
 )
+from tests_integration.testing_utils.project_fixtures import (
+    setup_v2_project_w_subdir_w_snowpark,
+    setup_v2_project_w_subdir,
+)
 
 
 @pytest.fixture
@@ -50,7 +54,9 @@ def template_setup_all(runner, nativeapp_project_directory, request):
     )
 
 
-def _template_setup(runner, nativeapp_project_directory, command, test_project):
+def _template_setup(
+    runner, nativeapp_project_directory, command, test_project, deploy_root_subdir=None
+):
     """
     Sets up a project directory and runs the bundle command on the application package.
     Returns (project_root, execute_bundle_command, test_project)
@@ -69,7 +75,7 @@ def _template_setup(runner, nativeapp_project_directory, command, test_project):
 
         # The newly created deploy_root is explicitly deleted here, as bundle should take care of it.
 
-        deploy_root = Path(project_root, "output", "deploy")
+        deploy_root = Path(project_root, "output", "deploy", deploy_root_subdir or "")
         assert Path(deploy_root, "manifest.yml").is_file()
         assert Path(deploy_root, "setup_script.sql").is_file()
         assert Path(deploy_root, "README.md").is_file()
@@ -318,3 +324,50 @@ def test_nativeapp_bundle_deletes_existing_deploy_root(template_setup):
     result = execute_bundle_command()
     assert result.exit_code == 0
     assert not existing_deploy_root_dest.exists()
+
+
+@pytest.mark.integration
+def test_nativeapp_can_bundle_with_subdirs(
+    runner, nativeapp_teardown, setup_v2_project_w_subdir
+):
+    command = "app bundle --package-entity-id=pkg_v1"
+    subdir = "v1"
+    project_name, project_root = setup_v2_project_w_subdir()
+    with nativeapp_teardown():
+        result = runner.invoke_json(split(command))
+        assert result.exit_code == 0
+
+        deploy_root = Path(project_root, "output", "deploy", subdir)
+        assert Path(deploy_root, "manifest.yml").is_file()
+        assert Path(deploy_root, "setup.sql").is_file()
+        assert Path(deploy_root, "README.md").is_file()
+
+
+@pytest.mark.integration
+def test_nativeapp_bundle_subdirs_dont_overwrite(
+    runner, nativeapp_teardown, setup_v2_project_w_subdir_w_snowpark
+):
+    project_name, project_root = setup_v2_project_w_subdir_w_snowpark()
+
+    with nativeapp_teardown():
+        result_1 = runner.invoke_json(split("app bundle --package-entity-id=pkg_v1"))
+        assert result_1.exit_code == 0
+
+        result_2 = runner.invoke_json(split("app bundle --package-entity-id=pkg_v2"))
+        assert result_2.exit_code == 0
+
+        for subdir in ["v1", "v2"]:
+            deploy_root = Path(project_root, "output", "deploy", subdir)
+            assert Path(deploy_root, "manifest.yml").is_file()
+            assert Path(deploy_root, "setup.sql").is_file()
+            assert Path(deploy_root, "README.md").is_file()
+            assert Path(deploy_root, f"module-echo-{subdir}").is_dir()
+            assert Path(
+                deploy_root, f"module-echo-{subdir}", f"echo-{subdir}.py"
+            ).is_file()
+            # With snowpark annotation processor
+            assert Path(deploy_root, "__generated").is_dir()
+            assert Path(
+                deploy_root,
+                f"__generated/snowpark/module-echo-{subdir}/echo-{subdir}.sql",
+            ).is_file()
