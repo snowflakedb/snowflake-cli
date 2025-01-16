@@ -96,3 +96,17 @@ def test_create_query(
         "// Cannot use IDENTIFIER(...)\n"
         f"ALTER NOTEBOOK MockDatabase.MockSchema.{notebook_name} ADD LIVE VERSION FROM LAST;\n"
     )
+
+
+def test_deploy_single_notebook(mock_connector, runner, mock_ctx):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(["git", "list-tags", "repo_name", "--like", "PATTERN"])
+    assert ctx.get_query == "q"
+
+
+def test_deploy_multiple_notebook(mock_connector, runner, mock_ctx):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(["git", "list-tags", "repo_name", "--like", "PATTERN"])
+    assert ctx.get_query == "q"
