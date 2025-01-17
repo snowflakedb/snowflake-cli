@@ -179,18 +179,17 @@ def deploy(
 
     if not compute_pools:
         raise NoProjectDefinitionError(
-            project_type="compute-pool", project_root=cli_context.project_root
+            project_type="compute pool", project_root=cli_context.project_root
         )
 
     if entity_id and entity_id not in compute_pools:
         raise UsageError(f"No '{entity_id}' entity in project definition file.")
-
-    if len(compute_pools.keys()) == 1:
+    elif len(compute_pools.keys()) == 1:
         entity_id = list(compute_pools.keys())[0]
 
     if entity_id is None:
         raise UsageError(
-            "Multiple compute-pools found. Please provide entity id for the operation."
+            "Multiple compute pools found. Please provide entity id for the operation."
         )
 
     ComputePoolManager().deploy(compute_pool=compute_pools[entity_id], replace=replace)

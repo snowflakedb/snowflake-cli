@@ -49,7 +49,7 @@ class ComputePoolManager(SqlExecutionMixin):
 
         if replace:
             object_manager = ObjectManager()
-            object_type = str(ObjectType.COMPUTE_POOL)
+            object_type = ObjectType.COMPUTE_POOL.value.cli_name
             entity_id_fqn = FQN.from_string(pool_name)
             if object_manager.object_exists(object_type=object_type, fqn=entity_id_fqn):
                 self.stop(pool_name)
@@ -88,7 +88,7 @@ class ComputePoolManager(SqlExecutionMixin):
             auto_resume=compute_pool.auto_resume,
             initially_suspended=compute_pool.initially_suspended,
             auto_suspend_secs=compute_pool.auto_suspend_seconds,
-            comment=None,
+            comment=compute_pool.comment,
             if_not_exists=False,
             replace=replace,
         )

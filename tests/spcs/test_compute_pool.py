@@ -329,7 +329,7 @@ def test_deploy_no_compute_pools(runner, project_directory):
         result = runner.invoke(["spcs", "compute-pool", "deploy"])
 
         assert result.exit_code == 1, result.output
-        assert "No compute-pool project definition found in" in result.output
+        assert "No compute pool project definition found in" in result.output
 
 
 def test_deploy_not_existing_entity_id(runner, project_directory):
@@ -375,7 +375,7 @@ def test_deploy_multiple_compute_pools(runner, project_directory):
 
         assert result.exit_code == 2, result.output
         assert (
-            "Multiple compute-pools found. Please provide entity id for the operation."
+            "Multiple compute pools found. Please provide entity id for the operation."
             in result.output
         )
 
