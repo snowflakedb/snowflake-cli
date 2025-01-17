@@ -1307,15 +1307,13 @@ def test_generate_jwt_uses_config(mocked_get_token, runner, named_temporary_file
     ),
 )
 def test_generate_jwt_honors_params(
-    mocked_get_token, runner, named_temporary_file, cmd_line_params, expected
+    mocked_get_token, runner, cmd_line_params, expected
 ):
     mocked_get_token.return_value = "funny token"
 
-    with named_temporary_file() as f:
-        f.write_text("secret from file")
-        result = runner.invoke(
-            ["connection", "generate-jwt", "--connection", "jwt", *cmd_line_params],
-        )
+    result = runner.invoke(
+        ["connection", "generate-jwt", "--connection", "jwt", *cmd_line_params],
+    )
 
     assert result.exit_code == 0, result.output
     assert result.output == "funny token\n"
