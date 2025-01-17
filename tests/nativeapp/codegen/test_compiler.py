@@ -28,12 +28,12 @@ from snowflake.cli._plugins.nativeapp.codegen.snowpark.python_processor import (
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
-from snowflake.cli.api.project.schemas.project_definition import (
-    build_project_definition,
-)
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import (
+from snowflake.cli.api.project.schemas.entities.common import (
     PathMapping,
     ProcessorMapping,
+)
+from snowflake.cli.api.project.schemas.project_definition import (
+    build_project_definition,
 )
 
 

@@ -13,12 +13,12 @@
 # limitations under the License.
 from __future__ import annotations
 
-from pathlib import Path
-from typing import List, Literal, Optional
+from typing import Literal, Optional
 
-from pydantic import Field, model_validator
+from pydantic import Field
 from snowflake.cli.api.project.schemas.entities.common import (
-    EntityModelBase,
+    Artifacts,
+    EntityModelBaseWithArtifacts,
     ExternalAccessBaseModel,
     ImportsBaseModel,
 )
@@ -27,7 +27,9 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 )
 
 
-class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBaseModel):
+class StreamlitEntityModel(
+    EntityModelBaseWithArtifacts, ExternalAccessBaseModel, ImportsBaseModel
+):
     type: Literal["streamlit"] = DiscriminatorField()  # noqa: A003
     title: Optional[str] = Field(
         title="Human-readable title for the Streamlit dashboard", default=None
@@ -43,24 +45,8 @@ class StreamlitEntityModel(EntityModelBase, ExternalAccessBaseModel, ImportsBase
     stage: Optional[str] = Field(
         title="Stage in which the app’s artifacts will be stored", default="streamlit"
     )
-    # Possibly can be PathMapping
-    artifacts: Optional[List[Path]] = Field(
-        title="List of files which should be deployed. Each file needs to exist locally. "
-        "Main file needs to be included in the artifacts.",
+    # Artifacts were optional, so to avoid BCR, we need to make them optional here as well
+    artifacts: Optional[Artifacts] = Field(
+        title="List of paths or file source/destination pairs to add to the deploy root",
         default=None,
     )
-
-    @model_validator(mode="after")
-    def artifacts_must_exists(self):
-        if not self.artifacts:
-            return self
-
-        for artifact in self.artifacts:
-            if "*" in artifact.name:
-                continue
-            if not artifact.exists():
-                raise ValueError(
-                    f"Specified artifact {artifact} does not exist locally."
-                )
-
-        return self

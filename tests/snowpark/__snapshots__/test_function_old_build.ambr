@@ -1,0 +1,62 @@
+# serializer version: 1
+# name: test_deploy_function_fully_qualified_name[ok]
+  '''
+  Performing initial validation
+  Checking remote state
+  Preparing required stages and artifacts
+    Creating (if not exists) stage: dev_deployment
+    Uploading app.zip to @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/
+  Creating Snowpark entities
+    Creating function custom_db.custom_schema.fqn_function
+    Creating function custom_schema.fqn_function_only_schema
+    Creating function custom_schema.schema_function
+    Creating function custom_db.PUBLIC.database_function
+    Creating function custom_db.custom_schema.database_function
+    Creating function custom_database.custom_schema.fqn_function3
+  +------------------------------------------------------------------------------+
+  | object                                                  | type     | status  |
+  |---------------------------------------------------------+----------+---------|
+  | custom_db.custom_schema.fqn_function(name string)       | function | created |
+  | MockDatabase.custom_schema.fqn_function_only_schema(nam | function | created |
+  | e string)                                               |          |         |
+  | MockDatabase.custom_schema.schema_function(name string) | function | created |
+  | custom_db.MockSchema.database_function(name string)     | function | created |
+  | custom_db.custom_schema.database_function(name string)  | function | created |
+  | custom_database.custom_schema.fqn_function3(name        | function | created |
+  | string)                                                 |          |         |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_deploy_function_fully_qualified_name_duplicated_database[database error]
+  '''
+  Performing initial validation
+  Checking remote state
+  +- Error ----------------------------------------------------------------------+
+  | Database provided but name                                                   |
+  | 'custom_database.custom_schema.fqn_function_error' is fully qualified name.  |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_deploy_function_fully_qualified_name_duplicated_schema[schema error]
+  '''
+  Performing initial validation
+  Checking remote state
+  +- Error ----------------------------------------------------------------------+
+  | Schema provided but name 'custom_schema.fqn_function_error' is fully         |
+  | qualified name.                                                              |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_deploy_function_secrets_without_external_access
+  '''
+  Performing initial validation
+  Checking remote state
+  +- Error ----------------------------------------------------------------------+
+  | func1 defined with secrets but without external integration.                 |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---

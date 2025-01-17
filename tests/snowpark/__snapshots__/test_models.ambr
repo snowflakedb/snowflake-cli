@@ -1,0 +1,14 @@
+# serializer version: 1
+# name: test_raise_error_when_artifact_contains_asterix
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | During evaluation of DefinitionV20 in project definition following errors    |
+  | were encountered:                                                            |
+  | For field entities.hello_procedure.procedure.artifacts you provided          |
+  | '['src/*']'. This caused: Value error, If you want to use glob patterns in   |
+  | artifacts, you need to enable the Snowpark new build feature flag            |
+  | (enable_snowpark_glob_support=true)                                          |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---

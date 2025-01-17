@@ -4,13 +4,15 @@ from typing import Optional
 
 from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
+from snowflake.cli._plugins.nativeapp.artifacts import build_bundle
 from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
-from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.project.project_paths import bundle_root
+from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.connector.cursor import SnowflakeCursor
 
 
@@ -70,29 +72,16 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         )
 
     def bundle(self, output_dir: Optional[Path] = None):
-
-        if not output_dir:
-            output_dir = self.root / "output" / self._entity_model.stage
-
-        artifacts = self._entity_model.artifacts
-
-        output_dir.mkdir(parents=True, exist_ok=True)  # type: ignore
-
-        output_files = []
-
-        # This is far from , but will be replaced by bundlemap mappings.
-        for file in artifacts:
-            output_file = output_dir / file.name
-
-            if file.is_file():
-                SecurePath(file).copy(output_file)
-            elif file.is_dir():
-                output_file.mkdir(parents=True, exist_ok=True)
-                SecurePath(file).copy(output_file, dirs_exist_ok=True)
-
-                output_files.append(output_file)
-
-        return output_files
+        build_bundle(
+            self.root,
+            output_dir or bundle_root(self.root, "streamlit"),
+            [
+                PathMapping(
+                    src=artifact.src, dest=artifact.dest, processors=artifact.processors
+                )
+                for artifact in self._entity_model.artifacts
+            ],
+        )
 
     def action_share(
         self, action_ctx: ActionContext, to_role: str, *args, **kwargs
