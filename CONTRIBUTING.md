@@ -66,7 +66,7 @@ or by running `pytest` inside activated environment.
 
 ## Integration tests
 
-Every integration test should have `integration` mark. By default, integration tests are not execute when running `pytest`.
+Every integration test should have `integration` mark. By default, integration tests are not executed when running `pytest`.
 
 To execute only integration tests run `hatch run integration:test` or `pytest -m integration` inside environment.
 

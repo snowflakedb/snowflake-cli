@@ -31,11 +31,10 @@ from snowflake.connector.version import VERSION as DRIVER_VERSION
 @mock.patch("snowflake.cli._app.telemetry.platform.platform")
 @mock.patch("uuid.uuid4")
 @mock.patch("snowflake.cli._app.telemetry.get_time_millis")
-@mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
 @mock.patch.dict(os.environ, {"SNOWFLAKE_CLI_FEATURES_FOO": "False"})
 def test_executing_command_sends_telemetry_usage_data(
-    _, mock_conn, mock_time, mock_uuid4, mock_platform, mock_version, runner
+    _, mock_time, mock_uuid4, mock_platform, mock_version, runner, connect
 ):
     mock_time.return_value = "123"
     mock_platform.return_value = "FancyOS"
@@ -45,7 +44,7 @@ def test_executing_command_sends_telemetry_usage_data(
     assert result.exit_code == 0, result.output
     # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
     usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+        connect.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
             0
         ]
         .args[0]

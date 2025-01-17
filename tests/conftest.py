@@ -161,3 +161,9 @@ def make_faker_app(runner, _create_mock_cursor):
         return QueryResult(_create_mock_cursor())
 
     yield
+
+
+@pytest.fixture()
+def connect():
+    with mock.patch("snowflake.connector.connect") as _mock:
+        yield _mock

@@ -515,11 +515,10 @@ def test_connection_test(mock_connect, mock_om, runner):
     ]
 
 
-@mock.patch("snowflake.connector.connect")
 @pytest.mark.parametrize("option", ["--temporary-connection", "-x"])
-def test_temporary_connection(mock_connector, mock_ctx, option, runner):
+def test_temporary_connection(connect, mock_ctx, option, runner):
     ctx = mock_ctx()
-    mock_connector.return_value = ctx
+    connect.return_value = ctx
     result = runner.invoke(
         [
             "object",
@@ -546,7 +545,7 @@ def test_temporary_connection(mock_connector, mock_ctx, option, runner):
     )
 
     assert result.exit_code == 0
-    mock_connector.assert_called_once_with(
+    connect.assert_called_once_with(
         application="SNOWCLI.OBJECT.LIST",
         host="snowcli_test_host",
         port=123456789,
@@ -727,14 +726,13 @@ def test_token_file_path_tokens(mock_connector, mock_ctx, runner, temp_dir):
     },
     clear=True,
 )
-@mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._app.snow_connector._load_pem_from_file")
 @mock.patch("snowflake.cli._app.snow_connector._load_pem_to_der")
 def test_key_pair_authentication_from_config(
-    mock_convert, mock_load_file, mock_connector, mock_ctx, temp_dir, runner
+    mock_convert, mock_load_file, connect, mock_ctx, temp_dir, runner
 ):
     ctx = mock_ctx()
-    mock_connector.return_value = ctx
+    connect.return_value = ctx
     mock_convert.return_value = SecretType("secret value")
 
     with NamedTemporaryFile("w+", suffix="toml") as tmp_file:
@@ -758,7 +756,7 @@ def test_key_pair_authentication_from_config(
 
     assert result.exit_code == 0, result.output
     mock_load_file.assert_called_once_with("~/sf_private_key.p8")
-    mock_connector.assert_called_once_with(
+    connect.assert_called_once_with(
         application="SNOWCLI.OBJECT.LIST",
         account="my_account",
         user="jdoe",
