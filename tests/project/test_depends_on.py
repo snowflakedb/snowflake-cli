@@ -100,7 +100,6 @@ def test_deploy_with_dependencies(mock_execute, basic_workspace):
     assert "IDENTIFIER('test_function')" in mock_execute.call_args_list[1][0][0]
     assert "IDENTIFIER('test_procedure')" in mock_execute.call_args_list[2][0][0]
     assert "IDENTIFIER('test_streamlit')" in mock_execute.call_args_list[3][0][0]
-    assert True
 
 
 #### TODO:
