@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 from pydantic import Field, model_validator
+from snowflake.cli._plugins.notebook.exceptions import NotebookStagePathError
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
 )
@@ -18,9 +19,12 @@ class NotebookEntityModel(EntityModelBase):
         title="Stage in which the notebook file will be stored", default="notebooks"
     )
     notebook_file: Path = Field(title="Notebook file")
+    query_warehouse: str = Field(title="Snowflake warehouse to execute the notebook")
 
     @model_validator(mode="after")
-    def notebook_file_must_exist(self):
+    def validate_notebook_file(self):
         if not self.notebook_file.exists():
             raise ValueError(f"Notebook file {self.notebook_file} does not exist")
+        if self.notebook_file.suffix.lower != ".ipynb":
+            raise NotebookStagePathError(str(self.notebook_file))
         return self
