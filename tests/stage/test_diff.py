@@ -21,7 +21,6 @@ from typing import Dict, List, Union
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     StagePathType,
@@ -36,6 +35,7 @@ from snowflake.cli._plugins.stage.diff import (
 )
 from snowflake.cli._plugins.stage.manager import DefaultStagePathParts, StageManager
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.exceptions import (
     SnowflakeSQLExecutionError,
 )

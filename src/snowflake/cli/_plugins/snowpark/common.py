@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import re
 from enum import Enum
+from pathlib import Path
 from typing import Dict, List, Set
 
 from click import UsageError
@@ -25,7 +26,13 @@ from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     ProcedureEntityModel,
     SnowparkEntityModel,
 )
-from snowflake.cli._plugins.snowpark.snowpark_project_paths import Artefact
+from snowflake.cli._plugins.snowpark.snowpark_project_paths import (
+    Artefact,
+    SnowparkProjectPaths,
+)
+from snowflake.cli._plugins.snowpark.zipper import zip_dir_using_bundle_map
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
+from snowflake.cli.api.artifacts.utils import symlink_or_copy
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import (
     INIT_TEMPLATE_VARIABLE_CLOSING,
@@ -34,6 +41,7 @@ from snowflake.cli.api.constants import (
     PROJECT_TEMPLATE_VARIABLE_OPENING,
     ObjectType,
 )
+from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -212,6 +220,43 @@ def _snowflake_dependencies_differ(
         )
 
     return _standardize(old_dependencies) != _standardize(new_dependencies)
+
+
+def map_path_mapping_to_artifact(
+    project_paths: SnowparkProjectPaths, artifacts: List[PathMapping]
+) -> List[Artefact]:
+    return [project_paths.get_artefact_dto(artifact) for artifact in artifacts]
+
+
+def zip_and_copy_artifacts_to_deploy(
+    artifacts: Set[Artefact] | List[Artefact], bundle_root: Path
+) -> List[Path]:
+    copied_files = []
+    for artefact in artifacts:
+        bundle_map = BundleMap(
+            project_root=artefact.project_root,
+            deploy_root=bundle_root,
+        )
+        bundle_map.add(PathMapping(src=str(artefact.path), dest=artefact.dest))
+
+        if artefact.path.is_file():
+            for (absolute_src, absolute_dest) in bundle_map.all_mappings(
+                absolute=True, expand_directories=False
+            ):
+                symlink_or_copy(
+                    absolute_src,
+                    absolute_dest,
+                    deploy_root=bundle_map.deploy_root(),
+                )
+                copied_files.append(absolute_dest)
+        else:
+            post_build_path = artefact.post_build_path
+            zip_dir_using_bundle_map(
+                bundle_map=bundle_map,
+                dest_zip=post_build_path,
+            )
+            copied_files.append(post_build_path)
+    return copied_files
 
 
 def same_type(sf_type: str, local_type: str) -> bool:

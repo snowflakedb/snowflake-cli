@@ -26,7 +26,7 @@ from snowflake.cli._plugins.nativeapp.codegen.templates.templates_processor impo
 )
 from snowflake.cli._plugins.nativeapp.exceptions import InvalidTemplateInFileError
 from snowflake.cli.api.exceptions import InvalidTemplate
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.schemas.entities.common import PathMapping
 
 from tests.nativeapp.utils import (
     CLI_GLOBAL_TEMPLATE_CONTEXT,

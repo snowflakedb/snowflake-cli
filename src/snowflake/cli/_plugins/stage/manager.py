@@ -45,7 +45,7 @@ from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, to_string_lit
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
-from snowflake.cli.api.utils.path_utils import path_resolver
+from snowflake.cli.api.utils.path_utils import path_resolver, resolve_without_follow
 from snowflake.connector import DictCursor, ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -358,7 +358,6 @@ class StageManager(SqlExecutionMixin):
 
     @staticmethod
     def _symlink_or_copy(source_root: Path, source_file_or_dir: Path, dest_dir: Path):
-        from snowflake.cli._plugins.nativeapp.artifacts import resolve_without_follow
 
         absolute_src = resolve_without_follow(source_file_or_dir)
         dest_path = dest_dir / source_file_or_dir.relative_to(source_root)

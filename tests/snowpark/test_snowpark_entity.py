@@ -61,8 +61,39 @@ def test_cannot_instantiate_without_feature_flag():
 
 
 @mock.patch(ANACONDA_PACKAGES)
-def test_nativeapp_children_interface(
+def test_nativeapp_children_interface_old_build(
     mock_anaconda, example_function_workspace, snapshot
+):
+    mock_anaconda.return_value = AnacondaPackages(
+        {
+            "pandas": AvailablePackage("pandas", "1.2.3"),
+            "numpy": AvailablePackage("numpy", "1.2.3"),
+            "snowflake_snowpark_python": AvailablePackage(
+                "snowflake_snowpark_python", "1.2.3"
+            ),
+        }
+    )
+
+    sl, action_context = example_function_workspace
+
+    sl.bundle(None, False, False, None, False)
+
+    deploy_sql_str = sl.get_deploy_sql(CreateMode.create)
+    grant_sql_str = sl.get_usage_grant_sql(app_role="app_role")
+
+    assert deploy_sql_str == snapshot
+    assert (
+        grant_sql_str
+        == f"GRANT USAGE ON FUNCTION IDENTIFIER('func1') TO ROLE app_role;"
+    )
+
+
+@mock.patch(ANACONDA_PACKAGES)
+def test_nativeapp_children_interface(
+    mock_anaconda,
+    example_function_workspace,
+    snapshot,
+    enable_snowpark_glob_support_feature_flag,
 ):
     mock_anaconda.return_value = AnacondaPackages(
         {
@@ -121,7 +152,26 @@ def test_action_execute(
 
 
 @mock.patch(ANACONDA_PACKAGES)
-def test_bundle(mock_anaconda, example_function_workspace):
+def test_bundle_old_build(mock_anaconda, example_function_workspace):
+    mock_anaconda.return_value = AnacondaPackages(
+        {
+            "pandas": AvailablePackage("pandas", "1.2.3"),
+            "numpy": AvailablePackage("numpy", "1.2.3"),
+            "snowflake_snowpark_python": AvailablePackage(
+                "snowflake_snowpark_python", "1.2.3"
+            ),
+        }
+    )
+    entity, action_context = example_function_workspace
+    entity.action_bundle(action_context, None, False, False, None, False)
+
+    assert (entity.root / "app.py").exists()
+
+
+@mock.patch(ANACONDA_PACKAGES)
+def test_bundle(
+    mock_anaconda, example_function_workspace, enable_snowpark_glob_support_feature_flag
+):
     mock_anaconda.return_value = AnacondaPackages(
         {
             "pandas": AvailablePackage("pandas", "1.2.3"),

@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Dict, Generic, List, Optional, TypeVar, Union
+from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
 
 from pydantic import Field, PrivateAttr, field_validator
 from snowflake.cli.api.identifiers import FQN
@@ -162,3 +162,76 @@ class ExternalAccessBaseModel:
             return None
         secrets = ", ".join(f"'{key}'={value}" for key, value in self.secrets.items())
         return f"secrets=({secrets})"
+
+
+class ProcessorMapping(UpdatableModel):
+    name: str = Field(
+        title="Name of a processor to invoke on a collection of artifacts."
+    )
+    properties: Optional[Dict[str, Any]] = Field(
+        title="A set of key-value pairs used to configure the output of the processor. Consult a specific processor's documentation for more details on the supported properties.",
+        default=None,
+    )
+
+
+class PathMapping(UpdatableModel):
+    src: str = Field(
+        title="Source path or glob pattern (relative to project root)", default=None
+    )
+
+    dest: Optional[str] = Field(
+        title="Destination path on stage",
+        description="Paths are relative to stage root; paths ending with a slash indicate that the destination is a directory which source files should be copied into.",
+        default=None,
+    )
+
+    processors: Optional[List[Union[str, ProcessorMapping]]] = Field(
+        title="List of processors to apply to matching source files during bundling.",
+        default=[],
+    )
+
+    @field_validator("processors")
+    @classmethod
+    def transform_processors(
+        cls, input_values: Optional[List[Union[str, Dict, ProcessorMapping]]]
+    ) -> List[ProcessorMapping]:
+        if input_values is None:
+            return []
+
+        transformed_processors: List[ProcessorMapping] = []
+        for input_processor in input_values:
+            if isinstance(input_processor, str):
+                transformed_processors.append(ProcessorMapping(name=input_processor))
+            elif isinstance(input_processor, Dict):
+                transformed_processors.append(ProcessorMapping(**input_processor))
+            else:
+                transformed_processors.append(input_processor)
+        return transformed_processors
+
+
+Artifacts = List[Union[PathMapping, str]]
+
+
+class EntityModelBaseWithArtifacts(EntityModelBase):
+    artifacts: Artifacts = Field(
+        title="List of paths or file source/destination pairs to add to the deploy root",
+    )
+    deploy_root: Optional[str] = Field(
+        title="Folder at the root of your project where the build step copies the artifacts",
+        default="output/deploy/",
+    )
+
+    @field_validator("artifacts")
+    @classmethod
+    def transform_artifacts(cls, orig_artifacts: Artifacts) -> List[PathMapping]:
+        transformed_artifacts: List[PathMapping] = []
+        if orig_artifacts is None:
+            return transformed_artifacts
+
+        for artifact in orig_artifacts:
+            if isinstance(artifact, PathMapping):
+                transformed_artifacts.append(artifact)
+            else:
+                transformed_artifacts.append(PathMapping(src=artifact))
+
+        return transformed_artifacts

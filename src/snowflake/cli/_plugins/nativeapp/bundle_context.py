@@ -18,7 +18,7 @@ from typing import (
     List,
 )
 
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
+from snowflake.cli.api.project.schemas.entities.common import PathMapping
 
 
 @dataclass
