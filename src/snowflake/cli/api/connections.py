@@ -79,6 +79,17 @@ class ConnectionContext:
                 raise KeyError(f"{key} is not a field of {self.__class__.__name__}")
             setattr(self, key, value)
 
+    def merge_with_config(self, **updates) -> ConnectionContext:
+        """
+        Updates missing fields from the config, but does not overwrite existing.
+        """
+        field_map = {field.name for field in fields(self)}
+        for key, value in updates.items():
+            if key in field_map and getattr(self, key) is None:
+                setattr(self, key, value)
+
+        return self
+
     def update_from_config(self) -> ConnectionContext:
         connection_config = get_connection_dict(connection_name=self.connection_name)
         if "private_key_path" in connection_config:
@@ -87,7 +98,7 @@ class ConnectionContext:
             ]
             del connection_config["private_key_path"]
 
-        self.update(**connection_config)
+        self.merge_with_config(**connection_config)
         return self
 
     def __repr__(self) -> str:

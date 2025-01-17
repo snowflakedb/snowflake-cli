@@ -54,6 +54,7 @@
 ## Fixes and improvements
 * Fixed inability to add patches to lowercase quoted versions.
 * Fixes label being set to blank instead of None when not provided.
+* Fixes generate-jwt command to preserve command line connection options.
 * Fixed stage path handling for notebook commands.
 
 
