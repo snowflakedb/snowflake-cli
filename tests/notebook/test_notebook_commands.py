@@ -14,6 +14,7 @@
 
 from unittest import mock
 
+import pytest
 import typer
 from snowflake.cli._plugins.notebook.manager import NotebookManager
 from snowflake.cli.api.identifiers import FQN
@@ -64,4 +65,34 @@ def test_create(mock_create, runner):
     mock_create.assert_called_once_with(
         notebook_name=FQN.from_string("my_notebook"),
         notebook_file=notebook_file,
+    )
+
+
+@pytest.mark.parametrize(
+    "stage_path",
+    ["@db.schema.stage", "@stage/dir/subdir", "@git_repo_stage/branch/main"],
+)
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.notebook.manager.make_snowsight_url")
+def test_create_query(
+    mock_make_snowsight_url, mock_connector, mock_ctx, runner, stage_path
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    mock_make_snowsight_url.return_value = "mocked_snowsight.url"
+    notebook_name = "my_notebook"
+    notebook_file = f"{stage_path}/notebook.ipynb"
+    result = runner.invoke(
+        ["notebook", "create", notebook_name, "--notebook-file", notebook_file]
+    )
+    assert result.exit_code == 0, result.output
+    assert ctx.get_query() == (
+        "\n"
+        "CREATE OR REPLACE NOTEBOOK "
+        f"IDENTIFIER('MockDatabase.MockSchema.{notebook_name}')\n"
+        f"FROM '{stage_path}'\n"
+        "QUERY_WAREHOUSE = 'MockWarehouse'\n"
+        "MAIN_FILE = 'notebook.ipynb';\n"
+        "// Cannot use IDENTIFIER(...)\n"
+        f"ALTER NOTEBOOK MockDatabase.MockSchema.{notebook_name} ADD LIVE VERSION FROM LAST;\n"
     )
