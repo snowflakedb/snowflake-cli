@@ -40,6 +40,42 @@ def test_compute_pool(_test_steps: Tuple[ComputePoolTestSteps, str]):
     test_steps.list_should_not_return_compute_pool(compute_pool_name)
 
 
+@pytest.mark.integration
+def test_compute_pool_deploy(
+    _test_steps: Tuple[ComputePoolTestSteps, str],
+    project_directory,
+    alter_snowflake_yml,
+):
+
+    test_steps, compute_pool_name = _test_steps
+
+    with project_directory("spcs_compute_pool"):
+        alter_snowflake_yml(
+            "snowflake.yml",
+            "entities",
+            {
+                compute_pool_name: {
+                    "type": "compute-pool",
+                    "identifier": {
+                        "name": compute_pool_name,
+                    },
+                    "min_nodes": 1,
+                    "max_nodes": 1,
+                    "instance_family": "CPU_X64_XS",
+                    "auto_resume": True,
+                    "initially_suspended": True,
+                    "auto_suspend_seconds": 60,
+                }
+            },
+        )
+        test_steps.deploy_compute_pool(compute_pool_name)
+        test_steps.list_should_return_compute_pool(compute_pool_name)
+        test_steps.second_deploy_should_fail()
+        test_steps.deploy_compute_pool_with_replace(compute_pool_name)
+        test_steps.drop_compute_pool(compute_pool_name)
+        test_steps.list_should_not_return_compute_pool(compute_pool_name)
+
+
 @pytest.fixture
 def _test_setup(runner, snowflake_session):
     compute_pool_test_setup = ComputePoolTestSetup(
