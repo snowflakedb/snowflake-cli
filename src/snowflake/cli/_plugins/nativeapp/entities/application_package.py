@@ -14,7 +14,6 @@ from click import BadOptionUsage, ClickException, UsageError
 from pydantic import Field, field_validator
 from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.nativeapp.artifacts import (
-    BundleMap,
     VersionInfo,
     build_bundle,
     find_setup_script_file,
@@ -73,6 +72,7 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
 from snowflake.cli._plugins.workspace.context import ActionContext
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.cli_global_context import span
 from snowflake.cli.api.entities.common import (
     EntityBase,
@@ -89,7 +89,7 @@ from snowflake.cli.api.entities.utils import (
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.project.schemas.entities.common import (
-    EntityModelBase,
+    EntityModelBaseWithArtifacts,
     Identifier,
     PostDeployHook,
 )
@@ -99,7 +99,6 @@ from snowflake.cli.api.project.schemas.updatable_model import (
     UpdatableModel,
 )
 from snowflake.cli.api.project.schemas.v1.native_app.package import DistributionOptions
-from snowflake.cli.api.project.schemas.v1.native_app.path_mapping import PathMapping
 from snowflake.cli.api.project.util import (
     SCHEMA_AND_NAME,
     VALID_IDENTIFIER_REGEX,
@@ -152,18 +151,11 @@ class ApplicationPackageChildField(UpdatableModel):
     )
 
 
-class ApplicationPackageEntityModel(EntityModelBase):
+class ApplicationPackageEntityModel(EntityModelBaseWithArtifacts):
     type: Literal["application package"] = DiscriminatorField()  # noqa: A003
-    artifacts: List[Union[PathMapping, str]] = Field(
-        title="List of paths or file source/destination pairs to add to the deploy root",
-    )
     bundle_root: Optional[str] = Field(
         title="Folder at the root of your project where artifacts necessary to perform the bundle step are stored",
         default="output/bundle/",
-    )
-    deploy_root: Optional[str] = Field(
-        title="Folder at the root of your project where the build step copies the artifacts",
-        default="output/deploy/",
     )
     children_artifacts_dir: Optional[str] = Field(
         title="Folder under deploy_root where the child artifacts will be stored",
@@ -220,23 +212,6 @@ class ApplicationPackageEntityModel(EntityModelBase):
         if isinstance(input_value, Identifier):
             return input_value.model_copy(update=dict(name=with_suffix))
         return with_suffix
-
-    @field_validator("artifacts")
-    @classmethod
-    def transform_artifacts(
-        cls, orig_artifacts: List[Union[PathMapping, str]]
-    ) -> List[PathMapping]:
-        transformed_artifacts = []
-        if orig_artifacts is None:
-            return transformed_artifacts
-
-        for artifact in orig_artifacts:
-            if isinstance(artifact, PathMapping):
-                transformed_artifacts.append(artifact)
-            else:
-                transformed_artifacts.append(PathMapping(src=artifact))
-
-        return transformed_artifacts
 
     @field_validator("stage")
     @classmethod
@@ -1749,12 +1724,12 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 if not self.get_existing_version_info(to_identifier(resolved_version)):
                     raise BadOptionUsage(
                         option_name="patch",
-                        message=f"Cannot create patch {resolved_patch} when version {resolved_version} is not defined in the application package {self.name}. Try again without specifying a patch.",
+                        message=f"Version {resolved_version} is not defined in the application package {self.name}. Try again with a patch of 0 or without specifying any patch.",
                     )
             except ApplicationPackageDoesNotExistError as app_err:
                 raise BadOptionUsage(
                     option_name="patch",
-                    message=f"Cannot create patch {resolved_patch} when application package {self.name} does not exist. Try again without specifying a patch.",
+                    message=f"Application package {self.name} does not exist yet. Try again with a patch of 0 or without specifying any patch.",
                 )
 
         return VersionInfo(

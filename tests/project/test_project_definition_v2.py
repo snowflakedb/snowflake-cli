@@ -15,7 +15,6 @@ from pathlib import Path
 
 import pytest
 from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
-    PathMapping,
     SnowparkEntityModel,
 )
 from snowflake.cli.api.project.definition_conversion import (
@@ -23,6 +22,7 @@ from snowflake.cli.api.project.definition_conversion import (
 )
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
+from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.project.schemas.entities.entities import (
     ALL_ENTITIES,
     ALL_ENTITY_MODELS,
@@ -375,7 +375,7 @@ def test_v1_to_v2_conversion(
         )
 
         artifact = PathMapping(
-            src=Path(definition_v1.snowpark.src),
+            src=definition_v1.snowpark.src,
             dest=definition_v1.snowpark.project_name,
         )
         for v1_procedure in definition_v1.snowpark.procedures:

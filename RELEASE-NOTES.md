@@ -42,12 +42,15 @@
 * Add `snow spcs service metrics` command to fetch service metrics:
   * Supports filtering by service name, container name, instance ID, and time intervals (`--since`, `--until`).
   * Use `--all` to fetch all columns.
+* Added support for glob pattern (except `**`) in artifact paths in snowflake.yml for Streamlit.
+* Added support for glob pattern (except `**`) in artifact paths in snowflake.yml for Snowpark, requires ENABLE_SNOWPARK_GLOB_SUPPORT feature flag.
 
 ## Fixes and improvements
 * Fixed inability to add patches to lowercase quoted versions
 * Fixes label being set to blank instead of None when not provided.
 * Fixes generate-jwt command to preserve command line connection options.
 
+* Fixed stage path handling for notebook commands.
 
 # v3.2.2
 ## Backward incompatibility

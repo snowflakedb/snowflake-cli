@@ -24,7 +24,6 @@ from unittest.mock import call
 
 import pytest
 from click import ClickException
-from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli._plugins.nativeapp.constants import (
     LOOSE_FILES_MAGIC_VERSION,
     NAME_COL,
@@ -53,6 +52,7 @@ from snowflake.cli._plugins.stage.diff import (
 )
 from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.entities.utils import (

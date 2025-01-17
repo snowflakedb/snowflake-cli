@@ -92,7 +92,7 @@ def release_directive_set(
         DEFAULT_CHANNEL,
         help="Name of the release channel to use",
     ),
-    target_accounts: Optional[list[str]] = typer.Option(
+    target_accounts: Optional[str] = typer.Option(
         None,
         show_default=False,
         help="List of the accounts to apply the release directive to. Format has to be `org1.account1,org2.account2`",
@@ -126,7 +126,7 @@ def release_directive_set(
         release_directive=directive,
         version=version,
         patch=patch,
-        target_accounts=target_accounts,
+        target_accounts=None if target_accounts is None else target_accounts.split(","),
         release_channel=channel,
     )
     return MessageResult("Successfully set release directive.")

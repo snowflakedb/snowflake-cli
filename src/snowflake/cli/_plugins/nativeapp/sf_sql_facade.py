@@ -67,6 +67,7 @@ from snowflake.cli.api.errno import (
     RELEASE_DIRECTIVE_DOES_NOT_EXIST,
     RELEASE_DIRECTIVES_VERSION_PATCH_NOT_FOUND,
     SQL_COMPILATION_ERROR,
+    TARGET_ACCOUNT_USED_BY_OTHER_RELEASE_DIRECTIVE,
     VERSION_ALREADY_ADDED_TO_RELEASE_CHANNEL,
     VERSION_DOES_NOT_EXIST,
     VERSION_NOT_ADDED_TO_RELEASE_CHANNEL,
@@ -737,7 +738,7 @@ class SnowflakeSQLFacade:
         """
 
         name = to_identifier(name)
-        release_channel = to_identifier(release_channel) if release_channel else None
+        release_channel = to_identifier(release_channel or DEFAULT_CHANNEL)
 
         install_method.ensure_app_usable(
             app_name=name,
@@ -754,14 +755,14 @@ class SnowflakeSQLFacade:
         with self._use_role_optional(role), self._use_warehouse_optional(warehouse):
             try:
                 using_clause = install_method.using_clause(path_to_version_directory)
-                if release_channel:
-                    current_release_channel = get_app_properties().get(
-                        CHANNEL_COL, DEFAULT_CHANNEL
+
+                current_release_channel = (
+                    get_app_properties().get(CHANNEL_COL) or DEFAULT_CHANNEL
+                )
+                if unquote_identifier(release_channel) != current_release_channel:
+                    raise UpgradeApplicationRestrictionError(
+                        f"Application {name} is currently on release channel {current_release_channel}. Cannot upgrade to release channel {release_channel}."
                     )
-                    if not same_identifiers(release_channel, current_release_channel):
-                        raise UpgradeApplicationRestrictionError(
-                            f"Application {name} is currently on release channel {current_release_channel}. Cannot upgrade to release channel {release_channel}."
-                        )
 
                 upgrade_cursor = self._sql_executor.execute_query(
                     f"alter application {name} upgrade {using_clause}",
@@ -1094,6 +1095,10 @@ class SnowflakeSQLFacade:
                     if err.errno == RELEASE_DIRECTIVE_DOES_NOT_EXIST:
                         raise UserInputError(
                             f"Release directive {release_directive} does not exist in application package {package_name}. Please create it first by specifying --target-accounts with the `snow app release-directive set` command."
+                        ) from err
+                    if err.errno == TARGET_ACCOUNT_USED_BY_OTHER_RELEASE_DIRECTIVE:
+                        raise UserInputError(
+                            f"Some target accounts are already referenced by other release directives in application package {package_name}.\n{str(err.msg)}"
                         ) from err
                     _handle_release_directive_version_error(
                         err,

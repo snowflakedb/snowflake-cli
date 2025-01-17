@@ -21,6 +21,7 @@ from snowflake.cli._plugins.notebook.types import NotebookStagePath
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.stage_path import StagePath
 
 
 class NotebookManager(SqlExecutionMixin):
@@ -40,8 +41,9 @@ class NotebookManager(SqlExecutionMixin):
         """Parses notebook file path to pathlib.Path."""
         if not notebook_file.endswith(".ipynb"):
             raise NotebookStagePathError(notebook_file)
-        stage_path = Path(notebook_file)
-        if len(stage_path.parts) < 2:
+        # we don't perform any operations on the path, so we don't need to differentiate git repository paths
+        stage_path = StagePath.from_stage_str(notebook_file)
+        if len(stage_path.parts) < 1:
             raise NotebookStagePathError(notebook_file)
 
         return stage_path
