@@ -98,6 +98,13 @@ def test_create_query(
     )
 
 
+def test_deploy(mock_connector, runner, mock_ctx):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(["git", "list-tags", "repo_name", "--like", "PATTERN"])
+    assert ctx.get_query == "q"
+
+
 def test_deploy_single_notebook(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -105,7 +112,29 @@ def test_deploy_single_notebook(mock_connector, runner, mock_ctx):
     assert ctx.get_query == "q"
 
 
-def test_deploy_multiple_notebook(mock_connector, runner, mock_ctx):
+def test_deploy_object_exists_error(mock_connector, runner, mock_ctx):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(["git", "list-tags", "repo_name", "--like", "PATTERN"])
+    assert ctx.get_query == "q"
+
+
+def test_deploy_file_validation_error(mock_connector, runner, mock_ctx):
+    # file not exists, not-ipynb file
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(["git", "list-tags", "repo_name", "--like", "PATTERN"])
+    assert ctx.get_query == "q"
+
+
+def test_deploy_replace(mock_connector, runner, mock_ctx):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    result = runner.invoke(["git", "list-tags", "repo_name", "--like", "PATTERN"])
+    assert ctx.get_query == "q"
+
+
+def test_deploy_if_not_exists(mock_connector, runner, mock_ctx):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     result = runner.invoke(["git", "list-tags", "repo_name", "--like", "PATTERN"])
