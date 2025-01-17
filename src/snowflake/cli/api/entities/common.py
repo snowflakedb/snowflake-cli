@@ -66,16 +66,17 @@ class EntityBase(Generic[T]):
         """
         Checks whether this entity supports the given action. An entity is considered to support an action if it implements a method with the action name.
         """
-        return callable(getattr(self, action.value.action_name, None))
+        return callable(getattr(self, action, None))
 
     def perform(
         self, action: EntityActions, action_ctx: ActionContext, *args, **kwargs
     ):
         """
         Performs the requested action.
+        This is a preferred way to perform actions on entities, as it will also call the dependencies in the correct order.
         """
         self.dependency_resolver.perform_for_dep(action, action_ctx, *args, **kwargs)
-        return getattr(self, action.value.action_name)(action_ctx, *args, **kwargs)
+        return getattr(self, action)(action_ctx, *args, **kwargs)
 
     @property
     def root(self) -> Path:

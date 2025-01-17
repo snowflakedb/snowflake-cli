@@ -5,8 +5,7 @@ from typing import Dict
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.entities.common import EntityActions
-from snowflake.cli.api.entities.utils import get_sql_executor
+from snowflake.cli.api.entities.utils import EntityActions, get_sql_executor
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
 from snowflake.cli.api.project.definition import default_role
 from snowflake.cli.api.project.schemas.entities.entities import (

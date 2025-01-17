@@ -1,5 +1,4 @@
 import os
-from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, List, NoReturn, Optional
@@ -345,56 +344,31 @@ def print_messages(console: AbstractConsole, cursor_results: list[tuple[str]]):
     console.message("")
 
 
-@dataclass(frozen=True)
-class EntityAction:
-    action_name: str
-    method_name: str
-
-    def __str__(self):
-        return self.action_name
-
-
-class EntityActions(Enum):
-    BUNDLE = EntityAction("action_bundle", "bundle")
-    DEPLOY = EntityAction("action_deploy", "deploy")
-    DROP = EntityAction("action_drop", "drop")
-    VALIDATE = EntityAction("action_validate", "validate")
-    EVENTS = EntityAction("action_events", "events")
-    DIFF = EntityAction("action_diff", "diff")
-
-    VERSION_LIST = EntityAction("action_version_list", "versions_list")
-    VERSION_CREATE = EntityAction("action_version_create", "version_create")
-    VERSION_DROP = EntityAction("action_version_drop", "version_drop")
-
-    RELEASE_DIRECTIVE_UNSET = EntityAction(
-        "action_release_directive_unset", "release_directive_unset"
-    )
-    RELEASE_DIRECTIVE_SET = EntityAction(
-        "action_release_directive_set", "release_directive_set"
-    )
-    RELEASE_DIRECTIVE_LIST = EntityAction(
-        "action_release_directive_list", "release_directive_list"
-    )
-
-    RELEASE_CHANNEL_LIST = EntityAction(
-        "action_release_channel_list", "release_channel_list"
-    )
-    RELEASE_CHANNEL_ADD_ACCOUNTS = EntityAction(
-        "action_release_channel_add_accounts", "release_channel_add_accounts"
-    )
-    RELEASE_CHANNEL_REMOVE_ACCOUNTS = EntityAction(
-        "action_release_channel_remove_accounts", "release_channel_remove_accounts"
-    )
-    RELEASE_CHANNEL_ADD_VERSION = EntityAction(
-        "action_release_channel_add_version", "release_channel_add_version"
-    )
-    RELEASE_CHANNEL_REMOVE_VERSION = EntityAction(
-        "action_release_channel_remove_version", "release_channel_remove_version"
-    )
-
-    PUBLISH = EntityAction("action_publish", "publish")
-
-
 def get_sql_executor() -> SqlExecutor:
     """Returns an SQL Executor that uses the connection from the current CLI context"""
     return SqlExecutor()
+
+
+class EntityActions(str, Enum):
+    BUNDLE = "action_bundle"
+    DEPLOY = "action_deploy"
+    DROP = "action_drop"
+    VALIDATE = "action_validate"
+    EVENTS = "action_events"
+    DIFF = "action_diff"
+
+    VERSION_LIST = "action_version_list"
+    VERSION_CREATE = "action_version_create"
+    VERSION_DROP = "action_version_drop"
+
+    RELEASE_DIRECTIVE_UNSET = "action_release_directive_unset"
+    RELEASE_DIRECTIVE_SET = "action_release_directive_set"
+    RELEASE_DIRECTIVE_LIST = "action_release_directive_list"
+
+    RELEASE_CHANNEL_LIST = "action_release_channel_list"
+    RELEASE_CHANNEL_ADD_ACCOUNTS = "action_release_channel_add_accounts"
+    RELEASE_CHANNEL_REMOVE_ACCOUNTS = "action_release_channel_remove_accounts"
+    RELEASE_CHANNEL_ADD_VERSION = "action_release_channel_add_version"
+    RELEASE_CHANNEL_REMOVE_VERSION = "action_release_channel_remove_version"
+
+    PUBLISH = "action_publish"

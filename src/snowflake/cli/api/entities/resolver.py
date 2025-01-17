@@ -41,7 +41,7 @@ class DependencyResolver:
         for dependency in self.depends_on(action_ctx):
             entity = action_ctx.get_entity(dependency.entity_id)
             if entity.supports(action):
-                getattr(entity, action.value.method_name)(*args, **kwargs)
+                getattr(entity, action)(action_ctx, *args, **kwargs)
 
     def _create_dependency_graph(self, action_ctx: ActionContext) -> Graph[Dependency]:
         """

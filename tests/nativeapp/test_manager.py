@@ -54,8 +54,8 @@ from snowflake.cli._plugins.stage.diff import (
 from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.entities.utils import (
+    EntityActions,
     _get_stage_paths_to_sync,
     sync_deploy_root_with_stage,
 )
