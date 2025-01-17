@@ -5,7 +5,11 @@ from typing import Generic, List, Optional, TypeVar
 from click import ClickException
 from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli._plugins.snowpark import package_utils
-from snowflake.cli._plugins.snowpark.common import DEFAULT_RUNTIME
+from snowflake.cli._plugins.snowpark.common import (
+    DEFAULT_RUNTIME,
+    map_path_mapping_to_artifact,
+    zip_and_copy_artifacts_to_deploy,
+)
 from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
     AnacondaPackagesManager,
@@ -17,6 +21,7 @@ from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     FunctionEntityModel,
     ProcedureEntityModel,
 )
+from snowflake.cli._plugins.snowpark.snowpark_project_paths import SnowparkProjectPaths
 from snowflake.cli._plugins.snowpark.zipper import zip_dir
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.entities.common import EntityBase
@@ -97,18 +102,20 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         Bundles the entity artifacts and dependencies into a directory.
         Parameters:
             output_dir: The directory to output the bundled artifacts to. Defaults to output dir in project root
-            ignore_anaconda: If True, ignores anaconda chceck and tries to download all packages using pip
+            ignore_anaconda: If True, ignores anaconda check and tries to download all packages using pip
             skip_version_check: If True, skips version check when downloading packages
             index_url: The index URL to use when downloading packages, if none set - default pip index is used (in most cases- Pypi)
             allow_shared_libraries: If not set to True, using dependency with .so/.dll files will raise an exception
         Returns:
         """
         # 0 Create a directory for the entity
+        project_paths = SnowparkProjectPaths(
+            project_root=self.root.absolute(),
+        )
         if not output_dir:
-            output_dir = self.root / "output" / "bundle" / "snowpark"
-        output_dir.mkdir(parents=True, exist_ok=True)  # type: ignore
-
-        output_files = []
+            output_dir = project_paths.bundle_root
+        if not output_dir.exists():  # type: ignore[union-attr]
+            SecurePath(output_dir).mkdir(parents=True)
 
         # 1 Check if requirements exits
         if (self.root / "requirements.txt").exists():
@@ -122,21 +129,20 @@ class SnowparkEntity(EntityBase[Generic[T]]):
                 allow_shared_libraries=allow_shared_libraries,
             )
 
-        # 3 get the artifacts list
-        artifacts = self.model.artifacts
+        # 2 get the artifacts list
+        artifacts = map_path_mapping_to_artifact(project_paths, self.model.artifacts)
+        from snowflake.cli.api.feature_flags import FeatureFlag
 
-        for artifact in artifacts:
-            output_file = output_dir / artifact.dest / artifact.src.name
-
-            if artifact.src.is_file():
-                output_file.mkdir(parents=True, exist_ok=True)
-                SecurePath(artifact.src).copy(output_file)
-            elif artifact.is_dir():
-                output_file.mkdir(parents=True, exist_ok=True)
-
-            output_files.append(output_file)
-
-        return output_files
+        if FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled():
+            return zip_and_copy_artifacts_to_deploy(
+                artifacts, project_paths.bundle_root
+            )
+        else:
+            copied_files = []
+            for artefact in artifacts:
+                artefact.build()
+                copied_files.append(artefact.post_build_path)
+            return copied_files
 
     def check_if_exists(
         self, action_ctx: ActionContext

@@ -5,10 +5,6 @@ from typing import Any, List, NoReturn, Optional
 
 import jinja2
 from click import ClickException
-from snowflake.cli._plugins.nativeapp.artifacts import (
-    BundleMap,
-    resolve_without_follow,
-)
 from snowflake.cli._plugins.nativeapp.exceptions import (
     InvalidTemplateInFileError,
     MissingScriptError,
@@ -25,6 +21,7 @@ from snowflake.cli._plugins.stage.diff import (
 )
 from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.errno import (
@@ -43,6 +40,7 @@ from snowflake.cli.api.rendering.sql_templates import (
 )
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutor
+from snowflake.cli.api.utils.path_utils import resolve_without_follow
 from snowflake.connector import ProgrammingError
 
 

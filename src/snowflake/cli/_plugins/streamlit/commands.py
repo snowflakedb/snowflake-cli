@@ -29,6 +29,9 @@ from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
+from snowflake.cli._plugins.streamlit.streamlit_project_paths import (
+    StreamlitProjectPaths,
+)
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_experimental_behaviour,
@@ -156,6 +159,8 @@ def streamlit_deploy(
         entity_type="streamlit"
     )
 
+    streamlit_project_paths = StreamlitProjectPaths(cli_context.project_root)
+
     if not streamlits:
         raise NoProjectDefinitionError(
             project_type="streamlit", project_root=cli_context.project_root
@@ -174,7 +179,11 @@ def streamlit_deploy(
 
     # Get first streamlit
     streamlit: StreamlitEntityModel = streamlits[entity_id]
-    url = StreamlitManager().deploy(streamlit=streamlit, replace=replace)
+    url = StreamlitManager().deploy(
+        streamlit=streamlit,
+        streamlit_project_paths=streamlit_project_paths,
+        replace=replace,
+    )
 
     if open_:
         typer.launch(url)
