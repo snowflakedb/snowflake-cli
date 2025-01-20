@@ -14,6 +14,10 @@ entities:
     meta:
       depends_on:
         - id: test_procedure
+          arguments:
+            ignore_anaconda: true
+            skip_version_check: false
+            allow_shared_libraries: true
 
 
   test_procedure:
@@ -31,7 +35,15 @@ entities:
     meta:
       depends_on:
         - id: test_function
+          arguments:
+            ignore_anaconda: true
+            skip_version_check: false
+            allow_shared_libraries: true
         - id: test_function2
+          arguments:
+            ignore_anaconda: true
+            skip_version_check: false
+            allow_shared_libraries: true
 
   test_function:
     artifacts:
@@ -48,6 +60,10 @@ entities:
     meta:
       depends_on:
         - id: test_function2
+          arguments:
+            ignore_anaconda: true
+            skip_version_check: false
+            allow_shared_libraries: true
 
   test_function2:
     artifacts:

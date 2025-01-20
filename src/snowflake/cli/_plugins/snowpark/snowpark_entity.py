@@ -49,18 +49,18 @@ class SnowparkEntity(EntityBase[Generic[T]]):
     def action_bundle(
         self,
         action_ctx: ActionContext,
-        output_dir: Path | None,
         ignore_anaconda: bool,
         skip_version_check: bool,
+        output_dir: Path | None = None,
         index_url: str | None = None,
         allow_shared_libraries: bool = False,
         *args,
         **kwargs,
     ) -> List[Path]:
         return self.bundle(
-            output_dir,
             ignore_anaconda,
             skip_version_check,
+            output_dir,
             index_url,
             allow_shared_libraries,
         )
@@ -92,9 +92,9 @@ class SnowparkEntity(EntityBase[Generic[T]]):
 
     def bundle(
         self,
-        output_dir: Path | None,
         ignore_anaconda: bool,
         skip_version_check: bool,
+        output_dir: Path | None = None,
         index_url: str | None = None,
         allow_shared_libraries: bool = False,
     ) -> List[Path]:

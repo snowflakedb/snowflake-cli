@@ -102,5 +102,14 @@ def test_deploy_with_dependencies(mock_execute, basic_workspace):
     assert "IDENTIFIER('test_streamlit')" in mock_execute.call_args_list[3][0][0]
 
 
-#### TODO:
-# 1. In depends_basic there is a requirement. Check if bundling streamlit correctly resolves requirement for snowpark
+@mock.patch(EXECUTE_QUERY)
+def test_if_bundling_dependencies_resolves_requirements(mock_execute, basic_workspace):
+    with mock_config_key("enable_native_app_children", True):
+        entity, action_ctx = basic_workspace
+        entity.perform(EntityActions.BUNDLE, action_ctx)
+
+        output_dir = entity.root / "output" / "bundle"
+        dependencies_zip = output_dir / "snowpark" / "dependencies.zip"
+
+        assert output_dir.exists()
+        assert dependencies_zip.exists()

@@ -18,6 +18,7 @@ from abc import ABC
 from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
 
 from pydantic import Field, PrivateAttr, field_validator
+from pydantic_core.core_schema import ValidationInfo
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
@@ -46,10 +47,32 @@ PostDeployHook = SqlScriptHookType
 
 class Dependency(UpdatableModel):
     entity_id: str = Field(title="Id of the entity", alias="id")
-    arguments: Optional[str] = Field(
-        title="Arguments that will be passed to entity build and deploy actions",
-        default="",
+    arguments: Optional[Dict[str, Union[int, bool, str]]] = Field(
+        title="Arguments that will be passed to entity build and deploy actions, provided as a key value pairs",
+        default_factory=dict,
     )
+
+    @field_validator("arguments", mode="before")
+    @classmethod
+    def arguments_validator(cls, arguments: Dict, info: ValidationInfo) -> Dict:
+        duplicated_run = (
+            info.context.get("is_duplicated_run", False) if info.context else False
+        )
+        if not duplicated_run:
+            for k, v in arguments.items():
+                arguments[k] = cls._cast_value(v)
+
+        return arguments
+
+    @staticmethod
+    def _cast_value(value: str) -> Union[int, bool, str]:
+        if value.lower() in ["true", "false"]:
+            return value.lower() == "true"
+
+        try:
+            return int(value)
+        except ValueError:
+            return value
 
     def __eq__(self, other):
         return self.entity_id == other.entity_id
