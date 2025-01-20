@@ -1,0 +1,17 @@
+definition_version: 2
+
+entities:
+  test_image_repository:
+    type: image-repository
+    identifier:
+      name: test_image_repository
+
+  test_image_repository_2:
+    type: image-repository
+    identifier:
+      name: test_image_repository_2
+
+  test_image_repository_3:
+    type: image-repository
+    identifier:
+      name: test_image_repository_3

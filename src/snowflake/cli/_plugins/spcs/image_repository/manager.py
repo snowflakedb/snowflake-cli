@@ -15,6 +15,9 @@
 from urllib.parse import urlparse
 
 from snowflake.cli._plugins.spcs.common import handle_object_already_exists
+from snowflake.cli._plugins.spcs.image_repository.image_repository_entity_model import (
+    ImageRepositoryEntityModel,
+)
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -64,7 +67,7 @@ class ImageRepositoryManager(SqlExecutionMixin):
         name: str,
         if_not_exists: bool,
         replace: bool,
-    ):
+    ) -> SnowflakeCursor:
         if if_not_exists and replace:
             raise ValueError(
                 "'replace' and 'if_not_exists' options are mutually exclusive for ImageRepositoryManager.create"
@@ -82,6 +85,15 @@ class ImageRepositoryManager(SqlExecutionMixin):
             handle_object_already_exists(
                 e, ObjectType.IMAGE_REPOSITORY, name, replace_available=True
             )
+
+    def deploy(
+        self, image_repository: ImageRepositoryEntityModel, replace: bool
+    ) -> SnowflakeCursor:
+        return self.create(
+            image_repository.entity_id,
+            if_not_exists=False,
+            replace=replace,
+        )
 
     def list_images(self, repo_name: str) -> SnowflakeCursor:
         return self.execute_query(f"show images in image repository {repo_name}")
