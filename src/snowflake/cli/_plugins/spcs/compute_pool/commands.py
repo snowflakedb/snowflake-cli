@@ -14,10 +14,10 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Dict, Optional
 
 import typer
-from click import ClickException
+from click import ClickException, UsageError
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
 )
@@ -25,17 +25,29 @@ from snowflake.cli._plugins.object.common import CommentOption
 from snowflake.cli._plugins.spcs.common import (
     validate_and_set_instances,
 )
+from snowflake.cli._plugins.spcs.compute_pool.compute_pool_entity_model import (
+    ComputePoolEntityModel,
+)
 from snowflake.cli._plugins.spcs.compute_pool.manager import ComputePoolManager
+from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     OverrideableOption,
+    ReplaceOption,
+    entity_argument,
     identifier_argument,
     like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.exceptions import NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
+from snowflake.cli.api.output.types import (
+    CommandResult,
+    MessageResult,
+    SingleQueryResult,
+)
 from snowflake.cli.api.project.util import is_valid_object_name
 
 app = SnowTyperFactory(
@@ -124,6 +136,7 @@ def create(
     ),
     auto_suspend_secs: int = AutoSuspendSecsOption(),
     comment: Optional[str] = CommentOption(help=_COMMENT_HELP),
+    replace: bool = ReplaceOption(),
     if_not_exists: bool = IfNotExistsOption(),
     **options,
 ) -> CommandResult:
@@ -141,8 +154,47 @@ def create(
         auto_suspend_secs=auto_suspend_secs,
         comment=comment,
         if_not_exists=if_not_exists,
+        replace=replace,
     )
     return SingleQueryResult(cursor)
+
+
+@app.command("deploy", requires_connection=True)
+@with_project_definition()
+def deploy(
+    replace: bool = ReplaceOption(
+        help="Replace the compute-pool if it already exists."
+    ),
+    entity_id: str = entity_argument("compute-pool"),
+    **options,
+):
+    """
+    Deploys a compute pool from the project definition file.
+    """
+    cli_context = get_cli_context()
+    pd = cli_context.project_definition
+    compute_pools: Dict[str, ComputePoolEntityModel] = pd.get_entities_by_type(
+        entity_type="compute-pool"
+    )
+
+    if not compute_pools:
+        raise NoProjectDefinitionError(
+            project_type="compute pool", project_root=cli_context.project_root
+        )
+
+    if entity_id and entity_id not in compute_pools:
+        raise UsageError(f"No '{entity_id}' entity in project definition file.")
+    elif len(compute_pools.keys()) == 1:
+        entity_id = list(compute_pools.keys())[0]
+
+    if entity_id is None:
+        raise UsageError(
+            "Multiple compute pools found. Please provide entity id for the operation."
+        )
+
+    ComputePoolManager().deploy(compute_pool=compute_pools[entity_id], replace=replace)
+
+    return MessageResult(f"Compute pool '{entity_id}' successfully deployed.")
 
 
 @app.command("stop-all", requires_connection=True)
