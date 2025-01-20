@@ -16,6 +16,7 @@ import logging
 from typing import Dict
 
 import typer
+from click import UsageError
 from snowflake.cli._plugins.notebook.manager import NotebookManager
 from snowflake.cli._plugins.notebook.notebook_entity_model import NotebookEntityModel
 from snowflake.cli._plugins.notebook.types import NotebookStagePath
@@ -24,11 +25,21 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
-from snowflake.cli.api.commands.flags import entity_argument, identifier_argument
+from snowflake.cli.api.commands.flags import (
+    IfNotExistsOption,
+    ReplaceOption,
+    entity_argument,
+    identifier_argument,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.entities.common import EntityActions
+from snowflake.cli.api.exceptions import NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.types import MessageResult
+from snowflake.cli.api.output.types import (
+    CollectionResult,
+    CommandResult,
+    MessageResult,
+)
 from typing_extensions import Annotated
 
 app = SnowTyperFactory(
@@ -98,8 +109,12 @@ def create(
 @with_project_definition()
 def deploy(
     entity_id=entity_argument("notebook"),
+    replace: bool = ReplaceOption(
+        help="Replace existing Notebook if it already exists.",
+    ),
+    if_not_exists: bool = IfNotExistsOption(help="Skip if Notebook already exists."),
     **options,
-):
+) -> CommandResult:
     """Uploads a notebook to a stage and creates a notebook. If entity_id is not provided,
     deploys all notebooks defined in the project definition."""
     cli_context = get_cli_context()
@@ -112,17 +127,27 @@ def deploy(
         entity_type="notebook"
     )
     if not notebooks:
-        # raise
-        pass
+        raise NoProjectDefinitionError(
+            project_type="notebook", project_root=cli_context.project_root
+        )
     if entity_id:
         if entity_id not in notebooks:
-            # raise
-            pass
+            raise UsageError(f"No '{entity_id}' notebook in project definition file.")
         notebooks = {entity_id: notebooks[entity_id]}
 
     ws = WorkspaceManager(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
+
+    deploy_results = []
     for entity_id in sorted(notebooks):
-        ws.perform_action(entity_id, EntityActions.DEPLOY)
+        result = ws.perform_action(
+            entity_id,
+            EntityActions.DEPLOY,
+            replace=replace,
+            if_not_exists=if_not_exists,
+        )
+        deploy_results.append(result)
+
+    return CollectionResult(deploy_results)
