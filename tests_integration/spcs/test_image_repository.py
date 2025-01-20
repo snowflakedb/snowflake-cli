@@ -12,9 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import uuid
+from typing import Tuple
 
 import pytest
 from snowflake.cli.api.project.util import escape_like_pattern
+from tests_integration.spcs.testing_utils.image_repository_utils import (
+    ImageRepositoryTestSetup,
+    ImageRepositoryTestSteps,
+)
 
 from tests_integration.test_utils import contains_row_with, row_from_snowflake_session
 from tests_integration.testing_utils import ObjectNameProvider
@@ -113,3 +119,43 @@ def test_create_image_repository(runner, test_database):
     assert result.json == {
         "status": f"Image Repository {repo_name.upper()} successfully created."
     }
+
+
+@pytest.mark.integration
+def test_deploy_image_repository(
+    _test_steps: Tuple[ImageRepositoryTestSteps, str],
+    project_directory,
+    alter_snowflake_yml,
+):
+    test_steps, image_repository_name = _test_steps
+
+    with project_directory("spcs_image_repository"):
+        alter_snowflake_yml(
+            "snowflake.yml",
+            "entities",
+            {
+                image_repository_name: {
+                    "type": "image-repository",
+                    "identifier": {
+                        "name": image_repository_name,
+                    },
+                }
+            },
+        )
+        test_steps.deploy_image_repository(image_repository_name)
+        test_steps.deploy_image_repository_with_replace(image_repository_name)
+
+
+@pytest.fixture
+def _test_steps(runner, snowflake_session, test_database):
+    image_repository_name = f"image_repository_{uuid.uuid4().hex}"
+    compute_pool_test_setup = ImageRepositoryTestSetup(
+        runner=runner, snowflake_session=snowflake_session
+    )
+    test_steps = ImageRepositoryTestSteps(compute_pool_test_setup)
+
+    yield test_steps, image_repository_name
+
+    snowflake_session.execute_string(
+        f"drop image repository if exists {image_repository_name}"
+    )
