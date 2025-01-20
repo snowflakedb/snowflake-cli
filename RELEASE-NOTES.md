@@ -47,6 +47,7 @@
   * Use `--all` to fetch all columns.
 * Added support for glob pattern (except `**`) in artifact paths in snowflake.yml for Streamlit.
 * Added support for glob pattern (except `**`) in artifact paths in snowflake.yml for Snowpark, requires ENABLE_SNOWPARK_GLOB_SUPPORT feature flag.
+* Add `snow notebook deploy` command, which bases on new notebook project definition.
 
 ## Fixes and improvements
 
