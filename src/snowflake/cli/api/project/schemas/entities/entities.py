@@ -34,6 +34,12 @@ from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     FunctionEntityModel,
     ProcedureEntityModel,
 )
+from snowflake.cli._plugins.spcs.compute_pool.compute_pool_entity import (
+    ComputePoolEntity,
+)
+from snowflake.cli._plugins.spcs.compute_pool.compute_pool_entity_model import (
+    ComputePoolEntityModel,
+)
 from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
@@ -45,6 +51,7 @@ Entity = Union[
     StreamlitEntity,
     ProcedureEntity,
     FunctionEntity,
+    ComputePoolEntity,
     NotebookEntity,
 ]
 EntityModel = Union[
@@ -53,6 +60,7 @@ EntityModel = Union[
     StreamlitEntityModel,
     FunctionEntityModel,
     ProcedureEntityModel,
+    ComputePoolEntityModel,
     NotebookEntityModel,
 ]
 
