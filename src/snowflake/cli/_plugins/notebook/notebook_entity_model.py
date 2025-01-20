@@ -16,8 +16,7 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 class NotebookEntityModel(EntityModelBase):
     type: Literal["notebook"] = DiscriminatorField()  # noqa: A003
     stage_path: Optional[str] = Field(
-        title="Stage directory in which the notebook file will be stored",
-        default="@notebooks",
+        title="Stage directory in which the notebook file will be stored", default=None
     )
     notebook_file: Path = Field(title="Notebook file")
     query_warehouse: str = Field(title="Snowflake warehouse to execute the notebook")

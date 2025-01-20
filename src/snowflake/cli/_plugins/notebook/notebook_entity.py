@@ -14,6 +14,8 @@ from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import ProgrammingError, SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 
+_DEFAULT_NOTEBOOK_STAGE_NAME = "@notebooks"
+
 
 class NotebookEntity(EntityBase[NotebookEntityModel]):
     """
@@ -35,7 +37,10 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
     @functools.cached_property
     def _notebook_file_stage_path(self) -> StagePath:
         filename = self.model.notebook_file.name
-        return StagePath.from_stage_str(f"{self.model.stage_path}/{filename}")
+        stage_path = self.model.stage_path
+        if stage_path is None:
+            stage_path = f"{_DEFAULT_NOTEBOOK_STAGE_NAME}/{self._fqn.name}"
+        return StagePath.from_stage_str(f"{stage_path}/{filename}")
 
     def _object_exists(self) -> bool:
         # currently notebook objects are not supported by object manager - re-implementing "exists"
@@ -54,7 +59,7 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
 
         cli_console.step(f"Creating stage {stage_fqn} if not exists")
         stage_manager.create(fqn=stage_fqn)
-        cli_console.step(f"Uploading {self.model.notebook_file} to the stage")
+        cli_console.step(f"Uploading {self.model.notebook_file} to {stage_path.parent}")
         stage_manager.put(
             local_path=self.model.notebook_file,
             stage_path=str(stage_path.parent),
