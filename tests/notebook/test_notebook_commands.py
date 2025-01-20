@@ -98,44 +98,101 @@ def test_create_query(
     )
 
 
-def test_deploy(mock_connector, runner, mock_ctx):
+@mock.patch("snowflake.connector.connect")
+def test_deploy_default_stage_paths(
+    mock_connector, mock_ctx, runner, project_directory, snapshot
+):
+    """Deploy two different notebooks with the same notebook file name."""
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    result = runner.invoke(["git", "list-tags", "repo_name", "--like", "PATTERN"])
-    assert ctx.get_query == "q"
+    with project_directory("notebooks_v2"):
+        result = runner.invoke(["notebook", "deploy", "--replace"])
+        assert result.exit_code == 0, result.output
+        assert result.output == snapshot(name="output")
+        assert ctx.get_query() == snapshot(name="query")
 
 
-def test_deploy_single_notebook(mock_connector, runner, mock_ctx):
+@mock.patch("snowflake.connector.connect")
+def test_deploy_single_notebook_stage_path(
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+    alter_snowflake_yml,
+    snapshot,
+):
+    """Deploy single notebook with provided stage path."""
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    result = runner.invoke(["git", "list-tags", "repo_name", "--like", "PATTERN"])
-    assert ctx.get_query == "q"
+    with project_directory("notebooks_v2") as project_root:
+        alter_snowflake_yml(
+            project_root / "snowflake.yml",
+            "entities.notebook1.stage_path",
+            "@notebooks_stage/notebook1",
+        )
+        result = runner.invoke(["notebook", "deploy", "notebook1", "--replace"])
+        assert result.exit_code == 0, result.output
+        assert result.output == snapshot(name="output")
+        assert ctx.get_query() == snapshot(name="query")
 
 
-def test_deploy_object_exists_error(mock_connector, runner, mock_ctx):
+@mock.patch("snowflake.connector.connect")
+def test_deploy_if_not_exists(
+    mock_connector, mock_ctx, runner, project_directory, snapshot
+):
+    """Deploy two different notebooks with the same notebook file name."""
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    result = runner.invoke(["git", "list-tags", "repo_name", "--like", "PATTERN"])
-    assert ctx.get_query == "q"
+    with project_directory("notebooks_v2"):
+        result = runner.invoke(["notebook", "deploy", "--if-not-exists"])
+        assert result.exit_code == 0, result.output
+        assert result.output == snapshot(name="output")
+        assert ctx.get_query() == snapshot(name="query")
 
 
-def test_deploy_file_validation_error(mock_connector, runner, mock_ctx):
-    # file not exists, not-ipynb file
+@mock.patch("snowflake.connector.connect")
+def test_deploy_if_no_replace_error(
+    mock_connector, mock_ctx, runner, project_directory
+):
+    """Deploy two different notebooks with the same notebook file name."""
     ctx = mock_ctx()
     mock_connector.return_value = ctx
-    result = runner.invoke(["git", "list-tags", "repo_name", "--like", "PATTERN"])
-    assert ctx.get_query == "q"
+    with project_directory("notebooks_v2"):
+        result = runner.invoke(["notebook", "deploy"])
+        assert result.exit_code == 1, result.output
+        assert (
+            "Notebook notebook1 already exists. Consider using --replace."
+            in result.output
+        )
 
 
-def test_deploy_replace(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-    result = runner.invoke(["git", "list-tags", "repo_name", "--like", "PATTERN"])
-    assert ctx.get_query == "q"
+def test_deploy_replace_if_not_exists_error(runner, project_directory):
+    with project_directory("notebooks_v2"):
+        result = runner.invoke(["notebook", "deploy", "--if-not-exists", "--replace"])
+        assert result.exit_code == 2, result.output
+        assert (
+            "Parameters '--replace' and '--if-not-exists' are incompatible"
+            in result.output
+        )
 
 
-def test_deploy_if_not_exists(mock_connector, runner, mock_ctx):
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-    result = runner.invoke(["git", "list-tags", "repo_name", "--like", "PATTERN"])
-    assert ctx.get_query == "q"
+def test_deploy_notebook_file_not_exists_error(runner, project_directory):
+    with project_directory("notebooks_v2") as project_root:
+        (project_root / "notebook2" / "my_notebook.ipynb").unlink()
+        result = runner.invoke(["notebook", "deploy", "--replace"])
+        assert result.exit_code == 1, result.output
+        assert "This caused: Value error, Notebook file"
+        assert "notebook2/my_notebook.ipynb does not exist" in result.output
+
+
+def test_deploy_project_definition_version_error(
+    runner, project_directory, alter_snowflake_yml
+):
+    with project_directory("empty_project") as project_root:
+        alter_snowflake_yml(project_root / "snowflake.yml", "definition_version", "1.1")
+        result = runner.invoke(["notebook", "deploy", "--replace"])
+        assert result.exit_code == 2, result.output
+        assert (
+            "This command requires project definition of version at least 2."
+            in result.output
+        )

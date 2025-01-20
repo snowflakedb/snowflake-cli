@@ -1,0 +1,96 @@
+# serializer version: 1
+# name: test_deploy_default_stage_paths[output]
+  '''
+  Deploying notebook MockDatabase.MockSchema.notebook1
+    Creating stage MockDatabase.MockSchema.notebooks if not exists
+    Uploading notebook1/my_notebook.ipynb to @notebooks/notebook1
+    Creating notebook
+  Deploying notebook MockDatabase.MockSchema.notebook2
+    Creating stage MockDatabase.MockSchema.notebooks if not exists
+    Uploading notebook2/my_notebook.ipynb to @notebooks/notebook2
+    Creating notebook
+  +----------------------+
+  | object    | status   |
+  |-----------+----------|
+  | notebook1 | REPLACED |
+  | notebook2 | REPLACED |
+  +----------------------+
+  
+  '''
+# ---
+# name: test_deploy_default_stage_paths[query]
+  '''
+  DESCRIBE NOTEBOOK IDENTIFIER('MockDatabase.MockSchema.notebook1')
+  create stage if not exists IDENTIFIER('MockDatabase.MockSchema.notebooks')
+  put file://notebook1/my_notebook.ipynb @notebooks/notebook1 auto_compress=false parallel=4 overwrite=True
+  
+  CREATE OR REPLACE NOTEBOOK IDENTIFIER('MockDatabase.MockSchema.notebook1')
+  FROM '@notebooks'
+  QUERY_WAREHOUSE = 'xsmall'
+  MAIN_FILE = 'notebook1/my_notebook.ipynb';
+  // Cannot use IDENTIFIER(...)
+  ALTER NOTEBOOK MockDatabase.MockSchema.notebook1 ADD LIVE VERSION FROM LAST;
+  
+  DESCRIBE NOTEBOOK IDENTIFIER('MockDatabase.MockSchema.notebook2')
+  create stage if not exists IDENTIFIER('MockDatabase.MockSchema.notebooks')
+  put file://notebook2/my_notebook.ipynb @notebooks/notebook2 auto_compress=false parallel=4 overwrite=True
+  
+  CREATE OR REPLACE NOTEBOOK IDENTIFIER('MockDatabase.MockSchema.notebook2')
+  FROM '@notebooks'
+  QUERY_WAREHOUSE = 'xsmall'
+  MAIN_FILE = 'notebook2/my_notebook.ipynb';
+  // Cannot use IDENTIFIER(...)
+  ALTER NOTEBOOK MockDatabase.MockSchema.notebook2 ADD LIVE VERSION FROM LAST;
+  
+  '''
+# ---
+# name: test_deploy_if_not_exists[output]
+  '''
+  Deploying notebook MockDatabase.MockSchema.notebook1
+    Notebook already exists, skipping.
+  Deploying notebook MockDatabase.MockSchema.notebook2
+    Notebook already exists, skipping.
+  +---------------------+
+  | object    | status  |
+  |-----------+---------|
+  | notebook1 | SKIPPED |
+  | notebook2 | SKIPPED |
+  +---------------------+
+  
+  '''
+# ---
+# name: test_deploy_if_not_exists[query]
+  '''
+  DESCRIBE NOTEBOOK IDENTIFIER('MockDatabase.MockSchema.notebook1')
+  DESCRIBE NOTEBOOK IDENTIFIER('MockDatabase.MockSchema.notebook2')
+  '''
+# ---
+# name: test_deploy_single_notebook_stage_path[output]
+  '''
+  Deploying notebook MockDatabase.MockSchema.notebook1
+    Creating stage MockDatabase.MockSchema.notebooks_stage if not exists
+    Uploading notebook1/my_notebook.ipynb to @notebooks_stage/notebook1
+    Creating notebook
+  +----------------------+
+  | object    | status   |
+  |-----------+----------|
+  | notebook1 | REPLACED |
+  +----------------------+
+  
+  '''
+# ---
+# name: test_deploy_single_notebook_stage_path[query]
+  '''
+  DESCRIBE NOTEBOOK IDENTIFIER('MockDatabase.MockSchema.notebook1')
+  create stage if not exists IDENTIFIER('MockDatabase.MockSchema.notebooks_stage')
+  put file://notebook1/my_notebook.ipynb @notebooks_stage/notebook1 auto_compress=false parallel=4 overwrite=True
+  
+  CREATE OR REPLACE NOTEBOOK IDENTIFIER('MockDatabase.MockSchema.notebook1')
+  FROM '@notebooks_stage'
+  QUERY_WAREHOUSE = 'xsmall'
+  MAIN_FILE = 'notebook1/my_notebook.ipynb';
+  // Cannot use IDENTIFIER(...)
+  ALTER NOTEBOOK MockDatabase.MockSchema.notebook1 ADD LIVE VERSION FROM LAST;
+  
+  '''
+# ---
