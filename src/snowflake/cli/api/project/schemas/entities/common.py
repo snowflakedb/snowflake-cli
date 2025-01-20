@@ -99,7 +99,7 @@ class MetaField(UpdatableModel):
     )
 
     depends_on: Optional[List[Dependency]] = Field(
-        title="Entities that need to be deployed before this one", default=[]
+        title="Entities that need to be deployed before this one", default_factory=list
     )
 
     @field_validator("use_mixins", mode="before")

@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
 from types import UnionType
 from typing import Any, Dict, List, Optional, Union, get_args, get_origin
@@ -267,14 +268,15 @@ class DefinitionV20(_ProjectDefinitionBase):
         """
         Checks if entities listed in depends_on section exist in the project
         """
-
+        missing_dependencies = defaultdict(list)
         for entity_id, entity in self.entities.items():
             if entity.meta:
                 for dependency in entity.meta.depends_on:
                     if dependency.entity_id not in self.entities:
-                        raise ValueError(
-                            f"Entity {entity_id} depends on non-existing entity {dependency.entity_id}"
-                        )
+                        missing_dependencies[entity_id].append(dependency.entity_id)
+
+        if missing_dependencies:
+            raise ValueError(_get_missing_dependencies_message(missing_dependencies))
 
     @classmethod
     def _merge_data(
@@ -368,3 +370,14 @@ def _unique_extend(list_a: List, list_b: List) -> List:
         if all(item != x for x in list_a):
             new_list.append(item)
     return new_list
+
+
+def _get_missing_dependencies_message(
+    missing_dependencies: Dict[str, List[str]]
+) -> str:
+    missing_dependencies_message = []
+    for entity_id, dependencies in missing_dependencies.items():
+        missing_dependencies_message.append(
+            f"\n Entity {entity_id} depends on non-existing entities: {', '.join(dependencies)}"
+        )
+    return "".join(missing_dependencies_message)

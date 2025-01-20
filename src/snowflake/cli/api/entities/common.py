@@ -73,7 +73,8 @@ class EntityBase(Generic[T]):
     ):
         """
         Performs the requested action.
-        This is a preferred way to perform actions on entities, as it will also call the dependencies in the correct order.
+        This is a preferred way to perform actions on entities, over calling actions directly,
+        as it will also call the dependencies in the correct order.
         """
         self.dependency_resolver.perform_for_dep(action, action_ctx, *args, **kwargs)
         return getattr(self, action)(action_ctx, *args, **kwargs)

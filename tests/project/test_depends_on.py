@@ -70,11 +70,21 @@ def test_dependencies_must_exist_in_project_file(
             parameter_path="entities.test_streamlit.meta.depends_on.0.id",
             value="foo",
         )
+        alter_snowflake_yml(
+            snowflake_yml_path=pdir / "snowflake.yml",
+            parameter_path="entities.test_procedure.meta.depends_on.0.id",
+            value="bar",
+        )
         with pytest.raises(SchemaValidationError) as err:
             project = load_project([pdir / "snowflake.yml"])
 
     assert (
-        "Entity test_streamlit depends on non-existing entity foo" in err.value.message
+        " Entity test_procedure depends on non-existing entities: bar"
+        in err.value.message
+    )
+    assert (
+        " Entity test_streamlit depends on non-existing entities: foo"
+        in err.value.message
     )
 
 
