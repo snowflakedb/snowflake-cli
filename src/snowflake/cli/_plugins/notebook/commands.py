@@ -120,8 +120,9 @@ def deploy(
     cli_context = get_cli_context()
     pd = cli_context.project_definition
     if not pd.meets_version_requirement("2"):
-        # raise
-        pass
+        raise UsageError(
+            "This command requires project definition of version at least 2."
+        )
 
     notebooks: Dict[str, NotebookEntityModel] = pd.get_entities_by_type(
         entity_type="notebook"
