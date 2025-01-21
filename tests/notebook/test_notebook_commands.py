@@ -185,6 +185,16 @@ def test_deploy_notebook_file_not_exists_error(runner, project_directory):
         assert "notebook2/my_notebook.ipynb does not exist" in result.output
 
 
+def test_deploy_notebook_definition_not_exists_error(runner, project_directory):
+    with project_directory("notebooks_v2"):
+        result = runner.invoke(["notebook", "deploy", "not_existing_id", "--replace"])
+        assert result.exit_code == 2, result.output
+        assert (
+            "Definition of notebook 'not_existing_id' not found in project definition"
+        )
+        assert "file." in result.output
+
+
 def test_deploy_project_definition_version_error(
     runner, project_directory, alter_snowflake_yml
 ):

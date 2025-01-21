@@ -133,7 +133,9 @@ def deploy(
         )
     if entity_id:
         if entity_id not in notebooks:
-            raise UsageError(f"No '{entity_id}' notebook in project definition file.")
+            raise UsageError(
+                f"Definition of notebook '{entity_id}' not found in project definition file."
+            )
         notebooks = {entity_id: notebooks[entity_id]}
 
     ws = WorkspaceManager(
