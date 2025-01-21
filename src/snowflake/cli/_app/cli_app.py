@@ -112,6 +112,15 @@ def _docs_callback(value: bool):
 
 @_do_not_execute_on_completion
 @_commands_registration.after
+def _help_callback(value: bool):
+    if value:
+        ctx = click.get_current_context()
+        typer.echo(ctx.get_help())
+        _exit_with_cleanup()
+
+
+@_do_not_execute_on_completion
+@_commands_registration.after
 def _commands_structure_callback(value: bool):
     if value:
         ctx = click.get_current_context()
@@ -157,10 +166,19 @@ def app_factory() -> SnowCliMainTyper:
         invoke_without_command=True,
         epilog=new_version_msg,
         result_callback=show_new_version_banner_callback(new_version_msg),
+        add_help_option=False,
         help=f"Snowflake CLI tool for developers [v{__about__.VERSION}]",
     )
     def default(
         ctx: typer.Context,
+        custom_help: bool = typer.Option(
+            None,
+            "--help",
+            "-h",
+            help="Show this message and exit.",
+            callback=_help_callback,
+            is_eager=True,
+        ),
         version: bool = typer.Option(
             None,
             "--version",

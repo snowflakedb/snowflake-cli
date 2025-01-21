@@ -7,6 +7,7 @@
    Snowflake CLI tool for developers [v0.0.0-test_patched]                        
                                                                                   
   +- Options --------------------------------------------------------------------+
+  | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
   | --info                              Shows information about the Snowflake    |
   |                                     CLI                                      |
@@ -18,7 +19,6 @@
   | --show-completion                   Show completion for the current shell,   |
   |                                     to copy it or customize the              |
   |                                     installation.                            |
-  | --help                -h            Show this message and exit.              |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app          Manages a Snowflake Native App                                  |
@@ -10914,6 +10914,7 @@
    Snowflake CLI tool for developers [v0.0.0-test_patched]                        
                                                                                   
   +- Options --------------------------------------------------------------------+
+  | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
   | --info                              Shows information about the Snowflake    |
   |                                     CLI                                      |
@@ -10925,7 +10926,6 @@
   | --show-completion                   Show completion for the current shell,   |
   |                                     to copy it or customize the              |
   |                                     installation.                            |
-  | --help                -h            Show this message and exit.              |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app          Manages a Snowflake Native App                                  |

@@ -87,6 +87,7 @@ class CommandsRegistrationWithCallbacks:
         def enriched_callback(value):
             self._counter_of_callbacks_invoked_before_registration.increment()
             callback(value)
+            self.register_commands_if_ready_and_not_registered_yet()
 
         self._counter_of_callbacks_required_before_registration.increment()
         return enriched_callback
