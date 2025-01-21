@@ -33,7 +33,7 @@ dependencies = [
   "rich==13.9.4",
   "requests==2.32.3",
   "requirements-parser==0.11.0",
-  "setuptools==75.6.0",
+  "setuptools==75.8.0",
   'snowflake.core==1.0.2; python_version < "3.12"',
   "snowflake-connector-python[secure-local-storage]==3.12.4",
   'snowflake-snowpark-python>=1.15.0,<1.26.0;python_version < "3.12"',
