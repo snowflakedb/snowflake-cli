@@ -166,11 +166,15 @@ def app_factory() -> SnowCliMainTyper:
         invoke_without_command=True,
         epilog=new_version_msg,
         result_callback=show_new_version_banner_callback(new_version_msg),
-        add_help_option=False,
+        add_help_option=False,  # custom_help option added below
         help=f"Snowflake CLI tool for developers [v{__about__.VERSION}]",
     )
     def default(
         ctx: typer.Context,
+        # We need a custom help option with _help_callback called after command registration
+        # to have all commands visible in the help.
+        # This is required since click 8.1.8, when the default help option
+        # has started to being executed before our eager options, including command registration.
         custom_help: bool = typer.Option(
             None,
             "--help",
