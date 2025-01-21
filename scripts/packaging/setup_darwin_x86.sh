@@ -3,9 +3,10 @@ set -o pipefail
 
 echo "Setting up the Snowflake CLI build environment"
 
+brew install pyenv
 pyenv versions
-pyenv install 3.10
-pyenv shell 3.10
+pyenv install 3.11
+pyenv shell 3.11
 
 python -m venv venv
 . venv/bin/activate
