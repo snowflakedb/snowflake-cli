@@ -10,8 +10,8 @@ export PYENV_ROOT="$HOME/.pyenv"
 eval "$(pyenv init - bash)"
 
 pyenv versions
-pyenv install -s 3.11
-pyenv shell 3.11
+pyenv install -s 3.10
+pyenv shell 3.10
 
 python -m venv venv
 . venv/bin/activate
