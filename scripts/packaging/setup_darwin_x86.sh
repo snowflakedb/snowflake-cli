@@ -16,4 +16,4 @@ pyenv shell 3.10
 python -m venv venv
 . venv/bin/activate
 pip install -U pip hatch uv pyinstaller
-hatch run packaging:build-binaries
+hatch run packaging:package-darwin-binaries
