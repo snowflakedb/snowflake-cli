@@ -132,7 +132,7 @@ def test_all_commands_have_generated_files(runner, temp_dir):
     runner.invoke(["--docs"])
 
     # invoke help command to populate app context (plugins registration)
-    runner.invoke(["--help"])
+    runner.invoke([])
 
     ctx = app_context_holder.app_context
 
