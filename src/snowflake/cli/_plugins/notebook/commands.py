@@ -110,9 +110,11 @@ def create(
 def deploy(
     entity_id=entity_argument("notebook"),
     replace: bool = ReplaceOption(
-        help="Replace existing Notebook if it already exists.",
+        help="Replace notebook object if it already exists.",
     ),
-    if_not_exists: bool = IfNotExistsOption(help="Skip if Notebook already exists."),
+    if_not_exists: bool = IfNotExistsOption(
+        help="Skip if notebook object already exists."
+    ),
     **options,
 ) -> CommandResult:
     """Uploads a notebook and required files to a stage and creates a Snowflake notebook. If entity_id is not provided,
