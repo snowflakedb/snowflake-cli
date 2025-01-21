@@ -180,6 +180,10 @@ cat <<ASKPASS >./asker.sh
   printf "%s\n" "$MAC_USERNAME_PASSWORD"
 ASKPASS
 
+ls -la ./asker.sh
+chmod +x ./asker.sh
+ls -la ./asker.sh
+
 validate_installation() {
   local pkg_name=$1
   ls -la $pkg_name
