@@ -130,9 +130,6 @@ def test_files_generated_for_each_optional_project_definition_property(
 def test_all_commands_have_generated_files(runner, temp_dir, get_click_context):
     runner.invoke(["--docs"])
 
-    # invoke help command to populate app context (plugins registration)
-    runner.invoke(["--help"])
-
     commands_path = Path(temp_dir) / "gen_docs" / "commands"
 
     errors = []
@@ -156,6 +153,10 @@ def test_all_commands_have_generated_files(runner, temp_dir, get_click_context):
                     f"Command `{' '.join(command_path)}` documentation was not properly generated"
                 )
 
+    app = get_click_context().command
+    assert (
+        len(app.commands) >= 1
+    )  # confirm that test is actually checking some commands
     _check(get_click_context().command, commands_path)
 
     assert len(errors) == 0, "\n".join(errors)

@@ -78,24 +78,23 @@ class CliAppFactory:
 
     def _commands_registration_callback(self):
         def callback(value: bool):
+            self._click_context = click.get_current_context()
             if value:
-                self._commands_registration.register_commands_if_ready_and_not_registered_yet()
+                self._commands_registration.register_commands_from_plugins()
             # required to make the tests working
             # because a single test can execute multiple commands using always the same "app" instance
             self._commands_registration.reset_running_instance_registration_state()
-            self._click_context = click.get_current_context()
 
         return callback
 
-    def _config_init_callback(self):
-        @self._commands_registration.before
+    @staticmethod
+    def _config_init_callback():
         def callback(configuration_file: Optional[Path]):
             config_init(configuration_file)
 
         return callback
 
     def _disable_external_command_plugins_callback(self):
-        @self._commands_registration.before
         def callback(value: bool):
             if value:
                 self._commands_registration.disable_external_command_plugins()
@@ -123,7 +122,6 @@ class CliAppFactory:
                 self._exit_with_cleanup()
 
         return callback
-
 
     def _commands_structure_callback(self):
         @_do_not_execute_on_completion
@@ -180,6 +178,7 @@ class CliAppFactory:
             invoke_without_command=True,
             epilog=new_version_msg,
             result_callback=show_new_version_banner_callback(new_version_msg),
+            add_help_option=False,  # custom_help option added below
             help=f"Snowflake CLI tool for developers [v{__about__.VERSION}]",
         )
         def default(
@@ -259,13 +258,7 @@ class CliAppFactory:
             ),
             # THIS OPTION SHOULD BE THE LAST OPTION IN THE LIST!
             # ---
-            # This is a hidden artificial option used only to guarantee execution of commands registration
-            # and make this guaranty not dependent on other callbacks.
-            # Commands registration is invoked as soon as all callbacks
-            # decorated with "_commands_registration.before" are executed
-            # but if there are no such callbacks (at the result of possible future changes)
-            # then we need to invoke commands registration manually.
-            #
+            # This is a hidden artificial option used only to guarantee execution of commands registration.
             # This option is also responsible for resetting registration state for test purposes.
             commands_registration: bool = typer.Option(
                 True,
