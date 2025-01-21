@@ -27,6 +27,7 @@ from snowflake.cli.api.metrics import CLIMetrics
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 from snowflake.connector import SnowflakeConnection
+from snowflake.core import Root
 
 if TYPE_CHECKING:
     from snowflake.cli.api.project.definition_manager import DefinitionManager
@@ -195,6 +196,10 @@ class _CliGlobalContextAccess:
     def _should_force_mute_intermediate_output(self) -> bool:
         """Computes whether cli_console output should be muted."""
         return self._manager.output_format == OutputFormat.JSON
+
+    @property
+    def root_object(self) -> Root:
+        return Root(self.connection)
 
 
 _CLI_CONTEXT_MANAGER: ContextVar[_CliGlobalContextManager | None] = ContextVar(

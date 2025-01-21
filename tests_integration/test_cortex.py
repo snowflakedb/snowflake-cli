@@ -29,7 +29,7 @@ from tests_integration.testing_utils.assertions.test_result_assertions import (
     sys.version_info >= (3, 12),
     reason="Snowflake Python API currently does not support Python 3.12 and greater",
 )
-def test_cortex_search(runner):
+def test_cortex_search(runner, test_database):
     result = runner.invoke_with_connection_json(
         [
             "cortex",
@@ -39,6 +39,8 @@ def test_cortex_search(runner):
             "test_service",
             "--columns",
             "region",
+            "--database",
+            test_database,
         ]
     )
 
