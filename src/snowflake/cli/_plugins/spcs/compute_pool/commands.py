@@ -30,12 +30,10 @@ from snowflake.cli._plugins.spcs.compute_pool.compute_pool_entity_model import (
 )
 from snowflake.cli._plugins.spcs.compute_pool.manager import ComputePoolManager
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     OverrideableOption,
     ReplaceOption,
-    entity_argument,
     identifier_argument,
     like_option,
 )
@@ -45,7 +43,6 @@ from snowflake.cli.api.exceptions import NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
-    MessageResult,
     SingleQueryResult,
 )
 from snowflake.cli.api.project.util import is_valid_object_name
@@ -61,6 +58,8 @@ def _compute_pool_name_callback(name: FQN) -> FQN:
     """
     Verifies that compute pool name is a single valid identifier.
     """
+    if not name:
+        return name
     if not is_valid_object_name(name.identifier, max_depth=0, allow_quoted=False):
         raise ClickException(
             f"'{name}' is not a valid compute pool name. Note that compute pool names must be unquoted identifiers."
@@ -119,82 +118,97 @@ add_object_command_aliases(
 
 @app.command(requires_connection=True)
 def create(
-    name: FQN = ComputePoolNameArgument,
-    instance_family: str = typer.Option(
-        ...,
+    name: FQN = identifier_argument(
+        sf_object="compute pool",
+        example="my_compute_pool",
+        callback=_compute_pool_name_callback,
+        is_optional=True,
+    ),
+    instance_family: Optional[str] = typer.Option(
+        None,
         "--family",
         help="Name of the instance family. For more information about instance families, refer to the SQL CREATE COMPUTE POOL command.",
         show_default=False,
     ),
-    min_nodes: int = MinNodesOption(),
-    max_nodes: Optional[int] = MaxNodesOption(),
-    auto_resume: bool = AutoResumeOption(),
-    initially_suspended: bool = typer.Option(
-        False,
+    min_nodes: Optional[int] = MinNodesOption(default=None),
+    max_nodes: Optional[int] = MaxNodesOption(default=None),
+    auto_resume: Optional[bool] = AutoResumeOption(default=None),
+    initially_suspended: Optional[bool] = typer.Option(
+        None,
         "--init-suspend/--no-init-suspend",
         help="Starts the compute pool in a suspended state.",
     ),
-    auto_suspend_secs: int = AutoSuspendSecsOption(),
+    auto_suspend_secs: Optional[int] = AutoSuspendSecsOption(default=None),
     comment: Optional[str] = CommentOption(help=_COMMENT_HELP),
     replace: bool = ReplaceOption(),
-    if_not_exists: bool = IfNotExistsOption(),
+    if_not_exists: Optional[bool] = IfNotExistsOption(default=None),
     **options,
 ) -> CommandResult:
     """
     Creates a new compute pool.
     """
-    max_nodes = validate_and_set_instances(min_nodes, max_nodes, "nodes")
-    cursor = ComputePoolManager().create(
-        pool_name=name.identifier,
-        min_nodes=min_nodes,
-        max_nodes=max_nodes,
-        instance_family=instance_family,
-        auto_resume=auto_resume,
-        initially_suspended=initially_suspended,
-        auto_suspend_secs=auto_suspend_secs,
-        comment=comment,
-        if_not_exists=if_not_exists,
-        replace=replace,
-    )
-    return SingleQueryResult(cursor)
-
-
-@app.command("deploy", requires_connection=True)
-@with_project_definition()
-def deploy(
-    replace: bool = ReplaceOption(
-        help="Replace the compute-pool if it already exists."
-    ),
-    entity_id: str = entity_argument("compute-pool"),
-    **options,
-):
-    """
-    Deploys a compute pool from the project definition file.
-    """
     cli_context = get_cli_context()
     pd = cli_context.project_definition
-    compute_pools: Dict[str, ComputePoolEntityModel] = pd.get_entities_by_type(
-        entity_type="compute-pool"
-    )
 
-    if not compute_pools:
-        raise NoProjectDefinitionError(
-            project_type="compute pool", project_root=cli_context.project_root
+    if pd:
+        if (
+            instance_family is not None
+            or min_nodes is not None
+            or max_nodes is not None
+            or auto_resume is not None
+            or initially_suspended is not None
+            or comment is not None
+            or if_not_exists is not None
+        ):
+            raise UsageError(
+                "Flags are not supported when creating compute pools from a project definition file."
+            )
+
+        compute_pools: Dict[str, ComputePoolEntityModel] = pd.get_entities_by_type(
+            entity_type="compute-pool"
         )
 
-    if entity_id and entity_id not in compute_pools:
-        raise UsageError(f"No '{entity_id}' entity in project definition file.")
-    elif len(compute_pools.keys()) == 1:
-        entity_id = list(compute_pools.keys())[0]
+        if not compute_pools:
+            raise NoProjectDefinitionError(
+                project_type="compute pool", project_root=cli_context.project_root
+            )
 
-    if entity_id is None:
-        raise UsageError(
-            "Multiple compute pools found. Please provide entity id for the operation."
+        entity_id = None if name is None else name.name
+        if entity_id and entity_id not in compute_pools:
+            raise UsageError(f"No '{entity_id}' entity in project definition file.")
+        elif len(compute_pools.keys()) == 1:
+            entity_id = list(compute_pools.keys())[0]
+
+        if entity_id is None:
+            raise UsageError(
+                "Multiple compute pools found. Please provide entity id for the operation."
+            )
+        cursor = ComputePoolManager().create_from_entity(
+            compute_pool=compute_pools[entity_id], replace=replace
         )
+    else:
+        min_nodes = 1 if min_nodes is None else min_nodes
+        auto_resume = True if auto_resume is None else auto_resume
+        initially_suspended = (
+            False if initially_suspended is None else initially_suspended
+        )
+        auto_suspend_secs = 3600 if auto_suspend_secs is None else auto_suspend_secs
+        if_not_exists = False if if_not_exists is None else if_not_exists
 
-    ComputePoolManager().deploy(compute_pool=compute_pools[entity_id], replace=replace)
-
-    return MessageResult(f"Compute pool '{entity_id}' successfully deployed.")
+        max_nodes = validate_and_set_instances(min_nodes, max_nodes, "nodes")
+        cursor = ComputePoolManager().create(
+            pool_name=name.identifier,
+            min_nodes=min_nodes,
+            max_nodes=max_nodes,
+            instance_family=instance_family,
+            auto_resume=auto_resume,
+            initially_suspended=initially_suspended,
+            auto_suspend_secs=auto_suspend_secs,
+            comment=comment,
+            if_not_exists=if_not_exists,
+            replace=replace,
+        )
+    return SingleQueryResult(cursor)
 
 
 @app.command("stop-all", requires_connection=True)

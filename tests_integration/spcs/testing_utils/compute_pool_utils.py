@@ -14,6 +14,7 @@
 
 import math
 import time
+from typing import List
 
 import pytest
 from snowflake.connector import SnowflakeConnection
@@ -61,37 +62,24 @@ class ComputePoolTestSteps:
         assert (
             f"Compute pool {compute_pool_name.upper()} successfully created."
             in result.json["status"]  # type: ignore
-            or f"Compute pool {compute_pool_name.upper()} successfully created."
+        )
+
+    def create_compute_pool_from_project_definition(
+        self, compute_pool_name: str, additional_flags: List[str] = []
+    ) -> None:
+        result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "compute-pool",
+                "create",
+                *additional_flags,
+            ]
+        )
+        assert result.json, result.output
+        assert (
+            f"Compute pool {compute_pool_name.upper()} successfully created."
             in result.json["status"]  # type: ignore
         )
-
-    def deploy_compute_pool(self, compute_pool_name: str) -> None:
-        result = self._deploy_compute_pool(replace=False)
-        assert_that_result_is_successful_and_output_json_contains(
-            result,
-            {"message": f"Compute pool '{compute_pool_name}' successfully deployed."},
-        )
-
-    def deploy_compute_pool_with_replace(self, compute_pool_name: str) -> None:
-        result = self._deploy_compute_pool(replace=True)
-        assert_that_result_is_successful_and_output_json_contains(
-            result,
-            {"message": f"Compute pool '{compute_pool_name}' successfully deployed."},
-        )
-
-    def second_deploy_should_fail(self) -> None:
-        result = self._deploy_compute_pool(replace=False)
-        assert_that_result_failed_with_message_containing(result, "already exists")
-
-    def _deploy_compute_pool(self, replace: bool) -> CommandResult:
-        params = [
-            "spcs",
-            "compute-pool",
-            "deploy",
-        ]
-        if replace:
-            params.append("--replace")
-        return self._setup.runner.invoke_with_connection_json(params)
 
     def list_should_return_compute_pool(self, compute_pool_name) -> None:
         result = self._execute_list()
