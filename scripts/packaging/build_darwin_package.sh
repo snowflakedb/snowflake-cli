@@ -178,8 +178,8 @@ ls -l $DIST_DIR
 rm ${ROOT_DIR}/asker.sh || true
 
 cat <<ASKPASS >${ROOT_DIR}/asker.sh
-  #!/usr/bin/env bash
-  printf "%s\n" "$MAC_USERNAME_PASSWORD"
+#!/usr/bin/env bash
+printf "%s\n" "$MAC_USERNAME_PASSWORD"
 ASKPASS
 
 chmod +x ${ROOT_DIR}/asker.sh
