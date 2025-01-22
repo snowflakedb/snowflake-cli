@@ -187,13 +187,13 @@ export SUDO_ASKPASS=${ROOT_DIR}/asker.sh
 file ${SUDO_ASKPASS}
 file ${ROOT_DIR}/asker.sh
 
-sudo -A file $(which sudo)
+arch -${MACHINE} sudo -A file $(which sudo)
 
 validate_installation() {
   local pkg_name=$1
   ls -la $pkg_name
 
-  arch -$(uname-m) sudo -A installer -pkg $pkg_name -target /
+  arch -${MACHINE} sudo -A installer -pkg $pkg_name -target /
   [ -f /Applications/${APP_NAME}/Contents/MacOS/snow ]
   PATH=/Applications/${APP_NAME}/Contents/MacOS:$PATH snow
 
