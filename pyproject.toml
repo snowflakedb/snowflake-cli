@@ -25,7 +25,6 @@ requires-python = ">=3.10"
 description = "Snowflake CLI"
 readme = "README.md"
 dependencies = [
-  "click==8.1.7",
   "jinja2==3.1.5",
   "pluggy==1.5.0",
   "PyYAML==6.0.2",
@@ -33,7 +32,7 @@ dependencies = [
   "rich==13.9.4",
   "requests==2.32.3",
   "requirements-parser==0.11.0",
-  "setuptools==75.6.0",
+  "setuptools==75.8.0",
   'snowflake.core==1.0.2; python_version < "3.12"',
   "snowflake-connector-python[secure-local-storage]==3.12.4",
   'snowflake-snowpark-python>=1.15.0,<1.26.0;python_version < "3.12"',

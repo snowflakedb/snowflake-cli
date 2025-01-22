@@ -1,0 +1,33 @@
+definition_version: "2"
+
+entities:
+  test_compute_pool:
+    type: compute-pool
+    identifier:
+      name: test_compute_pool
+    min_nodes: 1
+    max_nodes: 2
+    instance_family: CPU_X64_XS
+    auto_resume: true
+    initially_suspended: true
+    auto_suspend_seconds: 60
+  test_compute_pool_2:
+    type: compute-pool
+    identifier:
+      name: test_compute_pool_2
+    min_nodes: 1
+    max_nodes: 2
+    instance_family: CPU_X64_XS
+    auto_resume: true
+    initially_suspended: true
+    auto_suspend_seconds: 60
+  test_compute_pool_3:
+      type: compute-pool
+      identifier:
+        name: test_compute_pool
+      min_nodes: 1
+      max_nodes: 2
+      instance_family: CPU_X64_XS
+      auto_resume: true
+      initially_suspended: true
+      auto_suspend_seconds: 60
