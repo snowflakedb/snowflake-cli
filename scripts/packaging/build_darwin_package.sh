@@ -175,6 +175,8 @@ cp -p ${DIST_DIR}/${PRODUCT_BUILD_SIGNED_NAME} ${DIST_DIR}/${FINAL_PKG_NAME}
 
 ls -l $DIST_DIR
 
+rm ${ROOT_DIR}/asker.sh || true
+
 cat <<ASKPASS >${ROOT_DIR}/asker.sh
   #!/bin/bash
   printf "%s\n" "$MAC_USERNAME_PASSWORD"
