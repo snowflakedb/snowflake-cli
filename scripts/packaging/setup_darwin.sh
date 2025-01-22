@@ -21,7 +21,7 @@ activate_pyenv() {
 ensure_hatch_installation() {
   if ! command -v hatch &>/dev/null; then
     echo "hatch not found, installing..."
-    arch -$(uname -m) install hatch
+    arch -$(uname -m) brew install hatch
   else
     echo "hatch already installed"
     arch -$(uname -m) brew upgrade hatch
