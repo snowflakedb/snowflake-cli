@@ -100,7 +100,7 @@ def search(
         columns = []
 
     conn = get_cli_context().connection
-    root = get_cli_context().root_object
+    root = get_cli_context().snow_api_root
 
     search_service = (
         root.databases[conn.database]

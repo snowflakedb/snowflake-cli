@@ -126,8 +126,8 @@ class EntityBase(Generic[T]):
         return self._sql_executor._conn  # noqa
 
     @functools.cached_property
-    def root_object(self):
-        return get_cli_context().root_object
+    def snow_api_root(self):
+        return get_cli_context().snow_api_root
 
     @property
     def model(self):

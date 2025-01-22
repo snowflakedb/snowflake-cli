@@ -19,7 +19,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING, Iterator, Optional
 
 from snowflake.cli.api.connections import ConnectionContext, OpenConnectionCache
 from snowflake.cli.api.exceptions import MissingConfiguration
@@ -198,8 +198,13 @@ class _CliGlobalContextAccess:
         return self._manager.output_format == OutputFormat.JSON
 
     @property
-    def root_object(self) -> Root:
-        return Root(self.connection)
+    def snow_api_root(self) -> Optional[Root]:
+        if self.connection:
+            return Root(self.connection)
+        else:
+            raise MissingConfiguration(
+                "No active connection set. Unable to create root object."
+            )
 
 
 _CLI_CONTEXT_MANAGER: ContextVar[_CliGlobalContextManager | None] = ContextVar(
