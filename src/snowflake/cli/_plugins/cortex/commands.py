@@ -96,16 +96,14 @@ def search(
             "Cortex Search uses Snowflake Python API that currently does not support your Python version"
         )
 
-    from snowflake.core import Root
-
     if not columns:
         columns = []
 
     conn = get_cli_context().connection
+    root = get_cli_context().root_object
 
     search_service = (
-        Root(conn)
-        .databases[conn.database]
+        root.databases[conn.database]
         .schemas[conn.schema]
         .cortex_search_services[service]
     )
