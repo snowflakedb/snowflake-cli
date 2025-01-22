@@ -3,7 +3,7 @@ set -o pipefail
 
 echo "Setting up the Snowflake CLI build environment"
 
-brew install pyenv
+arch -$(uname -m) brew install pyenv
 
 export PYENV_ROOT="$HOME/.pyenv"
 [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
