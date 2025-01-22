@@ -10,10 +10,11 @@ export PYENV_ROOT="$HOME/.pyenv"
 eval "$(pyenv init - bash)"
 
 pyenv versions
-pyenv install -s 3.10
-pyenv shell 3.10
-
-python -m venv venv
-. venv/bin/activate
-pip install -U pip hatch uv pyinstaller
-hatch run packaging:package-darwin-binaries
+pyenv install -f 3.10
+pyenv install -f 3.11
+pyenv global 3.11
+python --version
+# python -m venv venv
+# . venv/bin/activate
+# pip install -U pip hatch uv pyinstaller
+# hatch run packaging:package-darwin-binaries
