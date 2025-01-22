@@ -58,6 +58,8 @@ app = SnowTyperFactory(
 
 
 def _repo_name_callback(name: FQN):
+    if name is None:
+        return name
     if not is_valid_object_name(name.identifier, max_depth=2, allow_quoted=False):
         raise ClickException(
             f"'{name}' is not a valid image repository name. Note that image repository names must be unquoted identifiers. The same constraint also applies to database and schema names where you create an image repository."
@@ -85,7 +87,12 @@ add_object_command_aliases(
 
 @app.command(requires_connection=True)
 def create(
-    name: FQN = REPO_NAME_ARGUMENT,
+    name: FQN = identifier_argument(
+        sf_object="image repository",
+        example="my_repository",
+        callback=_repo_name_callback,
+        is_optional=True,
+    ),
     replace: bool = ReplaceOption(),
     if_not_exists: bool = IfNotExistsOption(),
     **options,
@@ -93,11 +100,40 @@ def create(
     """
     Creates a new image repository in the current schema.
     """
-    return SingleQueryResult(
-        ImageRepositoryManager().create(
-            name=name.identifier, replace=replace, if_not_exists=if_not_exists
+    cli_context = get_cli_context()
+    pd = cli_context.project_definition
+    image_repository_manager = ImageRepositoryManager()
+
+    if pd:
+        image_repositories: Dict[
+            str, ImageRepositoryEntityModel
+        ] = pd.get_entities_by_type(entity_type="image-repository")
+
+        if not image_repositories:
+            raise NoProjectDefinitionError(
+                project_type="image repository", project_root=cli_context.project_root
+            )
+
+        entity_id = None if name is None else name.name
+        if entity_id and entity_id not in image_repositories:
+            raise UsageError(f"No '{entity_id}' entity in project definition file.")
+        elif len(image_repositories.keys()) == 1:
+            entity_id = list(image_repositories.keys())[0]
+
+        if entity_id is None:
+            raise UsageError(
+                "Multiple image repositories found. Please provide entity id for the operation."
+            )
+        image_repository = image_repositories[entity_id]
+        create_result = image_repository_manager.create_from_entity(
+            image_repository, replace=replace
         )
-    )
+    else:
+        create_result = image_repository_manager.create(
+            name=name.identifier, if_not_exists=if_not_exists, replace=replace
+        )
+
+    return SingleQueryResult(create_result)
 
 
 @app.command(requires_connection=True)

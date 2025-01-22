@@ -7011,14 +7011,13 @@
 # name: test_help_messages[spcs.image-repository.create]
   '''
                                                                                   
-   Usage: default spcs image-repository create [OPTIONS] NAME                     
+   Usage: default spcs image-repository create [OPTIONS] [NAME]                   
                                                                                   
    Creates a new image repository in the current schema.                          
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the image repository; for example:        |
-  |                      my_repository                                           |
-  |                      [required]                                              |
+  |   name      [NAME]  Identifier of the image repository; for example:         |
+  |                     my_repository                                            |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --replace                  Replace this object if it already exists.         |

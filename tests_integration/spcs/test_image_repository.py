@@ -122,7 +122,7 @@ def test_create_image_repository(runner, test_database):
 
 
 @pytest.mark.integration
-def test_deploy_image_repository(
+def test_create_from_project_definition(
     _test_steps: Tuple[ImageRepositoryTestSteps, str],
     project_directory,
     alter_snowflake_yml,
@@ -142,8 +142,10 @@ def test_deploy_image_repository(
                 }
             },
         )
-        test_steps.deploy_image_repository(image_repository_name)
-        test_steps.deploy_image_repository_with_replace(image_repository_name)
+        test_steps.create_from_project_definition(image_repository_name)
+        test_steps.create_from_project_definition(
+            image_repository_name, additional_flags=["--replace"]
+        )
 
 
 @pytest.fixture

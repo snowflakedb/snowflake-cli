@@ -86,11 +86,11 @@ class ImageRepositoryManager(SqlExecutionMixin):
                 e, ObjectType.IMAGE_REPOSITORY, name, replace_available=True
             )
 
-    def deploy(
+    def create_from_entity(
         self, image_repository: ImageRepositoryEntityModel, replace: bool
     ) -> SnowflakeCursor:
         return self.create(
-            image_repository.entity_id,
+            name=image_repository.fqn.identifier,
             if_not_exists=False,
             replace=replace,
         )

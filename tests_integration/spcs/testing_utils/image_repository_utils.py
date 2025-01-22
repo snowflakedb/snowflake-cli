@@ -1,8 +1,10 @@
+from typing import List
+
 from snowflake.connector import SnowflakeConnection
 
 from tests_integration.conftest import SnowCLIRunner
 from tests_integration.testing_utils.assertions.test_result_assertions import (
-    assert_that_result_is_successful_and_output_json_contains,
+    assert_that_result_is_successful_and_output_json_equals,
 )
 
 
@@ -20,33 +22,20 @@ class ImageRepositoryTestSteps:
     def __init__(self, setup: ImageRepositoryTestSetup):
         self._setup = setup
 
-    def deploy_image_repository(self, image_repository_name: str) -> None:
+    def create_from_project_definition(
+        self, image_repository_name: str, additional_flags: List[str] = []
+    ) -> None:
         result = self._setup.runner.invoke_with_connection_json(
             [
                 "spcs",
                 "image-repository",
-                "deploy",
+                "create",
+                *additional_flags,
             ]
         )
-        assert_that_result_is_successful_and_output_json_contains(
+        assert_that_result_is_successful_and_output_json_equals(
             result,
             {
-                "message": f"Image repository '{image_repository_name}' successfully deployed."
-            },
-        )
-
-    def deploy_image_repository_with_replace(self, image_repository_name: str) -> None:
-        result = self._setup.runner.invoke_with_connection_json(
-            [
-                "spcs",
-                "image-repository",
-                "deploy",
-                "--replace",
-            ]
-        )
-        assert_that_result_is_successful_and_output_json_contains(
-            result,
-            {
-                "message": f"Image repository '{image_repository_name}' successfully deployed."
+                "status": f"Image Repository {image_repository_name.upper()} successfully created."
             },
         )
