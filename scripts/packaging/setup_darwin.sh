@@ -34,9 +34,5 @@ ensure_python_installation() {
   pyenv install -s 3.11
   pyenv global 3.11
   python --version
+  pip install -U pip hatch uv
 }
-
-# ensure_pyenv_installation
-# activate_pyenv
-# ensure_python_installation
-# ensure_hatch_installation
