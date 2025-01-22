@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 set -xeuo pipefail
 
 git config --global --add safe.directory /snowflake-cli
