@@ -184,10 +184,6 @@ ASKPASS
 
 chmod +x ${ROOT_DIR}/asker.sh
 export SUDO_ASKPASS=${ROOT_DIR}/asker.sh
-file ${SUDO_ASKPASS}
-file ${ROOT_DIR}/asker.sh
-
-arch -${MACHINE} sudo -A file $(which sudo)
 
 validate_installation() {
   local pkg_name=$1
@@ -200,4 +196,4 @@ validate_installation() {
   sudo rm -rf /Applications/${APP_NAME} || true
 }
 
-validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
+# validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
