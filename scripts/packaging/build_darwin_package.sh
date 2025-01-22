@@ -183,12 +183,14 @@ cat <<ASKPASS >${ROOT_DIR}/asker.sh
 ASKPASS
 
 chmod +x ${ROOT_DIR}/asker.sh
+export SUDO_ASKPASS=${ROOT_DIR}/asker.sh
+file $(which sudo)
+file ${SUDO_ASKPASS}
 
 validate_installation() {
   local pkg_name=$1
   ls -la $pkg_name
 
-  export SUDO_ASKPASS=${ROOT_DIR}/asker.sh
   sudo -A installer -pkg $pkg_name -target /
   [ -f /Applications/${APP_NAME}/Contents/MacOS/snow ]
   PATH=/Applications/${APP_NAME}/Contents/MacOS:$PATH snow
