@@ -187,6 +187,8 @@ export SUDO_ASKPASS=${ROOT_DIR}/asker.sh
 file ${SUDO_ASKPASS}
 file ${ROOT_DIR}/asker.sh
 
+sudo -A file $(which sudo)
+
 validate_installation() {
   local pkg_name=$1
   ls -la $pkg_name
