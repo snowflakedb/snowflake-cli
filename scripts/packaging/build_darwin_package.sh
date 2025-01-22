@@ -175,20 +175,18 @@ cp -p ${DIST_DIR}/${PRODUCT_BUILD_SIGNED_NAME} ${DIST_DIR}/${FINAL_PKG_NAME}
 
 ls -l $DIST_DIR
 
-cat <<ASKPASS >./asker.sh
+cat <<ASKPASS >${ROOT_DIR}/asker.sh
   #!/bin/bash
   printf "%s\n" "$MAC_USERNAME_PASSWORD"
 ASKPASS
 
-ls -la ./asker.sh
-chmod +x ./asker.sh
-ls -la ./asker.sh
+chmod +x ${ROOT_DIR}/asker.sh
 
 validate_installation() {
   local pkg_name=$1
   ls -la $pkg_name
 
-  export SUDO_ASKPASS=./asker.sh
+  export SUDO_ASKPASS=${ROOT_DIR}/asker.sh
   sudo -A installer -pkg $pkg_name -target /
   [ -f /Applications/${APP_NAME}/Contents/MacOS/snow ]
   PATH=/Applications/${APP_NAME}/Contents/MacOS:$PATH snow
