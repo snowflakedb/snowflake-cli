@@ -193,7 +193,7 @@ validate_installation() {
   local pkg_name=$1
   ls -la $pkg_name
 
-  sudo -A installer -pkg $pkg_name -target /
+  arch -$(uname-m) sudo -A installer -pkg $pkg_name -target /
   [ -f /Applications/${APP_NAME}/Contents/MacOS/snow ]
   PATH=/Applications/${APP_NAME}/Contents/MacOS:$PATH snow
 
