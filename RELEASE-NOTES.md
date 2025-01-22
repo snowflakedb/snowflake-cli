@@ -19,6 +19,28 @@
 
 ## Deprecations
 
+## New additions
+
+* Add an optional `stage_subdirectory` field to `application package` entity. When specified, application artifacts are uploaded to this subdirectory instead of the root of the application package's stage.
+* Add `snow spcs service events` command to retrieve service-specific events:
+  * Supports filtering by service name, container name, instance ID, time intervals (`--since`, `--until`), and pagination (`--first`, `--last`).
+  * Use `--all` to fetch all columns.
+* Add `snow spcs service metrics` command to fetch service metrics:
+  * Supports filtering by service name, container name, instance ID, and time intervals (`--since`, `--until`).
+  * Use `--all` to fetch all columns.
+* Added support for glob pattern (except `**`) in artifact paths in snowflake.yml for Streamlit.
+* Added support for glob pattern (except `**`) in artifact paths in snowflake.yml for Snowpark, requires ENABLE_SNOWPARK_GLOB_SUPPORT feature flag.
+* Added `--replace` flag to `snow spcs compute-pool create` command.
+* Added command `snow spcs compute-pool deploy`.
+
+## Fixes and improvements
+
+# v3.3.0
+
+## Backward incompatibility
+
+## Deprecations
+
 * Added deprecation message for default Streamlit warehouse
 
 ## New additions
@@ -38,17 +60,6 @@
 * Add publish command to make it easier to manage publishing versions to release channels and updating release directives: `snow app publish`
 * Add support for restricting Snowflake user authentication policy to Snowflake CLI-only.
 * Added a new command: `snow helpers import-snowsql-connections` allowing to import configuration of connections from SnowSQL.
-* Add an optional `stage_subdirectory` field to `application package` entity. When specified, application artifacts are uploaded to this subdirectory instead of the root of the application package's stage.
-* Add `snow spcs service events` command to retrieve service-specific events:
-  * Supports filtering by service name, container name, instance ID, time intervals (`--since`, `--until`), and pagination (`--first`, `--last`).
-  * Use `--all` to fetch all columns.
-* Add `snow spcs service metrics` command to fetch service metrics:
-  * Supports filtering by service name, container name, instance ID, and time intervals (`--since`, `--until`).
-  * Use `--all` to fetch all columns.
-* Added support for glob pattern (except `**`) in artifact paths in snowflake.yml for Streamlit.
-* Added support for glob pattern (except `**`) in artifact paths in snowflake.yml for Snowpark, requires ENABLE_SNOWPARK_GLOB_SUPPORT feature flag.
-* Added `--replace` flag to `snow spcs compute-pool create` command.
-* Added command `snow spcs compute-pool deploy`.
 
 ## Fixes and improvements
 
