@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -xeuo pipefail
 
 git config --global --add safe.directory /snowflake-cli
@@ -178,7 +178,7 @@ ls -l $DIST_DIR
 rm ${ROOT_DIR}/asker.sh || true
 
 cat <<ASKPASS >${ROOT_DIR}/asker.sh
-  #!/bin/bash
+  #!/usr/bin/env bash
   printf "%s\n" "$MAC_USERNAME_PASSWORD"
 ASKPASS
 

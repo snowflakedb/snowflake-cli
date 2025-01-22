@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/usr/bin/env bash
 set -o pipefail
 
 echo "Setting up the Snowflake CLI build environment"
