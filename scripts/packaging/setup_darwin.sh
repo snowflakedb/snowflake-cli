@@ -2,11 +2,12 @@
 set -o pipefail
 
 echo "Setting up the Snowflake CLI build environment"
+MACHHINE=$(uname -m)
 
 ensure_pyenv_installation() {
   if ! command -v pyenv &>/dev/null; then
     echo "pyenv not found, installing..."
-    arch -$(uname -m) brew install pyenv
+    arch -${MACHHINE} brew install pyenv
   else
     echo "pyenv already installed"
   fi
@@ -21,10 +22,10 @@ activate_pyenv() {
 ensure_hatch_installation() {
   if ! command -v hatch &>/dev/null; then
     echo "hatch not found, installing..."
-    arch -$(uname -m) brew install hatch
+    arch -${MACHHINE} brew install hatch
   else
     echo "hatch already installed"
-    arch -$(uname -m) brew upgrade hatch
+    arch -${MACHHINE} brew upgrade hatch
   fi
 }
 
