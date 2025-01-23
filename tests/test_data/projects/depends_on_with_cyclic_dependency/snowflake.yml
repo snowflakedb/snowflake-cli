@@ -13,7 +13,7 @@ entities:
     type: streamlit
     meta:
       depends_on:
-        - id: test_procedure
+        - test_procedure
 
   test_procedure:
     artifacts:
@@ -29,7 +29,11 @@ entities:
     type: procedure
     meta:
       depends_on:
-        - id: test_function
+        - test_function
+      call_arguments:
+        ignore_anaconda: true
+        skip_version_check: false
+        allow_shared_libraries: true
 
   test_function:
     artifacts:
@@ -45,4 +49,8 @@ entities:
     type: function
     meta:
       depends_on:
-        - id: test_procedure
+        - test_procedure
+      call_arguments:
+        ignore_anaconda: true
+        skip_version_check: false
+        allow_shared_libraries: true

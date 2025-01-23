@@ -1,13 +1,23 @@
-from typing import Any, List
+from dataclasses import dataclass
+from typing import Any, Dict, List, Tuple
 
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.entities.utils import EntityActions
 from snowflake.cli.api.exceptions import CycleDetectedError
-from snowflake.cli.api.project.schemas.entities.common import (
-    Dependency,
-    EntityModelBase,
-)
+from snowflake.cli.api.project.schemas.entities.common import EntityModelBase
 from snowflake.cli.api.utils.graph import Graph, Node
+
+
+@dataclass
+class Dependency:
+    entity_id: str
+    call_arguments: Dict[str, Any]
+
+    def __eq__(self, other):
+        return self.entity_id == other.entity_id
+
+    def __hash__(self):
+        return hash(self.entity_id)
 
 
 class DependencyResolver:
@@ -41,7 +51,7 @@ class DependencyResolver:
         for dependency in self.depends_on(action_ctx):
             entity = action_ctx.get_entity(dependency.entity_id)
             if entity.supports(action):
-                getattr(entity, action)(action_ctx, **dependency.arguments)
+                getattr(entity, action)(action_ctx, **dependency.call_arguments)
 
     def _create_dependency_graph(self, action_ctx: ActionContext) -> Graph[Dependency]:
         """
@@ -50,30 +60,38 @@ class DependencyResolver:
         """
         graph = Graph()
         depends_on = self.entity_model.meta.depends_on if self.entity_model.meta else []  # type: ignore
-        self_dependency = Dependency(id=self.entity_model.entity_id)  # type: ignore
+        self_dependency = Dependency(entity_id=self.entity_model.entity_id, call_arguments={})  # type: ignore
         resolved_nodes = set()
 
         graph.add(Node(key=self_dependency.entity_id, data=self_dependency))
 
-        def _resolve_dependencies(parent_id: str, dependency: Dependency) -> None:
+        def _resolve_dependencies(parent_id: str, dependency_id: str) -> None:
 
-            if not graph.contains_node(dependency.entity_id):
-                dependency_node = Node(key=dependency.entity_id, data=dependency)
+            (
+                child_dependencies,
+                call_arguments,
+            ) = self._get_child_dependencies_and_call_arguments(
+                dependency_id=dependency_id, action_ctx=action_ctx
+            )
+
+            if not graph.contains_node(dependency_id):
+                dependency_node = Node(
+                    key=dependency_id,
+                    data=Dependency(
+                        entity_id=dependency_id, call_arguments=call_arguments
+                    ),
+                )
                 graph.add(dependency_node)
 
-            graph.add_directed_edge(parent_id, dependency.entity_id)
+            graph.add_directed_edge(parent_id, dependency_id)
 
             resolved_nodes.add(dependency_node.key)
 
-            for child_dependency in self._get_child_dependencies(
-                dependency.entity_id, action_ctx
-            ):
-                if child_dependency.entity_id not in resolved_nodes:
+            for child_dependency in child_dependencies:
+                if child_dependency not in resolved_nodes:
                     _resolve_dependencies(dependency_node.key, child_dependency)
                 else:
-                    graph.add_directed_edge(
-                        dependency_node.key, child_dependency.entity_id
-                    )
+                    graph.add_directed_edge(dependency_node.key, child_dependency)
 
         for dependency in depends_on:
             _resolve_dependencies(self_dependency.entity_id, dependency)
@@ -110,19 +128,22 @@ class DependencyResolver:
         return clear_duplicates_from_list(result)[:-1]
 
     @staticmethod
-    def _get_child_dependencies(
+    def _get_child_dependencies_and_call_arguments(
         dependency_id: str, action_ctx: ActionContext
-    ) -> List[Dependency]:
+    ) -> Tuple[List[str], Dict[str, Any]]:
         child_dependency = action_ctx.get_entity(dependency_id)
 
         if not child_dependency:
             raise ValueError(f"Entity with id {dependency_id} not found in project")
 
         if child_dependency.model.meta:
-            return child_dependency.model.meta.depends_on
+            return (
+                child_dependency.model.meta.depends_on,
+                child_dependency.model.meta.call_arguments,
+            )
 
         else:
-            return []
+            return [], {}
 
 
 def clear_duplicates_from_list(input_list: list[Any]) -> list[Any]:

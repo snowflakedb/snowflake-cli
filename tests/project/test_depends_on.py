@@ -67,12 +67,12 @@ def test_dependencies_must_exist_in_project_file(
     with project_directory("depends_on_with_cyclic_dependency") as pdir:
         alter_snowflake_yml(
             snowflake_yml_path=pdir / "snowflake.yml",
-            parameter_path="entities.test_streamlit.meta.depends_on.0.id",
+            parameter_path="entities.test_streamlit.meta.depends_on.0",
             value="foo",
         )
         alter_snowflake_yml(
             snowflake_yml_path=pdir / "snowflake.yml",
-            parameter_path="entities.test_procedure.meta.depends_on.0.id",
+            parameter_path="entities.test_procedure.meta.depends_on.0",
             value="bar",
         )
         with pytest.raises(SchemaValidationError) as err:

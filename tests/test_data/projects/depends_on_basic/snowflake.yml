@@ -13,11 +13,12 @@ entities:
     type: streamlit
     meta:
       depends_on:
-        - id: test_procedure
-          arguments:
-            ignore_anaconda: true
-            skip_version_check: false
-            allow_shared_libraries: true
+        - test_procedure
+      call_arguments:
+        ignore_anaconda: true
+        skip_version_check: false
+        allow_shared_libraries: true
+
 
 
   test_procedure:
@@ -34,16 +35,12 @@ entities:
     type: procedure
     meta:
       depends_on:
-        - id: test_function
-          arguments:
-            ignore_anaconda: true
-            skip_version_check: false
-            allow_shared_libraries: true
-        - id: test_function2
-          arguments:
-            ignore_anaconda: true
-            skip_version_check: false
-            allow_shared_libraries: true
+        - test_function
+        - test_function2
+      call_arguments:
+        ignore_anaconda: true
+        skip_version_check: false
+        allow_shared_libraries: true
 
   test_function:
     artifacts:
@@ -59,11 +56,11 @@ entities:
     type: function
     meta:
       depends_on:
-        - id: test_function2
-          arguments:
-            ignore_anaconda: true
-            skip_version_check: false
-            allow_shared_libraries: true
+        - test_function2
+      call_arguments:
+        ignore_anaconda: true
+        skip_version_check: false
+        allow_shared_libraries: true
 
   test_function2:
     artifacts:
@@ -77,3 +74,8 @@ entities:
         type: "string"
     stage: dev_deployment
     type: function
+    meta:
+      call_arguments:
+        ignore_anaconda: true
+        skip_version_check: false
+        allow_shared_libraries: true

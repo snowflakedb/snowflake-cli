@@ -45,14 +45,42 @@ class SqlScriptHookType(UpdatableModel):
 PostDeployHook = SqlScriptHookType
 
 
-class Dependency(UpdatableModel):
-    entity_id: str = Field(title="Id of the entity", alias="id")
-    arguments: Optional[Dict[str, Union[int, bool, str]]] = Field(
-        title="Arguments that will be passed to entity build and deploy actions, provided as a key value pairs",
+class MetaField(UpdatableModel):
+    warehouse: Optional[str] = IdentifierField(
+        title="Warehouse used to run the scripts", default=None
+    )
+    role: Optional[str] = IdentifierField(
+        title="Role to use when creating the entity object",
+        default=None,
+    )
+    post_deploy: Optional[List[PostDeployHook]] = Field(
+        title="Actions that will be executed after the application object is created/upgraded",
+        default=None,
+    )
+    use_mixins: Optional[List[str]] = Field(
+        title="Name of the mixin used to fill the entity fields",
+        default=None,
+    )
+
+    depends_on: Optional[List[str]] = Field(
+        title="Entities that need to be deployed before this one", default_factory=list
+    )
+
+    call_arguments: Optional[Dict[str, Union[int, bool, str]]] = Field(
+        title="Arguments that will be used, when this entity is called as a dependency of other entity",
         default_factory=dict,
     )
 
-    @field_validator("arguments", mode="before")
+    @field_validator("use_mixins", mode="before")
+    @classmethod
+    def ensure_use_mixins_is_a_list(
+        cls, mixins: Optional[str | List[str]]
+    ) -> Optional[List[str]]:
+        if isinstance(mixins, str):
+            return [mixins]
+        return mixins
+
+    @field_validator("call_arguments", mode="before")
     @classmethod
     def arguments_validator(cls, arguments: Dict, info: ValidationInfo) -> Dict:
         duplicated_run = (
@@ -79,37 +107,6 @@ class Dependency(UpdatableModel):
 
     def __hash__(self):
         return hash(self.entity_id)
-
-
-class MetaField(UpdatableModel):
-    warehouse: Optional[str] = IdentifierField(
-        title="Warehouse used to run the scripts", default=None
-    )
-    role: Optional[str] = IdentifierField(
-        title="Role to use when creating the entity object",
-        default=None,
-    )
-    post_deploy: Optional[List[PostDeployHook]] = Field(
-        title="Actions that will be executed after the application object is created/upgraded",
-        default=None,
-    )
-    use_mixins: Optional[List[str]] = Field(
-        title="Name of the mixin used to fill the entity fields",
-        default=None,
-    )
-
-    depends_on: Optional[List[Dependency]] = Field(
-        title="Entities that need to be deployed before this one", default_factory=list
-    )
-
-    @field_validator("use_mixins", mode="before")
-    @classmethod
-    def ensure_use_mixins_is_a_list(
-        cls, mixins: Optional[str | List[str]]
-    ) -> Optional[List[str]]:
-        if isinstance(mixins, str):
-            return [mixins]
-        return mixins
 
 
 class Identifier(UpdatableModel):

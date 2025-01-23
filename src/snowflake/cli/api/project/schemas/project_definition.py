@@ -272,8 +272,8 @@ class DefinitionV20(_ProjectDefinitionBase):
         for entity_id, entity in self.entities.items():
             if entity.meta:
                 for dependency in entity.meta.depends_on:
-                    if dependency.entity_id not in self.entities:
-                        missing_dependencies[entity_id].append(dependency.entity_id)
+                    if dependency not in self.entities:
+                        missing_dependencies[entity_id].append(dependency)
 
         if missing_dependencies:
             raise ValueError(_get_missing_dependencies_message(missing_dependencies))
