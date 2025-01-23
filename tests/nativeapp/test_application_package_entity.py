@@ -46,9 +46,11 @@ from tests.nativeapp.utils import (
     APPLICATION_PACKAGE_ENTITY_MODULE,
     SQL_EXECUTOR_EXECUTE,
     SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_CHANNEL,
+    SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_DIRECTIVE,
     SQL_FACADE_ADD_VERSION_TO_RELEASE_CHANNEL,
     SQL_FACADE_GET_UI_PARAMETER,
     SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_CHANNEL,
+    SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_DIRECTIVE,
     SQL_FACADE_REMOVE_VERSION_FROM_RELEASE_CHANNEL,
     SQL_FACADE_SET_RELEASE_DIRECTIVE,
     SQL_FACADE_SHOW_RELEASE_CHANNELS,
@@ -1002,6 +1004,180 @@ def test_given_default_directive_selected_when_release_directive_unset_then_erro
     show_release_channels.assert_not_called()
 
     unset_release_directive.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[{"name": "MY_CHANNEL"}])
+@mock.patch(SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_DIRECTIVE)
+def test_given_channels_enabled_and_add_accounts_to_release_directive_then_success(
+    add_accounts_to_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    application_package_entity.action_release_directive_add_accounts(
+        action_ctx=action_context,
+        release_channel="my_channel",
+        release_directive="my_directive",
+        target_accounts=["org1.account1", "org2.account2"],
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    add_accounts_to_release_directive.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel="my_channel",
+        release_directive="my_directive",
+        target_accounts=["org1.account1", "org2.account2"],
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[])
+@mock.patch(SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_DIRECTIVE)
+def test_given_channels_disabled_and_add_accounts_to_release_directive_then_success(
+    add_accounts_to_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    application_package_entity.action_release_directive_add_accounts(
+        action_ctx=action_context,
+        release_channel="default",
+        release_directive="my_directive",
+        target_accounts=["org1.account1", "org2.account2"],
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    add_accounts_to_release_directive.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel=None,
+        release_directive="my_directive",
+        target_accounts=["org1.account1", "org2.account2"],
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[{"name": "MY_CHANNEL"}])
+@mock.patch(SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_DIRECTIVE)
+def test_given_add_accounts_to_release_directive_with_no_accounts_then_error(
+    add_accounts_to_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    with pytest.raises(ClickException) as e:
+        application_package_entity.action_release_directive_add_accounts(
+            action_ctx=action_context,
+            release_channel="my_channel",
+            release_directive="my_directive",
+            target_accounts=[],
+        )
+
+    assert str(e.value) == "No target accounts provided."
+
+    show_release_channels.assert_not_called()
+    add_accounts_to_release_directive.assert_not_called()
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[{"name": "MY_CHANNEL"}])
+@mock.patch(SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_DIRECTIVE)
+def test_given_channels_enabled_and_remove_accounts_from_release_directive_then_success(
+    remove_accounts_from_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    application_package_entity.action_release_directive_remove_accounts(
+        action_ctx=action_context,
+        release_channel="my_channel",
+        release_directive="my_directive",
+        target_accounts=["org1.account1", "org2.account2"],
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    remove_accounts_from_release_directive.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel="my_channel",
+        release_directive="my_directive",
+        target_accounts=["org1.account1", "org2.account2"],
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[])
+@mock.patch(SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_DIRECTIVE)
+def test_given_channels_disabled_and_remove_accounts_from_release_directive_then_success(
+    remove_accounts_from_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    application_package_entity.action_release_directive_remove_accounts(
+        action_ctx=action_context,
+        release_channel="default",
+        release_directive="my_directive",
+        target_accounts=["org1.account1", "org2.account2"],
+    )
+
+    show_release_channels.assert_called_once_with(
+        pkg_model.fqn.name, pkg_model.meta.role
+    )
+
+    remove_accounts_from_release_directive.assert_called_once_with(
+        package_name=pkg_model.fqn.name,
+        role=pkg_model.meta.role,
+        release_channel=None,
+        release_directive="my_directive",
+        target_accounts=["org1.account1", "org2.account2"],
+    )
+
+
+@mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS, return_value=[{"name": "MY_CHANNEL"}])
+@mock.patch(SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_DIRECTIVE)
+def test_given_remove_accounts_from_release_directive_with_no_accounts_then_error(
+    remove_accounts_from_release_directive,
+    show_release_channels,
+    application_package_entity,
+    action_context,
+):
+    pkg_model = application_package_entity._entity_model  # noqa SLF001
+    pkg_model.meta.role = "package_role"
+
+    with pytest.raises(ClickException) as e:
+        application_package_entity.action_release_directive_remove_accounts(
+            action_ctx=action_context,
+            release_channel="my_channel",
+            release_directive="my_directive",
+            target_accounts=[],
+        )
+
+    assert str(e.value) == "No target accounts provided."
+
+    show_release_channels.assert_not_called()
+    remove_accounts_from_release_directive.assert_not_called()
 
 
 @mock.patch(SQL_FACADE_SHOW_RELEASE_CHANNELS)
