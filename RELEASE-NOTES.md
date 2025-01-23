@@ -58,7 +58,7 @@
   * Add ability to add and remove accounts from release channels through `snow app release-channel add-accounts` and snow app release-channel remove-accounts` commands.
   * Add ability to add/remove versions to/from release channels through `snow app release-channel add-version` and `snow app release-channel remove-version` commands.
 * Add publish command to make it easier to manage publishing versions to release channels and updating release directives: `snow app publish`
-* Add support for restricting Snowflake user authentication policy to Snowflake CLI-only.
+* Add support for restricting Snowflake user authentication policy to Snowflake CLI-only. For more infotmation, [check the documentation](https://docs.snowflake.com/developer-guide/snowflake-cli/connecting/configure-cli#label-snowcli-limit-access).
 * Added a new command: `snow helpers import-snowsql-connections` allowing to import configuration of connections from SnowSQL.
 
 ## Fixes and improvements
