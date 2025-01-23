@@ -80,7 +80,7 @@ def test_release_channels_disabled_to_enabled_switch(
     return_value=True,
 )
 @pytest.mark.integration
-def test_add_accounts_and_remove_accounts_from_release_channels(
+def test_add_accounts_and_remove_accounts_and_set_accounts_from_release_channels(
     get_value_mock, runner, nativeapp_teardown, nativeapp_basic_pdf
 ):
 
@@ -140,6 +140,29 @@ def test_add_accounts_and_remove_accounts_from_release_channels(
         assert result.exit_code == 0
         alpha_channel = result.json[0]
         assert alpha_channel["targets"].get("accounts") == []
+
+        # set accounts for the release channel
+        result = runner.invoke_with_connection(
+            [
+                "app",
+                "release-channel",
+                "set-accounts",
+                "ALPHA",
+                "--target-accounts",
+                ",".join(target_accounts),
+            ]
+        )
+        assert result.exit_code == 0
+
+        # verify accounts are in the release channel
+        result = runner.invoke_with_connection_json(
+            ["app", "release-channel", "list", "ALPHA"]
+        )
+        assert result.exit_code == 0
+        alpha_channel = result.json[0]
+        assert sorted(alpha_channel["targets"].get("accounts")) == sorted(
+            unique_accounts
+        )
 
 
 @mock.patch(

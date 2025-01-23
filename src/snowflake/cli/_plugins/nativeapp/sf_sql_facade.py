@@ -1431,6 +1431,48 @@ class SnowflakeSQLFacade:
                     f"Failed to remove accounts from release channel {release_channel} in application package {package_name}.",
                 )
 
+    def set_accounts_for_release_channel(
+        self,
+        package_name: str,
+        release_channel: str,
+        target_accounts: List[str],
+        role: str | None = None,
+    ):
+        """
+        Sets accounts for a release channel.
+
+        @param package_name: Name of the application package
+        @param release_channel: Name of the release channel
+        @param target_accounts: List of target accounts to set for the release channel
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel)
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    f"alter application package {package_name} modify release channel {release_channel} set accounts = ({','.join(target_accounts)})"
+                )
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if (
+                        err.errno == ACCOUNT_DOES_NOT_EXIST
+                        or err.errno == ACCOUNT_HAS_TOO_MANY_QUALIFIERS
+                    ):
+                        raise UserInputError(
+                            f"Invalid account passed in.\n{str(err.msg)}"
+                        ) from err
+                    if err.errno == CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS:
+                        raise UserInputError(
+                            f"Cannot modify accounts for release channel {release_channel} in application package {package_name}."
+                        ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to set accounts for release channel {release_channel} in application package {package_name}.",
+                )
+
     def add_version_to_release_channel(
         self,
         package_name: str,
