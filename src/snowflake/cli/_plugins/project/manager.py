@@ -27,15 +27,15 @@ class ProjectManager(SqlExecutionMixin):
             query += f" WITH VERSION {version}"
         if dry_run:
             query += " DRY_RUN=TRUE"
-        return self._execute_query(query=query)
+        return self.execute_query(query=query)
 
     def create(
         self,
         project_name: FQN,
     ) -> str:
         queries = dedent(f"CREATE PROJECT IF NOT EXISTS {project_name.sql_identifier}")
-        return self._execute_queries(queries=queries)
+        return self.execute_query(queries=queries)
 
     def create_version(self, project_name: FQN, stage_name: FQN):
         query = f"ALTER PROJECT {project_name.sql_identifier} ADD VERSION FROM {stage_name.sql_identifier}"
-        return self._execute_query(query=query)
+        return self.execute_query(query=query)

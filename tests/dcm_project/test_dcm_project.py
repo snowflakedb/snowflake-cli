@@ -6,19 +6,20 @@ ProjectManager = "snowflake.cli._plugins.project.commands.ProjectManager"
 
 
 @mock.patch(ProjectManager)
-@mock.patch("snowflake.cli._plugins.stage.manager.StageManager.put")
-def test_create_version(mock_put, mock_pm, runner, project_directory):
+@mock.patch("snowflake.cli._plugins.project.commands.StageManager")
+def test_create_version(mock_stage, mock_pm, runner, project_directory):
     stage = FQN.from_stage("my_project_stage")
 
     with project_directory("dcm_project") as fh:
         result = runner.invoke(["project", "create-version"])
         assert result.exit_code == 0, result.output
 
+    mock_stage().create.assert_called_once_with(fqn=stage)
     mock_pm().create_version.assert_called_once_with(
         project_name=FQN.from_string("my_project"),
         stage_name=stage,
     )
-    mock_put.assert_has_calls(
+    mock_stage().put.assert_has_calls(
         [
             mock.call(local_path="definitions/", stage_path=stage),
             mock.call(local_path="manifest.yml", stage_path=stage),

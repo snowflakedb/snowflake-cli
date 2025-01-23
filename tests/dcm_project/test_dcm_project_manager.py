@@ -3,9 +3,7 @@ from unittest import mock
 from snowflake.cli._plugins.project.manager import ProjectManager
 from snowflake.cli.api.identifiers import FQN
 
-execute_queries = (
-    "snowflake.cli._plugins.project.commands.ProjectManager._execute_query"
-)
+execute_queries = "snowflake.cli._plugins.project.commands.ProjectManager.execute_query"
 TEST_STAGE = FQN.from_stage("@test_stage")
 TEST_PROJECT = FQN.from_string("my_project")
 
