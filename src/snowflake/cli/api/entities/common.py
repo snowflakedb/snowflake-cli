@@ -125,7 +125,7 @@ class EntityBase(Generic[T]):
     def _conn(self) -> SnowflakeConnection:
         return self._sql_executor._conn  # noqa
 
-    @functools.cached_property
+    @property
     def snow_api_root(self):
         return get_cli_context().snow_api_root
 
