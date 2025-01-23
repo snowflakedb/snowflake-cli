@@ -34,6 +34,5 @@ ensure_python_installation() {
   pyenv install -s 3.11
   pyenv global 3.11
   python --version
-  pip install -U pip uv
-  uv pip install hatch awscli
+  pip install -U pip uv hatch awscli
 }
