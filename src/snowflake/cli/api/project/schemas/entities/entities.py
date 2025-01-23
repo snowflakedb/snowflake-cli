@@ -27,6 +27,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
 from snowflake.cli._plugins.notebook.notebook_entity import NotebookEntity
 from snowflake.cli._plugins.notebook.notebook_entity_model import NotebookEntityModel
 from snowflake.cli._plugins.project.project_entity_model import (
+    ProjectEntity,
     ProjectEntityModel,
 )
 from snowflake.cli._plugins.snowpark.snowpark_entity import (
@@ -47,6 +48,7 @@ Entity = Union[
     ApplicationPackageEntity,
     StreamlitEntity,
     ProcedureEntity,
+    ProjectEntity,
     FunctionEntity,
     NotebookEntity,
 ]

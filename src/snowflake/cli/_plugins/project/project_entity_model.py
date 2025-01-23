@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import List, Literal, Optional, Union
 
 from pydantic import Field
+from snowflake.cli.api.entities.common import EntityBase, attach_spans_to_entity_actions
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
 )
@@ -31,3 +32,8 @@ class ProjectEntityModel(EntityModelBase):
     )
     main_file: Optional[str] = Field(title="Path to the main file of the project")
     artifacts: List[Union[str]] = Field(title="List of required sources")
+
+
+@attach_spans_to_entity_actions(entity_name="project")
+class ProjectEntity(EntityBase[ProjectEntityModel]):
+    pass
