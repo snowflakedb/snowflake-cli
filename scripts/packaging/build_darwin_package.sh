@@ -175,21 +175,30 @@ cp -p ${DIST_DIR}/${PRODUCT_BUILD_SIGNED_NAME} ${DIST_DIR}/${FINAL_PKG_NAME}
 
 ls -l $DIST_DIR
 
-cat <<ASKPASS >./asker.sh
-  #!/bin/bash
-  printf "%s\n" "$MAC_USERNAME_PASSWORD"
+rm ${ROOT_DIR}/asker.sh || true
+
+cat <<ASKPASS >${ROOT_DIR}/asker.sh
+#!/usr/bin/env bash
+printf "%s\n" "$MAC_USERNAME_PASSWORD"
 ASKPASS
+
+chmod +x ${ROOT_DIR}/asker.sh
+export SUDO_ASKPASS=${ROOT_DIR}/asker.sh
+
+arch -${MACHINE} sudo -A installer -pkg $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg -target /
+[ -f /Applications/${APP_NAME}/Contents/MacOS/snow ]
+PATH=/Applications/${APP_NAME}/Contents/MacOS:$PATH snow
+sudo rm -rf /Applications/${APP_NAME} || true
 
 validate_installation() {
   local pkg_name=$1
   ls -la $pkg_name
 
-  export SUDO_ASKPASS=./asker.sh
-  sudo -A installer -pkg $pkg_name -target /
+  arch -${MACHINE} sudo -A installer -pkg $pkg_name -target /
   [ -f /Applications/${APP_NAME}/Contents/MacOS/snow ]
   PATH=/Applications/${APP_NAME}/Contents/MacOS:$PATH snow
 
   sudo rm -rf /Applications/${APP_NAME} || true
 }
 
-validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
+# validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
