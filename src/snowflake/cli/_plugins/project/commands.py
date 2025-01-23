@@ -15,6 +15,7 @@
 import logging
 
 import typer
+from snowflake.cli._plugins.project.feature_flags import FeatureFlag
 from snowflake.cli._plugins.project.manager import ProjectManager
 from snowflake.cli._plugins.project.project_entity_model import (
     ProjectEntityModel,
@@ -32,7 +33,9 @@ from snowflake.cli.api.output.types import MessageResult, SingleQueryResult
 app = SnowTyperFactory(
     name="project",
     help="Manages projects in Snowflake.",
+    is_hidden=FeatureFlag.ENABLE_SNOWFLAKE_PROJECTS.is_disabled,
 )
+
 log = logging.getLogger(__name__)
 
 project_identifier = identifier_argument(sf_object="project", example="MY_PROJECT")
@@ -93,7 +96,6 @@ def create_version(
         cli_console.step(f"Creating stage {stage_name}")
         sm.create(fqn=stage_name)
 
-        # TODO: improve this behavior
         for file in project.artifacts:
             cli_console.step(f"Uploading {file} to {stage_name}")
             if isinstance(file, str):

@@ -23,6 +23,8 @@ class ProjectManager(SqlExecutionMixin):
         self, project_name: FQN, version: str | None = None, dry_run: bool = False
     ):
         query = f"EXECUTE PROJECT {project_name.sql_identifier}"
+        if version:
+            query += f" WITH VERSION {version}"
         if dry_run:
             query += " DRY_RUN=TRUE"
         return self._execute_query(query=query)
