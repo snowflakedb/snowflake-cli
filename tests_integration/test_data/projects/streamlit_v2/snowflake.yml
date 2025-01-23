@@ -11,6 +11,5 @@ entities:
     artifacts:
       - streamlit_app.py
     grants:
-      - privileges: "USAGE"
+      - privilege: "USAGE"
         role: "ACCOUNTADMIN"
-

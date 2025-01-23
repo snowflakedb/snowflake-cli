@@ -207,7 +207,9 @@ def test_deploy_streamlit_with_grants(mock_grants, _, __, mock_stage_manager, te
     )
 
     StreamlitManager(MagicMock(database="DB", schema="SH")).deploy(
-        streamlit=st, replace=False, streamlit_project_paths=StreamlitProjectPaths(Path(temp_dir))
+        streamlit=st,
+        replace=False,
+        streamlit_project_paths=StreamlitProjectPaths(Path(temp_dir)),
     )
 
     mock_grants.assert_called_once_with(st)

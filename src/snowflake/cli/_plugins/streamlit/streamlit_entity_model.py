@@ -29,7 +29,10 @@ from snowflake.cli.api.project.schemas.updatable_model import (
 
 
 class StreamlitEntityModel(
-    EntityModelBaseWithArtifacts, ExternalAccessBaseModel, ImportsBaseModel, GrantBaseModel
+    EntityModelBaseWithArtifacts,
+    ExternalAccessBaseModel,
+    ImportsBaseModel,
+    GrantBaseModel,
 ):
     type: Literal["streamlit"] = DiscriminatorField()  # noqa: A003
     title: Optional[str] = Field(
