@@ -180,6 +180,23 @@ class ImportsBaseModel:
         return f"IMPORTS = ({imports})"
 
 
+class Grant(UpdatableModel):
+    privilege: str = Field(title="Required privileges")
+    role: str = Field(title="Role to which the privileges will be granted")
+
+    def get_grant_sql(self, entity_model: EntityModelBase) -> str:
+        return f"GRANT {self.privilege} ON {entity_model.get_type().upper()} {entity_model.fqn.sql_identifier} TO ROLE {self.role}"
+
+
+class GrantBaseModel(UpdatableModel):
+    grants: Optional[List[Grant]] = Field(title="List of grants", default=None)
+
+    def get_grant_sqls(self) -> list[str]:
+        return (
+            [grant.get_grant_sql(self) for grant in self.grants] if self.grants else []
+        )
+
+
 class ExternalAccessBaseModel:
     external_access_integrations: Optional[List[str]] = Field(
         title="Names of external access integrations needed for this entity to access external networks",

@@ -31,7 +31,11 @@
 * Added support for glob pattern (except `**`) in artifact paths in snowflake.yml for Streamlit.
 * Added support for glob pattern (except `**`) in artifact paths in snowflake.yml for Snowpark, requires ENABLE_SNOWPARK_GLOB_SUPPORT feature flag.
 * Added `--replace` flag to `snow spcs compute-pool create` command.
+* Added command `snow app release-directive add-accounts` and `snow app release-directive remove-accounts`
 * Added command `snow spcs compute-pool deploy`.
+* Added support for Mac Os x86_64 architecture.
+* Added image repository model in snowflake.yml.
+* Added `snow spcs service deploy` command.
 
 ## Fixes and improvements
 
@@ -58,7 +62,7 @@
   * Add ability to add and remove accounts from release channels through `snow app release-channel add-accounts` and snow app release-channel remove-accounts` commands.
   * Add ability to add/remove versions to/from release channels through `snow app release-channel add-version` and `snow app release-channel remove-version` commands.
 * Add publish command to make it easier to manage publishing versions to release channels and updating release directives: `snow app publish`
-* Add support for restricting Snowflake user authentication policy to Snowflake CLI-only.
+* Add support for restricting Snowflake user authentication policy to Snowflake CLI-only. For more infotmation, [check the documentation](https://docs.snowflake.com/developer-guide/snowflake-cli/connecting/configure-cli#label-snowcli-limit-access).
 * Added a new command: `snow helpers import-snowsql-connections` allowing to import configuration of connections from SnowSQL.
 
 ## Fixes and improvements

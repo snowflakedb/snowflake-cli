@@ -486,9 +486,10 @@ def identifier_argument(
     example: str,
     click_type: click.ParamType = IdentifierType(),
     callback: Callable | None = None,
+    is_optional: bool = False,
 ) -> typer.Argument:
     return typer.Argument(
-        ...,
+        None if is_optional else ...,
         help=f"Identifier of the {sf_object}; for example: {example}",
         show_default=False,
         click_type=click_type,
