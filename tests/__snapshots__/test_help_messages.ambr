@@ -3964,8 +3964,9 @@
                                                                                   
    Usage: default notebook deploy [OPTIONS] [ENTITY_ID]                           
                                                                                   
-   Uploads a notebook file to a stage and creates a notebook. If entity_id is not 
-   provided, deploys all notebooks defined in the project definition.             
+   Uploads a notebook and required files to a stage and creates a Snowflake       
+   notebook. If entity_id is not provided, deploys all notebooks defined in the   
+   project definition.                                                            
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   entity_id      [ENTITY_ID]  ID of notebook entity.                         |
@@ -4338,9 +4339,9 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | create    Creates notebook from stage.                                       |
-  | deploy    Uploads a notebook file to a stage and creates a notebook. If      |
-  |           entity_id is not provided, deploys all notebooks defined in the    |
-  |           project definition.                                                |
+  | deploy    Uploads a notebook and required files to a stage and creates a     |
+  |           Snowflake notebook. If entity_id is not provided, deploys all      |
+  |           notebooks defined in the project definition.                       |
   | execute   Executes a notebook in a headless mode.                            |
   | get-url   Return a url to a notebook.                                        |
   | open      Opens a notebook in default browser                                |
@@ -11218,9 +11219,9 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | create    Creates notebook from stage.                                       |
-  | deploy    Uploads a notebook file to a stage and creates a notebook. If      |
-  |           entity_id is not provided, deploys all notebooks defined in the    |
-  |           project definition.                                                |
+  | deploy    Uploads a notebook and required files to a stage and creates a     |
+  |           Snowflake notebook. If entity_id is not provided, deploys all      |
+  |           notebooks defined in the project definition.                       |
   | execute   Executes a notebook in a headless mode.                            |
   | get-url   Return a url to a notebook.                                        |
   | open      Opens a notebook in default browser                                |
