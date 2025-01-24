@@ -7,6 +7,12 @@ from typing import Any
 import pytest
 import yaml
 
+from tests.nativeapp.factories import (
+    ApplicationEntityModelFactory,
+    ApplicationPackageEntityModelFactory,
+    ManifestFactory,
+    ProjectV2Factory,
+)
 from tests_integration.conftest import SnowCLIRunner
 
 
@@ -97,3 +103,24 @@ def nativeapp_teardown(runner: SnowCLIRunner):
                 assert result.exit_code == 0
 
     return _nativeapp_teardown
+
+
+@pytest.fixture
+def nativeapp_basic_pdf(temp_dir):
+    return ProjectV2Factory(
+        pdf__entities=dict(
+            pkg=ApplicationPackageEntityModelFactory(
+                identifier="my_pkg",
+                artifacts=[{"src": "*", "dest": "./"}],
+            ),
+            app=ApplicationEntityModelFactory(
+                identifier="myapp",
+                fromm__target="pkg",
+            ),
+        ),
+        files={
+            "setup.sql": "CREATE OR ALTER VERSIONED SCHEMA core;",
+            "README.md": "\n",
+            "manifest.yml": ManifestFactory(),
+        },
+    )

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from shlex import split
+from unittest import mock
 
 from snowflake.cli.api.secure_path import SecurePath
 from tests.project.fixtures import *
@@ -496,6 +497,9 @@ def test_nativeapp_force_cross_upgrade(
             assert f"Dropping application object {app_name}." in result.output
 
 
+@mock.patch(
+    "snowflake.cli._plugins.nativeapp.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
+)
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "test_project",
@@ -503,11 +507,16 @@ def test_nativeapp_force_cross_upgrade(
         "napp_init_v2",
     ],
 )
+@pytest.mark.parametrize("release_channels_enabled", [True, False])
 def test_nativeapp_upgrade_from_release_directive_and_default_channel(
+    get_value_mock,
+    release_channels_enabled,
     test_project,
     nativeapp_project_directory,
     runner,
 ):
+
+    get_value_mock.return_value = release_channels_enabled
 
     with nativeapp_project_directory(test_project):
         # Create version
@@ -516,7 +525,7 @@ def test_nativeapp_upgrade_from_release_directive_and_default_channel(
 
         # Set default release directive
         result = runner.invoke_with_connection(
-            ["app", "release-directive", "set", "default", "--version=v1", "--patch=0"]
+            ["app", "publish", "--version", "v1", "--patch", "0"]
         )
         assert result.exit_code == 0
 
@@ -538,6 +547,9 @@ def test_nativeapp_upgrade_from_release_directive_and_default_channel(
         assert result.exit_code == 0
 
 
+@mock.patch(
+    "snowflake.cli._plugins.nativeapp.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
+)
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "test_project",
@@ -545,11 +557,17 @@ def test_nativeapp_upgrade_from_release_directive_and_default_channel(
         "napp_init_v2",
     ],
 )
+@pytest.mark.parametrize("release_channels_enabled", [True, False])
 def test_nativeapp_create_from_release_directive_and_default_channel(
+    get_value_mock,
+    release_channels_enabled,
     test_project,
     nativeapp_project_directory,
     runner,
 ):
+
+    get_value_mock.return_value = release_channels_enabled
+
     with nativeapp_project_directory(test_project):
         # Create version
         result = runner.invoke_with_connection(["app", "version", "create", "v1"])
@@ -557,7 +575,7 @@ def test_nativeapp_create_from_release_directive_and_default_channel(
 
         # Set default release directive
         result = runner.invoke_with_connection(
-            ["app", "release-directive", "set", "default", "--version=v1", "--patch=0"]
+            ["app", "publish", "--version", "v1", "--patch", "0"]
         )
         assert result.exit_code == 0
 
@@ -566,3 +584,47 @@ def test_nativeapp_create_from_release_directive_and_default_channel(
             ["app", "run", "--from-release-directive", "--channel", "default"]
         )
         assert result.exit_code == 0
+
+
+@mock.patch(
+    "snowflake.cli._plugins.nativeapp.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
+    return_value=True,
+)
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "test_project",
+    [
+        "napp_init_v2",
+    ],
+)
+def test_nativeapp_run_from_non_default_release_channel(
+    get_value_mock,
+    test_project,
+    nativeapp_project_directory,
+    runner,
+    snowflake_session,
+    default_username,
+    resource_suffix,
+):
+    with nativeapp_project_directory(test_project):
+        project_name = "myapp"
+
+        # Create version and publish to default release directive of QA release channel
+        result = runner.invoke_with_connection(
+            ["app", "publish", "--version", "v1", "--create-version", "--channel", "QA"]
+        )
+        assert result.exit_code == 0
+
+        # run from release directive of QA release channel
+        result = runner.invoke_with_connection(
+            ["app", "run", "--from-release-directive", "--channel", "QA"]
+        )
+        assert result.exit_code == 0
+
+        app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
+        expect = row_from_snowflake_session(
+            snowflake_session.execute_string(f"desc application {app_name}")
+        )
+        assert contains_row_with(
+            expect, {"property": "release_channel_name", "value": "QA"}
+        )
