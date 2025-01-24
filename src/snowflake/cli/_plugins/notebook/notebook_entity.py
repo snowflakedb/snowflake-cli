@@ -6,12 +6,11 @@ from click import ClickException
 from snowflake.cli._plugins.notebook.notebook_entity_model import NotebookEntityModel
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.workspace.context import ActionContext
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.console import cli_console
-from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
+from snowflake.cli.api.entities.common import EntityBase
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.stage_path import StagePath
-from snowflake.connector import ProgrammingError, SnowflakeConnection
+from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 
 _DEFAULT_NOTEBOOK_STAGE_NAME = "@notebooks"
@@ -23,38 +22,24 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
     """
 
     @functools.cached_property
-    def _sql_executor(self):
-        return get_sql_executor()
-
-    @functools.cached_property
-    def _connection(self) -> SnowflakeConnection:
-        return get_cli_context().connection
-
-    @functools.cached_property
-    def _fqn(self) -> FQN:
-        return self.model.fqn.using_connection(self._connection)
-
-    @functools.cached_property
     def _notebook_file_stage_path(self) -> StagePath:
         filename = self.model.notebook_file.name
         stage_path = self.model.stage_path
         if stage_path is None:
-            stage_path = f"{_DEFAULT_NOTEBOOK_STAGE_NAME}/{self._fqn.name}"
+            stage_path = f"{_DEFAULT_NOTEBOOK_STAGE_NAME}/{self.fqn.name}"
         return StagePath.from_stage_str(f"{stage_path}/{filename}")
 
     def _object_exists(self) -> bool:
         # currently notebook objects are not supported by object manager - re-implementing "exists"
         try:
-            self._sql_executor.execute_query(
-                f"DESCRIBE NOTEBOOK {self._fqn.sql_identifier}"
-            )
+            self.action_describe()
             return True
         except ProgrammingError:
             return False
 
     def _upload_notebook_file_to_stage(self, overwrite):
         stage_path = self._notebook_file_stage_path
-        stage_fqn = FQN.from_stage(stage_path.stage).using_connection(self._connection)
+        stage_fqn = FQN.from_stage(stage_path.stage).using_connection(self._conn)
         stage_manager = StageManager()
 
         cli_console.step(f"Creating stage {stage_fqn} if not exists")
@@ -66,21 +51,29 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
             overwrite=overwrite,
         )
 
-    def _create_from_stage(self, replace: bool) -> SnowflakeCursor:
-        stage_path = self._notebook_file_stage_path
-        cli_console.step("Creating notebook")
+    def get_describe_sql(self) -> str:
+        return f"DESCRIBE NOTEBOOK {self.fqn.sql_identifier}"
+
+    def get_create_sql(self, replace: bool) -> str:
         create_str = "CREATE OR REPLACE" if replace else "CREATE"
-        queries = dedent(
+        stage_path = self._notebook_file_stage_path
+        return dedent(
             f"""
-            {create_str} NOTEBOOK {self._fqn.sql_identifier}
+            {create_str} NOTEBOOK {self.fqn.sql_identifier}
             FROM '{stage_path.stage_with_at}'
             QUERY_WAREHOUSE = '{self.model.query_warehouse}'
             MAIN_FILE = '{stage_path.path}';
             // Cannot use IDENTIFIER(...)
-            ALTER NOTEBOOK {self._fqn.identifier} ADD LIVE VERSION FROM LAST;
+            ALTER NOTEBOOK {self.fqn.identifier} ADD LIVE VERSION FROM LAST;
             """
         )
-        return self._sql_executor.execute_query(queries)
+
+    def action_describe(self) -> SnowflakeCursor:
+        return self._sql_executor.execute_query(self.get_describe_sql())
+
+    def action_create(self, replace: bool) -> SnowflakeCursor:
+        cli_console.step("Creating notebook")
+        return self._sql_executor.execute_query(self.get_create_sql(replace))
 
     def action_deploy(
         self,
@@ -90,17 +83,17 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
         **kwargs,
     ) -> Dict[str, str]:
         success_status = "CREATED"
-        with cli_console.phase(f"Deploying notebook {self._fqn}"):
+        with cli_console.phase(f"Deploying notebook {self.fqn}"):
             if self._object_exists():
                 if not replace:
                     raise ClickException(
-                        f"Notebook {self._fqn.name} already exists. Consider using --replace."
+                        f"Notebook {self.fqn.name} already exists. Consider using --replace."
                     )
                 success_status = "REPLACED"
 
             self._upload_notebook_file_to_stage(overwrite=replace)
-            self._create_from_stage(replace=replace)
+            self.action_create(replace=replace)
             return {
-                "object": self._fqn.name,
+                "object": self.fqn.name,
                 "status": success_status,
             }
