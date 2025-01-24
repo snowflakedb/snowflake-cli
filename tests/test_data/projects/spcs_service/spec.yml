@@ -1,0 +1,13 @@
+spec:
+  containers:
+  - name: hello-world
+    image: /snowcli_db/public/snowcli_repository/snowpark_test_echo:1
+    env:
+      SERVER_PORT: 8000
+    readinessProbe:
+      port: 8000
+      path: /healthcheck
+  endpoints:
+  - name: echoendpoint
+    port: 8000
+    public: true
