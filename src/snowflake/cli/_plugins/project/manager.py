@@ -13,16 +13,27 @@
 # limitations under the License.
 
 from textwrap import dedent
+from typing import List
 
+from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
 
 class ProjectManager(SqlExecutionMixin):
     def execute(
-        self, project_name: FQN, version: str | None = None, dry_run: bool = False
+        self,
+        project_name: FQN,
+        version: str | None = None,
+        variables: List[str] | None = None,
+        dry_run: bool = False,
     ):
         query = f"EXECUTE PROJECT {project_name.sql_identifier}"
+        if variables:
+            query += StageManager.parse_execute_variables(
+                parse_key_value_variables(variables)
+            )
         if version:
             query += f" WITH VERSION {version}"
         if dry_run:
@@ -34,8 +45,8 @@ class ProjectManager(SqlExecutionMixin):
         project_name: FQN,
     ) -> str:
         queries = dedent(f"CREATE PROJECT IF NOT EXISTS {project_name.sql_identifier}")
-        return self.execute_query(queries=queries)
+        return self.execute_query(query=queries)
 
     def create_version(self, project_name: FQN, stage_name: FQN):
-        query = f"ALTER PROJECT {project_name.sql_identifier} ADD VERSION FROM {stage_name.sql_identifier}"
+        query = f"ALTER PROJECT {project_name.identifier} ADD VERSION FROM @{stage_name.identifier}"
         return self.execute_query(query=query)

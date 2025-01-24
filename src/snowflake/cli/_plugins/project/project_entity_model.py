@@ -13,16 +13,21 @@
 # limitations under the License.
 from __future__ import annotations
 
-from typing import List, Literal, Optional, Union
+from typing import List, Literal, Optional, TypeVar, Union
 
 from pydantic import Field
+from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.entities.common import EntityBase, attach_spans_to_entity_actions
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBase,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
 )
+from snowflake.core import CreateMode
+
+T = TypeVar("T")
 
 
 class ProjectEntityModel(EntityModelBase):
@@ -36,4 +41,34 @@ class ProjectEntityModel(EntityModelBase):
 
 @attach_spans_to_entity_actions(entity_name="project")
 class ProjectEntity(EntityBase[ProjectEntityModel]):
-    pass
+    def __init__(self, *args, **kwargs):
+
+        if not FeatureFlag.ENABLE_NATIVE_APP_CHILDREN.is_enabled():
+            raise NotImplementedError("Snowpark entity is not implemented yet")
+        super().__init__(*args, **kwargs)
+
+    def action_deploy(
+        self, action_ctx: ActionContext, mode: CreateMode, *args, **kwargs
+    ):
+        return self._execute_query(self.get_deploy_sql(mode))
+
+    def action_drop(self, action_ctx: ActionContext, *args, **kwargs):
+        return self._execute_query(self.get_drop_sql())
+
+    def action_describe(self, action_ctx: ActionContext, *args, **kwargs):
+        return self._execute_query(self.get_describe_sql())
+
+    def action_execute(
+        self,
+        action_ctx: ActionContext,
+        execution_arguments: List[str] | None = None,
+        *args,
+        **kwargs,
+    ):
+        return self._execute_query(self.get_execute_sql(execution_arguments))
+
+    def get_execute_sql(self, execution_arguments):
+        return "select 1"
+
+    def get_deploy_sql(self, mode: CreateMode):
+        pass

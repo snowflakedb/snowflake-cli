@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+from typing import List, Optional
 
 import typer
 from snowflake.cli._plugins.project.feature_flags import FeatureFlag
@@ -23,7 +24,11 @@ from snowflake.cli._plugins.project.project_entity_model import (
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
-from snowflake.cli.api.commands.flags import entity_argument, identifier_argument
+from snowflake.cli.api.commands.flags import (
+    entity_argument,
+    identifier_argument,
+    variables_option,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.console.console import cli_console
@@ -39,19 +44,24 @@ app = SnowTyperFactory(
 log = logging.getLogger(__name__)
 
 project_identifier = identifier_argument(sf_object="project", example="MY_PROJECT")
-version_flag = typer.Option("--version", help="Version of the project to use.")
+version_flag = typer.Option(..., "--version", help="Version of the project to use.")
 
 
 @app.command(requires_connection=True)
 def execute(
     identifier: FQN = project_identifier,
     version: str = version_flag,
+    variables: Optional[List[str]] = variables_option(
+        'Variables for the execution context; for example: `-D "<key>=<value>"`.'
+    ),
     **options,
 ):
     """
     Executes a project.
     """
-    result = ProjectManager().execute(project_name=identifier, version=version)
+    result = ProjectManager().execute(
+        project_name=identifier, version=version, variables=variables
+    )
     return SingleQueryResult(result)
 
 

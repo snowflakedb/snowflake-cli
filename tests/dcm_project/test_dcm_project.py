@@ -35,6 +35,21 @@ def test_execute_project(mock_pm, runner, project_directory):
     mock_pm().execute.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
         version="v1",
+        variables=None,
+    )
+
+
+@mock.patch(ProjectManager)
+def test_execute_project_with_variables(mock_pm, runner, project_directory):
+    result = runner.invoke(
+        ["project", "execute", "fooBar", "--version", "v1", "-D", "key=value"]
+    )
+    assert result.exit_code == 0, result.output
+
+    mock_pm().execute.assert_called_once_with(
+        project_name=FQN.from_string("fooBar"),
+        version="v1",
+        variables=["key=value"],
     )
 
 

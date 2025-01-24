@@ -14,17 +14,19 @@ def test_create_version(mock_execute_query, runner, project_directory):
     mgr.create_version(project_name=TEST_PROJECT, stage_name=TEST_STAGE)
 
     mock_execute_query.assert_called_once_with(
-        query="ALTER PROJECT IDENTIFIER('my_project') ADD VERSION FROM IDENTIFIER('test_stage')"
+        query="ALTER PROJECT my_project ADD VERSION FROM @test_stage"
     )
 
 
 @mock.patch(execute_queries)
 def test_execute_project(mock_execute_query, runner, project_directory):
     mgr = ProjectManager()
-    mgr.execute(project_name=TEST_PROJECT, version="v42")
+    mgr.execute(
+        project_name=TEST_PROJECT, version="v42", variables=["key=value", "aaa=bbb"]
+    )
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE PROJECT IDENTIFIER('my_project') WITH VERSION v42"
+        query="EXECUTE PROJECT IDENTIFIER('my_project') using (key=>value, aaa=>bbb) WITH VERSION v42"
     )
 
 
