@@ -34,6 +34,7 @@
 * Added command `snow spcs compute-pool deploy`.
 * Added support for Mac Os x86_64 architecture.
 * Added image repository model in snowflake.yml.
+* Added `snow spcs service deploy` command.
 
 ## Fixes and improvements
 
