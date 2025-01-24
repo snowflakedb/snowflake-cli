@@ -108,6 +108,9 @@ SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_CHANNEL = (
 SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_CHANNEL = (
     f"{SQL_FACADE}.remove_accounts_from_release_channel"
 )
+SQL_FACADE_SET_ACCOUNTS_FOR_RELEASE_CHANNEL = (
+    f"{SQL_FACADE}.set_accounts_for_release_channel"
+)
 SQL_FACADE_ADD_VERSION_TO_RELEASE_CHANNEL = (
     f"{SQL_FACADE}.add_version_to_release_channel"
 )
