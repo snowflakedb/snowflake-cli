@@ -113,6 +113,7 @@ class ServiceManager(SqlExecutionMixin):
     ) -> SnowflakeCursor:
         service_fqn = service.fqn
 
+        # SPCS service doesn't support replace in create query, so we need to drop the service first.
         if replace:
             object_manager = ObjectManager()
             object_type = ObjectType.SERVICE.value.cli_name
