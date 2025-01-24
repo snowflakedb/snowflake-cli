@@ -972,6 +972,31 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             role=self.role,
         )
 
+    def action_release_channel_set_accounts(
+        self,
+        action_ctx: ActionContext,
+        release_channel: str,
+        target_accounts: list[str],
+        *args,
+        **kwargs,
+    ):
+        """
+        Sets target accounts for a release channel.
+        """
+
+        if not target_accounts:
+            raise ClickException("No target accounts provided.")
+
+        self.validate_release_channel(release_channel)
+        self._validate_target_accounts(target_accounts)
+
+        get_snowflake_facade().set_accounts_for_release_channel(
+            package_name=self.name,
+            release_channel=release_channel,
+            target_accounts=target_accounts,
+            role=self.role,
+        )
+
     def action_release_channel_add_version(
         self,
         action_ctx: ActionContext,
