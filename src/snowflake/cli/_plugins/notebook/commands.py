@@ -115,7 +115,7 @@ def deploy(
     if_not_exists: bool = IfNotExistsOption(help="Skip if Notebook already exists."),
     **options,
 ) -> CommandResult:
-    """Uploads a notebook to a stage and creates a notebook. If entity_id is not provided,
+    """Uploads a notebook and required files to a stage and creates a Snowflake notebook. If entity_id is not provided,
     deploys all notebooks defined in the project definition."""
     cli_context = get_cli_context()
     pd = cli_context.project_definition
