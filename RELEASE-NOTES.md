@@ -33,6 +33,7 @@
 * Added `--replace` flag to `snow spcs compute-pool create` command.
 * Added command `snow spcs compute-pool deploy`.
 * Added support for Mac Os x86_64 architecture.
+* Added image repository model in snowflake.yml.
 
 ## Fixes and improvements
 
