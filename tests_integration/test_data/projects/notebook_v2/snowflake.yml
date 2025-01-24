@@ -1,0 +1,7 @@
+definition_version: 2
+entities:
+  my_notebook:
+    type: "notebook"
+    query_warehouse: xsmall
+    notebook_file: notebook.ipynb
+    stage_path: custom_stage/particular_notebook_path

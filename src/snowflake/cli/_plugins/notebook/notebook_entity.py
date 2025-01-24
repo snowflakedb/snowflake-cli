@@ -1,8 +1,8 @@
 import functools
 from textwrap import dedent
-from typing import Dict
 
 from click import ClickException
+from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.notebook.notebook_entity_model import NotebookEntityModel
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.workspace.context import ActionContext
@@ -39,7 +39,7 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
 
     def _upload_notebook_file_to_stage(self, overwrite):
         stage_path = self._notebook_file_stage_path
-        stage_fqn = FQN.from_stage(stage_path.stage).using_connection(self._conn)
+        stage_fqn = FQN.from_stage(stage_path.stage)
         stage_manager = StageManager()
 
         cli_console.step(f"Creating stage {stage_fqn} if not exists")
@@ -71,9 +71,13 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
     def action_describe(self) -> SnowflakeCursor:
         return self._sql_executor.execute_query(self.get_describe_sql())
 
-    def action_create(self, replace: bool) -> SnowflakeCursor:
+    def action_create(self, replace: bool) -> str:
         cli_console.step("Creating notebook")
-        return self._sql_executor.execute_query(self.get_create_sql(replace))
+        self._sql_executor.execute_query(self.get_create_sql(replace))
+        return make_snowsight_url(
+            self._conn,
+            f"/#/notebooks/{self.fqn.using_connection(self._conn).url_identifier}",
+        )
 
     def action_deploy(
         self,
@@ -81,19 +85,13 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
         replace: bool,
         *args,
         **kwargs,
-    ) -> Dict[str, str]:
-        success_status = "CREATED"
+    ) -> str:
         with cli_console.phase(f"Deploying notebook {self.fqn}"):
             if self._object_exists():
                 if not replace:
                     raise ClickException(
                         f"Notebook {self.fqn.name} already exists. Consider using --replace."
                     )
-                success_status = "REPLACED"
 
             self._upload_notebook_file_to_stage(overwrite=replace)
-            self.action_create(replace=replace)
-            return {
-                "object": self.fqn.name,
-                "status": success_status,
-            }
+            return self.action_create(replace=replace)

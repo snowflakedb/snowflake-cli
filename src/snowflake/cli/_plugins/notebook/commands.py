@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import logging
-from typing import Dict
 
 import typer
 from click import UsageError
@@ -31,11 +30,10 @@ from snowflake.cli.api.commands.flags import (
     identifier_argument,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.entities.common import EntityActions
-from snowflake.cli.api.exceptions import NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
-    CollectionResult,
     CommandResult,
     MessageResult,
 )
@@ -107,7 +105,7 @@ def create(
 @app.command(requires_connection=True)
 @with_project_definition()
 def deploy(
-    entity_id=entity_argument("notebook"),
+    entity_id: str = entity_argument("notebook"),
     replace: bool = ReplaceOption(
         help="Replace notebook object if it already exists.",
     ),
@@ -122,32 +120,20 @@ def deploy(
             "This command requires project definition of version at least 2."
         )
 
-    notebooks: Dict[str, NotebookEntityModel] = pd.get_entities_by_type(
-        entity_type="notebook"
+    # TODO: try removing
+    notebook: NotebookEntityModel = get_entity_for_operation(
+        cli_context=cli_context,
+        entity_id=entity_id,
+        project_definition=pd,
+        entity_type="notebook",
     )
-    if not notebooks:
-        raise NoProjectDefinitionError(
-            project_type="notebook", project_root=cli_context.project_root
-        )
-    if entity_id:
-        if entity_id not in notebooks:
-            raise UsageError(
-                f"Definition of notebook '{entity_id}' not found in project definition file."
-            )
-        notebooks = {entity_id: notebooks[entity_id]}
-
     ws = WorkspaceManager(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
-
-    deploy_results = []
-    for entity_id in sorted(notebooks):
-        result = ws.perform_action(
-            entity_id,
-            EntityActions.DEPLOY,
-            replace=replace,
-        )
-        deploy_results.append(result)
-
-    return CollectionResult(deploy_results)
+    notebook_url = ws.perform_action(
+        entity_id,
+        EntityActions.DEPLOY,
+        replace=replace,
+    )
+    return MessageResult(notebook_url)
