@@ -5216,9 +5216,11 @@
   |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --version          TEXT  Version of the project to use.                      |
-  |                          [default: --version]                                |
-  | --help     -h            Show this message and exit.                         |
+  | *  --version           TEXT  Version of the project to use.                  |
+  |                              [required]                                      |
+  |    --variable  -D      TEXT  Variables for the execution context; for        |
+  |                              example: -D "<key>=<value>".                    |
+  |    --help      -h            Show this message and exit.                     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
@@ -5308,9 +5310,9 @@
   |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --version          TEXT  Version of the project to use.                      |
-  |                          [default: --version]                                |
-  | --help     -h            Show this message and exit.                         |
+  | *  --version          TEXT  Version of the project to use.                   |
+  |                             [required]                                       |
+  |    --help     -h            Show this message and exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |

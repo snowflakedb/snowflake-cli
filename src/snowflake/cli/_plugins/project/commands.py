@@ -44,7 +44,9 @@ app = SnowTyperFactory(
 log = logging.getLogger(__name__)
 
 project_identifier = identifier_argument(sf_object="project", example="MY_PROJECT")
-version_flag = typer.Option(..., "--version", help="Version of the project to use.")
+version_flag = typer.Option(
+    ..., "--version", help="Version of the project to use.", show_default=False
+)
 
 
 @app.command(requires_connection=True)
