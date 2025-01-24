@@ -15,32 +15,27 @@
 from __future__ import annotations
 
 import json
-from typing import Dict, Optional
+from typing import Optional
 
 import requests
 import typer
-from click import ClickException, UsageError
+from click import ClickException
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
 )
 from snowflake.cli._plugins.spcs.image_registry.manager import RegistryManager
-from snowflake.cli._plugins.spcs.image_repository.image_repository_entity_model import (
-    ImageRepositoryEntityModel,
-)
 from snowflake.cli._plugins.spcs.image_repository.manager import ImageRepositoryManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     ReplaceOption,
-    entity_argument,
     identifier_argument,
     like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.exceptions import NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -48,6 +43,7 @@ from snowflake.cli.api.output.types import (
     QueryResult,
     SingleQueryResult,
 )
+from snowflake.cli.api.project.definition_helper import get_entity
 from snowflake.cli.api.project.util import is_valid_object_name
 
 app = SnowTyperFactory(
@@ -105,26 +101,12 @@ def create(
     image_repository_manager = ImageRepositoryManager()
 
     if pd:
-        image_repositories: Dict[
-            str, ImageRepositoryEntityModel
-        ] = pd.get_entities_by_type(entity_type="image-repository")
-
-        if not image_repositories:
-            raise NoProjectDefinitionError(
-                project_type="image repository", project_root=cli_context.project_root
-            )
-
-        entity_id = None if name is None else name.name
-        if entity_id and entity_id not in image_repositories:
-            raise UsageError(f"No '{entity_id}' entity in project definition file.")
-        elif len(image_repositories.keys()) == 1:
-            entity_id = list(image_repositories.keys())[0]
-
-        if entity_id is None:
-            raise UsageError(
-                "Multiple image repositories found. Please provide entity id for the operation."
-            )
-        image_repository = image_repositories[entity_id]
+        image_repository = get_entity(
+            pd,
+            cli_context.project_root,
+            ObjectType.IMAGE_REPOSITORY,
+            None if name is None else name.name,
+        )
         create_result = image_repository_manager.create_from_entity(
             image_repository, replace=replace
         )
@@ -134,46 +116,6 @@ def create(
         )
 
     return SingleQueryResult(create_result)
-
-
-@app.command(requires_connection=True)
-def deploy(
-    replace: bool = ReplaceOption(
-        help="Replace the image-repository if it already exists."
-    ),
-    entity_id: str = entity_argument("image-repository"),
-    **options,
-):
-    """
-    Deploys the image repository from snowflake.yml.
-    """
-    cli_context = get_cli_context()
-    pd = cli_context.project_definition
-    image_repositories: Dict[str, ImageRepositoryEntityModel] = pd.get_entities_by_type(
-        entity_type="image-repository"
-    )
-
-    if not image_repositories:
-        raise NoProjectDefinitionError(
-            project_type="image repository", project_root=cli_context.project_root
-        )
-
-    if entity_id and entity_id not in image_repositories:
-        raise UsageError(f"No '{entity_id}' entity in project definition file.")
-    elif len(image_repositories.keys()) == 1:
-        entity_id = list(image_repositories.keys())[0]
-
-    if entity_id is None:
-        raise UsageError(
-            "Multiple image repositories found. Please provide entity id for the operation."
-        )
-
-    SingleQueryResult(
-        ImageRepositoryManager().deploy(
-            image_repository=image_repositories[entity_id], replace=replace
-        )
-    )
-    return MessageResult(f"Image repository '{entity_id}' successfully deployed.")
 
 
 @app.command("list-images", requires_connection=True)
