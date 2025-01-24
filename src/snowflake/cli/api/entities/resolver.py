@@ -51,7 +51,8 @@ class DependencyResolver:
         for dependency in self.depends_on(action_ctx):
             entity = action_ctx.get_entity(dependency.entity_id)
             if entity.supports(action):
-                getattr(entity, action)(action_ctx, **dependency.call_arguments)
+                arguments = dependency.call_arguments.get(action.get_action_name, {})
+                getattr(entity, action)(action_ctx, **arguments)
 
     def _create_dependency_graph(self, action_ctx: ActionContext) -> Graph[Dependency]:
         """
@@ -139,11 +140,16 @@ class DependencyResolver:
         if child_dependency.model.meta:
             return (
                 child_dependency.model.meta.depends_on,
-                child_dependency.model.meta.call_arguments,
+                child_dependency.model.meta.action_arguments,
             )
 
         else:
             return [], {}
+
+    @staticmethod
+    def get_action_name(action: EntityActions) -> str:
+
+        return action.value.split("_")[1]
 
 
 def clear_duplicates_from_list(input_list: list[Any]) -> list[Any]:

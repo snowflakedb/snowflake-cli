@@ -14,10 +14,11 @@ entities:
     meta:
       depends_on:
         - test_procedure
-      call_arguments:
-        ignore_anaconda: true
-        skip_version_check: false
-        allow_shared_libraries: true
+      action_arguments:
+        bundle:
+          ignore_anaconda: true
+          skip_version_check: false
+          allow_shared_libraries: true
 
 
 
@@ -37,10 +38,11 @@ entities:
       depends_on:
         - test_function
         - test_function2
-      call_arguments:
-        ignore_anaconda: true
-        skip_version_check: false
-        allow_shared_libraries: true
+      action_arguments:
+        bundle:
+          ignore_anaconda: true
+          skip_version_check: false
+          allow_shared_libraries: true
 
   test_function:
     artifacts:
@@ -57,10 +59,11 @@ entities:
     meta:
       depends_on:
         - test_function2
-      call_arguments:
-        ignore_anaconda: true
-        skip_version_check: false
-        allow_shared_libraries: true
+      action_arguments:
+        bundle:
+          ignore_anaconda: true
+          skip_version_check: false
+          allow_shared_libraries: true
 
   test_function2:
     artifacts:
@@ -75,7 +78,8 @@ entities:
     stage: dev_deployment
     type: function
     meta:
-      call_arguments:
-        ignore_anaconda: true
-        skip_version_check: false
-        allow_shared_libraries: true
+      action_arguments:
+        bundle:
+          ignore_anaconda: true
+          skip_version_check: false
+          allow_shared_libraries: true

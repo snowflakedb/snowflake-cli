@@ -370,3 +370,7 @@ class EntityActions(str, Enum):
     RELEASE_CHANNEL_REMOVE_VERSION = "action_release_channel_remove_version"
 
     PUBLISH = "action_publish"
+
+    @property
+    def get_action_name(self):
+        return self.value.replace("action_", "")

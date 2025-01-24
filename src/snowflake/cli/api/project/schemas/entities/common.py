@@ -66,7 +66,7 @@ class MetaField(UpdatableModel):
         title="Entities that need to be deployed before this one", default_factory=list
     )
 
-    call_arguments: Optional[Dict[str, Union[int, bool, str]]] = Field(
+    action_arguments: Optional[Dict[str, Dict[str, Union[int, bool, str]]]] = Field(
         title="Arguments that will be used, when this entity is called as a dependency of other entity",
         default_factory=dict,
     )
@@ -80,15 +80,16 @@ class MetaField(UpdatableModel):
             return [mixins]
         return mixins
 
-    @field_validator("call_arguments", mode="before")
+    @field_validator("action_arguments", mode="before")
     @classmethod
     def arguments_validator(cls, arguments: Dict, info: ValidationInfo) -> Dict:
         duplicated_run = (
             info.context.get("is_duplicated_run", False) if info.context else False
         )
         if not duplicated_run:
-            for k, v in arguments.items():
-                arguments[k] = cls._cast_value(v)
+            for argument_dict in arguments.values():
+                for k, v in argument_dict.items():
+                    argument_dict[k] = cls._cast_value(v)
 
         return arguments
 
