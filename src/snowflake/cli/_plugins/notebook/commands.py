@@ -26,7 +26,6 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.flags import (
-    IfNotExistsOption,
     ReplaceOption,
     entity_argument,
     identifier_argument,
@@ -112,9 +111,6 @@ def deploy(
     replace: bool = ReplaceOption(
         help="Replace notebook object if it already exists.",
     ),
-    if_not_exists: bool = IfNotExistsOption(
-        help="Skip if notebook object already exists."
-    ),
     **options,
 ) -> CommandResult:
     """Uploads a notebook and required files to a stage and creates a Snowflake notebook. If entity_id is not provided,
@@ -151,7 +147,6 @@ def deploy(
             entity_id,
             EntityActions.DEPLOY,
             replace=replace,
-            if_not_exists=if_not_exists,
         )
         deploy_results.append(result)
 

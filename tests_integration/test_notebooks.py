@@ -18,21 +18,6 @@ def test_deploy(runner, project_directory, test_database):
         assert result.exit_code == 1, result.output
         assert "Notebook notebook1 already exists. Consider using --replace."
 
-        result = runner.invoke_with_connection_json(
-            ["notebook", "deploy", "--if-not-exists"]
-        )
-        assert result.exit_code == 0, result.output
-        assert result.json == [
-            {
-                "object": "notebook1",
-                "status": "SKIPPED",
-            },
-            {
-                "object": "notebook2",
-                "status": "CREATED",
-            },
-        ]
-
         result = runner.invoke_with_connection_json(["notebook", "deploy", "--replace"])
         assert result.exit_code == 0, result.output
         assert result.json == [
@@ -42,6 +27,6 @@ def test_deploy(runner, project_directory, test_database):
             },
             {
                 "object": "notebook2",
-                "status": "REPLACED",
+                "status": "CREATED",
             },
         ]

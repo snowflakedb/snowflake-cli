@@ -86,19 +86,12 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
         self,
         action_ctx: ActionContext,
         replace: bool,
-        if_not_exists: bool,
         *args,
         **kwargs,
     ) -> Dict[str, str]:
-        def _result(status: str) -> Dict[str, str]:
-            return {"object": self._fqn.name, "status": status}
-
         success_status = "CREATED"
         with cli_console.phase(f"Deploying notebook {self._fqn}"):
             if self._object_exists():
-                if if_not_exists:
-                    cli_console.step("Notebook already exists, skipping.")
-                    return _result("SKIPPED")
                 if not replace:
                     raise ClickException(
                         f"Notebook {self._fqn.name} already exists. Consider using --replace."
@@ -107,4 +100,7 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
 
             self._upload_notebook_file_to_stage(overwrite=replace)
             self._create_from_stage(replace=replace)
-            return _result(success_status)
+            return {
+                "object": self._fqn.name,
+                "status": success_status,
+            }

@@ -44,27 +44,6 @@
   
   '''
 # ---
-# name: test_deploy_if_not_exists[output]
-  '''
-  Deploying notebook MockDatabase.MockSchema.notebook1
-    Notebook already exists, skipping.
-  Deploying notebook MockDatabase.MockSchema.notebook2
-    Notebook already exists, skipping.
-  +---------------------+
-  | object    | status  |
-  |-----------+---------|
-  | notebook1 | SKIPPED |
-  | notebook2 | SKIPPED |
-  +---------------------+
-  
-  '''
-# ---
-# name: test_deploy_if_not_exists[query]
-  '''
-  DESCRIBE NOTEBOOK IDENTIFIER('MockDatabase.MockSchema.notebook1')
-  DESCRIBE NOTEBOOK IDENTIFIER('MockDatabase.MockSchema.notebook2')
-  '''
-# ---
 # name: test_deploy_single_notebook_stage_path[output]
   '''
   Deploying notebook MockDatabase.MockSchema.notebook1

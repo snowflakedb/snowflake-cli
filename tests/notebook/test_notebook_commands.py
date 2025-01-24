@@ -137,20 +137,6 @@ def test_deploy_single_notebook_stage_path(
 
 
 @mock.patch("snowflake.connector.connect")
-def test_deploy_if_not_exists(
-    mock_connector, mock_ctx, runner, project_directory, snapshot
-):
-    """Deploy two different notebooks with the same notebook file name."""
-    ctx = mock_ctx()
-    mock_connector.return_value = ctx
-    with project_directory("notebooks_v2"):
-        result = runner.invoke(["notebook", "deploy", "--if-not-exists"])
-        assert result.exit_code == 0, result.output
-        assert result.output == snapshot(name="output")
-        assert ctx.get_query() == snapshot(name="query")
-
-
-@mock.patch("snowflake.connector.connect")
 def test_deploy_if_no_replace_error(
     mock_connector, mock_ctx, runner, project_directory
 ):
@@ -162,16 +148,6 @@ def test_deploy_if_no_replace_error(
         assert result.exit_code == 1, result.output
         assert (
             "Notebook notebook1 already exists. Consider using --replace."
-            in result.output
-        )
-
-
-def test_deploy_replace_if_not_exists_error(runner, project_directory):
-    with project_directory("notebooks_v2"):
-        result = runner.invoke(["notebook", "deploy", "--if-not-exists", "--replace"])
-        assert result.exit_code == 2, result.output
-        assert (
-            "Parameters '--replace' and '--if-not-exists' are incompatible"
             in result.output
         )
 
