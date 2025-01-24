@@ -22,9 +22,6 @@ from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
 )
 from snowflake.cli._plugins.object.common import CommentOption
-from snowflake.cli._plugins.spcs.common import (
-    validate_and_set_instances,
-)
 from snowflake.cli._plugins.spcs.compute_pool.manager import ComputePoolManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
@@ -55,9 +52,9 @@ def _compute_pool_name_callback(name: FQN) -> FQN:
     """
     Verifies that compute pool name is a single valid identifier.
     """
-    if not name:
-        return name
-    if not is_valid_object_name(name.identifier, max_depth=0, allow_quoted=False):
+    if name and not is_valid_object_name(
+        name.identifier, max_depth=0, allow_quoted=False
+    ):
         raise ClickException(
             f"'{name}' is not a valid compute pool name. Note that compute pool names must be unquoted identifiers."
         )
@@ -148,15 +145,16 @@ def create(
     pd = cli_context.project_definition
 
     if pd:
-        if (
-            instance_family is not None
-            or min_nodes is not None
-            or max_nodes is not None
-            or auto_resume is not None
-            or initially_suspended is not None
-            or comment is not None
-            or if_not_exists is not None
-        ):
+        flags = (
+            instance_family,
+            min_nodes,
+            max_nodes,
+            auto_resume,
+            initially_suspended,
+            comment,
+            if_not_exists,
+        )
+        if any(flags):
             raise UsageError(
                 "Flags are not supported when creating compute pools from a project definition file."
             )
@@ -167,31 +165,24 @@ def create(
             entity_type=ObjectType.COMPUTE_POOL,
             entity_id=None if name is None else name.name,
         )
-        cursor = ComputePoolManager().create_from_entity(
-            compute_pool=compute_pool, replace=replace
-        )
+        cursor = ComputePoolManager().create(compute_pool=compute_pool, replace=replace)
     else:
-        min_nodes = 1 if min_nodes is None else min_nodes
-        auto_resume = True if auto_resume is None else auto_resume
-        initially_suspended = (
-            False if initially_suspended is None else initially_suspended
-        )
-        auto_suspend_secs = 3600 if auto_suspend_secs is None else auto_suspend_secs
-        if_not_exists = False if if_not_exists is None else if_not_exists
+        params = {
+            "pool_name": name.identifier,
+            "instance_family": instance_family,
+            "replace": replace,
+            "min_nodes": min_nodes,
+            "max_nodes": max_nodes,
+            "auto_resume": auto_resume,
+            "initially_suspended": initially_suspended,
+            "auto_suspend_secs": auto_suspend_secs,
+            "comment": comment,
+            "if_not_exists": if_not_exists,
+        }
 
-        max_nodes = validate_and_set_instances(min_nodes, max_nodes, "nodes")
-        cursor = ComputePoolManager().create(
-            pool_name=name.identifier,
-            min_nodes=min_nodes,
-            max_nodes=max_nodes,
-            instance_family=instance_family,
-            auto_resume=auto_resume,
-            initially_suspended=initially_suspended,
-            auto_suspend_secs=auto_suspend_secs,
-            comment=comment,
-            if_not_exists=if_not_exists,
-            replace=replace,
-        )
+        # Filter out None values
+        filtered_params = {k: v for k, v in params.items() if v is not None}
+        cursor = ComputePoolManager().create_from_params(**filtered_params)
     return SingleQueryResult(cursor)
 
 

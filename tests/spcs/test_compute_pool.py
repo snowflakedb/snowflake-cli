@@ -53,7 +53,7 @@ def test_create(mock_execute_query):
     comment = "'test comment'"
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
-    result = ComputePoolManager().create(
+    result = ComputePoolManager().create_from_params(
         pool_name=pool_name,
         min_nodes=min_nodes,
         max_nodes=max_nodes,
@@ -82,7 +82,9 @@ def test_create(mock_execute_query):
     assert result == cursor
 
 
-@patch("snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.create")
+@patch(
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.create_from_params"
+)
 def test_create_pool_cli_defaults(mock_create, runner):
     result = runner.invoke(
         [
@@ -97,19 +99,14 @@ def test_create_pool_cli_defaults(mock_create, runner):
     assert result.exit_code == 0, result.output
     mock_create.assert_called_once_with(
         pool_name="test_pool",
-        min_nodes=1,
-        max_nodes=1,
         instance_family="test_family",
-        auto_resume=True,
-        initially_suspended=False,
-        auto_suspend_secs=3600,
-        comment=None,
         replace=False,
-        if_not_exists=False,
     )
 
 
-@patch("snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.create")
+@patch(
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.create_from_params"
+)
 def test_create_pool_cli(mock_create, runner):
     result = runner.invoke(
         [
@@ -152,7 +149,7 @@ def test_create_pool_cli(mock_create, runner):
 def test_create_compute_pool_already_exists(mock_handle, mock_execute):
     pool_name = "test_pool"
     mock_execute.side_effect = SPCS_OBJECT_EXISTS_ERROR
-    ComputePoolManager().create(
+    ComputePoolManager().create_from_params(
         pool_name=pool_name,
         min_nodes=1,
         max_nodes=1,
@@ -176,7 +173,7 @@ def test_create_compute_pool_already_exists(mock_handle, mock_execute):
 def test_create_compute_pool_if_not_exists(mock_execute_query):
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
-    result = ComputePoolManager().create(
+    result = ComputePoolManager().create_from_params(
         pool_name="test_pool",
         min_nodes=1,
         max_nodes=1,

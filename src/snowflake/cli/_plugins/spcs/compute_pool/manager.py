@@ -21,6 +21,7 @@ from snowflake.cli._plugins.spcs.common import (
     NoPropertiesProvidedError,
     handle_object_already_exists,
     strip_empty_lines,
+    validate_and_set_instances,
 )
 from snowflake.cli._plugins.spcs.compute_pool.compute_pool_entity_model import (
     ComputePoolEntityModel,
@@ -34,18 +35,35 @@ from snowflake.connector.errors import ProgrammingError
 
 class ComputePoolManager(SqlExecutionMixin):
     def create(
+        self, compute_pool: ComputePoolEntityModel, replace: bool
+    ) -> SnowflakeCursor:
+        return self.create_from_params(
+            pool_name=compute_pool.fqn.identifier,
+            max_nodes=compute_pool.max_nodes,
+            instance_family=compute_pool.instance_family,
+            comment=compute_pool.comment,
+            replace=replace,
+            min_nodes=compute_pool.min_nodes,
+            auto_resume=compute_pool.auto_resume,
+            initially_suspended=compute_pool.initially_suspended,
+            auto_suspend_secs=compute_pool.auto_suspend_seconds,
+            if_not_exists=False,
+        )
+
+    def create_from_params(
         self,
         pool_name: str,
-        min_nodes: int,
-        max_nodes: int,
         instance_family: str,
-        auto_resume: bool,
-        initially_suspended: bool,
-        auto_suspend_secs: int,
-        comment: Optional[str],
-        if_not_exists: bool,
         replace: bool,
-    ) -> SnowflakeCursor:
+        min_nodes: int = 1,
+        max_nodes: Optional[int] = None,
+        auto_resume: bool = True,
+        initially_suspended: bool = False,
+        auto_suspend_secs: int = 3600,
+        comment: Optional[str] = None,
+        if_not_exists: bool = False,
+    ):
+        max_nodes = validate_and_set_instances(min_nodes, max_nodes, "nodes")
 
         if replace:
             object_manager = ObjectManager()
@@ -76,22 +94,6 @@ class ComputePoolManager(SqlExecutionMixin):
             handle_object_already_exists(
                 e, ObjectType.COMPUTE_POOL, pool_name, replace_available=True
             )
-
-    def create_from_entity(
-        self, compute_pool: ComputePoolEntityModel, replace: bool
-    ) -> SnowflakeCursor:
-        return self.create(
-            pool_name=compute_pool.fqn.identifier,
-            min_nodes=compute_pool.min_nodes,
-            max_nodes=compute_pool.max_nodes,
-            instance_family=compute_pool.instance_family,
-            auto_resume=compute_pool.auto_resume,
-            initially_suspended=compute_pool.initially_suspended,
-            auto_suspend_secs=compute_pool.auto_suspend_seconds,
-            comment=compute_pool.comment,
-            if_not_exists=False,
-            replace=replace,
-        )
 
     def stop(self, pool_name: str) -> SnowflakeCursor:
         return self.execute_query(f"alter compute pool {pool_name} stop all")
