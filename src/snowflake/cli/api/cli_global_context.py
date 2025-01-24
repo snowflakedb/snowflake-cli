@@ -202,9 +202,7 @@ class _CliGlobalContextAccess:
         if self.connection:
             return Root(self.connection)
         else:
-            raise MissingConfiguration(
-                "No active connection set. Unable to create root object."
-            )
+            return None
 
 
 _CLI_CONTEXT_MANAGER: ContextVar[_CliGlobalContextManager | None] = ContextVar(
