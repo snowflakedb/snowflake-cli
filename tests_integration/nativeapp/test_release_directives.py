@@ -323,3 +323,114 @@ def test_release_directives_with_enabled_channels(
         assert result.exit_code == 0
         assert len(result.json) == 1
         assert result.json[0]["name"] == "DEFAULT"
+
+
+@mock.patch(
+    "snowflake.cli._plugins.nativeapp.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
+)
+@pytest.mark.integration
+@pytest.mark.parametrize("release_channels_enabled", [True, False])
+def test_release_directive_add_and_remove_accounts(
+    get_value_mock,
+    runner,
+    nativeapp_teardown,
+    nativeapp_basic_pdf,
+    release_channels_enabled,
+):
+    get_value_mock.return_value = release_channels_enabled
+
+    with nativeapp_teardown():
+        result = runner.invoke_with_connection(["app", "deploy"])
+        assert result.exit_code == 0
+
+        # create a version:
+        result = runner.invoke_with_connection_json(["app", "version", "create", "v1"])
+        assert result.exit_code == 0
+        patch = result.json["patch"]
+
+        # add version to release channel
+        if release_channels_enabled:
+            result = runner.invoke_with_connection(
+                ["app", "release-channel", "add-version", "DEFAULT", "--version", "v1"]
+            )
+            assert result.exit_code == 0
+
+        # set custom release directive with a target account
+        target_account = get_org_and_account_name(runner)
+        result = runner.invoke_with_connection(
+            [
+                "app",
+                "release-directive",
+                "set",
+                "my_directive",
+                "--version",
+                "v1",
+                "--patch",
+                patch,
+                "--target-accounts",
+                target_account,
+            ]
+        )
+        assert result.exit_code == 0
+
+        # verify custom release directive
+        result = runner.invoke_with_connection_json(
+            ["app", "release-directive", "list"]
+        )
+        assert result.exit_code == 0
+        assert len(result.json) == 1
+        custom_directive = result.json[0]
+        assert custom_directive["version"] == "V1"
+        assert custom_directive["patch"] == patch
+        assert custom_directive["target_name"] == f"[{target_account}]"
+        assert custom_directive["target_type"] == "ACCOUNT"
+
+        # remove account from release directive
+        result = runner.invoke_with_connection(
+            [
+                "app",
+                "release-directive",
+                "remove-accounts",
+                "my_directive",
+                "--target-accounts",
+                target_account,
+            ]
+        )
+        assert result.exit_code == 0
+
+        # verify account is removed from release directive
+        result = runner.invoke_with_connection_json(
+            ["app", "release-directive", "list"]
+        )
+        assert result.exit_code == 0
+        assert len(result.json) == 1
+        custom_directive = result.json[0]
+        assert custom_directive["version"] == "V1"
+        assert custom_directive["patch"] == patch
+        assert custom_directive["target_name"] is None
+        assert custom_directive["target_type"] == "ACCOUNT"
+
+        # add account back to release directive
+        result = runner.invoke_with_connection(
+            [
+                "app",
+                "release-directive",
+                "add-accounts",
+                "my_directive",
+                "--target-accounts",
+                target_account,
+            ]
+        )
+        assert result.exit_code == 0
+
+        # verify account is added back to release directive
+        result = runner.invoke_with_connection_json(
+            ["app", "release-directive", "list"]
+        )
+        assert result.exit_code == 0
+        assert len(result.json) == 1
+        custom_directive = result.json[0]
+        assert custom_directive["version"] == "V1"
+        assert custom_directive["patch"] == patch
+        assert custom_directive["target_name"] == f"[{target_account}]"
+        assert custom_directive["target_type"] == "ACCOUNT"
