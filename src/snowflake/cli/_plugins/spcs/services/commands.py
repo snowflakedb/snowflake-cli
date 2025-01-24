@@ -16,10 +16,10 @@ from __future__ import annotations
 
 import itertools
 from pathlib import Path
-from typing import Dict, Generator, Iterable, List, Optional, cast
+from typing import Generator, Iterable, List, Optional, cast
 
 import typer
-from click import ClickException, UsageError
+from click import ClickException
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
@@ -29,7 +29,6 @@ from snowflake.cli._plugins.spcs.common import (
     validate_and_set_instances,
 )
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
-from snowflake.cli._plugins.spcs.services.service_entity_model import ServiceEntityModel
 from snowflake.cli._plugins.spcs.services.service_project_paths import (
     ServiceProjectPaths,
 )
@@ -59,6 +58,7 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
     StreamResult,
 )
+from snowflake.cli.api.project.definition_helper import get_entity
 from snowflake.cli.api.project.util import is_valid_object_name
 
 app = SnowTyperFactory(
@@ -225,28 +225,15 @@ def deploy(
             project_type="service", project_root=cli_context.project_root
         )
 
-    services: Dict[str, ServiceEntityModel] = pd.get_entities_by_type(
-        entity_type="service"
+    service = get_entity(
+        pd=pd,
+        project_root=cli_context.project_root,
+        entity_type=ObjectType.SERVICE,
+        entity_id=entity_id,
     )
-
-    if not services:
-        raise NoProjectDefinitionError(
-            project_type="service", project_root=cli_context.project_root
-        )
-
-    if entity_id and entity_id not in services:
-        raise UsageError(f"No '{entity_id}' entity in project definition file.")
-    elif len(services.keys()) == 1:
-        entity_id = list(services.keys())[0]
-
-    if entity_id is None:
-        raise UsageError(
-            "Multiple services found. Please provide entity id for the operation."
-        )
-
     service_project_paths = ServiceProjectPaths(cli_context.project_root)
     cursor = ServiceManager().deploy(
-        service=services[entity_id],
+        service=service,
         service_project_paths=service_project_paths,
         replace=replace,
     )
