@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Optional
 
 import typer
 from click import ClickException, UsageError
@@ -24,9 +24,6 @@ from snowflake.cli._plugins.object.command_aliases import (
 from snowflake.cli._plugins.object.common import CommentOption
 from snowflake.cli._plugins.spcs.common import (
     validate_and_set_instances,
-)
-from snowflake.cli._plugins.spcs.compute_pool.compute_pool_entity_model import (
-    ComputePoolEntityModel,
 )
 from snowflake.cli._plugins.spcs.compute_pool.manager import ComputePoolManager
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -39,12 +36,12 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.exceptions import NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
     SingleQueryResult,
 )
+from snowflake.cli.api.project.definition_helper import get_entity
 from snowflake.cli.api.project.util import is_valid_object_name
 
 app = SnowTyperFactory(
@@ -164,27 +161,14 @@ def create(
                 "Flags are not supported when creating compute pools from a project definition file."
             )
 
-        compute_pools: Dict[str, ComputePoolEntityModel] = pd.get_entities_by_type(
-            entity_type="compute-pool"
+        compute_pool = get_entity(
+            pd=pd,
+            project_root=cli_context.project_root,
+            entity_type=ObjectType.COMPUTE_POOL,
+            entity_id=None if name is None else name.name,
         )
-
-        if not compute_pools:
-            raise NoProjectDefinitionError(
-                project_type="compute pool", project_root=cli_context.project_root
-            )
-
-        entity_id = None if name is None else name.name
-        if entity_id and entity_id not in compute_pools:
-            raise UsageError(f"No '{entity_id}' entity in project definition file.")
-        elif len(compute_pools.keys()) == 1:
-            entity_id = list(compute_pools.keys())[0]
-
-        if entity_id is None:
-            raise UsageError(
-                "Multiple compute pools found. Please provide entity id for the operation."
-            )
         cursor = ComputePoolManager().create_from_entity(
-            compute_pool=compute_pools[entity_id], replace=replace
+            compute_pool=compute_pool, replace=replace
         )
     else:
         min_nodes = 1 if min_nodes is None else min_nodes
