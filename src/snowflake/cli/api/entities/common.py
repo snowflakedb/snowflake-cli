@@ -26,6 +26,8 @@ class EntityActions(str, Enum):
     RELEASE_DIRECTIVE_UNSET = "action_release_directive_unset"
     RELEASE_DIRECTIVE_SET = "action_release_directive_set"
     RELEASE_DIRECTIVE_LIST = "action_release_directive_list"
+    RELEASE_DIRECTIVE_ADD_ACCOUNTS = "action_release_directive_add_accounts"
+    RELEASE_DIRECTIVE_REMOVE_ACCOUNTS = "action_release_directive_remove_accounts"
 
     RELEASE_CHANNEL_LIST = "action_release_channel_list"
     RELEASE_CHANNEL_ADD_ACCOUNTS = "action_release_channel_add_accounts"

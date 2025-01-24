@@ -1158,6 +1158,138 @@ class SnowflakeSQLFacade:
                     f"Failed to unset release directive {release_directive} for application package {package_name}.",
                 )
 
+    def add_accounts_to_release_directive(
+        self,
+        package_name: str,
+        release_directive: str,
+        release_channel: str | None,
+        target_accounts: List[str],
+        role: str | None = None,
+    ):
+        """
+        Adds target accounts to a release directive of a release channel in an application package.
+        Release directive must already exist in the application package.
+        Default release directive does not support target accounts.
+
+        @param package_name: Name of the application package to alter.
+        @param release_directive: Name of the release directive to add target accounts to.
+        @param release_channel: Name of the release channel where the release directive belongs to.
+        @param target_accounts: List of target accounts to add to the release directive.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel) if release_channel else None
+        release_directive = to_identifier(release_directive)
+
+        if same_identifiers(release_directive, DEFAULT_DIRECTIVE):
+            raise UserInputError(
+                "Default release directive does not support adding accounts. Please specify a non-default release directive."
+            )
+
+        release_channel_statement = ""
+        if release_channel:
+            release_channel_statement = f"modify release channel {release_channel}"
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    dedent(
+                        _strip_empty_lines(
+                            f"""\
+                            alter application package {package_name}
+                                {release_channel_statement}
+                                modify release directive {release_directive}
+                                add accounts = ({','.join(target_accounts)})
+                        """
+                        )
+                    )
+                )
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if (
+                        err.errno == ACCOUNT_DOES_NOT_EXIST
+                        or err.errno == ACCOUNT_HAS_TOO_MANY_QUALIFIERS
+                    ):
+                        raise UserInputError(
+                            f"Invalid account passed in.\n{str(err.msg)}"
+                        ) from err
+                    if err.errno == RELEASE_DIRECTIVE_DOES_NOT_EXIST:
+                        raise UserInputError(
+                            f"Release directive {release_directive} does not exist in application package {package_name}."
+                        ) from err
+                    if err.errno == TARGET_ACCOUNT_USED_BY_OTHER_RELEASE_DIRECTIVE:
+                        raise UserInputError(
+                            f"Some target accounts are already referenced by other release directives in application package {package_name}.\n{str(err.msg)}"
+                        ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to add accounts to release directive {release_directive} for application package {package_name}.",
+                )
+
+    def remove_accounts_from_release_directive(
+        self,
+        package_name: str,
+        release_directive: str,
+        release_channel: str | None,
+        target_accounts: List[str],
+        role: str | None = None,
+    ):
+        """
+        Removes target accounts from a release directive of a release channel in an application package.
+        Release directive must already exist in the application package.
+        Default release directive does not support target accounts.
+
+        @param package_name: Name of the application package to alter.
+        @param release_directive: Name of the release directive to remove target accounts from.
+        @param release_channel: Name of the release channel where the release directive belongs to.
+        @param target_accounts: List of target accounts to remove from the release directive.
+        @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
+        """
+        package_name = to_identifier(package_name)
+        release_channel = to_identifier(release_channel) if release_channel else None
+        release_directive = to_identifier(release_directive)
+
+        if same_identifiers(release_directive, DEFAULT_DIRECTIVE):
+            raise UserInputError(
+                "Default release directive does not support removing accounts. Please specify a non-default release directive."
+            )
+
+        release_channel_statement = ""
+        if release_channel:
+            release_channel_statement = f"modify release channel {release_channel}"
+
+        with self._use_role_optional(role):
+            try:
+                self._sql_executor.execute_query(
+                    dedent(
+                        _strip_empty_lines(
+                            f"""\
+                            alter application package {package_name}
+                                {release_channel_statement}
+                                modify release directive {release_directive}
+                                remove accounts = ({','.join(target_accounts)})
+                        """
+                        )
+                    )
+                )
+            except Exception as err:
+                if isinstance(err, ProgrammingError):
+                    if (
+                        err.errno == ACCOUNT_DOES_NOT_EXIST
+                        or err.errno == ACCOUNT_HAS_TOO_MANY_QUALIFIERS
+                    ):
+                        raise UserInputError(
+                            f"Invalid account passed in.\n{str(err.msg)}"
+                        ) from err
+                    if err.errno == RELEASE_DIRECTIVE_DOES_NOT_EXIST:
+                        raise UserInputError(
+                            f"Release directive {release_directive} does not exist in application package {package_name}."
+                        ) from err
+                handle_unclassified_error(
+                    err,
+                    f"Failed to remove accounts from release directive {release_directive} for application package {package_name}.",
+                )
+
     def show_release_channels(
         self, package_name: str, role: str | None = None
     ) -> list[ReleaseChannel]:

@@ -776,6 +776,58 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             role=self.role,
         )
 
+    def action_release_directive_add_accounts(
+        self,
+        action_ctx: ActionContext,
+        release_directive: str,
+        release_channel: str,
+        target_accounts: list[str],
+        *args,
+        **kwargs,
+    ):
+        """
+        Adds target accounts to a release directive.
+        """
+
+        if not target_accounts:
+            raise ClickException("No target accounts provided.")
+
+        self._validate_target_accounts(target_accounts)
+
+        get_snowflake_facade().add_accounts_to_release_directive(
+            package_name=self.name,
+            release_directive=release_directive,
+            release_channel=self.get_sanitized_release_channel(release_channel),
+            target_accounts=target_accounts,
+            role=self.role,
+        )
+
+    def action_release_directive_remove_accounts(
+        self,
+        action_ctx: ActionContext,
+        release_directive: str,
+        release_channel: str,
+        target_accounts: list[str],
+        *args,
+        **kwargs,
+    ):
+        """
+        Removes target accounts from a release directive.
+        """
+
+        if not target_accounts:
+            raise ClickException("No target accounts provided.")
+
+        self._validate_target_accounts(target_accounts)
+
+        get_snowflake_facade().remove_accounts_from_release_directive(
+            package_name=self.name,
+            release_directive=release_directive,
+            release_channel=self.get_sanitized_release_channel(release_channel),
+            target_accounts=target_accounts,
+            role=self.role,
+        )
+
     def _print_channel_to_console(self, channel: ReleaseChannel) -> None:
         """
         Prints the release channel details to the console.
