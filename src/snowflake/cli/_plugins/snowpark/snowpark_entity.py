@@ -49,27 +49,31 @@ class SnowparkEntity(EntityBase[Generic[T]]):
     def action_bundle(
         self,
         action_ctx: ActionContext,
-        output_dir: Path | None,
         ignore_anaconda: bool,
         skip_version_check: bool,
+        output_dir: Path | None = None,
         index_url: str | None = None,
         allow_shared_libraries: bool = False,
         *args,
         **kwargs,
     ) -> List[Path]:
         return self.bundle(
-            output_dir,
             ignore_anaconda,
             skip_version_check,
+            output_dir,
             index_url,
             allow_shared_libraries,
         )
 
     def action_deploy(
-        self, action_ctx: ActionContext, mode: CreateMode, *args, **kwargs
+        self,
+        action_ctx: ActionContext,
+        mode: CreateMode = CreateMode.create,
+        *args,
+        **kwargs,
     ):
         # TODO: After introducing bundle map, we should introduce file copying part here
-        return self._execute_query(self.get_deploy_sql(mode))
+        return self.deploy(mode, *args, **kwargs)
 
     def action_drop(self, action_ctx: ActionContext, *args, **kwargs):
         return self._execute_query(self.get_drop_sql())
@@ -88,9 +92,9 @@ class SnowparkEntity(EntityBase[Generic[T]]):
 
     def bundle(
         self,
-        output_dir: Path | None,
         ignore_anaconda: bool,
         skip_version_check: bool,
+        output_dir: Path | None = None,
         index_url: str | None = None,
         allow_shared_libraries: bool = False,
     ) -> List[Path]:
@@ -148,6 +152,9 @@ class SnowparkEntity(EntityBase[Generic[T]]):
             return True
         except ProgrammingError:
             return False
+
+    def deploy(self, mode: CreateMode = CreateMode.create, *args, **kwargs):
+        return self._execute_query(self.get_deploy_sql(mode))
 
     def get_deploy_sql(self, mode: CreateMode):
         query = [

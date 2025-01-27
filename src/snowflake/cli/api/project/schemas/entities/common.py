@@ -18,6 +18,7 @@ from abc import ABC
 from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
 
 from pydantic import Field, PrivateAttr, field_validator
+from pydantic_core.core_schema import ValidationInfo
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
@@ -61,6 +62,15 @@ class MetaField(UpdatableModel):
         default=None,
     )
 
+    depends_on: Optional[List[str]] = Field(
+        title="Entities that need to be deployed before this one", default_factory=list
+    )
+
+    action_arguments: Optional[Dict[str, Dict[str, Union[int, bool, str]]]] = Field(
+        title="Arguments that will be used, when this entity is called as a dependency of other entity",
+        default_factory=dict,
+    )
+
     @field_validator("use_mixins", mode="before")
     @classmethod
     def ensure_use_mixins_is_a_list(
@@ -69,6 +79,35 @@ class MetaField(UpdatableModel):
         if isinstance(mixins, str):
             return [mixins]
         return mixins
+
+    @field_validator("action_arguments", mode="before")
+    @classmethod
+    def arguments_validator(cls, arguments: Dict, info: ValidationInfo) -> Dict:
+        duplicated_run = (
+            info.context.get("is_duplicated_run", False) if info.context else False
+        )
+        if not duplicated_run:
+            for argument_dict in arguments.values():
+                for k, v in argument_dict.items():
+                    argument_dict[k] = cls._cast_value(v)
+
+        return arguments
+
+    @staticmethod
+    def _cast_value(value: str) -> Union[int, bool, str]:
+        if value.lower() in ["true", "false"]:
+            return value.lower() == "true"
+
+        try:
+            return int(value)
+        except ValueError:
+            return value
+
+    def __eq__(self, other):
+        return self.entity_id == other.entity_id
+
+    def __hash__(self):
+        return hash(self.entity_id)
 
 
 class Identifier(UpdatableModel):
