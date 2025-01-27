@@ -117,8 +117,8 @@ def test_deploy_default_stage_paths(
     with project_directory("notebooks_multiple_v2"):
         result = runner.invoke(["notebook", "deploy", notebook_id, "--replace"])
         assert result.exit_code == 0, result.output
-        assert result.output == snapshot(name="output")
-        assert ctx.get_query() == snapshot(name="query")
+        assert result.output.replace("\\", "/") == snapshot(name="output")
+        assert ctx.get_query().replace("\\", "/") == snapshot(name="query")
 
 
 @mock.patch("snowflake.connector.connect")
@@ -129,7 +129,6 @@ def test_deploy_single_notebook(
     mock_ctx,
     runner,
     project_directory,
-    alter_snowflake_yml,
     snapshot,
 ):
     """Deploy single notebook with custom identifier and stage path."""
@@ -139,8 +138,8 @@ def test_deploy_single_notebook(
     with project_directory("notebook_v2") as project_root:
         result = runner.invoke(["notebook", "deploy", "--replace"])
         assert result.exit_code == 0, result.output
-        assert result.output == snapshot(name="output")
-        assert ctx.get_query() == snapshot(name="query")
+        assert result.output.replace("\\", "/") == snapshot(name="output")
+        assert ctx.get_query().replace("\\", "/") == snapshot(name="query")
 
 
 @mock.patch("snowflake.connector.connect")
@@ -163,7 +162,9 @@ def test_deploy_notebook_file_not_exists_error(runner, project_directory):
         result = runner.invoke(["notebook", "deploy", "notebook2", "--replace"])
         assert result.exit_code == 1, result.output
         assert "This caused: Value error, Notebook file"
-        assert "notebook2/my_notebook.ipynb does not exist" in result.output
+        assert "notebook2/my_notebook.ipynb does not exist" in result.output.replace(
+            "\\", "/"
+        )
 
 
 def test_deploy_notebook_definition_not_exists_error(runner, project_directory):

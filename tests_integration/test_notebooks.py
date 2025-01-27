@@ -4,10 +4,12 @@ import pytest
 @pytest.mark.integration
 def test_deploy_by_id(runner, project_directory, test_database):
     def expected_output_prefix(notebook_id):
+        from os import sep
+
         return (
             f"Deploying notebook {notebook_id}\n"
             f"  Creating stage notebooks if not exists\n"
-            f"  Uploading {notebook_id}/my_notebook.ipynb to @notebooks/{notebook_id}\n"
+            f"  Uploading {notebook_id}{sep}my_notebook.ipynb to @notebooks/{notebook_id}\n"
             f"  Creating notebook\n"
         )
 
