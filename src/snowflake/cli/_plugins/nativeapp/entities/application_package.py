@@ -77,12 +77,12 @@ from snowflake.cli.api.cli_global_context import span
 from snowflake.cli.api.entities.common import (
     EntityBase,
     attach_spans_to_entity_actions,
-    get_sql_executor,
 )
 from snowflake.cli.api.entities.utils import (
     drop_generic_object,
     execute_post_deploy_hooks,
     generic_sql_error_handler,
+    get_sql_executor,
     sync_deploy_root_with_stage,
     validation_item_to_str,
 )
@@ -776,6 +776,58 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
             role=self.role,
         )
 
+    def action_release_directive_add_accounts(
+        self,
+        action_ctx: ActionContext,
+        release_directive: str,
+        release_channel: str,
+        target_accounts: list[str],
+        *args,
+        **kwargs,
+    ):
+        """
+        Adds target accounts to a release directive.
+        """
+
+        if not target_accounts:
+            raise ClickException("No target accounts provided.")
+
+        self._validate_target_accounts(target_accounts)
+
+        get_snowflake_facade().add_accounts_to_release_directive(
+            package_name=self.name,
+            release_directive=release_directive,
+            release_channel=self.get_sanitized_release_channel(release_channel),
+            target_accounts=target_accounts,
+            role=self.role,
+        )
+
+    def action_release_directive_remove_accounts(
+        self,
+        action_ctx: ActionContext,
+        release_directive: str,
+        release_channel: str,
+        target_accounts: list[str],
+        *args,
+        **kwargs,
+    ):
+        """
+        Removes target accounts from a release directive.
+        """
+
+        if not target_accounts:
+            raise ClickException("No target accounts provided.")
+
+        self._validate_target_accounts(target_accounts)
+
+        get_snowflake_facade().remove_accounts_from_release_directive(
+            package_name=self.name,
+            release_directive=release_directive,
+            release_channel=self.get_sanitized_release_channel(release_channel),
+            target_accounts=target_accounts,
+            role=self.role,
+        )
+
     def _print_channel_to_console(self, channel: ReleaseChannel) -> None:
         """
         Prints the release channel details to the console.
@@ -914,6 +966,31 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         self._validate_target_accounts(target_accounts)
 
         get_snowflake_facade().remove_accounts_from_release_channel(
+            package_name=self.name,
+            release_channel=release_channel,
+            target_accounts=target_accounts,
+            role=self.role,
+        )
+
+    def action_release_channel_set_accounts(
+        self,
+        action_ctx: ActionContext,
+        release_channel: str,
+        target_accounts: list[str],
+        *args,
+        **kwargs,
+    ):
+        """
+        Sets target accounts for a release channel.
+        """
+
+        if not target_accounts:
+            raise ClickException("No target accounts provided.")
+
+        self.validate_release_channel(release_channel)
+        self._validate_target_accounts(target_accounts)
+
+        get_snowflake_facade().set_accounts_for_release_channel(
             package_name=self.name,
             release_channel=release_channel,
             target_accounts=target_accounts,

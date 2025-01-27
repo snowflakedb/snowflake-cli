@@ -1,0 +1,31 @@
+# serializer version: 1
+# name: test_create_from_project_definition
+  '''
+  +---------------------------------------------------------------+
+  | key    | value                                                |
+  |--------+------------------------------------------------------|
+  | status | Compute pool TEST_COMPUTE_POOL successfully created. |
+  +---------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_create_from_project_definition_multiple_compute_pools_with_entity_id
+  '''
+  +---------------------------------------------------------------+
+  | key    | value                                                |
+  |--------+------------------------------------------------------|
+  | status | Compute pool TEST_COMPUTE_POOL successfully created. |
+  +---------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_create_from_project_definition_replace
+  '''
+  +---------------------------------------------------------------+
+  | key    | value                                                |
+  |--------+------------------------------------------------------|
+  | status | Compute pool TEST_COMPUTE_POOL successfully created. |
+  +---------------------------------------------------------------+
+  
+  '''
+# ---

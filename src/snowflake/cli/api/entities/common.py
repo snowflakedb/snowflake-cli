@@ -1,40 +1,15 @@
 import functools
-from enum import Enum
 from pathlib import Path
 from typing import Generic, Type, TypeVar, get_args
 
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
-from snowflake.cli.api.cli_global_context import span
+from snowflake.cli.api.cli_global_context import get_cli_context, span
+from snowflake.cli.api.entities.resolver import DependencyResolver
+from snowflake.cli.api.entities.utils import EntityActions, get_sql_executor
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutor
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
-
-
-class EntityActions(str, Enum):
-    BUNDLE = "action_bundle"
-    DEPLOY = "action_deploy"
-    DROP = "action_drop"
-    VALIDATE = "action_validate"
-    EVENTS = "action_events"
-    DIFF = "action_diff"
-
-    VERSION_LIST = "action_version_list"
-    VERSION_CREATE = "action_version_create"
-    VERSION_DROP = "action_version_drop"
-
-    RELEASE_DIRECTIVE_UNSET = "action_release_directive_unset"
-    RELEASE_DIRECTIVE_SET = "action_release_directive_set"
-    RELEASE_DIRECTIVE_LIST = "action_release_directive_list"
-
-    RELEASE_CHANNEL_LIST = "action_release_channel_list"
-    RELEASE_CHANNEL_ADD_ACCOUNTS = "action_release_channel_add_accounts"
-    RELEASE_CHANNEL_REMOVE_ACCOUNTS = "action_release_channel_remove_accounts"
-    RELEASE_CHANNEL_ADD_VERSION = "action_release_channel_add_version"
-    RELEASE_CHANNEL_REMOVE_VERSION = "action_release_channel_remove_version"
-
-    PUBLISH = "action_publish"
-
 
 T = TypeVar("T")
 
@@ -72,6 +47,7 @@ class EntityBase(Generic[T]):
     def __init__(self, entity_model: T, workspace_ctx: WorkspaceContext):
         self._entity_model = entity_model
         self._workspace_ctx = workspace_ctx
+        self.dependency_resolver = DependencyResolver(entity_model)
 
     @property
     def entity_id(self) -> str:
@@ -97,7 +73,10 @@ class EntityBase(Generic[T]):
     ):
         """
         Performs the requested action.
+        This is a preferred way to perform actions on entities, over calling actions directly,
+        as it will also call the dependencies in the correct order.
         """
+        self.dependency_resolver.perform_for_dep(action, action_ctx, *args, **kwargs)
         return getattr(self, action)(action_ctx, *args, **kwargs)
 
     @property
@@ -126,8 +105,15 @@ class EntityBase(Generic[T]):
         return self._sql_executor._conn  # noqa
 
     @property
+    def snow_api_root(self):
+        return get_cli_context().snow_api_root
+
+    @property
     def model(self):
         return self._entity_model
+
+    def dependent_entities(self, action_ctx: ActionContext):
+        return self.dependency_resolver.depends_on(action_ctx)
 
     def get_usage_grant_sql(self, app_role: str) -> str:
         return f"GRANT USAGE ON {self.model.type.upper()} {self.identifier} TO ROLE {app_role};"
@@ -137,8 +123,3 @@ class EntityBase(Generic[T]):
 
     def get_drop_sql(self) -> str:
         return f"DROP {self.model.type.upper()} {self.identifier};"
-
-
-def get_sql_executor() -> SqlExecutor:
-    """Returns an SQL Executor that uses the connection from the current CLI context"""
-    return SqlExecutor()

@@ -7,6 +7,7 @@
    Snowflake CLI tool for developers [v0.0.0-test_patched]                        
                                                                                   
   +- Options --------------------------------------------------------------------+
+  | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
   | --info                              Shows information about the Snowflake    |
   |                                     CLI                                      |
@@ -18,7 +19,6 @@
   | --show-completion                   Show completion for the current shell,   |
   |                                     to copy it or customize the              |
   |                                     installation.                            |
-  | --help                -h            Show this message and exit.              |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app          Manages a Snowflake Native App                                  |
@@ -1278,6 +1278,105 @@
   
   '''
 # ---
+# name: test_help_messages[app.release-channel.set-accounts]
+  '''
+                                                                                  
+   Usage: default app release-channel set-accounts [OPTIONS] CHANNEL              
+                                                                                  
+   Sets accounts for a release channel.                                           
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    channel      TEXT  The release channel to set accounts for.             |
+  |                         [required]                                           |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | *  --target-accounts            TEXT  The accounts to set for the release    |
+  |                                       channel. Format has to be              |
+  |                                       org1.account1,org2.account2.           |
+  |                                       [required]                             |
+  |    --package-entity-id          TEXT  The ID of the package entity on which  |
+  |                                       to operate when definition_version is  |
+  |                                       2 or higher.                           |
+  |    --app-entity-id              TEXT  The ID of the application entity on    |
+  |                                       which to operate when                  |
+  |                                       definition_version is 2 or higher.     |
+  |    --help               -h            Show this message and exit.            |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses connection defined with |
+  |                                                 command line parameters,     |
+  |                                                 instead of one defined in    |
+  |                                                 config                       |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Run Python connector         |
+  |                                                 diagnostic test              |
+  | --diag-log-path                        TEXT     Diagnostic report path       |
+  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
+  |                                                 optional allowlist           |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[app.release-channel]
   '''
                                                                                   
@@ -1295,6 +1394,113 @@
   |                   package.                                                   |
   | remove-accounts   Removes accounts from a release channel.                   |
   | remove-version    Removes a version from a release channel.                  |
+  | set-accounts      Sets accounts for a release channel.                       |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[app.release-directive.add-accounts]
+  '''
+                                                                                  
+   Usage: default app release-directive add-accounts [OPTIONS] DIRECTIVE          
+                                                                                  
+   Adds accounts to a release directive.                                          
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    directive      TEXT  Name of the release directive                      |
+  |                           [required]                                         |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  |    --channel                    TEXT  Name of the release channel to use     |
+  |                                       [default: DEFAULT]                     |
+  | *  --target-accounts            TEXT  List of the accounts to add to the     |
+  |                                       release directive. Format has to be    |
+  |                                       org1.account1,org2.account2            |
+  |                                       [required]                             |
+  |    --package-entity-id          TEXT  The ID of the package entity on which  |
+  |                                       to operate when definition_version is  |
+  |                                       2 or higher.                           |
+  |    --app-entity-id              TEXT  The ID of the application entity on    |
+  |                                       which to operate when                  |
+  |                                       definition_version is 2 or higher.     |
+  |    --project            -p      TEXT  Path where Snowflake project resides.  |
+  |                                       Defaults to current working directory. |
+  |    --env                        TEXT  String in format of key=value.         |
+  |                                       Overrides variables from env section   |
+  |                                       used for templates.                    |
+  |    --help               -h            Show this message and exit.            |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses connection defined with |
+  |                                                 command line parameters,     |
+  |                                                 instead of one defined in    |
+  |                                                 config                       |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Run Python connector         |
+  |                                                 diagnostic test              |
+  | --diag-log-path                        TEXT     Diagnostic report path       |
+  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
+  |                                                 optional allowlist           |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
   +------------------------------------------------------------------------------+
   
   
@@ -1334,6 +1540,112 @@
   |                                    variables from env section used for       |
   |                                    templates.                                |
   | --help               -h            Show this message and exit.               |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses connection defined with |
+  |                                                 command line parameters,     |
+  |                                                 instead of one defined in    |
+  |                                                 config                       |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Run Python connector         |
+  |                                                 diagnostic test              |
+  | --diag-log-path                        TEXT     Diagnostic report path       |
+  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
+  |                                                 optional allowlist           |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[app.release-directive.remove-accounts]
+  '''
+                                                                                  
+   Usage: default app release-directive remove-accounts [OPTIONS] DIRECTIVE       
+                                                                                  
+   Removes accounts from a release directive.                                     
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    directive      TEXT  Name of the release directive                      |
+  |                           [required]                                         |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  |    --channel                    TEXT  Name of the release channel to use     |
+  |                                       [default: DEFAULT]                     |
+  | *  --target-accounts            TEXT  List of the accounts to remove from    |
+  |                                       the release directive. Format has to   |
+  |                                       be org1.account1,org2.account2         |
+  |                                       [required]                             |
+  |    --package-entity-id          TEXT  The ID of the package entity on which  |
+  |                                       to operate when definition_version is  |
+  |                                       2 or higher.                           |
+  |    --app-entity-id              TEXT  The ID of the application entity on    |
+  |                                       which to operate when                  |
+  |                                       definition_version is 2 or higher.     |
+  |    --project            -p      TEXT  Path where Snowflake project resides.  |
+  |                                       Defaults to current working directory. |
+  |    --env                        TEXT  String in format of key=value.         |
+  |                                       Overrides variables from env section   |
+  |                                       used for templates.                    |
+  |    --help               -h            Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
@@ -1638,12 +1950,14 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | list    Lists release directives in an application package. If no release    |
-  |         channel is specified, release directives for all channels are        |
-  |         listed. If a release channel is specified, only release directives   |
-  |         for that channel are listed.                                         |
-  | set     Sets a release directive.                                            |
-  | unset   Unsets a release directive.                                          |
+  | add-accounts      Adds accounts to a release directive.                      |
+  | list              Lists release directives in an application package. If no  |
+  |                   release channel is specified, release directives for all   |
+  |                   channels are listed. If a release channel is specified,    |
+  |                   only release directives for that channel are listed.       |
+  | remove-accounts   Removes accounts from a release directive.                 |
+  | set               Sets a release directive.                                  |
+  | unset             Unsets a release directive.                                |
   +------------------------------------------------------------------------------+
   
   
@@ -5704,166 +6018,66 @@
 # name: test_help_messages[spcs.compute-pool.create]
   '''
                                                                                   
-   Usage: default spcs compute-pool create [OPTIONS] NAME                         
+   Usage: default spcs compute-pool create [OPTIONS] [NAME]                       
                                                                                   
    Creates a new compute pool.                                                    
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the compute pool; for example:            |
-  |                      my_compute_pool                                         |
-  |                      [required]                                              |
+  |   name      [NAME]  Identifier of the compute pool; for example:             |
+  |                     my_compute_pool                                          |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | *  --family                                TEXT             Name of the      |
-  |                                                             instance family. |
-  |                                                             For more         |
-  |                                                             information      |
-  |                                                             about instance   |
-  |                                                             families, refer  |
-  |                                                             to the SQL       |
-  |                                                             CREATE COMPUTE   |
-  |                                                             POOL command.    |
-  |                                                             [required]       |
-  |    --min-nodes                             INTEGER RANGE    Minimum number   |
-  |                                            [x>=1]           of nodes for the |
-  |                                                             compute pool.    |
-  |                                                             [default: 1]     |
-  |    --max-nodes                             INTEGER RANGE    Maximum number   |
-  |                                            [x>=1]           of nodes for the |
-  |                                                             compute pool.    |
-  |                                                             [default: None]  |
-  |    --auto-resume        --no-auto-resu…                     The compute pool |
-  |                                                             will             |
-  |                                                             automatically    |
-  |                                                             resume when a    |
-  |                                                             service or job   |
-  |                                                             is submitted to  |
-  |                                                             it.              |
-  |                                                             [default:        |
-  |                                                             auto-resume]     |
-  |    --init-suspend       --no-init-susp…                     Starts the       |
-  |                                                             compute pool in  |
-  |                                                             a suspended      |
-  |                                                             state.           |
-  |                                                             [default:        |
-  |                                                             no-init-suspend] |
-  |    --auto-suspend…                         INTEGER RANGE    Number of        |
-  |                                            [x>=1]           seconds of       |
-  |                                                             inactivity after |
-  |                                                             which you want   |
-  |                                                             Snowflake to     |
-  |                                                             automatically    |
-  |                                                             suspend the      |
-  |                                                             compute pool.    |
-  |                                                             [default: 3600]  |
-  |    --comment                               TEXT             Comment for the  |
-  |                                                             compute pool.    |
-  |                                                             [default: None]  |
-  |    --replace                                                Replace this     |
-  |                                                             object if it     |
-  |                                                             already exists.  |
-  |    --if-not-exists                                          Only apply this  |
-  |                                                             operation if the |
-  |                                                             specified object |
-  |                                                             does not already |
-  |                                                             exist.           |
-  |    --help           -h                                      Show this        |
-  |                                                             message and      |
-  |                                                             exit.            |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --connection,--environment     -c      TEXT     Name of the connection, as   |
-  |                                                 defined in your config.toml  |
-  |                                                 file. Default: default.      |
-  | --host                                 TEXT     Host address for the         |
-  |                                                 connection. Overrides the    |
-  |                                                 value specified for the      |
-  |                                                 connection.                  |
-  | --port                                 INTEGER  Port for the connection.     |
-  |                                                 Overrides the value          |
-  |                                                 specified for the            |
-  |                                                 connection.                  |
-  | --account,--accountname                TEXT     Name assigned to your        |
-  |                                                 Snowflake account. Overrides |
-  |                                                 the value specified for the  |
-  |                                                 connection.                  |
-  | --user,--username                      TEXT     Username to connect to       |
-  |                                                 Snowflake. Overrides the     |
-  |                                                 value specified for the      |
-  |                                                 connection.                  |
-  | --password                             TEXT     Snowflake password.          |
-  |                                                 Overrides the value          |
-  |                                                 specified for the            |
-  |                                                 connection.                  |
-  | --authenticator                        TEXT     Snowflake authenticator.     |
-  |                                                 Overrides the value          |
-  |                                                 specified for the            |
-  |                                                 connection.                  |
-  | --private-key-file,--private…          TEXT     Snowflake private key file   |
-  |                                                 path. Overrides the value    |
-  |                                                 specified for the            |
-  |                                                 connection.                  |
-  | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token that should be used    |
-  |                                                 when connecting to Snowflake |
-  | --database,--dbname                    TEXT     Database to use. Overrides   |
-  |                                                 the value specified for the  |
-  |                                                 connection.                  |
-  | --schema,--schemaname                  TEXT     Database schema to use.      |
-  |                                                 Overrides the value          |
-  |                                                 specified for the            |
-  |                                                 connection.                  |
-  | --role,--rolename                      TEXT     Role to use. Overrides the   |
-  |                                                 value specified for the      |
-  |                                                 connection.                  |
-  | --warehouse                            TEXT     Warehouse to use. Overrides  |
-  |                                                 the value specified for the  |
-  |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
-  | --mfa-passcode                         TEXT     Token to use for             |
-  |                                                 multi-factor authentication  |
-  |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format           [TABLE|JSON]  Specifies the output format.                |
-  |                                  [default: TABLE]                            |
-  | --verbose  -v                    Displays log entries for log levels info    |
-  |                                  and higher.                                 |
-  | --debug                          Displays log entries for log levels debug   |
-  |                                  and higher; debug logs contain additional   |
-  |                                  information.                                |
-  | --silent                         Turns off intermediate output to console.   |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages[spcs.compute-pool.deploy]
-  '''
-                                                                                  
-   Usage: default spcs compute-pool deploy [OPTIONS] [ENTITY_ID]                  
-                                                                                  
-   Deploys a compute pool from the project definition file.                       
-                                                                                  
-  +- Arguments ------------------------------------------------------------------+
-  |   entity_id      [ENTITY_ID]  ID of compute-pool entity.                     |
-  |                               [default: None]                                |
-  +------------------------------------------------------------------------------+
-  +- Options --------------------------------------------------------------------+
-  | --replace                Replace the compute-pool if it already exists.      |
-  | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
-  |                          current working directory.                          |
-  | --env              TEXT  String in format of key=value. Overrides variables  |
-  |                          from env section used for templates.                |
-  | --help     -h            Show this message and exit.                         |
+  | --family                                  TEXT             Name of the       |
+  |                                                            instance family.  |
+  |                                                            For more          |
+  |                                                            information about |
+  |                                                            instance          |
+  |                                                            families, refer   |
+  |                                                            to the SQL CREATE |
+  |                                                            COMPUTE POOL      |
+  |                                                            command.          |
+  | --min-nodes                               INTEGER RANGE    Minimum number of |
+  |                                           [x>=1]           nodes for the     |
+  |                                                            compute pool.     |
+  |                                                            [default: None]   |
+  | --max-nodes                               INTEGER RANGE    Maximum number of |
+  |                                           [x>=1]           nodes for the     |
+  |                                                            compute pool.     |
+  |                                                            [default: None]   |
+  | --auto-resume         --no-auto-resume                     The compute pool  |
+  |                                                            will              |
+  |                                                            automatically     |
+  |                                                            resume when a     |
+  |                                                            service or job is |
+  |                                                            submitted to it.  |
+  |                                                            [default:         |
+  |                                                            no-auto-resume]   |
+  | --init-suspend        --no-init-suspe…                     Starts the        |
+  |                                                            compute pool in a |
+  |                                                            suspended state.  |
+  |                                                            [default:         |
+  |                                                            no-init-suspend]  |
+  | --auto-suspend-…                          INTEGER RANGE    Number of seconds |
+  |                                           [x>=1]           of inactivity     |
+  |                                                            after which you   |
+  |                                                            want Snowflake to |
+  |                                                            automatically     |
+  |                                                            suspend the       |
+  |                                                            compute pool.     |
+  |                                                            [default: None]   |
+  | --comment                                 TEXT             Comment for the   |
+  |                                                            compute pool.     |
+  |                                                            [default: None]   |
+  | --replace                                                  Replace this      |
+  |                                                            object if it      |
+  |                                                            already exists.   |
+  | --if-not-exists                                            Only apply this   |
+  |                                                            operation if the  |
+  |                                                            specified object  |
+  |                                                            does not already  |
+  |                                                            exist.            |
+  | --help            -h                                       Show this message |
+  |                                                            and exit.         |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
@@ -6797,7 +7011,6 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | create     Creates a new compute pool.                                       |
-  | deploy     Deploys a compute pool from the project definition file.          |
   | describe   Provides description of compute pool.                             |
   | drop       Drops compute pool with given name.                               |
   | list       Lists all available compute pools.                                |
@@ -7108,14 +7321,13 @@
 # name: test_help_messages[spcs.image-repository.create]
   '''
                                                                                   
-   Usage: default spcs image-repository create [OPTIONS] NAME                     
+   Usage: default spcs image-repository create [OPTIONS] [NAME]                   
                                                                                   
    Creates a new image repository in the current schema.                          
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  Identifier of the image repository; for example:        |
-  |                      my_repository                                           |
-  |                      [required]                                              |
+  |   name      [NAME]  Identifier of the image repository; for example:         |
+  |                     my_repository                                            |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --replace                  Replace this object if it already exists.         |
@@ -7761,6 +7973,96 @@
   |    --help           -h                                      Show this        |
   |                                                             message and      |
   |                                                             exit.            |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses connection defined with |
+  |                                                 command line parameters,     |
+  |                                                 instead of one defined in    |
+  |                                                 config                       |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Run Python connector         |
+  |                                                 diagnostic test              |
+  | --diag-log-path                        TEXT     Diagnostic report path       |
+  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
+  |                                                 optional allowlist           |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[spcs.service.deploy]
+  '''
+                                                                                  
+   Usage: default spcs service deploy [OPTIONS] [ENTITY_ID]                       
+                                                                                  
+   Deploys a service defined in the project definition file.                      
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  |   entity_id      [ENTITY_ID]  ID of service entity.                          |
+  |                               [default: None]                                |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --replace            Replace the service if it already exists.               |
+  | --help     -h        Show this message and exit.                             |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
@@ -9279,6 +9581,8 @@
   +- Commands -------------------------------------------------------------------+
   | create            Creates a new service in the current                       |
   |                   schema.                                                    |
+  | deploy            Deploys a service defined in the project                   |
+  |                   definition file.                                           |
   | describe          Provides description of service.                           |
   | drop              Drops service with given name.                             |
   | execute-job       Creates and executes a job service in the                  |
@@ -11011,6 +11315,7 @@
    Snowflake CLI tool for developers [v0.0.0-test_patched]                        
                                                                                   
   +- Options --------------------------------------------------------------------+
+  | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
   | --info                              Shows information about the Snowflake    |
   |                                     CLI                                      |
@@ -11022,7 +11327,6 @@
   | --show-completion                   Show completion for the current shell,   |
   |                                     to copy it or customize the              |
   |                                     installation.                            |
-  | --help                -h            Show this message and exit.              |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app          Manages a Snowflake Native App                                  |
@@ -11061,6 +11365,7 @@
   |                   package.                                                   |
   | remove-accounts   Removes accounts from a release channel.                   |
   | remove-version    Removes a version from a release channel.                  |
+  | set-accounts      Sets accounts for a release channel.                       |
   +------------------------------------------------------------------------------+
   
   
@@ -11077,12 +11382,14 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | list    Lists release directives in an application package. If no release    |
-  |         channel is specified, release directives for all channels are        |
-  |         listed. If a release channel is specified, only release directives   |
-  |         for that channel are listed.                                         |
-  | set     Sets a release directive.                                            |
-  | unset   Unsets a release directive.                                          |
+  | add-accounts      Adds accounts to a release directive.                      |
+  | list              Lists release directives in an application package. If no  |
+  |                   release channel is specified, release directives for all   |
+  |                   channels are listed. If a release channel is specified,    |
+  |                   only release directives for that channel are listed.       |
+  | remove-accounts   Removes accounts from a release directive.                 |
+  | set               Sets a release directive.                                  |
+  | unset             Unsets a release directive.                                |
   +------------------------------------------------------------------------------+
   
   
@@ -11310,7 +11617,6 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | create     Creates a new compute pool.                                       |
-  | deploy     Deploys a compute pool from the project definition file.          |
   | describe   Provides description of compute pool.                             |
   | drop       Drops compute pool with given name.                               |
   | list       Lists all available compute pools.                                |
@@ -11387,6 +11693,8 @@
   +- Commands -------------------------------------------------------------------+
   | create            Creates a new service in the current                       |
   |                   schema.                                                    |
+  | deploy            Deploys a service defined in the project                   |
+  |                   definition file.                                           |
   | describe          Provides description of service.                           |
   | drop              Drops service with given name.                             |
   | execute-job       Creates and executes a job service in the                  |

@@ -1,0 +1,58 @@
+definition_version: 2
+entities:
+  test_streamlit:
+    artifacts:
+      - streamlit_app.py
+      - environment.yml
+      - pages
+    identifier:
+      name: test_streamlit
+    main_file: streamlit_app.py
+    query_warehouse: test_warehouse
+    stage: streamlit
+    type: streamlit
+    meta:
+      depends_on:
+        - test_procedure
+
+  test_procedure:
+    artifacts:
+      - app/
+    handler: hello
+    identifier:
+      name: test_procedure
+    returns: string
+    signature:
+      - name: "name"
+        type: "string"
+    stage: dev_deployment
+    type: procedure
+    meta:
+      depends_on:
+        - test_function
+      action_arguments:
+        bundle:
+          ignore_anaconda: true
+          skip_version_check: false
+          allow_shared_libraries: true
+
+  test_function:
+    artifacts:
+      - app/
+    handler: hello
+    identifier:
+      name: test_function
+    returns: string
+    signature:
+      - name: "name"
+        type: "string"
+    stage: dev_deployment
+    type: function
+    meta:
+      depends_on:
+        - test_procedure
+      action_arguments:
+        bundle:
+          ignore_anaconda: true
+          skip_version_check: false
+          allow_shared_libraries: true
