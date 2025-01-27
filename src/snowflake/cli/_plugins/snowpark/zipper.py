@@ -71,7 +71,7 @@ def zip_dir(
     if not dest_zip.parent.exists():
         SecurePath(dest_zip).parent.mkdir(parents=True)
 
-    if isinstance(source, Path):
+    if isinstance(source, Path) or isinstance(source, SecurePath):
         source = [source]
 
     files_to_pack: Dict[Path, List[Path]] = {
@@ -81,6 +81,8 @@ def zip_dir(
 
     with ZipFile(dest_zip, mode, ZIP_DEFLATED, allowZip64=True) as package_zip:
         for src, files in files_to_pack.items():
+            if isinstance(src, SecurePath):
+                src = src.path
             for file in files:
                 log.debug("Adding %s to %s", file, dest_zip)
                 package_zip.write(file, arcname=file.relative_to(src))

@@ -27,7 +27,7 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import like_option
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.entities.common import EntityActions
+from snowflake.cli.api.entities.utils import EntityActions
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -163,3 +163,81 @@ def release_directive_unset(
         release_channel=channel,
     )
     return MessageResult(f"Successfully unset release directive {directive}.")
+
+
+@app.command("add-accounts", requires_connection=True)
+@with_project_definition()
+@force_project_definition_v2()
+def release_directive_add_accounts(
+    directive: str = typer.Argument(
+        show_default=False,
+        help="Name of the release directive",
+    ),
+    channel: str = typer.Option(
+        DEFAULT_CHANNEL,
+        help="Name of the release channel to use",
+    ),
+    target_accounts: str = typer.Option(
+        show_default=False,
+        help="List of the accounts to add to the release directive. Format has to be `org1.account1,org2.account2`",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Adds accounts to a release directive.
+    """
+
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    package_id = options["package_entity_id"]
+    ws.perform_action(
+        package_id,
+        EntityActions.RELEASE_DIRECTIVE_ADD_ACCOUNTS,
+        release_directive=directive,
+        target_accounts=target_accounts.split(","),
+        release_channel=channel,
+    )
+
+    return MessageResult("Successfully added accounts to the release directive.")
+
+
+@app.command("remove-accounts", requires_connection=True)
+@with_project_definition()
+@force_project_definition_v2()
+def release_directive_remove_accounts(
+    directive: str = typer.Argument(
+        show_default=False,
+        help="Name of the release directive",
+    ),
+    channel: str = typer.Option(
+        DEFAULT_CHANNEL,
+        help="Name of the release channel to use",
+    ),
+    target_accounts: str = typer.Option(
+        show_default=False,
+        help="List of the accounts to remove from the release directive. Format has to be `org1.account1,org2.account2`",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Removes accounts from a release directive.
+    """
+
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    package_id = options["package_entity_id"]
+    ws.perform_action(
+        package_id,
+        EntityActions.RELEASE_DIRECTIVE_REMOVE_ACCOUNTS,
+        release_directive=directive,
+        target_accounts=target_accounts.split(","),
+        release_channel=channel,
+    )
+
+    return MessageResult("Successfully removed accounts from the release directive.")

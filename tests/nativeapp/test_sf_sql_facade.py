@@ -3468,6 +3468,300 @@ def test_modify_release_directive_no_release_channel(
     mock_execute_query.assert_called_once_with(expected_query)
 
 
+def test_add_accounts_to_release_directive_with_non_default_directive(
+    mock_execute_query,
+):
+    package_name = "test_package"
+    release_directive = "test_directive"
+    release_channel = "test_channel"
+    target_accounts = ["org1.account1", "org2.account2"]
+
+    expected_query = dedent(
+        f"""\
+            alter application package {package_name}
+                modify release channel {release_channel}
+                modify release directive {release_directive}
+                add accounts = ({",".join(target_accounts)})
+        """
+    )
+
+    sql_facade.add_accounts_to_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=release_channel,
+        target_accounts=target_accounts,
+    )
+
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
+def test_add_accounts_to_default_release_directive_then_error(
+    mock_execute_query,
+):
+    package_name = "test_package"
+    release_directive = "DEFAULT"
+    release_channel = "test_channel"
+    target_accounts = ["org1.account1", "org2.account2"]
+
+    with pytest.raises(UserInputError) as err:
+        sql_facade.add_accounts_to_release_directive(
+            package_name=package_name,
+            release_directive=release_directive,
+            release_channel=release_channel,
+            target_accounts=target_accounts,
+        )
+
+    assert (
+        "Default release directive does not support adding accounts. Please specify a non-default release directive."
+        in str(err)
+    )
+
+
+def test_add_accounts_to_release_directive_no_release_channel(
+    mock_execute_query,
+):
+    package_name = "test_package"
+    release_directive = "test_directive"
+    target_accounts = ["org1.account1", "org2.account2"]
+
+    expected_query = dedent(
+        f"""\
+            alter application package {package_name}
+                modify release directive {release_directive}
+                add accounts = ({",".join(target_accounts)})
+        """
+    )
+
+    sql_facade.add_accounts_to_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=None,
+        target_accounts=target_accounts,
+    )
+
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
+def test_add_accounts_to_release_directive_with_special_chars_in_names(
+    mock_execute_query,
+):
+    package_name = "test.package"
+    release_directive = "test.directive"
+    release_channel = "test.channel"
+    target_accounts = ["org1.account1", "org2.account2"]
+
+    expected_query = dedent(
+        f"""\
+            alter application package "{package_name}"
+                modify release channel "{release_channel}"
+                modify release directive "{release_directive}"
+                add accounts = ({",".join(target_accounts)})
+        """
+    )
+
+    sql_facade.add_accounts_to_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=release_channel,
+        target_accounts=target_accounts,
+    )
+
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=ACCOUNT_DOES_NOT_EXIST),
+            UserInputError,
+            "Invalid account passed in.",
+        ),
+        (
+            ProgrammingError(errno=ACCOUNT_HAS_TOO_MANY_QUALIFIERS),
+            UserInputError,
+            "Invalid account passed in.",
+        ),
+        (
+            ProgrammingError(errno=RELEASE_DIRECTIVE_DOES_NOT_EXIST),
+            UserInputError,
+            "Release directive test_directive does not exist in application package test_package.",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to add accounts to release directive test_directive for application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to add accounts to release directive test_directive for application package test_package. some database error",
+        ),
+    ],
+)
+def test_add_accounts_to_release_directive_errors(
+    mock_execute_query, error_raised, error_caught, error_message
+):
+    mock_execute_query.side_effect = error_raised
+
+    with pytest.raises(error_caught) as err:
+        sql_facade.add_accounts_to_release_directive(
+            "test_package",
+            "test_directive",
+            "test_channel",
+            ["account1"],
+        )
+
+    assert error_message in str(err)
+
+
+def test_remove_accounts_from_release_directive_with_non_default_directive(
+    mock_execute_query,
+):
+    package_name = "test_package"
+    release_directive = "test_directive"
+    release_channel = "test_channel"
+    target_accounts = ["org1.account1", "org2.account2"]
+
+    expected_query = dedent(
+        f"""\
+            alter application package {package_name}
+                modify release channel {release_channel}
+                modify release directive {release_directive}
+                remove accounts = ({",".join(target_accounts)})
+        """
+    )
+
+    sql_facade.remove_accounts_from_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=release_channel,
+        target_accounts=target_accounts,
+    )
+
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
+def test_remove_accounts_from_default_release_directive_then_error(
+    mock_execute_query,
+):
+    package_name = "test_package"
+    release_directive = "DEFAULT"
+    release_channel = "test_channel"
+    target_accounts = ["org1.account1", "org2.account2"]
+
+    with pytest.raises(UserInputError) as err:
+        sql_facade.remove_accounts_from_release_directive(
+            package_name=package_name,
+            release_directive=release_directive,
+            release_channel=release_channel,
+            target_accounts=target_accounts,
+        )
+
+    assert (
+        "Default release directive does not support removing accounts. Please specify a non-default release directive."
+        in str(err)
+    )
+
+
+def test_remove_accounts_from_release_directive_no_release_channel(
+    mock_execute_query,
+):
+    package_name = "test_package"
+    release_directive = "test_directive"
+    target_accounts = ["org1.account1", "org2.account2"]
+
+    expected_query = dedent(
+        f"""\
+            alter application package {package_name}
+                modify release directive {release_directive}
+                remove accounts = ({",".join(target_accounts)})
+        """
+    )
+
+    sql_facade.remove_accounts_from_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=None,
+        target_accounts=target_accounts,
+    )
+
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
+def test_remove_accounts_from_release_directive_with_special_chars_in_names(
+    mock_execute_query,
+):
+    package_name = "test.package"
+    release_directive = "test.directive"
+    release_channel = "test.channel"
+    target_accounts = ["org1.account1", "org2.account2"]
+
+    expected_query = dedent(
+        f"""\
+            alter application package "{package_name}"
+                modify release channel "{release_channel}"
+                modify release directive "{release_directive}"
+                remove accounts = ({",".join(target_accounts)})
+        """
+    )
+
+    sql_facade.remove_accounts_from_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=release_channel,
+        target_accounts=target_accounts,
+    )
+
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=ACCOUNT_DOES_NOT_EXIST),
+            UserInputError,
+            "Invalid account passed in.",
+        ),
+        (
+            ProgrammingError(errno=ACCOUNT_HAS_TOO_MANY_QUALIFIERS),
+            UserInputError,
+            "Invalid account passed in.",
+        ),
+        (
+            ProgrammingError(errno=RELEASE_DIRECTIVE_DOES_NOT_EXIST),
+            UserInputError,
+            "Release directive test_directive does not exist in application package test_package.",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to remove accounts from release directive test_directive for application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to remove accounts from release directive test_directive for application package test_package. some database error",
+        ),
+    ],
+)
+def test_remove_accounts_from_release_directive_errors(
+    mock_execute_query, error_raised, error_caught, error_message
+):
+    mock_execute_query.side_effect = error_raised
+
+    with pytest.raises(error_caught) as err:
+        sql_facade.remove_accounts_from_release_directive(
+            "test_package",
+            "test_directive",
+            "test_channel",
+            ["account1"],
+        )
+
+    assert error_message in str(err)
+
+
 @contextmanager
 def mock_release_channels(facade, enabled):
     with mock.patch.object(
@@ -4074,6 +4368,101 @@ def test_remove_accounts_from_release_channel_error(
 
     with pytest.raises(error_caught) as err:
         sql_facade.remove_accounts_from_release_channel(
+            "test_package", "test_channel", ["org1.acc1"], "test_role"
+        )
+
+    assert error_message in str(err)
+
+
+def test_set_accounts_for_release_channel_valid_input_then_success(
+    mock_use_role, mock_execute_query
+):
+    package_name = "test_package"
+    release_channel = "test_channel"
+    accounts = ["org1.acc1", "org2.acc2"]
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                "alter application package test_package modify release channel test_channel set accounts = (org1.acc1,org2.acc2)"
+            ),
+        ),
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.set_accounts_for_release_channel(
+            package_name, release_channel, accounts, role
+        )
+
+
+def test_set_accounts_for_release_channel_with_special_chars_in_names(
+    mock_use_role, mock_execute_query
+):
+    package_name = "test.package"
+    release_channel = "test.channel"
+    accounts = ["org1.acc1", "org2.acc2"]
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                'alter application package "test.package" modify release channel "test.channel" set accounts = (org1.acc1,org2.acc2)'
+            ),
+        ),
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.set_accounts_for_release_channel(
+            package_name, release_channel, accounts, role
+        )
+
+
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=ACCOUNT_DOES_NOT_EXIST),
+            UserInputError,
+            "Invalid account passed in.",
+        ),
+        (
+            ProgrammingError(errno=ACCOUNT_HAS_TOO_MANY_QUALIFIERS),
+            UserInputError,
+            "Invalid account passed in.",
+        ),
+        (
+            ProgrammingError(errno=CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS),
+            UserInputError,
+            "Cannot modify accounts for release channel test_channel in application package test_package.",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to set accounts for release channel test_channel in application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to set accounts for release channel test_channel in application package test_package. some database error",
+        ),
+    ],
+)
+def test_set_accounts_for_release_channel_error(
+    mock_execute_query, error_raised, error_caught, error_message, mock_use_role
+):
+    mock_execute_query.side_effect = error_raised
+
+    with pytest.raises(error_caught) as err:
+        sql_facade.set_accounts_for_release_channel(
             "test_package", "test_channel", ["org1.acc1"], "test_role"
         )
 

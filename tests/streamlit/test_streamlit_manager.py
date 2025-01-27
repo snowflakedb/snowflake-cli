@@ -183,6 +183,69 @@ def test_deploy_streamlit_with_default_warehouse(
     )
 
 
+@mock.patch("snowflake.cli._plugins.streamlit.manager.StageManager")
+@mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.get_url")
+@mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query")
+@mock.patch(
+    "snowflake.cli._plugins.streamlit.manager.StreamlitManager.grant_privileges"
+)
+@mock_streamlit_exists
+def test_deploy_streamlit_with_grants(mock_grants, _, __, mock_stage_manager, temp_dir):
+    mock_stage_manager().get_standard_stage_prefix.return_value = "stage_root"
+
+    main_file = Path(temp_dir) / "main.py"
+    main_file.touch()
+
+    st = StreamlitEntityModel(
+        type="streamlit",
+        identifier="my_streamlit_app",
+        title="MyStreamlit",
+        main_file=str(main_file),
+        artifacts=["main.py"],
+        comment="This is a test comment",
+        grants=[{"privilege": "USAGE", "role": "FOO_BAR"}],
+    )
+
+    StreamlitManager(MagicMock(database="DB", schema="SH")).deploy(
+        streamlit=st,
+        replace=False,
+        streamlit_project_paths=StreamlitProjectPaths(Path(temp_dir)),
+    )
+
+    mock_grants.assert_called_once_with(st)
+
+
+@mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query")
+def test_grant_privileges_to_streamlit(mock_execute):
+    st = StreamlitEntityModel(
+        type="streamlit",
+        identifier="my_streamlit_app",
+        title="MyStreamlit",
+        main_file="main.py",
+        artifacts=["main.py"],
+        comment="This is a test comment",
+        grants=[
+            {"privilege": "AAAA", "role": "FOO"},
+            {"privilege": "BBBB", "role": "BAR"},
+        ],
+    )
+
+    StreamlitManager(MagicMock(database="DB", schema="SH")).grant_privileges(
+        entity_model=st
+    )
+
+    mock_execute.assert_has_calls(
+        [
+            mock.call(
+                "GRANT AAAA ON STREAMLIT IDENTIFIER('my_streamlit_app') TO ROLE FOO"
+            ),
+            mock.call(
+                "GRANT BBBB ON STREAMLIT IDENTIFIER('my_streamlit_app') TO ROLE BAR"
+            ),
+        ]
+    )
+
+
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query")
 @mock_streamlit_exists
 def test_execute_streamlit(mock_execute_query):

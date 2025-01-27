@@ -19,7 +19,7 @@ from unittest import mock
 import pytest
 import yaml
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
-from snowflake.cli.api.entities.common import EntityActions
+from snowflake.cli.api.entities.utils import EntityActions
 from snowflake.cli.api.exceptions import InvalidProjectDefinitionVersionError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 

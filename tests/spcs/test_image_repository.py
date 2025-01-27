@@ -56,6 +56,7 @@ MOCK_ROWS_DICT = [
     {col_name: col_val for col_name, col_val in zip(MOCK_COLUMNS, row)}
     for row in MOCK_ROWS
 ]
+EXECUTE_QUERY = "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager._execute_schema_query"
 
 
 @pytest.mark.parametrize(
@@ -140,6 +141,125 @@ def test_create_repository_already_exists(mock_handle, mock_execute):
     )
 
 
+@patch(EXECUTE_QUERY)
+def test_create_from_project_definition(
+    mock_execute_query, runner, project_directory, mock_cursor, os_agnostic_snapshot
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Image Repository TEST_IMAGE_REPOSITORY successfully created."]],
+        columns=["status"],
+    )
+
+    with project_directory("spcs_image_repository"):
+        result = runner.invoke(["spcs", "image-repository", "create"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        mock_execute_query.assert_called_once_with(
+            "create image repository test_image_repository",
+            name="test_image_repository",
+        )
+
+
+@patch(EXECUTE_QUERY)
+def test_create_from_project_definition_replace(
+    mock_execute_query, runner, project_directory, mock_cursor, os_agnostic_snapshot
+):
+    image_repository_name = "test_image_repository"
+    mock_execute_query.return_value = mock_cursor(
+        rows=[
+            [f"Image Repository {image_repository_name.upper()} successfully created."]
+        ],
+        columns=["status"],
+    )
+
+    with project_directory("spcs_image_repository"):
+        result = runner.invoke(["spcs", "image-repository", "create", "--replace"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        mock_execute_query.assert_called_once_with(
+            "create or replace image repository test_image_repository",
+            name="test_image_repository",
+        )
+
+
+@patch(EXECUTE_QUERY)
+def test_create_from_project_definition_image_repository_already_exists(
+    mock_execute_query, runner, project_directory
+):
+    mock_execute_query.side_effect = ProgrammingError(
+        errno=2002, msg="Object 'test_image_repository' already exists."
+    )
+
+    with project_directory("spcs_image_repository"):
+        result = runner.invoke(["spcs", "image-repository", "create"])
+
+        assert result.exit_code == 1, result.output
+        assert (
+            "Image-repository TEST_IMAGE_REPOSITORY already exists. Use --replace flag"
+            in result.output
+        )
+
+
+def test_create_from_project_definition_no_image_repository(runner, project_directory):
+    with project_directory("empty_project"):
+        result = runner.invoke(["spcs", "image-repository", "create"])
+
+        assert result.exit_code == 1, result.output
+        assert "No image repository project definition found in" in result.output
+
+
+def test_create_from_project_definition_not_existing_entity_id(
+    runner, project_directory
+):
+    with project_directory("spcs_image_repository"):
+        result = runner.invoke(
+            ["spcs", "image-repository", "create", "not_existing_entity_id"]
+        )
+
+        assert result.exit_code == 2, result.output
+        assert (
+            "No 'not_existing_entity_id' entity in project definition file."
+            in result.output
+        )
+
+
+@patch(EXECUTE_QUERY)
+def test_create_from_project_definition_multiple_image_repositories_with_entity_id(
+    mock_execute_query, runner, project_directory, mock_cursor, os_agnostic_snapshot
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Image Repository TEST_IMAGE_REPOSITORY successfully created."]],
+        columns=["status"],
+    )
+
+    with project_directory("spcs_multiple_image_repositories"):
+        result = runner.invoke(
+            ["spcs", "image-repository", "create", "test_image_repository"]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        mock_execute_query.assert_called_once_with(
+            "create image repository test_image_repository",
+            name="test_image_repository",
+        )
+
+
+def test_create_from_project_definition_multiple_image_repositories(
+    runner, project_directory
+):
+    with project_directory("spcs_multiple_image_repositories"):
+        result = runner.invoke(["spcs", "image-repository", "create"])
+
+        assert result.exit_code == 2, result.output
+        assert (
+            "Multiple image repositories found. Please provide entity id"
+            in result.output
+        )
+
+
 @patch(
     "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager.list_images"
 )
@@ -184,9 +304,7 @@ def test_list_images(mock_execute_query):
 
 
 @mock.patch("snowflake.cli._plugins.spcs.image_repository.commands.requests.get")
-@mock.patch(
-    "snowflake.cli._plugins.spcs.image_repository.manager.ImageRepositoryManager.execute_query"
-)
+@mock.patch(EXECUTE_QUERY)
 @mock.patch(
     "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager._conn"
 )

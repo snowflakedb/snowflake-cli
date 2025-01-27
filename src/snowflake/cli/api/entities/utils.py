@@ -1,4 +1,5 @@
 import os
+from enum import Enum
 from pathlib import Path
 from typing import Any, List, NoReturn, Optional
 
@@ -23,7 +24,6 @@ from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.console.abc import AbstractConsole
-from snowflake.cli.api.entities.common import get_sql_executor
 from snowflake.cli.api.errno import (
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
@@ -39,6 +39,7 @@ from snowflake.cli.api.rendering.sql_templates import (
     choose_sql_jinja_env_based_on_template_syntax,
 )
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
+from snowflake.cli.api.sql_execution import SqlExecutor
 from snowflake.cli.api.utils.path_utils import resolve_without_follow
 from snowflake.connector import ProgrammingError
 
@@ -339,3 +340,40 @@ def print_messages(console: AbstractConsole, cursor_results: list[tuple[str]]):
     for message in messages:
         console.warning(message)
     console.message("")
+
+
+def get_sql_executor() -> SqlExecutor:
+    """Returns an SQL Executor that uses the connection from the current CLI context"""
+    return SqlExecutor()
+
+
+class EntityActions(str, Enum):
+    BUNDLE = "action_bundle"
+    DEPLOY = "action_deploy"
+    DROP = "action_drop"
+    VALIDATE = "action_validate"
+    EVENTS = "action_events"
+    DIFF = "action_diff"
+
+    VERSION_LIST = "action_version_list"
+    VERSION_CREATE = "action_version_create"
+    VERSION_DROP = "action_version_drop"
+
+    RELEASE_DIRECTIVE_UNSET = "action_release_directive_unset"
+    RELEASE_DIRECTIVE_SET = "action_release_directive_set"
+    RELEASE_DIRECTIVE_LIST = "action_release_directive_list"
+    RELEASE_DIRECTIVE_ADD_ACCOUNTS = "action_release_directive_add_accounts"
+    RELEASE_DIRECTIVE_REMOVE_ACCOUNTS = "action_release_directive_remove_accounts"
+
+    RELEASE_CHANNEL_LIST = "action_release_channel_list"
+    RELEASE_CHANNEL_ADD_ACCOUNTS = "action_release_channel_add_accounts"
+    RELEASE_CHANNEL_REMOVE_ACCOUNTS = "action_release_channel_remove_accounts"
+    RELEASE_CHANNEL_ADD_VERSION = "action_release_channel_add_version"
+    RELEASE_CHANNEL_REMOVE_VERSION = "action_release_channel_remove_version"
+    RELEASE_CHANNEL_SET_ACCOUNTS = "action_release_channel_set_accounts"
+
+    PUBLISH = "action_publish"
+
+    @property
+    def get_action_name(self):
+        return self.value.replace("action_", "")

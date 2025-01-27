@@ -92,6 +92,12 @@ SQL_FACADE_CREATE_APP_PKG = f"{SQL_FACADE}.create_application_package"
 SQL_FACADE_SHOW_RELEASE_DIRECTIVES = f"{SQL_FACADE}.show_release_directives"
 SQL_FACADE_SET_RELEASE_DIRECTIVE = f"{SQL_FACADE}.set_release_directive"
 SQL_FACADE_UNSET_RELEASE_DIRECTIVE = f"{SQL_FACADE}.unset_release_directive"
+SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_DIRECTIVE = (
+    f"{SQL_FACADE}.add_accounts_to_release_directive"
+)
+SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_DIRECTIVE = (
+    f"{SQL_FACADE}.remove_accounts_from_release_directive"
+)
 SQL_FACADE_SHOW_RELEASE_CHANNELS = f"{SQL_FACADE}.show_release_channels"
 SQL_FACADE_DROP_VERSION = f"{SQL_FACADE}.drop_version_from_package"
 SQL_FACADE_CREATE_VERSION = f"{SQL_FACADE}.create_version_in_package"
@@ -101,6 +107,9 @@ SQL_FACADE_ADD_ACCOUNTS_TO_RELEASE_CHANNEL = (
 )
 SQL_FACADE_REMOVE_ACCOUNTS_FROM_RELEASE_CHANNEL = (
     f"{SQL_FACADE}.remove_accounts_from_release_channel"
+)
+SQL_FACADE_SET_ACCOUNTS_FOR_RELEASE_CHANNEL = (
+    f"{SQL_FACADE}.set_accounts_for_release_channel"
 )
 SQL_FACADE_ADD_VERSION_TO_RELEASE_CHANNEL = (
     f"{SQL_FACADE}.add_version_to_release_channel"
