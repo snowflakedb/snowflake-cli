@@ -30,6 +30,7 @@ from snowflake.cli._plugins.stage.diff import (
     compute_stage_diff,
 )
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli._plugins.stage.stage_entity import StageEntity
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.common import OnErrorType
@@ -272,3 +273,12 @@ def _put(
             auto_compress=auto_compress,
         )
         return QueryResult(cursor)
+
+
+@app.command("createv2", requires_connection=True)
+def stage_createv2(stage_name: FQN = StageNameArgument, **options) -> dict:
+    """
+    needed only for testing purposes
+    """
+    stage = StageEntity.create(stage_name.name)
+    return stage.to_dict()

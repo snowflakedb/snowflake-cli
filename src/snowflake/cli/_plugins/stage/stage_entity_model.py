@@ -1,5 +1,5 @@
-from enum import StrEnum, unique
-from typing import Literal, Optional
+from enum import Enum, unique
+from typing import Literal
 
 from snowflake.cli.api.project.schemas.entities.common import EntityModelBase
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
@@ -7,27 +7,25 @@ from snowflake.core.stage import Stage
 
 
 @unique
-class KindType(StrEnum):
+class KindType(Enum):
     PERMANENT = "PERMANENT"
     TEMPORARY = "TEMPORARY"
 
 
-class StageEntityModel(EntityModelBase):
+class StageEntityModel(EntityModelBase, Stage):
     type: Literal["stage"] = DiscriminatorField()  # noqa: A003
-    _api_resource: Stage
+    # TODO: discuss: inherit or compose? composition would require either a lot of magic or double keying of fields,
+    #       while inheritance does that for free + offers autocompletion etc
+    # api_resource: Stage
 
-    def __init__(self, api_resource: Stage):
-        super().__init__()
-        self._api_resource = api_resource
-
-    @property
-    def kind(self) -> str:
-        return self._api_resource.kind
-
-    @property
-    def comment(self) -> Optional[str]:
-        return self._api_resource.comment
-
-    @property
-    def name(self) -> str:
-        return self._api_resource.name
+    # @property
+    # def kind(self) -> str:
+    #     return self.api_resource.kind
+    #
+    # @property
+    # def comment(self) -> Optional[str]:
+    #     return self.api_resource.comment
+    #
+    # @property
+    # def name(self) -> str:
+    #     return self.api_resource.name
