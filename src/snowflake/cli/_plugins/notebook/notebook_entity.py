@@ -95,3 +95,10 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
 
             self._upload_notebook_file_to_stage(overwrite=replace)
             return self.action_create(replace=replace)
+
+    # complementary actions, currently not used - to be implemented in future
+    def action_drop(self, *args, **kwargs):
+        raise ClickException("action DROP not supported by NOTEBOOK entity")
+
+    def action_teardown(self, *args, **kwargs):
+        raise ClickException("action TEARDOWN not supported by NOTEBOOK entity")
