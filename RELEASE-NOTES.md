@@ -32,7 +32,8 @@
 * Added support for glob pattern (except `**`) in artifact paths in snowflake.yml for Snowpark, requires ENABLE_SNOWPARK_GLOB_SUPPORT feature flag.
 * Added `--replace` flag to `snow spcs compute-pool create` command.
 * Added command `snow app release-directive add-accounts` and `snow app release-directive remove-accounts`
-* Added command `snow spcs compute-pool deploy`.
+* Added compute pool model in snowflake.yml.
+* Added `--replace` flag to `snow spcs compute-pool create` command.
 * Added `snow app release-channel set-accounts` command to set accounts for release channel.
 * Added support for Mac Os x86_64 architecture.
 * Added image repository model in snowflake.yml.

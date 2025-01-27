@@ -53,7 +53,7 @@ def test_create(mock_execute_query):
     comment = "'test comment'"
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
-    result = ComputePoolManager().create(
+    result = ComputePoolManager().create_from_params(
         pool_name=pool_name,
         min_nodes=min_nodes,
         max_nodes=max_nodes,
@@ -82,7 +82,9 @@ def test_create(mock_execute_query):
     assert result == cursor
 
 
-@patch("snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.create")
+@patch(
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.create_from_params"
+)
 def test_create_pool_cli_defaults(mock_create, runner):
     result = runner.invoke(
         [
@@ -97,19 +99,14 @@ def test_create_pool_cli_defaults(mock_create, runner):
     assert result.exit_code == 0, result.output
     mock_create.assert_called_once_with(
         pool_name="test_pool",
-        min_nodes=1,
-        max_nodes=1,
         instance_family="test_family",
-        auto_resume=True,
-        initially_suspended=False,
-        auto_suspend_secs=3600,
-        comment=None,
         replace=False,
-        if_not_exists=False,
     )
 
 
-@patch("snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.create")
+@patch(
+    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.create_from_params"
+)
 def test_create_pool_cli(mock_create, runner):
     result = runner.invoke(
         [
@@ -152,7 +149,7 @@ def test_create_pool_cli(mock_create, runner):
 def test_create_compute_pool_already_exists(mock_handle, mock_execute):
     pool_name = "test_pool"
     mock_execute.side_effect = SPCS_OBJECT_EXISTS_ERROR
-    ComputePoolManager().create(
+    ComputePoolManager().create_from_params(
         pool_name=pool_name,
         min_nodes=1,
         max_nodes=1,
@@ -176,7 +173,7 @@ def test_create_compute_pool_already_exists(mock_handle, mock_execute):
 def test_create_compute_pool_if_not_exists(mock_execute_query):
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
-    result = ComputePoolManager().create(
+    result = ComputePoolManager().create_from_params(
         pool_name="test_pool",
         min_nodes=1,
         max_nodes=1,
@@ -246,14 +243,19 @@ def test_create_compute_pool_replace(
 
 
 @patch(EXECUTE_QUERY)
-def test_deploy(mock_execute_query, runner, project_directory):
+def test_create_from_project_definition(
+    mock_execute_query, runner, project_directory, mock_cursor, os_agnostic_snapshot
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Compute pool TEST_COMPUTE_POOL successfully created."]],
+        columns=["status"],
+    )
+
     with project_directory("spcs_compute_pool"):
-        result = runner.invoke(["spcs", "compute-pool", "deploy"])
+        result = runner.invoke(["spcs", "compute-pool", "create"])
 
         assert result.exit_code == 0, result.output
-        assert (
-            "Compute pool 'test_compute_pool' successfully deployed." in result.output
-        )
+        assert result.output == os_agnostic_snapshot
         expected_query = dedent(
             """\
             CREATE COMPUTE POOL test_compute_pool
@@ -269,19 +271,25 @@ def test_deploy(mock_execute_query, runner, project_directory):
 
 @patch("snowflake.cli._plugins.object.manager.ObjectManager.execute_query")
 @patch(EXECUTE_QUERY)
-def test_deploy_replace(
-    mock_execute_query, mock_execute_query_object_manager, runner, project_directory
+def test_create_from_project_definition_replace(
+    mock_execute_query,
+    mock_execute_query_object_manager,
+    runner,
+    project_directory,
+    mock_cursor,
+    os_agnostic_snapshot,
 ):
     compute_pool_name = "test_compute_pool"
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Compute pool TEST_COMPUTE_POOL successfully created."]],
+        columns=["status"],
+    )
 
     with project_directory("spcs_compute_pool"):
-        result = runner.invoke(["spcs", "compute-pool", "deploy", "--replace"])
+        result = runner.invoke(["spcs", "compute-pool", "create", "--replace"])
 
         assert result.exit_code == 0, result.output
-        assert (
-            f"Compute pool '{compute_pool_name}' successfully deployed."
-            in result.output
-        )
+        assert result.output == os_agnostic_snapshot
         expected_query = dedent(
             f"""\
             CREATE COMPUTE POOL {compute_pool_name}
@@ -307,7 +315,7 @@ def test_deploy_replace(
 
 
 @patch(EXECUTE_QUERY)
-def test_deploy_compute_pool_already_exists(
+def test_create_from_project_definition_compute_pool_already_exists(
     mock_execute_query, runner, project_directory
 ):
     mock_execute_query.side_effect = ProgrammingError(
@@ -315,7 +323,7 @@ def test_deploy_compute_pool_already_exists(
     )
 
     with project_directory("spcs_compute_pool"):
-        result = runner.invoke(["spcs", "compute-pool", "deploy"])
+        result = runner.invoke(["spcs", "compute-pool", "create"])
 
         assert result.exit_code == 1, result.output
         assert (
@@ -324,38 +332,43 @@ def test_deploy_compute_pool_already_exists(
         )
 
 
-def test_deploy_no_compute_pools(runner, project_directory):
+def test_create_from_project_definition_no_compute_pools(runner, project_directory):
     with project_directory("empty_project"):
-        result = runner.invoke(["spcs", "compute-pool", "deploy"])
+        result = runner.invoke(["spcs", "compute-pool", "create"])
 
         assert result.exit_code == 1, result.output
         assert "No compute pool project definition found in" in result.output
 
 
-def test_deploy_not_existing_entity_id(runner, project_directory):
+def test_create_from_project_definition_not_existing_entity_id(
+    runner, project_directory
+):
     with project_directory("spcs_compute_pool"):
         result = runner.invoke(
-            ["spcs", "compute-pool", "deploy", "not-existing-entity-id"]
+            ["spcs", "compute-pool", "create", "not_existing_entity_id"]
         )
 
         assert result.exit_code == 2, result.output
         assert (
-            "No 'not-existing-entity-id' entity in project definition file."
+            "No 'not_existing_entity_id' entity in project definition file."
             in result.output
         )
 
 
 @patch(EXECUTE_QUERY)
-def test_deploy_multiple_compute_pools_with_entity_id(
-    mock_execute_query, runner, project_directory
+def test_create_from_project_definition_multiple_compute_pools_with_entity_id(
+    mock_execute_query, runner, project_directory, mock_cursor, os_agnostic_snapshot
 ):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Compute pool TEST_COMPUTE_POOL successfully created."]],
+        columns=["status"],
+    )
+
     with project_directory("spcs_multiple_compute_pools"):
-        result = runner.invoke(["spcs", "compute-pool", "deploy", "test_compute_pool"])
+        result = runner.invoke(["spcs", "compute-pool", "create", "test_compute_pool"])
 
         assert result.exit_code == 0, result.output
-        assert (
-            "Compute pool 'test_compute_pool' successfully deployed." in result.output
-        )
+        assert result.output == os_agnostic_snapshot
         expected_query = dedent(
             """\
             CREATE COMPUTE POOL test_compute_pool
@@ -369,9 +382,11 @@ def test_deploy_multiple_compute_pools_with_entity_id(
         mock_execute_query.assert_called_once_with(expected_query)
 
 
-def test_deploy_multiple_compute_pools(runner, project_directory):
+def test_create_from_project_definition_multiple_compute_pools(
+    runner, project_directory
+):
     with project_directory("spcs_multiple_compute_pools"):
-        result = runner.invoke(["spcs", "compute-pool", "deploy"])
+        result = runner.invoke(["spcs", "compute-pool", "create"])
 
         assert result.exit_code == 2, result.output
         assert (
