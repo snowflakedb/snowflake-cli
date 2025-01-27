@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Generic, Type, TypeVar, get_args
 
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
-from snowflake.cli.api.cli_global_context import span
+from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.entities.resolver import DependencyResolver
 from snowflake.cli.api.entities.utils import EntityActions, get_sql_executor
 from snowflake.cli.api.identifiers import FQN
@@ -103,6 +103,10 @@ class EntityBase(Generic[T]):
     @functools.cached_property
     def _conn(self) -> SnowflakeConnection:
         return self._sql_executor._conn  # noqa
+
+    @property
+    def snow_api_root(self):
+        return get_cli_context().snow_api_root
 
     @property
     def model(self):
