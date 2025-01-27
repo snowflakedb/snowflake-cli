@@ -27,7 +27,6 @@ from snowflake.cli.api.metrics import CLIMetrics
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 from snowflake.connector import SnowflakeConnection
-from snowflake.core import Root
 
 if TYPE_CHECKING:
     from snowflake.cli.api.project.definition_manager import DefinitionManager
@@ -198,7 +197,13 @@ class _CliGlobalContextAccess:
         return self._manager.output_format == OutputFormat.JSON
 
     @property
-    def snow_api_root(self) -> Optional[Root]:
+    def snow_api_root(
+        self,
+    ) -> Optional[
+        object
+    ]:  # Should be Optional[Root], but we need local import for performance reasons
+        from snowflake.core import Root
+
         if self.connection:
             return Root(self.connection)
         else:
