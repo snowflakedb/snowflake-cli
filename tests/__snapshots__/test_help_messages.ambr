@@ -3965,22 +3965,19 @@
    Usage: default notebook deploy [OPTIONS] [ENTITY_ID]                           
                                                                                   
    Uploads a notebook and required files to a stage and creates a Snowflake       
-   notebook. If entity_id is not provided, deploys all notebooks defined in the   
-   project definition.                                                            
+   notebook.                                                                      
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   entity_id      [ENTITY_ID]  ID of notebook entity.                         |
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --replace                      Replace notebook object if it already exists. |
-  | --if-not-exists                Skip if notebook object already exists.       |
-  | --project        -p      TEXT  Path where Snowflake project resides.         |
-  |                                Defaults to current working directory.        |
-  | --env                    TEXT  String in format of key=value. Overrides      |
-  |                                variables from env section used for           |
-  |                                templates.                                    |
-  | --help           -h            Show this message and exit.                   |
+  | --replace                Replace notebook object if it already exists.       |
+  | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
+  |                          current working directory.                          |
+  | --env              TEXT  String in format of key=value. Overrides variables  |
+  |                          from env section used for templates.                |
+  | --help     -h            Show this message and exit.                         |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
@@ -4340,8 +4337,7 @@
   +- Commands -------------------------------------------------------------------+
   | create    Creates notebook from stage.                                       |
   | deploy    Uploads a notebook and required files to a stage and creates a     |
-  |           Snowflake notebook. If entity_id is not provided, deploys all      |
-  |           notebooks defined in the project definition.                       |
+  |           Snowflake notebook.                                                |
   | execute   Executes a notebook in a headless mode.                            |
   | get-url   Return a url to a notebook.                                        |
   | open      Opens a notebook in default browser                                |
@@ -11220,8 +11216,7 @@
   +- Commands -------------------------------------------------------------------+
   | create    Creates notebook from stage.                                       |
   | deploy    Uploads a notebook and required files to a stage and creates a     |
-  |           Snowflake notebook. If entity_id is not provided, deploys all      |
-  |           notebooks defined in the project definition.                       |
+  |           Snowflake notebook.                                                |
   | execute   Executes a notebook in a headless mode.                            |
   | get-url   Return a url to a notebook.                                        |
   | open      Opens a notebook in default browser                                |

@@ -111,8 +111,7 @@ def deploy(
     ),
     **options,
 ) -> CommandResult:
-    """Uploads a notebook and required files to a stage and creates a Snowflake notebook. If entity_id is not provided,
-    deploys all notebooks defined in the project definition."""
+    """Uploads a notebook and required files to a stage and creates a Snowflake notebook."""
     cli_context = get_cli_context()
     pd = cli_context.project_definition
     if not pd.meets_version_requirement("2"):
@@ -120,7 +119,6 @@ def deploy(
             "This command requires project definition of version at least 2."
         )
 
-    # TODO: try removing
     notebook: NotebookEntityModel = get_entity_for_operation(
         cli_context=cli_context,
         entity_id=entity_id,
@@ -132,7 +130,7 @@ def deploy(
         project_root=cli_context.project_root,
     )
     notebook_url = ws.perform_action(
-        entity_id,
+        notebook.entity_id,
         EntityActions.DEPLOY,
         replace=replace,
     )
