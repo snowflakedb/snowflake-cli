@@ -31,4 +31,6 @@ def test_snow_help_performance():
         results.append(end - start)
 
     results.sort()
-    assert results[int(SAMPLE_AMOUNT * 0.9)] <= EXECUTION_TIME_THRESHOLD
+    assert (
+        results[int(SAMPLE_AMOUNT * 0.9)] <= EXECUTION_TIME_THRESHOLD
+    ), f"90th percentile is too high: {results}"
