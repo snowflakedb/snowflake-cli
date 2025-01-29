@@ -6,3 +6,5 @@ entities:
     query_warehouse: xsmall
     notebook_file: notebook.ipynb
     stage_path: custom_stage/particular_notebook_path
+    artifacts:
+      - notebook.ipynb

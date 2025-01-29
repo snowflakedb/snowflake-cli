@@ -9,7 +9,7 @@ def test_deploy_by_id(runner, project_directory, test_database):
         return (
             f"Deploying notebook {notebook_id}\n"
             f"  Creating stage notebooks if not exists\n"
-            f"  Uploading {notebook_id}{sep}my_notebook.ipynb to @notebooks/{notebook_id}\n"
+            f"  Uploading artifacts to @notebooks/{notebook_id}\n"
             f"  Creating notebook\n"
         )
 
@@ -36,7 +36,7 @@ def test_deploy_single_notebook(runner, project_directory, test_database):
     expected_output_prefix = (
         "Deploying notebook custom_identifier\n"
         "  Creating stage custom_stage if not exists\n"
-        "  Uploading notebook.ipynb to @custom_stage/particular_notebook_path\n"
+        "  Uploading artifacts to @custom_stage/particular_notebook_path\n"
         "  Creating notebook\n"
     )
 

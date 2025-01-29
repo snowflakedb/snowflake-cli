@@ -3,7 +3,7 @@
   '''
   Deploying notebook notebook1
     Creating stage notebooks if not exists
-    Uploading notebook1/my_notebook.ipynb to @notebooks/notebook1
+    Uploading artifacts to @notebooks/notebook1
     Creating notebook
   http://the.notebook.url.mock
   
@@ -11,14 +11,14 @@
 # ---
 # name: test_deploy_default_stage_paths[notebook1][query]
   '''
-  DESCRIBE NOTEBOOK IDENTIFIER('notebook1')
+  DESCRIBE NOTEBOOK IDENTIFIER('notebook1');
   create stage if not exists IDENTIFIER('notebooks')
-  put file://notebook1/my_notebook.ipynb @notebooks/notebook1 auto_compress=false parallel=4 overwrite=True
+  put file:///private/var/folders/nl/7hy4ty5j7js_84sm1q8zl0y40000gn/T/tmpmrociz71/notebook1/my_notebook.ipynb @notebooks/notebook1/notebook1 auto_compress=false parallel=4 overwrite=True
   
   CREATE OR REPLACE NOTEBOOK IDENTIFIER('notebook1')
   FROM '@notebooks'
   QUERY_WAREHOUSE = 'xsmall'
-  MAIN_FILE = 'notebook1/my_notebook.ipynb';
+  MAIN_FILE = 'notebook1/notebook1/my_notebook.ipynb';
   // Cannot use IDENTIFIER(...)
   ALTER NOTEBOOK notebook1 ADD LIVE VERSION FROM LAST;
   
@@ -28,7 +28,7 @@
   '''
   Deploying notebook notebook2
     Creating stage notebooks if not exists
-    Uploading notebook2/my_notebook.ipynb to @notebooks/notebook2
+    Uploading artifacts to @notebooks/notebook2
     Creating notebook
   http://the.notebook.url.mock
   
@@ -36,14 +36,14 @@
 # ---
 # name: test_deploy_default_stage_paths[notebook2][query]
   '''
-  DESCRIBE NOTEBOOK IDENTIFIER('notebook2')
+  DESCRIBE NOTEBOOK IDENTIFIER('notebook2');
   create stage if not exists IDENTIFIER('notebooks')
-  put file://notebook2/my_notebook.ipynb @notebooks/notebook2 auto_compress=false parallel=4 overwrite=True
+  put file:///private/var/folders/nl/7hy4ty5j7js_84sm1q8zl0y40000gn/T/tmp29vsbpsk/notebook2/my_notebook.ipynb @notebooks/notebook2/notebook2 auto_compress=false parallel=4 overwrite=True
   
   CREATE OR REPLACE NOTEBOOK IDENTIFIER('notebook2')
   FROM '@notebooks'
   QUERY_WAREHOUSE = 'xsmall'
-  MAIN_FILE = 'notebook2/my_notebook.ipynb';
+  MAIN_FILE = 'notebook2/notebook2/my_notebook.ipynb';
   // Cannot use IDENTIFIER(...)
   ALTER NOTEBOOK notebook2 ADD LIVE VERSION FROM LAST;
   
@@ -53,7 +53,7 @@
   '''
   Deploying notebook custom_identifier
     Creating stage custom_stage if not exists
-    Uploading notebook.ipynb to @custom_stage/particular_notebook_path
+    Uploading artifacts to @custom_stage/particular_notebook_path
     Creating notebook
   http://the.notebook.url.mock
   
@@ -61,9 +61,9 @@
 # ---
 # name: test_deploy_single_notebook[query]
   '''
-  DESCRIBE NOTEBOOK IDENTIFIER('custom_identifier')
+  DESCRIBE NOTEBOOK IDENTIFIER('custom_identifier');
   create stage if not exists IDENTIFIER('custom_stage')
-  put file://notebook.ipynb @custom_stage/particular_notebook_path auto_compress=false parallel=4 overwrite=True
+  put file:///private/var/folders/nl/7hy4ty5j7js_84sm1q8zl0y40000gn/T/tmpvyc4_2wl/notebook.ipynb @custom_stage/particular_notebook_path auto_compress=false parallel=4 overwrite=True
   
   CREATE OR REPLACE NOTEBOOK IDENTIFIER('custom_identifier')
   FROM '@custom_stage'

@@ -4,9 +4,13 @@ entities:
     type: "notebook"
     query_warehouse: xsmall
     notebook_file: notebook1/my_notebook.ipynb
+    artifacts:
+      - notebook1/*
   notebook2:
     type: "notebook"
     query_warehouse: xsmall
     notebook_file: notebook2/my_notebook.ipynb
+    artifacts:
+      - notebook2/*
 
     

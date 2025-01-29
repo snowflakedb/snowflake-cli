@@ -43,10 +43,9 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
         except ProgrammingError:
             return False
 
-    def _upload_artifacts(self, overwrite):
+    def _upload_artifacts(self):
         stage_fqn = FQN.from_stage(self._stage_path.stage)
         stage_manager = StageManager()
-
         cli_console.step(f"Creating stage {stage_fqn} if not exists")
         stage_manager.create(fqn=stage_fqn)
 
@@ -54,7 +53,6 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
 
         # creating bundle map to handle glob patterns logic
         bundle_map = bundle_artifacts(self._project_paths, self.model.artifacts)
-
         for absolute_src, absolute_dest in bundle_map.all_mappings(
             absolute=True, expand_directories=True
         ):
@@ -108,7 +106,7 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
                         f"Notebook {self.fqn.name} already exists. Consider using --replace."
                     )
 
-            self._upload_artifacts(overwrite=replace)
+            self._upload_artifacts()
             return self.action_create(replace=replace)
 
     # complementary actions, currently not used - to be implemented in future
