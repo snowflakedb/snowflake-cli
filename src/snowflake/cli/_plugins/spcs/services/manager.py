@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import time
 from datetime import datetime
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import List, Optional
 
 import yaml
@@ -41,13 +41,13 @@ from snowflake.cli._plugins.spcs.services.service_project_paths import (
     ServiceProjectPaths,
 )
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli.api.artifacts.bundle_map import BundleMap
-from snowflake.cli.api.artifacts.utils import symlink_or_copy
+from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import Artifacts
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -181,31 +181,16 @@ class ServiceManager(SqlExecutionMixin):
         if not artifacts:
             raise ValueError("Service needs to have artifacts to deploy")
 
-        bundle_map = BundleMap(
-            project_root=service_project_paths.project_root,
-            deploy_root=service_project_paths.bundle_root,
-        )
-        for artifact in artifacts:
-            bundle_map.add(artifact)
-
-        service_project_paths.remove_up_bundle_root()
-        for (absolute_src, absolute_dest) in bundle_map.all_mappings(
+        bundle_map = bundle_artifacts(service_project_paths, artifacts)
+        for absolute_src, absolute_dest in bundle_map.all_mappings(
             absolute=True, expand_directories=True
         ):
             # We treat the bundle/service root as deploy root
-            symlink_or_copy(
-                absolute_src,
-                absolute_dest,
-                deploy_root=service_project_paths.bundle_root,
+            stage_path = StagePath.from_stage_str(stage) / (
+                absolute_dest.relative_to(service_project_paths.bundle_root).parent
             )
-            stage_path = (
-                PurePosixPath(absolute_dest)
-                .relative_to(service_project_paths.bundle_root)
-                .parent
-            )
-            full_stage_path = f"{stage}/{stage_path}".rstrip("/")
             stage_manager.put(
-                local_path=absolute_dest, stage_path=full_stage_path, overwrite=True
+                local_path=absolute_dest, stage_path=stage_path, overwrite=True
             )
 
     def execute_job(
