@@ -6,14 +6,14 @@ from typing import Literal, Optional
 from pydantic import Field, model_validator
 from snowflake.cli._plugins.notebook.exceptions import NotebookFilePathError
 from snowflake.cli.api.project.schemas.entities.common import (
-    EntityModelBase,
+    EntityModelBaseWithArtifacts,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
 )
 
 
-class NotebookEntityModel(EntityModelBase):
+class NotebookEntityModel(EntityModelBaseWithArtifacts):
     type: Literal["notebook"] = DiscriminatorField()  # noqa: A003
     stage_path: Optional[str] = Field(
         title="Stage directory in which the notebook file will be stored", default=None
