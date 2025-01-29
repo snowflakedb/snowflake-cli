@@ -273,6 +273,19 @@ def get_config_section(*path) -> dict:
     raise UnsupportedConfigSectionTypeError(type(section))
 
 
+def set_config_section(*path: str, section: dict):
+    def set_section(*remaining_path: str, current_level: dict):
+        if len(remaining_path) == 1:
+            current_level[remaining_path[0]] = section
+            return
+        if current_level.get(remaining_path[0]) is None:
+            current_level[remaining_path[0]] = {}
+        set_section(*remaining_path[1:], current_level=current_level[remaining_path[0]])
+
+    with _config_file() as conf_file_cache:
+        set_section(*path, current_level=conf_file_cache)
+
+
 def get_config_value(*path, key: str, default: Optional[Any] = Empty) -> Any:
     """Looks for given key under nested path in toml file."""
     env_variable = get_env_value(*path, key=key)

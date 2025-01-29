@@ -88,3 +88,105 @@ def test_command_from_external_plugin(snowcli, test_root_path, snapshot):
         ],
     )
     snapshot.assert_match(output)
+
+
+@pytest.mark.e2e
+def test_disabling_and_enabling_command(snowcli, test_root_path, snapshot):
+    # assert that test starts with enabled plugin (command group visible in help)
+    output = subprocess_check_output(
+        [
+            snowcli,
+            "--config-file",
+            test_root_path / "config" / "config.toml",
+            "--help",
+        ],
+    )
+    snapshot.assert_match(output)
+
+    # disable plugin
+    output = subprocess_check_output(
+        [
+            snowcli,
+            "--config-file",
+            test_root_path / "config" / "config.toml",
+            "plugin",
+            "disable",
+            "multilingual-hello",
+        ],
+    )
+    snapshot.assert_match(output)
+
+    # assert that plugin is disabled (command group not visible in help)
+    output = subprocess_check_output(
+        [
+            snowcli,
+            "--config-file",
+            test_root_path / "config" / "config.toml",
+            "--help",
+        ],
+    )
+    snapshot.assert_match(output)
+
+    # enable plugin
+    output = subprocess_check_output(
+        [
+            snowcli,
+            "--config-file",
+            test_root_path / "config" / "config.toml",
+            "plugin",
+            "enable",
+            "multilingual-hello",
+        ],
+    )
+    snapshot.assert_match(output)
+
+    # assert that plugin is enabled (command group visible in help)
+    output = subprocess_check_output(
+        [
+            snowcli,
+            "--config-file",
+            test_root_path / "config" / "config.toml",
+            "--help",
+        ],
+    )
+    snapshot.assert_match(output)
+
+    # enable not existing plugin
+    output = subprocess_check_output(
+        [
+            snowcli,
+            "--config-file",
+            test_root_path / "config" / "config.toml",
+            "plugin",
+            "enable",
+            "asdf1234",
+        ],
+    )
+    snapshot.assert_match(output)
+
+    # disable other not existing plugin
+    output = subprocess_check_output(
+        [
+            snowcli,
+            "--config-file",
+            test_root_path / "config" / "config.toml",
+            "plugin",
+            "disable",
+            "qwerty1234",
+        ],
+    )
+    snapshot.assert_match(output)
+
+    # assert that enabled not existing plugin does not break other plugins
+    output = subprocess_check_output(
+        [
+            snowcli,
+            "--config-file",
+            test_root_path / "config" / "config.toml",
+            "--help",
+        ],
+    )
+    snapshot.assert_match(output)
+
+    # assert that config file contains configs of enabled and disabled configs (even if they do not exist)
+    snapshot.assert_match((test_root_path / "config" / "config.toml").read_text())
