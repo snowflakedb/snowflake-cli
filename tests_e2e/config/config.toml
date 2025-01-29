@@ -25,6 +25,3 @@ greeting = "Hello"
 
 [cli.plugins.multilingual-hello]
 enabled = true
-
-[cli.plugins.asdf1234]
-enabled = true

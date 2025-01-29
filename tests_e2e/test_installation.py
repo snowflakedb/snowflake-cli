@@ -91,13 +91,13 @@ def test_command_from_external_plugin(snowcli, test_root_path, snapshot):
 
 
 @pytest.mark.e2e
-def test_disabling_and_enabling_command(snowcli, test_root_path, snapshot):
+def test_disabling_and_enabling_command(snowcli, config_file, snapshot):
     # assert that test starts with enabled plugin (command group visible in help)
     output = subprocess_check_output(
         [
             snowcli,
             "--config-file",
-            test_root_path / "config" / "config.toml",
+            config_file,
             "--help",
         ],
     )
@@ -108,7 +108,7 @@ def test_disabling_and_enabling_command(snowcli, test_root_path, snapshot):
         [
             snowcli,
             "--config-file",
-            test_root_path / "config" / "config.toml",
+            config_file,
             "plugin",
             "disable",
             "multilingual-hello",
@@ -121,7 +121,7 @@ def test_disabling_and_enabling_command(snowcli, test_root_path, snapshot):
         [
             snowcli,
             "--config-file",
-            test_root_path / "config" / "config.toml",
+            config_file,
             "--help",
         ],
     )
@@ -132,7 +132,7 @@ def test_disabling_and_enabling_command(snowcli, test_root_path, snapshot):
         [
             snowcli,
             "--config-file",
-            test_root_path / "config" / "config.toml",
+            config_file,
             "plugin",
             "enable",
             "multilingual-hello",
@@ -145,7 +145,7 @@ def test_disabling_and_enabling_command(snowcli, test_root_path, snapshot):
         [
             snowcli,
             "--config-file",
-            test_root_path / "config" / "config.toml",
+            config_file,
             "--help",
         ],
     )
@@ -156,7 +156,7 @@ def test_disabling_and_enabling_command(snowcli, test_root_path, snapshot):
         [
             snowcli,
             "--config-file",
-            test_root_path / "config" / "config.toml",
+            config_file,
             "plugin",
             "enable",
             "asdf1234",
@@ -169,7 +169,7 @@ def test_disabling_and_enabling_command(snowcli, test_root_path, snapshot):
         [
             snowcli,
             "--config-file",
-            test_root_path / "config" / "config.toml",
+            config_file,
             "plugin",
             "disable",
             "qwerty1234",
@@ -182,11 +182,11 @@ def test_disabling_and_enabling_command(snowcli, test_root_path, snapshot):
         [
             snowcli,
             "--config-file",
-            test_root_path / "config" / "config.toml",
+            config_file,
             "--help",
         ],
     )
     snapshot.assert_match(output)
 
     # assert that config file contains configs of enabled and disabled configs (even if they do not exist)
-    snapshot.assert_match((test_root_path / "config" / "config.toml").read_text())
+    snapshot.assert_match(config_file.read_text())
