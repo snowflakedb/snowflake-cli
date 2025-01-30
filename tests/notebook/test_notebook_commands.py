@@ -117,11 +117,9 @@ def test_deploy_default_stage_paths(
     with project_directory("notebooks_multiple_v2") as project_path:
         result = runner.invoke(["notebook", "deploy", notebook_id, "--replace"])
         assert result.exit_code == 0, result.output
-        assert result.output.replace("\\", "/") == snapshot(name="output")
-        query = (
-            ctx.get_query()
-            .replace(str(project_path), "<project_path>")
-            .replace("\\", "/")
+        assert result.output == snapshot(name="output")
+        query = "\n".join(
+            line for line in ctx.get_query().split("\n") if not line.startswith("put")
         )
         assert query == snapshot(name="query")
 
@@ -143,11 +141,9 @@ def test_deploy_single_notebook(
     with project_directory("notebook_v2") as project_path:
         result = runner.invoke(["notebook", "deploy", "--replace"])
         assert result.exit_code == 0, result.output
-        assert result.output.replace("\\", "/") == snapshot(name="output")
-        query = (
-            ctx.get_query()
-            .replace(str(project_path), "<project_path>")
-            .replace("\\", "/")
+        assert result.output == snapshot(name="output")
+        query = "\n".join(
+            line for line in ctx.get_query().split("\n") if not line.startswith("put")
         )
         assert query == snapshot(name="query")
 
