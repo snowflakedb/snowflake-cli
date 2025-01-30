@@ -4680,8 +4680,9 @@
                                                                                   
    Provides description of an object of given type.                               
    Supported types: compute-pool, database, external-access-integration,          
-   function, git-repository, integration, network-rule, procedure, role, schema,  
-   secret, service, stage, stream, streamlit, table, task, user, view, warehouse  
+   function, git-repository, integration, network-rule, notebook, procedure,      
+   role, schema, secret, service, stage, stream, streamlit, table, task, user,    
+   view, warehouse                                                                
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    object_type      TEXT  Type of object. For example table, database,     |
@@ -4776,8 +4777,8 @@
    Drops Snowflake object of given name and type.                                 
    Supported types: compute-pool, database, external-access-integration,          
    function, git-repository, image-repository, integration, network-rule,         
-   procedure, role, schema, secret, service, stage, stream, streamlit, table,     
-   task, user, view, warehouse                                                    
+   notebook, procedure, role, schema, secret, service, stage, stream, streamlit,  
+   table, task, user, view, warehouse                                             
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    object_type      TEXT  Type of object. For example table, database,     |
@@ -4872,8 +4873,8 @@
    Lists all available Snowflake objects of given type.                           
    Supported types: compute-pool, database, external-access-integration,          
    function, git-repository, image-repository, integration, network-rule,         
-   procedure, role, schema, secret, service, stage, stream, streamlit, table,     
-   task, user, view, warehouse                                                    
+   notebook, procedure, role, schema, secret, service, stage, stream, streamlit,  
+   table, task, user, view, warehouse                                             
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    object_type      TEXT  Type of object. For example table, database,     |
