@@ -15,6 +15,8 @@
 from __future__ import annotations
 
 import logging
+import subprocess
+import sys
 
 import typer
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
@@ -26,8 +28,33 @@ log = logging.getLogger(__name__)
 app = SnowTyperFactory(
     name="plugin",
     help="Plugin management commands.",
-    is_hidden=lambda: True,
 )
+
+
+@app.command(name="install", requires_connection=False)
+def install(
+    package: str = typer.Argument(
+        None, help="Pip compatible package (PyPI name / URL / local path)"
+    ),
+    **options,
+) -> CommandResult:
+    """Installs a plugin from a package"""
+    target_dir: str = (
+        "/tmp/cli_plugins"  # TODO make it configurable in config.toml with some default
+    )
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--prefix",
+            target_dir,
+            "--upgrade",
+            package,
+        ]
+    )
+    return MessageResult(f"Plugin successfully installed.")
 
 
 @app.command(name="enable", requires_connection=False)
