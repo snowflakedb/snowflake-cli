@@ -188,3 +188,6 @@ markers = [
 
 [tool.codespell]
 skip = 'tests/*,snow.spec'
+
+[tool.hatch.build.targets.binary]
+python-version = "3.11"
