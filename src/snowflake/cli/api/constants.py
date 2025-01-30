@@ -45,6 +45,7 @@ class ObjectType(Enum):
     )
     # JOB = ObjectNames("job", "job", "jobs")
     NETWORK_RULE = ObjectNames("network-rule", "network rule", "network rules")
+    NOTEBOOK = ObjectNames("notebook", "notebook", "notebooks")
     PROCEDURE = ObjectNames("procedure", "procedure", "procedures")
     ROLE = ObjectNames("role", "role", "roles")
     SCHEMA = ObjectNames("schema", "schema", "schemas")

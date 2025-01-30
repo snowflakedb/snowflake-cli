@@ -65,6 +65,17 @@
   
   '''
 # ---
+# name: test_describe[notebook-notebook_example]
+  '''
+  +-----------------------------+
+  | name | type        | kind   |
+  |------+-------------+--------|
+  | ID   | NUMBER(38,0 | COLUMN |
+  | NAME | VARCHAR(100 | COLUMN |
+  +-----------------------------+
+  
+  '''
+# ---
 # name: test_describe[procedure-procedure_example]
   '''
   +-----------------------------+
@@ -277,6 +288,16 @@
   '''
 # ---
 # name: test_drop[network-rule-network_rule_example]
+  '''
+  +--------+
+  | status |
+  |--------|
+  | n      |
+  +--------+
+  
+  '''
+# ---
+# name: test_drop[notebook-notebook_example]
   '''
   +--------+
   | status |
