@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 from dataclasses import dataclass
 
 from snowflake.cli.api.plugins.command import CommandSpec
+
+sys.path.append("/tmp/cli_plugins/lib/python3.11/site-packages")
 
 
 @dataclass
