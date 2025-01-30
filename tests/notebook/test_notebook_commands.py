@@ -143,10 +143,8 @@ def test_create_pdf_by_id(
 def test_create_no_pdf_error(runner):
     result = runner.invoke(["notebook", "create", "not_existing_id"])
     assert result.exit_code == 2, result.output
-
-    assert result.exit_code == 2, result.output
     assert "No notebook project definition found in" in result.output
-    assert "or --notebook-file flag is" in result.output
+    assert "--notebook-file flag is" in result.output
     assert "missing." in result.output
 
 
