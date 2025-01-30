@@ -5,10 +5,11 @@ import pytest
 def test_deploy_by_id(runner, project_directory, test_database):
     def expected_output_prefix(notebook_id):
         return (
-            f"Deploying notebook {notebook_id}\n"
+            f"Uploading artifacts to @notebooks/{notebook_id}\n"
             f"  Creating stage notebooks if not exists\n"
-            f"  Uploading artifacts to @notebooks/{notebook_id}\n"
-            f"  Creating notebook\n"
+            f"  Uploading artifacts\n"
+            f"Creating notebook {notebook_id}\n"
+            f"Notebook successfully deployed and available under"
         )
 
     with project_directory("notebooks_multiple_v2"):
@@ -32,10 +33,11 @@ def test_deploy_by_id(runner, project_directory, test_database):
 @pytest.mark.integration
 def test_deploy_single_notebook(runner, project_directory, test_database):
     expected_output_prefix = (
-        "Deploying notebook custom_identifier\n"
+        "Uploading artifacts to @custom_stage/particular_notebook_path\n"
         "  Creating stage custom_stage if not exists\n"
-        "  Uploading artifacts to @custom_stage/particular_notebook_path\n"
-        "  Creating notebook\n"
+        "  Uploading artifacts\n"
+        "Creating notebook custom_identifier\n"
+        "Notebook successfully deployed and available under"
     )
 
     with project_directory("notebook_v2"):

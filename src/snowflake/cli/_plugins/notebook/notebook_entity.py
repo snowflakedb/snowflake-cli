@@ -48,7 +48,7 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
         cli_console.step(f"Creating stage {stage_fqn} if not exists")
         stage_manager.create(fqn=stage_fqn)
 
-        cli_console.step(f"Uploading artifacts to {self._stage_path}")
+        cli_console.step("Uploading artifacts")
 
         # creating bundle map to handle glob patterns logic
         bundle_map = bundle_artifacts(self._project_paths, self.model.artifacts)
@@ -84,7 +84,6 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
         return self._sql_executor.execute_query(self.get_describe_sql())
 
     def action_create(self, replace: bool) -> str:
-        cli_console.step("Creating notebook")
         self._sql_executor.execute_query(self.get_create_sql(replace))
         return make_snowsight_url(
             self._conn,
@@ -98,14 +97,14 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
         *args,
         **kwargs,
     ) -> str:
-        with cli_console.phase(f"Deploying notebook {self.fqn}"):
-            if self._object_exists():
-                if not replace:
-                    raise ClickException(
-                        f"Notebook {self.fqn.name} already exists. Consider using --replace."
-                    )
-
+        if self._object_exists():
+            if not replace:
+                raise ClickException(
+                    f"Notebook {self.fqn.name} already exists. Consider using --replace."
+                )
+        with cli_console.phase(f"Uploading artifacts to {self._stage_path}"):
             self._upload_artifacts()
+        with cli_console.phase(f"Creating notebook {self.fqn}"):
             return self.action_create(replace=replace)
 
     # complementary actions, currently not used - to be implemented in future

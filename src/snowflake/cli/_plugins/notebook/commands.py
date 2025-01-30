@@ -134,4 +134,6 @@ def deploy(
         EntityActions.DEPLOY,
         replace=replace,
     )
-    return MessageResult(notebook_url)
+    return MessageResult(
+        f"Notebook successfully deployed and available under {notebook_url}"
+    )

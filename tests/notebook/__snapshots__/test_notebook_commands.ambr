@@ -1,11 +1,11 @@
 # serializer version: 1
 # name: test_deploy_default_stage_paths[notebook1][output]
   '''
-  Deploying notebook notebook1
+  Uploading artifacts to @notebooks/notebook1
     Creating stage notebooks if not exists
-    Uploading artifacts to @notebooks/notebook1
-    Creating notebook
-  http://the.notebook.url.mock
+    Uploading artifacts
+  Creating notebook notebook1
+  Notebook successfully deployed and available under http://the.notebook.url.mock
   
   '''
 # ---
@@ -25,11 +25,11 @@
 # ---
 # name: test_deploy_default_stage_paths[notebook2][output]
   '''
-  Deploying notebook notebook2
+  Uploading artifacts to @notebooks/notebook2
     Creating stage notebooks if not exists
-    Uploading artifacts to @notebooks/notebook2
-    Creating notebook
-  http://the.notebook.url.mock
+    Uploading artifacts
+  Creating notebook notebook2
+  Notebook successfully deployed and available under http://the.notebook.url.mock
   
   '''
 # ---
@@ -49,11 +49,11 @@
 # ---
 # name: test_deploy_single_notebook[output]
   '''
-  Deploying notebook custom_identifier
+  Uploading artifacts to @custom_stage/particular_notebook_path
     Creating stage custom_stage if not exists
-    Uploading artifacts to @custom_stage/particular_notebook_path
-    Creating notebook
-  http://the.notebook.url.mock
+    Uploading artifacts
+  Creating notebook custom_identifier
+  Notebook successfully deployed and available under http://the.notebook.url.mock
   
   '''
 # ---
