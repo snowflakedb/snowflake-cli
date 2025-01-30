@@ -88,7 +88,7 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
     def action_describe(self) -> SnowflakeCursor:
         return self._sql_executor.execute_query(self.get_describe_sql())
 
-    def action_create(self, replace: bool) -> str:
+    def action_create(self, action_ctx: ActionContext, replace: bool) -> str:
         self._sql_executor.execute_query(self.get_create_sql(replace))
         return make_snowsight_url(
             self._conn,
@@ -110,7 +110,7 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
         with cli_console.phase(f"Uploading artifacts to {self._stage_path}"):
             self._upload_artifacts()
         with cli_console.phase(f"Creating notebook {self.fqn}"):
-            return self.action_create(replace=replace)
+            return self.action_create(action_ctx, replace=replace)
 
     # complementary actions, currently not used - to be implemented in future
     def action_drop(self, *args, **kwargs):

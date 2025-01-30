@@ -4183,20 +4183,21 @@
 # name: test_help_messages[notebook.create]
   '''
                                                                                   
-   Usage: default notebook create [OPTIONS] IDENTIFIER                            
+   Usage: default notebook create [OPTIONS] [IDENTIFIER]                          
                                                                                   
    Creates notebook from stage.                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    identifier      TEXT  Identifier of the notebook; for example:          |
-  |                            MY_NOTEBOOK                                       |
-  |                            [required]                                        |
+  |   identifier      [IDENTIFIER]  Identifier of the notebook; for example:     |
+  |                                 MY_NOTEBOOK                                  |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | *  --notebook-file  -f      TEXT  Stage path with notebook file. For example |
-  |                                   @stage/path/to/notebook.ipynb              |
-  |                                   [required]                                 |
-  |    --help           -h            Show this message and exit.                |
+  | --notebook-file  -f      TEXT  Stage path with notebook file. For example    |
+  |                                @stage/path/to/notebook.ipynb. If not         |
+  |                                provided, the command will use definition     |
+  |                                from snowflake.yml.                           |
+  |                                [default: None]                               |
+  | --help           -h            Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
@@ -4463,7 +4464,7 @@
                                                                                   
    Usage: default notebook get-url [OPTIONS] IDENTIFIER                           
                                                                                   
-   Return a url to a notebook.                                                    
+   Return an url to a notebook.                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    identifier      TEXT  Identifier of the notebook; for example:          |
@@ -4653,7 +4654,7 @@
   | deploy    Uploads a notebook and required files to a stage and creates a     |
   |           Snowflake notebook.                                                |
   | execute   Executes a notebook in a headless mode.                            |
-  | get-url   Return a url to a notebook.                                        |
+  | get-url   Return an url to a notebook.                                       |
   | open      Opens a notebook in default browser                                |
   +------------------------------------------------------------------------------+
   
@@ -11737,7 +11738,7 @@
   | deploy    Uploads a notebook and required files to a stage and creates a     |
   |           Snowflake notebook.                                                |
   | execute   Executes a notebook in a headless mode.                            |
-  | get-url   Return a url to a notebook.                                        |
+  | get-url   Return an url to a notebook.                                       |
   | open      Opens a notebook in default browser                                |
   +------------------------------------------------------------------------------+
   

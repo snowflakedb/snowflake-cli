@@ -100,6 +100,92 @@ def test_create_query(
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.notebook.notebook_entity.make_snowsight_url")
+def test_create_pdf(
+    mock_make_url,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+    snapshot,
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    mock_make_url.return_value = "http://the.notebook.url.mock"
+    with project_directory("notebook_v2"):
+        result = runner.invoke(["notebook", "create"])
+        assert result.exit_code == 0, result.output
+        assert result.output == "http://the.notebook.url.mock\n"
+        assert ctx.get_query() == snapshot(name="query")
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.notebook.notebook_entity.make_snowsight_url")
+@pytest.mark.parametrize("notebook_id", ["notebook1", "notebook2"])
+def test_create_pdf_by_id(
+    mock_make_url,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+    snapshot,
+    notebook_id,
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    mock_make_url.return_value = "http://the.notebook.url.mock"
+    with project_directory("notebooks_multiple_v2"):
+        result = runner.invoke(["notebook", "create", notebook_id])
+        assert result.exit_code == 0, result.output
+        assert result.output == "http://the.notebook.url.mock\n"
+        assert ctx.get_query() == snapshot(name="query")
+
+
+def test_create_no_pdf_error(runner):
+    result = runner.invoke(["notebook", "create", "not_existing_id"])
+    assert result.exit_code == 2, result.output
+
+    assert result.exit_code == 2, result.output
+    assert "No notebook project definition found in" in result.output
+    assert "or --notebook-file flag is" in result.output
+    assert "missing." in result.output
+
+
+def test_create_notebook_definition_not_exists_error(runner, project_directory):
+    with project_directory("notebook_v2"):
+        result = runner.invoke(["notebook", "create", "not_existing_id"])
+        assert result.exit_code == 2, result.output
+        assert (
+            "Definition of notebook 'not_existing_id' not found in project definition"
+        )
+        assert "file." in result.output
+
+
+def test_create_notebook_multiple_definitions(runner, project_directory):
+    with project_directory("notebooks_multiple_v2"):
+        result = runner.invoke(["notebook", "create"])
+        assert result.exit_code == 2, result.output
+        assert (
+            "Multiple entities of type notebook found. Please provide entity id for the"
+        )
+        assert "operation." in result.output
+
+
+def test_create_project_definition_version_error(
+    runner, project_directory, alter_snowflake_yml
+):
+
+    with project_directory("empty_project") as project_root:
+        alter_snowflake_yml(project_root / "snowflake.yml", "definition_version", "1.1")
+        result = runner.invoke(["notebook", "create"])
+        assert result.exit_code == 2, result.output
+        assert (
+            "This command requires project definition of version at least 2."
+            in result.output
+        )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.notebook.notebook_entity.make_snowsight_url")
 @pytest.mark.parametrize("notebook_id", ["notebook1", "notebook2"])
 def test_deploy_default_stage_paths(
     mock_make_url,

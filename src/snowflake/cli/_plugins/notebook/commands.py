@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+from typing import Optional
 
 import typer
 from click import UsageError
@@ -46,11 +47,14 @@ app = SnowTyperFactory(
 log = logging.getLogger(__name__)
 
 NOTEBOOK_IDENTIFIER = identifier_argument(sf_object="notebook", example="MY_NOTEBOOK")
-NotebookFile: NotebookStagePath = typer.Option(
+OPTIONAL_NOTEBOOK_IDENTIFIER = identifier_argument(
+    sf_object="notebook", example="MY_NOTEBOOK", is_optional=True
+)
+NotebookFile: Optional[NotebookStagePath] = typer.Option(
     "--notebook-file",
     "-f",
-    help="Stage path with notebook file. For example `@stage/path/to/notebook.ipynb`",
-    show_default=False,
+    help="Stage path with notebook file. For example `@stage/path/to/notebook.ipynb`."
+    " If not provided, the command will use definition from snowflake.yml.",
 )
 
 
@@ -72,7 +76,7 @@ def get_url(
     identifier: FQN = NOTEBOOK_IDENTIFIER,
     **options,
 ):
-    """Return a url to a notebook."""
+    """Return an url to a notebook."""
     url = NotebookManager().get_url(notebook_name=identifier)
     return MessageResult(message=url)
 
@@ -90,16 +94,42 @@ def open_cmd(
 
 @app.command(requires_connection=True)
 def create(
-    identifier: Annotated[FQN, NOTEBOOK_IDENTIFIER],
-    notebook_file: Annotated[NotebookStagePath, NotebookFile],
+    identifier: Optional[FQN] = OPTIONAL_NOTEBOOK_IDENTIFIER,
+    notebook_file: Annotated[Optional[NotebookStagePath], NotebookFile] = None,
     **options,
 ):
     """Creates notebook from stage."""
-    notebook_url = NotebookManager().create(
-        notebook_name=identifier,
-        notebook_file=notebook_file,
+    if notebook_file:
+        # old implementation
+        notebook_url = NotebookManager().create(
+            notebook_name=identifier,
+            notebook_file=notebook_file,
+        )
+        return MessageResult(message=notebook_url)
+
+    cli_context = get_cli_context()
+    pd = cli_context.project_definition
+    if not pd:
+        raise UsageError(
+            f"No notebook project definition found in {cli_context.project_root}, or --notebook-file flag is missing."
+        )
+
+    entity_id = identifier.name if identifier else None
+    pd.enforce_version_requirement("2")
+    notebook: NotebookEntityModel = get_entity_for_operation(
+        cli_context=cli_context,
+        entity_id=entity_id,
+        project_definition=pd,
+        entity_type="notebook",
     )
-    return MessageResult(message=notebook_url)
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    notebook_url = ws.perform_action(
+        notebook.entity_id, EntityActions.CREATE, replace=True
+    )
+    return MessageResult(notebook_url)
 
 
 @app.command(requires_connection=True)
@@ -114,10 +144,7 @@ def deploy(
     """Uploads a notebook and required files to a stage and creates a Snowflake notebook."""
     cli_context = get_cli_context()
     pd = cli_context.project_definition
-    if not pd.meets_version_requirement("2"):
-        raise UsageError(
-            "This command requires project definition of version at least 2."
-        )
+    pd.enforce_version_requirement("2")
 
     notebook: NotebookEntityModel = get_entity_for_operation(
         cli_context=cli_context,

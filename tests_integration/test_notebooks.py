@@ -1,4 +1,6 @@
 import pytest
+from snowflake.cli.api.stage_path import StagePath
+from pathlib import Path
 
 
 @pytest.mark.integration
@@ -114,3 +116,61 @@ def test_containerized_notebook_incorrect_runtime_error(
         assert result.exit_code == 1, result.output
         assert "Custom runtime" in result.output
         assert "runtimeName=NOT_EXISTING_RUNTIME_NAME is not supported" in result.output
+
+
+@pytest.mark.parametrize(
+    "project_name,notebook_id,stage_path,local_path",
+    [
+        (
+            "notebook_v2",
+            None,
+            StagePath.from_stage_str("custom_stage/particular_notebook_path"),
+            Path("notebook.ipynb"),
+        ),
+        (
+            "notebooks_multiple_v2",
+            "notebook1",
+            StagePath.from_stage_str("notebooks/notebook1/notebook1"),
+            Path("notebook1/my_notebook.ipynb"),
+        ),
+    ],
+)
+def test_create(
+    runner,
+    project_directory,
+    test_database,
+    project_name,
+    notebook_id,
+    stage_path,
+    local_path,
+):
+    result = runner.invoke_with_connection(["stage", "create", stage_path.stage])
+    assert result.exit_code == 0, result.output
+
+    with project_directory(project_name) as project_directory:
+        create_cmd = ["notebook", "create"]
+        if notebook_id:
+            create_cmd.append(notebook_id)
+        result = runner.invoke_with_connection(create_cmd)
+        assert result.exit_code == 1, result.output
+        assert "Notebook MAIN_FILE" in result.output
+        assert "cannot be found." in result.output
+
+        result = runner.invoke_with_connection(
+            [
+                "stage",
+                "copy",
+                str(project_directory / local_path),
+                str(stage_path),
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(create_cmd)
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(["object", "list", "notebook"])
+        assert result.exit_code == 0, result.output
+        assert result.json[0]["name"] == (
+            notebook_id.upper() if notebook_id else "CUSTOM_IDENTIFIER"
+        )

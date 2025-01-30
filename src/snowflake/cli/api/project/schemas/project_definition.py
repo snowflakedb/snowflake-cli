@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from types import UnionType
 from typing import Any, Dict, List, Optional, Union, get_args, get_origin
 
+from click import UsageError
 from packaging.version import Version
 from pydantic import Field, ValidationError, field_validator, model_validator
 from pydantic_core.core_schema import ValidationInfo
@@ -96,6 +97,12 @@ class _ProjectDefinitionBase(UpdatableModel):
 
     def meets_version_requirement(self, required_version: str) -> bool:
         return Version(self.definition_version) >= Version(required_version)
+
+    def enforce_version_requirement(self, required_version: str) -> None:
+        if not self.meets_version_requirement(required_version):
+            raise UsageError(
+                f"This command requires project definition of version at least {required_version}."
+            )
 
 
 class DefinitionV10(_ProjectDefinitionBase):
