@@ -220,7 +220,10 @@ def test_drop(
 ):
     mock_connector.connect.return_value.execute_stream.return_value = (
         None,
-        mock_cursor(rows=[f"{object_name} successfully dropped."], columns=["status"]),
+        mock_cursor(
+            rows=[(f"{object_name} successfully dropped.",)],
+            columns=["status"],
+        ),
     )
 
     result = runner.invoke(["object", "drop", object_type, object_name])
