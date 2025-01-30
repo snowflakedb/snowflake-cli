@@ -114,11 +114,16 @@ def test_deploy_default_stage_paths(
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     mock_make_url.return_value = "http://the.notebook.url.mock"
-    with project_directory("notebooks_multiple_v2"):
+    with project_directory("notebooks_multiple_v2") as project_path:
         result = runner.invoke(["notebook", "deploy", notebook_id, "--replace"])
         assert result.exit_code == 0, result.output
         assert result.output.replace("\\", "/") == snapshot(name="output")
-        assert ctx.get_query().replace("\\", "/") == snapshot(name="query")
+        query = (
+            ctx.get_query()
+            .replace(str(project_path), "<project_path>")
+            .replace("\\", "/")
+        )
+        assert query == snapshot(name="query")
 
 
 @mock.patch("snowflake.connector.connect")
@@ -135,11 +140,16 @@ def test_deploy_single_notebook(
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     mock_make_url.return_value = "http://the.notebook.url.mock"
-    with project_directory("notebook_v2") as project_root:
+    with project_directory("notebook_v2") as project_path:
         result = runner.invoke(["notebook", "deploy", "--replace"])
         assert result.exit_code == 0, result.output
         assert result.output.replace("\\", "/") == snapshot(name="output")
-        assert ctx.get_query().replace("\\", "/") == snapshot(name="query")
+        query = (
+            ctx.get_query()
+            .replace(str(project_path), "<project_path>")
+            .replace("\\", "/")
+        )
+        assert query == snapshot(name="query")
 
 
 @mock.patch("snowflake.connector.connect")

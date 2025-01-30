@@ -42,6 +42,10 @@ class StagePath:
         return self._stage_name
 
     @property
+    def stage_fqn(self) -> FQN:
+        return FQN.from_stage(self.stage)
+
+    @property
     def path(self) -> PurePosixPath:
         return self._path
 

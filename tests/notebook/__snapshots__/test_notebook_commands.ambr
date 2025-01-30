@@ -13,7 +13,7 @@
   '''
   DESCRIBE NOTEBOOK IDENTIFIER('notebook1');
   create stage if not exists IDENTIFIER('notebooks')
-  put file:///private/var/folders/nl/7hy4ty5j7js_84sm1q8zl0y40000gn/T/tmpmrociz71/notebook1/my_notebook.ipynb @notebooks/notebook1/notebook1 auto_compress=false parallel=4 overwrite=True
+  put file:///private<project_path>/notebook1/my_notebook.ipynb @notebooks/notebook1/notebook1 auto_compress=false parallel=4 overwrite=True
   
   CREATE OR REPLACE NOTEBOOK IDENTIFIER('notebook1')
   FROM '@notebooks'
@@ -38,7 +38,7 @@
   '''
   DESCRIBE NOTEBOOK IDENTIFIER('notebook2');
   create stage if not exists IDENTIFIER('notebooks')
-  put file:///private/var/folders/nl/7hy4ty5j7js_84sm1q8zl0y40000gn/T/tmp29vsbpsk/notebook2/my_notebook.ipynb @notebooks/notebook2/notebook2 auto_compress=false parallel=4 overwrite=True
+  put file:///private<project_path>/notebook2/my_notebook.ipynb @notebooks/notebook2/notebook2 auto_compress=false parallel=4 overwrite=True
   
   CREATE OR REPLACE NOTEBOOK IDENTIFIER('notebook2')
   FROM '@notebooks'
@@ -63,7 +63,7 @@
   '''
   DESCRIBE NOTEBOOK IDENTIFIER('custom_identifier');
   create stage if not exists IDENTIFIER('custom_stage')
-  put file:///private/var/folders/nl/7hy4ty5j7js_84sm1q8zl0y40000gn/T/tmpvyc4_2wl/notebook.ipynb @custom_stage/particular_notebook_path auto_compress=false parallel=4 overwrite=True
+  put file:///private<project_path>/notebook.ipynb @custom_stage/particular_notebook_path auto_compress=false parallel=4 overwrite=True
   
   CREATE OR REPLACE NOTEBOOK IDENTIFIER('custom_identifier')
   FROM '@custom_stage'

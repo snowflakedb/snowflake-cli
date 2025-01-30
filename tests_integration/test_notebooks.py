@@ -4,8 +4,6 @@ import pytest
 @pytest.mark.integration
 def test_deploy_by_id(runner, project_directory, test_database):
     def expected_output_prefix(notebook_id):
-        from os import sep
-
         return (
             f"Deploying notebook {notebook_id}\n"
             f"  Creating stage notebooks if not exists\n"
@@ -26,8 +24,8 @@ def test_deploy_by_id(runner, project_directory, test_database):
         assert result.exit_code == 0, result.output
         file_paths = set(data["name"] for data in result.json)
         assert file_paths == {
-            "notebooks/notebook1/my_notebook.ipynb",
-            "notebooks/notebook2/my_notebook.ipynb",
+            "notebooks/notebook1/notebook1/my_notebook.ipynb",
+            "notebooks/notebook2/notebook2/my_notebook.ipynb",
         }
 
 

@@ -11,7 +11,6 @@ from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.entities.common import EntityBase
-from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
@@ -44,7 +43,7 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
             return False
 
     def _upload_artifacts(self):
-        stage_fqn = FQN.from_stage(self._stage_path.stage)
+        stage_fqn = self._stage_path.stage_fqn
         stage_manager = StageManager()
         cli_console.step(f"Creating stage {stage_fqn} if not exists")
         stage_manager.create(fqn=stage_fqn)
