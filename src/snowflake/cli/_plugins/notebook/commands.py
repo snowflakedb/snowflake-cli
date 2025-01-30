@@ -99,7 +99,7 @@ def create(
     **options,
 ):
     """Creates notebook from stage."""
-    if notebook_file:
+    if notebook_file and identifier:
         # old implementation
         notebook_url = NotebookManager().create(
             notebook_name=identifier,
