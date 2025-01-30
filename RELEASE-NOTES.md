@@ -38,6 +38,7 @@
 * Added support for Mac Os x86_64 architecture.
 * Added image repository model in snowflake.yml.
 * Added `snow spcs service deploy` command.
+* Added notebooks to `snow object` commands.
 
 ## Fixes and improvements
 
