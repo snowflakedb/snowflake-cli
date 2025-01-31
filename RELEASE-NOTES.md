@@ -42,6 +42,9 @@
 * Added `snow notebook deploy` command that allows creating a notebook using local file.
 
 ## Fixes and improvements
+* Fixed MFA caching issue in binaries.
+* Fixed auto-completion issue in binaries.
+
 
 # v3.3.0
 
