@@ -46,6 +46,8 @@ from snowflake.cli._plugins.spcs.image_repository.image_repository_entity_model 
 )
 from snowflake.cli._plugins.spcs.services.service_entity import ServiceEntity
 from snowflake.cli._plugins.spcs.services.service_entity_model import ServiceEntityModel
+from snowflake.cli._plugins.stage.stage_entity import StageEntity
+from snowflake.cli._plugins.stage.stage_entity_model import StageEntityModel
 from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
@@ -60,6 +62,7 @@ Entity = Union[
     ComputePoolEntity,
     ImageRepositoryEntity,
     ServiceEntity,
+    StageEntity,
 ]
 EntityModel = Union[
     ApplicationEntityModel,
@@ -70,6 +73,7 @@ EntityModel = Union[
     ComputePoolEntityModel,
     ImageRepositoryEntityModel,
     ServiceEntityModel,
+    StageEntityModel,
 ]
 
 ALL_ENTITIES: List[Entity] = [*get_args(Entity)]

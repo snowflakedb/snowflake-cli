@@ -349,8 +349,10 @@ def get_sql_executor() -> SqlExecutor:
 
 class EntityActions(str, Enum):
     BUNDLE = "action_bundle"
+    CREATE = "action_create"
     DEPLOY = "action_deploy"
     DROP = "action_drop"
+    FETCH = "action_fetch"
     VALIDATE = "action_validate"
     EVENTS = "action_events"
     DIFF = "action_diff"

@@ -31,13 +31,16 @@ from snowflake.cli._plugins.stage.diff import (
 )
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.stage.stage_entity import StageEntity
+from snowflake.cli._plugins.stage.stage_entity_model import StageEntityModel
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
+from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.common import OnErrorType
 from snowflake.cli.api.commands.flags import (
     ExecuteVariablesOption,
     OnErrorOption,
     PatternOption,
+    entity_argument,
     identifier_stage_argument,
     identifier_stage_path_argument,
     like_option,
@@ -45,15 +48,18 @@ from snowflake.cli.api.commands.flags import (
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.entities.utils import EntityActions
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
+    MessageResult,
     ObjectResult,
     QueryResult,
     SingleQueryResult,
 )
+from snowflake.cli.api.project.schemas.entities.common import Identifier
 from snowflake.cli.api.utils.path_utils import is_stage_path
 
 app = SnowTyperFactory(
@@ -275,27 +281,94 @@ def _put(
         return QueryResult(cursor)
 
 
-@app.command("createv2", requires_connection=True)
+@app.command("createv2", requires_connection=True, hidden=True)
 def stage_createv2(stage_name: FQN = StageNameArgument, **options):
     """
     needed only for testing purposes
     """
-    stage = StageEntity(stage_name, workspace_ctx=None).create()
+    stage_id = Identifier(
+        name=stage_name.name, database=stage_name.database, schema=stage_name.schema
+    )
+    stage_model = StageEntityModel(type="stage", identifier=stage_id)
+    stage = StageEntity(stage_model, workspace_ctx=None).create()
     return ObjectResult(stage.model.to_dict())
 
 
-@app.command("dropv2", requires_connection=True)
+@app.command("dropv2", requires_connection=True, hidden=True)
 def stage_dropv2(stage_name: FQN = StageNameArgument, **options):
     """
     needed only for testing purposes of drop
     """
-    StageEntity(fqn=stage_name, workspace_ctx=None).remove()
+    stage_id = Identifier(
+        name=stage_name.name, database=stage_name.database, schema=stage_name.schema
+    )
+    stage_model = StageEntityModel(type="stage", identifier=stage_id)
+    StageEntity(stage_model, workspace_ctx=None).drop()
+    return MessageResult("✅")
 
 
-@app.command("getv2", requires_connection=True)
-def stage_getv2(stage_name: FQN = StageNameArgument, **options):
+@app.command("fetchv2", requires_connection=True, hidden=True)
+def stage_fetchv2(stage_name: FQN = StageNameArgument, **options):
     """
     needed only for testing purposes
     """
-    stage = StageEntity(fqn=stage_name, workspace_ctx=None)
+    stage_id = Identifier(
+        name=stage_name.name, database=stage_name.database, schema=stage_name.schema
+    )
+    stage_model = StageEntityModel(type="stage", identifier=stage_id)
+    stage = StageEntity(stage_model, workspace_ctx=None).fetch()
+    return ObjectResult(stage.model.to_dict())
+
+
+@app.command("create-from-yaml", requires_connection=True)
+def stage_create_from_yaml(entity_id: str = entity_argument("stage"), **options):
+    """
+    needed only for testing purposes
+    """
+    cli_context = get_cli_context()
+    pd = cli_context.project_definition
+    ws = WorkspaceManager(
+        project_definition=pd,
+        project_root=cli_context.project_root,
+    )
+    stage = ws.perform_action(
+        entity_id=entity_id,
+        action=EntityActions.CREATE,
+    )
+    return ObjectResult(stage.model.to_dict())
+
+
+@app.command("drop-from-yaml", requires_connection=True)
+def stage_drop_from_yaml(entity_id: str = entity_argument("stage"), **options):
+    """
+    needed only for testing purposes
+    """
+    cli_context = get_cli_context()
+    pd = cli_context.project_definition
+    ws = WorkspaceManager(
+        project_definition=pd,
+        project_root=cli_context.project_root,
+    )
+    ws.perform_action(
+        entity_id=entity_id,
+        action=EntityActions.DROP,
+    )
+    return MessageResult("✅")
+
+
+@app.command("fetch-from-yaml", requires_connection=True)
+def stage_fetch_from_yaml(entity_id: str = entity_argument("stage"), **options):
+    """
+    needed only for testing purposes
+    """
+    cli_context = get_cli_context()
+    pd = cli_context.project_definition
+    ws = WorkspaceManager(
+        project_definition=pd,
+        project_root=cli_context.project_root,
+    )
+    stage = ws.perform_action(
+        entity_id=entity_id,
+        action=EntityActions.FETCH,
+    )
     return ObjectResult(stage.model.to_dict())
