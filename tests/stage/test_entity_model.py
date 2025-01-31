@@ -1,12 +1,30 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from pathlib import Path
 from unittest import mock
 from unittest.mock import MagicMock
 
 import factory
 import pytest
-from snowflake.cli._plugins.stage.stage_entity import StageEntity
 from snowflake.cli._plugins.stage.stage_entity_model import KindType, StageEntityModel
+from snowflake.cli._plugins.workspace.context import WorkspaceContext
 from snowflake.core import CreateMode
+from snowflake.core.exceptions import NotFoundError
 from snowflake.core.stage import Stage
+
+from tests.nativeapp.patch_utils import mock_connection
 
 
 @pytest.fixture()
@@ -27,10 +45,27 @@ class StageFactory(factory.Factory):
     comment = factory.Faker("sentence")
 
 
+class WorkspaceContextFactory(factory.Factory):
+    class Meta:
+        model = WorkspaceContext
+
+    console = mock.MagicMock()
+    project_root = Path(__file__)
+    get_default_role = lambda: "role"
+    get_default_warehouse = lambda: "warehouse"
+
+
+class RootDouble(MagicMock):
+    def assert_database(self, expected):
+        self.databases.__getitem__.assert_called_with(expected)
+
+    def assert_schema(self, expected):
+        self.databases.__getitem__().schemas.__getitem__.assert_called_with(expected)
+
+
 def test_entity_model_basic_parameters():
     stage = StageFactory(name="jwilkowski", comment="a helpful comment")
-    stage_model = StageEntityModel(type="stage", **stage.to_dict())
-    # stage_model = StageEntityModel(type="stage", api_resource=stage)
+    stage_model = StageEntityModel(type="stage", _model=stage)
 
     assert stage_model.type == "stage"
     assert stage_model.name == "jwilkowski"
@@ -38,26 +73,27 @@ def test_entity_model_basic_parameters():
     assert stage_model.comment == "a helpful comment"
 
 
-def test_entity_create(mock_connect):
-    mock_root = MagicMock()
-    fake_stage = StageFactory()
+@mock.patch(
+    "snowflake.cli._plugins.stage.stage_entity.StageEntity.snow_api_root",
+    new_callable=mock.PropertyMock,
+    return_value=RootDouble(),
+)
+@mock_connection(database="test_db", schema="test_schema")
+def test_stage_create(_mock_connection, mock_root, runner):
     mock_stage_collection = MagicMock()
-
-    # TODO: those mocks don't look great and would be irritating to maintain. Some clever helpers would be great
-    mock_stage_collection.create.return_value.fetch.return_value = fake_stage
-    mock_root.databases.__getitem__().schemas.__getitem__().stages = (
+    mock_stage_collection.create.return_value.fetch.return_value = StageFactory(
+        name="test_stage"
+    )
+    mock_stage_collection.__getitem__().fetch.side_effect = NotFoundError(mock_root)
+    mock_root.return_value.databases.__getitem__().schemas.__getitem__().stages = (
         mock_stage_collection
     )
-    StageEntity.get_root = lambda: mock_root
 
-    stage_entity = StageEntity.create(
-        name=fake_stage.name,
-        comment=fake_stage.comment,
-        temporary=True if fake_stage.kind == KindType.TEMPORARY else False,
-    )
+    result = runner.invoke(["stage", "createv2", "test_stage"])
 
-    assert stage_entity.type == "stage"
-    assert stage_entity.name == fake_stage.name
+    mock_root().assert_database("test_db")
+    mock_root().assert_schema("test_schema")
+    assert result.exit_code == 0, result.output
     mock_stage_collection.create.assert_called_once_with(
-        fake_stage, mode=CreateMode.if_not_exists
+        Stage(name="test_stage"), mode=CreateMode.if_not_exists
     )

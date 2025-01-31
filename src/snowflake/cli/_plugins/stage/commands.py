@@ -276,9 +276,26 @@ def _put(
 
 
 @app.command("createv2", requires_connection=True)
-def stage_createv2(stage_name: FQN = StageNameArgument, **options) -> dict:
+def stage_createv2(stage_name: FQN = StageNameArgument, **options):
     """
     needed only for testing purposes
     """
-    stage = StageEntity.create(stage_name.name)
-    return stage.to_dict()
+    stage = StageEntity(stage_name, workspace_ctx=None).create()
+    return ObjectResult(stage.model.to_dict())
+
+
+@app.command("dropv2", requires_connection=True)
+def stage_dropv2(stage_name: FQN = StageNameArgument, **options):
+    """
+    needed only for testing purposes of drop
+    """
+    StageEntity(fqn=stage_name, workspace_ctx=None).remove()
+
+
+@app.command("getv2", requires_connection=True)
+def stage_getv2(stage_name: FQN = StageNameArgument, **options):
+    """
+    needed only for testing purposes
+    """
+    stage = StageEntity(fqn=stage_name, workspace_ctx=None)
+    return ObjectResult(stage.model.to_dict())

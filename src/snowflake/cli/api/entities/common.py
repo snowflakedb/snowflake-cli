@@ -1,6 +1,6 @@
 import functools
 from pathlib import Path
-from typing import Generic, Type, TypeVar, get_args
+from typing import Generic, Optional, Type, TypeVar, get_args
 
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.cli_global_context import get_cli_context, span
@@ -10,6 +10,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutor
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.core import Root
 
 T = TypeVar("T")
 
@@ -105,7 +106,7 @@ class EntityBase(Generic[T]):
         return self._sql_executor._conn  # noqa
 
     @property
-    def snow_api_root(self):
+    def snow_api_root(self) -> Optional[Root]:
         return get_cli_context().snow_api_root
 
     @property

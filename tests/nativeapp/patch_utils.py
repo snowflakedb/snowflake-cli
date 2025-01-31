@@ -11,15 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from typing import Optional
 from unittest import mock
 from unittest.mock import PropertyMock
 
 from tests.nativeapp.utils import APP_PACKAGE_ENTITY_DISTRIBUTION_IN_SF
 
 
-def mock_connection():
+def mock_connection(database: Optional[str] = None, schema: Optional[str] = None):
     connection = mock.Mock()
+    if database is not None:
+        type(connection).database = PropertyMock(return_value=database)
+    if schema is not None:
+        type(connection).schema = PropertyMock(return_value=schema)
     connection.role = "role"
     connection.warehouse = "wh"
     return mock.patch(
