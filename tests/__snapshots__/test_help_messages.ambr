@@ -4193,9 +4193,7 @@
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --notebook-file  -f      TEXT  Stage path with notebook file. For example    |
-  |                                @stage/path/to/notebook.ipynb. If not         |
-  |                                provided, the command will use definition     |
-  |                                from snowflake.yml.                           |
+  |                                @stage/path/to/notebook.ipynb.                |
   |                                [default: None]                               |
   | --help           -h            Show this message and exit.                   |
   +------------------------------------------------------------------------------+
