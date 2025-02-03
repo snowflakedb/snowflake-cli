@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
 from snowflake.cli.api.stage_path import StagePath
@@ -468,3 +470,9 @@ def test_default_stage_path_parts(
     assert stage_path_parts.path == path
     assert stage_path_parts.stage == stage
     assert stage_path_parts.stage_name == stage_name
+
+
+def test_join_system_path():
+    stage_path = StagePath.from_stage_str("stage")
+    system_path = Path("dir") / "subdir" / "file.txt"
+    assert str(stage_path / system_path) == "@stage/dir/subdir/file.txt"

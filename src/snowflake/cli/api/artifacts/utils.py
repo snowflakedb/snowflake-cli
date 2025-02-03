@@ -3,7 +3,10 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.common import NotInDeployRootError
+from snowflake.cli.api.project.project_paths import ProjectPaths
+from snowflake.cli.api.project.schemas.entities.common import Artifacts
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.path_utils import delete, resolve_without_follow
 
@@ -49,3 +52,31 @@ def symlink_or_copy(src: Path, dst: Path, deploy_root: Path) -> None:
                     dst=absolute_file_in_deploy,
                     deploy_root=deploy_root,
                 )
+
+
+def bundle_artifacts(project_paths: ProjectPaths, artifacts: Artifacts) -> BundleMap:
+    """
+    Creates a bundle directory (project_paths.bundle_root) with all artifacts (using symlink_or_copy function above).
+    Previous contents of the directory are deleted.
+
+    Returns a BundleMap containing the mapping between artifacts and their location in bundle directory.
+    """
+    bundle_map = BundleMap(
+        project_root=project_paths.project_root,
+        deploy_root=project_paths.bundle_root,
+    )
+    for artifact in artifacts:
+        bundle_map.add(artifact)
+
+    project_paths.remove_up_bundle_root()
+    for absolute_src, absolute_dest in bundle_map.all_mappings(
+        absolute=True, expand_directories=True
+    ):
+        # We treat the bundle root as deploy root
+        symlink_or_copy(
+            absolute_src,
+            absolute_dest,
+            deploy_root=project_paths.bundle_root,
+        )
+
+    return bundle_map

@@ -96,3 +96,112 @@ def test_create_query(
         "// Cannot use IDENTIFIER(...)\n"
         f"ALTER NOTEBOOK MockDatabase.MockSchema.{notebook_name} ADD LIVE VERSION FROM LAST;\n"
     )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.notebook.notebook_entity.make_snowsight_url")
+@pytest.mark.parametrize("notebook_id", ["notebook1", "notebook2"])
+def test_deploy_default_stage_paths(
+    mock_make_url,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+    snapshot,
+    notebook_id,
+):
+    """Deploy two different notebooks with the same notebook file name."""
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    mock_make_url.return_value = "http://the.notebook.url.mock"
+    with project_directory("notebooks_multiple_v2") as project_path:
+        result = runner.invoke(["notebook", "deploy", notebook_id, "--replace"])
+        assert result.exit_code == 0, result.output
+        assert result.output == snapshot(name="output")
+        query = "\n".join(
+            line for line in ctx.get_query().split("\n") if not line.startswith("put")
+        )
+        assert query == snapshot(name="query")
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.notebook.notebook_entity.make_snowsight_url")
+def test_deploy_single_notebook(
+    mock_make_url,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+    snapshot,
+):
+    """Deploy single notebook with custom identifier and stage path."""
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    mock_make_url.return_value = "http://the.notebook.url.mock"
+    with project_directory("notebook_v2") as project_path:
+        result = runner.invoke(["notebook", "deploy", "--replace"])
+        assert result.exit_code == 0, result.output
+        assert result.output == snapshot(name="output")
+        query = "\n".join(
+            line for line in ctx.get_query().split("\n") if not line.startswith("put")
+        )
+        assert query == snapshot(name="query")
+
+
+@mock.patch("snowflake.connector.connect")
+def test_deploy_no_replace_error(mock_connector, mock_ctx, runner, project_directory):
+    """Deploy two different notebooks with the same notebook file name."""
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    with project_directory("notebook_v2"):
+        result = runner.invoke(["notebook", "deploy"])
+        assert result.exit_code == 1, result.output
+        assert (
+            "Notebook custom_identifier already exists. Consider using --replace."
+            in result.output
+        )
+
+
+def test_deploy_notebook_file_not_exists_error(runner, project_directory):
+    with project_directory("notebooks_multiple_v2") as project_root:
+        (project_root / "notebook2" / "my_notebook.ipynb").unlink()
+        result = runner.invoke(["notebook", "deploy", "notebook2", "--replace"])
+        assert result.exit_code == 1, result.output
+        assert "This caused: Value error, Notebook file"
+        assert "notebook2/my_notebook.ipynb does not exist" in result.output.replace(
+            "\\", "/"
+        )
+
+
+def test_deploy_notebook_definition_not_exists_error(runner, project_directory):
+    with project_directory("notebook_v2"):
+        result = runner.invoke(["notebook", "deploy", "not_existing_id", "--replace"])
+        assert result.exit_code == 2, result.output
+        assert (
+            "Definition of notebook 'not_existing_id' not found in project definition"
+        )
+        assert "file." in result.output
+
+
+def test_deploy_notebook_multiple_definitions(runner, project_directory):
+    with project_directory("notebooks_multiple_v2"):
+        result = runner.invoke(["notebook", "deploy", "--replace"])
+        assert result.exit_code == 2, result.output
+        assert (
+            "Multiple entities of type notebook found. Please provide entity id for the"
+        )
+        assert "operation." in result.output
+
+
+def test_deploy_project_definition_version_error(
+    runner, project_directory, alter_snowflake_yml
+):
+
+    with project_directory("empty_project") as project_root:
+        alter_snowflake_yml(project_root / "snowflake.yml", "definition_version", "1.1")
+        result = runner.invoke(["notebook", "deploy", "--replace"])
+        assert result.exit_code == 2, result.output
+        assert (
+            "This command requires project definition of version at least 2."
+            in result.output
+        )
