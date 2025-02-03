@@ -32,6 +32,7 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import get_entity_for_operation
+from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
@@ -53,8 +54,7 @@ OPTIONAL_NOTEBOOK_IDENTIFIER = identifier_argument(
 NotebookFile: Optional[NotebookStagePath] = typer.Option(
     "--notebook-file",
     "-f",
-    help="Stage path with notebook file. For example `@stage/path/to/notebook.ipynb`."
-    " If not provided, the command will use definition from snowflake.yml.",
+    help="Stage path with notebook file. For example `@stage/path/to/notebook.ipynb`.",
 )
 
 
@@ -99,7 +99,18 @@ def create(
     **options,
 ):
     """Creates notebook from stage."""
-    if notebook_file and identifier:
+    cli_context = get_cli_context()
+    pd = cli_context.project_definition
+    if not pd:
+        if not identifier:
+            raise UsageError(
+                "Notebook identifier is required if project definition file is not present."
+            )
+        if not notebook_file:
+            raise UsageError(
+                "--notebook-file flag is required if project definition file is not present."
+            )
+
         # old implementation
         notebook_url = NotebookManager().create(
             notebook_name=identifier,
@@ -107,14 +118,12 @@ def create(
         )
         return MessageResult(message=notebook_url)
 
-    cli_context = get_cli_context()
-    pd = cli_context.project_definition
-    if not pd:
-        raise UsageError(
-            f"No notebook project definition found in {cli_context.project_root}, or --notebook-file flag is missing."
+    if notebook_file:
+        cli_console.warning(
+            "Ignoring value of --notebook-file, as project definition file is found."
         )
 
-    entity_id = identifier.name if identifier else None
+    entity_id = str(identifier) if identifier else None
     pd.enforce_version_requirement("2")
     notebook: NotebookEntityModel = get_entity_for_operation(
         cli_context=cli_context,
@@ -129,7 +138,9 @@ def create(
     notebook_url = ws.perform_action(
         notebook.entity_id, EntityActions.CREATE, replace=True
     )
-    return MessageResult(notebook_url)
+    return MessageResult(
+        f"Notebook successfully created and available under {notebook_url}"
+    )
 
 
 @app.command(requires_connection=True)

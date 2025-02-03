@@ -114,7 +114,10 @@ def test_create_pdf(
     with project_directory("notebook_v2"):
         result = runner.invoke(["notebook", "create"])
         assert result.exit_code == 0, result.output
-        assert result.output == "http://the.notebook.url.mock\n"
+        assert (
+            result.output
+            == "Notebook successfully created and available under http://the.notebook.url.mock\n"
+        )
         assert ctx.get_query() == snapshot(name="query")
 
 
@@ -136,16 +139,50 @@ def test_create_pdf_by_id(
     with project_directory("notebooks_multiple_v2"):
         result = runner.invoke(["notebook", "create", notebook_id])
         assert result.exit_code == 0, result.output
-        assert result.output == "http://the.notebook.url.mock\n"
+        assert (
+            result.output
+            == "Notebook successfully created and available under http://the.notebook.url.mock\n"
+        )
         assert ctx.get_query() == snapshot(name="query")
 
 
-def test_create_no_pdf_error(runner):
-    result = runner.invoke(["notebook", "create", "not_existing_id"])
+def test_create_no_pdf_identifier_is_required(runner):
+    result = runner.invoke(
+        ["notebook", "create", "--notebook-file", "@stage/my_notebook.ipynb"]
+    )
     assert result.exit_code == 2, result.output
-    assert "No notebook project definition found in" in result.output
-    assert "--notebook-file flag is" in result.output
-    assert "missing." in result.output
+    assert (
+        "Notebook identifier is required if project definition file is not present."
+        in result.output
+    )
+
+
+def test_create_no_pdf_notebook_file_is_required(runner):
+    result = runner.invoke(["notebook", "create", "my_notebook"])
+    assert result.exit_code == 2, result.output
+    assert (
+        "--notebook-file flag is required if project definition file is not present."
+        in result.output
+    )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.notebook.notebook_entity.make_snowsight_url")
+def test_create_notebook_file_when_pdf_warning(
+    mock_make_url, mock_connector, mock_ctx, runner, project_directory
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    mock_make_url.return_value = "http://the.notebook.url.mock"
+    with project_directory("notebook_v2"):
+        result = runner.invoke(
+            ["notebook", "create", "--notebook-file", "@stage/my_notebook.ipynb"]
+        )
+        assert result.exit_code == 0, result.output
+        assert result.output == (
+            "Ignoring value of --notebook-file, as project definition file is found.\n"
+            "Notebook successfully created and available under http://the.notebook.url.mock\n"
+        )
 
 
 def test_create_notebook_definition_not_exists_error(runner, project_directory):
