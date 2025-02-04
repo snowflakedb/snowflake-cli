@@ -9,6 +9,7 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
 from snowflake.cli._plugins.workspace.context import ActionContext
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.entities.common import EntityBase
 from snowflake.cli.api.project.project_paths import bundle_root
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
@@ -59,9 +60,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         )
 
     def bundle(self, output_dir: Optional[Path] = None):
-        build_bundle(
+        return build_bundle(
             self.root,
-            output_dir or bundle_root(self.root, "streamlit"),
+            output_dir or bundle_root(self.root, "streamlit") / self.entity_id,
             [
                 PathMapping(
                     src=artifact.src, dest=artifact.dest, processors=artifact.processors
@@ -70,7 +71,12 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             ],
         )
 
-    def deploy(self, *args, **kwargs):
+    def deploy(self, bundle_map: Optional[BundleMap] = None, *args, **kwargs):
+        if bundle_map is None:
+            bundle_map = self.bundle()
+
+        console = self._workspace_ctx.console
+
         return self._execute_query(self.get_deploy_sql())
 
     def action_share(

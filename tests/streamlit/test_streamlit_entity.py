@@ -32,6 +32,7 @@ def example_streamlit_workspace(project_directory):
                 model = StreamlitEntityModel(
                     **definition.get("entities", {}).get("test_streamlit")
                 )
+                model.set_entity_id("test_streamlit")
 
                 workspace_context = WorkspaceContext(
                     console=mock.MagicMock(),

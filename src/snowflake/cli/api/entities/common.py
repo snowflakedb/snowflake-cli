@@ -109,6 +109,20 @@ class EntityBase(Generic[T]):
         return get_cli_context().snow_api_root
 
     @property
+    def stage_object(self) -> "StageResource":
+        from snowflake.core import CreateMode
+
+        if not hasattr(self._entity_model, "stage"):
+            raise ValueError(f"Entity model of type {self._entity_model.type } for {self.identifier} does not have a stage attribute")
+        stage_name = self._entity_model.stage
+
+        if self.snow_api_root is None:
+            raise ValueError("snow_api_root is not set")
+
+        stage_collection = self.snow_api_root.databases[self.fqn.database or self._conn.database].schemas[self.fqn.schema or self._conn.schema].stages
+        return stage_collection.create(stage_name, mode=CreateMode.if_not_exists)
+
+    @property
     def model(self):
         return self._entity_model
 
