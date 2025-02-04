@@ -41,6 +41,7 @@
 * Added notebooks to `snow object` commands.
 * Added `snow notebook deploy` command that allows creating a notebook using local file.
 * Add support for containerized notebooks.
+* Added `--force-replace` flag in `snow snowpark deploy` command to replace entities even if no changes are detected.
 
 ## Fixes and improvements
 

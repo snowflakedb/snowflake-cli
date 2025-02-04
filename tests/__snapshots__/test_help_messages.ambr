@@ -5209,13 +5209,16 @@
    are deployed once to every stage specified in definitions.                     
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --replace                Replaces procedure or function, even if no detected |
-  |                          changes to metadata                                 |
-  | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
-  |                          current working directory.                          |
-  | --env              TEXT  String in format of key=value. Overrides variables  |
-  |                          from env section used for templates.                |
-  | --help     -h            Show this message and exit.                         |
+  | --replace                      Replaces procedure or function if there were  |
+  |                                changes in the definition.                    |
+  | --force-replace                Replace this object, even if the state didn't |
+  |                                change                                        |
+  | --project        -p      TEXT  Path where Snowflake project resides.         |
+  |                                Defaults to current working directory.        |
+  | --env                    TEXT  String in format of key=value. Overrides      |
+  |                                variables from env section used for           |
+  |                                templates.                                    |
+  | --help           -h            Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
