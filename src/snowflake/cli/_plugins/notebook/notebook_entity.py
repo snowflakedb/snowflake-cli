@@ -1,5 +1,4 @@
 import functools
-from textwrap import dedent
 
 from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
@@ -68,17 +67,23 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
                 self._project_paths.project_root
             )
         )
-        create_str = "CREATE OR REPLACE" if replace else "CREATE"
-        return dedent(
-            f"""
-            {create_str} NOTEBOOK {self.fqn.sql_identifier}
-            FROM '{main_file_stage_path.stage_with_at}'
-            QUERY_WAREHOUSE = '{self.model.query_warehouse}'
-            MAIN_FILE = '{main_file_stage_path.path}';
-            // Cannot use IDENTIFIER(...)
-            ALTER NOTEBOOK {self.fqn.identifier} ADD LIVE VERSION FROM LAST;
-            """
+        query = "CREATE OR REPLACE " if replace else "CREATE "
+        query += (
+            f"NOTEBOOK {self.fqn.sql_identifier}\n"
+            f"FROM '{main_file_stage_path.stage_with_at}'\n"
+            f"QUERY_WAREHOUSE = '{self.model.query_warehouse}'\n"
+            f"MAIN_FILE = '{main_file_stage_path.path}'"
         )
+        if self.model.compute_pool:
+            query += f"\nCOMPUTE_POOL = '{self.model.compute_pool}'"
+        if self.model.runtime_name:
+            query += f"\nRUNTIME_NAME = '{self.model.runtime_name}'"
+
+        query += (
+            ";\n// Cannot use IDENTIFIER(...)"
+            f"\nALTER NOTEBOOK {self.fqn.identifier} ADD LIVE VERSION FROM LAST;"
+        )
+        return query
 
     def action_describe(self) -> SnowflakeCursor:
         return self._sql_executor.execute_query(self.get_describe_sql())

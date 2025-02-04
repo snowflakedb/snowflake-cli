@@ -126,19 +126,21 @@ def test_deploy_default_stage_paths(
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.notebook.notebook_entity.make_snowsight_url")
+@pytest.mark.parametrize("project_name", ["notebook_v2", "notebook_containerized_v2"])
 def test_deploy_single_notebook(
     mock_make_url,
     mock_connector,
     mock_ctx,
     runner,
     project_directory,
+    project_name,
     snapshot,
 ):
     """Deploy single notebook with custom identifier and stage path."""
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     mock_make_url.return_value = "http://the.notebook.url.mock"
-    with project_directory("notebook_v2") as project_path:
+    with project_directory(project_name):
         result = runner.invoke(["notebook", "deploy", "--replace"])
         assert result.exit_code == 0, result.output
         assert result.output == snapshot(name="output")

@@ -1,0 +1,10 @@
+definition_version: 2
+entities:
+  containerized_notebook:
+    type: "notebook"
+    query_warehouse: xsmall
+    notebook_file: notebook.ipynb
+    runtime_name: "system$basic_runtime"
+    compute_pool: snowcli_compute_pool
+    artifacts:
+     - notebook.ipynb
