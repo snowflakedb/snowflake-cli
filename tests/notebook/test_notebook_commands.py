@@ -114,10 +114,7 @@ def test_create_pdf(
     with project_directory("notebook_v2"):
         result = runner.invoke(["notebook", "create"])
         assert result.exit_code == 0, result.output
-        assert (
-            result.output
-            == "Notebook successfully created and available under http://the.notebook.url.mock\n"
-        )
+        assert result.output == "http://the.notebook.url.mock\n"
         assert ctx.get_query() == snapshot(name="query")
 
 
@@ -139,10 +136,7 @@ def test_create_pdf_by_id(
     with project_directory("notebooks_multiple_v2"):
         result = runner.invoke(["notebook", "create", notebook_id])
         assert result.exit_code == 0, result.output
-        assert (
-            result.output
-            == "Notebook successfully created and available under http://the.notebook.url.mock\n"
-        )
+        assert result.output == "http://the.notebook.url.mock\n"
         assert ctx.get_query() == snapshot(name="query")
 
 
@@ -181,7 +175,7 @@ def test_create_notebook_file_when_pdf_warning(
         assert result.exit_code == 0, result.output
         assert result.output == (
             "Ignoring value of --notebook-file, as project definition file is found.\n"
-            "Notebook successfully created and available under http://the.notebook.url.mock\n"
+            "http://the.notebook.url.mock\n"
         )
 
 

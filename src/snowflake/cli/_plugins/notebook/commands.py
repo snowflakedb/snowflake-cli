@@ -138,9 +138,7 @@ def create(
     notebook_url = ws.perform_action(
         notebook.entity_id, EntityActions.CREATE, replace=True
     )
-    return MessageResult(
-        f"Notebook successfully created and available under {notebook_url}"
-    )
+    return MessageResult(message=notebook_url)
 
 
 @app.command(requires_connection=True)
