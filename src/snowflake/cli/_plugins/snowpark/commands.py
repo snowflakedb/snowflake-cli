@@ -70,6 +70,7 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.flags import (
+    ForceReplaceOption,
     ReplaceOption,
     execution_identifier_argument,
     identifier_argument,
@@ -128,8 +129,9 @@ LikeOption = like_option(
 @with_project_definition()
 def deploy(
     replace: bool = ReplaceOption(
-        help="Replaces procedure or function, even if no detected changes to metadata"
+        help="Replaces procedure or function if there were changes in the definition."
     ),
+    force_replace: bool = ForceReplaceOption(),
     **options,
 ) -> CommandResult:
     """
@@ -159,7 +161,11 @@ def deploy(
     with cli_console.phase("Checking remote state"):
         om = ObjectManager()
         _check_if_all_defined_integrations_exists(om, snowpark_entities)
-        existing_objects = check_for_existing_objects(om, replace, snowpark_entities)
+        existing_objects = (
+            {}
+            if force_replace
+            else check_for_existing_objects(om, replace, snowpark_entities)
+        )
 
     with cli_console.phase("Preparing required stages and artifacts"):
         entities_to_imports_map, stages_to_artifact_map = build_artifacts_mappings(

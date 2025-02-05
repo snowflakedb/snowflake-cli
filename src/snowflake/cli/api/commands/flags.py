@@ -383,6 +383,12 @@ ReplaceOption = OverrideableOption(
     mutually_exclusive=CREATE_MODE_OPTION_NAMES,
 )
 
+ForceReplaceOption = OverrideableOption(
+    False,
+    "--force-replace",
+    help="Replace this object, even if the state didn't change",
+)
+
 OnErrorOption = typer.Option(
     OnErrorType.BREAK.value,
     "--on-error",

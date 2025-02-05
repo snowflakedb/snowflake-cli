@@ -232,6 +232,28 @@ def test_snowpark_flow(
             ],
         )
 
+        # Try to deploy again, with --force-replace flag, all objects should be updated
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            additional_arguments=["--force-replace"],
+            expected_result=[
+                {
+                    "object": f"{database}.PUBLIC.hello_procedure(name string)",
+                    "status": "created",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{database}.PUBLIC.test()",
+                    "status": "created",
+                    "type": "procedure",
+                },
+                {
+                    "object": f"{database}.PUBLIC.hello_function(name string)",
+                    "status": "created",
+                    "type": "function",
+                },
+            ],
+        )
+
         # Check if objects were updated
         _test_steps.assert_those_procedures_are_in_snowflake(
             "hello_procedure(VARCHAR) RETURN VARIANT"
