@@ -1,38 +1,32 @@
 # serializer version: 1
 # name: test_create_pdf[query]
   '''
-  
   CREATE OR REPLACE NOTEBOOK IDENTIFIER('custom_identifier')
   FROM '@custom_stage'
   QUERY_WAREHOUSE = 'xsmall'
   MAIN_FILE = 'particular_notebook_path/notebook.ipynb';
   // Cannot use IDENTIFIER(...)
   ALTER NOTEBOOK custom_identifier ADD LIVE VERSION FROM LAST;
-  
   '''
 # ---
 # name: test_create_pdf_by_id[notebook1][query]
   '''
-  
   CREATE OR REPLACE NOTEBOOK IDENTIFIER('notebook1')
   FROM '@notebooks'
   QUERY_WAREHOUSE = 'xsmall'
   MAIN_FILE = 'notebook1/notebook1/my_notebook.ipynb';
   // Cannot use IDENTIFIER(...)
   ALTER NOTEBOOK notebook1 ADD LIVE VERSION FROM LAST;
-  
   '''
 # ---
 # name: test_create_pdf_by_id[notebook2][query]
   '''
-  
   CREATE OR REPLACE NOTEBOOK IDENTIFIER('notebook2')
   FROM '@notebooks'
   QUERY_WAREHOUSE = 'xsmall'
   MAIN_FILE = 'notebook2/notebook2/my_notebook.ipynb';
   // Cannot use IDENTIFIER(...)
   ALTER NOTEBOOK notebook2 ADD LIVE VERSION FROM LAST;
-  
   '''
 # ---
 # name: test_deploy_default_stage_paths[notebook1][output]

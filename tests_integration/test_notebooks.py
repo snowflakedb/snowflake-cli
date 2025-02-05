@@ -118,6 +118,7 @@ def test_containerized_notebook_incorrect_runtime_error(
         assert "runtimeName=NOT_EXISTING_RUNTIME_NAME is not supported" in result.output
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     "project_name,notebook_id,stage_path,local_path",
     [
