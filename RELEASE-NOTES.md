@@ -43,6 +43,9 @@
 * Add support for containerized notebooks.
 
 ## Fixes and improvements
+* Fixed MFA caching issue in binaries.
+* Fixed auto-completion issue in binaries.
+
 
 # v3.3.0
 
