@@ -39,7 +39,7 @@ dependencies = [
   "tomlkit==0.13.2",
   "typer==0.12.5",
   "urllib3>=1.24.3,<2.4",
-  "GitPython==3.1.43",
+  "GitPython==3.1.44",
   "pip",
   "pydantic==2.9.2",
 ]
@@ -63,7 +63,7 @@ development = [
   "pytest-randomly==3.16.0",
   "syrupy==4.8.1",
   "factory-boy==3.3.1",
-  "Faker==33.3.1",
+  "Faker==35.2.0",
 ]
 packaging = ["pyinstaller~=6.10"]
 

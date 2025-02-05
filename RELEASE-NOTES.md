@@ -38,6 +38,9 @@
 * Added support for Mac Os x86_64 architecture.
 * Added image repository model in snowflake.yml.
 * Added `snow spcs service deploy` command.
+* Added notebooks to `snow object` commands.
+* Added `snow notebook deploy` command that allows creating a notebook using local file.
+* Add support for containerized notebooks.
 
 ## Fixes and improvements
 

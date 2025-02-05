@@ -17,7 +17,7 @@ from unittest import mock
 from unittest.mock import MagicMock, PropertyMock
 
 import pytest
-from snowflake.cli._plugins.notebook.exceptions import NotebookStagePathError
+from snowflake.cli._plugins.notebook.exceptions import NotebookFilePathError
 from snowflake.cli._plugins.notebook.manager import NotebookManager
 from snowflake.cli.api.identifiers import FQN
 
@@ -77,5 +77,5 @@ def test_create(mock_ctx, mock_execute, mock_url):
     ),
 )
 def test_error_parsing_stage(stage_path):
-    with pytest.raises(NotebookStagePathError):
+    with pytest.raises(NotebookFilePathError):
         NotebookManager.parse_stage_as_path(stage_path)

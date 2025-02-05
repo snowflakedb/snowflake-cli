@@ -59,6 +59,7 @@ def test_service_create_from_project_definition(
     _test_steps: Tuple[SnowparkServicesTestSteps, str],
     alter_snowflake_yml,
     project_directory,
+    test_database,
 ):
     test_steps, service_name = _test_steps
 

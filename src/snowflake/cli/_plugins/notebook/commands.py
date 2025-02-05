@@ -15,12 +15,28 @@
 import logging
 
 import typer
+from click import UsageError
 from snowflake.cli._plugins.notebook.manager import NotebookManager
+from snowflake.cli._plugins.notebook.notebook_entity_model import NotebookEntityModel
 from snowflake.cli._plugins.notebook.types import NotebookStagePath
-from snowflake.cli.api.commands.flags import identifier_argument
+from snowflake.cli._plugins.workspace.manager import WorkspaceManager
+from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.decorators import (
+    with_project_definition,
+)
+from snowflake.cli.api.commands.flags import (
+    ReplaceOption,
+    entity_argument,
+    identifier_argument,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.commands.utils import get_entity_for_operation
+from snowflake.cli.api.entities.common import EntityActions
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.types import MessageResult
+from snowflake.cli.api.output.types import (
+    CommandResult,
+    MessageResult,
+)
 from typing_extensions import Annotated
 
 app = SnowTyperFactory(
@@ -84,3 +100,40 @@ def create(
         notebook_file=notebook_file,
     )
     return MessageResult(message=notebook_url)
+
+
+@app.command(requires_connection=True)
+@with_project_definition()
+def deploy(
+    entity_id: str = entity_argument("notebook"),
+    replace: bool = ReplaceOption(
+        help="Replace notebook object if it already exists.",
+    ),
+    **options,
+) -> CommandResult:
+    """Uploads a notebook and required files to a stage and creates a Snowflake notebook."""
+    cli_context = get_cli_context()
+    pd = cli_context.project_definition
+    if not pd.meets_version_requirement("2"):
+        raise UsageError(
+            "This command requires project definition of version at least 2."
+        )
+
+    notebook: NotebookEntityModel = get_entity_for_operation(
+        cli_context=cli_context,
+        entity_id=entity_id,
+        project_definition=pd,
+        entity_type="notebook",
+    )
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    notebook_url = ws.perform_action(
+        notebook.entity_id,
+        EntityActions.DEPLOY,
+        replace=replace,
+    )
+    return MessageResult(
+        f"Notebook successfully deployed and available under {notebook_url}"
+    )
