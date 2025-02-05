@@ -151,11 +151,14 @@ def test_create(
         create_cmd = ["notebook", "create"]
         if notebook_id:
             create_cmd.append(notebook_id)
+
+        # CREATE does not automatically upload files to the stage
         result = runner.invoke_with_connection(create_cmd)
         assert result.exit_code == 1, result.output
         assert "Notebook MAIN_FILE" in result.output
         assert "cannot be found." in result.output
 
+        # upload files
         result = runner.invoke_with_connection(
             [
                 "stage",
@@ -166,9 +169,11 @@ def test_create(
         )
         assert result.exit_code == 0, result.output
 
+        # CREATE finishes with a success
         result = runner.invoke_with_connection(create_cmd)
         assert result.exit_code == 0, result.output
 
+        # notebook exists
         result = runner.invoke_with_connection_json(["object", "list", "notebook"])
         assert result.exit_code == 0, result.output
         assert result.json[0]["name"] == (
