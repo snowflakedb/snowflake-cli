@@ -106,7 +106,7 @@ def deploy(
         show_default=False,
         help=dedent(
             f"""
-            Paths, relative to the the project root, of files or directories you want to upload to a stage. If a file is
+            Paths, relative to the project root, of files or directories you want to upload to a stage. If a file is
             specified, it must match one of the artifacts src pattern entries in snowflake.yml. If a directory is
             specified, it will be searched for subfolders or files to deploy based on artifacts src pattern entries. If
             unspecified, the command syncs all local changes to the stage."""
