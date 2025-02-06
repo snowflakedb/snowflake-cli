@@ -2,6 +2,9 @@ from pathlib import Path
 from typing import Optional
 
 from click import ClickException
+from snowflake.connector import ProgrammingError
+from snowflake.core.stage import StageResource, Stage
+
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import build_bundle
 from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
@@ -43,6 +46,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         return self.deploy()
 
+    def action_describe(self, action_ctx: ActionContext, *args, **kwargs):
+        return self.describe()
+
     def action_drop(self, action_ctx: ActionContext, *args, **kwargs):
         return self._execute_query(self.get_drop_sql())
 
@@ -59,7 +65,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             self._conn, f"/#/streamlit-apps/{name.url_identifier}"
         )
 
-    def bundle(self, output_dir: Optional[Path] = None):
+    def bundle(self, output_dir: Optional[Path] = None) -> BundleMap:
         return build_bundle(
             self.root,
             output_dir or bundle_root(self.root, "streamlit") / self.entity_id,
@@ -71,13 +77,40 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             ],
         )
 
-    def deploy(self, bundle_map: Optional[BundleMap] = None, *args, **kwargs):
-        if bundle_map is None:
+    def deploy(self, _open: bool, replace: bool, bundle_map: Optional[BundleMap] = None, experimental: Optional[bool] = False, *args, **kwargs):
+        if bundle_map is None: #TODO: maybe we could hold bundle map as a cached property?
             bundle_map = self.bundle()
 
         console = self._workspace_ctx.console
+        console.step(f"Checking if object exists")
+        if self._object_exists() and not replace:
+            raise ClickException(
+                f"Streamlit {self.model.fqn.sql_identifier} already exists. Use 'replace' option to overwrite."
+                )
 
-        return self._execute_query(self.get_deploy_sql())
+        console.step(f"Creating stage {self.model.stage} if not exists")
+        stage = self._create_stage_if_not_exists()
+        use_versioned_stage = FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled()
+
+        if experimental or use_versioned_stage or FeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled():
+            if replace:
+                raise ClickException(f"Cannot specify both replace and experimental for deploying entity {self.entity_id}")
+
+            self._execute_query(self.get_deploy_sql(
+                if_not_exists=True,
+                replace=replace,
+
+            ))
+
+        console.step(f"Uploading artifacts to stage {self.model.stage}")
+        self._upload_files_to_stage(stage, bundle_map)
+
+        console.step(f"Creating Streamlit object {self.model.fqn.sql_identifier}")
+
+        return self._execute_query(self.get_deploy_sql(replace=replace,from_stage_name=self.model.stage))
+
+    def describe(self) -> SnowflakeCursor:
+        return self._execute_query(self.get_describe_sql())
 
     def action_share(
         self, action_ctx: ActionContext, to_role: str, *args, **kwargs
@@ -93,7 +126,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         schema: Optional[str] = None,
         *args,
         **kwargs,
-    ):
+    ) -> str:
         if replace and if_not_exists:
             raise ClickException("Cannot specify both replace and if_not_exists")
 
@@ -134,6 +167,10 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         return query + ";"
 
+    def get_describe_sql(self) -> str:
+        return f"DESCRIBE STREAMLIT {self.model.fqn.sql_identifier};"
+
+
     def get_share_sql(self, to_role: str) -> str:
         return f"GRANT USAGE ON STREAMLIT {self.model.fqn.sql_identifier} TO ROLE {to_role};"
 
@@ -146,3 +183,26 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         return (
             f"GRANT USAGE ON STREAMLIT {streamlit_name} TO APPLICATION ROLE {app_role};"
         )
+
+    def _create_stage_if_not_exists(self)-> StageResource: #Another candidate to be moved to parent class
+        stage_collection = self.snow_api_root.databases[
+            self.fqn.database or self._conn.database
+        ].schemas[self.fqn.schema or self._conn.schema].stages
+
+        if not stage_collection[self.model.stage]:
+            stage_object = Stage(name=self.model.stage)
+            stage_collection.create(stage_object)
+
+        return stage_collection[self.model.stage]
+
+    def _object_exists(self):
+        try:
+            self.describe()
+            return True
+        except ProgrammingError:
+            return False
+
+    @staticmethod #TODO: maybe a good candidate to transfer to parent class
+    def _upload_files_to_stage(stage: StageResource, bundle_map: BundleMap):
+        for src, dest in bundle_map.all_mappings(absolute=True, expand_directories=True):
+            stage.put(local_path=src, stage_path=dest, overwrite=True)
