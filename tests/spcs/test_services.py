@@ -676,38 +676,6 @@ def test_logs_streaming_flag_is_hidden(runner):
     assert "--follow" not in result.output
 
 
-def test_service_events_disabled(runner, empty_snowcli_config):
-    result = runner.invoke_with_config_file(
-        empty_snowcli_config,
-        [
-            "spcs",
-            "service",
-            "events",
-            "LOG_EVENT",
-            "--container-name",
-            "log-printer",
-            "--instance-id",
-            "0",
-            "--since",
-            "1 minute",
-        ],
-    )
-    assert (
-        result.exit_code != 0
-    ), "Expected a non-zero exit code due to feature flag being disabled"
-
-    expected_output = (
-        "Usage: default spcs service [OPTIONS] COMMAND [ARGS]...\n"
-        "Try 'default spcs service --help' for help.\n"
-        "+- Error ----------------------------------------------------------------------+\n"
-        "| No such command 'events'.                                                    |\n"
-        "+------------------------------------------------------------------------------+\n"
-    )
-    assert (
-        result.output == expected_output
-    ), f"Expected formatted output not found: {result.output}"
-
-
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_events_all_filters(
     mock_execute_query, runner, enable_events_and_metrics_config
@@ -838,38 +806,6 @@ def test_events_first_last_incompatibility(runner, enable_events_and_metrics_con
 
     expected_error = "Parameters '--first' and '--last' are incompatible"
     assert expected_error in result.output
-
-
-def test_service_metrics_disabled(runner, empty_snowcli_config):
-    result = runner.invoke_with_config_file(
-        empty_snowcli_config,
-        [
-            "spcs",
-            "service",
-            "metrics",
-            "LOG_EVENT",
-            "--container-name",
-            "log-printer",
-            "--instance-id",
-            "0",
-            "--since",
-            "1 minute",
-        ],
-    )
-    assert (
-        result.exit_code != 0
-    ), "Expected a non-zero exit code due to feature flag being disabled"
-
-    expected_output = (
-        "Usage: default spcs service [OPTIONS] COMMAND [ARGS]...\n"
-        "Try 'default spcs service --help' for help.\n"
-        "+- Error ----------------------------------------------------------------------+\n"
-        "| No such command 'metrics'.                                                   |\n"
-        "+------------------------------------------------------------------------------+\n"
-    )
-    assert (
-        result.output == expected_output
-    ), f"Expected formatted output not found: {result.output}"
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")

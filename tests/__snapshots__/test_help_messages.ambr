@@ -6152,10 +6152,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -8072,7 +8072,7 @@
   | --silent                         Turns off intermediate output to console.   |
   +------------------------------------------------------------------------------+
   
-
+  
   '''
 # ---
 # name: test_help_messages[spcs.service.describe]

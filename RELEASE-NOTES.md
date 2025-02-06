@@ -30,9 +30,7 @@
   * Use `--all` to fetch all columns.
 * Added support for glob pattern (except `**`) in artifact paths in snowflake.yml for Streamlit.
 * Added support for glob pattern (except `**`) in artifact paths in snowflake.yml for Snowpark, requires ENABLE_SNOWPARK_GLOB_SUPPORT feature flag.
-* Added `--replace` flag to `snow spcs compute-pool create` command.
 * Added command `snow app release-directive add-accounts` and `snow app release-directive remove-accounts`
-* Added command `snow spcs compute-pool deploy`.
 * Added `snow app release-channel set-accounts` command to set accounts for release channel.
 * Added support for Mac Os x86_64 architecture.
 * Added `--force-replace` flag in `snow snowpark deploy` command to replace entities even if no changes are detected.
