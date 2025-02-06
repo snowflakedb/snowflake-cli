@@ -95,7 +95,7 @@ def release_directive_set(
     target_accounts: Optional[str] = typer.Option(
         None,
         show_default=False,
-        help="List of the accounts to apply the release directive to. Format has to be `org1.account1,org2.account2`",
+        help="List of the accounts to apply the release directive to. Format must be `org1.account1,org2.account2`",
     ),
     version: str = typer.Option(
         show_default=False,
@@ -179,7 +179,7 @@ def release_directive_add_accounts(
     ),
     target_accounts: str = typer.Option(
         show_default=False,
-        help="List of the accounts to add to the release directive. Format has to be `org1.account1,org2.account2`",
+        help="List of the accounts to add to the release directive. Format must be `org1.account1,org2.account2`",
     ),
     **options,
 ) -> CommandResult:
@@ -218,7 +218,7 @@ def release_directive_remove_accounts(
     ),
     target_accounts: str = typer.Option(
         show_default=False,
-        help="List of the accounts to remove from the release directive. Format has to be `org1.account1,org2.account2`",
+        help="List of the accounts to remove from the release directive. Format must be `org1.account1,org2.account2`",
     ),
     **options,
 ) -> CommandResult:

@@ -49,16 +49,16 @@
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --package-entity-id          TEXT  The ID of the package entity on which to  |
-  |                                    operate when definition_version is 2 or   |
-  |                                    higher.                                   |
-  | --app-entity-id              TEXT  The ID of the application entity on which |
-  |                                    to operate when definition_version is 2   |
+  |                                    operate when the definition_version is 2  |
   |                                    or higher.                                |
+  | --app-entity-id              TEXT  The ID of the application entity on which |
+  |                                    to operate when the definition_version is |
+  |                                    2 or higher.                              |
   | --project            -p      TEXT  Path where the Snowflake project resides. |
   |                                    Defaults to the current working           |
   |                                    directory.                                |
-  | --env                        TEXT  String in format of key=value. Overrides  |
-  |                                    variables from env section used for       |
+  | --env                        TEXT  String in the format key=value. Overrides |
+  |                                    variables from the env section used for   |
   |                                    templates.                                |
   | --help               -h            Show this message and exit.               |
   +------------------------------------------------------------------------------+
@@ -142,21 +142,21 @@
   |                                                    [default: validate]       |
   | --package-entity-id                          TEXT  The ID of the package     |
   |                                                    entity on which to        |
-  |                                                    operate when              |
+  |                                                    operate when the          |
   |                                                    definition_version is 2   |
   |                                                    or higher.                |
   | --app-entity-id                              TEXT  The ID of the application |
   |                                                    entity on which to        |
-  |                                                    operate when              |
+  |                                                    operate when the          |
   |                                                    definition_version is 2   |
   |                                                    or higher.                |
   | --project            -p                      TEXT  Path where the Snowflake  |
   |                                                    project resides. Defaults |
   |                                                    to the current working    |
   |                                                    directory.                |
-  | --env                                        TEXT  String in format of       |
+  | --env                                        TEXT  String in the format      |
   |                                                    key=value. Overrides      |
-  |                                                    variables from env        |
+  |                                                    variables from the env    |
   |                                                    section used for          |
   |                                                    templates.                |
   | --help               -h                            Show this message and     |
@@ -210,10 +210,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -246,16 +246,16 @@
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --package-entity-id          TEXT  The ID of the package entity on which to  |
-  |                                    operate when definition_version is 2 or   |
-  |                                    higher.                                   |
-  | --app-entity-id              TEXT  The ID of the application entity on which |
-  |                                    to operate when definition_version is 2   |
+  |                                    operate when the definition_version is 2  |
   |                                    or higher.                                |
+  | --app-entity-id              TEXT  The ID of the application entity on which |
+  |                                    to operate when the definition_version is |
+  |                                    2 or higher.                              |
   | --project            -p      TEXT  Path where the Snowflake project resides. |
   |                                    Defaults to the current working           |
   |                                    directory.                                |
-  | --env                        TEXT  String in format of key=value. Overrides  |
-  |                                    variables from env section used for       |
+  | --env                        TEXT  String in the format key=value. Overrides |
+  |                                    variables from the env section used for   |
   |                                    templates.                                |
   | --help               -h            Show this message and exit.               |
   +------------------------------------------------------------------------------+
@@ -307,10 +307,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -390,21 +390,21 @@
   |                                                     [default: 10]            |
   | --package-entity-id          TEXT                   The ID of the package    |
   |                                                     entity on which to       |
-  |                                                     operate when             |
+  |                                                     operate when the         |
   |                                                     definition_version is 2  |
   |                                                     or higher.               |
   | --app-entity-id              TEXT                   The ID of the            |
   |                                                     application entity on    |
   |                                                     which to operate when    |
-  |                                                     definition_version is 2  |
-  |                                                     or higher.               |
+  |                                                     the definition_version   |
+  |                                                     is 2 or higher.          |
   | --project            -p      TEXT                   Path where the Snowflake |
   |                                                     project resides.         |
   |                                                     Defaults to the current  |
   |                                                     working directory.       |
-  | --env                        TEXT                   String in format of      |
+  | --env                        TEXT                   String in the format     |
   |                                                     key=value. Overrides     |
-  |                                                     variables from env       |
+  |                                                     variables from the env   |
   |                                                     section used for         |
   |                                                     templates.               |
   | --help               -h                             Show this message and    |
@@ -458,10 +458,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -495,16 +495,16 @@
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --package-entity-id          TEXT  The ID of the package entity on which to  |
-  |                                    operate when definition_version is 2 or   |
-  |                                    higher.                                   |
-  | --app-entity-id              TEXT  The ID of the application entity on which |
-  |                                    to operate when definition_version is 2   |
+  |                                    operate when the definition_version is 2  |
   |                                    or higher.                                |
+  | --app-entity-id              TEXT  The ID of the application entity on which |
+  |                                    to operate when the definition_version is |
+  |                                    2 or higher.                              |
   | --project            -p      TEXT  Path where the Snowflake project resides. |
   |                                    Defaults to the current working           |
   |                                    directory.                                |
-  | --env                        TEXT  String in format of key=value. Overrides  |
-  |                                    variables from env section used for       |
+  | --env                        TEXT  String in the format key=value. Overrides |
+  |                                    variables from the env section used for   |
   |                                    templates.                                |
   | --help               -h            Show this message and exit.               |
   +------------------------------------------------------------------------------+
@@ -556,10 +556,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -672,22 +672,22 @@
   |                                                       [default: None]        |
   | --package-entity-id                          TEXT     The ID of the package  |
   |                                                       entity on which to     |
-  |                                                       operate when           |
+  |                                                       operate when the       |
   |                                                       definition_version is  |
   |                                                       2 or higher.           |
   | --app-entity-id                              TEXT     The ID of the          |
   |                                                       application entity on  |
   |                                                       which to operate when  |
-  |                                                       definition_version is  |
-  |                                                       2 or higher.           |
+  |                                                       the definition_version |
+  |                                                       is 2 or higher.        |
   | --project            -p                      TEXT     Path where the         |
   |                                                       Snowflake project      |
   |                                                       resides. Defaults to   |
   |                                                       the current working    |
   |                                                       directory.             |
-  | --env                                        TEXT     String in format of    |
+  | --env                                        TEXT     String in the format   |
   |                                                       key=value. Overrides   |
-  |                                                       variables from env     |
+  |                                                       variables from the env |
   |                                                       section used for       |
   |                                                       templates.             |
   | --help               -h                               Show this message and  |
@@ -741,10 +741,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -781,21 +781,21 @@
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | *  --target-accounts            TEXT  The accounts to add to the release     |
-  |                                       channel. Format has to be              |
+  |                                       channel. Format must be                |
   |                                       org1.account1,org2.account2.           |
   |                                       [required]                             |
   |    --package-entity-id          TEXT  The ID of the package entity on which  |
-  |                                       to operate when definition_version is  |
-  |                                       2 or higher.                           |
+  |                                       to operate when the definition_version |
+  |                                       is 2 or higher.                        |
   |    --app-entity-id              TEXT  The ID of the application entity on    |
-  |                                       which to operate when                  |
+  |                                       which to operate when the              |
   |                                       definition_version is 2 or higher.     |
   |    --project            -p      TEXT  Path where the Snowflake project       |
   |                                       resides. Defaults to the current       |
   |                                       working directory.                     |
-  |    --env                        TEXT  String in format of key=value.         |
-  |                                       Overrides variables from env section   |
-  |                                       used for templates.                    |
+  |    --env                        TEXT  String in the format key=value.        |
+  |                                       Overrides variables from the env       |
+  |                                       section used for templates.            |
   |    --help               -h            Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -846,10 +846,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -889,17 +889,17 @@
   |                                       channel.                               |
   |                                       [required]                             |
   |    --package-entity-id          TEXT  The ID of the package entity on which  |
-  |                                       to operate when definition_version is  |
-  |                                       2 or higher.                           |
+  |                                       to operate when the definition_version |
+  |                                       is 2 or higher.                        |
   |    --app-entity-id              TEXT  The ID of the application entity on    |
-  |                                       which to operate when                  |
+  |                                       which to operate when the              |
   |                                       definition_version is 2 or higher.     |
   |    --project            -p      TEXT  Path where the Snowflake project       |
   |                                       resides. Defaults to the current       |
   |                                       working directory.                     |
-  |    --env                        TEXT  String in format of key=value.         |
-  |                                       Overrides variables from env section   |
-  |                                       used for templates.                    |
+  |    --env                        TEXT  String in the format key=value.        |
+  |                                       Overrides variables from the env       |
+  |                                       section used for templates.            |
   |    --help               -h            Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -950,10 +950,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -990,16 +990,16 @@
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --package-entity-id          TEXT  The ID of the package entity on which to  |
-  |                                    operate when definition_version is 2 or   |
-  |                                    higher.                                   |
-  | --app-entity-id              TEXT  The ID of the application entity on which |
-  |                                    to operate when definition_version is 2   |
+  |                                    operate when the definition_version is 2  |
   |                                    or higher.                                |
+  | --app-entity-id              TEXT  The ID of the application entity on which |
+  |                                    to operate when the definition_version is |
+  |                                    2 or higher.                              |
   | --project            -p      TEXT  Path where the Snowflake project resides. |
   |                                    Defaults to the current working           |
   |                                    directory.                                |
-  | --env                        TEXT  String in format of key=value. Overrides  |
-  |                                    variables from env section used for       |
+  | --env                        TEXT  String in the format key=value. Overrides |
+  |                                    variables from the env section used for   |
   |                                    templates.                                |
   | --help               -h            Show this message and exit.               |
   +------------------------------------------------------------------------------+
@@ -1051,10 +1051,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -1091,21 +1091,21 @@
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | *  --target-accounts            TEXT  The accounts to remove from the        |
-  |                                       release channel. Format has to be      |
+  |                                       release channel. Format must be        |
   |                                       org1.account1,org2.account2.           |
   |                                       [required]                             |
   |    --package-entity-id          TEXT  The ID of the package entity on which  |
-  |                                       to operate when definition_version is  |
-  |                                       2 or higher.                           |
+  |                                       to operate when the definition_version |
+  |                                       is 2 or higher.                        |
   |    --app-entity-id              TEXT  The ID of the application entity on    |
-  |                                       which to operate when                  |
+  |                                       which to operate when the              |
   |                                       definition_version is 2 or higher.     |
   |    --project            -p      TEXT  Path where the Snowflake project       |
   |                                       resides. Defaults to the current       |
   |                                       working directory.                     |
-  |    --env                        TEXT  String in format of key=value.         |
-  |                                       Overrides variables from env section   |
-  |                                       used for templates.                    |
+  |    --env                        TEXT  String in the format key=value.        |
+  |                                       Overrides variables from the env       |
+  |                                       section used for templates.            |
   |    --help               -h            Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -1156,10 +1156,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -1199,17 +1199,17 @@
   |                                       channel.                               |
   |                                       [required]                             |
   |    --package-entity-id          TEXT  The ID of the package entity on which  |
-  |                                       to operate when definition_version is  |
-  |                                       2 or higher.                           |
+  |                                       to operate when the definition_version |
+  |                                       is 2 or higher.                        |
   |    --app-entity-id              TEXT  The ID of the application entity on    |
-  |                                       which to operate when                  |
+  |                                       which to operate when the              |
   |                                       definition_version is 2 or higher.     |
   |    --project            -p      TEXT  Path where the Snowflake project       |
   |                                       resides. Defaults to the current       |
   |                                       working directory.                     |
-  |    --env                        TEXT  String in format of key=value.         |
-  |                                       Overrides variables from env section   |
-  |                                       used for templates.                    |
+  |    --env                        TEXT  String in the format key=value.        |
+  |                                       Overrides variables from the env       |
+  |                                       section used for templates.            |
   |    --help               -h            Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -1260,10 +1260,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -1300,14 +1300,14 @@
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | *  --target-accounts            TEXT  The accounts to set for the release    |
-  |                                       channel. Format has to be              |
+  |                                       channel. Format must be                |
   |                                       org1.account1,org2.account2.           |
   |                                       [required]                             |
   |    --package-entity-id          TEXT  The ID of the package entity on which  |
-  |                                       to operate when definition_version is  |
-  |                                       2 or higher.                           |
+  |                                       to operate when the definition_version |
+  |                                       is 2 or higher.                        |
   |    --app-entity-id              TEXT  The ID of the application entity on    |
-  |                                       which to operate when                  |
+  |                                       which to operate when the              |
   |                                       definition_version is 2 or higher.     |
   |    --help               -h            Show this message and exit.            |
   +------------------------------------------------------------------------------+
@@ -1359,10 +1359,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -1424,21 +1424,21 @@
   |    --channel                    TEXT  Name of the release channel to use     |
   |                                       [default: DEFAULT]                     |
   | *  --target-accounts            TEXT  List of the accounts to add to the     |
-  |                                       release directive. Format has to be    |
+  |                                       release directive. Format must be      |
   |                                       org1.account1,org2.account2            |
   |                                       [required]                             |
   |    --package-entity-id          TEXT  The ID of the package entity on which  |
-  |                                       to operate when definition_version is  |
-  |                                       2 or higher.                           |
+  |                                       to operate when the definition_version |
+  |                                       is 2 or higher.                        |
   |    --app-entity-id              TEXT  The ID of the application entity on    |
-  |                                       which to operate when                  |
+  |                                       which to operate when the              |
   |                                       definition_version is 2 or higher.     |
   |    --project            -p      TEXT  Path where the Snowflake project       |
   |                                       resides. Defaults to the current       |
   |                                       working directory.                     |
-  |    --env                        TEXT  String in format of key=value.         |
-  |                                       Overrides variables from env section   |
-  |                                       used for templates.                    |
+  |    --env                        TEXT  String in the format key=value.        |
+  |                                       Overrides variables from the env       |
+  |                                       section used for templates.            |
   |    --help               -h            Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -1489,10 +1489,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -1539,16 +1539,16 @@
   |                                    release directives from all release       |
   |                                    channels are listed.                      |
   | --package-entity-id          TEXT  The ID of the package entity on which to  |
-  |                                    operate when definition_version is 2 or   |
-  |                                    higher.                                   |
-  | --app-entity-id              TEXT  The ID of the application entity on which |
-  |                                    to operate when definition_version is 2   |
+  |                                    operate when the definition_version is 2  |
   |                                    or higher.                                |
+  | --app-entity-id              TEXT  The ID of the application entity on which |
+  |                                    to operate when the definition_version is |
+  |                                    2 or higher.                              |
   | --project            -p      TEXT  Path where the Snowflake project resides. |
   |                                    Defaults to the current working           |
   |                                    directory.                                |
-  | --env                        TEXT  String in format of key=value. Overrides  |
-  |                                    variables from env section used for       |
+  | --env                        TEXT  String in the format key=value. Overrides |
+  |                                    variables from the env section used for   |
   |                                    templates.                                |
   | --help               -h            Show this message and exit.               |
   +------------------------------------------------------------------------------+
@@ -1600,10 +1600,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -1642,21 +1642,21 @@
   |    --channel                    TEXT  Name of the release channel to use     |
   |                                       [default: DEFAULT]                     |
   | *  --target-accounts            TEXT  List of the accounts to remove from    |
-  |                                       the release directive. Format has to   |
-  |                                       be org1.account1,org2.account2         |
+  |                                       the release directive. Format must be  |
+  |                                       org1.account1,org2.account2            |
   |                                       [required]                             |
   |    --package-entity-id          TEXT  The ID of the package entity on which  |
-  |                                       to operate when definition_version is  |
-  |                                       2 or higher.                           |
+  |                                       to operate when the definition_version |
+  |                                       is 2 or higher.                        |
   |    --app-entity-id              TEXT  The ID of the application entity on    |
-  |                                       which to operate when                  |
+  |                                       which to operate when the              |
   |                                       definition_version is 2 or higher.     |
   |    --project            -p      TEXT  Path where the Snowflake project       |
   |                                       resides. Defaults to the current       |
   |                                       working directory.                     |
-  |    --env                        TEXT  String in format of key=value.         |
-  |                                       Overrides variables from env section   |
-  |                                       used for templates.                    |
+  |    --env                        TEXT  String in the format key=value.        |
+  |                                       Overrides variables from the env       |
+  |                                       section used for templates.            |
   |    --help               -h            Show this message and exit.            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -1707,10 +1707,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -1752,7 +1752,7 @@
   |    --channel                    TEXT     Name of the release channel to use  |
   |                                          [default: DEFAULT]                  |
   |    --target-accounts            TEXT     List of the accounts to apply the   |
-  |                                          release directive to. Format has to |
+  |                                          release directive to. Format must   |
   |                                          be org1.account1,org2.account2      |
   | *  --version                    TEXT     Version of the application package  |
   |                                          to use                              |
@@ -1761,16 +1761,16 @@
   |                                          selected version                    |
   |                                          [required]                          |
   |    --package-entity-id          TEXT     The ID of the package entity on     |
-  |                                          which to operate when               |
+  |                                          which to operate when the           |
   |                                          definition_version is 2 or higher.  |
   |    --app-entity-id              TEXT     The ID of the application entity on |
-  |                                          which to operate when               |
+  |                                          which to operate when the           |
   |                                          definition_version is 2 or higher.  |
   |    --project            -p      TEXT     Path where the Snowflake project    |
   |                                          resides. Defaults to the current    |
   |                                          working directory.                  |
-  |    --env                        TEXT     String in format of key=value.      |
-  |                                          Overrides variables from env        |
+  |    --env                        TEXT     String in the format key=value.     |
+  |                                          Overrides variables from the env    |
   |                                          section used for templates.         |
   |    --help               -h               Show this message and exit.         |
   +------------------------------------------------------------------------------+
@@ -1822,10 +1822,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -1864,16 +1864,16 @@
   | --channel                    TEXT  Name of the release channel to use        |
   |                                    [default: DEFAULT]                        |
   | --package-entity-id          TEXT  The ID of the package entity on which to  |
-  |                                    operate when definition_version is 2 or   |
-  |                                    higher.                                   |
-  | --app-entity-id              TEXT  The ID of the application entity on which |
-  |                                    to operate when definition_version is 2   |
+  |                                    operate when the definition_version is 2  |
   |                                    or higher.                                |
+  | --app-entity-id              TEXT  The ID of the application entity on which |
+  |                                    to operate when the definition_version is |
+  |                                    2 or higher.                              |
   | --project            -p      TEXT  Path where the Snowflake project resides. |
   |                                    Defaults to the current working           |
   |                                    directory.                                |
-  | --env                        TEXT  String in format of key=value. Overrides  |
-  |                                    variables from env section used for       |
+  | --env                        TEXT  String in the format key=value. Overrides |
+  |                                    variables from the env section used for   |
   |                                    templates.                                |
   | --help               -h            Show this message and exit.               |
   +------------------------------------------------------------------------------+
@@ -1925,10 +1925,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -2073,12 +2073,13 @@
   |                                                        [default: validate]   |
   | --package-entity-id                           TEXT     The ID of the package |
   |                                                        entity on which to    |
-  |                                                        operate when          |
+  |                                                        operate when the      |
   |                                                        definition_version is |
   |                                                        2 or higher.          |
   | --app-entity-id                               TEXT     The ID of the         |
   |                                                        application entity on |
   |                                                        which to operate when |
+  |                                                        the                   |
   |                                                        definition_version is |
   |                                                        2 or higher.          |
   | --project             -p                      TEXT     Path where the        |
@@ -2086,10 +2087,10 @@
   |                                                        resides. Defaults to  |
   |                                                        the current working   |
   |                                                        directory.            |
-  | --env                                         TEXT     String in format of   |
+  | --env                                         TEXT     String in the format  |
   |                                                        key=value. Overrides  |
-  |                                                        variables from env    |
-  |                                                        section used for      |
+  |                                                        variables from the    |
+  |                                                        env section used for  |
   |                                                        templates.            |
   | --help                -h                               Show this message and |
   |                                                        exit.                 |
@@ -2142,10 +2143,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -2203,16 +2204,16 @@
   |                                                    otherwise.                |
   | --package-entity-id                          TEXT  The ID of the package     |
   |                                                    entity on which to        |
-  |                                                    operate when              |
+  |                                                    operate when the          |
   |                                                    definition_version is 2   |
   |                                                    or higher.                |
   | --project            -p                      TEXT  Path where the Snowflake  |
   |                                                    project resides. Defaults |
   |                                                    to the current working    |
   |                                                    directory.                |
-  | --env                                        TEXT  String in format of       |
+  | --env                                        TEXT  String in the format      |
   |                                                    key=value. Overrides      |
-  |                                                    variables from env        |
+  |                                                    variables from the env    |
   |                                                    section used for          |
   |                                                    templates.                |
   | --help               -h                            Show this message and     |
@@ -2266,10 +2267,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -2302,16 +2303,16 @@
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --package-entity-id          TEXT  The ID of the package entity on which to  |
-  |                                    operate when definition_version is 2 or   |
-  |                                    higher.                                   |
-  | --app-entity-id              TEXT  The ID of the application entity on which |
-  |                                    to operate when definition_version is 2   |
+  |                                    operate when the definition_version is 2  |
   |                                    or higher.                                |
+  | --app-entity-id              TEXT  The ID of the application entity on which |
+  |                                    to operate when the definition_version is |
+  |                                    2 or higher.                              |
   | --project            -p      TEXT  Path where the Snowflake project resides. |
   |                                    Defaults to the current working           |
   |                                    directory.                                |
-  | --env                        TEXT  String in format of key=value. Overrides  |
-  |                                    variables from env section used for       |
+  | --env                        TEXT  String in the format key=value. Overrides |
+  |                                    variables from the env section used for   |
   |                                    templates.                                |
   | --help               -h            Show this message and exit.               |
   +------------------------------------------------------------------------------+
@@ -2363,10 +2364,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -2467,22 +2468,22 @@
   |                                                       Defaults to unset.     |
   | --package-entity-id                          TEXT     The ID of the package  |
   |                                                       entity on which to     |
-  |                                                       operate when           |
+  |                                                       operate when the       |
   |                                                       definition_version is  |
   |                                                       2 or higher.           |
   | --app-entity-id                              TEXT     The ID of the          |
   |                                                       application entity on  |
   |                                                       which to operate when  |
-  |                                                       definition_version is  |
-  |                                                       2 or higher.           |
+  |                                                       the definition_version |
+  |                                                       is 2 or higher.        |
   | --project            -p                      TEXT     Path where the         |
   |                                                       Snowflake project      |
   |                                                       resides. Defaults to   |
   |                                                       the current working    |
   |                                                       directory.             |
-  | --env                                        TEXT     String in format of    |
+  | --env                                        TEXT     String in the format   |
   |                                                       key=value. Overrides   |
-  |                                                       variables from env     |
+  |                                                       variables from the env |
   |                                                       section used for       |
   |                                                       templates.             |
   | --help               -h                               Show this message and  |
@@ -2536,10 +2537,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -2599,21 +2600,21 @@
   |                                                    Defaults to unset.        |
   | --package-entity-id                          TEXT  The ID of the package     |
   |                                                    entity on which to        |
-  |                                                    operate when              |
+  |                                                    operate when the          |
   |                                                    definition_version is 2   |
   |                                                    or higher.                |
   | --app-entity-id                              TEXT  The ID of the application |
   |                                                    entity on which to        |
-  |                                                    operate when              |
+  |                                                    operate when the          |
   |                                                    definition_version is 2   |
   |                                                    or higher.                |
   | --project            -p                      TEXT  Path where the Snowflake  |
   |                                                    project resides. Defaults |
   |                                                    to the current working    |
   |                                                    directory.                |
-  | --env                                        TEXT  String in format of       |
+  | --env                                        TEXT  String in the format      |
   |                                                    key=value. Overrides      |
-  |                                                    variables from env        |
+  |                                                    variables from the env    |
   |                                                    section used for          |
   |                                                    templates.                |
   | --help               -h                            Show this message and     |
@@ -2667,10 +2668,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -2703,16 +2704,16 @@
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --package-entity-id          TEXT  The ID of the package entity on which to  |
-  |                                    operate when definition_version is 2 or   |
-  |                                    higher.                                   |
-  | --app-entity-id              TEXT  The ID of the application entity on which |
-  |                                    to operate when definition_version is 2   |
+  |                                    operate when the definition_version is 2  |
   |                                    or higher.                                |
+  | --app-entity-id              TEXT  The ID of the application entity on which |
+  |                                    to operate when the definition_version is |
+  |                                    2 or higher.                              |
   | --project            -p      TEXT  Path where the Snowflake project resides. |
   |                                    Defaults to the current working           |
   |                                    directory.                                |
-  | --env                        TEXT  String in format of key=value. Overrides  |
-  |                                    variables from env section used for       |
+  | --env                        TEXT  String in the format key=value. Overrides |
+  |                                    variables from the env section used for   |
   |                                    templates.                                |
   | --help               -h            Show this message and exit.               |
   +------------------------------------------------------------------------------+
@@ -2764,10 +2765,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -2979,10 +2980,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -3117,10 +3118,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -3241,10 +3242,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -3330,10 +3331,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -3419,10 +3420,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -3530,10 +3531,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -3620,10 +3621,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -3714,10 +3715,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -3809,10 +3810,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -3903,10 +3904,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -3999,10 +4000,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -4100,10 +4101,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -4263,10 +4264,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -4306,8 +4307,8 @@
   | --replace                Replace notebook object if it already exists.       |
   | --project  -p      TEXT  Path where the Snowflake project resides. Defaults  |
   |                          to the current working directory.                   |
-  | --env              TEXT  String in format of key=value. Overrides variables  |
-  |                          from env section used for templates.                |
+  | --env              TEXT  String in the format key=value. Overrides variables |
+  |                          from the env section used for templates.            |
   | --help     -h            Show this message and exit.                         |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -4358,10 +4359,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -4448,10 +4449,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -4538,10 +4539,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -4628,10 +4629,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -4760,10 +4761,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -4856,10 +4857,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -4952,10 +4953,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -5059,10 +5060,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -5134,9 +5135,9 @@
   | --project                 -p      TEXT  Path where the Snowflake project     |
   |                                         resides. Defaults to the current     |
   |                                         working directory.                   |
-  | --env                             TEXT  String in format of key=value.       |
-  |                                         Overrides variables from env section |
-  |                                         used for templates.                  |
+  | --env                             TEXT  String in the format key=value.      |
+  |                                         Overrides variables from the env     |
+  |                                         section used for templates.          |
   | --help                    -h            Show this message and exit.          |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -5187,10 +5188,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -5232,8 +5233,8 @@
   |                                change                                        |
   | --project        -p      TEXT  Path where the Snowflake project resides.     |
   |                                Defaults to the current working directory.    |
-  | --env                    TEXT  String in format of key=value. Overrides      |
-  |                                variables from env section used for           |
+  | --env                    TEXT  String in the format key=value. Overrides     |
+  |                                variables from the env section used for       |
   |                                templates.                                    |
   | --help           -h            Show this message and exit.                   |
   +------------------------------------------------------------------------------+
@@ -5285,10 +5286,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -5380,10 +5381,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -5475,10 +5476,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -5572,10 +5573,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -5672,10 +5673,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -5776,10 +5777,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -5865,10 +5866,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -5957,10 +5958,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -6148,10 +6149,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -6238,10 +6239,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -6328,10 +6329,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -6417,10 +6418,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -6507,10 +6508,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -6622,10 +6623,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -6713,10 +6714,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -6803,10 +6804,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -6894,10 +6895,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -6993,10 +6994,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -7110,10 +7111,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -7197,10 +7198,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -7291,10 +7292,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -7404,10 +7405,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -7494,10 +7495,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -7584,10 +7585,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -7680,10 +7681,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -7776,10 +7777,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -7866,10 +7867,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -8043,10 +8044,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -8133,10 +8134,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -8222,10 +8223,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -8311,10 +8312,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -8416,10 +8417,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -8521,10 +8522,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -8610,10 +8611,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -8699,10 +8700,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -8788,10 +8789,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -8877,10 +8878,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -8972,10 +8973,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -9073,10 +9074,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -9172,10 +9173,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -9261,10 +9262,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -9391,10 +9392,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -9484,10 +9485,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -9573,10 +9574,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -9675,10 +9676,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -9766,10 +9767,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -9889,8 +9890,8 @@
   |                                  Snowflake                                   |
   | --project          -p      TEXT  Path where the Snowflake project resides.   |
   |                                  Defaults to the current working directory.  |
-  | --env                      TEXT  String in format of key=value. Overrides    |
-  |                                  variables from env section used for         |
+  | --env                      TEXT  String in the format key=value. Overrides   |
+  |                                  variables from the env section used for     |
   |                                  templates.                                  |
   | --help             -h            Show this message and exit.                 |
   +------------------------------------------------------------------------------+
@@ -9942,10 +9943,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -10059,10 +10060,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -10148,10 +10149,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -10237,10 +10238,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -10328,10 +10329,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -10417,10 +10418,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -10525,10 +10526,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -10618,10 +10619,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -10713,10 +10714,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -10804,10 +10805,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -10880,8 +10881,8 @@
   | --open                   Whether to open the Streamlit app in a browser.     |
   | --project  -p      TEXT  Path where the Snowflake project resides. Defaults  |
   |                          to the current working directory.                   |
-  | --env              TEXT  String in format of key=value. Overrides variables  |
-  |                          from env section used for templates.                |
+  | --env              TEXT  String in the format key=value. Overrides variables |
+  |                          from the env section used for templates.            |
   | --help     -h            Show this message and exit.                         |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -10932,10 +10933,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -11022,10 +11023,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -11112,10 +11113,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -11202,10 +11203,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -11293,10 +11294,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -11388,10 +11389,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -11480,10 +11481,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
