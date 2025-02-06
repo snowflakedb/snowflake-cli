@@ -27,7 +27,7 @@ from snowflake.cli._plugins.snowpark.snowpark_entity_model import (
     SnowparkEntityModel,
 )
 from snowflake.cli._plugins.snowpark.snowpark_project_paths import (
-    Artefact,
+    Artifact,
     SnowparkProjectPaths,
 )
 from snowflake.cli._plugins.snowpark.zipper import zip_dir_using_bundle_map
@@ -48,7 +48,7 @@ from snowflake.connector.cursor import SnowflakeCursor
 log = logging.getLogger(__name__)
 
 SnowparkEntities = Dict[str, SnowparkEntityModel]
-StageToArtefactMapping = Dict[str, set[Artefact]]
+StageToArtifactMapping = Dict[str, set[Artifact]]
 EntityToImportPathsMapping = Dict[str, set[str]]
 
 DEFAULT_RUNTIME = "3.10"
@@ -224,22 +224,22 @@ def _snowflake_dependencies_differ(
 
 def map_path_mapping_to_artifact(
     project_paths: SnowparkProjectPaths, artifacts: List[PathMapping]
-) -> List[Artefact]:
-    return [project_paths.get_artefact_dto(artifact) for artifact in artifacts]
+) -> List[Artifact]:
+    return [project_paths.get_artifact_dto(artifact) for artifact in artifacts]
 
 
 def zip_and_copy_artifacts_to_deploy(
-    artifacts: Set[Artefact] | List[Artefact], bundle_root: Path
+    artifacts: Set[Artifact] | List[Artifact], bundle_root: Path
 ) -> List[Path]:
     copied_files = []
-    for artefact in artifacts:
+    for artifact in artifacts:
         bundle_map = BundleMap(
-            project_root=artefact.project_root,
+            project_root=artifact.project_root,
             deploy_root=bundle_root,
         )
-        bundle_map.add(PathMapping(src=str(artefact.path), dest=artefact.dest))
+        bundle_map.add(PathMapping(src=str(artifact.path), dest=artifact.dest))
 
-        if artefact.path.is_file():
+        if artifact.path.is_file():
             for (absolute_src, absolute_dest) in bundle_map.all_mappings(
                 absolute=True, expand_directories=False
             ):
@@ -250,7 +250,7 @@ def zip_and_copy_artifacts_to_deploy(
                 )
                 copied_files.append(absolute_dest)
         else:
-            post_build_path = artefact.post_build_path
+            post_build_path = artifact.post_build_path
             zip_dir_using_bundle_map(
                 bundle_map=bundle_map,
                 dest_zip=post_build_path,

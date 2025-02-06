@@ -139,9 +139,9 @@ class SnowparkEntity(EntityBase[Generic[T]]):
             )
         else:
             copied_files = []
-            for artefact in artifacts:
-                artefact.build()
-                copied_files.append(artefact.post_build_path)
+            for artifact in artifacts:
+                artifact.build()
+                copied_files.append(artifact.post_build_path)
             return copied_files
 
     def check_if_exists(
