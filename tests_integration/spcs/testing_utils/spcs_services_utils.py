@@ -18,9 +18,7 @@ import os
 import time
 import re
 from datetime import datetime
-from pathlib import Path
 from textwrap import dedent
-from typing import List
 
 import pytest
 from snowflake.connector import SnowflakeConnection
@@ -71,21 +69,6 @@ class SnowparkServicesTestSteps:
                 "--spec-path",
                 self._get_spec_path("spec.yml"),
                 *self._database_schema_args(),
-            ],
-        )
-        assert_that_result_is_successful_and_output_json_equals(
-            result, {"status": f"Service {service_name.upper()} successfully created."}
-        )
-
-    def deploy_service(
-        self, service_name: str, additional_flags: List[str] = []
-    ) -> None:
-        result = self._setup.runner.invoke_with_connection_json(
-            [
-                "spcs",
-                "service",
-                "deploy",
-                *additional_flags,
             ],
         )
         assert_that_result_is_successful_and_output_json_equals(
@@ -390,11 +373,8 @@ class SnowparkServicesTestSteps:
             ],
         )
 
-    def _get_spec_path(self, spec_file_name) -> Path:
+    def _get_spec_path(self, spec_file_name) -> str:
         return self._setup.test_root_path / "spcs" / "spec" / spec_file_name
-
-    def get_absolute_spec_path(self, spec_file_name) -> Path:
-        return self._get_spec_path(spec_file_name).absolute()
 
     def _get_fqn(self, service_name) -> str:
         return f"{self.database}.{self.schema}.{service_name}"

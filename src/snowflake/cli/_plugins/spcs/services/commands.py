@@ -29,15 +29,9 @@ from snowflake.cli._plugins.spcs.common import (
     validate_and_set_instances,
 )
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
-from snowflake.cli._plugins.spcs.services.service_project_paths import (
-    ServiceProjectPaths,
-)
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     OverrideableOption,
-    ReplaceOption,
-    entity_argument,
     identifier_argument,
     like_option,
 )
@@ -45,7 +39,6 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
     IncompatibleParametersError,
-    NoProjectDefinitionError,
 )
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
@@ -57,7 +50,6 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
     StreamResult,
 )
-from snowflake.cli.api.project.definition_helper import get_entity
 from snowflake.cli.api.project.util import is_valid_object_name
 
 app = SnowTyperFactory(
@@ -203,38 +195,6 @@ def create(
         tags=tags,
         comment=comment,
         if_not_exists=if_not_exists,
-    )
-    return SingleQueryResult(cursor)
-
-
-@app.command(requires_connection=True)
-def deploy(
-    replace: bool = ReplaceOption(help="Replace the service if it already exists."),
-    entity_id: str = entity_argument("service"),
-    **options,
-) -> CommandResult:
-    """
-    Deploys a service defined in the project definition file.
-    """
-    cli_context = get_cli_context()
-    pd = cli_context.project_definition
-
-    if pd is None:
-        raise NoProjectDefinitionError(
-            project_type="service", project_root=cli_context.project_root
-        )
-
-    service = get_entity(
-        pd=pd,
-        project_root=cli_context.project_root,
-        entity_type=ObjectType.SERVICE,
-        entity_id=entity_id,
-    )
-    service_project_paths = ServiceProjectPaths(cli_context.project_root)
-    cursor = ServiceManager().deploy(
-        service=service,
-        service_project_paths=service_project_paths,
-        replace=replace,
     )
     return SingleQueryResult(cursor)
 
