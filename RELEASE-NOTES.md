@@ -35,7 +35,6 @@
 * Added command `snow spcs compute-pool deploy`.
 * Added `snow app release-channel set-accounts` command to set accounts for release channel.
 * Added support for Mac Os x86_64 architecture.
-* Added image repository model in snowflake.yml.
 * Added `snow spcs service deploy` command.
 * Added `--force-replace` flag in `snow snowpark deploy` command to replace entities even if no changes are detected.
 * Changes to notebook commands:

@@ -26,7 +26,6 @@ from snowflake.cli._plugins.object.command_aliases import (
 )
 from snowflake.cli._plugins.spcs.image_registry.manager import RegistryManager
 from snowflake.cli._plugins.spcs.image_repository.manager import ImageRepositoryManager
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     ReplaceOption,
@@ -43,7 +42,6 @@ from snowflake.cli.api.output.types import (
     QueryResult,
     SingleQueryResult,
 )
-from snowflake.cli.api.project.definition_helper import get_entity
 from snowflake.cli.api.project.util import is_valid_object_name
 
 app = SnowTyperFactory(
@@ -54,8 +52,6 @@ app = SnowTyperFactory(
 
 
 def _repo_name_callback(name: FQN):
-    if name is None:
-        return name
     if not is_valid_object_name(name.identifier, max_depth=2, allow_quoted=False):
         raise ClickException(
             f"'{name}' is not a valid image repository name. Note that image repository names must be unquoted identifiers. The same constraint also applies to database and schema names where you create an image repository."
@@ -83,12 +79,7 @@ add_object_command_aliases(
 
 @app.command(requires_connection=True)
 def create(
-    name: FQN = identifier_argument(
-        sf_object="image repository",
-        example="my_repository",
-        callback=_repo_name_callback,
-        is_optional=True,
-    ),
+    name: FQN = REPO_NAME_ARGUMENT,
     replace: bool = ReplaceOption(),
     if_not_exists: bool = IfNotExistsOption(),
     **options,
@@ -96,26 +87,11 @@ def create(
     """
     Creates a new image repository in the current schema.
     """
-    cli_context = get_cli_context()
-    pd = cli_context.project_definition
-    image_repository_manager = ImageRepositoryManager()
-
-    if pd:
-        image_repository = get_entity(
-            pd,
-            cli_context.project_root,
-            ObjectType.IMAGE_REPOSITORY,
-            None if name is None else name.name,
+    return SingleQueryResult(
+        ImageRepositoryManager().create(
+            name=name.identifier, replace=replace, if_not_exists=if_not_exists
         )
-        create_result = image_repository_manager.create_from_entity(
-            image_repository, replace=replace
-        )
-    else:
-        create_result = image_repository_manager.create(
-            name=name.identifier, if_not_exists=if_not_exists, replace=replace
-        )
-
-    return SingleQueryResult(create_result)
+    )
 
 
 @app.command("list-images", requires_connection=True)
