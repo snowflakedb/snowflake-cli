@@ -54,8 +54,9 @@
   | --app-entity-id              TEXT  The ID of the application entity on which |
   |                                    to operate when definition_version is 2   |
   |                                    or higher.                                |
-  | --project            -p      TEXT  Path where Snowflake project resides.     |
-  |                                    Defaults to current working directory.    |
+  | --project            -p      TEXT  Path where the Snowflake project resides. |
+  |                                    Defaults to the current working           |
+  |                                    directory.                                |
   | --env                        TEXT  String in format of key=value. Overrides  |
   |                                    variables from env section used for       |
   |                                    templates.                                |
@@ -149,9 +150,9 @@
   |                                                    operate when              |
   |                                                    definition_version is 2   |
   |                                                    or higher.                |
-  | --project            -p                      TEXT  Path where Snowflake      |
+  | --project            -p                      TEXT  Path where the Snowflake  |
   |                                                    project resides. Defaults |
-  |                                                    to current working        |
+  |                                                    to the current working    |
   |                                                    directory.                |
   | --env                                        TEXT  String in format of       |
   |                                                    key=value. Overrides      |
@@ -250,8 +251,9 @@
   | --app-entity-id              TEXT  The ID of the application entity on which |
   |                                    to operate when definition_version is 2   |
   |                                    or higher.                                |
-  | --project            -p      TEXT  Path where Snowflake project resides.     |
-  |                                    Defaults to current working directory.    |
+  | --project            -p      TEXT  Path where the Snowflake project resides. |
+  |                                    Defaults to the current working           |
+  |                                    directory.                                |
   | --env                        TEXT  String in format of key=value. Overrides  |
   |                                    variables from env section used for       |
   |                                    templates.                                |
@@ -396,9 +398,9 @@
   |                                                     which to operate when    |
   |                                                     definition_version is 2  |
   |                                                     or higher.               |
-  | --project            -p      TEXT                   Path where Snowflake     |
+  | --project            -p      TEXT                   Path where the Snowflake |
   |                                                     project resides.         |
-  |                                                     Defaults to current      |
+  |                                                     Defaults to the current  |
   |                                                     working directory.       |
   | --env                        TEXT                   String in format of      |
   |                                                     key=value. Overrides     |
@@ -498,8 +500,9 @@
   | --app-entity-id              TEXT  The ID of the application entity on which |
   |                                    to operate when definition_version is 2   |
   |                                    or higher.                                |
-  | --project            -p      TEXT  Path where Snowflake project resides.     |
-  |                                    Defaults to current working directory.    |
+  | --project            -p      TEXT  Path where the Snowflake project resides. |
+  |                                    Defaults to the current working           |
+  |                                    directory.                                |
   | --env                        TEXT  String in format of key=value. Overrides  |
   |                                    variables from env section used for       |
   |                                    templates.                                |
@@ -677,10 +680,11 @@
   |                                                       which to operate when  |
   |                                                       definition_version is  |
   |                                                       2 or higher.           |
-  | --project            -p                      TEXT     Path where Snowflake   |
-  |                                                       project resides.       |
-  |                                                       Defaults to current    |
-  |                                                       working directory.     |
+  | --project            -p                      TEXT     Path where the         |
+  |                                                       Snowflake project      |
+  |                                                       resides. Defaults to   |
+  |                                                       the current working    |
+  |                                                       directory.             |
   | --env                                        TEXT     String in format of    |
   |                                                       key=value. Overrides   |
   |                                                       variables from env     |
@@ -786,8 +790,9 @@
   |    --app-entity-id              TEXT  The ID of the application entity on    |
   |                                       which to operate when                  |
   |                                       definition_version is 2 or higher.     |
-  |    --project            -p      TEXT  Path where Snowflake project resides.  |
-  |                                       Defaults to current working directory. |
+  |    --project            -p      TEXT  Path where the Snowflake project       |
+  |                                       resides. Defaults to the current       |
+  |                                       working directory.                     |
   |    --env                        TEXT  String in format of key=value.         |
   |                                       Overrides variables from env section   |
   |                                       used for templates.                    |
@@ -889,8 +894,9 @@
   |    --app-entity-id              TEXT  The ID of the application entity on    |
   |                                       which to operate when                  |
   |                                       definition_version is 2 or higher.     |
-  |    --project            -p      TEXT  Path where Snowflake project resides.  |
-  |                                       Defaults to current working directory. |
+  |    --project            -p      TEXT  Path where the Snowflake project       |
+  |                                       resides. Defaults to the current       |
+  |                                       working directory.                     |
   |    --env                        TEXT  String in format of key=value.         |
   |                                       Overrides variables from env section   |
   |                                       used for templates.                    |
@@ -989,8 +995,9 @@
   | --app-entity-id              TEXT  The ID of the application entity on which |
   |                                    to operate when definition_version is 2   |
   |                                    or higher.                                |
-  | --project            -p      TEXT  Path where Snowflake project resides.     |
-  |                                    Defaults to current working directory.    |
+  | --project            -p      TEXT  Path where the Snowflake project resides. |
+  |                                    Defaults to the current working           |
+  |                                    directory.                                |
   | --env                        TEXT  String in format of key=value. Overrides  |
   |                                    variables from env section used for       |
   |                                    templates.                                |
@@ -1093,8 +1100,9 @@
   |    --app-entity-id              TEXT  The ID of the application entity on    |
   |                                       which to operate when                  |
   |                                       definition_version is 2 or higher.     |
-  |    --project            -p      TEXT  Path where Snowflake project resides.  |
-  |                                       Defaults to current working directory. |
+  |    --project            -p      TEXT  Path where the Snowflake project       |
+  |                                       resides. Defaults to the current       |
+  |                                       working directory.                     |
   |    --env                        TEXT  String in format of key=value.         |
   |                                       Overrides variables from env section   |
   |                                       used for templates.                    |
@@ -1196,8 +1204,9 @@
   |    --app-entity-id              TEXT  The ID of the application entity on    |
   |                                       which to operate when                  |
   |                                       definition_version is 2 or higher.     |
-  |    --project            -p      TEXT  Path where Snowflake project resides.  |
-  |                                       Defaults to current working directory. |
+  |    --project            -p      TEXT  Path where the Snowflake project       |
+  |                                       resides. Defaults to the current       |
+  |                                       working directory.                     |
   |    --env                        TEXT  String in format of key=value.         |
   |                                       Overrides variables from env section   |
   |                                       used for templates.                    |
@@ -1424,8 +1433,9 @@
   |    --app-entity-id              TEXT  The ID of the application entity on    |
   |                                       which to operate when                  |
   |                                       definition_version is 2 or higher.     |
-  |    --project            -p      TEXT  Path where Snowflake project resides.  |
-  |                                       Defaults to current working directory. |
+  |    --project            -p      TEXT  Path where the Snowflake project       |
+  |                                       resides. Defaults to the current       |
+  |                                       working directory.                     |
   |    --env                        TEXT  String in format of key=value.         |
   |                                       Overrides variables from env section   |
   |                                       used for templates.                    |
@@ -1534,8 +1544,9 @@
   | --app-entity-id              TEXT  The ID of the application entity on which |
   |                                    to operate when definition_version is 2   |
   |                                    or higher.                                |
-  | --project            -p      TEXT  Path where Snowflake project resides.     |
-  |                                    Defaults to current working directory.    |
+  | --project            -p      TEXT  Path where the Snowflake project resides. |
+  |                                    Defaults to the current working           |
+  |                                    directory.                                |
   | --env                        TEXT  String in format of key=value. Overrides  |
   |                                    variables from env section used for       |
   |                                    templates.                                |
@@ -1640,8 +1651,9 @@
   |    --app-entity-id              TEXT  The ID of the application entity on    |
   |                                       which to operate when                  |
   |                                       definition_version is 2 or higher.     |
-  |    --project            -p      TEXT  Path where Snowflake project resides.  |
-  |                                       Defaults to current working directory. |
+  |    --project            -p      TEXT  Path where the Snowflake project       |
+  |                                       resides. Defaults to the current       |
+  |                                       working directory.                     |
   |    --env                        TEXT  String in format of key=value.         |
   |                                       Overrides variables from env section   |
   |                                       used for templates.                    |
@@ -1754,8 +1766,8 @@
   |    --app-entity-id              TEXT     The ID of the application entity on |
   |                                          which to operate when               |
   |                                          definition_version is 2 or higher.  |
-  |    --project            -p      TEXT     Path where Snowflake project        |
-  |                                          resides. Defaults to current        |
+  |    --project            -p      TEXT     Path where the Snowflake project    |
+  |                                          resides. Defaults to the current    |
   |                                          working directory.                  |
   |    --env                        TEXT     String in format of key=value.      |
   |                                          Overrides variables from env        |
@@ -1857,8 +1869,9 @@
   | --app-entity-id              TEXT  The ID of the application entity on which |
   |                                    to operate when definition_version is 2   |
   |                                    or higher.                                |
-  | --project            -p      TEXT  Path where Snowflake project resides.     |
-  |                                    Defaults to current working directory.    |
+  | --project            -p      TEXT  Path where the Snowflake project resides. |
+  |                                    Defaults to the current working           |
+  |                                    directory.                                |
   | --env                        TEXT  String in format of key=value. Overrides  |
   |                                    variables from env section used for       |
   |                                    templates.                                |
@@ -2068,10 +2081,11 @@
   |                                                        which to operate when |
   |                                                        definition_version is |
   |                                                        2 or higher.          |
-  | --project             -p                      TEXT     Path where Snowflake  |
-  |                                                        project resides.      |
-  |                                                        Defaults to current   |
-  |                                                        working directory.    |
+  | --project             -p                      TEXT     Path where the        |
+  |                                                        Snowflake project     |
+  |                                                        resides. Defaults to  |
+  |                                                        the current working   |
+  |                                                        directory.            |
   | --env                                         TEXT     String in format of   |
   |                                                        key=value. Overrides  |
   |                                                        variables from env    |
@@ -2192,9 +2206,9 @@
   |                                                    operate when              |
   |                                                    definition_version is 2   |
   |                                                    or higher.                |
-  | --project            -p                      TEXT  Path where Snowflake      |
+  | --project            -p                      TEXT  Path where the Snowflake  |
   |                                                    project resides. Defaults |
-  |                                                    to current working        |
+  |                                                    to the current working    |
   |                                                    directory.                |
   | --env                                        TEXT  String in format of       |
   |                                                    key=value. Overrides      |
@@ -2293,8 +2307,9 @@
   | --app-entity-id              TEXT  The ID of the application entity on which |
   |                                    to operate when definition_version is 2   |
   |                                    or higher.                                |
-  | --project            -p      TEXT  Path where Snowflake project resides.     |
-  |                                    Defaults to current working directory.    |
+  | --project            -p      TEXT  Path where the Snowflake project resides. |
+  |                                    Defaults to the current working           |
+  |                                    directory.                                |
   | --env                        TEXT  String in format of key=value. Overrides  |
   |                                    variables from env section used for       |
   |                                    templates.                                |
@@ -2460,10 +2475,11 @@
   |                                                       which to operate when  |
   |                                                       definition_version is  |
   |                                                       2 or higher.           |
-  | --project            -p                      TEXT     Path where Snowflake   |
-  |                                                       project resides.       |
-  |                                                       Defaults to current    |
-  |                                                       working directory.     |
+  | --project            -p                      TEXT     Path where the         |
+  |                                                       Snowflake project      |
+  |                                                       resides. Defaults to   |
+  |                                                       the current working    |
+  |                                                       directory.             |
   | --env                                        TEXT     String in format of    |
   |                                                       key=value. Overrides   |
   |                                                       variables from env     |
@@ -2591,9 +2607,9 @@
   |                                                    operate when              |
   |                                                    definition_version is 2   |
   |                                                    or higher.                |
-  | --project            -p                      TEXT  Path where Snowflake      |
+  | --project            -p                      TEXT  Path where the Snowflake  |
   |                                                    project resides. Defaults |
-  |                                                    to current working        |
+  |                                                    to the current working    |
   |                                                    directory.                |
   | --env                                        TEXT  String in format of       |
   |                                                    key=value. Overrides      |
@@ -2692,8 +2708,9 @@
   | --app-entity-id              TEXT  The ID of the application entity on which |
   |                                    to operate when definition_version is 2   |
   |                                    or higher.                                |
-  | --project            -p      TEXT  Path where Snowflake project resides.     |
-  |                                    Defaults to current working directory.    |
+  | --project            -p      TEXT  Path where the Snowflake project resides. |
+  |                                    Defaults to the current working           |
+  |                                    directory.                                |
   | --env                        TEXT  String in format of key=value. Overrides  |
   |                                    variables from env section used for       |
   |                                    templates.                                |
@@ -4287,8 +4304,8 @@
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --replace                Replace notebook object if it already exists.       |
-  | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
-  |                          current working directory.                          |
+  | --project  -p      TEXT  Path where the Snowflake project resides. Defaults  |
+  |                          to the current working directory.                   |
   | --env              TEXT  String in format of key=value. Overrides variables  |
   |                          from env section used for templates.                |
   | --help     -h            Show this message and exit.                         |
@@ -5114,9 +5131,9 @@
   | --skip-version-check                    Skip comparing versions of           |
   |                                         dependencies between requirements    |
   |                                         and Anaconda.                        |
-  | --project                 -p      TEXT  Path where Snowflake project         |
-  |                                         resides. Defaults to current working |
-  |                                         directory.                           |
+  | --project                 -p      TEXT  Path where the Snowflake project     |
+  |                                         resides. Defaults to the current     |
+  |                                         working directory.                   |
   | --env                             TEXT  String in format of key=value.       |
   |                                         Overrides variables from env section |
   |                                         used for templates.                  |
@@ -5213,8 +5230,8 @@
   |                                changes in the definition.                    |
   | --force-replace                Replace this object, even if the state didn't |
   |                                change                                        |
-  | --project        -p      TEXT  Path where Snowflake project resides.         |
-  |                                Defaults to current working directory.        |
+  | --project        -p      TEXT  Path where the Snowflake project resides.     |
+  |                                Defaults to the current working directory.    |
   | --env                    TEXT  String in format of key=value. Overrides      |
   |                                variables from env section used for           |
   |                                templates.                                    |
@@ -9870,8 +9887,8 @@
   |                                  and rendered using provided data.           |
   | --retain-comments                Retains comments in queries passed to       |
   |                                  Snowflake                                   |
-  | --project          -p      TEXT  Path where Snowflake project resides.       |
-  |                                  Defaults to current working directory.      |
+  | --project          -p      TEXT  Path where the Snowflake project resides.   |
+  |                                  Defaults to the current working directory.  |
   | --env                      TEXT  String in format of key=value. Overrides    |
   |                                  variables from env section used for         |
   |                                  templates.                                  |
@@ -10861,8 +10878,8 @@
   +- Options --------------------------------------------------------------------+
   | --replace                Replace the Streamlit app if it already exists.     |
   | --open                   Whether to open the Streamlit app in a browser.     |
-  | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
-  |                          current working directory.                          |
+  | --project  -p      TEXT  Path where the Snowflake project resides. Defaults  |
+  |                          to the current working directory.                   |
   | --env              TEXT  String in format of key=value. Overrides variables  |
   |                          from env section used for templates.                |
   | --help     -h            Show this message and exit.                         |

@@ -21,8 +21,8 @@
   |                                  and rendered using provided data.           |
   | --retain-comments                Retains comments in queries passed to       |
   |                                  Snowflake                                   |
-  | --project          -p      TEXT  Path where Snowflake project resides.       |
-  |                                  Defaults to current working directory.      |
+  | --project          -p      TEXT  Path where the Snowflake project resides.   |
+  |                                  Defaults to the current working directory.  |
   | --env                      TEXT  String in format of key=value. Overrides    |
   |                                  variables from env section used for         |
   |                                  templates.                                  |
