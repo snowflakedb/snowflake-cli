@@ -6022,66 +6022,166 @@
 # name: test_help_messages[spcs.compute-pool.create]
   '''
                                                                                   
-   Usage: default spcs compute-pool create [OPTIONS] [NAME]                       
+   Usage: default spcs compute-pool create [OPTIONS] NAME                         
                                                                                   
    Creates a new compute pool.                                                    
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  |   name      [NAME]  Identifier of the compute pool; for example:             |
-  |                     my_compute_pool                                          |
+  | *    name      TEXT  Identifier of the compute pool; for example:            |
+  |                      my_compute_pool                                         |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --family                                  TEXT             Name of the       |
-  |                                                            instance family.  |
-  |                                                            For more          |
-  |                                                            information about |
-  |                                                            instance          |
-  |                                                            families, refer   |
-  |                                                            to the SQL CREATE |
-  |                                                            COMPUTE POOL      |
-  |                                                            command.          |
-  | --min-nodes                               INTEGER RANGE    Minimum number of |
-  |                                           [x>=1]           nodes for the     |
-  |                                                            compute pool.     |
-  |                                                            [default: None]   |
-  | --max-nodes                               INTEGER RANGE    Maximum number of |
-  |                                           [x>=1]           nodes for the     |
-  |                                                            compute pool.     |
-  |                                                            [default: None]   |
-  | --auto-resume         --no-auto-resume                     The compute pool  |
-  |                                                            will              |
-  |                                                            automatically     |
-  |                                                            resume when a     |
-  |                                                            service or job is |
-  |                                                            submitted to it.  |
-  |                                                            [default:         |
-  |                                                            no-auto-resume]   |
-  | --init-suspend        --no-init-suspe…                     Starts the        |
-  |                                                            compute pool in a |
-  |                                                            suspended state.  |
-  |                                                            [default:         |
-  |                                                            no-init-suspend]  |
-  | --auto-suspend-…                          INTEGER RANGE    Number of seconds |
-  |                                           [x>=1]           of inactivity     |
-  |                                                            after which you   |
-  |                                                            want Snowflake to |
-  |                                                            automatically     |
-  |                                                            suspend the       |
-  |                                                            compute pool.     |
-  |                                                            [default: None]   |
-  | --comment                                 TEXT             Comment for the   |
-  |                                                            compute pool.     |
-  |                                                            [default: None]   |
-  | --replace                                                  Replace this      |
-  |                                                            object if it      |
-  |                                                            already exists.   |
-  | --if-not-exists                                            Only apply this   |
-  |                                                            operation if the  |
-  |                                                            specified object  |
-  |                                                            does not already  |
-  |                                                            exist.            |
-  | --help            -h                                       Show this message |
-  |                                                            and exit.         |
+  | *  --family                                TEXT             Name of the      |
+  |                                                             instance family. |
+  |                                                             For more         |
+  |                                                             information      |
+  |                                                             about instance   |
+  |                                                             families, refer  |
+  |                                                             to the SQL       |
+  |                                                             CREATE COMPUTE   |
+  |                                                             POOL command.    |
+  |                                                             [required]       |
+  |    --min-nodes                             INTEGER RANGE    Minimum number   |
+  |                                            [x>=1]           of nodes for the |
+  |                                                             compute pool.    |
+  |                                                             [default: 1]     |
+  |    --max-nodes                             INTEGER RANGE    Maximum number   |
+  |                                            [x>=1]           of nodes for the |
+  |                                                             compute pool.    |
+  |                                                             [default: None]  |
+  |    --auto-resume        --no-auto-resu…                     The compute pool |
+  |                                                             will             |
+  |                                                             automatically    |
+  |                                                             resume when a    |
+  |                                                             service or job   |
+  |                                                             is submitted to  |
+  |                                                             it.              |
+  |                                                             [default:        |
+  |                                                             auto-resume]     |
+  |    --init-suspend       --no-init-susp…                     Starts the       |
+  |                                                             compute pool in  |
+  |                                                             a suspended      |
+  |                                                             state.           |
+  |                                                             [default:        |
+  |                                                             no-init-suspend] |
+  |    --auto-suspend…                         INTEGER RANGE    Number of        |
+  |                                            [x>=1]           seconds of       |
+  |                                                             inactivity after |
+  |                                                             which you want   |
+  |                                                             Snowflake to     |
+  |                                                             automatically    |
+  |                                                             suspend the      |
+  |                                                             compute pool.    |
+  |                                                             [default: 3600]  |
+  |    --comment                               TEXT             Comment for the  |
+  |                                                             compute pool.    |
+  |                                                             [default: None]  |
+  |    --replace                                                Replace this     |
+  |                                                             object if it     |
+  |                                                             already exists.  |
+  |    --if-not-exists                                          Only apply this  |
+  |                                                             operation if the |
+  |                                                             specified object |
+  |                                                             does not already |
+  |                                                             exist.           |
+  |    --help           -h                                      Show this        |
+  |                                                             message and      |
+  |                                                             exit.            |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses connection defined with |
+  |                                                 command line parameters,     |
+  |                                                 instead of one defined in    |
+  |                                                 config                       |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Run Python connector         |
+  |                                                 diagnostic test              |
+  | --diag-log-path                        TEXT     Diagnostic report path       |
+  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
+  |                                                 optional allowlist           |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[spcs.compute-pool.deploy]
+  '''
+                                                                                  
+   Usage: default spcs compute-pool deploy [OPTIONS] [ENTITY_ID]                  
+                                                                                  
+   Deploys a compute pool from the project definition file.                       
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  |   entity_id      [ENTITY_ID]  ID of compute-pool entity.                     |
+  |                               [default: None]                                |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --replace                Replace the compute-pool if it already exists.      |
+  | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
+  |                          current working directory.                          |
+  | --env              TEXT  String in format of key=value. Overrides variables  |
+  |                          from env section used for templates.                |
+  | --help     -h            Show this message and exit.                         |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
@@ -7015,6 +7115,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | create     Creates a new compute pool.                                       |
+  | deploy     Deploys a compute pool from the project definition file.          |
   | describe   Provides description of compute pool.                             |
   | drop       Drops compute pool with given name.                               |
   | list       Lists all available compute pools.                                |
@@ -11829,6 +11930,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | create     Creates a new compute pool.                                       |
+  | deploy     Deploys a compute pool from the project definition file.          |
   | describe   Provides description of compute pool.                             |
   | drop       Drops compute pool with given name.                               |
   | list       Lists all available compute pools.                                |
