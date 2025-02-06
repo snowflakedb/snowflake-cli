@@ -41,7 +41,7 @@ def test_compute_pool(_test_steps: Tuple[ComputePoolTestSteps, str]):
 
 
 @pytest.mark.integration
-def test_compute_pool_create_from_project_definition(
+def test_compute_pool_deploy(
     _test_steps: Tuple[ComputePoolTestSteps, str],
     project_directory,
     alter_snowflake_yml,
@@ -68,10 +68,12 @@ def test_compute_pool_create_from_project_definition(
                 }
             },
         )
-        test_steps.create_compute_pool_from_project_definition(compute_pool_name)
-        test_steps.create_compute_pool_from_project_definition(
-            compute_pool_name, additional_flags=["--replace"]
-        )
+        test_steps.deploy_compute_pool(compute_pool_name)
+        test_steps.list_should_return_compute_pool(compute_pool_name)
+        test_steps.second_deploy_should_fail()
+        test_steps.deploy_compute_pool_with_replace(compute_pool_name)
+        test_steps.drop_compute_pool(compute_pool_name)
+        test_steps.list_should_not_return_compute_pool(compute_pool_name)
 
 
 @pytest.fixture
