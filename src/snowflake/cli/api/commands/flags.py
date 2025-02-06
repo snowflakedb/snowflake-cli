@@ -538,8 +538,8 @@ def project_definition_option(is_optional: bool):
         None,
         "-p",
         "--project",
-        help=f"Path where Snowflake project resides. "
-        f"Defaults to current working directory.",
+        help=f"Path where the Snowflake project resides. "
+        f"Defaults to the current working directory.",
         callback=project_path_callback,
         show_default=False,
     )
