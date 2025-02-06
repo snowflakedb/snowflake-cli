@@ -229,7 +229,7 @@ def app_teardown(
     # Same as the param auto-added by @force_project_definition_v2 if single_app_and_package were true
     package_entity_id: Optional[str] = typer.Option(
         default="",
-        help="The ID of the package entity on which to operate when definition_version is 2 or higher.",
+        help="The ID of the package entity on which to operate when the definition_version is 2 or higher.",
     ),
     **options,
 ) -> CommandResult:
