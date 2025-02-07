@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.snowpark.snowpark_project_paths import Artefact
+from snowflake.cli._plugins.snowpark.snowpark_project_paths import Artifact
 
 bundle_root = Path("output") / "bundle" / "snowpark"
 absolute_bundle_root = Path.cwd().absolute() / "output" / "bundle" / "snowpark"
@@ -34,7 +34,7 @@ def test_artifact_import_path(mock_ctx_context, path, dest, is_file, expected_pa
     stage = "stage"
 
     with mock.patch.object(Path, "is_file" if is_file else "is_dir", return_value=True):
-        import_path = Artefact(Path(), bundle_root, Path(path), dest).import_path(stage)
+        import_path = Artifact(Path(), bundle_root, Path(path), dest).import_path(stage)
 
     assert import_path == expected_path
 
@@ -64,7 +64,7 @@ def test_artifact_upload_path(mock_ctx_context, path, dest, is_file, expected_pa
     mock_ctx_context.return_value.connection = mock_connection
 
     with mock.patch.object(Path, "is_file" if is_file else "is_dir", return_value=True):
-        upload_path = Artefact(Path(), bundle_root, Path(path), dest).upload_path(
+        upload_path = Artifact(Path(), bundle_root, Path(path), dest).upload_path(
             "stage"
         )
 
@@ -106,7 +106,7 @@ def test_artifact_upload_path(mock_ctx_context, path, dest, is_file, expected_pa
 )
 def test_artifact_post_build_path(path, dest, is_file, expected_path):
     with mock.patch.object(Path, "is_file" if is_file else "is_dir", return_value=True):
-        post_build_path = Artefact(
+        post_build_path = Artifact(
             Path(), bundle_root, Path(path), dest
         ).post_build_path
 
@@ -141,7 +141,7 @@ def test_artifact_import_path_from_other_directory(
     stage = "stage"
 
     with mock.patch.object(Path, "is_file" if is_file else "is_dir", return_value=True):
-        import_path = Artefact(
+        import_path = Artifact(
             Path("/tmp"),
             Path("/tmp") / "output" / "deploy" / "snowpark",
             Path(path),
@@ -178,7 +178,7 @@ def test_artifact_upload_path_from_other_directory(
     mock_ctx_context.return_value.connection = mock_connection
 
     with mock.patch.object(Path, "is_file" if is_file else "is_dir", return_value=True):
-        upload_path = Artefact(
+        upload_path = Artifact(
             Path("/tmp"), Path("/tmp") / "output" / "deploy", Path(path), dest
         ).upload_path("stage")
 
@@ -236,7 +236,7 @@ def test_artifact_post_build_path_from_other_directory(
     path, dest, is_file, expected_path
 ):
     with mock.patch.object(Path, "is_file" if is_file else "is_dir", return_value=True):
-        post_build_path = Artefact(
+        post_build_path = Artifact(
             Path.cwd().absolute(),
             absolute_bundle_root,
             Path(path),
