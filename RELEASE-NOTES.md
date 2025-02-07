@@ -14,7 +14,16 @@
  limitations under the License.
  -->
 # Unreleased version
+## Backward incompatibility
 
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
+# v3.4.0
 ## Backward incompatibility
 
 ## Deprecations
