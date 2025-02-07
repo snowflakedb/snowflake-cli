@@ -14,19 +14,16 @@
 
 import math
 import time
-from typing import List
 
 import pytest
 from snowflake.connector import SnowflakeConnection
 
-from snowflake.cli.api.output.types import CommandResult
 from tests_integration.conftest import SnowCLIRunner
 from tests_integration.test_utils import contains_row_with, not_contains_row_with
 from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_is_successful_and_executed_successfully,
     assert_that_result_is_successful_and_output_json_contains,
     assert_that_result_is_successful_and_output_json_equals,
-    assert_that_result_failed_with_message_containing,
 )
 
 
@@ -62,22 +59,7 @@ class ComputePoolTestSteps:
         assert (
             f"Compute pool {compute_pool_name.upper()} successfully created."
             in result.json["status"]  # type: ignore
-        )
-
-    def create_compute_pool_from_project_definition(
-        self, compute_pool_name: str, additional_flags: List[str] = []
-    ) -> None:
-        result = self._setup.runner.invoke_with_connection_json(
-            [
-                "spcs",
-                "compute-pool",
-                "create",
-                *additional_flags,
-            ]
-        )
-        assert result.json, result.output
-        assert (
-            f"Compute pool {compute_pool_name.upper()} successfully created."
+            or f"Compute pool {compute_pool_name.upper()} successfully created."
             in result.json["status"]  # type: ignore
         )
 
