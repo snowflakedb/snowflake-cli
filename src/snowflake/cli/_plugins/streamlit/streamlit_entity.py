@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from typing import Optional
 
@@ -8,6 +9,7 @@ from snowflake.core.stage import StageResource, Stage
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import build_bundle
 from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
+from snowflake.cli.api.feature_flags import FeatureFlag as GlobalFeatureFlag
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
@@ -18,6 +20,7 @@ from snowflake.cli.api.project.project_paths import bundle_root
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.connector.cursor import SnowflakeCursor
 
+log = logging.getLogger(__name__)
 
 class StreamlitEntity(EntityBase[StreamlitEntityModel]):
     """
@@ -90,17 +93,12 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         console.step(f"Creating stage {self.model.stage} if not exists")
         stage = self._create_stage_if_not_exists()
-        use_versioned_stage = FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled()
 
-        if experimental or use_versioned_stage or FeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled():
+        if experimental or GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled() or GlobalFeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled():
             if replace:
                 raise ClickException(f"Cannot specify both replace and experimental for deploying entity {self.entity_id}")
 
-            self._execute_query(self.get_deploy_sql(
-                if_not_exists=True,
-                replace=replace,
-
-            ))
+            self._deploy_experimental()
 
         console.step(f"Uploading artifacts to stage {self.model.stage}")
         self._upload_files_to_stage(stage, bundle_map)
@@ -116,6 +114,12 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         self, action_ctx: ActionContext, to_role: str, *args, **kwargs
     ) -> SnowflakeCursor:
         return self._execute_query(self.get_share_sql(to_role))
+
+    def get_add_live_version_sql(self):
+        return f"ALTER STREAMLIT {self.model.fqn.sql_identifier} ADD LIVE VERSION;"
+
+    def get_checkout_sql(self):
+        return f"ALTER STREAMLIT {self.model.fqn.sql_identifier} CHECKOUT;"
 
     def get_deploy_sql(
         self,
@@ -202,7 +206,35 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         except ProgrammingError:
             return False
 
+    def _deploy_experimental(self, bundle_map: BundleMap):
+        self._execute_query(self.get_deploy_sql(
+            if_not_exists=True,
+            replace=False,
+        ))
+        try:
+            if GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled():
+                self._execute_query(self.get_add_live_version_sql())
+            elif not GlobalFeatureFlag.ENABLE_STREAMLIT_NO_CHECKOUTS.is_enabled():
+                self._execute_query(self.get_checkout_sql())
+        except ProgrammingError as e:
+            if "Checkout already exists" in str(
+                    e
+            ) or "There is already a live version" in str(e):
+                log.info("Checkout already exists, continuing")
+            else:
+                raise
+
+        embeded_stage_name = f"snow://streamlit/{self.model.fqn.using_connection(self._conn).identifier}"
+
+        if GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled():
+            stage_root = f"{embeded_stage_name}/versions/live"
+        else:
+            stage_root = f"{embeded_stage_name}/default_checkout"
+
+        stage_resource = self._create_stage_if_not_exists(embeded_stage_name)
+
+
     @staticmethod #TODO: maybe a good candidate to transfer to parent class
-    def _upload_files_to_stage(stage: StageResource, bundle_map: BundleMap):
+    def _upload_files_to_stage(stage: StageResource, bundle_map: BundleMap,stage_root: Optional[str] = None):
         for src, dest in bundle_map.all_mappings(absolute=True, expand_directories=True):
             stage.put(local_path=src, stage_path=dest, overwrite=True)
