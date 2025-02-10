@@ -19,6 +19,14 @@
 ## Deprecations
 
 ## New additions
+* Added entities for:
+  * SPCS compute pool
+  * SPCS service
+  * SPCS image repository
+* Added `snow compute-pool deploy` command.
+* Added `snow spcs service deploy` command.
+* Added `snow image-repository deploy` command.
+* Added `--replace` flag to `snow spcs compute-pool create` command.
 
 ## Fixes and improvements
 * Fix handling of date types in `snow sql` command when using JSON for output format
@@ -42,12 +50,8 @@
 * Added support for glob pattern (except `**`) in artifact paths in snowflake.yml for Snowpark, requires ENABLE_SNOWPARK_GLOB_SUPPORT feature flag.
 * Added `--replace` flag to `snow spcs compute-pool create` command.
 * Added command `snow app release-directive add-accounts` and `snow app release-directive remove-accounts`
-* Added compute pool model in snowflake.yml.
-* Added `--replace` flag to `snow spcs compute-pool create` command.
 * Added `snow app release-channel set-accounts` command to set accounts for release channel.
 * Added support for Mac Os x86_64 architecture.
-* Added image repository model in snowflake.yml.
-* Added `snow spcs service deploy` command.
 * Added `--force-replace` flag in `snow snowpark deploy` command to replace entities even if no changes are detected.
 * Changes to notebook commands:
   * Added `snow notebook deploy` command that allows creating a notebook using local file.

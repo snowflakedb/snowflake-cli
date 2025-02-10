@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_create_from_project_definition
+# name: test_deploy_from_project_definition
   '''
   +---------------------------------------------------------------+
   | key    | value                                                |
@@ -9,7 +9,7 @@
   
   '''
 # ---
-# name: test_create_from_project_definition_multiple_compute_pools_with_entity_id
+# name: test_deploy_from_project_definition_multiple_compute_pools_with_entity_id
   '''
   +---------------------------------------------------------------+
   | key    | value                                                |
@@ -19,7 +19,7 @@
   
   '''
 # ---
-# name: test_create_from_project_definition_replace
+# name: test_deploy_from_project_definition_replace
   '''
   +---------------------------------------------------------------+
   | key    | value                                                |

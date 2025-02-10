@@ -53,7 +53,7 @@ def test_create(mock_execute_query):
     comment = "'test comment'"
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
-    result = ComputePoolManager().create_from_params(
+    result = ComputePoolManager().create(
         pool_name=pool_name,
         min_nodes=min_nodes,
         max_nodes=max_nodes,
@@ -62,8 +62,8 @@ def test_create(mock_execute_query):
         initially_suspended=initially_suspended,
         auto_suspend_secs=auto_suspend_secs,
         comment=comment,
-        replace=False,
         if_not_exists=False,
+        replace=False,
     )
     expected_query = " ".join(
         [
@@ -82,9 +82,7 @@ def test_create(mock_execute_query):
     assert result == cursor
 
 
-@patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.create_from_params"
-)
+@patch("snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.create")
 def test_create_pool_cli_defaults(mock_create, runner):
     result = runner.invoke(
         [
@@ -99,14 +97,19 @@ def test_create_pool_cli_defaults(mock_create, runner):
     assert result.exit_code == 0, result.output
     mock_create.assert_called_once_with(
         pool_name="test_pool",
+        min_nodes=1,
+        max_nodes=1,
         instance_family="test_family",
+        auto_resume=True,
+        initially_suspended=False,
+        auto_suspend_secs=3600,
+        comment=None,
+        if_not_exists=False,
         replace=False,
     )
 
 
-@patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.create_from_params"
-)
+@patch("snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.create")
 def test_create_pool_cli(mock_create, runner):
     result = runner.invoke(
         [
@@ -139,8 +142,8 @@ def test_create_pool_cli(mock_create, runner):
         initially_suspended=True,
         auto_suspend_secs=7200,
         comment=to_string_literal("this is a test"),
-        replace=False,
         if_not_exists=True,
+        replace=False,
     )
 
 
@@ -149,7 +152,7 @@ def test_create_pool_cli(mock_create, runner):
 def test_create_compute_pool_already_exists(mock_handle, mock_execute):
     pool_name = "test_pool"
     mock_execute.side_effect = SPCS_OBJECT_EXISTS_ERROR
-    ComputePoolManager().create_from_params(
+    ComputePoolManager().create(
         pool_name=pool_name,
         min_nodes=1,
         max_nodes=1,
@@ -158,8 +161,8 @@ def test_create_compute_pool_already_exists(mock_handle, mock_execute):
         initially_suspended=True,
         auto_suspend_secs=7200,
         comment=to_string_literal("this is a test"),
-        replace=False,
         if_not_exists=False,
+        replace=False,
     )
     mock_handle.assert_called_once_with(
         SPCS_OBJECT_EXISTS_ERROR,
@@ -173,7 +176,7 @@ def test_create_compute_pool_already_exists(mock_handle, mock_execute):
 def test_create_compute_pool_if_not_exists(mock_execute_query):
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
-    result = ComputePoolManager().create_from_params(
+    result = ComputePoolManager().create(
         pool_name="test_pool",
         min_nodes=1,
         max_nodes=1,
@@ -182,8 +185,8 @@ def test_create_compute_pool_if_not_exists(mock_execute_query):
         initially_suspended=False,
         auto_suspend_secs=3600,
         comment=None,
-        replace=False,
         if_not_exists=True,
+        replace=False,
     )
     expected_query = " ".join(
         [
@@ -243,7 +246,7 @@ def test_create_compute_pool_replace(
 
 
 @patch(EXECUTE_QUERY)
-def test_create_from_project_definition(
+def test_deploy_from_project_definition(
     mock_execute_query, runner, project_directory, mock_cursor, os_agnostic_snapshot
 ):
     mock_execute_query.return_value = mock_cursor(
@@ -252,7 +255,7 @@ def test_create_from_project_definition(
     )
 
     with project_directory("spcs_compute_pool"):
-        result = runner.invoke(["spcs", "compute-pool", "create"])
+        result = runner.invoke(["spcs", "compute-pool", "deploy"])
 
         assert result.exit_code == 0, result.output
         assert result.output == os_agnostic_snapshot
@@ -271,7 +274,7 @@ def test_create_from_project_definition(
 
 @patch("snowflake.cli._plugins.object.manager.ObjectManager.execute_query")
 @patch(EXECUTE_QUERY)
-def test_create_from_project_definition_replace(
+def test_deploy_from_project_definition_replace(
     mock_execute_query,
     mock_execute_query_object_manager,
     runner,
@@ -286,7 +289,7 @@ def test_create_from_project_definition_replace(
     )
 
     with project_directory("spcs_compute_pool"):
-        result = runner.invoke(["spcs", "compute-pool", "create", "--replace"])
+        result = runner.invoke(["spcs", "compute-pool", "deploy", "--replace"])
 
         assert result.exit_code == 0, result.output
         assert result.output == os_agnostic_snapshot
@@ -315,7 +318,7 @@ def test_create_from_project_definition_replace(
 
 
 @patch(EXECUTE_QUERY)
-def test_create_from_project_definition_compute_pool_already_exists(
+def test_deploy_from_project_definition_compute_pool_already_exists(
     mock_execute_query, runner, project_directory
 ):
     mock_execute_query.side_effect = ProgrammingError(
@@ -323,7 +326,7 @@ def test_create_from_project_definition_compute_pool_already_exists(
     )
 
     with project_directory("spcs_compute_pool"):
-        result = runner.invoke(["spcs", "compute-pool", "create"])
+        result = runner.invoke(["spcs", "compute-pool", "deploy"])
 
         assert result.exit_code == 1, result.output
         assert (
@@ -332,20 +335,20 @@ def test_create_from_project_definition_compute_pool_already_exists(
         )
 
 
-def test_create_from_project_definition_no_compute_pools(runner, project_directory):
+def test_deploy_from_project_definition_no_compute_pools(runner, project_directory):
     with project_directory("empty_project"):
-        result = runner.invoke(["spcs", "compute-pool", "create"])
+        result = runner.invoke(["spcs", "compute-pool", "deploy"])
 
         assert result.exit_code == 1, result.output
         assert "No compute pool project definition found in" in result.output
 
 
-def test_create_from_project_definition_not_existing_entity_id(
+def test_deploy_from_project_definition_not_existing_entity_id(
     runner, project_directory
 ):
     with project_directory("spcs_compute_pool"):
         result = runner.invoke(
-            ["spcs", "compute-pool", "create", "not_existing_entity_id"]
+            ["spcs", "compute-pool", "deploy", "not_existing_entity_id"]
         )
 
         assert result.exit_code == 2, result.output
@@ -356,7 +359,7 @@ def test_create_from_project_definition_not_existing_entity_id(
 
 
 @patch(EXECUTE_QUERY)
-def test_create_from_project_definition_multiple_compute_pools_with_entity_id(
+def test_deploy_from_project_definition_multiple_compute_pools_with_entity_id(
     mock_execute_query, runner, project_directory, mock_cursor, os_agnostic_snapshot
 ):
     mock_execute_query.return_value = mock_cursor(
@@ -365,7 +368,7 @@ def test_create_from_project_definition_multiple_compute_pools_with_entity_id(
     )
 
     with project_directory("spcs_multiple_compute_pools"):
-        result = runner.invoke(["spcs", "compute-pool", "create", "test_compute_pool"])
+        result = runner.invoke(["spcs", "compute-pool", "deploy", "test_compute_pool"])
 
         assert result.exit_code == 0, result.output
         assert result.output == os_agnostic_snapshot
@@ -382,11 +385,11 @@ def test_create_from_project_definition_multiple_compute_pools_with_entity_id(
         mock_execute_query.assert_called_once_with(expected_query)
 
 
-def test_create_from_project_definition_multiple_compute_pools(
+def test_deploy_from_project_definition_multiple_compute_pools(
     runner, project_directory
 ):
     with project_directory("spcs_multiple_compute_pools"):
-        result = runner.invoke(["spcs", "compute-pool", "create"])
+        result = runner.invoke(["spcs", "compute-pool", "deploy"])
 
         assert result.exit_code == 2, result.output
         assert (

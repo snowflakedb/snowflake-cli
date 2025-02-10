@@ -71,7 +71,7 @@ class ComputePoolTestSteps:
             [
                 "spcs",
                 "compute-pool",
-                "create",
+                "deploy",
                 *additional_flags,
             ]
         )
