@@ -6,24 +6,71 @@ ProjectManager = "snowflake.cli._plugins.project.commands.ProjectManager"
 
 
 @mock.patch(ProjectManager)
-@mock.patch("snowflake.cli._plugins.project.commands.StageManager")
-def test_create_version(mock_stage, mock_pm, runner, project_directory):
+@mock.patch("snowflake.cli._plugins.project.commands.StageManager.create")
+@mock.patch("snowflake.cli.api.artifacts.upload.StageManager.put")
+def test_create_version(mock_put, mock_create, mock_pm, runner, project_directory):
     stage = FQN.from_stage("my_project_stage")
 
-    with project_directory("dcm_project") as fh:
+    with project_directory("dcm_project") as root:
         result = runner.invoke(["project", "create-version"])
         assert result.exit_code == 0, result.output
 
-    mock_stage().create.assert_called_once_with(fqn=stage)
+    mock_create.assert_called_once_with(fqn=stage)
     mock_pm().create_version.assert_called_once_with(
         project_name=FQN.from_string("my_project"),
         stage_name=stage,
     )
-    mock_stage().put.assert_has_calls(
+
+    absolute_root = root.resolve()
+    mock_put.assert_has_calls(
         [
-            mock.call(local_path="definitions/", stage_path=stage),
-            mock.call(local_path="manifest.yml", stage_path=stage),
+            mock.call(
+                local_path=absolute_root
+                / "output"
+                / "bundle"
+                / "definitions"
+                / "b.sql",
+                stage_path="my_project_stage/definitions",
+                overwrite=True,
+            ),
+            mock.call(
+                local_path=absolute_root
+                / "output"
+                / "bundle"
+                / "definitions"
+                / "a.sql",
+                stage_path="my_project_stage/definitions",
+                overwrite=True,
+            ),
+            mock.call(
+                local_path=absolute_root / "output" / "bundle" / "manifest.yml",
+                stage_path="my_project_stage/.",
+                overwrite=True,
+            ),
         ]
+    )
+
+
+@mock.patch(ProjectManager)
+def test_add_version(mock_pm, runner, project_directory):
+    with project_directory("dcm_project") as root:
+        result = runner.invoke(
+            [
+                "project",
+                "add-version",
+                "my_project",
+                "--from",
+                "@stage",
+                "--alias",
+                "v1",
+                "--comment",
+                "fancy",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+    mock_pm().add_version.assert_called_once_with(
+        project_name="my_project", from_stage="@stage", alias="v1", comment="fancy"
     )
 
 
@@ -55,9 +102,14 @@ def test_execute_project_with_variables(mock_pm, runner, project_directory):
 
 @mock.patch(ProjectManager)
 def test_validate_project(mock_pm, runner, project_directory):
-    result = runner.invoke(["project", "validate", "fooBar", "--version", "v1"])
+    result = runner.invoke(
+        ["project", "dry-run", "fooBar", "--version", "v1", "-D", "key=value"]
+    )
     assert result.exit_code == 0, result.output
 
     mock_pm().execute.assert_called_once_with(
-        project_name=FQN.from_string("fooBar"), version="v1", dry_run=True
+        project_name=FQN.from_string("fooBar"),
+        version="v1",
+        dry_run=True,
+        variables=["key=value"],
     )

@@ -13,14 +13,13 @@
 # limitations under the License.
 from __future__ import annotations
 
-from typing import List, Literal, Optional, TypeVar, Union
+from typing import List, Literal, Optional, TypeVar
 
 from pydantic import Field
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.entities.common import EntityBase, attach_spans_to_entity_actions
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.schemas.entities.common import (
-    EntityModelBase,
+    EntityModelBaseWithArtifacts,
 )
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
@@ -30,21 +29,17 @@ from snowflake.core import CreateMode
 T = TypeVar("T")
 
 
-class ProjectEntityModel(EntityModelBase):
+class ProjectEntityModel(EntityModelBaseWithArtifacts):
     type: Literal["project"] = DiscriminatorField()  # noqa: A003
     stage: Optional[str] = Field(
         title="Stage in which the project artifacts will be stored", default=None
     )
     main_file: Optional[str] = Field(title="Path to the main file of the project")
-    artifacts: List[Union[str]] = Field(title="List of required sources")
 
 
 @attach_spans_to_entity_actions(entity_name="project")
 class ProjectEntity(EntityBase[ProjectEntityModel]):
     def __init__(self, *args, **kwargs):
-
-        if not FeatureFlag.ENABLE_NATIVE_APP_CHILDREN.is_enabled():
-            raise NotImplementedError("Snowpark entity is not implemented yet")
         super().__init__(*args, **kwargs)
 
     def action_deploy(

@@ -19,6 +19,18 @@ def test_create_version(mock_execute_query, runner, project_directory):
 
 
 @mock.patch(execute_queries)
+def test_add_version(mock_execute_query, runner, project_directory):
+    mgr = ProjectManager()
+    mgr.add_version(
+        project_name=TEST_PROJECT, from_stage="@stage_foo", alias="v1", comment="fancy"
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="ALTER PROJECT my_project ADD VERSION IF NOT EXIST v1 FROM @stage_foo COMMENT = 'fancy'"
+    )
+
+
+@mock.patch(execute_queries)
 def test_execute_project(mock_execute_query, runner, project_directory):
     mgr = ProjectManager()
     mgr.execute(

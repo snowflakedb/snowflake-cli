@@ -19,4 +19,4 @@ from snowflake.cli.api.feature_flags import BooleanFlag, FeatureFlagMixin
 
 @unique
 class FeatureFlag(FeatureFlagMixin):
-    ENABLE_SNOWFLAKE_PROJECTS = BooleanFlag("ENABLE_NATIVE_APP_PYTHON_SETUP", False)
+    ENABLE_SNOWFLAKE_PROJECTS = BooleanFlag("ENABLE_SNOWFLAKE_PROJECTS", False)

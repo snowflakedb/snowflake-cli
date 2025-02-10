@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import PurePosixPath
 from typing import List, Optional
 
 from click import ClickException
@@ -32,8 +31,7 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
 from snowflake.cli._plugins.streamlit.streamlit_project_paths import (
     StreamlitProjectPaths,
 )
-from snowflake.cli.api.artifacts.bundle_map import BundleMap
-from snowflake.cli.api.artifacts.utils import symlink_or_copy
+from snowflake.cli.api.artifacts.upload import put_files
 from snowflake.cli.api.commands.experimental_behaviour import (
     experimental_behaviour_enabled,
 )
@@ -65,40 +63,11 @@ class StreamlitManager(SqlExecutionMixin):
         artifacts: Optional[List[PathMapping]] = None,
     ):
         cli_console.step(f"Deploying files to {stage_root}")
-        if not artifacts:
-            return
-        stage_manager = StageManager()
-        # We treat the bundle root as deploy root
-        bundle_map = BundleMap(
-            project_root=streamlit_project_paths.project_root,
-            deploy_root=streamlit_project_paths.bundle_root,
+        put_files(
+            project_paths=streamlit_project_paths,
+            stage_root=stage_root,
+            artifacts=artifacts,
         )
-        for artifact in artifacts:
-            bundle_map.add(PathMapping(src=str(artifact.src), dest=artifact.dest))
-
-        # Clean up bundle root
-        streamlit_project_paths.remove_up_bundle_root()
-
-        for (absolute_src, absolute_dest) in bundle_map.all_mappings(
-            absolute=True, expand_directories=True
-        ):
-            if absolute_src.is_file():
-                # We treat the bundle/streamlit root as deploy root
-                symlink_or_copy(
-                    absolute_src,
-                    absolute_dest,
-                    deploy_root=streamlit_project_paths.bundle_root,
-                )
-                # Temporary solution, will be replaced with diff
-                stage_path = (
-                    PurePosixPath(absolute_dest)
-                    .relative_to(streamlit_project_paths.bundle_root)
-                    .parent
-                )
-                full_stage_path = f"{stage_root}/{stage_path}".rstrip("/")
-                stage_manager.put(
-                    local_path=absolute_dest, stage_path=full_stage_path, overwrite=True
-                )
 
     def _create_streamlit(
         self,
