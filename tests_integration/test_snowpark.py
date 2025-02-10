@@ -665,8 +665,11 @@ def test_snowpark_flow_old_build(
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize(
+    "project_name", ["snowpark_with_import_v1", "snowpark_with_import_v2"]
+)
 def test_snowpark_with_separately_created_package(
-    _test_steps, project_directory, alter_snowflake_yml, test_database
+    _test_steps, project_directory, alter_snowflake_yml, test_database, project_name
 ):
     _test_steps.package_should_build_proper_artifact(
         "dummy_pkg_for_tests", "dummy_pkg_for_tests/shrubbery.py"
@@ -679,7 +682,7 @@ def test_snowpark_with_separately_created_package(
         "dummy_pkg_for_tests.zip"
     )
 
-    with project_directory("snowpark_with_import") as p_dir:
+    with project_directory(project_name):
 
         _test_steps.snowpark_build_should_zip_files(
             additional_files=[Path("app.zip")], no_dependencies=True
@@ -702,10 +705,22 @@ def test_snowpark_with_separately_created_package(
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize(
+    "project_name",
+    [
+        "snowpark_with_single_requirements_having_no_other_deps_v1",
+        "snowpark_with_single_requirements_having_no_other_deps_v2",
+    ],
+)
 def test_snowpark_with_single_dependency_having_no_other_deps(
-    runner, _test_steps, project_directory, alter_snowflake_yml, test_database
+    runner,
+    _test_steps,
+    project_directory,
+    alter_snowflake_yml,
+    test_database,
+    project_name,
 ):
-    with project_directory("snowpark_with_single_requirements_having_no_other_deps"):
+    with project_directory(project_name):
         result = runner.invoke_with_connection_json(["snowpark", "build"])
         assert result.exit_code == 0
 
@@ -731,10 +746,22 @@ def test_snowpark_with_single_dependency_having_no_other_deps(
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize(
+    "project_name",
+    [
+        "snowpark_with_single_requirements_having_transient_deps_v1",
+        "snowpark_with_single_requirements_having_transient_deps_v2",
+    ],
+)
 def test_snowpark_with_single_requirement_having_transient_deps(
-    runner, _test_steps, project_directory, alter_snowflake_yml, test_database
+    runner,
+    _test_steps,
+    project_directory,
+    alter_snowflake_yml,
+    test_database,
+    project_name,
 ):
-    with project_directory("snowpark_with_single_requirements_having_transient_deps"):
+    with project_directory(project_name):
         result = runner.invoke_with_connection_json(["snowpark", "build"])
         assert result.exit_code == 0
 
@@ -760,12 +787,24 @@ def test_snowpark_with_single_requirement_having_transient_deps(
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize(
+    "project_name",
+    [
+        "snowpark_with_single_requirements_having_transient_deps_v1",
+        "snowpark_with_single_requirements_having_transient_deps_v2",
+    ],
+)
 def test_snowpark_commands_executed_outside_project_dir(
-    runner, _test_steps, project_directory, alter_snowflake_yml, test_database
+    runner,
+    _test_steps,
+    project_directory,
+    alter_snowflake_yml,
+    test_database,
+    project_name,
 ):
     project_subpath = "my_snowpark_project"
     with project_directory(
-        "snowpark_with_single_requirements_having_transient_deps",
+        project_name,
         subpath=project_subpath,
     ):
         result = runner.invoke_with_connection_json(
@@ -796,11 +835,15 @@ def test_snowpark_commands_executed_outside_project_dir(
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize(
+    "project_name",
+    ["snowpark_with_default_values_v1", "snowpark_with_default_values_v2"],
+)
 def test_snowpark_default_arguments(
-    _test_steps, project_directory, alter_snowflake_yml, test_database
+    _test_steps, project_directory, alter_snowflake_yml, test_database, project_name
 ):
     database = test_database.upper()
-    with project_directory("snowpark_with_default_values") as tmp_dir:
+    with project_directory(project_name):
         _test_steps.snowpark_build_should_zip_files(
             additional_files=[Path("app.zip")], no_dependencies=True
         )
@@ -895,7 +938,7 @@ def test_snowpark_default_arguments(
 
 
 @pytest.mark.integration
-def test_snowpark_fully_qualified_name(
+def test_snowpark_fully_qualified_name_v1(
     _test_steps,
     runner,
     test_database,
@@ -909,7 +952,7 @@ def test_snowpark_fully_qualified_name(
     runner.invoke_with_connection(
         ["sql", "-q", f"create schema {database}.{different_schema}"]
     )
-    with project_directory("snowpark_fully_qualified_name") as tmp_dir:
+    with project_directory("snowpark_fully_qualified_name_v1") as tmp_dir:
         _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
 
         # "default" database and schema provided by fully qualified name
@@ -1015,15 +1058,139 @@ def test_snowpark_fully_qualified_name(
 
 
 @pytest.mark.integration
+def test_snowpark_fully_qualified_name_v2(
+    _test_steps,
+    runner,
+    test_database,
+    project_directory,
+    alter_snowflake_yml,
+):
+    database = test_database.upper()
+    default_schema = "PUBLIC"
+    different_schema = "TOTALLY_DIFFERENT_SCHEMA"
+
+    runner.invoke_with_connection(
+        ["sql", "-q", f"create schema {database}.{different_schema}"]
+    )
+    with project_directory("snowpark_fully_qualified_name_v2") as tmp_dir:
+        _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
+
+        # "default" database and schema provided by fully qualified name
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="entities.fqn_function.identifier",
+            value=f"{database}.{default_schema}.fqn_function",
+        )
+        # changed schema provided by fully qualified name
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="entities.fqn_function2.identifier",
+            value=f"{database}.{different_schema}.fqn_function2",
+        )
+        # changed schema provided as argument
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="entities.schema_function.identifier.schema",
+            value=different_schema,
+        )
+        # default database provided as argument
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="entities.database_function.identifier.database",
+            value=database,
+        )
+        # provide default database and changed schema as arguments
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="entities.database_schema_function.identifier.schema",
+            value=different_schema,
+        )
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="entities.database_schema_function.identifier.database",
+            value=database,
+        )
+
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            [
+                {
+                    "object": f"{database}.{default_schema}.database_function(name string)",
+                    "status": "created",
+                    "type": "function",
+                },
+                {
+                    "object": f"{database}.{different_schema}.database_schema_function(name string)",
+                    "status": "created",
+                    "type": "function",
+                },
+                {
+                    "object": f"{database}.{default_schema}.fqn_function(name "
+                    "string)",
+                    "status": "created",
+                    "type": "function",
+                },
+                {
+                    "object": f"{database}.{different_schema}.fqn_function2(name string)",
+                    "status": "created",
+                    "type": "function",
+                },
+                {
+                    "object": f"{database}.{different_schema}.schema_function(name "
+                    "string)",
+                    "status": "created",
+                    "type": "function",
+                },
+            ]
+        )
+
+        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+            [
+                {
+                    "object": f"{database}.{default_schema}.database_function(name string)",
+                    "status": "packages updated",
+                    "type": "function",
+                },
+                {
+                    "object": f"{database}.{different_schema}.database_schema_function(name string)",
+                    "status": "packages updated",
+                    "type": "function",
+                },
+                {
+                    "object": f"{database}.{default_schema}.fqn_function(name "
+                    "string)",
+                    "status": "packages updated",
+                    "type": "function",
+                },
+                {
+                    "object": f"{database}.{different_schema}.fqn_function2(name string)",
+                    "status": "packages updated",
+                    "type": "function",
+                },
+                {
+                    "object": f"{database}.{different_schema}.schema_function(name "
+                    "string)",
+                    "status": "packages updated",
+                    "type": "function",
+                },
+            ],
+            additional_arguments=["--replace"],
+        )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "project_name", ["snowpark_vectorized_v1", "snowpark_vectorized_v2"]
+)
 def test_snowpark_vector_function(
     _test_steps,
     project_directory,
     alter_snowflake_yml,
     test_database,
     snowflake_session,
+    project_name,
 ):
     database = test_database.upper()
-    with project_directory("snowpark_vectorized") as tmp_dir:
+    with project_directory(project_name):
         _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
@@ -1182,11 +1349,19 @@ def test_build_package_from_github(
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("flag", ["--ignore-anaconda", ""])
+@pytest.mark.parametrize(
+    "flag, project_name",
+    [
+        ("--ignore-anaconda", "snowpark_version_check_v1"),
+        ("--ignore-anaconda", "snowpark_version_check_v2"),
+        ("", "snowpark_version_check_v1"),
+        ("", "snowpark_version_check_v2"),
+    ],
+)
 def test_ignore_anaconda_uses_version_from_zip(
-    flag, project_directory, runner, test_database
+    project_directory, runner, test_database, flag, project_name
 ):
-    with project_directory("snowpark_version_check"):
+    with project_directory(project_name):
         command = ["snowpark", "build", "--allow-shared-libraries"]
         if flag:
             command.append(flag)

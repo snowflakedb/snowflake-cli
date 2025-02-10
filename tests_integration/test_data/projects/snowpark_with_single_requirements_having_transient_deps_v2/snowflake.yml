@@ -1,0 +1,27 @@
+definition_version: '2'
+entities:
+  test_func:
+    imports: []
+    external_access_integrations: []
+    secrets: {}
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: test_func
+    artifacts:
+    - src: app/
+      dest: my_snowpark_project
+    handler: functions.hello_function
+    returns: string
+    signature:
+    - name: name
+      type: string
+    stage: TEST
+    type: function
+mixins:
+  snowpark_shared:
+    stage: TEST
+    artifacts:
+    - src: app/
+      dest: my_snowpark_project

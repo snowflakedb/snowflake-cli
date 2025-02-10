@@ -1,0 +1,17 @@
+definition_version: '2'
+entities:
+  vector_func:
+    identifier:
+      name: vector_func
+    artifacts:
+    - src: app/
+      dest: snowpark_vectorized
+    handler: app.add_inputs
+    returns: float
+    signature:
+    - name: x
+      type: number(10, 5)
+    - name: y
+      type: number(10, 5)
+    stage: dev_deployment
+    type: function
