@@ -11,12 +11,42 @@
 # ---
 # name: test_create_cli_replace_and_if_not_exists_fails
   '''
-  Usage: root spcs image-repository create [OPTIONS] NAME
+  Usage: root spcs image-repository create [OPTIONS] [NAME]
   Try 'root spcs image-repository create --help' for help.
   +- Error ----------------------------------------------------------------------+
   | Parameters '--if-not-exists' and '--replace' are incompatible and cannot be  |
   | used simultaneously.                                                         |
   +------------------------------------------------------------------------------+
   
+  '''
+# ---
+# name: test_create_from_project_definition
+  '''
+  +-----------------------------------------------------------------------+
+  | key    | value                                                        |
+  |--------+--------------------------------------------------------------|
+  | status | Image Repository TEST_IMAGE_REPOSITORY successfully created. |
+  +-----------------------------------------------------------------------+
+
+  '''
+# ---
+# name: test_create_from_project_definition_multiple_image_repositories_with_entity_id
+  '''
+  +-----------------------------------------------------------------------+
+  | key    | value                                                        |
+  |--------+--------------------------------------------------------------|
+  | status | Image Repository TEST_IMAGE_REPOSITORY successfully created. |
+  +-----------------------------------------------------------------------+
+
+  '''
+# ---
+# name: test_create_from_project_definition_replace
+  '''
+  +-----------------------------------------------------------------------+
+  | key    | value                                                        |
+  |--------+--------------------------------------------------------------|
+  | status | Image Repository TEST_IMAGE_REPOSITORY successfully created. |
+  +-----------------------------------------------------------------------+
+
   '''
 # ---

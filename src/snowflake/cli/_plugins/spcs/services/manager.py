@@ -22,6 +22,7 @@ from typing import List, Optional
 
 import yaml
 from snowflake.cli._plugins.object.common import Tag
+from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.spcs.common import (
     EVENT_COLUMN_NAMES,
     NoPropertiesProvidedError,
@@ -35,9 +36,18 @@ from snowflake.cli._plugins.spcs.common import (
     new_logs_only,
     strip_empty_lines,
 )
+from snowflake.cli._plugins.spcs.services.service_entity_model import ServiceEntityModel
+from snowflake.cli._plugins.spcs.services.service_project_paths import (
+    ServiceProjectPaths,
+)
+from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
+from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.schemas.entities.common import Artifacts
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -94,6 +104,94 @@ class ServiceManager(SqlExecutionMixin):
             return self.execute_query(strip_empty_lines(query))
         except ProgrammingError as e:
             handle_object_already_exists(e, ObjectType.SERVICE, service_name)
+
+    def deploy(
+        self,
+        service: ServiceEntityModel,
+        service_project_paths: ServiceProjectPaths,
+        replace: bool,
+    ) -> SnowflakeCursor:
+        service_fqn = service.fqn
+
+        # SPCS service doesn't support replace in create query, so we need to drop the service first.
+        if replace:
+            object_manager = ObjectManager()
+            object_type = ObjectType.SERVICE.value.cli_name
+            if object_manager.object_exists(object_type=object_type, fqn=service_fqn):
+                object_manager.drop(object_type=object_type, fqn=service_fqn)
+
+        # create stage
+        stage_manager = StageManager()
+        stage_manager.create(fqn=FQN.from_stage(service.stage))
+
+        stage = stage_manager.get_standard_stage_prefix(service.stage)
+        self._upload_artifacts(
+            stage_manager=stage_manager,
+            service_project_paths=service_project_paths,
+            artifacts=service.artifacts,
+            stage=stage,
+        )
+
+        # create service
+        query = [
+            f"CREATE SERVICE {service_fqn}",
+            f"IN COMPUTE POOL {service.compute_pool}",
+            f"FROM {stage}",
+            f"SPECIFICATION_FILE = '{service.spec_file}'",
+        ]
+
+        if service.min_instances:
+            query.append(f"MIN_INSTANCES = {service.min_instances}")
+
+        if service.max_instances:
+            query.append(f"MAX_INSTANCES = {service.max_instances}")
+
+        if service.query_warehouse:
+            query.append(f"QUERY_WAREHOUSE = {service.query_warehouse}")
+
+        if service.comment:
+            query.append(f"COMMENT = '{service.comment}'")
+
+        if service.external_access_integrations:
+            external_access_integration_list = ",".join(
+                f"{e}" for e in service.external_access_integrations
+            )
+            query.append(
+                f"EXTERNAL_ACCESS_INTEGRATIONS = ({external_access_integration_list})"
+            )
+
+        if service.tags:
+            tag_list = ",".join(
+                f"{t.name}={t.value_string_literal()}" for t in service.tags
+            )
+            query.append(f"WITH TAG ({tag_list})")
+
+        try:
+            return self.execute_query(strip_empty_lines(query))
+        except ProgrammingError as e:
+            handle_object_already_exists(e, ObjectType.SERVICE, service_fqn.identifier)
+
+    @staticmethod
+    def _upload_artifacts(
+        stage_manager: StageManager,
+        service_project_paths: ServiceProjectPaths,
+        artifacts: Artifacts,
+        stage: str,
+    ):
+        if not artifacts:
+            raise ValueError("Service needs to have artifacts to deploy")
+
+        bundle_map = bundle_artifacts(service_project_paths, artifacts)
+        for absolute_src, absolute_dest in bundle_map.all_mappings(
+            absolute=True, expand_directories=True
+        ):
+            # We treat the bundle/service root as deploy root
+            stage_path = StagePath.from_stage_str(stage) / (
+                absolute_dest.relative_to(service_project_paths.bundle_root).parent
+            )
+            stage_manager.put(
+                local_path=absolute_dest, stage_path=stage_path, overwrite=True
+            )
 
     def execute_job(
         self,

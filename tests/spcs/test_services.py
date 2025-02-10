@@ -16,7 +16,6 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from textwrap import dedent
 from unittest.mock import Mock, call, patch
 
@@ -29,6 +28,7 @@ from snowflake.cli._plugins.spcs.services.manager import ServiceManager
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
+from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 from yaml import YAMLError
 
@@ -58,19 +58,12 @@ SPEC_DICT = {
 }
 
 
-@pytest.fixture()
-def enable_events_and_metrics_config():
-    with TemporaryDirectory() as tempdir:
-        config_toml = Path(tempdir) / "config.toml"
-        config_toml.write_text(
-            "[cli.features]\n"
-            "enable_spcs_service_events = true\n"
-            "enable_spcs_service_metrics = true\n"
-        )
-        yield config_toml
+EXECUTE_QUERY = (
+    "snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query"
+)
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_create_service(mock_execute_query, other_directory):
     service_name = "test_service"
     compute_pool = "test_pool"
@@ -234,7 +227,7 @@ def test_create_service_with_invalid_spec(mock_read_yaml):
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager._read_yaml")
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 @patch("snowflake.cli._plugins.spcs.services.manager.handle_object_already_exists")
 def test_create_service_already_exists(mock_handle, mock_execute, mock_read_yaml):
     service_name = "test_service"
@@ -263,7 +256,7 @@ def test_create_service_already_exists(mock_handle, mock_execute, mock_read_yaml
     )
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_create_service_if_not_exists(mock_execute_query, other_directory):
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
@@ -297,7 +290,214 @@ def test_create_service_if_not_exists(mock_execute_query, other_directory):
     assert result == cursor
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
+@patch(EXECUTE_QUERY)
+def test_deploy_service(
+    mock_execute_query,
+    mock_stage_manager_execute_query,
+    runner,
+    project_directory,
+    mock_cursor,
+    os_agnostic_snapshot,
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Service TEST_SERVICE successfully created."]],
+        columns=["status"],
+    )
+
+    with project_directory("spcs_service") as tmp_dir:
+        result = runner.invoke(["spcs", "service", "deploy"])
+
+        expected_query = dedent(
+            """\
+        CREATE SERVICE test_service
+        IN COMPUTE POOL test_compute_pool
+        FROM @test_stage
+        SPECIFICATION_FILE = 'spec.yml'
+        MIN_INSTANCES = 1
+        MAX_INSTANCES = 2
+        QUERY_WAREHOUSE = xsmall
+        COMMENT = 'This is a test service'
+        EXTERNAL_ACCESS_INTEGRATIONS = (test_external_access_integration)
+        WITH TAG (test_tag='test_value')"""
+        )
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        mock_execute_query.assert_called_once_with(expected_query)
+        mock_stage_manager_execute_query.assert_has_calls(
+            [
+                call("create stage if not exists IDENTIFIER('test_stage')"),
+                call(
+                    f"put file://{Path(tmp_dir).resolve() / 'output' / 'bundle' / 'service' / 'spec.yml'} @test_stage auto_compress=false parallel=4 overwrite=True",
+                    cursor_class=SnowflakeCursor,
+                ),
+            ]
+        )
+
+
+@patch("snowflake.cli._plugins.object.manager.ObjectManager.execute_query")
+@patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
+@patch(EXECUTE_QUERY)
+def test_deploy_service_replace(
+    mock_execute_query,
+    mock_stage_manager_execute_query,
+    mock_object_manager_execute_query,
+    runner,
+    project_directory,
+    mock_cursor,
+    os_agnostic_snapshot,
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Service TEST_SERVICE successfully created."]],
+        columns=["status"],
+    )
+
+    with project_directory("spcs_service") as tmp_dir:
+        result = runner.invoke(["spcs", "service", "deploy", "--replace"])
+
+        expected_query = dedent(
+            """\
+        CREATE SERVICE test_service
+        IN COMPUTE POOL test_compute_pool
+        FROM @test_stage
+        SPECIFICATION_FILE = 'spec.yml'
+        MIN_INSTANCES = 1
+        MAX_INSTANCES = 2
+        QUERY_WAREHOUSE = xsmall
+        COMMENT = 'This is a test service'
+        EXTERNAL_ACCESS_INTEGRATIONS = (test_external_access_integration)
+        WITH TAG (test_tag='test_value')"""
+        )
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        mock_stage_manager_execute_query.assert_has_calls(
+            [
+                call("create stage if not exists IDENTIFIER('test_stage')"),
+                call(
+                    f"put file://{Path(tmp_dir).resolve() / 'output' / 'bundle' / 'service' / 'spec.yml'} @test_stage auto_compress=false parallel=4 overwrite=True",
+                    cursor_class=SnowflakeCursor,
+                ),
+            ]
+        )
+        mock_execute_query.assert_called_once_with(expected_query)
+        mock_object_manager_execute_query.assert_has_calls(
+            [
+                call("describe service IDENTIFIER('test_service')"),
+                call("drop service IDENTIFIER('test_service')"),
+            ]
+        )
+
+
+@patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
+@patch(EXECUTE_QUERY)
+def test_deploy_service_already_exists(
+    mock_execute_query,
+    mock_stage_manager_execute_query,
+    runner,
+    project_directory,
+    mock_cursor,
+    os_agnostic_snapshot,
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Service TEST_SERVICE successfully created."]],
+        columns=["status"],
+    )
+    mock_execute_query.side_effect = ProgrammingError(
+        errno=2002, msg="Object 'test_service' already exists."
+    )
+
+    with project_directory("spcs_service") as tmp_dir:
+        result = runner.invoke(["spcs", "service", "deploy"])
+
+        expected_query = dedent(
+            """\
+        CREATE SERVICE test_service
+        IN COMPUTE POOL test_compute_pool
+        FROM @test_stage
+        SPECIFICATION_FILE = 'spec.yml'
+        MIN_INSTANCES = 1
+        MAX_INSTANCES = 2
+        QUERY_WAREHOUSE = xsmall
+        COMMENT = 'This is a test service'
+        EXTERNAL_ACCESS_INTEGRATIONS = (test_external_access_integration)
+        WITH TAG (test_tag='test_value')"""
+        )
+        assert result.exit_code == 1, result.output
+        assert result.output == os_agnostic_snapshot
+        mock_execute_query.assert_called_once_with(expected_query)
+        mock_stage_manager_execute_query.assert_has_calls(
+            [
+                call("create stage if not exists IDENTIFIER('test_stage')"),
+                call(
+                    f"put file://{Path(tmp_dir).resolve() / 'output' / 'bundle' / 'service' / 'spec.yml'} @test_stage auto_compress=false parallel=4 overwrite=True",
+                    cursor_class=SnowflakeCursor,
+                ),
+            ]
+        )
+
+
+def test_deploy_no_service(runner, project_directory, mock_cursor):
+    with project_directory("empty_project"):
+        result = runner.invoke(["spcs", "service", "deploy"])
+
+        assert result.exit_code == 1, result.output
+        assert "No service project definition found in" in result.output
+
+
+def test_deploy_not_existing_entity_id(runner, project_directory, os_agnostic_snapshot):
+    with project_directory("spcs_service"):
+        result = runner.invoke(["spcs", "service", "deploy", "not_existing_entity_id"])
+
+        assert result.exit_code == 2, result.output
+        assert result.output == os_agnostic_snapshot
+
+
+@patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
+@patch(EXECUTE_QUERY)
+def test_deploy_multiple_services(
+    mock_execute_query,
+    mock_stage_manager_execute_query,
+    runner,
+    project_directory,
+    mock_cursor,
+    os_agnostic_snapshot,
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Service TEST_SERVICE successfully created."]],
+        columns=["status"],
+    )
+
+    with project_directory("spcs_multiple_services") as tmp_dir:
+        result = runner.invoke(["spcs", "service", "deploy", "test_service"])
+
+        expected_query = dedent(
+            """\
+        CREATE SERVICE test_service
+        IN COMPUTE POOL test_compute_pool
+        FROM @test_stage
+        SPECIFICATION_FILE = 'spec.yml'
+        MIN_INSTANCES = 1
+        MAX_INSTANCES = 2
+        QUERY_WAREHOUSE = xsmall
+        COMMENT = 'This is a test service'
+        EXTERNAL_ACCESS_INTEGRATIONS = (test_external_access_integration)
+        WITH TAG (test_tag='test_value')"""
+        )
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        mock_execute_query.assert_called_once_with(expected_query)
+        mock_stage_manager_execute_query.assert_has_calls(
+            [
+                call("create stage if not exists IDENTIFIER('test_stage')"),
+                call(
+                    f"put file://{Path(tmp_dir).resolve() / 'output' / 'bundle' / 'service' / 'spec.yml'} @test_stage auto_compress=false parallel=4 overwrite=True",
+                    cursor_class=SnowflakeCursor,
+                ),
+            ]
+        )
+
+
+@patch(EXECUTE_QUERY)
 def test_execute_job_service(mock_execute_query, other_directory):
     job_service_name = "test_job_service"
     compute_pool = "test_pool"
@@ -421,7 +621,7 @@ def test_execute_job_service_with_invalid_spec(mock_read_yaml):
         )
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_status(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -432,7 +632,7 @@ def test_status(mock_execute_query):
     assert result == cursor
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_status_qualified_name(mock_execute_query):
     service_name = "db.schema.test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -443,7 +643,7 @@ def test_status_qualified_name(mock_execute_query):
     assert result == cursor
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_logs(mock_execute_query):
     service_name = "test_service"
     container_name = "test_container"
@@ -618,12 +818,9 @@ def test_stream_logs_with_include_timestamps_true(mock_sleep, mock_logs):
     mock_sleep.assert_has_calls([call(interval_seconds), call(interval_seconds)])
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
-def test_logs_incompatible_flags(
-    mock_execute_query, runner, enable_events_and_metrics_config
-):
-    result = runner.invoke_with_config_file(
-        enable_events_and_metrics_config,
+@patch(EXECUTE_QUERY)
+def test_logs_incompatible_flags(mock_execute_query, runner):
+    result = runner.invoke(
         [
             "spcs",
             "service",
@@ -644,7 +841,7 @@ def test_logs_incompatible_flags(
     assert "Parameters '--follow' and '--num-lines' are incompatible" in result.output
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_logs_incompatible_flags_follow_previous_logs(mock_execute_query, runner):
     result = runner.invoke(
         [
@@ -676,10 +873,8 @@ def test_logs_streaming_flag_is_hidden(runner):
     assert "--follow" not in result.output
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
-def test_events_all_filters(
-    mock_execute_query, runner, enable_events_and_metrics_config
-):
+@patch(EXECUTE_QUERY)
+def test_events_all_filters(mock_execute_query, runner):
     mock_execute_query.side_effect = [
         [
             {
@@ -722,8 +917,7 @@ def test_events_all_filters(
         ),
     ]
 
-    result = runner.invoke_with_config_file(
-        enable_events_and_metrics_config,
+    result = runner.invoke(
         [
             "spcs",
             "service",
@@ -779,9 +973,8 @@ def test_events_all_filters(
     ), f"Generated query does not match expected query.\n\nActual:\n{actual_query}\n\nExpected:\n{expected_query}"
 
 
-def test_events_first_last_incompatibility(runner, enable_events_and_metrics_config):
-    result = runner.invoke_with_config_file(
-        enable_events_and_metrics_config,
+def test_events_first_last_incompatibility(runner):
+    result = runner.invoke(
         [
             "spcs",
             "service",
@@ -808,10 +1001,8 @@ def test_events_first_last_incompatibility(runner, enable_events_and_metrics_con
     assert expected_error in result.output
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
-def test_latest_metrics(
-    mock_execute_query, runner, snapshot, enable_events_and_metrics_config
-):
+@patch(EXECUTE_QUERY)
+def test_latest_metrics(mock_execute_query, runner, snapshot):
     mock_execute_query.side_effect = [
         [
             {
@@ -850,8 +1041,7 @@ def test_latest_metrics(
         ),
     ]
 
-    result = runner.invoke_with_config_file(
-        enable_events_and_metrics_config,
+    result = runner.invoke(
         [
             "spcs",
             "service",
@@ -940,7 +1130,7 @@ def test_service_events_disabled(runner, empty_snowcli_config):
     ), f"Expected formatted output not found: {result.output}"
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_metrics_all_filters(
     mock_execute_query, runner, enable_events_and_metrics_config
 ):
@@ -982,8 +1172,7 @@ def test_metrics_all_filters(
         ),
     ]
 
-    result = runner.invoke_with_config_file(
-        enable_events_and_metrics_config,
+    result = runner.invoke(
         [
             "spcs",
             "service",
@@ -1039,7 +1228,7 @@ def test_read_yaml(other_directory):
     assert result == json.dumps(SPEC_DICT)
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_upgrade_spec(mock_execute_query, other_directory):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -1076,7 +1265,7 @@ def test_upgrade_spec_cli(mock_upgrade_spec, mock_cursor, runner, other_director
     assert "Statement executed successfully" in result.output
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_list_endpoints(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -1102,7 +1291,7 @@ def test_list_endpoints_cli(mock_list_endpoints, mock_cursor, runner):
     assert "test-snowflakecomputing.app" in result.output
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_list_instances(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -1134,7 +1323,7 @@ def test_list_instances_cli(mock_list_instances, mock_cursor, runner):
     assert "TEST_SERVICE" in result.output, str(result.output)
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_list_containers(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -1166,7 +1355,7 @@ def test_list_containers_cli(mock_list_containers, mock_cursor, runner):
     assert "TEST_SERVICE" in result.output, str(result.output)
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_list_roles(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -1192,7 +1381,7 @@ def test_list_roles_cli(mock_list_roles, mock_cursor, runner):
     assert "ALL_ENDPOINTS_USAGE" in result.output, str(result.output)
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_suspend(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -1215,7 +1404,7 @@ def test_suspend_cli(mock_suspend, mock_cursor, runner):
     assert "Statement executed successfully" in result.output
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_resume(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
@@ -1238,7 +1427,7 @@ def test_resume_cli(mock_resume, mock_cursor, runner):
     assert "Statement executed successfully" in result.output
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_set_property(mock_execute_query):
     service_name = "test_service"
     min_instances = 2
@@ -1355,7 +1544,7 @@ def test_set_property_no_properties_cli(mock_set, runner):
     )
 
 
-@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_unset_property(mock_execute_query):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)

@@ -1,0 +1,7 @@
+definition_version: 2
+
+entities:
+  test_image_repository:
+    type: image-repository
+    identifier:
+      name: test_image_repository

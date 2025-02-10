@@ -53,6 +53,27 @@ def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
 
 
 @pytest.mark.integration
+def test_service_create_from_project_definition(
+    _test_steps: Tuple[SnowparkServicesTestSteps, str],
+    alter_snowflake_yml,
+    project_directory,
+    test_database,
+):
+    test_steps, service_name = _test_steps
+
+    with project_directory("spcs_service"):
+        alter_snowflake_yml(
+            "snowflake.yml", "entities.service.stage", f"{service_name}_stage"
+        )
+        alter_snowflake_yml(
+            "snowflake.yml", "entities.service.identifier.name", service_name
+        )
+
+        test_steps.deploy_service(service_name)
+        test_steps.deploy_service(service_name, additional_flags=["--replace"])
+
+
+@pytest.mark.integration
 @pytest.mark.xfail(reason="Consistently timing out on execute call")
 def test_job_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
 
