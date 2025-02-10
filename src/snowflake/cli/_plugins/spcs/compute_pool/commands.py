@@ -157,10 +157,10 @@ def create(
 
 @app.command("deploy", requires_connection=True)
 def deploy(
+    entity_id: str = entity_argument("compute-pool"),
     replace: bool = ReplaceOption(
         help="Replace the compute-pool if it already exists."
     ),
-    entity_id: str = entity_argument("compute-pool"),
     **options,
 ):
     """
@@ -187,7 +187,7 @@ def deploy(
             "Multiple compute pools found. Please provide entity id for the operation."
         )
 
-    cursor = ComputePoolManager().deploy(
+    cursor = ComputePoolManager().create_from_entity(
         compute_pool=compute_pools[entity_id], replace=replace
     )
 

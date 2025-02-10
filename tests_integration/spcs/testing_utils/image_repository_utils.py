@@ -29,7 +29,7 @@ class ImageRepositoryTestSteps:
             [
                 "spcs",
                 "image-repository",
-                "create",
+                "deploy",
                 *additional_flags,
             ]
         )

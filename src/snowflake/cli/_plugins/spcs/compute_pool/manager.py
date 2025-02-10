@@ -77,7 +77,7 @@ class ComputePoolManager(SqlExecutionMixin):
                 e, ObjectType.COMPUTE_POOL, pool_name, replace_available=True
             )
 
-    def deploy(
+    def create_from_entity(
         self, compute_pool: ComputePoolEntityModel, replace: bool
     ) -> SnowflakeCursor:
         return self.create(

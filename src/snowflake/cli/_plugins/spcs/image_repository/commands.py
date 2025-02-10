@@ -30,6 +30,7 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     ReplaceOption,
+    entity_argument,
     identifier_argument,
     like_option,
 )
@@ -83,12 +84,7 @@ add_object_command_aliases(
 
 @app.command(requires_connection=True)
 def create(
-    name: FQN = identifier_argument(
-        sf_object="image repository",
-        example="my_repository",
-        callback=_repo_name_callback,
-        is_optional=True,
-    ),
+    name: FQN = REPO_NAME_ARGUMENT,
     replace: bool = ReplaceOption(),
     if_not_exists: bool = IfNotExistsOption(),
     **options,
@@ -96,26 +92,35 @@ def create(
     """
     Creates a new image repository in the current schema.
     """
+    return SingleQueryResult(
+        ImageRepositoryManager().create(
+            name=name.identifier, replace=replace, if_not_exists=if_not_exists
+        )
+    )
+
+
+@app.command(requires_connection=True)
+def deploy(
+    entity_id: str = entity_argument("image-repository"),
+    replace: bool = ReplaceOption(
+        help="Replace the compute-pool if it already exists."
+    ),
+    **options,
+):
+    """
+    Creates a new image repository from snowflake.yml file.
+    """
     cli_context = get_cli_context()
     pd = cli_context.project_definition
-    image_repository_manager = ImageRepositoryManager()
 
-    if pd:
-        image_repository = get_entity(
-            pd,
-            cli_context.project_root,
-            ObjectType.IMAGE_REPOSITORY,
-            None if name is None else name.name,
-        )
-        create_result = image_repository_manager.create_from_entity(
-            image_repository, replace=replace
-        )
-    else:
-        create_result = image_repository_manager.create(
-            name=name.identifier, if_not_exists=if_not_exists, replace=replace
-        )
+    image_repository = get_entity(
+        pd, cli_context.project_root, ObjectType.IMAGE_REPOSITORY, entity_id
+    )
 
-    return SingleQueryResult(create_result)
+    cursor = ImageRepositoryManager().create_from_entity(
+        image_repository, replace=replace
+    )
+    return SingleQueryResult(cursor)
 
 
 @app.command("list-images", requires_connection=True)
