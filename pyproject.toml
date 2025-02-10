@@ -62,7 +62,7 @@ development = [
   "pytest==8.3.4",
   "pytest-randomly==3.16.0",
   "syrupy==4.8.1",
-  "factory-boy==3.3.1",
+  "factory-boy==3.3.3",
   "Faker==35.2.0",
 ]
 packaging = ["pyinstaller~=6.10"]
