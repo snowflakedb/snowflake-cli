@@ -1,5 +1,6 @@
-from typing import Dict, List, Optional
 from __future__ import annotations
+
+from typing import Dict, List, Optional
 
 from click import ClickException, UsageError
 from snowflake.cli.api.commands.common import Variable
