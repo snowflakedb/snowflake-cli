@@ -26,7 +26,7 @@
 * Added `snow compute-pool deploy` command.
 * Added `snow spcs service deploy` command.
 * Added `snow image-repository deploy` command.
-* Added `--replace` flag to `snow spcs compute-pool create` command.
+* Added `--tag` option for `snow spcs compute-pool create` command.
 
 ## Fixes and improvements
 * Fix handling of date types in `snow sql` command when using JSON for output format

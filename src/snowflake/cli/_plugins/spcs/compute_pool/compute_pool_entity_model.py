@@ -1,6 +1,7 @@
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 from pydantic import Field
+from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli.api.project.schemas.entities.common import EntityModelBase
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
 
@@ -25,3 +26,4 @@ class ComputePoolEntityModel(EntityModelBase):
         ge=1,
     )
     comment: Optional[str] = Field(title="Comment for the compute pool", default=None)
+    tags: Optional[List[Tag]] = Field(title="Tag for the service", default=None)

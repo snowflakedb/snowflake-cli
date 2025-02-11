@@ -70,7 +70,6 @@ def test_service_create_from_project_definition(
         )
 
         test_steps.deploy_service(service_name)
-        test_steps.deploy_service(service_name, additional_flags=["--replace"])
 
 
 @pytest.mark.integration

@@ -65,14 +65,13 @@ class ComputePoolTestSteps:
         )
 
     def create_compute_pool_from_project_definition(
-        self, compute_pool_name: str, additional_flags: List[str] = []
+        self, compute_pool_name: str
     ) -> None:
         result = self._setup.runner.invoke_with_connection_json(
             [
                 "spcs",
                 "compute-pool",
                 "deploy",
-                *additional_flags,
             ]
         )
         assert result.json, result.output

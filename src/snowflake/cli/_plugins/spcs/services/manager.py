@@ -22,7 +22,6 @@ from typing import List, Optional
 
 import yaml
 from snowflake.cli._plugins.object.common import Tag
-from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.spcs.common import (
     EVENT_COLUMN_NAMES,
     NoPropertiesProvidedError,
@@ -109,18 +108,9 @@ class ServiceManager(SqlExecutionMixin):
         self,
         service: ServiceEntityModel,
         service_project_paths: ServiceProjectPaths,
-        replace: bool,
     ) -> SnowflakeCursor:
         service_fqn = service.fqn
 
-        # SPCS service doesn't support replace in create query, so we need to drop the service first.
-        if replace:
-            object_manager = ObjectManager()
-            object_type = ObjectType.SERVICE.value.cli_name
-            if object_manager.object_exists(object_type=object_type, fqn=service_fqn):
-                object_manager.drop(object_type=object_type, fqn=service_fqn)
-
-        # create stage
         stage_manager = StageManager()
         stage_manager.create(fqn=FQN.from_stage(service.stage))
 
@@ -132,12 +122,12 @@ class ServiceManager(SqlExecutionMixin):
             stage=stage,
         )
 
-        # create service
         query = [
             f"CREATE SERVICE {service_fqn}",
             f"IN COMPUTE POOL {service.compute_pool}",
             f"FROM {stage}",
             f"SPECIFICATION_FILE = '{service.spec_file}'",
+            f"AUTO_RESUME = {service.auto_resume}",
         ]
 
         if service.min_instances:
@@ -149,9 +139,6 @@ class ServiceManager(SqlExecutionMixin):
         if service.query_warehouse:
             query.append(f"QUERY_WAREHOUSE = {service.query_warehouse}")
 
-        if service.comment:
-            query.append(f"COMMENT = '{service.comment}'")
-
         if service.external_access_integrations:
             external_access_integration_list = ",".join(
                 f"{e}" for e in service.external_access_integrations
@@ -159,6 +146,9 @@ class ServiceManager(SqlExecutionMixin):
             query.append(
                 f"EXTERNAL_ACCESS_INTEGRATIONS = ({external_access_integration_list})"
             )
+
+        if service.comment:
+            query.append(f"COMMENT = '{service.comment}'")
 
         if service.tags:
             tag_list = ",".join(

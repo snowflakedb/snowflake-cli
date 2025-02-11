@@ -14,14 +14,14 @@
 
 from __future__ import annotations
 
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import typer
 from click import ClickException, UsageError
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
 )
-from snowflake.cli._plugins.object.common import CommentOption
+from snowflake.cli._plugins.object.common import CommentOption, Tag, TagOption
 from snowflake.cli._plugins.spcs.common import validate_and_set_instances
 from snowflake.cli._plugins.spcs.compute_pool.compute_pool_entity_model import (
     ComputePoolEntityModel,
@@ -31,7 +31,6 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     OverrideableOption,
-    ReplaceOption,
     entity_argument,
     identifier_argument,
     like_option,
@@ -131,9 +130,9 @@ def create(
         help="Starts the compute pool in a suspended state.",
     ),
     auto_suspend_secs: int = AutoSuspendSecsOption(),
+    tags: Optional[List[Tag]] = TagOption(help="Tag for the compute pool."),
     comment: Optional[str] = CommentOption(help=_COMMENT_HELP),
     if_not_exists: bool = IfNotExistsOption(),
-    replace: bool = ReplaceOption(),
     **options,
 ) -> CommandResult:
     """
@@ -148,9 +147,9 @@ def create(
         auto_resume=auto_resume,
         initially_suspended=initially_suspended,
         auto_suspend_secs=auto_suspend_secs,
+        tags=tags,
         comment=comment,
         if_not_exists=if_not_exists,
-        replace=replace,
     )
     return SingleQueryResult(cursor)
 
@@ -158,9 +157,6 @@ def create(
 @app.command("deploy", requires_connection=True)
 def deploy(
     entity_id: str = entity_argument("compute-pool"),
-    replace: bool = ReplaceOption(
-        help="Replace the compute-pool if it already exists."
-    ),
     **options,
 ):
     """
@@ -188,7 +184,7 @@ def deploy(
         )
 
     cursor = ComputePoolManager().create_from_entity(
-        compute_pool=compute_pools[entity_id], replace=replace
+        compute_pool=compute_pools[entity_id]
     )
 
     return SingleQueryResult(cursor)

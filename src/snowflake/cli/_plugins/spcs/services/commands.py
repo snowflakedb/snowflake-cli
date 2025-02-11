@@ -36,7 +36,6 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     OverrideableOption,
-    ReplaceOption,
     entity_argument,
     identifier_argument,
     like_option,
@@ -210,7 +209,6 @@ def create(
 
 @app.command(requires_connection=True)
 def deploy(
-    replace: bool = ReplaceOption(help="Replace the service if it already exists."),
     entity_id: str = entity_argument("service"),
     **options,
 ) -> CommandResult:
@@ -235,7 +233,6 @@ def deploy(
     cursor = ServiceManager().deploy(
         service=service,
         service_project_paths=service_project_paths,
-        replace=replace,
     )
     return SingleQueryResult(cursor)
 

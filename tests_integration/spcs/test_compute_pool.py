@@ -51,27 +51,10 @@ def test_compute_pool_create_from_project_definition(
 
     with project_directory("spcs_compute_pool"):
         alter_snowflake_yml(
-            "snowflake.yml",
-            "entities",
-            {
-                compute_pool_name: {
-                    "type": "compute-pool",
-                    "identifier": {
-                        "name": compute_pool_name,
-                    },
-                    "min_nodes": 1,
-                    "max_nodes": 1,
-                    "instance_family": "CPU_X64_XS",
-                    "auto_resume": True,
-                    "initially_suspended": True,
-                    "auto_suspend_seconds": 60,
-                }
-            },
+            "snowflake.yml", "entities.compute_pool.identifier.name", compute_pool_name
         )
+
         test_steps.create_compute_pool_from_project_definition(compute_pool_name)
-        test_steps.create_compute_pool_from_project_definition(
-            compute_pool_name, additional_flags=["--replace"]
-        )
 
 
 @pytest.fixture

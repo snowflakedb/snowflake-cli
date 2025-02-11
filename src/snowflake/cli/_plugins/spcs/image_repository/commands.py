@@ -103,12 +103,12 @@ def create(
 def deploy(
     entity_id: str = entity_argument("image-repository"),
     replace: bool = ReplaceOption(
-        help="Replace the compute-pool if it already exists."
+        help="Replace the image repository if it already exists."
     ),
     **options,
 ):
     """
-    Creates a new image repository from snowflake.yml file.
+    Deploys a new image repository from snowflake.yml file.
     """
     cli_context = get_cli_context()
     pd = cli_context.project_definition

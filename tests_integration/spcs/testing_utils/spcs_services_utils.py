@@ -77,15 +77,12 @@ class SnowparkServicesTestSteps:
             result, {"status": f"Service {service_name.upper()} successfully created."}
         )
 
-    def deploy_service(
-        self, service_name: str, additional_flags: List[str] = []
-    ) -> None:
+    def deploy_service(self, service_name: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
             [
                 "spcs",
                 "service",
                 "deploy",
-                *additional_flags,
             ],
         )
         assert_that_result_is_successful_and_output_json_equals(

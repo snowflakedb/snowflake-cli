@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.spcs.common import (
     NoPropertiesProvidedError,
     handle_object_already_exists,
@@ -26,7 +26,6 @@ from snowflake.cli._plugins.spcs.compute_pool.compute_pool_entity_model import (
     ComputePoolEntityModel,
 )
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
@@ -42,18 +41,10 @@ class ComputePoolManager(SqlExecutionMixin):
         auto_resume: bool,
         initially_suspended: bool,
         auto_suspend_secs: int,
+        tags: Optional[List[Tag]],
         comment: Optional[str],
         if_not_exists: bool,
-        replace: bool,
     ) -> SnowflakeCursor:
-
-        if replace:
-            object_manager = ObjectManager()
-            object_type = ObjectType.COMPUTE_POOL.value.cli_name
-            entity_id_fqn = FQN.from_string(pool_name)
-            if object_manager.object_exists(object_type=object_type, fqn=entity_id_fqn):
-                self.stop(pool_name)
-                object_manager.drop(object_type=object_type, fqn=entity_id_fqn)
 
         create_statement = "CREATE COMPUTE POOL"
         if if_not_exists:
@@ -70,27 +61,29 @@ class ComputePoolManager(SqlExecutionMixin):
         if comment:
             query.append(f"COMMENT = {comment}")
 
+        if tags:
+            tag_list = ",".join(f"{t.name}={t.value_string_literal()}" for t in tags)
+            query.append(f"WITH TAG ({tag_list})")
+
         try:
             return self.execute_query(strip_empty_lines(query))
         except ProgrammingError as e:
-            handle_object_already_exists(
-                e, ObjectType.COMPUTE_POOL, pool_name, replace_available=True
-            )
+            handle_object_already_exists(e, ObjectType.COMPUTE_POOL, pool_name)
 
     def create_from_entity(
-        self, compute_pool: ComputePoolEntityModel, replace: bool
+        self, compute_pool: ComputePoolEntityModel
     ) -> SnowflakeCursor:
         return self.create(
-            pool_name=compute_pool.entity_id,
+            pool_name=compute_pool.fqn.identifier,
             min_nodes=compute_pool.min_nodes,
             max_nodes=compute_pool.max_nodes,
             instance_family=compute_pool.instance_family,
             auto_resume=compute_pool.auto_resume,
             initially_suspended=compute_pool.initially_suspended,
             auto_suspend_secs=compute_pool.auto_suspend_seconds,
+            tags=compute_pool.tags,
             comment=compute_pool.comment,
             if_not_exists=False,
-            replace=replace,
         )
 
     def stop(self, pool_name: str) -> SnowflakeCursor:

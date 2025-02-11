@@ -6496,6 +6496,9 @@
   |                                                             suspend the      |
   |                                                             compute pool.    |
   |                                                             [default: 3600]  |
+  |    --tag                                   NAME=VALUE       Tag for the      |
+  |                                                             compute pool.    |
+  |                                                             [default: None]  |
   |    --comment                               TEXT             Comment for the  |
   |                                                             compute pool.    |
   |                                                             [default: None]  |
@@ -6504,9 +6507,6 @@
   |                                                             specified object |
   |                                                             does not already |
   |                                                             exist.           |
-  |    --replace                                                Replace this     |
-  |                                                             object if it     |
-  |                                                             already exists.  |
   |    --help           -h                                      Show this        |
   |                                                             message and      |
   |                                                             exit.            |
@@ -6598,8 +6598,7 @@
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --replace            Replace the compute-pool if it already exists.          |
-  | --help     -h        Show this message and exit.                             |
+  | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
@@ -7939,14 +7938,14 @@
 
    Usage: default spcs image-repository deploy [OPTIONS] [ENTITY_ID]
 
-   Creates a new image repository from snowflake.yml file.
+   Deploys a new image repository from snowflake.yml file.
 
   +- Arguments ------------------------------------------------------------------+
   |   entity_id      [ENTITY_ID]  ID of image-repository entity.                 |
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --replace            Replace the compute-pool if it already exists.          |
+  | --replace            Replace the image repository if it already exists.      |
   | --help     -h        Show this message and exit.                             |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -8499,7 +8498,7 @@
   +- Commands -------------------------------------------------------------------+
   | create        Creates a new image repository in the current                  |
   |               schema.                                                        |
-  | deploy        Creates a new image repository from                            |
+  | deploy        Deploys a new image repository from                            |
   |               snowflake.yml file.                                            |
   | drop          Drops image repository with given name.                        |
   | list          Lists all available image repositories.                        |
@@ -8677,8 +8676,7 @@
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --replace            Replace the service if it already exists.               |
-  | --help     -h        Show this message and exit.                             |
+  | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
@@ -12409,7 +12407,7 @@
   +- Commands -------------------------------------------------------------------+
   | create        Creates a new image repository in the current                  |
   |               schema.                                                        |
-  | deploy        Creates a new image repository from                            |
+  | deploy        Deploys a new image repository from                            |
   |               snowflake.yml file.                                            |
   | drop          Drops image repository with given name.                        |
   | list          Lists all available image repositories.                        |

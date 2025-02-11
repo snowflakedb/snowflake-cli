@@ -20,10 +20,14 @@ class ServiceEntityModel(EntityModelBaseWithArtifacts, ExternalAccessBaseModel):
         title="Path to service specification file on stage", default=None
     )
     min_instances: Optional[int] = Field(
-        title="Minimum number of instances", default=None, ge=0
+        title="Minimum number of instances", default=None, ge=1
     )
     max_instances: Optional[int] = Field(
-        title="Maximum number of instances", default=None
+        title="Maximum number of instances", default=None, ge=1
+    )
+    auto_resume: bool = Field(
+        title="The service will automatically resume when a service function or ingress is called.",
+        default=True,
     )
     query_warehouse: Optional[str] = Field(
         title="Warehouse to use if a service container connects to Snowflake to execute a query without explicitly specifying a warehouse to use",
