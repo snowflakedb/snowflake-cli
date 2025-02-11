@@ -32,7 +32,7 @@ from zipfile import ZipFile
 
 
 STAGE_NAME = "dev_deployment"
-RETURN_TYPE = "VARCHAR" if IS_QA else "VARCHAR(16777216)"
+RETURN_TYPE = "VARCHAR"
 bundle_root = Path("output") / "bundle" / "snowpark"
 
 
