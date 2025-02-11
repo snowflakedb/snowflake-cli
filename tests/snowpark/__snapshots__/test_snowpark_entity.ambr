@@ -1,0 +1,74 @@
+# serializer version: 1
+# name: test_action_execute[None]
+  'SELECT func1()'
+# ---
+# name: test_action_execute[execution_arguments1]
+  'SELECT func1(arg1, arg2)'
+# ---
+# name: test_action_execute[execution_arguments2]
+  'SELECT func1(foo, 42, bar)'
+# ---
+# name: test_function_get_execute_sql[None]
+  'SELECT func1()'
+# ---
+# name: test_function_get_execute_sql[execution_arguments1]
+  'SELECT func1(arg1, arg2)'
+# ---
+# name: test_function_get_execute_sql[execution_arguments2]
+  'SELECT func1(foo, 42, bar)'
+# ---
+# name: test_get_deploy_sql[CREATE IF NOT EXISTS]
+  '''
+  CREATE IF NOT EXISTS FUNCTION IDENTIFIER('func1')
+  COPY GRANTS
+  RETURNS string
+  LANGUAGE PYTHON
+  RUNTIME_VERSION '3.10'
+  IMPORTS=
+  HANDLER='app.func1_handler'
+  '''
+# ---
+# name: test_get_deploy_sql[CREATE OR REPLACE]
+  '''
+  CREATE OR REPLACE FUNCTION IDENTIFIER('func1')
+  COPY GRANTS
+  RETURNS string
+  LANGUAGE PYTHON
+  RUNTIME_VERSION '3.10'
+  IMPORTS=
+  HANDLER='app.func1_handler'
+  '''
+# ---
+# name: test_get_deploy_sql[CREATE]
+  '''
+  CREATE FUNCTION IDENTIFIER('func1')
+  COPY GRANTS
+  RETURNS string
+  LANGUAGE PYTHON
+  RUNTIME_VERSION '3.10'
+  IMPORTS=
+  HANDLER='app.func1_handler'
+  '''
+# ---
+# name: test_nativeapp_children_interface
+  '''
+  CREATE FUNCTION IDENTIFIER('func1')
+  COPY GRANTS
+  RETURNS string
+  LANGUAGE PYTHON
+  RUNTIME_VERSION '3.10'
+  IMPORTS=
+  HANDLER='app.func1_handler'
+  '''
+# ---
+# name: test_nativeapp_children_interface_old_build
+  '''
+  CREATE FUNCTION IDENTIFIER('func1')
+  COPY GRANTS
+  RETURNS string
+  LANGUAGE PYTHON
+  RUNTIME_VERSION '3.10'
+  IMPORTS=
+  HANDLER='app.func1_handler'
+  '''
+# ---

@@ -104,6 +104,12 @@ class SecurePath:
         """
         return self._path.is_file()
 
+    def glob(self, pattern: str):
+        """
+        Return a generator yielding Path objects that match the given pattern.
+        """
+        return self._path.glob(pattern)
+
     @property
     def name(self) -> str:
         """A string representing the final path component."""

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
 from snowflake.cli.api.stage_path import StagePath
@@ -248,6 +250,215 @@ def test_root_path(stage_name, path):
             "test_stage",
             "test_stage",
         ),
+        (
+            "test_schema.test_stage/nested/dir/file.name",
+            "test_stage/nested/dir/file.name",
+            "test_schema.test_stage/nested/dir/file.name",
+            "test_schema",
+            "test_schema.test_stage",
+            "test_stage",
+        ),
+        (
+            'db.schema."stage.sub/dir"/v1',
+            '"stage.sub/dir"/v1',
+            'db.schema."stage.sub/dir"/v1',
+            "schema",
+            'db.schema."stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            '@db.schema."stage.sub/dir"/v1',
+            '"stage.sub/dir"/v1',
+            '@db.schema."stage.sub/dir"/v1',
+            "schema",
+            '@db.schema."stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            '@schema."stage.sub/dir"/v1',
+            '"stage.sub/dir"/v1',
+            '@schema."stage.sub/dir"/v1',
+            "schema",
+            '@schema."stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            'schema."stage.sub/dir"/v1',
+            '"stage.sub/dir"/v1',
+            'schema."stage.sub/dir"/v1',
+            "schema",
+            'schema."stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            '@"stage.sub/dir"/v1',
+            '"stage.sub/dir"/v1',
+            '@"stage.sub/dir"/v1',
+            None,
+            '@"stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            '"stage.sub/dir"/v1',
+            '"stage.sub/dir"/v1',
+            '"stage.sub/dir"/v1',
+            None,
+            '"stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            'db.schema."stage.sub/dir"/v1/more/and/more',
+            '"stage.sub/dir"/v1/more/and/more',
+            'db.schema."stage.sub/dir"/v1/more/and/more',
+            "schema",
+            'db.schema."stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            '@db.schema."stage.sub/dir"/v1/more/and/more/',
+            '"stage.sub/dir"/v1/more/and/more',
+            '@db.schema."stage.sub/dir"/v1/more/and/more',
+            "schema",
+            '@db.schema."stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            '@schema."stage.sub/dir"/v1/more/and/more/',
+            '"stage.sub/dir"/v1/more/and/more',
+            '@schema."stage.sub/dir"/v1/more/and/more',
+            "schema",
+            '@schema."stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            'schema."stage.sub/dir"/v1/more/and/more',
+            '"stage.sub/dir"/v1/more/and/more',
+            'schema."stage.sub/dir"/v1/more/and/more',
+            "schema",
+            'schema."stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            '@"stage.sub/dir"/v1/more/and/more/',
+            '"stage.sub/dir"/v1/more/and/more',
+            '@"stage.sub/dir"/v1/more/and/more',
+            None,
+            '@"stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            '"stage.sub/dir"/v1/more/and/more/',
+            '"stage.sub/dir"/v1/more/and/more',
+            '"stage.sub/dir"/v1/more/and/more',
+            None,
+            '"stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            'db.schema."stage.sub/dir"',
+            '"stage.sub/dir"',
+            'db.schema."stage.sub/dir"',
+            "schema",
+            'db.schema."stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            '@db.schema."stage.sub/dir"',
+            '"stage.sub/dir"',
+            '@db.schema."stage.sub/dir"',
+            "schema",
+            '@db.schema."stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            '@schema."stage.sub/dir"',
+            '"stage.sub/dir"',
+            '@schema."stage.sub/dir"',
+            "schema",
+            '@schema."stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            'schema."stage.sub/dir"',
+            '"stage.sub/dir"',
+            'schema."stage.sub/dir"',
+            "schema",
+            'schema."stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            '@"stage.sub/dir"',
+            '"stage.sub/dir"',
+            '@"stage.sub/dir"',
+            None,
+            '@"stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            '@"stage.sub/dir"',
+            '"stage.sub/dir"',
+            '@"stage.sub/dir"',
+            None,
+            '@"stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        (
+            '"stage.sub/dir"',
+            '"stage.sub/dir"',
+            '"stage.sub/dir"',
+            None,
+            '"stage.sub/dir"',
+            '"stage.sub/dir"',
+        ),
+        ("@stage/v1/", "stage/v1", "@stage/v1", None, "@stage", "stage"),
+        (
+            "@stage/v1/trailing/",
+            "stage/v1/trailing",
+            "@stage/v1/trailing",
+            None,
+            "@stage",
+            "stage",
+        ),
+        (
+            "@stage/v1/file.name",
+            "stage/v1/file.name",
+            "@stage/v1/file.name",
+            None,
+            "@stage",
+            "stage",
+        ),
+        (
+            "@stage/file.name",
+            "stage/file.name",
+            "@stage/file.name",
+            None,
+            "@stage",
+            "stage",
+        ),
+        (
+            "@stage/v1/v2/file.name",
+            "stage/v1/v2/file.name",
+            "@stage/v1/v2/file.name",
+            None,
+            "@stage",
+            "stage",
+        ),
+        (
+            "@stage/v1/v2/fi?e.name",
+            "stage/v1/v2/fi?e.name",
+            "@stage/v1/v2/fi?e.name",
+            None,
+            "@stage",
+            "stage",
+        ),
+        (
+            "@stage/v1/v2/fi*e.name",
+            "stage/v1/v2/fi*e.name",
+            "@stage/v1/v2/fi*e.name",
+            None,
+            "@stage",
+            "stage",
+        ),
     ],
 )
 def test_default_stage_path_parts(
@@ -259,3 +470,9 @@ def test_default_stage_path_parts(
     assert stage_path_parts.path == path
     assert stage_path_parts.stage == stage
     assert stage_path_parts.stage_name == stage_name
+
+
+def test_join_system_path():
+    stage_path = StagePath.from_stage_str("stage")
+    system_path = Path("dir") / "subdir" / "file.txt"
+    assert str(stage_path / system_path) == "@stage/dir/subdir/file.txt"

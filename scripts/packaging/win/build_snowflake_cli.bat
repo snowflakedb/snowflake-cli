@@ -25,6 +25,8 @@ python.exe -m hatch -e packaging run ^
   --clean ^
   --noconfirm ^
   --console ^
+  --collect-submodules keyring ^
+  --collect-submodules shellingham ^
   --icon=scripts\packaging\win\snowflake_msi.ico ^
   %ENTRYPOINT%
 

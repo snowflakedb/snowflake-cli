@@ -19,7 +19,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterator
+from typing import TYPE_CHECKING, Iterator, Optional
 
 from snowflake.cli.api.connections import ConnectionContext, OpenConnectionCache
 from snowflake.cli.api.exceptions import MissingConfiguration
@@ -195,6 +195,19 @@ class _CliGlobalContextAccess:
     def _should_force_mute_intermediate_output(self) -> bool:
         """Computes whether cli_console output should be muted."""
         return self._manager.output_format == OutputFormat.JSON
+
+    @property
+    def snow_api_root(
+        self,
+    ) -> Optional[
+        object
+    ]:  # Should be Optional[Root], but we need local import for performance reasons
+        from snowflake.core import Root
+
+        if self.connection:
+            return Root(self.connection)
+        else:
+            return None
 
 
 _CLI_CONTEXT_MANAGER: ContextVar[_CliGlobalContextManager | None] = ContextVar(

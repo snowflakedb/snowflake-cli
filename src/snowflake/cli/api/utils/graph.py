@@ -51,6 +51,9 @@ class Graph(Generic[T]):
     def get_all_nodes(self) -> set[Node[T]]:
         return set(self._graph_nodes_map.values())
 
+    def contains_node(self, key: str) -> bool:
+        return self.__contains__(key)
+
     def add(self, node: Node[T]) -> None:
         if node.key in self._graph_nodes_map:
             raise KeyError(f"Node key {node.key} already exists")

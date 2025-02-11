@@ -1,32 +1,15 @@
-from enum import Enum
+import functools
+from pathlib import Path
 from typing import Generic, Type, TypeVar, get_args
 
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
-from snowflake.cli.api.cli_global_context import span
+from snowflake.cli.api.cli_global_context import get_cli_context, span
+from snowflake.cli.api.entities.resolver import DependencyResolver
+from snowflake.cli.api.entities.utils import EntityActions, get_sql_executor
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutor
-
-
-class EntityActions(str, Enum):
-    BUNDLE = "action_bundle"
-    DEPLOY = "action_deploy"
-    DROP = "action_drop"
-    VALIDATE = "action_validate"
-    EVENTS = "action_events"
-
-    VERSION_LIST = "action_version_list"
-    VERSION_CREATE = "action_version_create"
-    VERSION_DROP = "action_version_drop"
-
-    RELEASE_DIRECTIVE_UNSET = "action_release_directive_unset"
-    RELEASE_DIRECTIVE_SET = "action_release_directive_set"
-    RELEASE_DIRECTIVE_LIST = "action_release_directive_list"
-
-    RELEASE_CHANNEL_LIST = "action_release_channel_list"
-    RELEASE_CHANNEL_ADD_ACCOUNTS = "action_release_channel_add_accounts"
-    RELEASE_CHANNEL_REMOVE_ACCOUNTS = "action_release_channel_remove_accounts"
-    RELEASE_CHANNEL_ADD_VERSION = "action_release_channel_add_version"
-    RELEASE_CHANNEL_REMOVE_VERSION = "action_release_channel_remove_version"
-
+from snowflake.connector import SnowflakeConnection
+from snowflake.connector.cursor import SnowflakeCursor
 
 T = TypeVar("T")
 
@@ -64,10 +47,11 @@ class EntityBase(Generic[T]):
     def __init__(self, entity_model: T, workspace_ctx: WorkspaceContext):
         self._entity_model = entity_model
         self._workspace_ctx = workspace_ctx
+        self.dependency_resolver = DependencyResolver(entity_model)
 
     @property
-    def entity_id(self):
-        return self._entity_model.entity_id
+    def entity_id(self) -> str:
+        return self._entity_model.entity_id  # type: ignore
 
     @classmethod
     def get_entity_model_type(cls) -> Type[T]:
@@ -89,10 +73,53 @@ class EntityBase(Generic[T]):
     ):
         """
         Performs the requested action.
+        This is a preferred way to perform actions on entities, over calling actions directly,
+        as it will also call the dependencies in the correct order.
         """
+        self.dependency_resolver.perform_for_dep(action, action_ctx, *args, **kwargs)
         return getattr(self, action)(action_ctx, *args, **kwargs)
 
+    @property
+    def root(self) -> Path:
+        return self._workspace_ctx.project_root
 
-def get_sql_executor() -> SqlExecutor:
-    """Returns an SQL Executor that uses the connection from the current CLI context"""
-    return SqlExecutor()
+    @property
+    def identifier(self) -> str:
+        return self.model.fqn.sql_identifier
+
+    @property
+    def fqn(self) -> FQN:
+        return self._entity_model.fqn  # type: ignore[attr-defined]
+
+    @functools.cached_property
+    def _sql_executor(
+        self,
+    ) -> SqlExecutor:
+        return get_sql_executor()
+
+    def _execute_query(self, sql: str) -> SnowflakeCursor:
+        return self._sql_executor.execute_query(sql)
+
+    @functools.cached_property
+    def _conn(self) -> SnowflakeConnection:
+        return self._sql_executor._conn  # noqa
+
+    @property
+    def snow_api_root(self):
+        return get_cli_context().snow_api_root
+
+    @property
+    def model(self):
+        return self._entity_model
+
+    def dependent_entities(self, action_ctx: ActionContext):
+        return self.dependency_resolver.depends_on(action_ctx)
+
+    def get_usage_grant_sql(self, app_role: str) -> str:
+        return f"GRANT USAGE ON {self.model.type.upper()} {self.identifier} TO ROLE {app_role};"
+
+    def get_describe_sql(self) -> str:
+        return f"DESCRIBE {self.model.type.upper()} {self.identifier};"
+
+    def get_drop_sql(self) -> str:
+        return f"DROP {self.model.type.upper()} {self.identifier};"

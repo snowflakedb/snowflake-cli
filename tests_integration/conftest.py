@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from unittest import mock
 from uuid import uuid4
 
 import pytest
@@ -31,7 +32,7 @@ import yaml
 from typer import Typer
 from typer.testing import CliRunner
 
-from snowflake.cli._app.cli_app import app_factory
+from snowflake.cli._app.cli_app import CliAppFactory
 from snowflake.cli.api.cli_global_context import (
     fork_cli_context,
     get_cli_context_manager,
@@ -188,7 +189,7 @@ class SnowCLIRunner(CliRunner):
 
 @pytest.fixture
 def runner(test_snowcli_config_provider, default_username, resource_suffix):
-    app = app_factory()
+    app = CliAppFactory().create_or_get_app()
     yield SnowCLIRunner(
         app,
         test_snowcli_config_provider,
@@ -258,3 +259,15 @@ def resource_suffix(request):
     # To generate a suffix that isn't too long or complex, we use originalname, which is the
     # "bare" test function name, without filename, class name, or parameterization variables
     return f"_{uuid4().hex}_{request.node.originalname}"
+
+
+@pytest.fixture
+def enable_snowpark_glob_support_feature_flag():
+    with mock.patch(
+        f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled",
+        return_value=True,
+    ), mock.patch(
+        f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_disabled",
+        return_value=False,
+    ):
+        yield

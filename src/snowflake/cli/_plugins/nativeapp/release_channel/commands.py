@@ -25,7 +25,7 @@ from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.entities.common import EntityActions
+from snowflake.cli.api.entities.utils import EntityActions
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -80,9 +80,9 @@ def release_channel_add_accounts(
         show_default=False,
         help="The release channel to add accounts to.",
     ),
-    target_accounts: list[str] = typer.Option(
+    target_accounts: str = typer.Option(
         show_default=False,
-        help="The accounts to add to the release channel. Format has to be `org1.account1,org2.account2`.",
+        help="The accounts to add to the release channel. Format must be `org1.account1,org2.account2`.",
     ),
     **options,
 ) -> CommandResult:
@@ -100,7 +100,7 @@ def release_channel_add_accounts(
         package_id,
         EntityActions.RELEASE_CHANNEL_ADD_ACCOUNTS,
         release_channel=channel,
-        target_accounts=target_accounts,
+        target_accounts=target_accounts.split(","),
     )
 
     return MessageResult("Successfully added accounts to the release channel.")
@@ -114,9 +114,9 @@ def release_channel_remove_accounts(
         show_default=False,
         help="The release channel to remove accounts from.",
     ),
-    target_accounts: list[str] = typer.Option(
+    target_accounts: str = typer.Option(
         show_default=False,
-        help="The accounts to remove from the release channel. Format has to be `org1.account1,org2.account2`.",
+        help="The accounts to remove from the release channel. Format must be `org1.account1,org2.account2`.",
     ),
     **options,
 ) -> CommandResult:
@@ -134,10 +134,44 @@ def release_channel_remove_accounts(
         package_id,
         EntityActions.RELEASE_CHANNEL_REMOVE_ACCOUNTS,
         release_channel=channel,
-        target_accounts=target_accounts,
+        target_accounts=target_accounts.split(","),
     )
 
     return MessageResult("Successfully removed accounts from the release channel.")
+
+
+@with_project_definition()
+@app.command("set-accounts", requires_connection=True)
+@force_project_definition_v2()
+def release_channel_set_accounts(
+    channel: str = typer.Argument(
+        show_default=False,
+        help="The release channel to set accounts for.",
+    ),
+    target_accounts: str = typer.Option(
+        show_default=False,
+        help="The accounts to set for the release channel. Format must be `org1.account1,org2.account2`.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Sets accounts for a release channel.
+    """
+
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    package_id = options["package_entity_id"]
+    ws.perform_action(
+        package_id,
+        EntityActions.RELEASE_CHANNEL_SET_ACCOUNTS,
+        release_channel=channel,
+        target_accounts=target_accounts.split(","),
+    )
+
+    return MessageResult("Successfully set accounts for the release channel.")
 
 
 @app.command("add-version", requires_connection=True)

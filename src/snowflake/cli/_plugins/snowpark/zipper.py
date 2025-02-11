@@ -20,6 +20,10 @@ from pathlib import Path
 from typing import Dict, List, Literal
 from zipfile import ZIP_DEFLATED, ZipFile
 
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
+from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.secure_path import SecurePath
+
 log = logging.getLogger(__name__)
 
 IGNORED_FILES = [
@@ -64,7 +68,10 @@ def zip_dir(
     mode: Literal["r", "w", "x", "a"] = "w",
 ) -> None:
 
-    if isinstance(source, Path):
+    if not dest_zip.parent.exists():
+        SecurePath(dest_zip).parent.mkdir(parents=True)
+
+    if isinstance(source, Path) or isinstance(source, SecurePath):
         source = [source]
 
     files_to_pack: Dict[Path, List[Path]] = {
@@ -74,9 +81,34 @@ def zip_dir(
 
     with ZipFile(dest_zip, mode, ZIP_DEFLATED, allowZip64=True) as package_zip:
         for src, files in files_to_pack.items():
+            if isinstance(src, SecurePath):
+                src = src.path
             for file in files:
                 log.debug("Adding %s to %s", file, dest_zip)
                 package_zip.write(file, arcname=file.relative_to(src))
+
+
+def zip_dir_using_bundle_map(
+    bundle_map: BundleMap,
+    dest_zip: Path,
+    mode: Literal["r", "w", "x", "a"] = "w",
+) -> None:
+    if not dest_zip.parent.exists():
+        SecurePath(dest_zip).parent.mkdir(parents=True)
+
+    with ZipFile(dest_zip, mode, ZIP_DEFLATED, allowZip64=True) as package_zip:
+        cli_console.step(f"Creating: {dest_zip}")
+        for src, _ in bundle_map.all_mappings(expand_directories=True):
+            if src.is_file():
+                log.debug("Adding %s to %s", src, dest_zip)
+                package_zip.write(src, arcname=_path_without_top_level_directory(src))
+
+
+def _path_without_top_level_directory(path: Path) -> str:
+    path_parts = path.parts
+    if len(path_parts) > 1:
+        return str(Path(*path_parts[1:]))
+    return str(path)
 
 
 def _to_be_zipped(file: Path) -> bool:

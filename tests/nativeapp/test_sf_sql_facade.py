@@ -49,7 +49,10 @@ from snowflake.cli.api.errno import (
     ACCOUNT_HAS_TOO_MANY_QUALIFIERS,
     APPLICATION_INSTANCE_FAILED_TO_RUN_SETUP_SCRIPT,
     APPLICATION_PACKAGE_MAX_VERSIONS_HIT,
+    APPLICATION_PACKAGE_PATCH_ALREADY_EXISTS,
     APPLICATION_REQUIRES_TELEMETRY_SHARING,
+    CANNOT_ADD_PATCH_WITH_NON_INCREASING_PATCH_NUMBER,
+    CANNOT_CREATE_VERSION_WITH_NON_ZERO_PATCH,
     CANNOT_DEREGISTER_VERSION_ASSOCIATED_WITH_CHANNEL,
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
     CANNOT_DISABLE_RELEASE_CHANNELS,
@@ -60,8 +63,10 @@ from snowflake.cli.api.errno import (
     MAX_UNBOUND_VERSIONS_REACHED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
     RELEASE_DIRECTIVE_DOES_NOT_EXIST,
+    RELEASE_DIRECTIVE_UNAPPROVED_VERSION_OR_PATCH,
     RELEASE_DIRECTIVES_VERSION_PATCH_NOT_FOUND,
     SQL_COMPILATION_ERROR,
+    TARGET_ACCOUNT_USED_BY_OTHER_RELEASE_DIRECTIVE,
     VERSION_DOES_NOT_EXIST,
     VERSION_NOT_ADDED_TO_RELEASE_CHANNEL,
     VERSION_NOT_IN_RELEASE_CHANNEL,
@@ -228,7 +233,6 @@ def test_assert_in_context():
         sut()
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 def test_execute_with_role_wh_db(mock_execute_queries, mock_execute_query, mock_cursor):
     # Arrange
@@ -294,7 +298,6 @@ def test_execute_with_role_wh_db(mock_execute_queries, mock_execute_query, mock_
     mock_parent.assert_has_calls(all_execute_calls)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 def test_execute_no_db(mock_execute_queries, mock_execute_query, mock_cursor):
     # Arrange
@@ -346,7 +349,6 @@ def test_execute_no_db(mock_execute_queries, mock_execute_query, mock_cursor):
     mock_parent.assert_has_calls(all_execute_calls)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 def test_execute_no_wh(mock_execute_queries, mock_execute_query, mock_cursor):
     # Arrange
@@ -398,7 +400,6 @@ def test_execute_no_wh(mock_execute_queries, mock_execute_query, mock_cursor):
     mock_parent.assert_has_calls(all_execute_calls)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 def test_execute_no_role(mock_execute_queries, mock_execute_query, mock_cursor):
     # Arrange
@@ -453,7 +454,6 @@ def test_execute_no_role(mock_execute_queries, mock_execute_query, mock_cursor):
     mock_parent.assert_has_calls(all_execute_calls)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 def test_execute_no_wh_no_db(mock_execute_queries, mock_execute_query, mock_cursor):
     # Arrange
@@ -495,7 +495,6 @@ def test_execute_no_wh_no_db(mock_execute_queries, mock_execute_query, mock_curs
     mock_parent.assert_has_calls(all_execute_calls)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 def test_execute_no_role_no_wh(mock_execute_queries, mock_execute_query, mock_cursor):
     # Arrange
@@ -537,7 +536,6 @@ def test_execute_no_role_no_wh(mock_execute_queries, mock_execute_query, mock_cu
     mock_parent.assert_has_calls(all_execute_calls)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 def test_execute_no_role_no_db(mock_execute_queries, mock_execute_query, mock_cursor):
     # Arrange
@@ -579,7 +577,6 @@ def test_execute_no_role_no_db(mock_execute_queries, mock_execute_query, mock_cu
     mock_parent.assert_has_calls(all_execute_calls)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch(SQL_EXECUTOR_EXECUTE_QUERIES)
 def test_execute_no_role_no_wh_no_db(mock_execute_queries, mock_execute_query):
     # Arrange
@@ -682,7 +679,6 @@ def test_execute_catch_all_exception(
         (UseObjectType.WAREHOUSE, "test_wh"),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_object(mock_execute_query, object_type, object_name, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [(None, mock.call(f"use {object_type} {object_name}"))]
@@ -692,7 +688,6 @@ def test_use_object(mock_execute_query, object_type, object_name, mock_cursor):
     assert mock_execute_query.mock_calls == expected
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_object_catches_not_exists_error(mock_execute_query):
     object_type = UseObjectType.ROLE
     object_name = "test_err_role"
@@ -713,7 +708,6 @@ def test_use_object_catches_not_exists_error(mock_execute_query):
     )
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_object_catches_other_programming_error_raises_unknown_sql_error(
     mock_execute_query,
 ):
@@ -736,7 +730,6 @@ def test_use_object_catches_other_programming_error_raises_unknown_sql_error(
     )
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_object_catches_other_sql_error(mock_execute_query):
     object_type = UseObjectType.ROLE
     object_name = "test_err_role"
@@ -749,7 +742,6 @@ def test_use_object_catches_other_sql_error(mock_execute_query):
     assert "Failed to use role test_err_role." in str(err)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_warehouse_single_quoted_id(mock_execute_query, mock_cursor):
     single_quoted_name = "test warehouse"
     side_effects, expected = mock_execute_helper(
@@ -770,7 +762,6 @@ def test_use_warehouse_single_quoted_id(mock_execute_query, mock_cursor):
     assert mock_execute_query.mock_calls == expected
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_warehouse_same_id_single_quotes(mock_execute_query, mock_cursor):
     single_quoted_name = "test warehouse"
     side_effects, expected = mock_execute_helper(
@@ -789,7 +780,6 @@ def test_use_warehouse_same_id_single_quotes(mock_execute_query, mock_cursor):
     assert mock_execute_query.mock_calls == expected
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_role_single_quoted_id(mock_execute_query, mock_cursor):
     single_quoted_name = "test role"
     side_effects, expected = mock_execute_helper(
@@ -810,7 +800,6 @@ def test_use_role_single_quoted_id(mock_execute_query, mock_cursor):
     assert mock_execute_query.mock_calls == expected
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_role_same_id_single_quotes(mock_execute_query, mock_cursor):
     single_quoted_name = "test role"
     side_effects, expected = mock_execute_helper(
@@ -829,7 +818,6 @@ def test_use_role_same_id_single_quotes(mock_execute_query, mock_cursor):
     assert mock_execute_query.mock_calls == expected
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_db_single_quoted_id(mock_execute_query, mock_cursor):
     single_quoted_name = "test db"
     side_effects, expected = mock_execute_helper(
@@ -850,7 +838,6 @@ def test_use_db_single_quoted_id(mock_execute_query, mock_cursor):
     assert mock_execute_query.mock_calls == expected
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_db_same_id_single_quotes(mock_execute_query, mock_cursor):
     single_quoted_name = "test db"
     side_effects, expected = mock_execute_helper(
@@ -904,7 +891,6 @@ def test_use_db_same_id_single_quotes(mock_execute_query, mock_cursor):
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_warehouse_bubbles_errors(
     mock_execute_query, error_raised, error_caught, error_message, mock_cursor
 ):
@@ -962,7 +948,6 @@ def test_use_warehouse_bubbles_errors(
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_role_bubbles_errors(
     mock_execute_query, error_raised, error_caught, error_message, mock_cursor
 ):
@@ -1020,7 +1005,6 @@ def test_use_role_bubbles_errors(
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_use_db_bubbles_errors(
     mock_execute_query, error_raised, error_caught, error_message, mock_cursor
 ):
@@ -1043,7 +1027,6 @@ def test_use_db_bubbles_errors(
     assert error_message in str(err)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @pytest.mark.parametrize(
     "parameter_value,event_table",
     [
@@ -1076,7 +1059,6 @@ def test_account_event_table(
     assert sql_facade.get_account_event_table() == event_table
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_event_definitions_base_case(mock_execute_query, mock_cursor):
     app_name = "test_app"
     query = "show telemetry event definitions in application test_app"
@@ -1104,7 +1086,6 @@ def test_get_event_definitions_base_case(mock_execute_query, mock_cursor):
     assert result == events_definitions
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_event_definitions_with_non_safe_identifier(
     mock_execute_query, mock_cursor
 ):
@@ -1134,7 +1115,6 @@ def test_get_event_definitions_with_non_safe_identifier(
     assert result == events_definitions
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_event_definitions_with_role(mock_execute_query, mock_cursor):
     app_name = "test_app"
     role_name = "my_role"
@@ -1169,7 +1149,6 @@ def test_get_event_definitions_with_role(mock_execute_query, mock_cursor):
     assert result == events_definitions
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_event_definitions_bubbles_errors(mock_execute_query):
     app_name = "test_app"
     query = "show telemetry event definitions in application test_app"
@@ -1193,7 +1172,6 @@ def test_get_event_definitions_bubbles_errors(mock_execute_query):
     )
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_properties_base_case(mock_execute_query, mock_cursor):
     app_name = "test_app"
     query = f"desc application {app_name}"
@@ -1217,7 +1195,6 @@ def test_get_app_properties_base_case(mock_execute_query, mock_cursor):
     assert result == {"some_param": "param_value", "comment": "this is a test app"}
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_properties_with_non_safe_identifier(mock_execute_query, mock_cursor):
     app_name = "test.app"
     query = f'desc application "test.app"'
@@ -1241,7 +1218,6 @@ def test_get_app_properties_with_non_safe_identifier(mock_execute_query, mock_cu
     assert result == {"some_param": "param_value", "comment": "this is a test app"}
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_properties_with_role(mock_execute_query, mock_cursor):
     app_name = "test_app"
     role_name = "my_role"
@@ -1272,7 +1248,6 @@ def test_get_app_properties_with_role(mock_execute_query, mock_cursor):
     assert result == {"some_param": "param_value", "comment": "this is a test app"}
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_properties_bubbles_errors(mock_execute_query):
     app_name = "test_app"
     query = f"desc application {app_name}"
@@ -1293,7 +1268,6 @@ def test_get_app_properties_bubbles_errors(mock_execute_query):
     assert f"Failed to describe application {app_name}. {error_message}" in str(err)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 @pytest.mark.parametrize(
     "events, expected_result",
     [
@@ -1313,8 +1287,7 @@ def test_share_telemetry_events(mock_execute_query, events, expected_result):
     mock_execute_query.assert_called_once_with(expected_result)
 
 
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_share_telemtry_events_with_non_safe_identifier(mock_execute_query):
+def test_share_telemetry_events_with_non_safe_identifier(mock_execute_query):
     app_name = "test.app"
     events = ["SNOWFLAKE$EVENT1", "SNOWFLAKE$EVENT2"]
     mock_execute_query.return_value = None
@@ -1878,6 +1851,7 @@ def test_upgrade_application_unversioned(
     mock_get_existing_app_info,
     mock_use_warehouse,
     mock_use_role,
+    mock_get_app_properties,
     mock_execute_query,
     mock_cursor,
 ):
@@ -1906,7 +1880,7 @@ def test_upgrade_application_unversioned(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=None,
             should_authorize_event_sharing=None,
             role=role,
@@ -1957,7 +1931,7 @@ def test_upgrade_application_version_and_patch(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.versioned_dev("3", 2),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -2004,7 +1978,7 @@ def test_upgrade_application_from_release_directive(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -2016,6 +1990,7 @@ def test_upgrade_application_converts_expected_programmingerrors_to_user_errors(
     mock_get_existing_app_info,
     mock_use_warehouse,
     mock_use_role,
+    mock_get_app_properties,
     mock_execute_query,
 ):
     app_name = "test_app"
@@ -2050,7 +2025,7 @@ def test_upgrade_application_converts_expected_programmingerrors_to_user_errors(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -2115,7 +2090,7 @@ def test_upgrade_application_special_message_for_event_sharing_error(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.versioned_dev("v1"),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=False,
             should_authorize_event_sharing=False,
             role=role,
@@ -2132,6 +2107,7 @@ def test_upgrade_application_converts_unexpected_programmingerrors_to_unclassifi
     mock_get_existing_app_info,
     mock_use_warehouse,
     mock_use_role,
+    mock_get_app_properties,
     mock_execute_query,
 ):
     app_name = "test_app"
@@ -2164,7 +2140,7 @@ def test_upgrade_application_converts_unexpected_programmingerrors_to_unclassifi
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -2190,7 +2166,7 @@ def test_upgrade_application_with_release_channel_same_as_app_properties(
     mock_get_app_properties.return_value = {
         COMMENT_COL: SPECIAL_COMMENT,
         AUTHORIZE_TELEMETRY_COL: "true",
-        CHANNEL_COL: release_channel,
+        CHANNEL_COL: release_channel.upper(),
     }
 
     side_effects, expected = mock_execute_helper(
@@ -2213,7 +2189,7 @@ def test_upgrade_application_with_release_channel_same_as_app_properties(
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -2245,7 +2221,7 @@ def test_upgrade_application_with_release_channel_not_same_as_app_properties_the
         sql_facade.upgrade_application(
             name=app_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -2300,7 +2276,7 @@ def test_create_application_with_minimal_clauses(
             name=app_name,
             package_name=pkg_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=None,
             should_authorize_event_sharing=None,
             role=role,
@@ -2352,7 +2328,7 @@ def test_create_application_with_all_clauses(
             name=app_name,
             package_name=pkg_name,
             install_method=SameAccountInstallMethod.unversioned_dev(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=True,
             should_authorize_event_sharing=True,
             role=role,
@@ -2405,7 +2381,7 @@ def test_create_application_converts_expected_programmingerrors_to_user_errors(
             name=app_name,
             package_name=pkg_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=None,
             should_authorize_event_sharing=None,
             role=role,
@@ -2467,7 +2443,7 @@ def test_create_application_special_message_for_event_sharing_error(
             name=app_name,
             package_name=pkg_name,
             install_method=SameAccountInstallMethod.versioned_dev("3", 1),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=False,
             should_authorize_event_sharing=False,
             role=role,
@@ -2525,7 +2501,7 @@ def test_create_application_converts_unexpected_programmingerrors_to_unclassifie
             name=app_name,
             package_name=pkg_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=None,
             should_authorize_event_sharing=None,
             role=role,
@@ -2578,7 +2554,7 @@ def test_create_application_with_release_channel(
             name=app_name,
             package_name=pkg_name,
             install_method=SameAccountInstallMethod.release_directive(),
-            stage_fqn=stage_fqn,
+            path_to_version_directory=stage_fqn,
             debug_mode=None,
             should_authorize_event_sharing=None,
             role=role,
@@ -2863,30 +2839,71 @@ def test_get_ui_parameter_with_no_value_then_use_default(mock_cursor):
         execute_str_mock.assert_called_once_with(expected_ui_params_query)
 
 
-def test_show_release_directives_no_release_channel_specified(mock_execute_query):
+def test_show_release_directives_no_release_channel_specified(
+    mock_execute_query, mock_cursor
+):
     package_name = "test_package"
     expected_query = f"show release directives in application package {package_name}"
+    mock_cursor_results = [
+        {
+            "name": "test_directive",
+            "created_on": datetime(2021, 2, 1),
+            "modified_on": datetime(2021, 4, 3),
+            "version": "v1",
+            "patch": 1,
+        }
+    ]
+    mock_execute_query.side_effect = [mock_cursor(mock_cursor_results, [])]
 
-    sql_facade.show_release_directives(package_name)
+    result = sql_facade.show_release_directives(package_name)
 
+    assert result == mock_cursor_results
     mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
 
 
-def test_show_release_directive_with_release_channel_specified(mock_execute_query):
+def test_show_release_directive_with_release_channel_specified(
+    mock_execute_query, mock_cursor
+):
     package_name = "test_package"
     release_channel = "test_channel"
     expected_query = f"show release directives in application package {package_name} for release channel {release_channel}"
-    sql_facade.show_release_directives(package_name, release_channel)
+    mock_cursor_results = [
+        {
+            "name": "test_directive",
+            "created_on": datetime(2021, 2, 1),
+            "modified_on": datetime(2021, 4, 3),
+            "version": "v1",
+            "patch": 1,
+        }
+    ]
+    mock_execute_query.side_effect = [mock_cursor(mock_cursor_results, [])]
 
+    result = sql_facade.show_release_directives(package_name, release_channel)
+
+    assert result == mock_cursor_results
     mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
 
 
-def test_show_release_directive_with_special_characters_in_names(mock_execute_query):
+def test_show_release_directive_with_special_characters_in_names(
+    mock_execute_query, mock_cursor
+):
     package_name = "test.package"
     release_channel = "test.channel"
     expected_query = f'show release directives in application package "{package_name}" for release channel "{release_channel}"'
-    sql_facade.show_release_directives(package_name, release_channel)
+    mock_cursor_results = [
+        {
+            "name": "test_directive",
+            "created_on": datetime(2021, 2, 1),
+            "modified_on": datetime(2021, 4, 3),
+            "version": "v1",
+            "patch": 1,
+        }
+    ]
+    mock_execute_query.side_effect = [mock_cursor(mock_cursor_results, [])]
 
+    result = sql_facade.show_release_directives(package_name, release_channel)
+
+    assert result == mock_cursor_results
     mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
 
 
@@ -2902,6 +2919,11 @@ def test_show_release_directive_with_special_characters_in_names(mock_execute_qu
             ProgrammingError(errno=INSUFFICIENT_PRIVILEGES),
             InsufficientPrivilegesError,
             "Insufficient privileges to show release directives for application package test_package",
+        ),
+        (
+            ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+            UserInputError,
+            "Application package test_package does not exist or you are not authorized to access it.",
         ),
         (
             DatabaseError("some database error"),
@@ -3324,6 +3346,21 @@ def test_set_default_release_directive_no_release_channel(
             "Invalid account passed in.",
         ),
         (
+            ProgrammingError(errno=RELEASE_DIRECTIVE_DOES_NOT_EXIST),
+            UserInputError,
+            "Release directive test_directive does not exist in application package test_package.",
+        ),
+        (
+            ProgrammingError(errno=TARGET_ACCOUNT_USED_BY_OTHER_RELEASE_DIRECTIVE),
+            UserInputError,
+            "Some target accounts are already referenced by other release directives in application package test_package.",
+        ),
+        (
+            ProgrammingError(errno=RELEASE_DIRECTIVE_UNAPPROVED_VERSION_OR_PATCH),
+            UserInputError,
+            'Version "1.0.0", patch 1 has not yet been approved to release to accounts outside of this organization.',
+        ),
+        (
             ProgrammingError(),
             InvalidSQLError,
             "Failed to set release directive test_directive for application package test_package.",
@@ -3335,7 +3372,6 @@ def test_set_default_release_directive_no_release_channel(
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_set_release_directive_errors(
     mock_execute_query, error_raised, error_caught, error_message
 ):
@@ -3372,40 +3408,13 @@ def test_modify_release_directive_with_non_default_directive(
         """
     )
 
-    sql_facade.modify_release_directive(
-        package_name,
-        release_directive,
-        release_channel,
-        version,
-        patch,
-    )
-
-    mock_execute_query.assert_called_once_with(expected_query)
-
-
-def test_modify_release_directive_with_default_directive(
-    mock_execute_query,
-):
-    package_name = "test_package"
-    release_directive = "DEFAULT"
-    release_channel = "test_channel"
-    version = "1.0.0"
-    patch = 1
-    expected_query = dedent(
-        f"""\
-            alter application package {package_name}
-                modify release channel {release_channel}
-                modify default release directive
-                version = "{version}" patch = {patch}
-        """
-    )
-
-    sql_facade.modify_release_directive(
-        package_name,
-        release_directive,
-        release_channel,
-        version,
-        patch,
+    sql_facade.set_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=release_channel,
+        version=version,
+        patch=patch,
+        target_accounts=None,
     )
 
     mock_execute_query.assert_called_once_with(expected_query)
@@ -3428,12 +3437,13 @@ def test_modify_release_directive_with_special_chars_in_names(
         """
     )
 
-    sql_facade.modify_release_directive(
-        package_name,
-        release_directive,
-        release_channel,
-        version,
-        patch,
+    sql_facade.set_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=release_channel,
+        version=version,
+        patch=patch,
+        target_accounts=None,
     )
 
     mock_execute_query.assert_called_once_with(expected_query)
@@ -3454,38 +3464,114 @@ def test_modify_release_directive_no_release_channel(
         """
     )
 
-    sql_facade.modify_release_directive(
-        package_name,
-        release_directive,
-        None,
-        version,
-        patch,
+    sql_facade.set_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=None,
+        version=version,
+        patch=patch,
+        target_accounts=None,
     )
 
     mock_execute_query.assert_called_once_with(expected_query)
 
 
-def test_modify_default_release_directive_no_release_channel(
+def test_add_accounts_to_release_directive_with_non_default_directive(
+    mock_execute_query,
+):
+    package_name = "test_package"
+    release_directive = "test_directive"
+    release_channel = "test_channel"
+    target_accounts = ["org1.account1", "org2.account2"]
+
+    expected_query = dedent(
+        f"""\
+            alter application package {package_name}
+                modify release channel {release_channel}
+                modify release directive {release_directive}
+                add accounts = ({",".join(target_accounts)})
+        """
+    )
+
+    sql_facade.add_accounts_to_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=release_channel,
+        target_accounts=target_accounts,
+    )
+
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
+def test_add_accounts_to_default_release_directive_then_error(
     mock_execute_query,
 ):
     package_name = "test_package"
     release_directive = "DEFAULT"
-    version = "1.0.0"
-    patch = 1
+    release_channel = "test_channel"
+    target_accounts = ["org1.account1", "org2.account2"]
+
+    with pytest.raises(UserInputError) as err:
+        sql_facade.add_accounts_to_release_directive(
+            package_name=package_name,
+            release_directive=release_directive,
+            release_channel=release_channel,
+            target_accounts=target_accounts,
+        )
+
+    assert (
+        "Default release directive does not support adding accounts. Please specify a non-default release directive."
+        in str(err)
+    )
+
+
+def test_add_accounts_to_release_directive_no_release_channel(
+    mock_execute_query,
+):
+    package_name = "test_package"
+    release_directive = "test_directive"
+    target_accounts = ["org1.account1", "org2.account2"]
+
     expected_query = dedent(
         f"""\
             alter application package {package_name}
-                modify default release directive
-                version = "{version}" patch = {patch}
+                modify release directive {release_directive}
+                add accounts = ({",".join(target_accounts)})
         """
     )
 
-    sql_facade.modify_release_directive(
-        package_name,
-        release_directive,
-        None,
-        version,
-        patch,
+    sql_facade.add_accounts_to_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=None,
+        target_accounts=target_accounts,
+    )
+
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
+def test_add_accounts_to_release_directive_with_special_chars_in_names(
+    mock_execute_query,
+):
+    package_name = "test.package"
+    release_directive = "test.directive"
+    release_channel = "test.channel"
+    target_accounts = ["org1.account1", "org2.account2"]
+
+    expected_query = dedent(
+        f"""\
+            alter application package "{package_name}"
+                modify release channel "{release_channel}"
+                modify release directive "{release_directive}"
+                add accounts = ({",".join(target_accounts)})
+        """
+    )
+
+    sql_facade.add_accounts_to_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=release_channel,
+        target_accounts=target_accounts,
     )
 
     mock_execute_query.assert_called_once_with(expected_query)
@@ -3495,19 +3581,14 @@ def test_modify_default_release_directive_no_release_channel(
     "error_raised, error_caught, error_message",
     [
         (
-            ProgrammingError(errno=VERSION_NOT_ADDED_TO_RELEASE_CHANNEL),
+            ProgrammingError(errno=ACCOUNT_DOES_NOT_EXIST),
             UserInputError,
-            'Version "1.0.0" is not added to release channel test_channel. Please add it to the release channel first.',
+            "Invalid account passed in.",
         ),
         (
-            ProgrammingError(errno=RELEASE_DIRECTIVES_VERSION_PATCH_NOT_FOUND),
+            ProgrammingError(errno=ACCOUNT_HAS_TOO_MANY_QUALIFIERS),
             UserInputError,
-            'Patch 1 for version "1.0.0" not found in application package test_package.',
-        ),
-        (
-            ProgrammingError(errno=VERSION_DOES_NOT_EXIST),
-            UserInputError,
-            'Version "1.0.0" does not exist in application package test_package.',
+            "Invalid account passed in.",
         ),
         (
             ProgrammingError(errno=RELEASE_DIRECTIVE_DOES_NOT_EXIST),
@@ -3517,28 +3598,173 @@ def test_modify_default_release_directive_no_release_channel(
         (
             ProgrammingError(),
             InvalidSQLError,
-            "Failed to modify release directive test_directive for application package test_package.",
+            "Failed to add accounts to release directive test_directive for application package test_package.",
         ),
         (
             DatabaseError("some database error"),
             UnknownSQLError,
-            "Unknown SQL error occurred. Failed to modify release directive test_directive for application package test_package. some database error",
+            "Unknown SQL error occurred. Failed to add accounts to release directive test_directive for application package test_package. some database error",
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_modify_release_directive_errors(
+def test_add_accounts_to_release_directive_errors(
     mock_execute_query, error_raised, error_caught, error_message
 ):
     mock_execute_query.side_effect = error_raised
 
     with pytest.raises(error_caught) as err:
-        sql_facade.modify_release_directive(
+        sql_facade.add_accounts_to_release_directive(
             "test_package",
             "test_directive",
             "test_channel",
-            "1.0.0",
-            1,
+            ["account1"],
+        )
+
+    assert error_message in str(err)
+
+
+def test_remove_accounts_from_release_directive_with_non_default_directive(
+    mock_execute_query,
+):
+    package_name = "test_package"
+    release_directive = "test_directive"
+    release_channel = "test_channel"
+    target_accounts = ["org1.account1", "org2.account2"]
+
+    expected_query = dedent(
+        f"""\
+            alter application package {package_name}
+                modify release channel {release_channel}
+                modify release directive {release_directive}
+                remove accounts = ({",".join(target_accounts)})
+        """
+    )
+
+    sql_facade.remove_accounts_from_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=release_channel,
+        target_accounts=target_accounts,
+    )
+
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
+def test_remove_accounts_from_default_release_directive_then_error(
+    mock_execute_query,
+):
+    package_name = "test_package"
+    release_directive = "DEFAULT"
+    release_channel = "test_channel"
+    target_accounts = ["org1.account1", "org2.account2"]
+
+    with pytest.raises(UserInputError) as err:
+        sql_facade.remove_accounts_from_release_directive(
+            package_name=package_name,
+            release_directive=release_directive,
+            release_channel=release_channel,
+            target_accounts=target_accounts,
+        )
+
+    assert (
+        "Default release directive does not support removing accounts. Please specify a non-default release directive."
+        in str(err)
+    )
+
+
+def test_remove_accounts_from_release_directive_no_release_channel(
+    mock_execute_query,
+):
+    package_name = "test_package"
+    release_directive = "test_directive"
+    target_accounts = ["org1.account1", "org2.account2"]
+
+    expected_query = dedent(
+        f"""\
+            alter application package {package_name}
+                modify release directive {release_directive}
+                remove accounts = ({",".join(target_accounts)})
+        """
+    )
+
+    sql_facade.remove_accounts_from_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=None,
+        target_accounts=target_accounts,
+    )
+
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
+def test_remove_accounts_from_release_directive_with_special_chars_in_names(
+    mock_execute_query,
+):
+    package_name = "test.package"
+    release_directive = "test.directive"
+    release_channel = "test.channel"
+    target_accounts = ["org1.account1", "org2.account2"]
+
+    expected_query = dedent(
+        f"""\
+            alter application package "{package_name}"
+                modify release channel "{release_channel}"
+                modify release directive "{release_directive}"
+                remove accounts = ({",".join(target_accounts)})
+        """
+    )
+
+    sql_facade.remove_accounts_from_release_directive(
+        package_name=package_name,
+        release_directive=release_directive,
+        release_channel=release_channel,
+        target_accounts=target_accounts,
+    )
+
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=ACCOUNT_DOES_NOT_EXIST),
+            UserInputError,
+            "Invalid account passed in.",
+        ),
+        (
+            ProgrammingError(errno=ACCOUNT_HAS_TOO_MANY_QUALIFIERS),
+            UserInputError,
+            "Invalid account passed in.",
+        ),
+        (
+            ProgrammingError(errno=RELEASE_DIRECTIVE_DOES_NOT_EXIST),
+            UserInputError,
+            "Release directive test_directive does not exist in application package test_package.",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to remove accounts from release directive test_directive for application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to remove accounts from release directive test_directive for application package test_package. some database error",
+        ),
+    ],
+)
+def test_remove_accounts_from_release_directive_errors(
+    mock_execute_query, error_raised, error_caught, error_message
+):
+    mock_execute_query.side_effect = error_raised
+
+    with pytest.raises(error_caught) as err:
+        sql_facade.remove_accounts_from_release_directive(
+            "test_package",
+            "test_directive",
+            "test_channel",
+            ["account1"],
         )
 
     assert error_message in str(err)
@@ -3589,7 +3815,7 @@ def test_create_version_in_package(
                 package_name=package_name,
                 version=version,
                 role=role,
-                stage_fqn=stage_fqn,
+                path_to_version_directory=stage_fqn,
             )
 
 
@@ -3629,7 +3855,7 @@ def test_create_version_in_package_with_label(
                 package_name=package_name,
                 version=version,
                 role=role,
-                stage_fqn=stage_fqn,
+                path_to_version_directory=stage_fqn,
                 label=label,
             )
 
@@ -3668,7 +3894,7 @@ def test_create_version_with_special_characters(
                 package_name=package_name,
                 version=version,
                 role=role,
-                stage_fqn=stage_fqn,
+                path_to_version_directory=stage_fqn,
             )
 
 
@@ -3680,13 +3906,19 @@ def test_create_version_with_special_characters(
             ProgrammingError(errno=MAX_UNBOUND_VERSIONS_REACHED),
             UserInputError,
             "Maximum unbound versions reached for application package test_package. "
-            "Please drop the other unbound version first, or add it to a release channel.",
+            "Please drop other unbound versions first, or add them to a release channel. "
+            "Use `snow app version list` to view all versions.",
         ),
         (
             ProgrammingError(errno=APPLICATION_PACKAGE_MAX_VERSIONS_HIT),
             UserInputError,
             "Maximum versions reached for application package test_package. "
             "Please drop the other versions first.",
+        ),
+        (
+            ProgrammingError(errno=CANNOT_CREATE_VERSION_WITH_NON_ZERO_PATCH),
+            UserInputError,
+            "Cannot create a new version with a non-zero patch in the manifest file.",
         ),
         (
             ProgrammingError(),
@@ -3724,7 +3956,7 @@ def test_create_version_in_package_with_error(
                 package_name=package_name,
                 version=version,
                 role=role,
-                stage_fqn=stage_fqn,
+                path_to_version_directory=stage_fqn,
             )
         assert error_message in str(err)
 
@@ -3800,6 +4032,11 @@ def test_drop_version_from_package_with_special_characters(
             "Cannot drop version v1 from application package test_package because it is associated with a release channel.",
         ),
         (
+            ProgrammingError(errno=VERSION_DOES_NOT_EXIST),
+            UserInputError,
+            "Version v1 does not exist in application package test_package.",
+        ),
+        (
             ProgrammingError(),
             InvalidSQLError,
             "Failed to ACTION_PLACEHOLDER version v1 from application package test_package.",
@@ -3834,6 +4071,159 @@ def test_drop_version_from_package_with_error(
                 package_name=package_name, version=version, role=role
             )
         assert error_message in str(err)
+
+
+def test_add_patch_to_package_version_valid_input_then_success(
+    mock_use_role, mock_execute_query, mock_cursor
+):
+    package_name = "test_package"
+    version = "v1"
+    patch = 1
+    stage_fqn = "src.stage"
+
+    expected_query = dedent(
+        f"""\
+            alter application package test_package
+                add patch 1 for version v1
+                using @src.stage
+        """
+    )
+
+    mock_execute_query.side_effect = [mock_cursor([{"patch": 1}], [])]
+    result = sql_facade.add_patch_to_package_version(
+        package_name=package_name,
+        path_to_version_directory=stage_fqn,
+        version=version,
+        patch=patch,
+    )
+
+    assert result == patch
+    mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
+
+
+# patch 0 shouldn't be treated in a special way (rely on backend saying 0 already exists)
+def test_add_patch_to_package_version_valid_input_then_success_patch_0(
+    mock_use_role, mock_execute_query, mock_cursor
+):
+    package_name = "test_package"
+    version = "v1"
+    patch = 0
+    stage_fqn = "src.stage"
+
+    expected_query = dedent(
+        """\
+            alter application package test_package
+                add patch 0 for version v1
+                using @src.stage
+        """
+    )
+
+    mock_execute_query.side_effect = [mock_cursor([{"patch": 0}], [])]
+    result = sql_facade.add_patch_to_package_version(
+        package_name=package_name,
+        path_to_version_directory=stage_fqn,
+        version=version,
+        patch=patch,
+    )
+
+    assert result == patch
+    mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
+
+
+def test_add_patch_to_package_version_valid_input_then_success_no_patch_in_input(
+    mock_use_role, mock_execute_query, mock_cursor
+):
+    package_name = "test_package"
+    version = "v1"
+    stage_fqn = "src.stage"
+
+    expected_query = dedent(
+        """\
+            alter application package test_package
+                add patch for version v1
+                using @src.stage
+        """
+    )
+
+    mock_execute_query.side_effect = [mock_cursor([{"patch": 5}], [])]
+    result = sql_facade.add_patch_to_package_version(
+        package_name=package_name,
+        path_to_version_directory=stage_fqn,
+        version=version,
+        patch=None,
+    )
+
+    assert result == 5
+    mock_execute_query.assert_called_once_with(expected_query, cursor_class=DictCursor)
+
+
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=APPLICATION_PACKAGE_PATCH_ALREADY_EXISTS),
+            UserInputError,
+            "Patch 1 already exists for version v1 in application package test_package.",
+        ),
+        (
+            ProgrammingError(errno=CANNOT_ADD_PATCH_WITH_NON_INCREASING_PATCH_NUMBER),
+            UserInputError,
+            "Cannot add a patch with a non-increasing patch number to version v1 in application package test_package.",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to create patch 1 for version v1 in application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to create patch 1 for version v1 in application package test_package. some database error",
+        ),
+    ],
+)
+def test_add_patch_to_package_version_with_error(
+    mock_use_role, mock_execute_query, error_raised, error_caught, error_message
+):
+    package_name = "test_package"
+    version = "v1"
+    patch = 1
+    stage_fqn = "src.stage"
+
+    mock_execute_query.side_effect = error_raised
+
+    with pytest.raises(error_caught) as err:
+        sql_facade.add_patch_to_package_version(
+            package_name=package_name,
+            path_to_version_directory=stage_fqn,
+            version=version,
+            patch=patch,
+        )
+    assert error_message in str(err)
+
+
+def test_add_patch_to_package_with_patch_already_exist_error_and_null_patch(
+    mock_use_role, mock_execute_query
+):
+    # In the case where the patch is None but we still get patch already exist error,
+    # this would be caused by a hard-coded patch value in the manifest
+    package_name = "test_package"
+    version = "v1"
+    patch = None
+    stage_fqn = "src.stage"
+
+    mock_execute_query.side_effect = ProgrammingError(
+        errno=APPLICATION_PACKAGE_PATCH_ALREADY_EXISTS
+    )
+
+    with pytest.raises(UserInputError) as err:
+        sql_facade.add_patch_to_package_version(
+            package_name=package_name,
+            path_to_version_directory=stage_fqn,
+            version=version,
+            patch=patch,
+        )
+    assert "Patch already exists for version v1 in application package test_package. Check the manifest file for any harded-coded patch value."
 
 
 def test_add_accounts_to_release_channel_valid_input_then_success(
@@ -3918,7 +4308,6 @@ def test_add_accounts_to_release_channel_with_special_chars_in_names(
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_add_accounts_to_release_channel_error(
     mock_execute_query, error_raised, error_caught, error_message, mock_use_role
 ):
@@ -4014,7 +4403,6 @@ def test_remove_accounts_from_release_channel_with_special_chars_in_names(
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_remove_accounts_from_release_channel_error(
     mock_execute_query, error_raised, error_caught, error_message, mock_use_role
 ):
@@ -4022,6 +4410,101 @@ def test_remove_accounts_from_release_channel_error(
 
     with pytest.raises(error_caught) as err:
         sql_facade.remove_accounts_from_release_channel(
+            "test_package", "test_channel", ["org1.acc1"], "test_role"
+        )
+
+    assert error_message in str(err)
+
+
+def test_set_accounts_for_release_channel_valid_input_then_success(
+    mock_use_role, mock_execute_query
+):
+    package_name = "test_package"
+    release_channel = "test_channel"
+    accounts = ["org1.acc1", "org2.acc2"]
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                "alter application package test_package modify release channel test_channel set accounts = (org1.acc1,org2.acc2)"
+            ),
+        ),
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.set_accounts_for_release_channel(
+            package_name, release_channel, accounts, role
+        )
+
+
+def test_set_accounts_for_release_channel_with_special_chars_in_names(
+    mock_use_role, mock_execute_query
+):
+    package_name = "test.package"
+    release_channel = "test.channel"
+    accounts = ["org1.acc1", "org2.acc2"]
+    role = "test_role"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_execute_query = [
+        (
+            mock_execute_query,
+            mock.call(
+                'alter application package "test.package" modify release channel "test.channel" set accounts = (org1.acc1,org2.acc2)'
+            ),
+        ),
+    ]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        sql_facade.set_accounts_for_release_channel(
+            package_name, release_channel, accounts, role
+        )
+
+
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(errno=ACCOUNT_DOES_NOT_EXIST),
+            UserInputError,
+            "Invalid account passed in.",
+        ),
+        (
+            ProgrammingError(errno=ACCOUNT_HAS_TOO_MANY_QUALIFIERS),
+            UserInputError,
+            "Invalid account passed in.",
+        ),
+        (
+            ProgrammingError(errno=CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS),
+            UserInputError,
+            "Cannot modify accounts for release channel test_channel in application package test_package.",
+        ),
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to set accounts for release channel test_channel in application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to set accounts for release channel test_channel in application package test_package. some database error",
+        ),
+    ],
+)
+def test_set_accounts_for_release_channel_error(
+    mock_execute_query, error_raised, error_caught, error_message, mock_use_role
+):
+    mock_execute_query.side_effect = error_raised
+
+    with pytest.raises(error_caught) as err:
+        sql_facade.set_accounts_for_release_channel(
             "test_package", "test_channel", ["org1.acc1"], "test_role"
         )
 
@@ -4100,7 +4583,6 @@ def test_add_version_to_release_channel_with_special_chars_in_names(
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_add_version_to_release_channel_error(
     mock_execute_query, error_raised, error_caught, error_message, mock_use_role
 ):
@@ -4114,7 +4596,6 @@ def test_add_version_to_release_channel_error(
     assert error_message in str(err)
 
 
-# same tests but for remove_version_from_release_channel
 def test_remove_version_from_release_channel_valid_input_then_success(
     mock_use_role, mock_execute_query
 ):
@@ -4187,7 +4668,6 @@ def test_remove_version_from_release_channel_with_special_chars_in_names(
         ),
     ],
 )
-@mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_remove_version_from_release_channel_error(
     mock_execute_query, error_raised, error_caught, error_message, mock_use_role
 ):
@@ -4197,5 +4677,100 @@ def test_remove_version_from_release_channel_error(
         sql_facade.remove_version_from_release_channel(
             "test_package", "test_channel", "v1", "test_role"
         )
+
+    assert error_message in str(err)
+
+
+def test_get_versions_valid_input_then_success(
+    mock_execute_query, mock_use_role, mock_cursor
+):
+    package_name = "test_package"
+    role = "test_role"
+    expected_query = f"show versions in application package {package_name}"
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_value = [
+        {"version": "v1", "patch": 0, "created_on": datetime(2021, 2, 1)},
+        {"version": "v2", "patch": 1, "created_on": datetime(2021, 2, 2)},
+    ]
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor(expected_value, []),
+                mock.call(expected_query, cursor_class=DictCursor),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        result = sql_facade.show_versions(package_name, role)
+
+    assert result == expected_value
+
+
+def test_get_versions_with_special_chars_in_names(
+    mock_execute_query, mock_use_role, mock_cursor
+):
+    package_name = "test.package"
+    role = "test_role"
+    expected_query = f'show versions in application package "{package_name}"'
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+    ]
+    expected_value = [
+        {"version": "v1", "patch": 0, "created_on": datetime(2021, 2, 1)},
+        {"version": "v2", "patch": 1, "created_on": datetime(2021, 2, 2)},
+    ]
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor(expected_value, []),
+                mock.call(expected_query, cursor_class=DictCursor),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        result = sql_facade.show_versions(package_name, role)
+
+    assert result == expected_value
+
+
+@pytest.mark.parametrize(
+    "error_raised, error_caught, error_message",
+    [
+        (
+            ProgrammingError(),
+            InvalidSQLError,
+            "Failed to show versions for application package test_package.",
+        ),
+        (
+            DatabaseError("some database error"),
+            UnknownSQLError,
+            "Unknown SQL error occurred. Failed to show versions for application package test_package. some database error",
+        ),
+        (
+            ProgrammingError(errno=DOES_NOT_EXIST_OR_NOT_AUTHORIZED),
+            UserInputError,
+            "Application package test_package does not exist or you are not authorized to access it.",
+        ),
+    ],
+)
+def test_get_versions_error(
+    mock_execute_query, error_raised, error_caught, error_message, mock_use_role
+):
+    mock_execute_query.side_effect = error_raised
+
+    with pytest.raises(error_caught) as err:
+        sql_facade.show_versions("test_package", "test_role")
 
     assert error_message in str(err)

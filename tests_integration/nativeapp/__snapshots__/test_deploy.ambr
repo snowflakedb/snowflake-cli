@@ -3,7 +3,7 @@
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
-  Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
+  Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   Local changes to be deployed:
     added:    app/README.md -> README.md
     added:    app/manifest.yml -> manifest.yml
@@ -18,7 +18,7 @@
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
-  Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
+  Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   Local changes to be deployed:
     added:    app/README.md -> README.md
     added:    app/manifest.yml -> manifest.yml
@@ -33,7 +33,7 @@
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
-  Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
+  Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   Local changes to be deployed:
     added:    app/README.md -> README.md
     added:    app/manifest.yml -> manifest.yml
@@ -48,7 +48,7 @@
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
-  Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
+  Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   Local changes to be deployed:
     added:    app/README.md -> README.md
     added:    app/manifest.yml -> manifest.yml
@@ -63,7 +63,7 @@
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
-  Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
+  Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   Local changes to be deployed:
     added:    app/manifest.yml -> manifest.yml
     added:    app/setup_script.sql -> setup_script.sql
@@ -72,11 +72,26 @@
   
   '''
 # ---
+# name: test_nativeapp_deploy_files_w_stage_subdir
+  '''
+  Creating new application package stage_w_subdirs_pkg_@@USER@@ in account.
+  Checking if stage stage_w_subdirs_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
+  Performing a diff between the Snowflake stage: stage/v2 and your local deploy_root: @@DEPLOY_ROOT@@/v2.
+  Local changes to be deployed:
+    added:    app/v2/README.md -> README.md
+    added:    app/v2/manifest.yml -> manifest.yml
+    added:    app/v2/setup.sql -> setup.sql
+  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@/v2 directory.
+  Validating Snowflake Native App setup script.
+  Deployed successfully. Application package and stage are up-to-date.
+  
+  '''
+# ---
 # name: test_nativeapp_deploy_looks_for_prefix_matches[app deploy-napp_deploy_prefix_matches_v2]
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
-  Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
+  Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   Local changes to be deployed:
     added:    app/README.md -> README.md
     added:    app/manifest.yml -> manifest.yml
@@ -91,7 +106,7 @@
   '''
   Creating new application package myapp_pkg_@@USER@@ in account.
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
-  Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
+  Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   Local changes to be deployed:
     added:    app/nested/dir/file.txt -> nested/dir/file.txt
   Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
@@ -102,7 +117,7 @@
 # name: test_nativeapp_deploy_prune[app deploy --no-prune-contains4-not_contains4-napp_init_v2]
   '''
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
-  Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
+  Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   The following files exist only on the stage:
   README.md
   
@@ -116,7 +131,7 @@
 # name: test_nativeapp_deploy_prune[app deploy --no-validate-contains2-not_contains2-napp_init_v2]
   '''
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
-  Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
+  Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   Deleted paths to be removed from your stage:
     deleted:  README.md
   Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
@@ -127,7 +142,7 @@
 # name: test_nativeapp_deploy_prune[app deploy --prune --no-validate-contains0-not_contains0-napp_init_v2]
   '''
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
-  Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
+  Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   Deleted paths to be removed from your stage:
     deleted:  README.md
   Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
@@ -138,7 +153,7 @@
 # name: test_nativeapp_deploy_prune[ws deploy --entity-id=pkg --no-prune-contains5-not_contains5-napp_init_v2]
   '''
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
-  Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
+  Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   The following files exist only on the stage:
   README.md
   
@@ -152,7 +167,7 @@
 # name: test_nativeapp_deploy_prune[ws deploy --entity-id=pkg --no-validate-contains3-not_contains3-napp_init_v2]
   '''
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
-  Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
+  Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   Deleted paths to be removed from your stage:
     deleted:  README.md
   Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
@@ -163,11 +178,62 @@
 # name: test_nativeapp_deploy_prune[ws deploy --entity-id=pkg --prune --no-validate-contains1-not_contains1-napp_init_v2]
   '''
   Checking if stage myapp_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
-  Performing a diff between the Snowflake stage and your local deploy_root ('@@DEPLOY_ROOT@@') directory.
+  Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   Deleted paths to be removed from your stage:
     deleted:  README.md
   Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
   Deployed successfully.
+  
+  '''
+# ---
+# name: test_nativeapp_deploy_prune_w_stage_subdir[app deploy --package-entity-id=pkg_v1 --no-prune-contains2-not_contains2]
+  '''
+  Checking if stage stage_w_subdirs_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
+  Performing a diff between the Snowflake stage: stage/v1 and your local deploy_root: @@DEPLOY_ROOT@@/v1.
+  The following files exist only on the stage:
+  README.md
+  
+  Use the --prune flag to delete them from the stage.
+  Your stage is up-to-date with your local deploy root.
+  Validating Snowflake Native App setup script.
+  Deployed successfully. Application package and stage are up-to-date.
+  
+  '''
+# ---
+# name: test_nativeapp_deploy_prune_w_stage_subdir[app deploy --package-entity-id=pkg_v1 --no-validate-contains1-not_contains1]
+  '''
+  Checking if stage stage_w_subdirs_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
+  Performing a diff between the Snowflake stage: stage/v1 and your local deploy_root: @@DEPLOY_ROOT@@/v1.
+  Deleted paths to be removed from your stage:
+    deleted:  README.md
+  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@/v1 directory.
+  Deployed successfully. Application package and stage are up-to-date.
+  
+  '''
+# ---
+# name: test_nativeapp_deploy_prune_w_stage_subdir[app deploy --package-entity-id=pkg_v1 --prune --no-validate-contains0-not_contains0]
+  '''
+  Checking if stage stage_w_subdirs_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
+  Performing a diff between the Snowflake stage: stage/v1 and your local deploy_root: @@DEPLOY_ROOT@@/v1.
+  Deleted paths to be removed from your stage:
+    deleted:  README.md
+  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@/v1 directory.
+  Deployed successfully. Application package and stage are up-to-date.
+  
+  '''
+# ---
+# name: test_nativeapp_deploy_w_stage_subdir
+  '''
+  Creating new application package stage_w_subdirs_pkg_@@USER@@ in account.
+  Checking if stage stage_w_subdirs_pkg_@@USER@@.app_src.stage exists, or creating a new one if none exists.
+  Performing a diff between the Snowflake stage: stage/v1 and your local deploy_root: @@DEPLOY_ROOT@@/v1.
+  Local changes to be deployed:
+    added:    app/v1/README.md -> README.md
+    added:    app/v1/manifest.yml -> manifest.yml
+    added:    app/v1/setup.sql -> setup.sql
+  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@/v1 directory.
+  Validating Snowflake Native App setup script.
+  Deployed successfully. Application package and stage are up-to-date.
   
   '''
 # ---

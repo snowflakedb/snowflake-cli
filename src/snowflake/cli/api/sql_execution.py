@@ -92,7 +92,11 @@ class BaseSqlExecutor:
 
     def execute_queries(self, queries: str, **kwargs):
         """Executes multiple SQL queries (passed as one string) and returns the results as a list"""
-        return list(self._execute_string(dedent(queries), **kwargs))
+
+        # Without remove_comments=True, connectors might throw an error if there is a comment at the end of the file
+        return list(
+            self._execute_string(dedent(queries), remove_comments=True, **kwargs)
+        )
 
 
 class SqlExecutor(BaseSqlExecutor):

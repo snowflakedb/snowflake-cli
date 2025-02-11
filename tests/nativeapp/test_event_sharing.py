@@ -145,13 +145,12 @@ def _create_or_upgrade_app(
     )
     app = ApplicationEntity(app_model, ctx)
     pkg = ApplicationPackageEntity(pkg_model, ctx)
-    stage_fqn = f"{pkg_model.fqn.name}.{pkg_model.stage}"
 
     pkg.action_bundle(action_ctx=ActionContext(get_entity=lambda *args: None))
 
     return app.create_or_upgrade_app(
         package=pkg,
-        stage_fqn=stage_fqn,
+        stage_path=pkg.stage_path,
         install_method=install_method,
         policy=policy,
         interactive=is_interactive,
@@ -168,6 +167,7 @@ def _setup_project(
     manifest_contents=test_manifest_contents,
     share_mandatory_events=None,
     optional_shared_events=None,
+    stage_subdirectory="",
 ):
     telemetry = {}
     if share_mandatory_events is not None:
@@ -179,6 +179,7 @@ def _setup_project(
             app_pkg=ApplicationPackageEntityModelFactory(
                 identifier="app_pkg",
                 meta={"role": app_pkg_role, "warehouse": app_pkg_warehouse},
+                stage_subdirectory=stage_subdirectory,
             ),
             myapp=ApplicationEntityModelFactory(
                 identifier="myapp",
@@ -207,6 +208,7 @@ def _setup_mocks_for_app(
     is_upgrade=False,
     events_definitions_in_app=None,
     error_raised=None,
+    stage_path_to_artifacts=DEFAULT_STAGE_FQN,
 ):
     if is_upgrade:
         return _setup_mocks_for_upgrade_app(
@@ -219,6 +221,7 @@ def _setup_mocks_for_app(
             is_prod=is_prod,
             events_definitions_in_app=events_definitions_in_app,
             error_raised=error_raised,
+            stage_path_to_artifacts=stage_path_to_artifacts,
         )
     else:
         return _setup_mocks_for_create_app(
@@ -231,6 +234,7 @@ def _setup_mocks_for_app(
             is_prod=is_prod,
             events_definitions_in_app=events_definitions_in_app,
             error_raised=error_raised,
+            stage_path_to_artifacts=stage_path_to_artifacts,
         )
 
 
@@ -244,6 +248,7 @@ def _setup_mocks_for_create_app(
     events_definitions_in_app=None,
     is_prod=False,
     error_raised=None,
+    stage_path_to_artifacts=DEFAULT_STAGE_FQN,
 ):
     mock_get_existing_app_info.return_value = None
 
@@ -299,7 +304,7 @@ def _setup_mocks_for_create_app(
                 if is_prod
                 else SameAccountInstallMethod.unversioned_dev()
             ),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            path_to_version_directory=stage_path_to_artifacts,
             debug_mode=None,
             should_authorize_event_sharing=expected_authorize_telemetry_flag,
             role="app_role",
@@ -349,6 +354,7 @@ def _setup_mocks_for_upgrade_app(
     events_definitions_in_app=None,
     is_prod=False,
     error_raised=None,
+    stage_path_to_artifacts=DEFAULT_STAGE_FQN,
 ):
     mock_get_existing_app_info_result = {
         "comment": "GENERATED_BY_SNOWFLAKECLI",
@@ -405,7 +411,7 @@ def _setup_mocks_for_upgrade_app(
                 if is_prod
                 else SameAccountInstallMethod.unversioned_dev()
             ),
-            stage_fqn=DEFAULT_STAGE_FQN,
+            path_to_version_directory=stage_path_to_artifacts,
             debug_mode=None,
             should_authorize_event_sharing=expected_authorize_telemetry_flag,
             role="app_role",
@@ -454,6 +460,7 @@ def _setup_mocks_for_upgrade_app(
     "is_upgrade",
     [False, True],
 )
+@pytest.mark.parametrize("stage_subdir", ["", "v1"])
 def test_event_sharing_disabled_no_change_to_current_behavior(
     mock_param,
     mock_conn,
@@ -465,6 +472,7 @@ def test_event_sharing_disabled_no_change_to_current_behavior(
     manifest_contents,
     share_mandatory_events,
     install_method,
+    stage_subdir,
     is_upgrade,
     temp_dir,
     mock_cursor,
@@ -477,11 +485,15 @@ def test_event_sharing_disabled_no_change_to_current_behavior(
         mock_get_existing_app_info,
         is_prod=not install_method.is_dev_mode,
         is_upgrade=is_upgrade,
+        stage_path_to_artifacts=f"{DEFAULT_STAGE_FQN}/{stage_subdir}"
+        if stage_subdir
+        else DEFAULT_STAGE_FQN,
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
+        stage_subdirectory=stage_subdir,
     )
     mock_console = MagicMock()
 
@@ -530,6 +542,7 @@ def test_event_sharing_disabled_no_change_to_current_behavior(
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [False, True])
+@pytest.mark.parametrize("stage_subdir", ["", "v1"])
 def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definition_file(
     mock_param,
     mock_conn,
@@ -541,6 +554,7 @@ def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definit
     manifest_contents,
     share_mandatory_events,
     install_method,
+    stage_subdir,
     is_upgrade,
     temp_dir,
     mock_cursor,
@@ -553,12 +567,16 @@ def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definit
         mock_get_existing_app_info,
         is_prod=not install_method.is_dev_mode,
         is_upgrade=is_upgrade,
+        stage_path_to_artifacts=f"{DEFAULT_STAGE_FQN}/{stage_subdir}"
+        if stage_subdir
+        else DEFAULT_STAGE_FQN,
     )
 
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
+        stage_subdirectory=stage_subdir,
     )
     mock_console = MagicMock()
 
@@ -611,6 +629,7 @@ def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definit
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [False, True])
+@pytest.mark.parametrize("stage_subdir", ["", "v1"])
 def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respected(
     mock_param,
     mock_conn,
@@ -622,6 +641,7 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
     manifest_contents,
     share_mandatory_events,
     install_method,
+    stage_subdir,
     is_upgrade,
     temp_dir,
     mock_cursor,
@@ -636,11 +656,15 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
         expected_authorize_telemetry_flag=share_mandatory_events,
         is_upgrade=is_upgrade,
         expected_shared_events=[] if share_mandatory_events else None,
+        stage_path_to_artifacts=f"{DEFAULT_STAGE_FQN}/{stage_subdir}"
+        if stage_subdir
+        else DEFAULT_STAGE_FQN,
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
+        stage_subdirectory=stage_subdir,
     )
     mock_console = MagicMock()
 
@@ -688,6 +712,7 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [True])
+@pytest.mark.parametrize("stage_subdir", ["", "v1"])
 def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_not_set_it_explicitly(
     mock_param,
     mock_conn,
@@ -699,6 +724,7 @@ def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_no
     manifest_contents,
     share_mandatory_events,
     install_method,
+    stage_subdir,
     is_upgrade,
     temp_dir,
     mock_cursor,
@@ -713,11 +739,15 @@ def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_no
         expected_authorize_telemetry_flag=share_mandatory_events,
         is_upgrade=is_upgrade,
         expected_shared_events=[] if share_mandatory_events else None,
+        stage_path_to_artifacts=f"{DEFAULT_STAGE_FQN}/{stage_subdir}"
+        if stage_subdir
+        else DEFAULT_STAGE_FQN,
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,  # requested flag from the project definition file
+        stage_subdirectory=stage_subdir,
     )
     mock_console = MagicMock()
 
@@ -763,6 +793,7 @@ def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_no
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [False, True])
+@pytest.mark.parametrize("stage_subdir", ["", "v1"])
 def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_then_flag_respected(
     mock_param,
     mock_conn,
@@ -774,6 +805,7 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
     manifest_contents,
     share_mandatory_events,
     install_method,
+    stage_subdir,
     is_upgrade,
     temp_dir,
     mock_cursor,
@@ -796,11 +828,15 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
                 "status": "ENABLED",
             }
         ],
+        stage_path_to_artifacts=f"{DEFAULT_STAGE_FQN}/{stage_subdir}"
+        if stage_subdir
+        else DEFAULT_STAGE_FQN,
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
+        stage_subdirectory=stage_subdir,
     )
     mock_console = MagicMock()
 
@@ -846,6 +882,7 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [False, True])
+@pytest.mark.parametrize("stage_subdir", ["", "v1"])
 def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_flag_respected_with_warning(
     mock_param,
     mock_conn,
@@ -857,6 +894,7 @@ def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_f
     manifest_contents,
     share_mandatory_events,
     install_method,
+    stage_subdir,
     is_upgrade,
     temp_dir,
     mock_cursor,
@@ -879,11 +917,15 @@ def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_f
                 "status": "ENABLED",
             }
         ],
+        stage_path_to_artifacts=f"{DEFAULT_STAGE_FQN}/{stage_subdir}"
+        if stage_subdir
+        else DEFAULT_STAGE_FQN,
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
+        stage_subdirectory=stage_subdir,
     )
     mock_console = MagicMock()
 
@@ -934,6 +976,7 @@ def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_f
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [False, True])
+@pytest.mark.parametrize("stage_subdir", ["", "v1"])
 def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provided_for_authorization(
     mock_param,
     mock_conn,
@@ -945,6 +988,7 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
     manifest_contents,
     share_mandatory_events,
     install_method,
+    stage_subdir,
     is_upgrade,
     temp_dir,
     mock_cursor,
@@ -959,11 +1003,15 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
         expected_authorize_telemetry_flag=share_mandatory_events,
         is_upgrade=is_upgrade,
         expected_shared_events=[] if share_mandatory_events else None,
+        stage_path_to_artifacts=f"{DEFAULT_STAGE_FQN}/{stage_subdir}"
+        if stage_subdir
+        else DEFAULT_STAGE_FQN,
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
+        stage_subdirectory=stage_subdir,
     )
     mock_console = MagicMock()
 
@@ -1009,6 +1057,7 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [False, True])
+@pytest.mark.parametrize("stage_subdir", ["", "v1"])
 def test_enforced_events_sharing_with_mandatory_events_and_authorization_provided(
     mock_param,
     mock_conn,
@@ -1021,6 +1070,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_provide
     share_mandatory_events,
     install_method,
     is_upgrade,
+    stage_subdir,
     temp_dir,
     mock_cursor,
 ):
@@ -1034,10 +1084,14 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_provide
         expected_authorize_telemetry_flag=share_mandatory_events,
         is_upgrade=is_upgrade,
         expected_shared_events=[] if share_mandatory_events else None,
+        stage_path_to_artifacts=f"{DEFAULT_STAGE_FQN}/{stage_subdir}"
+        if stage_subdir
+        else DEFAULT_STAGE_FQN,
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
         manifest_contents=manifest_contents,
+        stage_subdirectory=stage_subdir,
         share_mandatory_events=share_mandatory_events,
     )
     mock_console = MagicMock()
@@ -1084,6 +1138,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_provide
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [False])
+@pytest.mark.parametrize("stage_subdir", ["", "v1"])
 def test_enforced_events_sharing_with_mandatory_events_and_authorization_refused_on_create_then_error(
     mock_param,
     mock_conn,
@@ -1095,6 +1150,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_refused
     manifest_contents,
     share_mandatory_events,
     install_method,
+    stage_subdir,
     is_upgrade,
     temp_dir,
     mock_cursor,
@@ -1122,10 +1178,14 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_refused
             ),
             ProgrammingError(errno=APPLICATION_REQUIRES_TELEMETRY_SHARING),
         ),
+        stage_path_to_artifacts=f"{DEFAULT_STAGE_FQN}/{stage_subdir}"
+        if stage_subdir
+        else DEFAULT_STAGE_FQN,
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
         manifest_contents=manifest_contents,
+        stage_subdirectory=stage_subdir,
         share_mandatory_events=share_mandatory_events,
     )
     mock_console = MagicMock()
@@ -1170,6 +1230,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_refused
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [True])
+@pytest.mark.parametrize("stage_subdir", ["", "v1"])
 def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorization_refused_on_update_then_error(
     mock_param,
     mock_conn,
@@ -1181,6 +1242,7 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorizatio
     manifest_contents,
     share_mandatory_events,
     install_method,
+    stage_subdir,
     is_upgrade,
     temp_dir,
     mock_cursor,
@@ -1208,10 +1270,14 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorizatio
             ),
             ProgrammingError(errno=CANNOT_DISABLE_MANDATORY_TELEMETRY),
         ),
+        stage_path_to_artifacts=f"{DEFAULT_STAGE_FQN}/{stage_subdir}"
+        if stage_subdir
+        else DEFAULT_STAGE_FQN,
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
         manifest_contents=manifest_contents,
+        stage_subdirectory=stage_subdir,
         share_mandatory_events=share_mandatory_events,
     )
     mock_console = MagicMock()
@@ -1255,6 +1321,7 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorizatio
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [False, True])
+@pytest.mark.parametrize("stage_subdir", ["", "v1"])
 def test_enforced_events_sharing_with_mandatory_events_and_dev_mode_then_default_to_true_with_warning(
     mock_param,
     mock_conn,
@@ -1266,6 +1333,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_dev_mode_then_default
     manifest_contents,
     share_mandatory_events,
     install_method,
+    stage_subdir,
     is_upgrade,
     temp_dir,
     mock_cursor,
@@ -1280,10 +1348,14 @@ def test_enforced_events_sharing_with_mandatory_events_and_dev_mode_then_default
         expected_authorize_telemetry_flag=True,
         is_upgrade=is_upgrade,
         expected_shared_events=[],
+        stage_path_to_artifacts=f"{DEFAULT_STAGE_FQN}/{stage_subdir}"
+        if stage_subdir
+        else DEFAULT_STAGE_FQN,
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
         manifest_contents=manifest_contents,
+        stage_subdirectory=stage_subdir,
         share_mandatory_events=share_mandatory_events,
     )
     mock_console = MagicMock()
@@ -1332,6 +1404,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_dev_mode_then_default
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [False])
+@pytest.mark.parametrize("stage_subdir", ["", "v1"])
 def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_specified_on_create_and_prod_mode_then_error(
     mock_param,
     mock_conn,
@@ -1343,6 +1416,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
     manifest_contents,
     share_mandatory_events,
     install_method,
+    stage_subdir,
     is_upgrade,
     temp_dir,
     mock_cursor,
@@ -1370,10 +1444,14 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
             ),
             ProgrammingError(errno=APPLICATION_REQUIRES_TELEMETRY_SHARING),
         ),
+        stage_path_to_artifacts=f"{DEFAULT_STAGE_FQN}/{stage_subdir}"
+        if stage_subdir
+        else DEFAULT_STAGE_FQN,
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
         manifest_contents=manifest_contents,
+        stage_subdirectory=stage_subdir,
         share_mandatory_events=share_mandatory_events,
     )
     mock_console = MagicMock()
@@ -1417,6 +1495,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [True])
+@pytest.mark.parametrize("stage_subdir", ["", "v1"])
 def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_specified_on_update_and_prod_mode_then_no_error(
     mock_param,
     mock_conn,
@@ -1428,6 +1507,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
     manifest_contents,
     share_mandatory_events,
     install_method,
+    stage_subdir,
     is_upgrade,
     temp_dir,
     mock_cursor,
@@ -1449,10 +1529,14 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
                 "status": "ENABLED",
             }
         ],
+        stage_path_to_artifacts=f"{DEFAULT_STAGE_FQN}/{stage_subdir}"
+        if stage_subdir
+        else DEFAULT_STAGE_FQN,
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
         manifest_contents=manifest_contents,
+        stage_subdirectory=stage_subdir,
         share_mandatory_events=share_mandatory_events,
     )
     mock_console = MagicMock()
@@ -1498,6 +1582,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [False])
+@pytest.mark.parametrize("stage_subdir", ["", "v1"])
 def test_shared_events_with_no_enabled_mandatory_events_then_error(
     mock_param,
     mock_conn,
@@ -1509,6 +1594,7 @@ def test_shared_events_with_no_enabled_mandatory_events_then_error(
     manifest_contents,
     share_mandatory_events,
     install_method,
+    stage_subdir,
     is_upgrade,
     temp_dir,
     mock_cursor,
@@ -1522,12 +1608,16 @@ def test_shared_events_with_no_enabled_mandatory_events_then_error(
         is_prod=not install_method.is_dev_mode,
         expected_authorize_telemetry_flag=share_mandatory_events,
         is_upgrade=is_upgrade,
+        stage_path_to_artifacts=f"{DEFAULT_STAGE_FQN}/{stage_subdir}"
+        if stage_subdir
+        else DEFAULT_STAGE_FQN,
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
         optional_shared_events=["DEBUG_LOGS"],
+        stage_subdirectory=stage_subdir,
     )
     mock_console = MagicMock()
 
@@ -1571,6 +1661,7 @@ def test_shared_events_with_no_enabled_mandatory_events_then_error(
     ],
 )
 @pytest.mark.parametrize("is_upgrade", [False, True])
+@pytest.mark.parametrize("stage_subdir", ["", "v1"])
 def test_shared_events_with_authorization_then_success(
     mock_param,
     mock_conn,
@@ -1582,6 +1673,7 @@ def test_shared_events_with_authorization_then_success(
     manifest_contents,
     share_mandatory_events,
     install_method,
+    stage_subdir,
     is_upgrade,
     temp_dir,
     mock_cursor,
@@ -1611,12 +1703,16 @@ def test_shared_events_with_authorization_then_success(
                 "status": "ENABLED",
             },
         ],
+        stage_path_to_artifacts=f"{DEFAULT_STAGE_FQN}/{stage_subdir}"
+        if stage_subdir
+        else DEFAULT_STAGE_FQN,
     )
     mock_conn.return_value = MockConnectionCtx()
     _setup_project(
         manifest_contents=manifest_contents,
         share_mandatory_events=share_mandatory_events,
         optional_shared_events=shared_events,
+        stage_subdirectory=stage_subdir,
     )
     mock_console = MagicMock()
 

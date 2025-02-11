@@ -1,0 +1,326 @@
+# serializer version: 1
+# name: test_symlink_or_copy_raises_error
+  'Test 1'
+# ---
+# name: test_symlink_or_copy_raises_error.1
+  'Test 1'
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root
+  '''
+  d .
+  d GrandA
+  d GrandA/ParentA
+  d GrandA/ParentA/ChildA
+  f GrandA/ParentA/ChildA/GrandChildA
+  f GrandA/ParentA/ChildA/GrandChildB.py
+  d GrandA/ParentA/ChildA/GrandChildC
+  f GrandA/ParentA/ChildB.py
+  f GrandA/ParentA/ChildC
+  d GrandA/ParentA/ChildD
+  d GrandA/ParentB
+  f GrandA/ParentB/ChildA
+  f GrandA/ParentB/ChildB.py
+  d GrandA/ParentB/ChildC
+  d GrandA/ParentB/ChildC/GrandChildA
+  d GrandA/ParentC
+  d GrandB
+  d GrandB/ParentA
+  f GrandB/ParentA/ChildA
+  d output
+  d output/deploy
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.1
+  '''
+  ===== Contents of: GrandA/ParentA/ChildA/GrandChildA =====
+  Text GrandA/ParentA/ChildA/GrandChildA
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.10
+  '''
+  ===== Contents of: output/deploy/ChildA/GrandChildB.py =====
+  Text GrandA/ParentA/ChildA/GrandChildB.py
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.11
+  '''
+  ===== Contents of: output/deploy/ChildB.py =====
+  Text GrandA/ParentA/ChildB.py
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.12
+  '''
+  ===== Contents of: output/deploy/ChildC =====
+  Text GrandA/ParentA/ChildC
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.13
+  '''
+  ===== Contents of: output/deploy/Grand1/Parent1/Child1 =====
+  Text GrandB/ParentA/ChildA
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.14
+  '''
+  ===== Contents of: output/deploy/Grand3 =====
+  Text GrandA/ParentB/ChildA
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.15
+  '''
+  ===== Contents of: output/deploy/Grand4/Parent1.py =====
+  Text GrandA/ParentB/ChildB.py
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.16
+  '''
+  ===== Contents of: output/deploy/Grand4/Parent3/ChildA/GrandChildA =====
+  Text GrandA/ParentA/ChildA/GrandChildA
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.17
+  '''
+  ===== Contents of: output/deploy/Grand4/Parent3/ChildA/GrandChildB.py =====
+  Text GrandA/ParentA/ChildA/GrandChildB.py
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.18
+  '''
+  ===== Contents of: output/deploy/Grand4/Parent3/ChildB.py =====
+  Text GrandA/ParentA/ChildB.py
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.19
+  '''
+  ===== Contents of: output/deploy/Grand4/Parent3/ChildC =====
+  Text GrandA/ParentA/ChildC
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.2
+  '''
+  ===== Contents of: GrandA/ParentA/ChildA/GrandChildB.py =====
+  Text GrandA/ParentA/ChildA/GrandChildB.py
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.3
+  '''
+  ===== Contents of: GrandA/ParentA/ChildB.py =====
+  Text GrandA/ParentA/ChildB.py
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.4
+  '''
+  ===== Contents of: GrandA/ParentA/ChildC =====
+  Text GrandA/ParentA/ChildC
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.5
+  '''
+  ===== Contents of: GrandA/ParentB/ChildA =====
+  Text GrandA/ParentB/ChildA
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.6
+  '''
+  ===== Contents of: GrandA/ParentB/ChildB.py =====
+  Text GrandA/ParentB/ChildB.py
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.7
+  '''
+  ===== Contents of: GrandB/ParentA/ChildA =====
+  Text GrandB/ParentA/ChildA
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.8
+  '''
+  d output/deploy
+  d output/deploy/ChildA
+  f output/deploy/ChildA/GrandChildA
+  f output/deploy/ChildA/GrandChildB.py
+  d output/deploy/ChildA/GrandChildC
+  f output/deploy/ChildB.py
+  f output/deploy/ChildC
+  d output/deploy/ChildD
+  d output/deploy/Grand1
+  d output/deploy/Grand1/Parent1
+  f output/deploy/Grand1/Parent1/Child1
+  d output/deploy/Grand2
+  f output/deploy/Grand3
+  d output/deploy/Grand4
+  f output/deploy/Grand4/Parent1.py
+  d output/deploy/Grand4/Parent2
+  d output/deploy/Grand4/Parent2/GrandChildA
+  d output/deploy/Grand4/Parent3
+  d output/deploy/Grand4/Parent3/ChildA
+  f output/deploy/Grand4/Parent3/ChildA/GrandChildA
+  f output/deploy/Grand4/Parent3/ChildA/GrandChildB.py
+  d output/deploy/Grand4/Parent3/ChildA/GrandChildC
+  f output/deploy/Grand4/Parent3/ChildB.py
+  f output/deploy/Grand4/Parent3/ChildC
+  d output/deploy/Grand4/Parent3/ChildD
+  '''
+# ---
+# name: test_symlink_or_copy_with_no_symlinks_in_project_root.9
+  '''
+  ===== Contents of: output/deploy/ChildA/GrandChildA =====
+  Text GrandA/ParentA/ChildA/GrandChildA
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root
+  '''
+  d .
+  d GrandA
+  f GrandA/ParentA
+  f GrandA/ParentB
+  d GrandA/ParentC
+  d GrandA/ParentC/ChildA
+  f GrandA/ParentC/ChildA/GrandChildA
+  f GrandA/ParentC/ChildA/GrandChildB
+  d GrandB
+  d GrandB/ParentA
+  d GrandB/ParentA/ChildA
+  f GrandB/ParentA/ChildA/GrandChildA
+  d GrandB/ParentA/ChildB
+  d GrandB/ParentA/ChildB/GrandChildA
+  d output
+  d output/deploy
+  d symlinks
+  d symlinks/Grand1
+  d symlinks/Grand1/Parent3
+  d symlinks/Grand1/Parent3/Child1
+  d symlinks/Grand2
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.1
+  '''
+  ===== Contents of: GrandA/ParentA =====
+  Do not use as src of a symlink
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.10
+  '''
+  ===== Contents of: output/deploy/TestA/ParentA =====
+  Do not use as src of a symlink
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.11
+  '''
+  ===== Contents of: output/deploy/TestA/ParentB =====
+  Use as src of a symlink: GrandA/ParentB
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.12
+  '''
+  ===== Contents of: output/deploy/TestA/ParentC/ChildA/GrandChildA =====
+  Do not use as src of a symlink
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.13
+  '''
+  ===== Contents of: output/deploy/TestA/ParentC/ChildA/GrandChildB =====
+  Use as src of a symlink: GrandA/ParentC/ChildA/GrandChildB
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.14
+  '''
+  ===== Contents of: output/deploy/TestB/ParentA/ChildA/GrandChildA =====
+  Do not use as src of a symlink
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.15
+  '''
+  ===== Contents of: output/deploy/symlinks/Grand1/Parent2 =====
+  Use as src of a symlink: GrandA/ParentB
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.16
+  '''
+  ===== Contents of: output/deploy/symlinks/Grand1/Parent3/Child1/GrandChild2 =====
+  Use as src of a symlink: GrandA/ParentC/ChildA/GrandChildB
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.17
+  '''
+  ===== Contents of: output/deploy/symlinks/Grand2/Parent1/ChildA/GrandChildA =====
+  Do not use as src of a symlink
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.2
+  '''
+  ===== Contents of: GrandA/ParentB =====
+  Use as src of a symlink: GrandA/ParentB
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.3
+  '''
+  ===== Contents of: GrandA/ParentC/ChildA/GrandChildA =====
+  Do not use as src of a symlink
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.4
+  '''
+  ===== Contents of: GrandA/ParentC/ChildA/GrandChildB =====
+  Use as src of a symlink: GrandA/ParentC/ChildA/GrandChildB
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.5
+  '''
+  ===== Contents of: GrandB/ParentA/ChildA/GrandChildA =====
+  Do not use as src of a symlink
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.6
+  '''
+  d symlinks
+  d symlinks/Grand1
+  f symlinks/Grand1/Parent2
+  d symlinks/Grand1/Parent3
+  d symlinks/Grand1/Parent3/Child1
+  f symlinks/Grand1/Parent3/Child1/GrandChild2
+  d symlinks/Grand2
+  d symlinks/Grand2/Parent1
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.7
+  '''
+  ===== Contents of: symlinks/Grand1/Parent2 =====
+  Use as src of a symlink: GrandA/ParentB
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.8
+  '''
+  ===== Contents of: symlinks/Grand1/Parent3/Child1/GrandChild2 =====
+  Use as src of a symlink: GrandA/ParentC/ChildA/GrandChildB
+  '''
+# ---
+# name: test_symlink_or_copy_with_symlinks_in_project_root.9
+  '''
+  d output/deploy
+  d output/deploy/TestA
+  f output/deploy/TestA/ParentA
+  f output/deploy/TestA/ParentB
+  d output/deploy/TestA/ParentC
+  d output/deploy/TestA/ParentC/ChildA
+  f output/deploy/TestA/ParentC/ChildA/GrandChildA
+  f output/deploy/TestA/ParentC/ChildA/GrandChildB
+  d output/deploy/TestB
+  d output/deploy/TestB/ParentA
+  d output/deploy/TestB/ParentA/ChildA
+  f output/deploy/TestB/ParentA/ChildA/GrandChildA
+  d output/deploy/TestB/ParentA/ChildB
+  d output/deploy/TestB/ParentA/ChildB/GrandChildA
+  d output/deploy/symlinks
+  d output/deploy/symlinks/Grand1
+  f output/deploy/symlinks/Grand1/Parent2
+  d output/deploy/symlinks/Grand1/Parent3
+  d output/deploy/symlinks/Grand1/Parent3/Child1
+  f output/deploy/symlinks/Grand1/Parent3/Child1/GrandChild2
+  d output/deploy/symlinks/Grand2
+  d output/deploy/symlinks/Grand2/Parent1
+  d output/deploy/symlinks/Grand2/Parent1/ChildA
+  f output/deploy/symlinks/Grand2/Parent1/ChildA/GrandChildA
+  d output/deploy/symlinks/Grand2/Parent1/ChildB
+  d output/deploy/symlinks/Grand2/Parent1/ChildB/GrandChildA
+  '''
+# ---

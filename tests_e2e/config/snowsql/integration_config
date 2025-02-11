@@ -1,0 +1,3 @@
+[connections.integration]
+authenticator = "SNOWFLAKE_JWT"
+schemaname = "public"

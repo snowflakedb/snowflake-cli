@@ -15,9 +15,10 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Dict, Generic, List, Optional, TypeVar, Union
+from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
 
 from pydantic import Field, PrivateAttr, field_validator
+from pydantic_core.core_schema import ValidationInfo
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.updatable_model import (
     IdentifierField,
@@ -61,6 +62,15 @@ class MetaField(UpdatableModel):
         default=None,
     )
 
+    depends_on: Optional[List[str]] = Field(
+        title="Entities that need to be deployed before this one", default_factory=list
+    )
+
+    action_arguments: Optional[Dict[str, Dict[str, Union[int, bool, str]]]] = Field(
+        title="Arguments that will be used, when this entity is called as a dependency of other entity",
+        default_factory=dict,
+    )
+
     @field_validator("use_mixins", mode="before")
     @classmethod
     def ensure_use_mixins_is_a_list(
@@ -69,6 +79,35 @@ class MetaField(UpdatableModel):
         if isinstance(mixins, str):
             return [mixins]
         return mixins
+
+    @field_validator("action_arguments", mode="before")
+    @classmethod
+    def arguments_validator(cls, arguments: Dict, info: ValidationInfo) -> Dict:
+        duplicated_run = (
+            info.context.get("is_duplicated_run", False) if info.context else False
+        )
+        if not duplicated_run:
+            for argument_dict in arguments.values():
+                for k, v in argument_dict.items():
+                    argument_dict[k] = cls._cast_value(v)
+
+        return arguments
+
+    @staticmethod
+    def _cast_value(value: str) -> Union[int, bool, str]:
+        if value.lower() in ["true", "false"]:
+            return value.lower() == "true"
+
+        try:
+            return int(value)
+        except ValueError:
+            return value
+
+    def __eq__(self, other):
+        return self.entity_id == other.entity_id
+
+    def __hash__(self):
+        return hash(self.entity_id)
 
 
 class Identifier(UpdatableModel):
@@ -141,6 +180,23 @@ class ImportsBaseModel:
         return f"IMPORTS = ({imports})"
 
 
+class Grant(UpdatableModel):
+    privilege: str = Field(title="Required privileges")
+    role: str = Field(title="Role to which the privileges will be granted")
+
+    def get_grant_sql(self, entity_model: EntityModelBase) -> str:
+        return f"GRANT {self.privilege} ON {entity_model.get_type().upper()} {entity_model.fqn.sql_identifier} TO ROLE {self.role}"
+
+
+class GrantBaseModel(UpdatableModel):
+    grants: Optional[List[Grant]] = Field(title="List of grants", default=None)
+
+    def get_grant_sqls(self) -> list[str]:
+        return (
+            [grant.get_grant_sql(self) for grant in self.grants] if self.grants else []
+        )
+
+
 class ExternalAccessBaseModel:
     external_access_integrations: Optional[List[str]] = Field(
         title="Names of external access integrations needed for this entity to access external networks",
@@ -162,3 +218,76 @@ class ExternalAccessBaseModel:
             return None
         secrets = ", ".join(f"'{key}'={value}" for key, value in self.secrets.items())
         return f"secrets=({secrets})"
+
+
+class ProcessorMapping(UpdatableModel):
+    name: str = Field(
+        title="Name of a processor to invoke on a collection of artifacts."
+    )
+    properties: Optional[Dict[str, Any]] = Field(
+        title="A set of key-value pairs used to configure the output of the processor. Consult a specific processor's documentation for more details on the supported properties.",
+        default=None,
+    )
+
+
+class PathMapping(UpdatableModel):
+    src: str = Field(
+        title="Source path or glob pattern (relative to project root)", default=None
+    )
+
+    dest: Optional[str] = Field(
+        title="Destination path on stage",
+        description="Paths are relative to stage root; paths ending with a slash indicate that the destination is a directory which source files should be copied into.",
+        default=None,
+    )
+
+    processors: Optional[List[Union[str, ProcessorMapping]]] = Field(
+        title="List of processors to apply to matching source files during bundling.",
+        default=[],
+    )
+
+    @field_validator("processors")
+    @classmethod
+    def transform_processors(
+        cls, input_values: Optional[List[Union[str, Dict, ProcessorMapping]]]
+    ) -> List[ProcessorMapping]:
+        if input_values is None:
+            return []
+
+        transformed_processors: List[ProcessorMapping] = []
+        for input_processor in input_values:
+            if isinstance(input_processor, str):
+                transformed_processors.append(ProcessorMapping(name=input_processor))
+            elif isinstance(input_processor, Dict):
+                transformed_processors.append(ProcessorMapping(**input_processor))
+            else:
+                transformed_processors.append(input_processor)
+        return transformed_processors
+
+
+Artifacts = List[Union[PathMapping, str]]
+
+
+class EntityModelBaseWithArtifacts(EntityModelBase):
+    artifacts: Artifacts = Field(
+        title="List of paths or file source/destination pairs to add to the deploy root",
+    )
+    deploy_root: Optional[str] = Field(
+        title="Folder at the root of your project where the build step copies the artifacts",
+        default="output/deploy/",
+    )
+
+    @field_validator("artifacts")
+    @classmethod
+    def transform_artifacts(cls, orig_artifacts: Artifacts) -> List[PathMapping]:
+        transformed_artifacts: List[PathMapping] = []
+        if orig_artifacts is None:
+            return transformed_artifacts
+
+        for artifact in orig_artifacts:
+            if isinstance(artifact, PathMapping):
+                transformed_artifacts.append(artifact)
+            else:
+                transformed_artifacts.append(PathMapping(src=artifact))
+
+        return transformed_artifacts

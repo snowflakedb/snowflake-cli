@@ -13,8 +13,10 @@
 # limitations under the License.
 import itertools
 import json
+import re
 from datetime import datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from textwrap import dedent
 from unittest.mock import Mock, call, patch
 
@@ -54,6 +56,18 @@ SPEC_DICT = {
         "endpoints": [{"name": "cloudbeaver", "port": 80, "public": True}],
     }
 }
+
+
+@pytest.fixture()
+def enable_events_and_metrics_config():
+    with TemporaryDirectory() as tempdir:
+        config_toml = Path(tempdir) / "config.toml"
+        config_toml.write_text(
+            "[cli.features]\n"
+            "enable_spcs_service_events = true\n"
+            "enable_spcs_service_metrics = true\n"
+        )
+        yield config_toml
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
@@ -605,12 +619,11 @@ def test_stream_logs_with_include_timestamps_true(mock_sleep, mock_logs):
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
-@patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled"
-)
-def test_logs_incompatible_flags(mock_is_disabled, mock_execute_query, runner):
-    mock_is_disabled.return_value = False
-    result = runner.invoke(
+def test_logs_incompatible_flags(
+    mock_execute_query, runner, enable_events_and_metrics_config
+):
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
         [
             "spcs",
             "service",
@@ -623,7 +636,7 @@ def test_logs_incompatible_flags(mock_is_disabled, mock_execute_query, runner):
             "--follow",
             "--num-lines",
             "100",
-        ]
+        ],
     )
     assert (
         result.exit_code != 0
@@ -632,13 +645,7 @@ def test_logs_incompatible_flags(mock_is_disabled, mock_execute_query, runner):
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
-@patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled"
-)
-def test_logs_incompatible_flags_follow_previous_logs(
-    mock_is_disabled, mock_execute_query, runner
-):
-    mock_is_disabled.return_value = False
+def test_logs_incompatible_flags_follow_previous_logs(mock_execute_query, runner):
     result = runner.invoke(
         [
             "spcs",
@@ -663,40 +670,334 @@ def test_logs_incompatible_flags_follow_previous_logs(
     )
 
 
-@patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SPCS_LOG_STREAMING.is_disabled"
-)
-def test_logs_streaming_disabled(mock_is_disabled, runner):
-    mock_is_disabled.return_value = True
-    result = runner.invoke(
+def test_logs_streaming_flag_is_hidden(runner):
+    result = runner.invoke(["spcs", "service", "logs", "--help"])
+    assert result.exit_code == 0
+    assert "--follow" not in result.output
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+def test_events_all_filters(
+    mock_execute_query, runner, enable_events_and_metrics_config
+):
+    mock_execute_query.side_effect = [
+        [
+            {
+                "key": "EVENT_TABLE",
+                "value": "event_table_db.data_schema.snowservices_logs",
+            }
+        ],
+        Mock(
+            fetchall=lambda: [
+                (
+                    "2024-12-14 22:27:25.420",
+                    None,
+                    "2024-12-14 22:27:25.420",
+                    None,
+                    None,
+                    json.dumps(
+                        {
+                            "snow.compute_pool.id": 230,
+                            "snow.compute_pool.name": "MY_POOL",
+                            "snow.database.id": 5,
+                            "snow.database.name": "TESTDB",
+                            "snow.schema.id": 5,
+                            "snow.schema.name": "PUBLIC",
+                            "snow.service.container.name": "log-printer",
+                            "snow.service.id": 1568,
+                            "snow.service.instance": "0",
+                            "snow.service.name": "LOG_EVENT",
+                            "snow.service.type": "SERVICE",
+                        }
+                    ),
+                    json.dumps({"name": "snow.spcs.platform"}),
+                    None,
+                    "LOG",
+                    json.dumps({"severity_text": "INFO"}),
+                    json.dumps({"event.name": "CONTAINER.STATUS_CHANGE"}),
+                    json.dumps({"message": "Running", "status": "READY"}),
+                    None,
+                )
+            ]
+        ),
+    ]
+
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
         [
             "spcs",
             "service",
-            "logs",
-            "test_service",
+            "events",
+            "LOG_EVENT",
             "--container-name",
-            "test_container",
+            "log-printer",
             "--instance-id",
             "0",
-            "--follow",
-            "--num-lines",
-            "100",
-        ]
+            "--since",
+            "2 hours",
+            "--until",
+            "1 hour",
+            "--last",
+            "10",
+            "--warehouse",
+            "XSMALL",
+            "--role",
+            "sysadmin",
+        ],
     )
-    assert (
-        result.exit_code != 0
-    ), "Expected a non-zero exit code due to feature flag disabled"
 
-    expected_output = (
-        "+- Error ----------------------------------------------------------------------+\n"
-        "| Streaming logs from spcs containers is disabled. To enable it, add           |\n"
-        "| 'ENABLE_SPCS_LOG_STREAMING = true' to '[cli.features]' section of your       |\n"
-        "| configuration file.                                                          |\n"
-        "+------------------------------------------------------------------------------+\n"
-    )
+    assert result.exit_code == 0, f"Command failed with output: {result.output}"
+
+    call_0 = mock_execute_query.mock_calls[0].args[0]
     assert (
-        result.output == expected_output
-    ), f"Expected formatted output not found: {result.output}"
+        call_0 == "show parameters like 'event_table' in account"
+    ), f"Unexpected query in Call 0: {call_0}"
+
+    actual_query = mock_execute_query.mock_calls[1].args[0]
+    expected_query = (
+        "                     select *\n"
+        "                    from (\n"
+        "                        select *\n"
+        "                        from event_table_db.data_schema.snowservices_logs\n"
+        "                        where (\n"
+        "                            resource_attributes:\"snow.service.name\" = 'LOG_EVENT' and (resource_attributes:\"snow.service.instance\" = '0' OR resource_attributes:\"snow.service.container.instance\" = '0') and resource_attributes:\"snow.service.container.name\" = 'log-printer'\n"
+        "                            and timestamp >= sysdate() - interval '2 hours'\n"
+        "                            and timestamp <= sysdate() - interval '1 hour'\n"
+        "                        )\n"
+        "                        and record_type = 'LOG'\n"
+        "                        and scope['name'] = 'snow.spcs.platform'\n"
+        "                        order by timestamp desc\n"
+        "                        limit 10\n"
+        "                    )\n"
+        "                    order by timestamp asc\n"
+        "                    \n"
+        "                "
+    )
+
+    assert (
+        actual_query == expected_query
+    ), f"Generated query does not match expected query.\n\nActual:\n{actual_query}\n\nExpected:\n{expected_query}"
+
+
+def test_events_first_last_incompatibility(runner, enable_events_and_metrics_config):
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
+        [
+            "spcs",
+            "service",
+            "events",
+            "LOG_EVENT",
+            "--container-name",
+            "log-printer",
+            "--instance-id",
+            "0",
+            "--first",
+            "10",
+            "--last",
+            "5",
+            "--warehouse",
+            "XSMALL",
+            "--role",
+            "sysadmin",
+        ],
+    )
+
+    assert result.exit_code != 0, result.output
+
+    expected_error = "Parameters '--first' and '--last' are incompatible"
+    assert expected_error in result.output
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+def test_latest_metrics(
+    mock_execute_query, runner, snapshot, enable_events_and_metrics_config
+):
+    mock_execute_query.side_effect = [
+        [
+            {
+                "key": "EVENT_TABLE",
+                "value": "event_table_db.data_schema.snowservices_logs",
+            }
+        ],
+        Mock(
+            fetchall=lambda: [
+                (
+                    datetime(2024, 12, 10, 18, 53, 21, 809000),
+                    datetime(2024, 12, 10, 18, 52, 51, 809000),
+                    None,
+                    None,
+                    None,
+                    json.dumps(
+                        {
+                            "snow.account.name": "XACCOUNTTEST1",
+                            "snow.compute_pool.id": 20641,
+                            "snow.compute_pool.name": "MY_POOL",
+                            "snow.service.container.name": "log-printer",
+                            "snow.service.name": "LOG_EVENT",
+                        }
+                    ),
+                    json.dumps({"name": "snow.spcs.platform"}),
+                    None,
+                    "METRIC",
+                    json.dumps(
+                        {"metric": {"name": "container.cpu.usage", "unit": "cpu"}}
+                    ),
+                    None,
+                    "0.0005007168666666691",
+                    None,
+                )
+            ]
+        ),
+    ]
+
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
+        [
+            "spcs",
+            "service",
+            "metrics",
+            "LOG_EVENT",
+            "--container-name",
+            "log-printer",
+            "--instance-id",
+            "0",
+            "--warehouse",
+            "XSMALL",
+            "--role",
+            "sysadmin",
+        ],
+    )
+
+    assert result.exit_code == 0, f"Command failed with output: {result.output}"
+    assert result.output == snapshot
+
+    call_0 = mock_execute_query.mock_calls[0].args[0]
+    assert (
+        call_0 == "show parameters like 'event_table' in account"
+    ), f"Unexpected query in Call 0: {call_0}"
+
+    actual_query = mock_execute_query.mock_calls[1].args[0]
+    expected_query = (
+        "\n"
+        "            with rankedmetrics as (\n"
+        "                select \n"
+        "                    *,\n"
+        "                    row_number() over (\n"
+        "                        partition by record['metric']['name'] \n"
+        "                        order by timestamp desc\n"
+        "                    ) as rank\n"
+        "                from event_table_db.data_schema.snowservices_logs\n"
+        "                where \n"
+        "                    record_type = 'METRIC'\n"
+        "                    and scope['name'] = 'snow.spcs.platform'\n"
+        "                    and resource_attributes:\"snow.service.name\" = 'LOG_EVENT' and (resource_attributes:\"snow.service.instance\" = '0' OR resource_attributes:\"snow.service.container.instance\" = '0') and resource_attributes:\"snow.service.container.name\" = 'log-printer'  \n"
+        "                    and timestamp > dateadd('hour', -1, current_timestamp)  \n"
+        "            )\n"
+        "            select *\n"
+        "            from rankedmetrics\n"
+        "            where rank = 1\n"
+        "            order by timestamp desc;\n"
+        "        "
+    )
+
+    actual_normalized = normalize_query(actual_query)
+    expected_normalized = normalize_query(expected_query)
+
+    assert actual_normalized == expected_normalized, (
+        f"Generated query does not match expected query.\n\n"
+        f"Actual:\n{actual_query}\n\nExpected:\n{expected_query}"
+    )
+
+
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
+def test_metrics_all_filters(
+    mock_execute_query, runner, enable_events_and_metrics_config
+):
+    mock_execute_query.side_effect = [
+        [
+            {
+                "key": "EVENT_TABLE",
+                "value": "event_table_db.data_schema.snowservices_logs",
+            }
+        ],
+        Mock(
+            fetchall=lambda: [
+                (
+                    datetime(2024, 12, 10, 18, 53, 21, 809000),
+                    datetime(2024, 12, 10, 18, 52, 51, 809000),
+                    None,
+                    None,
+                    None,
+                    json.dumps(
+                        {
+                            "snow.account.name": "XACCOUNTTEST1",
+                            "snow.compute_pool.id": 20641,
+                            "snow.compute_pool.name": "MY_POOL",
+                            "snow.service.container.name": "log-printer",
+                            "snow.service.name": "LOG_EVENT",
+                        }
+                    ),
+                    json.dumps({"name": "snow.spcs.platform"}),
+                    None,
+                    "METRIC",
+                    json.dumps(
+                        {"metric": {"name": "container.cpu.usage", "unit": "cpu"}}
+                    ),
+                    None,
+                    "0.0005007168666666691",
+                    None,
+                )
+            ]
+        ),
+    ]
+
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
+        [
+            "spcs",
+            "service",
+            "metrics",
+            "LOG_EVENT",
+            "--container-name",
+            "log-printer",
+            "--instance-id",
+            "0",
+            "--since",
+            "2 hour",
+            "--until",
+            "1 hour",
+            "--warehouse",
+            "XSMALL",
+            "--role",
+            "sysadmin",
+        ],
+    )
+
+    assert result.exit_code == 0, f"Command failed with output: {result.output}"
+
+    call_0 = mock_execute_query.mock_calls[0].args[0]
+    assert (
+        call_0 == "show parameters like 'event_table' in account"
+    ), f"Unexpected query in Call 0: {call_0}"
+
+    actual_query = mock_execute_query.mock_calls[1].args[0]
+    expected_query = (
+        "                    select *\n"
+        "                    from event_table_db.data_schema.snowservices_logs\n"
+        "                    where (\n"
+        "                        resource_attributes:\"snow.service.name\" = 'LOG_EVENT' and (resource_attributes:\"snow.service.instance\" = '0' OR resource_attributes:\"snow.service.container.instance\" = '0') and resource_attributes:\"snow.service.container.name\" = 'log-printer'\n"
+        "                        and timestamp >= sysdate() - interval '2 hour'\n"
+        "                        and timestamp <= sysdate() - interval '1 hour'\n"
+        "                    )\n"
+        "                    and record_type = 'METRIC'\n"
+        "                    and scope['name'] = 'snow.spcs.platform'\n"
+        "                    order by timestamp desc\n"
+        "                "
+    )
+
+    assert (
+        actual_query == expected_query
+    ), f"Generated query does not match expected query.\n\nActual:\n{actual_query}\n\nExpected:\n{expected_query}"
 
 
 def test_read_yaml(other_directory):
@@ -1152,3 +1453,8 @@ def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
 
     queries = ctx.get_queries()
     assert queries[0] == queries[1]
+
+
+def normalize_query(query):
+    """Normalize SQL query by stripping extra whitespace and formatting."""
+    return re.sub(r"\s+", " ", query.strip())

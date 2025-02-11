@@ -42,6 +42,13 @@ def test_graph_get_non_existing_node(nodes: list[Node]):
         graph.get(nodes[1].key)
 
 
+def test_graph_contains_node(nodes: list[Node]):
+    graph = Graph()
+    graph.add(nodes[0])
+    assert graph.contains_node(nodes[0].key)
+    assert not graph.contains_node(nodes[1].key)
+
+
 def test_graph_add_existing_node(nodes: list[Node]):
     graph = Graph()
     graph.add(nodes[0])

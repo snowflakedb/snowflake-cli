@@ -50,11 +50,3 @@
   TITLE = 'My Fancy Streamlit';
   '''
 # ---
-# name: test_nativeapp_children_interface.1
-  '''
-  CREATE STREAMLIT IDENTIFIER('test_streamlit')
-  MAIN_FILE = 'streamlit_app.py'
-  QUERY_WAREHOUSE = 'test_warehouse'
-  TITLE = 'My Fancy Streamlit';
-  '''
-# ---

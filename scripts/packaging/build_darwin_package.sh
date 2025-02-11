@@ -46,6 +46,8 @@ hatch -e packaging run pyinstaller \
   --clean \
   --noconfirm \
   --windowed \
+  --collect-submodules keyring \
+  --collect-submodules shellingham \
   --osx-bundle-identifier=com.snowflake.snowflake-cli \
   --osx-entitlements-file=scripts/packaging/macos/SnowflakeCLI_entitlements.plist \
   --codesign-identity="${CODESIGN_IDENTITY}" \
@@ -175,17 +177,21 @@ cp -p ${DIST_DIR}/${PRODUCT_BUILD_SIGNED_NAME} ${DIST_DIR}/${FINAL_PKG_NAME}
 
 ls -l $DIST_DIR
 
-cat <<ASKPASS >./asker.sh
-  #!/bin/bash
-  printf "%s\n" "$MAC_USERNAME_PASSWORD"
+rm ${ROOT_DIR}/asker.sh || true
+
+cat <<ASKPASS >${ROOT_DIR}/asker.sh
+#!/usr/bin/env bash
+printf "%s\n" "$MAC_USERNAME_PASSWORD"
 ASKPASS
+
+chmod +x ${ROOT_DIR}/asker.sh
+export SUDO_ASKPASS=${ROOT_DIR}/asker.sh
 
 validate_installation() {
   local pkg_name=$1
   ls -la $pkg_name
 
-  export SUDO_ASKPASS=./asker.sh
-  sudo -A installer -pkg $pkg_name -target /
+  arch -${MACHINE} sudo -A installer -pkg $pkg_name -target /
   [ -f /Applications/${APP_NAME}/Contents/MacOS/snow ]
   PATH=/Applications/${APP_NAME}/Contents/MacOS:$PATH snow
 

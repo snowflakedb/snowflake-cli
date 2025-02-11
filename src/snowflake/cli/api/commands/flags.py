@@ -95,7 +95,7 @@ TemporaryConnectionOption = typer.Option(
     False,
     "--temporary-connection",
     "-x",
-    help="Uses connection defined with command line parameters, instead of one defined in config",
+    help="Uses a connection defined with command line parameters, instead of one defined in config",
     callback=_connection_callback("temporary_connection"),
     is_flag=True,
     rich_help_panel=_CONNECTION_SECTION,
@@ -383,6 +383,12 @@ ReplaceOption = OverrideableOption(
     mutually_exclusive=CREATE_MODE_OPTION_NAMES,
 )
 
+ForceReplaceOption = OverrideableOption(
+    False,
+    "--force-replace",
+    help="Replace this object, even if the state didn't change",
+)
+
 OnErrorOption = typer.Option(
     OnErrorType.BREAK.value,
     "--on-error",
@@ -531,8 +537,8 @@ def project_definition_option(is_optional: bool):
         None,
         "-p",
         "--project",
-        help=f"Path where Snowflake project resides. "
-        f"Defaults to current working directory.",
+        help=f"Path where the Snowflake project is stored. "
+        f"Defaults to the current working directory.",
         callback=project_path_callback,
         show_default=False,
     )
@@ -551,7 +557,7 @@ def project_env_overrides_option():
     return typer.Option(
         [],
         "--env",
-        help="String in format of key=value. Overrides variables from env section used for templates.",
+        help="String in the format key=value. Overrides variables from the env section used for templates.",
         callback=project_env_overrides_callback,
         show_default=False,
     )

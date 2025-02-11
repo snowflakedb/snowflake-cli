@@ -1,0 +1,91 @@
+# serializer version: 1
+# name: test_deploy_default_stage_paths[notebook1][output]
+  '''
+  Uploading artifacts to @notebooks/notebook1
+    Creating stage notebooks if not exists
+    Uploading artifacts
+  Creating notebook notebook1
+  Notebook successfully deployed and available under http://the.notebook.url.mock
+  
+  '''
+# ---
+# name: test_deploy_default_stage_paths[notebook1][query]
+  '''
+  DESCRIBE NOTEBOOK IDENTIFIER('notebook1');
+  create stage if not exists IDENTIFIER('notebooks')
+  CREATE OR REPLACE NOTEBOOK IDENTIFIER('notebook1')
+  FROM '@notebooks'
+  QUERY_WAREHOUSE = 'xsmall'
+  MAIN_FILE = 'notebook1/notebook1/my_notebook.ipynb';
+  // Cannot use IDENTIFIER(...)
+  ALTER NOTEBOOK notebook1 ADD LIVE VERSION FROM LAST;
+  '''
+# ---
+# name: test_deploy_default_stage_paths[notebook2][output]
+  '''
+  Uploading artifacts to @notebooks/notebook2
+    Creating stage notebooks if not exists
+    Uploading artifacts
+  Creating notebook notebook2
+  Notebook successfully deployed and available under http://the.notebook.url.mock
+  
+  '''
+# ---
+# name: test_deploy_default_stage_paths[notebook2][query]
+  '''
+  DESCRIBE NOTEBOOK IDENTIFIER('notebook2');
+  create stage if not exists IDENTIFIER('notebooks')
+  CREATE OR REPLACE NOTEBOOK IDENTIFIER('notebook2')
+  FROM '@notebooks'
+  QUERY_WAREHOUSE = 'xsmall'
+  MAIN_FILE = 'notebook2/notebook2/my_notebook.ipynb';
+  // Cannot use IDENTIFIER(...)
+  ALTER NOTEBOOK notebook2 ADD LIVE VERSION FROM LAST;
+  '''
+# ---
+# name: test_deploy_single_notebook[notebook_containerized_v2][output]
+  '''
+  Uploading artifacts to @notebooks/containerized_notebook
+    Creating stage notebooks if not exists
+    Uploading artifacts
+  Creating notebook containerized_notebook
+  Notebook successfully deployed and available under http://the.notebook.url.mock
+  
+  '''
+# ---
+# name: test_deploy_single_notebook[notebook_containerized_v2][query]
+  '''
+  DESCRIBE NOTEBOOK IDENTIFIER('containerized_notebook');
+  create stage if not exists IDENTIFIER('notebooks')
+  CREATE OR REPLACE NOTEBOOK IDENTIFIER('containerized_notebook')
+  FROM '@notebooks'
+  QUERY_WAREHOUSE = 'xsmall'
+  MAIN_FILE = 'containerized_notebook/notebook.ipynb'
+  COMPUTE_POOL = 'snowcli_compute_pool'
+  RUNTIME_NAME = 'system$basic_runtime';
+  // Cannot use IDENTIFIER(...)
+  ALTER NOTEBOOK containerized_notebook ADD LIVE VERSION FROM LAST;
+  '''
+# ---
+# name: test_deploy_single_notebook[notebook_v2][output]
+  '''
+  Uploading artifacts to @custom_stage/particular_notebook_path
+    Creating stage custom_stage if not exists
+    Uploading artifacts
+  Creating notebook custom_identifier
+  Notebook successfully deployed and available under http://the.notebook.url.mock
+  
+  '''
+# ---
+# name: test_deploy_single_notebook[notebook_v2][query]
+  '''
+  DESCRIBE NOTEBOOK IDENTIFIER('custom_identifier');
+  create stage if not exists IDENTIFIER('custom_stage')
+  CREATE OR REPLACE NOTEBOOK IDENTIFIER('custom_identifier')
+  FROM '@custom_stage'
+  QUERY_WAREHOUSE = 'xsmall'
+  MAIN_FILE = 'particular_notebook_path/notebook.ipynb';
+  // Cannot use IDENTIFIER(...)
+  ALTER NOTEBOOK custom_identifier ADD LIVE VERSION FROM LAST;
+  '''
+# ---

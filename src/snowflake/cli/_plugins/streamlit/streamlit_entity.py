@@ -1,16 +1,17 @@
-import functools
 from pathlib import Path
 from typing import Optional
 
 from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
+from snowflake.cli._plugins.nativeapp.artifacts import build_bundle
 from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
 from snowflake.cli._plugins.workspace.context import ActionContext
-from snowflake.cli.api.entities.common import EntityBase, get_sql_executor
-from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.entities.common import EntityBase
+from snowflake.cli.api.project.project_paths import bundle_root
+from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.connector.cursor import SnowflakeCursor
 
 
@@ -32,18 +33,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
     def artifacts(self):
         return self._entity_model.artifacts
 
-    @functools.cached_property
-    def _sql_executor(self):
-        return get_sql_executor()
-
-    @functools.cached_property
-    def _conn(self):
-        return self._sql_executor._conn  # noqa
-
-    @property
-    def model(self):
-        return self._entity_model  # noqa
-
     def action_bundle(self, action_ctx: ActionContext, *args, **kwargs):
         return self.bundle()
 
@@ -51,15 +40,15 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         # After adding bundle map- we should use it's mapping here
         # To copy artifacts to destination on stage.
 
-        return self._sql_executor.execute_query(self.get_deploy_sql())
+        return self.deploy()
 
     def action_drop(self, action_ctx: ActionContext, *args, **kwargs):
-        return self._sql_executor.execute_query(self.get_drop_sql())
+        return self._execute_query(self.get_drop_sql())
 
     def action_execute(
         self, action_ctx: ActionContext, *args, **kwargs
     ) -> SnowflakeCursor:
-        return self._sql_executor.execute_query(self.get_execute_sql())
+        return self._execute_query(self.get_execute_sql())
 
     def action_get_url(
         self, action_ctx: ActionContext, *args, **kwargs
@@ -70,34 +59,24 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         )
 
     def bundle(self, output_dir: Optional[Path] = None):
+        build_bundle(
+            self.root,
+            output_dir or bundle_root(self.root, "streamlit"),
+            [
+                PathMapping(
+                    src=artifact.src, dest=artifact.dest, processors=artifact.processors
+                )
+                for artifact in self._entity_model.artifacts
+            ],
+        )
 
-        if not output_dir:
-            output_dir = self.root / "output" / self._entity_model.stage
-
-        artifacts = self._entity_model.artifacts
-
-        output_dir.mkdir(parents=True, exist_ok=True)  # type: ignore
-
-        output_files = []
-
-        # This is far from , but will be replaced by bundlemap mappings.
-        for file in artifacts:
-            output_file = output_dir / file.name
-
-            if file.is_file():
-                SecurePath(file).copy(output_file)
-            elif file.is_dir():
-                output_file.mkdir(parents=True, exist_ok=True)
-                SecurePath(file).copy(output_file, dirs_exist_ok=True)
-
-                output_files.append(output_file)
-
-        return output_files
+    def deploy(self, *args, **kwargs):
+        return self._execute_query(self.get_deploy_sql())
 
     def action_share(
         self, action_ctx: ActionContext, to_role: str, *args, **kwargs
     ) -> SnowflakeCursor:
-        return self._sql_executor.execute_query(self.get_share_sql(to_role))
+        return self._execute_query(self.get_share_sql(to_role))
 
     def get_deploy_sql(
         self,
@@ -149,14 +128,11 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         return query + ";"
 
-    def get_drop_sql(self):
-        return f"DROP STREAMLIT {self._entity_model.fqn};"
+    def get_share_sql(self, to_role: str) -> str:
+        return f"GRANT USAGE ON STREAMLIT {self.model.fqn.sql_identifier} TO ROLE {to_role};"
 
     def get_execute_sql(self):
         return f"EXECUTE STREAMLIT {self._entity_model.fqn}();"
-
-    def get_share_sql(self, to_role: str) -> str:
-        return f"GRANT USAGE ON STREAMLIT {self.model.fqn.sql_identifier} TO ROLE {to_role};"
 
     def get_usage_grant_sql(self, app_role: str, schema: Optional[str] = None) -> str:
         entity_id = self.entity_id

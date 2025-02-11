@@ -22,6 +22,7 @@ from textwrap import dedent
 from typing import Generator, Iterable, List, Optional, cast
 
 import typer
+from snowflake.cli._plugins.nativeapp.artifacts import VersionInfo
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
@@ -43,18 +44,13 @@ from snowflake.cli._plugins.nativeapp.v2_conversions.compat import (
     force_project_definition_v2,
 )
 from snowflake.cli._plugins.nativeapp.version.commands import app as versions_app
-from snowflake.cli._plugins.stage.diff import (
-    DiffResult,
-    compute_stage_diff,
-)
-from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.entities.common import EntityActions
+from snowflake.cli.api.entities.utils import EntityActions
 from snowflake.cli.api.exceptions import (
     IncompatibleParametersError,
     UnmetParametersError,
@@ -66,6 +62,7 @@ from snowflake.cli.api.output.types import (
     ObjectResult,
     StreamResult,
 )
+from snowflake.cli.api.project.util import same_identifiers
 from typing_extensions import Annotated
 
 app = SnowTyperFactory(
@@ -117,20 +114,15 @@ def app_diff(
         project_root=cli_context.project_root,
     )
     package_id = options["package_entity_id"]
-    package = cli_context.project_definition.entities[package_id]
-    bundle_map = ws.perform_action(
+    diff = ws.perform_action(
         package_id,
-        EntityActions.BUNDLE,
-    )
-    stage_fqn = f"{package.fqn.name}.{package.stage}"
-    diff: DiffResult = compute_stage_diff(
-        local_root=Path(package.deploy_root), stage_fqn=stage_fqn
+        EntityActions.DIFF,
+        print_to_console=cli_context.output_format != OutputFormat.JSON,
     )
     if cli_context.output_format == OutputFormat.JSON:
         return ObjectResult(diff.to_dict())
-    else:
-        print_diff_to_console(diff, bundle_map)
-        return None  # don't print any output
+
+    return None
 
 
 @app.command("run", requires_connection=True)
@@ -237,7 +229,7 @@ def app_teardown(
     # Same as the param auto-added by @force_project_definition_v2 if single_app_and_package were true
     package_entity_id: Optional[str] = typer.Option(
         default="",
-        help="The ID of the package entity on which to operate when definition_version is 2 or higher.",
+        help="The ID of the package entity on which to operate when the definition_version is 2 or higher.",
     ),
     **options,
 ) -> CommandResult:
@@ -262,11 +254,22 @@ def app_teardown(
         project_definition=cli_context.project_definition,
         project_root=cli_context.project_root,
     )
+
+    # TODO: get all apps created from this application package from snowflake, compare, confirm and drop.
+    # TODO: add messaging/confirmation here for extra apps found as part of above
+    all_packages_with_id = [
+        package_entity.entity_id
+        for package_entity in project.get_entities_by_type(
+            ApplicationPackageEntityModel.get_type()
+        ).values()
+        if same_identifiers(package_entity.fqn.name, app_package_entity.fqn.name)
+    ]
+
     for app_entity in project.get_entities_by_type(
         ApplicationEntityModel.get_type()
     ).values():
         # Drop each app
-        if app_entity.from_.target == app_package_entity.entity_id:
+        if app_entity.from_.target in all_packages_with_id:
             ws.perform_action(
                 app_entity.entity_id,
                 EntityActions.DROP,
@@ -305,7 +308,7 @@ def app_deploy(
         show_default=False,
         help=dedent(
             f"""
-            Paths, relative to the the project root, of files or directories you want to upload to a stage. If a file is
+            Paths, relative to the project root, of files or directories you want to upload to a stage. If a file is
             specified, it must match one of the artifacts src pattern entries in snowflake.yml. If a directory is
             specified, it will be searched for subfolders or files to deploy based on artifacts src pattern entries. If
             unspecified, the command syncs all local changes to the stage."""
@@ -532,3 +535,73 @@ class EventResult(ObjectResult, MessageResult):
     @property
     def result(self):
         return self._element
+
+
+@app.command("publish", requires_connection=True)
+@with_project_definition()
+@force_project_definition_v2()
+def app_publish(
+    version: Optional[str] = typer.Option(
+        default=None,
+        show_default=False,
+        help="The version to publish to the provided release channel and release directive. Version is required to exist unless `--create-version` flag is used.",
+    ),
+    patch: Optional[int] = typer.Option(
+        default=None,
+        show_default=False,
+        help="The patch number under the given version. This will be used when setting the release directive. Patch is required to exist unless `--create-version` flag is used.",
+    ),
+    channel: Optional[str] = typer.Option(
+        "DEFAULT",
+        help="The name of the release channel to publish to. If not provided, the default release channel is used.",
+    ),
+    directive: Optional[str] = typer.Option(
+        "DEFAULT",
+        help="The name of the release directive to update with the specified version and patch. If not provided, the default release directive is used.",
+    ),
+    interactive: bool = InteractiveOption,
+    force: Optional[bool] = ForceOption,
+    create_version: bool = typer.Option(
+        False,
+        "--create-version",
+        help="Create a new version or patch based on the provided `--version` and `--patch` values. Fallback to the manifest values if not provided.",
+        is_flag=True,
+    ),
+    from_stage: bool = typer.Option(
+        False,
+        "--from-stage",
+        help="When enabled, the Snowflake CLI creates a version from the current application package stage without syncing to the stage first. Can only be used with `--create-version` flag.",
+        is_flag=True,
+    ),
+    label: Optional[str] = typer.Option(
+        None,
+        "--label",
+        help="A label for the version that is displayed to consumers. Can only be used with `--create-version` flag.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Adds the version to the release channel and updates the release directive with the new version and patch.
+    """
+    cli_context = get_cli_context()
+    ws = WorkspaceManager(
+        project_definition=cli_context.project_definition,
+        project_root=cli_context.project_root,
+    )
+    package_id = options["package_entity_id"]
+    version_info: VersionInfo = ws.perform_action(
+        package_id,
+        EntityActions.PUBLISH,
+        version=version,
+        patch=patch,
+        release_channel=channel,
+        release_directive=directive,
+        interactive=interactive,
+        force=force,
+        create_version=create_version,
+        from_stage=from_stage,
+        label=label,
+    )
+    return MessageResult(
+        f"Version {version_info.version_name} and patch {version_info.patch_number} published to release directive {directive} of release channel {channel}."
+    )

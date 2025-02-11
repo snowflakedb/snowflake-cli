@@ -22,19 +22,19 @@ from typing import List, Optional
 
 import typer
 import yaml
-from snowflake.cli._plugins.nativeapp.artifacts import BundleMap
 from snowflake.cli._plugins.nativeapp.common_flags import (
     ForceOption,
     InteractiveOption,
     ValidateOption,
 )
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.entities.common import EntityActions
+from snowflake.cli.api.entities.utils import EntityActions
 from snowflake.cli.api.exceptions import IncompatibleParametersError
-from snowflake.cli.api.output.types import MessageResult, QueryResult
+from snowflake.cli.api.output.types import CollectionResult, MessageResult
 
 ws = SnowTyperFactory(
     name="ws",
@@ -106,7 +106,7 @@ def deploy(
         show_default=False,
         help=dedent(
             f"""
-            Paths, relative to the the project root, of files or directories you want to upload to a stage. If a file is
+            Paths, relative to the project root, of files or directories you want to upload to a stage. If a file is
             specified, it must match one of the artifacts src pattern entries in snowflake.yml. If a directory is
             specified, it will be searched for subfolders or files to deploy based on artifacts src pattern entries. If
             unspecified, the command syncs all local changes to the stage."""
@@ -243,7 +243,7 @@ def version_list(
         entity_id,
         EntityActions.VERSION_LIST,
     )
-    return QueryResult(cursor)
+    return CollectionResult(cursor)
 
 
 @version.command(name="create", requires_connection=True, hidden=True)
@@ -293,6 +293,7 @@ def version_create(
         skip_git_check=skip_git_check,
         interactive=interactive,
         force=force,
+        from_stage=False,
     )
 
 

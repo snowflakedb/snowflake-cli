@@ -888,7 +888,6 @@ def test_connection_details_are_resolved_using_environment_variables(
     mock_connect, env, test_snowcli_config, runner
 ):
     with mock.patch.dict(os.environ, env, clear=True):
-
         result = runner.invoke(["sql", "-q", "select 1", "-c", "empty"])
 
         assert result.exit_code == 0, result.output
@@ -929,7 +928,6 @@ def test_flags_take_precedence_before_environment_variables(
     mock_connect, env, test_snowcli_config, runner
 ):
     with mock.patch.dict(os.environ, env, clear=True):
-
         result = runner.invoke(
             [
                 "sql",
@@ -1106,7 +1104,6 @@ def _run_connection_add_with_path_provided_as_prompt(
 def test_new_connection_is_added_to_connections_toml(
     runner, os_agnostic_snapshot, named_temporary_file, snowflake_home
 ):
-
     connections_toml = Path(snowflake_home) / "connections.toml"
     connections_toml.touch()
     connections_toml.write_text(
@@ -1162,6 +1159,7 @@ def test_new_connection_is_added_to_connections_toml(
 @mock.patch(
     "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
 )
+@mock.patch.dict(os.environ, {}, clear=True)
 def test_generate_jwt_without_passphrase(
     mocked_get_token, runner, named_temporary_file
 ):
@@ -1193,6 +1191,7 @@ def test_generate_jwt_without_passphrase(
 @mock.patch(
     "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
 )
+@mock.patch.dict(os.environ, {}, clear=True)
 def test_generate_jwt_with_passphrase(
     mocked_get_token, runner, named_temporary_file, passphrase
 ):
@@ -1272,6 +1271,7 @@ def test_generate_jwt_with_pass_phrase_from_env(
 @mock.patch(
     "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
 )
+@mock.patch.dict(os.environ, {}, clear=True)
 def test_generate_jwt_uses_config(mocked_get_token, runner, named_temporary_file):
     mocked_get_token.return_value = "funny token"
 
@@ -1289,6 +1289,44 @@ def test_generate_jwt_uses_config(mocked_get_token, runner, named_temporary_file
         privatekey_path="/private/key",
         key_password=None,
     )
+
+
+@mock.patch(
+    "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
+)
+@pytest.mark.parametrize(
+    "cmd_line_params, expected",
+    (
+        pytest.param(
+            ("--user", "jdoe2"),
+            {"user": "jdoe2"},
+            id="--user flag",
+        ),
+        pytest.param(
+            ("--account", "account2"),
+            {"account": "account2"},
+            id="--account flag",
+        ),
+    ),
+)
+def test_generate_jwt_honors_params(
+    mocked_get_token, runner, cmd_line_params, expected
+):
+    mocked_get_token.return_value = "funny token"
+
+    result = runner.invoke(
+        ["connection", "generate-jwt", "--connection", "jwt", *cmd_line_params],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.output == "funny token\n"
+    expected_params = {
+        "user": "jdoe",
+        "account": "testing_account",
+        "privatekey_path": "/private/key",
+        "key_password": None,
+    } | expected
+    mocked_get_token.assert_called_once_with(**expected_params)
 
 
 @pytest.mark.parametrize("attribute", ["account", "user", "private_key_file"])
@@ -1315,7 +1353,7 @@ def test_generate_jwt_raises_error_if_required_parameter_is_missing(
             ["connection", "generate-jwt", "-c", "jwt"],
         )
         assert (
-            f'{attribute.capitalize().replace("_", " ")} is not set in the connection context'
+            f"{attribute.capitalize().replace('_', ' ')} is not set in the connection context"
             in result.output
         )
 

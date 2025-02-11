@@ -7,7 +7,7 @@
 # ---
 # name: test_given_release_channel_with_no_target_account_or_version_then_show_all_accounts_in_snapshot
   '''
-  channel1
+  CHANNEL1
     Description: desc
     Versions: ()
     Created on: 2024-12-03 00:00:00.000000 UTC
@@ -18,7 +18,7 @@
 # ---
 # name: test_given_release_channels_with_a_selected_channel_to_filter_when_list_release_channels_then_returned_selected_channel
   '''
-  channel1
+  CHANNEL1
     Description: desc
     Versions: (v1, v2)
     Created on: 2024-12-03 00:00:00.000000 UTC
@@ -29,13 +29,13 @@
 # ---
 # name: test_given_release_channels_with_proper_values_when_list_release_channels_then_success
   '''
-  channel1
+  CHANNEL1
     Description: desc
     Versions: (v1, v2)
     Created on: 2024-12-03 00:00:00.000000 UTC
     Updated on: 2024-12-05 00:00:00.000000 UTC
     Target accounts: (org1.acc1, org2.acc2)
-  channel2
+  CHANNEL2
     Description: desc2
     Versions: (v3)
     Created on: 2024-12-03 00:00:00.000000 UTC
