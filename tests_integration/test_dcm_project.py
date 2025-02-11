@@ -12,18 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import uuid
-from pathlib import Path
-
 import pytest
-
-from tests_integration.test_utils import (
-    contains_row_with,
-    row_from_snowflake_session,
-    rows_from_snowflake_session,
-)
-from tests_integration.testing_utils import assert_that_result_is_successful
-from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 
 
 @pytest.mark.integration
@@ -39,7 +28,7 @@ def test_project_deploy(
         assert result.exit_code == 0
 
         # Unsupported command
-        # result = runner.invoke_with_connection(["project", "validate", "my_project", "--version", "last"])
+        # result = runner.invoke_with_connection(["project", "dry-run", "my_project", "--version", "last"])
         # assert result.exit_code == 0
 
         result = runner.invoke_with_connection(
