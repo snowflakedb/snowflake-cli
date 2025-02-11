@@ -140,7 +140,7 @@ features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
 test = [
-  "pytest -m 'integration and not qa_only' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/",
+  "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/",
 ]
 test_qa = [
   "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/",
@@ -171,7 +171,7 @@ select = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-vv --maxfail=10 -m 'not integration and not performance and not e2e and not spcs and not loaded_modules and not integration_experimental'"
+addopts = "-vv --maxfail=10 -m 'not integration and not performance and not e2e and not spcs and not loaded_modules and not integration_experimental and not qa_only'"
 markers = [
   "integration: mark test as integration test",
   "performance: mark test as performance test",
