@@ -5108,6 +5108,107 @@
   
   '''
 # ---
+# name: test_help_messages[project.add-version]
+  '''
+                                                                                  
+   Usage: default project add-version [OPTIONS] [ENTITY_ID]                       
+                                                                                  
+   Adds a new version to an existing project.                                     
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  |   entity_id      [ENTITY_ID]  ID of project entity.                          |
+  |                               [default: None]                                |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | *  --from             TEXT  Source stage to create the version from.         |
+  |                             [default: None]                                  |
+  |                             [required]                                       |
+  |    --alias            TEXT  Alias for the version.                           |
+  |                             [default: None]                                  |
+  |    --comment          TEXT  Version comment.                                 |
+  |                             [default: None]                                  |
+  |    --project  -p      TEXT  Path where the Snowflake project resides.        |
+  |                             Defaults to the current working directory.       |
+  |    --env              TEXT  String in the format key=value. Overrides        |
+  |                             variables from the env section used for          |
+  |                             templates.                                       |
+  |    --help     -h            Show this message and exit.                      |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Run Python connector         |
+  |                                                 diagnostic test              |
+  | --diag-log-path                        TEXT     Diagnostic report path       |
+  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
+  |                                                 optional allowlist           |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[project.create-version]
   '''
                                                                                   
@@ -5122,10 +5223,10 @@
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --project  -p      TEXT  Path where Snowflake project resides. Defaults to   |
-  |                          current working directory.                          |
-  | --env              TEXT  String in format of key=value. Overrides variables  |
-  |                          from env section used for templates.                |
+  | --project  -p      TEXT  Path where the Snowflake project resides. Defaults  |
+  |                          to the current working directory.                   |
+  | --env              TEXT  String in the format key=value. Overrides variables |
+  |                          from the env section used for templates.            |
   | --help     -h            Show this message and exit.                         |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -5176,10 +5277,104 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Run Python connector         |
+  |                                                 diagnostic test              |
+  | --diag-log-path                        TEXT     Diagnostic report path       |
+  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
+  |                                                 optional allowlist           |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[project.dry-run]
+  '''
+                                                                                  
+   Usage: default project dry-run [OPTIONS] IDENTIFIER                            
+                                                                                  
+   Validates a project.                                                           
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    identifier      TEXT  Identifier of the project; for example:           |
+  |                            MY_PROJECT                                        |
+  |                            [required]                                        |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | *  --version           TEXT  Version of the project to use.                  |
+  |                              [required]                                      |
+  |    --variable  -D      TEXT  Variables for the execution context; for        |
+  |                              example: -D "<key>=<value>".                    |
+  |    --help      -h            Show this message and exit.                     |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -5270,10 +5465,10 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
@@ -5400,11 +5595,12 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
+  | add-version      Adds a new version to an existing project.                  |
   | create-version   Create a new version of a project. This command will create |
   |                  a new version of the project in the specified stage. If the |
   |                  stage does not exist, it will be created.                   |
+  | dry-run          Validates a project.                                        |
   | execute          Executes a project.                                         |
-  | validate         Validates a project.                                        |
   +------------------------------------------------------------------------------+
   
   
@@ -11901,11 +12097,12 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
+  | add-version      Adds a new version to an existing project.                  |
   | create-version   Create a new version of a project. This command will create |
   |                  a new version of the project in the specified stage. If the |
   |                  stage does not exist, it will be created.                   |
+  | dry-run          Validates a project.                                        |
   | execute          Executes a project.                                         |
-  | validate         Validates a project.                                        |
   +------------------------------------------------------------------------------+
   
   
