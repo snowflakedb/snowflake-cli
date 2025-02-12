@@ -134,10 +134,19 @@ def create_version(
 def add_version(
     entity_id: str = entity_argument("project"),
     _from: str = typer.Option(
-        ..., "--from", help="Source stage to create the version from."
+        ...,
+        "--from",
+        help="Source stage to create the version from.",
+        show_default=False,
     ),
-    alias: str | None = typer.Option(None, "--alias", help="Alias for the version."),
-    comment: str | None = typer.Option(None, "--comment", help="Version comment."),
+    alias: str
+    | None = typer.Option(
+        None, "--alias", help="Alias for the version.", show_default=False
+    ),
+    comment: str
+    | None = typer.Option(
+        None, "--comment", help="Version comment.", show_default=False
+    ),
     **options,
 ):
     """Adds a new version to an existing project."""

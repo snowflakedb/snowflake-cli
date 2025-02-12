@@ -5121,13 +5121,10 @@
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | *  --from             TEXT  Source stage to create the version from.         |
-  |                             [default: None]                                  |
   |                             [required]                                       |
   |    --alias            TEXT  Alias for the version.                           |
-  |                             [default: None]                                  |
   |    --comment          TEXT  Version comment.                                 |
-  |                             [default: None]                                  |
-  |    --project  -p      TEXT  Path where the Snowflake project resides.        |
+  |    --project  -p      TEXT  Path where the Snowflake project is stored.      |
   |                             Defaults to the current working directory.       |
   |    --env              TEXT  String in the format key=value. Overrides        |
   |                             variables from the env section used for          |
@@ -5223,8 +5220,8 @@
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --project  -p      TEXT  Path where the Snowflake project resides. Defaults  |
-  |                          to the current working directory.                   |
+  | --project  -p      TEXT  Path where the Snowflake project is stored.         |
+  |                          Defaults to the current working directory.          |
   | --env              TEXT  String in the format key=value. Overrides variables |
   |                          from the env section used for templates.            |
   | --help     -h            Show this message and exit.                         |
