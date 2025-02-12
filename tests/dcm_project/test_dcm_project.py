@@ -23,7 +23,7 @@ def test_create_version(mock_put, mock_create, mock_pm, runner, project_director
         stage_name=stage,
     )
 
-    absolute_root = Path(path_resolver(root.resolve()))
+    absolute_root = Path(path_resolver(str(root.resolve())))
     mock_put.assert_has_calls(
         [
             mock.call(
