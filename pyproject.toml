@@ -140,7 +140,7 @@ features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
 test = [
-  'pytest -m "integration not qa_only" -n6 --dist=worksteal --deflake-test-type=integration tests_integration/',
+  'pytest -m "integration and not qa_only" -n6 --dist=worksteal --deflake-test-type=integration tests_integration/',
 ]
 test_qa = [
   "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/",
