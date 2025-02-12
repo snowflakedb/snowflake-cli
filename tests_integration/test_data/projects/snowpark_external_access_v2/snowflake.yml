@@ -1,0 +1,45 @@
+definition_version: '2'
+entities:
+  status_procedure:
+    external_access_integrations:
+    - snowflake_docs_access_integration
+    secrets:
+      generic_secret: snowcli_db.public.test_secret
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: status_procedure
+    artifacts:
+    - src: app/
+      dest: my_snowpark_project
+    handler: app.check_secret_and_get_status_procedure
+    returns: string
+    signature: ''
+    stage: dev_deployment
+    type: procedure
+    execute_as_caller: false
+  status_function:
+    external_access_integrations:
+    - snowflake_docs_access_integration
+    secrets:
+      generic_secret: snowcli_db.public.test_secret
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: status_function
+    artifacts:
+    - src: app/
+      dest: my_snowpark_project
+    handler: app.check_secret_and_get_status_function
+    returns: string
+    signature: ''
+    stage: dev_deployment
+    type: function
+mixins:
+  snowpark_shared:
+    stage: dev_deployment
+    artifacts:
+    - src: app/
+      dest: my_snowpark_project

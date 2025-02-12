@@ -5,12 +5,16 @@ import sys
 from snowflake.snowpark import Session
 
 
-def hello(session: Session, name: int, b: str) -> str:
+def hello_procedure(session: Session, name: str) -> str:
     return f"Hello {name}"
 
 
-def test(session: Session) -> str:
+def test_procedure(session: Session) -> str:
     return "Test procedure"
+
+
+def hello_function(name: str) -> str:
+    return f"Hello {name}!"
 
 
 # For local debugging. Be aware you may need to type-convert arguments if
@@ -20,7 +24,7 @@ if __name__ == "__main__":
 
     session = Session.builder.configs(cli_config.get_connection_dict("dev")).create()
     if len(sys.argv) > 1:
-        print(hello(session, *sys.argv[1:]))  # type: ignore
+        print(hello_procedure(session, *sys.argv[1:]))  # type: ignore
     else:
-        print(hello(session))  # type: ignore
+        print(hello_procedure(session))  # type: ignore
     session.close()

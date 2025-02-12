@@ -1,0 +1,15 @@
+definition_version: '2'
+entities:
+  test_func:
+    identifier:
+      name: test_func
+    artifacts:
+    - src: app/
+      dest: my_snowpark_project
+    handler: functions.hello_function
+    returns: string
+    signature:
+    - name: name
+      type: string
+    stage: TEST
+    type: function
