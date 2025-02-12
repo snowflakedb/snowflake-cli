@@ -2,7 +2,7 @@
 # name: test_sql_help_if_no_query_file_or_stdin
   '''
                                                                                   
-   Usage: default sql [OPTIONS]                                                   
+   Usage: root sql [OPTIONS]                                                      
                                                                                   
    Executes Snowflake query.                                                      
    Use either query, filename or input option. Query to execute can be specified  

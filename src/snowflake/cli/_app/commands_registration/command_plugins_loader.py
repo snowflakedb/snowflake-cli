@@ -47,7 +47,9 @@ class CommandPluginsLoader:
         self._loaded_command_paths: Dict[CommandPath, LoadedCommandPlugin] = {}
 
     def register_builtin_plugins(self) -> None:
-        for plugin_name, plugin in get_builtin_plugin_name_to_plugin_spec().items():
+        for plugin_name, plugin in sorted(
+            get_builtin_plugin_name_to_plugin_spec().items()
+        ):
             try:
                 self._plugin_manager.register(plugin=plugin, name=plugin_name)
             except Exception as ex:
