@@ -1,19 +1,22 @@
-from pathlib import Path
 from typing import Optional
 
 from click import UsageError
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import NoProjectDefinitionError
 
 
-def get_entity(
-    pd, project_root: Path, entity_type: ObjectType, entity_id: Optional[str] = None
+def get_entity_from_project_definition(
+    entity_type: ObjectType, entity_id: Optional[str] = None
 ):
+    cli_context = get_cli_context()
+    pd = cli_context.project_definition
     entities = pd.get_entities_by_type(entity_type=entity_type.value.cli_name)
 
     if not entities:
         raise NoProjectDefinitionError(
-            project_type=entity_type.value.sf_name, project_root=project_root
+            project_type=entity_type.value.sf_name,
+            project_root=cli_context.project_root,
         )
 
     if entity_id and entity_id not in entities:

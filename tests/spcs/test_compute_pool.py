@@ -302,16 +302,13 @@ def test_deploy_from_project_definition_multiple_compute_pools_with_entity_id(
 
 
 def test_deploy_from_project_definition_multiple_compute_pools(
-    runner, project_directory
+    runner, project_directory, os_agnostic_snapshot
 ):
     with project_directory("spcs_multiple_compute_pools"):
         result = runner.invoke(["spcs", "compute-pool", "deploy"])
 
         assert result.exit_code == 2, result.output
-        assert (
-            "Multiple compute pools found. Please provide entity id for the operation."
-            in result.output
-        )
+        assert result.output == os_agnostic_snapshot
 
 
 @patch(EXECUTE_QUERY)

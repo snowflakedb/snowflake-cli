@@ -22,9 +22,6 @@ from snowflake.cli._plugins.spcs.common import (
     handle_object_already_exists,
     strip_empty_lines,
 )
-from snowflake.cli._plugins.spcs.compute_pool.compute_pool_entity_model import (
-    ComputePoolEntityModel,
-)
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
@@ -69,22 +66,6 @@ class ComputePoolManager(SqlExecutionMixin):
             return self.execute_query(strip_empty_lines(query))
         except ProgrammingError as e:
             handle_object_already_exists(e, ObjectType.COMPUTE_POOL, pool_name)
-
-    def create_from_entity(
-        self, compute_pool: ComputePoolEntityModel
-    ) -> SnowflakeCursor:
-        return self.create(
-            pool_name=compute_pool.fqn.identifier,
-            min_nodes=compute_pool.min_nodes,
-            max_nodes=compute_pool.max_nodes,
-            instance_family=compute_pool.instance_family,
-            auto_resume=compute_pool.auto_resume,
-            initially_suspended=compute_pool.initially_suspended,
-            auto_suspend_secs=compute_pool.auto_suspend_seconds,
-            tags=compute_pool.tags,
-            comment=compute_pool.comment,
-            if_not_exists=False,
-        )
 
     def stop(self, pool_name: str) -> SnowflakeCursor:
         return self.execute_query(f"alter compute pool {pool_name} stop all")

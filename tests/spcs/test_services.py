@@ -447,6 +447,18 @@ def test_deploy_multiple_services(
         )
 
 
+def test_deploy_multiple_services_without_entity_id(
+    runner,
+    project_directory,
+    os_agnostic_snapshot,
+):
+    with project_directory("spcs_multiple_services"):
+        result = runner.invoke(["spcs", "service", "deploy"])
+
+        assert result.exit_code == 2, result.output
+        assert result.output == os_agnostic_snapshot
+
+
 @patch(EXECUTE_QUERY)
 def test_execute_job_service(mock_execute_query, other_directory):
     job_service_name = "test_job_service"

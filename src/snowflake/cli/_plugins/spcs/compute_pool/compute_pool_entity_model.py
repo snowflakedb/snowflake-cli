@@ -26,4 +26,4 @@ class ComputePoolEntityModel(EntityModelBase):
         ge=1,
     )
     comment: Optional[str] = Field(title="Comment for the compute pool", default=None)
-    tags: Optional[List[Tag]] = Field(title="Tag for the service", default=None)
+    tags: Optional[List[Tag]] = Field(title="Tag for the compute pool", default=None)

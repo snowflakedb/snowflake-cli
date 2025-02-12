@@ -26,7 +26,6 @@ from snowflake.cli._plugins.object.command_aliases import (
 )
 from snowflake.cli._plugins.spcs.image_registry.manager import RegistryManager
 from snowflake.cli._plugins.spcs.image_repository.manager import ImageRepositoryManager
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     ReplaceOption,
@@ -44,7 +43,9 @@ from snowflake.cli.api.output.types import (
     QueryResult,
     SingleQueryResult,
 )
-from snowflake.cli.api.project.definition_helper import get_entity
+from snowflake.cli.api.project.definition_helper import (
+    get_entity_from_project_definition,
+)
 from snowflake.cli.api.project.util import is_valid_object_name
 
 app = SnowTyperFactory(
@@ -110,15 +111,14 @@ def deploy(
     """
     Deploys a new image repository from snowflake.yml file.
     """
-    cli_context = get_cli_context()
-    pd = cli_context.project_definition
-
-    image_repository = get_entity(
-        pd, cli_context.project_root, ObjectType.IMAGE_REPOSITORY, entity_id
+    image_repository = get_entity_from_project_definition(
+        ObjectType.IMAGE_REPOSITORY, entity_id
     )
 
-    cursor = ImageRepositoryManager().create_from_entity(
-        image_repository, replace=replace
+    cursor = ImageRepositoryManager().create(
+        name=image_repository.fqn.identifier,
+        if_not_exists=False,
+        replace=replace,
     )
     return SingleQueryResult(cursor)
 

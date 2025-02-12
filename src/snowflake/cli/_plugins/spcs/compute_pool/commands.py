@@ -14,10 +14,10 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import List, Optional
 
 import typer
-from click import ClickException, UsageError
+from click import ClickException
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
 )
@@ -27,7 +27,6 @@ from snowflake.cli._plugins.spcs.compute_pool.compute_pool_entity_model import (
     ComputePoolEntityModel,
 )
 from snowflake.cli._plugins.spcs.compute_pool.manager import ComputePoolManager
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     OverrideableOption,
@@ -37,11 +36,13 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.exceptions import NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
     SingleQueryResult,
+)
+from snowflake.cli.api.project.definition_helper import (
+    get_entity_from_project_definition,
 )
 from snowflake.cli.api.project.util import is_valid_object_name
 
@@ -162,29 +163,21 @@ def deploy(
     """
     Deploys a compute pool from the project definition file.
     """
-    cli_context = get_cli_context()
-    pd = cli_context.project_definition
-    compute_pools: Dict[str, ComputePoolEntityModel] = pd.get_entities_by_type(
-        entity_type="compute-pool"
+    compute_pool: ComputePoolEntityModel = get_entity_from_project_definition(
+        entity_type=ObjectType.COMPUTE_POOL, entity_id=entity_id
     )
 
-    if not compute_pools:
-        raise NoProjectDefinitionError(
-            project_type="compute pool", project_root=cli_context.project_root
-        )
-
-    if entity_id and entity_id not in compute_pools:
-        raise UsageError(f"No '{entity_id}' entity in project definition file.")
-    elif len(compute_pools.keys()) == 1:
-        entity_id = list(compute_pools.keys())[0]
-
-    if entity_id is None:
-        raise UsageError(
-            "Multiple compute pools found. Please provide entity id for the operation."
-        )
-
-    cursor = ComputePoolManager().create_from_entity(
-        compute_pool=compute_pools[entity_id]
+    cursor = ComputePoolManager().create(
+        pool_name=compute_pool.fqn.identifier,
+        min_nodes=compute_pool.min_nodes,
+        max_nodes=compute_pool.max_nodes,
+        instance_family=compute_pool.instance_family,
+        auto_resume=compute_pool.auto_resume,
+        initially_suspended=compute_pool.initially_suspended,
+        auto_suspend_secs=compute_pool.auto_suspend_seconds,
+        tags=compute_pool.tags,
+        comment=compute_pool.comment,
+        if_not_exists=False,
     )
 
     return SingleQueryResult(cursor)
