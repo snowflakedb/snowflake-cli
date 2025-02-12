@@ -1,6 +1,8 @@
+from pathlib import Path
 from unittest import mock
 
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.utils.path_utils import path_resolver
 
 ProjectManager = "snowflake.cli._plugins.project.commands.ProjectManager"
 
@@ -21,7 +23,7 @@ def test_create_version(mock_put, mock_create, mock_pm, runner, project_director
         stage_name=stage,
     )
 
-    absolute_root = root.resolve()
+    absolute_root = Path(path_resolver(root.resolve()))
     mock_put.assert_has_calls(
         [
             mock.call(
