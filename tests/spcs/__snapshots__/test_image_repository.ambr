@@ -27,7 +27,7 @@
   |--------+--------------------------------------------------------------|
   | status | Image Repository TEST_IMAGE_REPOSITORY successfully created. |
   +-----------------------------------------------------------------------+
-
+  
   '''
 # ---
 # name: test_deploy_from_project_definition_multiple_image_repositories_with_entity_id
@@ -37,7 +37,7 @@
   |--------+--------------------------------------------------------------|
   | status | Image Repository TEST_IMAGE_REPOSITORY successfully created. |
   +-----------------------------------------------------------------------+
-
+  
   '''
 # ---
 # name: test_deploy_from_project_definition_replace
@@ -47,6 +47,6 @@
   |--------+--------------------------------------------------------------|
   | status | Image Repository TEST_IMAGE_REPOSITORY successfully created. |
   +-----------------------------------------------------------------------+
-
+  
   '''
 # ---

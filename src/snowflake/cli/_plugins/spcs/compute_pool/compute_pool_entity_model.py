@@ -8,7 +8,7 @@ from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
 
 class ComputePoolEntityModel(EntityModelBase):
     type: Literal["compute-pool"] = DiscriminatorField()  # noqa: A003
-    min_nodes: int = Field(title="Minimum number of nodes", default=None, ge=1)
+    min_nodes: Optional[int] = Field(title="Minimum number of nodes", default=1, ge=1)
     max_nodes: Optional[int] = Field(
         title="Maximum number of nodes", default=None, ge=1
     )

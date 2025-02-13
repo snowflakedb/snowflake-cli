@@ -6589,7 +6589,7 @@
 # name: test_help_messages[spcs.compute-pool.deploy]
   '''
 
-   Usage: default spcs compute-pool deploy [OPTIONS] [ENTITY_ID]
+   Usage: root spcs compute-pool deploy [OPTIONS] [ENTITY_ID]
 
    Deploys a compute pool from the project definition file.
 
@@ -7936,7 +7936,7 @@
 # name: test_help_messages[spcs.image-repository.deploy]
   '''
 
-   Usage: default spcs image-repository deploy [OPTIONS] [ENTITY_ID]
+   Usage: root spcs image-repository deploy [OPTIONS] [ENTITY_ID]
 
    Deploys a new image repository from snowflake.yml file.
 
@@ -8667,7 +8667,7 @@
 # name: test_help_messages[spcs.service.deploy]
   '''
 
-   Usage: default spcs service deploy [OPTIONS] [ENTITY_ID]
+   Usage: root spcs service deploy [OPTIONS] [ENTITY_ID]
 
    Deploys a service defined in the project definition file.
 
