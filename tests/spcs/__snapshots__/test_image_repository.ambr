@@ -11,8 +11,8 @@
 # ---
 # name: test_create_cli_replace_and_if_not_exists_fails
   '''
-  Usage: default spcs image-repository create [OPTIONS] NAME
-  Try 'default spcs image-repository create --help' for help.
+  Usage: root spcs image-repository create [OPTIONS] NAME
+  Try 'root spcs image-repository create --help' for help.
   +- Error ----------------------------------------------------------------------+
   | Parameters '--if-not-exists' and '--replace' are incompatible and cannot be  |
   | used simultaneously.                                                         |

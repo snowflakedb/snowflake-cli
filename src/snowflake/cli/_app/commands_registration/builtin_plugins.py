@@ -34,7 +34,7 @@ def get_builtin_plugin_name_to_plugin_spec():
         "connection": connection_plugin_spec,
         "helpers": migrate_plugin_spec,
         "spcs": spcs_plugin_spec,
-        "nativeapp": nativeapp_plugin_spec,
+        "app": nativeapp_plugin_spec,
         "object": object_plugin_spec,
         "snowpark": snowpark_plugin_spec,
         "stage": stage_plugin_spec,

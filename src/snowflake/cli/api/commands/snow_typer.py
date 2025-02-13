@@ -19,6 +19,7 @@ import logging
 from functools import wraps
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import click
 import typer
 from click import ClickException
 from snowflake.cli.api.commands.decorators import (
@@ -35,8 +36,18 @@ from snowflake.cli.api.output.types import CommandResult
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import DatabaseError
+from typer.core import TyperGroup
 
 log = logging.getLogger(__name__)
+
+
+class SortedTyperGroup(TyperGroup):
+    def list_commands(self, ctx: click.Context) -> List[str]:
+        """
+        From Typer 0.13.0 help items are in order of definition, this function override that approach.
+        Returns a list of subcommand names in the alphabetic order.
+        """
+        return sorted(self.commands)
 
 
 class SnowTyper(typer.Typer):
@@ -49,6 +60,7 @@ class SnowTyper(typer.Typer):
             no_args_is_help=True,
             add_completion=True,
             rich_markup_mode="markdown",
+            cls=SortedTyperGroup,
         )
 
     @staticmethod
