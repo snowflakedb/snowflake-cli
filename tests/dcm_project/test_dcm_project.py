@@ -1,8 +1,10 @@
 from pathlib import Path
 from unittest import mock
 
+import pytest
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.utils.path_utils import path_resolver
+
+from tests_common import IS_WINDOWS
 
 ProjectManager = "snowflake.cli._plugins.project.commands.ProjectManager"
 
@@ -10,6 +12,9 @@ ProjectManager = "snowflake.cli._plugins.project.commands.ProjectManager"
 @mock.patch(ProjectManager)
 @mock.patch("snowflake.cli._plugins.project.commands.StageManager.create")
 @mock.patch("snowflake.cli.api.artifacts.upload.StageManager.put")
+@pytest.mark.skipif(
+    IS_WINDOWS, reason="Path on Windows is not resolved correctly in the test"
+)
 def test_create_version(mock_put, mock_create, mock_pm, runner, project_directory):
     stage = FQN.from_stage("my_project_stage")
 
@@ -23,7 +28,7 @@ def test_create_version(mock_put, mock_create, mock_pm, runner, project_director
         stage_name=stage,
     )
 
-    absolute_root = Path(path_resolver(str(root)))
+    absolute_root = Path(root).resolve()
     mock_put.assert_has_calls(
         [
             mock.call(

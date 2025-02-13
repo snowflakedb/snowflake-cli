@@ -1,1 +1,1 @@
-define table {{ desc }} (fooBar string);
+define table identifier('{{ table_name }}') (fooBar string);

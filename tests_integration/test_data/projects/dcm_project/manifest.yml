@@ -1,6 +1,5 @@
 manifest_version: 1
 include_definitions:
   - file_a.sql
-  - file_b.sql
 template_variables:
-  - desc: "created by hello world project"
+  - table_name: "wont_be_used"

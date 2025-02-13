@@ -25,7 +25,7 @@ def test_project_deploy(
 ):
     with project_directory("dcm_project"):
         result = runner.invoke_with_connection_json(["project", "create-version"])
-        assert result.exit_code == 0
+        assert result.exit_code == 0, result.output
 
         # Unsupported command
         # result = runner.invoke_with_connection(["project", "dry-run", "my_project", "--version", "last"])
@@ -39,7 +39,7 @@ def test_project_deploy(
                 "--version",
                 "last",
                 "-D",
-                "desc='value'",
+                f"table_name='{test_database}.PUBLIC.MyTable'",
             ]
         )
-        assert result.exit_code == 0
+        assert result.exit_code == 0, result.output
