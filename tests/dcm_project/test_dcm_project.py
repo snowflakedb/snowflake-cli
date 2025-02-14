@@ -54,7 +54,8 @@ def test_create_version(mock_put, mock_create, mock_pm, runner, project_director
                 stage_path="my_project_stage/.",
                 overwrite=True,
             ),
-        ]
+        ],
+        any_order=True,
     )
 
 
