@@ -1,13 +1,14 @@
 from pathlib import Path
 from typing import List, Literal, Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBaseWithArtifacts,
     ExternalAccessBaseModel,
 )
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
+from snowflake.cli.api.project.util import to_string_literal
 
 
 class ServiceEntityModel(EntityModelBaseWithArtifacts, ExternalAccessBaseModel):
@@ -35,3 +36,10 @@ class ServiceEntityModel(EntityModelBaseWithArtifacts, ExternalAccessBaseModel):
     )
     tags: Optional[List[Tag]] = Field(title="Tag for the service", default=None)
     comment: Optional[str] = Field(title="Comment for the service", default=None)
+
+    @field_validator("comment")
+    @classmethod
+    def _convert_artifacts(cls, comment: Optional[str]):
+        if comment:
+            return to_string_literal(comment)
+        return comment

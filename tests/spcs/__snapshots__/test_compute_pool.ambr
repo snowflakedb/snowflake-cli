@@ -39,3 +39,13 @@
   
   '''
 # ---
+# name: test_deploy_from_project_definition_with_upgrade
+  '''
+  +-------------------------------------------+
+  | key    | value                            |
+  |--------+----------------------------------|
+  | status | Statement executed successfully. |
+  +-------------------------------------------+
+  
+  '''
+# ---

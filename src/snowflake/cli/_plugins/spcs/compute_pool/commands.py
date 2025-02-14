@@ -158,6 +158,11 @@ def create(
 @app.command("deploy", requires_connection=True)
 def deploy(
     entity_id: str = entity_argument("compute-pool"),
+    upgrade: bool = typer.Option(
+        False,
+        "--upgrade",
+        help="Updates the existing compute pool. Can update min_nodes, max_nodes, auto_resume, auto_suspend_seconds and comment.",
+    ),
     **options,
 ):
     """
@@ -167,17 +172,17 @@ def deploy(
         entity_type=ObjectType.COMPUTE_POOL, entity_id=entity_id
     )
 
-    cursor = ComputePoolManager().create(
+    cursor = ComputePoolManager().deploy(
         pool_name=compute_pool.fqn.identifier,
         min_nodes=compute_pool.min_nodes,
         max_nodes=compute_pool.max_nodes,
         instance_family=compute_pool.instance_family,
         auto_resume=compute_pool.auto_resume,
         initially_suspended=compute_pool.initially_suspended,
-        auto_suspend_secs=compute_pool.auto_suspend_seconds,
+        auto_suspend_seconds=compute_pool.auto_suspend_seconds,
         tags=compute_pool.tags,
         comment=compute_pool.comment,
-        if_not_exists=False,
+        upgrade=upgrade,
     )
 
     return SingleQueryResult(cursor)

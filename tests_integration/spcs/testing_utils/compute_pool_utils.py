@@ -80,6 +80,20 @@ class ComputePoolTestSteps:
             in result.json["status"]  # type: ignore
         )
 
+    def upgrade_compute_pool_from_project_definition(self) -> None:
+        result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "compute-pool",
+                "deploy",
+                "--upgrade",
+            ]
+        )
+        assert result.json, result.output
+        assert (
+            f"Statement executed successfully." in result.json["status"]  # type: ignore
+        )
+
     def list_should_return_compute_pool(self, compute_pool_name) -> None:
         result = self._execute_list()
         assert_that_result_is_successful_and_output_json_contains(

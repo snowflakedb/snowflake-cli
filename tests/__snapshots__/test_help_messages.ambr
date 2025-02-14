@@ -6598,7 +6598,10 @@
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --upgrade            Updates the existing compute pool. Can update           |
+  |                      min_nodes, max_nodes, auto_resume, auto_suspend_seconds |
+  |                      and comment.                                            |
+  | --help     -h        Show this message and exit.                             |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
@@ -8676,7 +8679,10 @@
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --upgrade            Updates the existing service. Can update min_instances, |
+  |                      max_instances, query_warehouse, auto_resume,            |
+  |                      external_access_integrations and comment.               |
+  | --help     -h        Show this message and exit.                             |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |

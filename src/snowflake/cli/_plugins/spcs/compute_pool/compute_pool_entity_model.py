@@ -1,9 +1,10 @@
 from typing import List, Literal, Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli.api.project.schemas.entities.common import EntityModelBase
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
+from snowflake.cli.api.project.util import to_string_literal
 
 
 class ComputePoolEntityModel(EntityModelBase):
@@ -27,3 +28,10 @@ class ComputePoolEntityModel(EntityModelBase):
     )
     comment: Optional[str] = Field(title="Comment for the compute pool", default=None)
     tags: Optional[List[Tag]] = Field(title="Tag for the compute pool", default=None)
+
+    @field_validator("comment")
+    @classmethod
+    def _convert_artifacts(cls, comment: Optional[str]):
+        if comment:
+            return to_string_literal(comment)
+        return comment

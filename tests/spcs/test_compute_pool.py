@@ -231,7 +231,34 @@ def test_deploy_from_project_definition(
             AUTO_RESUME = True
             INITIALLY_SUSPENDED = True
             AUTO_SUSPEND_SECS = 60
+            COMMENT = 'Compute pool for tests'
             WITH TAG (test_tag='test_value')"""
+        )
+        mock_execute_query.assert_called_once_with(expected_query)
+
+
+@patch(EXECUTE_QUERY)
+def test_deploy_from_project_definition_with_upgrade(
+    mock_execute_query, runner, project_directory, mock_cursor, os_agnostic_snapshot
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Statement executed successfully."]],
+        columns=["status"],
+    )
+
+    with project_directory("spcs_compute_pool"):
+        result = runner.invoke(["spcs", "compute-pool", "deploy", "--upgrade"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        expected_query = dedent(
+            """\
+            alter compute pool test_compute_pool set
+            min_nodes = 1
+            max_nodes = 2
+            auto_resume = True
+            auto_suspend_secs = 60
+            comment = 'Compute pool for tests'"""
         )
         mock_execute_query.assert_called_once_with(expected_query)
 
@@ -475,6 +502,8 @@ def test_set_property_cli(mock_set, mock_statement_success, runner):
             comment,
         ]
     )
+
+    assert result.exit_code == 0, result.output
     mock_set.assert_called_once_with(
         pool_name=pool_name,
         min_nodes=min_nodes,

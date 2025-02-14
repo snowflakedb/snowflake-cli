@@ -338,6 +338,59 @@ def test_deploy_service(
 
 @patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
 @patch(EXECUTE_QUERY)
+def test_deploy_service_with_upgrade(
+    mock_execute_query,
+    mock_stage_manager_execute_query,
+    runner,
+    project_directory,
+    mock_cursor,
+    os_agnostic_snapshot,
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Statement completed successfully."]],
+        columns=["status"],
+    )
+
+    with project_directory("spcs_service") as tmp_dir:
+        result = runner.invoke(["spcs", "service", "deploy", "--upgrade"])
+
+        expected_params_query = dedent(
+            """\
+            alter service test_service set
+            min_instances = 1
+            max_instances = 2
+            query_warehouse = xsmall
+            auto_resume = False
+            external_access_integrations = (test_external_access_integration)
+            comment = 'This is a test service'"""
+        )
+        expected_spec_query = dedent(
+            """\
+        ALTER SERVICE test_service
+        FROM @test_stage
+        SPECIFICATION_FILE = 'spec.yml'"""
+        )
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        mock_execute_query.assert_has_calls(
+            [
+                call(expected_params_query),
+                call(expected_spec_query),
+            ]
+        )
+        mock_stage_manager_execute_query.assert_has_calls(
+            [
+                call("create stage if not exists IDENTIFIER('test_stage')"),
+                call(
+                    f"put file://{Path(tmp_dir).resolve() / 'output' / 'bundle' / 'service' / 'spec.yml'} @test_stage auto_compress=false parallel=4 overwrite=True",
+                    cursor_class=SnowflakeCursor,
+                ),
+            ]
+        )
+
+
+@patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
+@patch(EXECUTE_QUERY)
 def test_deploy_service_already_exists(
     mock_execute_query,
     mock_stage_manager_execute_query,

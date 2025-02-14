@@ -67,6 +67,43 @@ class ComputePoolManager(SqlExecutionMixin):
         except ProgrammingError as e:
             handle_object_already_exists(e, ObjectType.COMPUTE_POOL, pool_name)
 
+    def deploy(
+        self,
+        pool_name: str,
+        min_nodes: int,
+        max_nodes: int,
+        instance_family: str,
+        auto_resume: bool,
+        initially_suspended: bool,
+        auto_suspend_seconds: int,
+        tags: Optional[List[Tag]],
+        comment: Optional[str],
+        upgrade: bool,
+    ):
+
+        if upgrade:
+            return self.set_property(
+                pool_name=pool_name,
+                min_nodes=min_nodes,
+                max_nodes=max_nodes,
+                auto_resume=auto_resume,
+                auto_suspend_secs=auto_suspend_seconds,
+                comment=comment,
+            )
+        else:
+            return self.create(
+                pool_name=pool_name,
+                min_nodes=min_nodes,
+                max_nodes=max_nodes,
+                instance_family=instance_family,
+                auto_resume=auto_resume,
+                initially_suspended=initially_suspended,
+                auto_suspend_secs=auto_suspend_seconds,
+                tags=tags,
+                comment=comment,
+                if_not_exists=False,
+            )
+
     def stop(self, pool_name: str) -> SnowflakeCursor:
         return self.execute_query(f"alter compute pool {pool_name} stop all")
 
@@ -102,6 +139,7 @@ class ComputePoolManager(SqlExecutionMixin):
         for property_name, value in property_pairs:
             if value is not None:
                 query.append(f"{property_name} = {value}")
+
         return self.execute_query(strip_empty_lines(query))
 
     def unset_property(

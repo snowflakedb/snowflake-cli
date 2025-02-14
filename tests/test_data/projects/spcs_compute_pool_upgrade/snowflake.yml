@@ -5,13 +5,13 @@ entities:
     type: compute-pool
     identifier:
       name: test_compute_pool
-    min_nodes: 1
-    max_nodes: 2
+    min_nodes: 5
+    max_nodes: 10
     instance_family: CPU_X64_XS
-    auto_resume: true
+    auto_resume: false
     initially_suspended: true
-    auto_suspend_seconds: 60
-    comment: "Compute pool for tests"
+    auto_suspend_seconds: 10
+    comment: "Upgraded compute pool"
     tags:
-      - name: test_tag
-        value: test_value
+      - name: new_tag
+        value: new_value

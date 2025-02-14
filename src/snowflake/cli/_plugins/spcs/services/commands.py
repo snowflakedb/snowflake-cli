@@ -212,6 +212,11 @@ def create(
 @app.command(requires_connection=True)
 def deploy(
     entity_id: str = entity_argument("service"),
+    upgrade: bool = typer.Option(
+        False,
+        "--upgrade",
+        help="Updates the existing service. Can update min_instances, max_instances, query_warehouse, auto_resume, external_access_integrations and comment.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -236,6 +241,7 @@ def deploy(
         tags=service.tags,
         comment=service.comment,
         service_project_paths=service_project_paths,
+        upgrade=upgrade,
     )
     return SingleQueryResult(cursor)
 

@@ -118,6 +118,7 @@ class ServiceManager(SqlExecutionMixin):
         tags: Optional[List[Tag]],
         comment: Optional[str],
         service_project_paths: ServiceProjectPaths,
+        upgrade: bool,
     ) -> SnowflakeCursor:
         stage_manager = StageManager()
         stage_manager.create(fqn=FQN.from_stage(stage))
@@ -130,42 +131,61 @@ class ServiceManager(SqlExecutionMixin):
             stage=stage,
         )
 
-        query = [
-            f"CREATE SERVICE {service_name}",
-            f"IN COMPUTE POOL {compute_pool}",
-            f"FROM {stage}",
-            f"SPECIFICATION_FILE = '{spec_path}'",
-            f"AUTO_RESUME = {auto_resume}",
-        ]
-
-        if min_instances:
-            query.append(f"MIN_INSTANCES = {min_instances}")
-
-        if max_instances:
-            query.append(f"MAX_INSTANCES = {max_instances}")
-
-        if query_warehouse:
-            query.append(f"QUERY_WAREHOUSE = {query_warehouse}")
-
-        if external_access_integrations:
-            external_access_integration_list = ",".join(
-                f"{e}" for e in external_access_integrations
+        if upgrade:
+            self.set_property(
+                service_name=service_name,
+                min_instances=min_instances,
+                max_instances=max_instances,
+                query_warehouse=query_warehouse,
+                auto_resume=auto_resume,
+                external_access_integrations=external_access_integrations,
+                comment=comment,
             )
-            query.append(
-                f"EXTERNAL_ACCESS_INTEGRATIONS = ({external_access_integration_list})"
-            )
-
-        if comment:
-            query.append(f"COMMENT = '{comment}'")
-
-        if tags:
-            tag_list = ",".join(f"{t.name}={t.value_string_literal()}" for t in tags)
-            query.append(f"WITH TAG ({tag_list})")
-
-        try:
+            query = [
+                f"ALTER SERVICE {service_name}",
+                f"FROM {stage}",
+                f"SPECIFICATION_FILE = '{spec_path}'",
+            ]
             return self.execute_query(strip_empty_lines(query))
-        except ProgrammingError as e:
-            handle_object_already_exists(e, ObjectType.SERVICE, service_name)
+        else:
+            query = [
+                f"CREATE SERVICE {service_name}",
+                f"IN COMPUTE POOL {compute_pool}",
+                f"FROM {stage}",
+                f"SPECIFICATION_FILE = '{spec_path}'",
+                f"AUTO_RESUME = {auto_resume}",
+            ]
+
+            if min_instances:
+                query.append(f"MIN_INSTANCES = {min_instances}")
+
+            if max_instances:
+                query.append(f"MAX_INSTANCES = {max_instances}")
+
+            if query_warehouse:
+                query.append(f"QUERY_WAREHOUSE = {query_warehouse}")
+
+            if external_access_integrations:
+                external_access_integration_list = ",".join(
+                    f"{e}" for e in external_access_integrations
+                )
+                query.append(
+                    f"EXTERNAL_ACCESS_INTEGRATIONS = ({external_access_integration_list})"
+                )
+
+            if comment:
+                query.append(f"COMMENT = {comment}")
+
+            if tags:
+                tag_list = ",".join(
+                    f"{t.name}={t.value_string_literal()}" for t in tags
+                )
+                query.append(f"WITH TAG ({tag_list})")
+
+            try:
+                return self.execute_query(strip_empty_lines(query))
+            except ProgrammingError as e:
+                handle_object_already_exists(e, ObjectType.SERVICE, service_name)
 
     @staticmethod
     def _upload_artifacts(
