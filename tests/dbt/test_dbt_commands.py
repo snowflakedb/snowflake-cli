@@ -26,9 +26,52 @@ def mock_connect(mock_ctx):
         yield _fixture
 
 
-def test_list_dbt_objects(mock_connect, runner):
+def test_dbt_list(mock_connect, runner):
 
     result = runner.invoke(["dbt", "list"])
 
     assert result.exit_code == 0, result.output
-    assert mock_connect.mocked_ctx.get_query() == "show dbt"
+    assert mock_connect.mocked_ctx.get_query() == "SHOW DBT"
+
+
+@pytest.mark.parametrize(
+    "args,expected_query",
+    [
+        (
+            ["dbt", "execute", "compile", "--name=pipeline_name"],
+            "EXECUTE DBT pipeline_name compile",
+        ),
+        (
+            [
+                "dbt",
+                "execute",
+                "compile",
+                "--name=pipeline_name",
+                "-f",
+                "--select @source:snowplow,tag:nightly models/export",
+            ],
+            "EXECUTE DBT pipeline_name compile -f --select @source:snowplow,tag:nightly models/export",
+        ),
+        (
+            ["dbt", "execute", "compile", "--name=pipeline_name", "--vars '{foo:bar}'"],
+            "EXECUTE DBT pipeline_name compile --vars '{foo:bar}'",
+        ),
+        (
+            [
+                "dbt",
+                "execute",
+                "compile",
+                "--name=pipeline_name",
+                "--format=JSON",
+                "--debug",
+            ],
+            "EXECUTE DBT pipeline_name compile",
+        ),
+    ],
+)
+def test_dbt_execute(mock_connect, runner, args, expected_query):
+
+    result = runner.invoke(args)
+
+    assert result.exit_code == 0, result.output
+    assert mock_connect.mocked_ctx.get_query() == expected_query
