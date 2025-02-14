@@ -20,5 +20,11 @@ from snowflake.connector.cursor import SnowflakeCursor
 
 class DBTManager(SqlExecutionMixin):
     def list(self) -> SnowflakeCursor:  # noqa: A003
-        query = f"show dbt"
+        query = "SHOW DBT"
+        return self.execute_query(query)
+
+    def execute(self, dbt_command: str, name: str, *dbt_cli_args):
+        query = f"EXECUTE DBT {name} {dbt_command}"
+        if dbt_cli_args:
+            query += " " + " ".join([arg for arg in dbt_cli_args])
         return self.execute_query(query)
