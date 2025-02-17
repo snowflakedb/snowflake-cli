@@ -23,7 +23,7 @@
 ## Fixes and improvements
 
 
-# v3.4.0
+# v3.4.1
 ## Backward incompatibility
 
 ## Deprecations
