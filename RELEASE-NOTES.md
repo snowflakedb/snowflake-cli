@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Fix handling of date types in `snow sql` command when using JSON for output format
 
 
 # v3.4.0
