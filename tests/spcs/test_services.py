@@ -909,6 +909,37 @@ def test_latest_metrics(
     )
 
 
+def test_service_events_disabled(runner, empty_snowcli_config):
+    result = runner.invoke_with_config_file(
+        empty_snowcli_config,
+        [
+            "spcs",
+            "service",
+            "events",
+            "LOG_EVENT",
+            "--container-name",
+            "log-printer",
+            "--instance-id",
+            "0",
+            "--since",
+            "1 minute",
+        ],
+    )
+    assert (
+        result.exit_code != 0
+    ), "Expected a non-zero exit code due to feature flag being disabled"
+    expected_output = (
+        "Usage: root spcs service [OPTIONS] COMMAND [ARGS]...\n"
+        "Try 'root spcs service --help' for help.\n"
+        "+- Error ----------------------------------------------------------------------+\n"
+        "| No such command 'events'.                                                    |\n"
+        "+------------------------------------------------------------------------------+\n"
+    )
+    assert (
+        result.output == expected_output
+    ), f"Expected formatted output not found: {result.output}"
+
+
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query")
 def test_metrics_all_filters(
     mock_execute_query, runner, enable_events_and_metrics_config

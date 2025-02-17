@@ -40,6 +40,7 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
     IncompatibleParametersError,
 )
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -320,6 +321,7 @@ def logs(
 
 @app.command(
     requires_connection=True,
+    is_enabled=FeatureFlag.ENABLE_SPCS_SERVICE_EVENTS.is_enabled,
 )
 def events(
     name: FQN = ServiceNameArgument,
