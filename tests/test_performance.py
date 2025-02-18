@@ -15,11 +15,13 @@ import os
 import subprocess
 from timeit import default_timer as timer
 
+import pytest
+
 SAMPLE_AMOUNT = 20
 EXECUTION_TIME_THRESHOLD = 2.2  # seconds
 
 
-# @pytest.mark.performance
+@pytest.mark.performance
 def test_snow_help_performance():
     results = []
     for _ in range(SAMPLE_AMOUNT):
