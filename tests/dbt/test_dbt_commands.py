@@ -37,35 +37,59 @@ def test_dbt_list(mock_connect, runner):
 @pytest.mark.parametrize(
     "args,expected_query",
     [
-        (
-            ["dbt", "execute", "compile", "--name=pipeline_name"],
-            "EXECUTE DBT pipeline_name compile",
-        ),
-        (
+        pytest.param(
             [
                 "dbt",
                 "execute",
-                "compile",
-                "--name=pipeline_name",
+                "pipeline_name",
+                "test",
+            ],
+            "EXECUTE DBT pipeline_name test",
+            id="simple-command",
+        ),
+        pytest.param(
+            [
+                "dbt",
+                "execute",
+                "pipeline_name",
+                "run",
                 "-f",
                 "--select @source:snowplow,tag:nightly models/export",
             ],
-            "EXECUTE DBT pipeline_name compile -f --select @source:snowplow,tag:nightly models/export",
+            "EXECUTE DBT pipeline_name run -f --select @source:snowplow,tag:nightly models/export",
+            id="with-dbt-options",
         ),
-        (
-            ["dbt", "execute", "compile", "--name=pipeline_name", "--vars '{foo:bar}'"],
+        pytest.param(
+            ["dbt", "execute", "pipeline_name", "compile", "--vars '{foo:bar}'"],
             "EXECUTE DBT pipeline_name compile --vars '{foo:bar}'",
+            id="with-dbt-vars",
         ),
-        (
+        pytest.param(
             [
                 "dbt",
                 "execute",
+                "pipeline_name",
                 "compile",
-                "--name=pipeline_name",
-                "--format=JSON",
+                "--format=TXT",  # collision with CLI's option; unsupported option
+                "-v",  # collision with CLI's option
+                "-h",
                 "--debug",
+                "--info",
+                "--config-file=/",
+            ],
+            "EXECUTE DBT pipeline_name compile --format=TXT -v -h --debug --info --config-file=/",
+            id="with-dbt-conflicting-options",
+        ),
+        pytest.param(
+            [
+                "dbt",
+                "execute",
+                "--format=JSON",
+                "pipeline_name",
+                "compile",
             ],
             "EXECUTE DBT pipeline_name compile",
+            id="with-cli-flag",
         ),
     ],
 )
