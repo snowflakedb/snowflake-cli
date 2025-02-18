@@ -15,9 +15,12 @@
 from __future__ import annotations
 
 import logging
+from typing import Annotated
 
 import typer
+from snowflake.cli._plugins.dbt.constants import DBT_COMMANDS
 from snowflake.cli._plugins.dbt.manager import DBTManager
+from snowflake.cli.api.commands.decorators import global_options_with_connection
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, QueryResult
 
@@ -37,31 +40,47 @@ def list_dbts(
     **options,
 ) -> CommandResult:
     """
-    List all dbt projects on Snowflake.
+    List all dbt on Snowflake projects.
     """
     return QueryResult(DBTManager().list())
 
 
-@app.command(
-    "execute",
-    requires_connection=True,
-    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+# `execute` is a pass through command group, meaning that all params after command should be passed over as they are,
+# suppressing usual CLI behaviour for displaying help or formatting options.
+dbt_execute_app = SnowTyperFactory(
+    name="execute",
+    help="Execute a dbt command",
 )
-def execute(
-    ctx: typer.Context,
-    dbt_command: str = typer.Argument(
-        help="dbt command to execute, i. e. run, compile, seed...",
-    ),
-    name: str = typer.Option(
-        default=...,
-        help="Name of the dbt object to execute command on.",
-    ),
+app.add_typer(dbt_execute_app)
+
+
+@dbt_execute_app.callback()
+@global_options_with_connection
+def before_callback(
+    name: Annotated[
+        str, typer.Argument(help="Name of the dbt object to execute command on.")
+    ],
     **options,
-) -> CommandResult:
-    """
-    Execute command on dbt in Snowflake project.
-    """
-    # ctx.args are parameters that were not captured as known cli params (those are in **options).
-    # as a consequence, we don't support passing params known to snowflake cli further to dbt
-    dbt_cli_args = ctx.args
-    return QueryResult(DBTManager().execute(dbt_command, name, *dbt_cli_args))
+):
+    """Handles global options passed before the command and takes pipeline name to be accessed through child context later"""
+    pass
+
+
+for cmd in DBT_COMMANDS:
+
+    @dbt_execute_app.command(
+        name=cmd,
+        requires_connection=False,
+        requires_global_options=False,
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+        help=f"Execute {cmd} command on dbt on Snowflake project.",
+        add_help_option=False,
+    )
+    def _dbt_execute(
+        ctx: typer.Context,
+    ) -> CommandResult:
+        # TODO: figure out how to present logs to users
+        dbt_cli_args = ctx.args
+        dbt_command = ctx.command.name
+        name = ctx.parent.params["name"]
+        return QueryResult(DBTManager().execute(dbt_command, name, *dbt_cli_args))
