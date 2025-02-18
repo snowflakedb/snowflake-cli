@@ -16,6 +16,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from textwrap import dedent
 from unittest.mock import Mock, call, patch
 
@@ -61,6 +62,18 @@ SPEC_DICT = {
 EXECUTE_QUERY = (
     "snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query"
 )
+
+
+@pytest.fixture()
+def enable_events_and_metrics_config():
+    with TemporaryDirectory() as tempdir:
+        config_toml = Path(tempdir) / "config.toml"
+        config_toml.write_text(
+            "[cli.features]\n"
+            "enable_spcs_service_events = true\n"
+            "enable_spcs_service_metrics = true\n"
+        )
+        yield config_toml
 
 
 @patch(EXECUTE_QUERY)
@@ -834,7 +847,9 @@ def test_stream_logs_with_include_timestamps_true(mock_sleep, mock_logs):
 
 
 @patch(EXECUTE_QUERY)
-def test_logs_incompatible_flags(mock_execute_query, runner):
+def test_logs_incompatible_flags(
+    mock_execute_query, runner, enable_events_and_metrics_config
+):
     result = runner.invoke(
         [
             "spcs",
@@ -889,7 +904,9 @@ def test_logs_streaming_flag_is_hidden(runner):
 
 
 @patch(EXECUTE_QUERY)
-def test_events_all_filters(mock_execute_query, runner):
+def test_events_all_filters(
+    mock_execute_query, runner, enable_events_and_metrics_config
+):
     mock_execute_query.side_effect = [
         [
             {
@@ -932,7 +949,8 @@ def test_events_all_filters(mock_execute_query, runner):
         ),
     ]
 
-    result = runner.invoke(
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
         [
             "spcs",
             "service",
@@ -988,8 +1006,9 @@ def test_events_all_filters(mock_execute_query, runner):
     ), f"Generated query does not match expected query.\n\nActual:\n{actual_query}\n\nExpected:\n{expected_query}"
 
 
-def test_events_first_last_incompatibility(runner):
-    result = runner.invoke(
+def test_events_first_last_incompatibility(runner, enable_events_and_metrics_config):
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
         [
             "spcs",
             "service",
@@ -1017,7 +1036,9 @@ def test_events_first_last_incompatibility(runner):
 
 
 @patch(EXECUTE_QUERY)
-def test_latest_metrics(mock_execute_query, runner, snapshot):
+def test_latest_metrics(
+    mock_execute_query, runner, snapshot, enable_events_and_metrics_config
+):
     mock_execute_query.side_effect = [
         [
             {
@@ -1056,7 +1077,8 @@ def test_latest_metrics(mock_execute_query, runner, snapshot):
         ),
     ]
 
-    result = runner.invoke(
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
         [
             "spcs",
             "service",
@@ -1187,7 +1209,8 @@ def test_metrics_all_filters(
         ),
     ]
 
-    result = runner.invoke(
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
         [
             "spcs",
             "service",
