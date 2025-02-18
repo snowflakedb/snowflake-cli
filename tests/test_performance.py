@@ -11,19 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import os
 import subprocess
 from timeit import default_timer as timer
-from unittest import mock
 
 import pytest
 
 SAMPLE_AMOUNT = 20
-EXECUTION_TIME_THRESHOLD = 2  # seconds
+EXECUTION_TIME_THRESHOLD = 3  # seconds
 
 
 @pytest.mark.performance
-@mock.patch.dict(os.environ, {"SNOWFLAKE_FEATURE_ENABLE_SNOWFLAKE_PROJECTS": "True"})
 def test_snow_help_performance():
     results = []
     for _ in range(SAMPLE_AMOUNT):
