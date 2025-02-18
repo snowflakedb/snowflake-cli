@@ -57,7 +57,7 @@ classifiers = [
 
 [project.optional-dependencies]
 development = [
-  "coverage==7.6.11",
+  "coverage==7.6.12",
   "pre-commit>=3.5.0",
   "pytest==8.3.4",
   "pytest-randomly==3.16.0",
