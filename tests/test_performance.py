@@ -23,7 +23,7 @@ EXECUTION_TIME_THRESHOLD = 2  # seconds
 
 
 @pytest.mark.performance
-@mock.patch.dict(os.environ, {"ENABLE_SNOWFLAKE_PROJECTS": "True"})
+@mock.patch.dict(os.environ, {"SNOWFLAKE_FEATURE_ENABLE_SNOWFLAKE_PROJECTS": "True"})
 def test_snow_help_performance():
     results = []
     for _ in range(SAMPLE_AMOUNT):
