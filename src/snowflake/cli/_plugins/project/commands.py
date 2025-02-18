@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import logging
 from typing import List, Optional
 
 import typer
@@ -42,8 +41,6 @@ app = SnowTyperFactory(
     help="Manages projects in Snowflake.",
     is_hidden=FeatureFlag.ENABLE_SNOWFLAKE_PROJECTS.is_disabled,
 )
-
-log = logging.getLogger(__name__)
 
 project_identifier = identifier_argument(sf_object="project", example="MY_PROJECT")
 version_flag = typer.Option(
