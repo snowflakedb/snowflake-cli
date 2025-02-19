@@ -13,10 +13,9 @@
 # limitations under the License.
 from __future__ import annotations
 
-from typing import List, Literal, Optional, TypeVar
+from typing import Literal, Optional, TypeVar
 
 from pydantic import Field
-from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.entities.common import EntityBase, attach_spans_to_entity_actions
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBaseWithArtifacts,
@@ -24,7 +23,6 @@ from snowflake.cli.api.project.schemas.entities.common import (
 from snowflake.cli.api.project.schemas.updatable_model import (
     DiscriminatorField,
 )
-from snowflake.core import CreateMode
 
 T = TypeVar("T")
 
@@ -39,31 +37,4 @@ class ProjectEntityModel(EntityModelBaseWithArtifacts):
 
 @attach_spans_to_entity_actions(entity_name="project")
 class ProjectEntity(EntityBase[ProjectEntityModel]):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def action_deploy(
-        self, action_ctx: ActionContext, mode: CreateMode, *args, **kwargs
-    ):
-        return self._execute_query(self.get_deploy_sql(mode))
-
-    def action_drop(self, action_ctx: ActionContext, *args, **kwargs):
-        return self._execute_query(self.get_drop_sql())
-
-    def action_describe(self, action_ctx: ActionContext, *args, **kwargs):
-        return self._execute_query(self.get_describe_sql())
-
-    def action_execute(
-        self,
-        action_ctx: ActionContext,
-        execution_arguments: List[str] | None = None,
-        *args,
-        **kwargs,
-    ):
-        return self._execute_query(self.get_execute_sql(execution_arguments))
-
-    def get_execute_sql(self, execution_arguments):
-        return "select 1"
-
-    def get_deploy_sql(self, mode: CreateMode):
-        pass
+    """Placeholder for project entity"""

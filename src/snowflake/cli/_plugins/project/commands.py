@@ -90,8 +90,7 @@ def create_version(
     **options,
 ):
     """
-    Create a new version of a project. This command will create a new version of the project
-    in the specified stage. If the stage does not exist, it will be created.
+    Upload local files and create a new version of a project using those files. If the stage does not exist, it will be created.
     """
     cli_context = get_cli_context()
     project: ProjectEntityModel = get_entity_for_operation(
@@ -146,7 +145,7 @@ def add_version(
     ),
     **options,
 ):
-    """Adds a new version to an existing project."""
+    """Adds a new version to a project using existing sources from provided stage path."""
 
     pm = ProjectManager()
     pm.add_version(

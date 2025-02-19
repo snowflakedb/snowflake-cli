@@ -5113,7 +5113,8 @@
                                                                                   
    Usage: root project add-version [OPTIONS] [ENTITY_ID]                          
                                                                                   
-   Adds a new version to an existing project.                                     
+   Adds a new version to a project using existing sources from provided stage     
+   path.                                                                          
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   entity_id      [ENTITY_ID]  ID of project entity.                          |
@@ -5211,9 +5212,8 @@
                                                                                   
    Usage: root project create-version [OPTIONS] [ENTITY_ID]                       
                                                                                   
-   Create a new version of a project. This command will create a new version of   
-   the project in the specified stage. If the stage does not exist, it will be    
-   created.                                                                       
+   Upload local files and create a new version of a project using those files. If 
+   the stage does not exist, it will be created.                                  
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   entity_id      [ENTITY_ID]  ID of project entity.                          |
@@ -5500,10 +5500,11 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | add-version      Adds a new version to an existing project.                  |
-  | create-version   Create a new version of a project. This command will create |
-  |                  a new version of the project in the specified stage. If the |
-  |                  stage does not exist, it will be created.                   |
+  | add-version      Adds a new version to a project using existing sources from |
+  |                  provided stage path.                                        |
+  | create-version   Upload local files and create a new version of a project    |
+  |                  using those files. If the stage does not exist, it will be  |
+  |                  created.                                                    |
   | dry-run          Validates a project.                                        |
   | execute          Executes a project.                                         |
   +------------------------------------------------------------------------------+
@@ -12002,10 +12003,11 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | add-version      Adds a new version to an existing project.                  |
-  | create-version   Create a new version of a project. This command will create |
-  |                  a new version of the project in the specified stage. If the |
-  |                  stage does not exist, it will be created.                   |
+  | add-version      Adds a new version to a project using existing sources from |
+  |                  provided stage path.                                        |
+  | create-version   Upload local files and create a new version of a project    |
+  |                  using those files. If the stage does not exist, it will be  |
+  |                  created.                                                    |
   | dry-run          Validates a project.                                        |
   | execute          Executes a project.                                         |
   +------------------------------------------------------------------------------+
