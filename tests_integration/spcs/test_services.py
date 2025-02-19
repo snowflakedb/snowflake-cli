@@ -68,6 +68,7 @@ def test_service_create_from_project_definition(
         )
 
         test_steps.deploy_service(service_name)
+        test_steps.describe_should_return_service(service_name)
 
         alter_snowflake_yml(
             "snowflake.yml",
@@ -89,7 +90,11 @@ def test_service_create_from_project_definition(
         )
         test_steps.upgrade_service()
         test_steps.describe_should_return_service(
-            service_name, expected_values={"comment": "Upgraded service"}
+            service_name,
+            expected_values_contain={
+                "comment": "Upgraded service",
+                "spec": 'UPGRADED: "true"',
+            },
         )
 
 

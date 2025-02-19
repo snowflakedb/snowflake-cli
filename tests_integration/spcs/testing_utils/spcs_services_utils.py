@@ -161,13 +161,15 @@ class SnowparkServicesTestSteps:
         assert not_contains_row_with(result.json, {"name": service_name.upper()})
 
     def describe_should_return_service(
-        self, service_name: str, expected_values: Dict[str, str] = {}
+        self, service_name: str, expected_values_contain: Dict[str, str] = {}
     ) -> None:
         result = self._execute_describe(service_name)
-        assert result.json
-        assert result.json[0]["name"] == service_name.upper()  # type: ignore
-        for key, value in expected_values.items():
-            assert result.json[0][key] == value
+        assert_that_result_is_successful(result)
+        assert_that_result_is_successful_and_output_json_contains(
+            result, {"name": service_name.upper()}
+        )
+        for key, value in expected_values_contain.items():
+            assert value in result.json[0][key]
 
     def set_unset_service_property(self, service_name: str) -> None:
         comment = "test comment"

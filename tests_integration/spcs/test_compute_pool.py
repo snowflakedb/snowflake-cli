@@ -55,6 +55,7 @@ def test_compute_pool_deploy_from_project_definition(
         )
 
         test_steps.create_compute_pool_from_project_definition(compute_pool_name)
+        test_steps.describe_should_return_compute_pool(compute_pool_name)
 
         alter_snowflake_yml(
             "snowflake.yml",
@@ -75,6 +76,9 @@ def test_compute_pool_deploy_from_project_definition(
             },
         )
         test_steps.upgrade_compute_pool_from_project_definition()
+        test_steps.describe_should_return_compute_pool(
+            compute_pool_name, expected_values={"comment": "Upgraded compute pool"}
+        )
 
 
 @pytest.fixture
