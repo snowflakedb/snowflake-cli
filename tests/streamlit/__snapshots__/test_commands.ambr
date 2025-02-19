@@ -55,7 +55,8 @@
   Usage: root streamlit deploy [OPTIONS] [ENTITY_ID]
   Try 'root streamlit deploy --help' for help.
   +- Error ----------------------------------------------------------------------+
-  | Multiple Streamlit apps found. Please provide entity id for the operation.   |
+  | Multiple entities of type streamlit found. Please provide entity id for the  |
+  | operation.                                                                   |
   +------------------------------------------------------------------------------+
   
   '''

@@ -16,11 +16,10 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Dict
 
 import click
 import typer
-from click import ClickException, UsageError
+from click import ClickException
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
@@ -44,6 +43,7 @@ from snowflake.cli.api.commands.flags import (
     like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
@@ -155,30 +155,14 @@ def streamlit_deploy(
             )
         pd = convert_project_definition_to_v2(cli_context.project_root, pd)
 
-    streamlits: Dict[str, StreamlitEntityModel] = pd.get_entities_by_type(
-        entity_type="streamlit"
+    streamlit: StreamlitEntityModel = get_entity_for_operation(
+        cli_context=cli_context,
+        entity_id=entity_id,
+        project_definition=pd,
+        entity_type="streamlit",
     )
 
     streamlit_project_paths = StreamlitProjectPaths(cli_context.project_root)
-
-    if not streamlits:
-        raise NoProjectDefinitionError(
-            project_type="streamlit", project_root=cli_context.project_root
-        )
-
-    if entity_id and entity_id not in streamlits:
-        raise UsageError(f"No '{entity_id}' entity in project definition file.")
-
-    if len(streamlits.keys()) == 1:
-        entity_id = list(streamlits.keys())[0]
-
-    if entity_id is None:
-        raise UsageError(
-            "Multiple Streamlit apps found. Please provide entity id for the operation."
-        )
-
-    # Get first streamlit
-    streamlit: StreamlitEntityModel = streamlits[entity_id]
     url = StreamlitManager().deploy(
         streamlit=streamlit,
         streamlit_project_paths=streamlit_project_paths,

@@ -561,7 +561,7 @@ class StageManager(SqlExecutionMixin):
         )
 
         parsed_variables = parse_key_value_variables(variables)
-        sql_variables = self._parse_execute_variables(parsed_variables)
+        sql_variables = self.parse_execute_variables(parsed_variables)
         python_variables = self._parse_python_variables(parsed_variables)
         results = []
 
@@ -663,7 +663,7 @@ class StageManager(SqlExecutionMixin):
         return [f for f in files if Path(f).suffix in EXECUTE_SUPPORTED_FILES_FORMATS]
 
     @staticmethod
-    def _parse_execute_variables(variables: List[Variable]) -> Optional[str]:
+    def parse_execute_variables(variables: List[Variable]) -> Optional[str]:
         if not variables:
             return None
         query_parameters = [f"{v.key}=>{v.value}" for v in variables]
