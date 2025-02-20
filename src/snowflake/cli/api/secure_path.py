@@ -21,7 +21,7 @@ import shutil
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional, Union
+from typing import IO, Any, Generator, Optional, Union
 
 from snowflake.cli.api.exceptions import DirectoryIsNotEmptyError, FileTooLargeError
 from snowflake.cli.api.secure_utils import (
@@ -178,7 +178,7 @@ class SecurePath:
         mode="r",
         read_file_limit_mb: Optional[int] = None,
         **open_kwargs,
-    ):
+    ) -> Generator[IO[Any], None, None]:
         """
         Open the file pointed by this path and return a file object, as
         the built-in open() function does.
