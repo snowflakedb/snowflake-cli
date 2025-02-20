@@ -29,9 +29,15 @@ from snowflake.cli._plugins.spcs.common import (
     validate_and_set_instances,
 )
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
+from snowflake.cli._plugins.spcs.services.service_entity_model import ServiceEntityModel
+from snowflake.cli._plugins.spcs.services.service_project_paths import (
+    ServiceProjectPaths,
+)
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     OverrideableOption,
+    entity_argument,
     identifier_argument,
     like_option,
 )
@@ -50,6 +56,9 @@ from snowflake.cli.api.output.types import (
     QueryResult,
     SingleQueryResult,
     StreamResult,
+)
+from snowflake.cli.api.project.definition_helper import (
+    get_entity_from_project_definition,
 )
 from snowflake.cli.api.project.util import is_valid_object_name
 
@@ -196,6 +205,43 @@ def create(
         tags=tags,
         comment=comment,
         if_not_exists=if_not_exists,
+    )
+    return SingleQueryResult(cursor)
+
+
+@app.command(requires_connection=True)
+def deploy(
+    entity_id: str = entity_argument("service"),
+    upgrade: bool = typer.Option(
+        False,
+        "--upgrade",
+        help="Updates the existing service. Can update min_instances, max_instances, query_warehouse, auto_resume, external_access_integrations and comment.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Deploys a service defined in the project definition file.
+    """
+    service: ServiceEntityModel = get_entity_from_project_definition(
+        entity_type=ObjectType.SERVICE,
+        entity_id=entity_id,
+    )
+    service_project_paths = ServiceProjectPaths(get_cli_context().project_root)
+    cursor = ServiceManager().deploy(
+        service_name=service.fqn.identifier,
+        stage=service.stage,
+        artifacts=service.artifacts,
+        compute_pool=service.compute_pool,
+        spec_path=service.spec_file,
+        min_instances=service.min_instances,
+        max_instances=service.max_instances,
+        auto_resume=service.auto_resume,
+        external_access_integrations=service.external_access_integrations,
+        query_warehouse=service.query_warehouse,
+        tags=service.tags,
+        comment=service.comment,
+        service_project_paths=service_project_paths,
+        upgrade=upgrade,
     )
     return SingleQueryResult(cursor)
 

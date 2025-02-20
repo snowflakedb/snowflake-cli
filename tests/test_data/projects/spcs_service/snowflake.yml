@@ -1,0 +1,22 @@
+definition_version: "2"
+
+entities:
+  test_service:
+    type: service
+    identifier:
+      name: test_service
+    stage: test_stage
+    compute_pool: test_compute_pool
+    spec_file: spec.yml
+    min_instances: 1
+    max_instances: 2
+    query_warehouse: xsmall
+    comment: "This is a test service"
+    auto_resume: false
+    external_access_integrations:
+      - test_external_access_integration
+    artifacts:
+      - spec.yml
+    tags:
+      - name: test_tag
+        value: test_value

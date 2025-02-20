@@ -53,6 +53,52 @@ def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
 
 
 @pytest.mark.integration
+def test_service_create_from_project_definition(
+    _test_steps: Tuple[SnowparkServicesTestSteps, str],
+    alter_snowflake_yml,
+    project_directory,
+):
+    test_steps, service_name = _test_steps
+    stage = f"{service_name}_stage"
+
+    with project_directory("spcs_service"):
+        alter_snowflake_yml("snowflake.yml", "entities.service.stage", stage)
+        alter_snowflake_yml(
+            "snowflake.yml", "entities.service.identifier.name", service_name
+        )
+
+        test_steps.deploy_service(service_name)
+        test_steps.describe_should_return_service(service_name)
+
+        alter_snowflake_yml(
+            "snowflake.yml",
+            "entities.service",
+            {
+                "type": "service",
+                "identifier": {
+                    "name": service_name,
+                },
+                "stage": f"{stage}_upgrade",
+                "compute_pool": "snowcli_compute_pool",
+                "spec_file": "spec_upgrade.yml",
+                "min_instances": 1,
+                "max_instances": 2,
+                "query_warehouse": "xsmall",
+                "comment": "Upgraded service",
+                "artifacts": ["spec_upgrade.yml"],
+            },
+        )
+        test_steps.upgrade_service()
+        test_steps.describe_should_return_service(
+            service_name,
+            expected_values_contain={
+                "comment": "Upgraded service",
+                "spec": 'UPGRADED: "true"',
+            },
+        )
+
+
+@pytest.mark.integration
 @pytest.mark.xfail(reason="Consistently timing out on execute call")
 def test_job_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
 

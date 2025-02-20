@@ -40,6 +40,47 @@ def test_compute_pool(_test_steps: Tuple[ComputePoolTestSteps, str]):
     test_steps.list_should_not_return_compute_pool(compute_pool_name)
 
 
+@pytest.mark.integration
+def test_compute_pool_deploy_from_project_definition(
+    _test_steps: Tuple[ComputePoolTestSteps, str],
+    project_directory,
+    alter_snowflake_yml,
+):
+
+    test_steps, compute_pool_name = _test_steps
+
+    with project_directory("spcs_compute_pool"):
+        alter_snowflake_yml(
+            "snowflake.yml", "entities.compute_pool.identifier.name", compute_pool_name
+        )
+
+        test_steps.create_compute_pool_from_project_definition(compute_pool_name)
+        test_steps.describe_should_return_compute_pool(compute_pool_name)
+
+        alter_snowflake_yml(
+            "snowflake.yml",
+            "entities.compute_pool",
+            {
+                "type": "compute-pool",
+                "identifier": {
+                    "name": compute_pool_name,
+                },
+                "min_nodes": 1,
+                "max_nodes": 2,
+                "auto_resume": True,
+                "auto_suspend_seconds": 10,
+                "comment": "Upgraded compute pool",
+                "tags": [
+                    {"name": "new_tag", "value": "new_value"},
+                ],
+            },
+        )
+        test_steps.upgrade_compute_pool_from_project_definition()
+        test_steps.describe_should_return_compute_pool(
+            compute_pool_name, expected_values={"comment": "Upgraded compute pool"}
+        )
+
+
 @pytest.fixture
 def _test_setup(runner, snowflake_session):
     compute_pool_test_setup = ComputePoolTestSetup(

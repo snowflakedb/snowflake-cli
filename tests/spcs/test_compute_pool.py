@@ -13,10 +13,12 @@
 # limitations under the License.
 
 import json
+from textwrap import dedent
 from unittest.mock import Mock, patch
 
 import pytest
 from click import ClickException
+from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.spcs.common import (
     NoPropertiesProvidedError,
 )
@@ -27,6 +29,7 @@ from snowflake.cli._plugins.spcs.compute_pool.manager import ComputePoolManager
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import to_string_literal
+from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
@@ -34,10 +37,12 @@ from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_is_successful_and_executed_successfully,
 )
 
-
-@patch(
+EXECUTE_QUERY = (
     "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
 )
+
+
+@patch(EXECUTE_QUERY)
 def test_create(mock_execute_query):
     pool_name = "test_pool"
     min_nodes = 2
@@ -46,6 +51,7 @@ def test_create(mock_execute_query):
     auto_resume = True
     initially_suspended = False
     auto_suspend_secs = 7200
+    tags = [Tag("test_tag", "test_value")]
     comment = "'test comment'"
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
@@ -57,6 +63,7 @@ def test_create(mock_execute_query):
         auto_resume=auto_resume,
         initially_suspended=initially_suspended,
         auto_suspend_secs=auto_suspend_secs,
+        tags=tags,
         comment=comment,
         if_not_exists=False,
     )
@@ -70,6 +77,7 @@ def test_create(mock_execute_query):
             "INITIALLY_SUSPENDED = False",
             "AUTO_SUSPEND_SECS = 7200",
             "COMMENT = 'test comment'",
+            "WITH TAG (test_tag='test_value')",
         ]
     )
     actual_query = " ".join(mock_execute_query.mock_calls[0].args[0].split())
@@ -98,6 +106,7 @@ def test_create_pool_cli_defaults(mock_create, runner):
         auto_resume=True,
         initially_suspended=False,
         auto_suspend_secs=3600,
+        tags=None,
         comment=None,
         if_not_exists=False,
     )
@@ -121,6 +130,8 @@ def test_create_pool_cli(mock_create, runner):
             "--init-suspend",
             "--auto-suspend-secs",
             "7200",
+            "--tag",
+            "test_tag=test_value",
             "--comment",
             "this is a test",
             "--if-not-exists",
@@ -135,14 +146,13 @@ def test_create_pool_cli(mock_create, runner):
         auto_resume=False,
         initially_suspended=True,
         auto_suspend_secs=7200,
+        tags=[Tag("test_tag", "test_value")],
         comment=to_string_literal("this is a test"),
         if_not_exists=True,
     )
 
 
-@patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
-)
+@patch(EXECUTE_QUERY)
 @patch("snowflake.cli._plugins.spcs.compute_pool.manager.handle_object_already_exists")
 def test_create_compute_pool_already_exists(mock_handle, mock_execute):
     pool_name = "test_pool"
@@ -155,17 +165,18 @@ def test_create_compute_pool_already_exists(mock_handle, mock_execute):
         auto_resume=False,
         initially_suspended=True,
         auto_suspend_secs=7200,
+        tags=[Tag("test_tag", "test_value")],
         comment=to_string_literal("this is a test"),
         if_not_exists=False,
     )
     mock_handle.assert_called_once_with(
-        SPCS_OBJECT_EXISTS_ERROR, ObjectType.COMPUTE_POOL, pool_name
+        SPCS_OBJECT_EXISTS_ERROR,
+        ObjectType.COMPUTE_POOL,
+        pool_name,
     )
 
 
-@patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
-)
+@patch(EXECUTE_QUERY)
 def test_create_compute_pool_if_not_exists(mock_execute_query):
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
@@ -177,6 +188,7 @@ def test_create_compute_pool_if_not_exists(mock_execute_query):
         auto_resume=True,
         initially_suspended=False,
         auto_suspend_secs=3600,
+        tags=None,
         comment=None,
         if_not_exists=True,
     )
@@ -196,9 +208,137 @@ def test_create_compute_pool_if_not_exists(mock_execute_query):
     assert result == cursor
 
 
-@patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
-)
+@patch(EXECUTE_QUERY)
+def test_deploy_from_project_definition(
+    mock_execute_query, runner, project_directory, mock_cursor, os_agnostic_snapshot
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Compute pool TEST_COMPUTE_POOL successfully created."]],
+        columns=["status"],
+    )
+
+    with project_directory("spcs_compute_pool"):
+        result = runner.invoke(["spcs", "compute-pool", "deploy"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        expected_query = dedent(
+            """\
+            CREATE COMPUTE POOL test_compute_pool
+            MIN_NODES = 1
+            MAX_NODES = 2
+            INSTANCE_FAMILY = CPU_X64_XS
+            AUTO_RESUME = True
+            INITIALLY_SUSPENDED = True
+            AUTO_SUSPEND_SECS = 60
+            COMMENT = 'Compute pool for tests'
+            WITH TAG (test_tag='test_value')"""
+        )
+        mock_execute_query.assert_called_once_with(expected_query)
+
+
+@patch(EXECUTE_QUERY)
+def test_deploy_from_project_definition_with_upgrade(
+    mock_execute_query, runner, project_directory, mock_cursor, os_agnostic_snapshot
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Statement executed successfully."]],
+        columns=["status"],
+    )
+
+    with project_directory("spcs_compute_pool"):
+        result = runner.invoke(["spcs", "compute-pool", "deploy", "--upgrade"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        expected_query = dedent(
+            """\
+            alter compute pool test_compute_pool set
+            min_nodes = 1
+            max_nodes = 2
+            auto_resume = True
+            auto_suspend_secs = 60
+            comment = 'Compute pool for tests'"""
+        )
+        mock_execute_query.assert_called_once_with(expected_query)
+
+
+@patch(EXECUTE_QUERY)
+def test_deploy_from_project_definition_compute_pool_already_exists(
+    mock_execute_query, runner, project_directory
+):
+    mock_execute_query.side_effect = ProgrammingError(
+        errno=2002, msg="Object 'test_compute_pool' already exists."
+    )
+
+    with project_directory("spcs_compute_pool"):
+        result = runner.invoke(["spcs", "compute-pool", "deploy"])
+
+        assert result.exit_code == 1, result.output
+        assert "Compute-pool TEST_COMPUTE_POOL already exists." in result.output
+
+
+def test_deploy_from_project_definition_no_compute_pools(runner, project_directory):
+    with project_directory("empty_project"):
+        result = runner.invoke(["spcs", "compute-pool", "deploy"])
+
+        assert result.exit_code == 1, result.output
+        assert "No compute pool project definition found in" in result.output
+
+
+def test_deploy_from_project_definition_not_existing_entity_id(
+    runner, project_directory
+):
+    with project_directory("spcs_compute_pool"):
+        result = runner.invoke(
+            ["spcs", "compute-pool", "deploy", "not_existing_entity_id"]
+        )
+
+        assert result.exit_code == 2, result.output
+        assert (
+            "No 'not_existing_entity_id' entity in project definition file."
+            in result.output
+        )
+
+
+@patch(EXECUTE_QUERY)
+def test_deploy_from_project_definition_multiple_compute_pools_with_entity_id(
+    mock_execute_query, runner, project_directory, mock_cursor, os_agnostic_snapshot
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Compute pool TEST_COMPUTE_POOL successfully created."]],
+        columns=["status"],
+    )
+
+    with project_directory("spcs_multiple_compute_pools"):
+        result = runner.invoke(["spcs", "compute-pool", "deploy", "test_compute_pool"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        expected_query = dedent(
+            """\
+            CREATE COMPUTE POOL test_compute_pool
+            MIN_NODES = 1
+            MAX_NODES = 2
+            INSTANCE_FAMILY = CPU_X64_XS
+            AUTO_RESUME = True
+            INITIALLY_SUSPENDED = True
+            AUTO_SUSPEND_SECS = 60"""
+        )
+        mock_execute_query.assert_called_once_with(expected_query)
+
+
+def test_deploy_from_project_definition_multiple_compute_pools(
+    runner, project_directory, os_agnostic_snapshot
+):
+    with project_directory("spcs_multiple_compute_pools"):
+        result = runner.invoke(["spcs", "compute-pool", "deploy"])
+
+        assert result.exit_code == 2, result.output
+        assert result.output == os_agnostic_snapshot
+
+
+@patch(EXECUTE_QUERY)
 def test_stop(mock_execute_query):
     pool_name = "test_pool"
     cursor = Mock(spec=SnowflakeCursor)
@@ -209,9 +349,7 @@ def test_stop(mock_execute_query):
     assert result == cursor
 
 
-@patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
-)
+@patch(EXECUTE_QUERY)
 def test_suspend(mock_execute_query):
     pool_name = "test_pool"
     cursor = Mock(spec=SnowflakeCursor)
@@ -246,9 +384,7 @@ def test_suspend_cli(mock_suspend, mock_cursor, runner):
     assert result_json_parsed == {"status": "Statement executed successfully."}
 
 
-@patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
-)
+@patch(EXECUTE_QUERY)
 def test_resume(mock_execute_query):
     pool_name = "test_pool"
     cursor = Mock(spec=SnowflakeCursor)
@@ -300,9 +436,7 @@ def test_compute_pool_name_callback_invalid(mock_is_valid):
     assert "is not a valid compute pool name." in e.value.message
 
 
-@patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
-)
+@patch(EXECUTE_QUERY)
 def test_set_property(mock_execute_query):
     pool_name = "test_pool"
     min_nodes = 2
@@ -368,6 +502,8 @@ def test_set_property_cli(mock_set, mock_statement_success, runner):
             comment,
         ]
     )
+
+    assert result.exit_code == 0, result.output
     mock_set.assert_called_once_with(
         pool_name=pool_name,
         min_nodes=min_nodes,
@@ -401,9 +537,7 @@ def test_set_property_no_properties_cli(mock_set, runner):
     )
 
 
-@patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
-)
+@patch(EXECUTE_QUERY)
 def test_unset_property(mock_execute_query):
     pool_name = "test_pool"
     cursor = Mock(spec=SnowflakeCursor)
@@ -476,9 +610,7 @@ def test_unset_property_with_args(runner):
     assert "Got unexpected extra argument" in result.output
 
 
-@patch(
-    "snowflake.cli._plugins.spcs.compute_pool.manager.ComputePoolManager.execute_query"
-)
+@patch(EXECUTE_QUERY)
 def test_status(mock_execute_query):
     pool_name = "test_pool"
     cursor = Mock(spec=SnowflakeCursor)

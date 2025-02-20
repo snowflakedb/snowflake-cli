@@ -35,9 +35,17 @@ from snowflake.cli._plugins.spcs.common import (
     new_logs_only,
     strip_empty_lines,
 )
+from snowflake.cli._plugins.spcs.services.service_project_paths import (
+    ServiceProjectPaths,
+)
+from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
+from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.schemas.entities.common import Artifacts
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
@@ -94,6 +102,112 @@ class ServiceManager(SqlExecutionMixin):
             return self.execute_query(strip_empty_lines(query))
         except ProgrammingError as e:
             handle_object_already_exists(e, ObjectType.SERVICE, service_name)
+
+    def deploy(
+        self,
+        service_name: str,
+        stage: str,
+        artifacts: List[str],
+        compute_pool: str,
+        spec_path: Path,
+        min_instances: int,
+        max_instances: int,
+        auto_resume: bool,
+        external_access_integrations: Optional[List[str]],
+        query_warehouse: Optional[str],
+        tags: Optional[List[Tag]],
+        comment: Optional[str],
+        service_project_paths: ServiceProjectPaths,
+        upgrade: bool,
+    ) -> SnowflakeCursor:
+        stage_manager = StageManager()
+        stage_manager.create(fqn=FQN.from_stage(stage))
+
+        stage = stage_manager.get_standard_stage_prefix(stage)
+        self._upload_artifacts(
+            stage_manager=stage_manager,
+            service_project_paths=service_project_paths,
+            artifacts=artifacts,
+            stage=stage,
+        )
+
+        if upgrade:
+            self.set_property(
+                service_name=service_name,
+                min_instances=min_instances,
+                max_instances=max_instances,
+                query_warehouse=query_warehouse,
+                auto_resume=auto_resume,
+                external_access_integrations=external_access_integrations,
+                comment=comment,
+            )
+            query = [
+                f"ALTER SERVICE {service_name}",
+                f"FROM {stage}",
+                f"SPECIFICATION_FILE = '{spec_path}'",
+            ]
+            return self.execute_query(strip_empty_lines(query))
+        else:
+            query = [
+                f"CREATE SERVICE {service_name}",
+                f"IN COMPUTE POOL {compute_pool}",
+                f"FROM {stage}",
+                f"SPECIFICATION_FILE = '{spec_path}'",
+                f"AUTO_RESUME = {auto_resume}",
+            ]
+
+            if min_instances:
+                query.append(f"MIN_INSTANCES = {min_instances}")
+
+            if max_instances:
+                query.append(f"MAX_INSTANCES = {max_instances}")
+
+            if query_warehouse:
+                query.append(f"QUERY_WAREHOUSE = {query_warehouse}")
+
+            if external_access_integrations:
+                external_access_integration_list = ",".join(
+                    f"{e}" for e in external_access_integrations
+                )
+                query.append(
+                    f"EXTERNAL_ACCESS_INTEGRATIONS = ({external_access_integration_list})"
+                )
+
+            if comment:
+                query.append(f"COMMENT = {comment}")
+
+            if tags:
+                tag_list = ",".join(
+                    f"{t.name}={t.value_string_literal()}" for t in tags
+                )
+                query.append(f"WITH TAG ({tag_list})")
+
+            try:
+                return self.execute_query(strip_empty_lines(query))
+            except ProgrammingError as e:
+                handle_object_already_exists(e, ObjectType.SERVICE, service_name)
+
+    @staticmethod
+    def _upload_artifacts(
+        stage_manager: StageManager,
+        service_project_paths: ServiceProjectPaths,
+        artifacts: Artifacts,
+        stage: str,
+    ):
+        if not artifacts:
+            raise ValueError("Service needs to have artifacts to deploy")
+
+        bundle_map = bundle_artifacts(service_project_paths, artifacts)
+        for absolute_src, absolute_dest in bundle_map.all_mappings(
+            absolute=True, expand_directories=True
+        ):
+            # We treat the bundle/service root as deploy root
+            stage_path = StagePath.from_stage_str(stage) / (
+                absolute_dest.relative_to(service_project_paths.bundle_root).parent
+            )
+            stage_manager.put(
+                local_path=absolute_dest, stage_path=stage_path, overwrite=True
+            )
 
     def execute_job(
         self,

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import List, Optional
 
+from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.spcs.common import (
     NoPropertiesProvidedError,
     handle_object_already_exists,
@@ -37,9 +38,11 @@ class ComputePoolManager(SqlExecutionMixin):
         auto_resume: bool,
         initially_suspended: bool,
         auto_suspend_secs: int,
+        tags: Optional[List[Tag]],
         comment: Optional[str],
         if_not_exists: bool,
     ) -> SnowflakeCursor:
+
         create_statement = "CREATE COMPUTE POOL"
         if if_not_exists:
             create_statement = f"{create_statement} IF NOT EXISTS"
@@ -55,10 +58,51 @@ class ComputePoolManager(SqlExecutionMixin):
         if comment:
             query.append(f"COMMENT = {comment}")
 
+        if tags:
+            tag_list = ",".join(f"{t.name}={t.value_string_literal()}" for t in tags)
+            query.append(f"WITH TAG ({tag_list})")
+
         try:
             return self.execute_query(strip_empty_lines(query))
         except ProgrammingError as e:
             handle_object_already_exists(e, ObjectType.COMPUTE_POOL, pool_name)
+
+    def deploy(
+        self,
+        pool_name: str,
+        min_nodes: int,
+        max_nodes: int,
+        instance_family: str,
+        auto_resume: bool,
+        initially_suspended: bool,
+        auto_suspend_seconds: int,
+        tags: Optional[List[Tag]],
+        comment: Optional[str],
+        upgrade: bool,
+    ):
+
+        if upgrade:
+            return self.set_property(
+                pool_name=pool_name,
+                min_nodes=min_nodes,
+                max_nodes=max_nodes,
+                auto_resume=auto_resume,
+                auto_suspend_secs=auto_suspend_seconds,
+                comment=comment,
+            )
+        else:
+            return self.create(
+                pool_name=pool_name,
+                min_nodes=min_nodes,
+                max_nodes=max_nodes,
+                instance_family=instance_family,
+                auto_resume=auto_resume,
+                initially_suspended=initially_suspended,
+                auto_suspend_secs=auto_suspend_seconds,
+                tags=tags,
+                comment=comment,
+                if_not_exists=False,
+            )
 
     def stop(self, pool_name: str) -> SnowflakeCursor:
         return self.execute_query(f"alter compute pool {pool_name} stop all")
@@ -95,6 +139,7 @@ class ComputePoolManager(SqlExecutionMixin):
         for property_name, value in property_pairs:
             if value is not None:
                 query.append(f"{property_name} = {value}")
+
         return self.execute_query(strip_empty_lines(query))
 
     def unset_property(

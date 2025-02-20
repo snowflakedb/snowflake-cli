@@ -29,6 +29,7 @@ from snowflake.cli._plugins.spcs.image_repository.manager import ImageRepository
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     ReplaceOption,
+    entity_argument,
     identifier_argument,
     like_option,
 )
@@ -41,6 +42,9 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     QueryResult,
     SingleQueryResult,
+)
+from snowflake.cli.api.project.definition_helper import (
+    get_entity_from_project_definition,
 )
 from snowflake.cli.api.project.util import is_valid_object_name
 
@@ -92,6 +96,29 @@ def create(
             name=name.identifier, replace=replace, if_not_exists=if_not_exists
         )
     )
+
+
+@app.command(requires_connection=True)
+def deploy(
+    entity_id: str = entity_argument("image-repository"),
+    replace: bool = ReplaceOption(
+        help="Replace the image repository if it already exists."
+    ),
+    **options,
+):
+    """
+    Deploys a new image repository from snowflake.yml file.
+    """
+    image_repository = get_entity_from_project_definition(
+        ObjectType.IMAGE_REPOSITORY, entity_id
+    )
+
+    cursor = ImageRepositoryManager().create(
+        name=image_repository.fqn.identifier,
+        if_not_exists=False,
+        replace=replace,
+    )
+    return SingleQueryResult(cursor)
 
 
 @app.command("list-images", requires_connection=True)

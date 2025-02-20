@@ -64,7 +64,7 @@ class ImageRepositoryManager(SqlExecutionMixin):
         name: str,
         if_not_exists: bool,
         replace: bool,
-    ):
+    ) -> SnowflakeCursor:
         if if_not_exists and replace:
             raise ValueError(
                 "'replace' and 'if_not_exists' options are mutually exclusive for ImageRepositoryManager.create"

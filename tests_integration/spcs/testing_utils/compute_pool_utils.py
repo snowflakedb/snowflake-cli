@@ -14,16 +14,19 @@
 
 import math
 import time
+from typing import List, Dict
 
 import pytest
 from snowflake.connector import SnowflakeConnection
 
+from snowflake.cli.api.output.types import CommandResult
 from tests_integration.conftest import SnowCLIRunner
 from tests_integration.test_utils import contains_row_with, not_contains_row_with
 from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_is_successful_and_executed_successfully,
     assert_that_result_is_successful_and_output_json_contains,
     assert_that_result_is_successful_and_output_json_equals,
+    assert_that_result_failed_with_message_containing,
 )
 
 
@@ -59,8 +62,36 @@ class ComputePoolTestSteps:
         assert (
             f"Compute pool {compute_pool_name.upper()} successfully created."
             in result.json["status"]  # type: ignore
-            or f"Compute pool {compute_pool_name.upper()} successfully created."
+        )
+
+    def create_compute_pool_from_project_definition(
+        self, compute_pool_name: str
+    ) -> None:
+        result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "compute-pool",
+                "deploy",
+            ]
+        )
+        assert result.json, result.output
+        assert (
+            f"Compute pool {compute_pool_name.upper()} successfully created."
             in result.json["status"]  # type: ignore
+        )
+
+    def upgrade_compute_pool_from_project_definition(self) -> None:
+        result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "compute-pool",
+                "deploy",
+                "--upgrade",
+            ]
+        )
+        assert result.json, result.output
+        assert (
+            f"Statement executed successfully." in result.json["status"]  # type: ignore
         )
 
     def list_should_return_compute_pool(self, compute_pool_name) -> None:
@@ -73,10 +104,14 @@ class ComputePoolTestSteps:
         result = self._execute_list()
         assert not_contains_row_with(result.json, {"name": compute_pool_name.upper()})
 
-    def describe_should_return_compute_pool(self, compute_pool_name: str) -> None:
+    def describe_should_return_compute_pool(
+        self, compute_pool_name: str, expected_values: Dict[str, str] = {}
+    ) -> None:
         result = self._execute_describe(compute_pool_name)
+        expected_output = {"name": compute_pool_name.upper()}
+        expected_output.update(expected_values)
         assert_that_result_is_successful_and_output_json_contains(
-            result, {"name": compute_pool_name.upper()}
+            result, expected_output
         )
 
     def status_should_return_compute_pool_idle_status(

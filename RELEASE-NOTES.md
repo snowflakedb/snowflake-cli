@@ -19,6 +19,13 @@
 ## Deprecations
 
 ## New additions
+* Extended snowflake.yml support for new entities:
+  * SPCS compute pool
+  * SPCS service
+  * SPCS image repository
+* Added `snow compute-pool deploy` command using `snowflake.yml` file.
+* Added `snow spcs service deploy` command using `snowflake.yml` file.
+* Added `snow image-repository deploy` command using `snowflake.yml` file.
 
 ## Fixes and improvements
 * Fix handling of date types in `snow sql` command when using JSON for output format
