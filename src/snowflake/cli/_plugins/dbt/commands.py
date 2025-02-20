@@ -15,13 +15,16 @@
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from pathlib import Path
+from typing import Optional
 
 import typer
 from snowflake.cli._plugins.dbt.constants import DBT_COMMANDS
 from snowflake.cli._plugins.dbt.manager import DBTManager
 from snowflake.cli.api.commands.decorators import global_options_with_connection
+from snowflake.cli.api.commands.flags import identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import CommandResult, QueryResult
 
 app = SnowTyperFactory(
@@ -30,6 +33,9 @@ app = SnowTyperFactory(
     is_hidden=lambda: True,
 )
 log = logging.getLogger(__name__)
+
+
+DBTNameArgument = identifier_argument(sf_object="DBT Object", example="my_pipeline")
 
 
 @app.command(
@@ -45,6 +51,34 @@ def list_dbts(
     return QueryResult(DBTManager().list())
 
 
+@app.command(
+    "deploy",
+    requires_connection=True,
+)
+def deploy_dbt(
+    name: FQN = DBTNameArgument,
+    source: Optional[str] = typer.Option(
+        help="Path to directory containing dbt files to deploy. Defaults to current working directory.",
+        show_default=False,
+        default=None,
+    ),
+    force: Optional[bool] = typer.Option(
+        False,
+        help="Overwrites conflicting files in the project, if any.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Copy dbt files and create or update dbt on Snowflake project.
+    """
+    # TODO: options for DBT version?
+    if source is None:
+        path = Path.cwd()
+    else:
+        path = Path(source)
+    return QueryResult(DBTManager().deploy(path.resolve(), name, force=force))
+
+
 # `execute` is a pass through command group, meaning that all params after command should be passed over as they are,
 # suppressing usual CLI behaviour for displaying help or formatting options.
 dbt_execute_app = SnowTyperFactory(
@@ -57,9 +91,7 @@ app.add_typer(dbt_execute_app)
 @dbt_execute_app.callback()
 @global_options_with_connection
 def before_callback(
-    name: Annotated[
-        str, typer.Argument(help="Name of the dbt object to execute command on.")
-    ],
+    name: FQN = DBTNameArgument,
     **options,
 ):
     """Handles global options passed before the command and takes pipeline name to be accessed through child context later"""

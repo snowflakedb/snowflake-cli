@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.identifiers import FQN
 
 
 @pytest.fixture
@@ -26,76 +29,127 @@ def mock_connect(mock_ctx):
         yield _fixture
 
 
-def test_dbt_list(mock_connect, runner):
+class TestDBTList:
+    def test_dbt_list(self, mock_connect, runner):
 
-    result = runner.invoke(["dbt", "list"])
+        result = runner.invoke(["dbt", "list"])
 
-    assert result.exit_code == 0, result.output
-    assert mock_connect.mocked_ctx.get_query() == "SHOW DBT"
+        assert result.exit_code == 0, result.output
+        assert mock_connect.mocked_ctx.get_query() == "SHOW DBT"
 
 
-@pytest.mark.parametrize(
-    "args,expected_query",
-    [
-        pytest.param(
-            [
-                "dbt",
-                "execute",
-                "pipeline_name",
-                "test",
-            ],
-            "EXECUTE DBT pipeline_name test",
-            id="simple-command",
-        ),
-        pytest.param(
-            [
-                "dbt",
-                "execute",
-                "pipeline_name",
-                "run",
-                "-f",
-                "--select @source:snowplow,tag:nightly models/export",
-            ],
-            "EXECUTE DBT pipeline_name run -f --select @source:snowplow,tag:nightly models/export",
-            id="with-dbt-options",
-        ),
-        pytest.param(
-            ["dbt", "execute", "pipeline_name", "compile", "--vars '{foo:bar}'"],
-            "EXECUTE DBT pipeline_name compile --vars '{foo:bar}'",
-            id="with-dbt-vars",
-        ),
-        pytest.param(
-            [
-                "dbt",
-                "execute",
-                "pipeline_name",
-                "compile",
-                "--format=TXT",  # collision with CLI's option; unsupported option
-                "-v",  # collision with CLI's option
-                "-h",
-                "--debug",
-                "--info",
-                "--config-file=/",
-            ],
-            "EXECUTE DBT pipeline_name compile --format=TXT -v -h --debug --info --config-file=/",
-            id="with-dbt-conflicting-options",
-        ),
-        pytest.param(
-            [
-                "dbt",
-                "execute",
-                "--format=JSON",
-                "pipeline_name",
-                "compile",
-            ],
-            "EXECUTE DBT pipeline_name compile",
-            id="with-cli-flag",
-        ),
-    ],
-)
-def test_dbt_execute(mock_connect, runner, args, expected_query):
+class TestDBTDeploy:
+    @pytest.fixture
+    def dbt_project_path(self, tmp_path_factory):
+        source_path = tmp_path_factory.mktemp("dbt_project")
+        dbt_file = source_path / "dbt_project.yml"
+        dbt_file.touch()
+        yield source_path
 
-    result = runner.invoke(args)
+    @pytest.fixture
+    def mock_cli_console(self):
+        with mock.patch("snowflake.cli.api.console") as _fixture:
+            yield _fixture
 
-    assert result.exit_code == 0, result.output
-    assert mock_connect.mocked_ctx.get_query() == expected_query
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_deploys_project_from_source(
+        self, mock_create, mock_put_recursive, mock_connect, runner, dbt_project_path
+    ):
+
+        result = runner.invoke(
+            ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "CREATE OR REPLACE DBT TEST_PIPELINE FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"
+        )
+        stage_fqn = FQN.from_string(f"dbt_TEST_PIPELINE_stage").using_context()
+        mock_create.assert_called_once_with(stage_fqn, temporary=True)
+        mock_put_recursive.assert_called_once_with(
+            dbt_project_path, "@MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"
+        )
+
+    def test_raises_when_dbt_project_is_not_available(
+        self, dbt_project_path, mock_connect, runner
+    ):
+        dbt_file = dbt_project_path / "dbt_project.yml"
+        dbt_file.unlink()
+
+        result = runner.invoke(
+            ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+        )
+
+        assert result.exit_code == 1, result.output
+        assert "dbt_project.yml does not exist in provided path." in result.output
+        assert mock_connect.mocked_ctx.get_query() == ""
+
+
+class TestDBTExecute:
+    @pytest.mark.parametrize(
+        "args,expected_query",
+        [
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
+                    "pipeline_name",
+                    "test",
+                ],
+                "EXECUTE DBT pipeline_name test",
+                id="simple-command",
+            ),
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
+                    "pipeline_name",
+                    "run",
+                    "-f",
+                    "--select @source:snowplow,tag:nightly models/export",
+                ],
+                "EXECUTE DBT pipeline_name run -f --select @source:snowplow,tag:nightly models/export",
+                id="with-dbt-options",
+            ),
+            pytest.param(
+                ["dbt", "execute", "pipeline_name", "compile", "--vars '{foo:bar}'"],
+                "EXECUTE DBT pipeline_name compile --vars '{foo:bar}'",
+                id="with-dbt-vars",
+            ),
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
+                    "pipeline_name",
+                    "compile",
+                    "--format=TXT",  # collision with CLI's option; unsupported option
+                    "-v",  # collision with CLI's option
+                    "-h",
+                    "--debug",
+                    "--info",
+                    "--config-file=/",
+                ],
+                "EXECUTE DBT pipeline_name compile --format=TXT -v -h --debug --info --config-file=/",
+                id="with-dbt-conflicting-options",
+            ),
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
+                    "--format=JSON",
+                    "pipeline_name",
+                    "compile",
+                ],
+                "EXECUTE DBT pipeline_name compile",
+                id="with-cli-flag",
+            ),
+        ],
+    )
+    def test_dbt_execute(self, mock_connect, runner, args, expected_query):
+
+        result = runner.invoke(args)
+
+        assert result.exit_code == 0, result.output
+        assert mock_connect.mocked_ctx.get_query() == expected_query
