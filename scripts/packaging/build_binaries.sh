@@ -21,6 +21,7 @@ build_binaries() {
     echo "Building for Darwin moved to build_darwin_package.sh"
     exit 0
   elif [[ ${SYSTEM} == "linux" ]]; then
+    curl https://sh.rustup.rs -sSf | sh
     hatch -e packaging run build-binaries-pyapp
   else
     echo "Unsupported platform: ${SYSTEM}"
