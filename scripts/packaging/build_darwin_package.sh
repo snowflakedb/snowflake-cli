@@ -33,7 +33,7 @@ clean_build_workspace() {
 
 install_cargo() {
   curl https://sh.rustup.rs -sSf > runstup-init.sh
-  bash runstup-init.sh -y
+  sudo bash runstup-init.sh -y
   . $HOME/.cargo/env
   rm runstup-init.sh
 }
