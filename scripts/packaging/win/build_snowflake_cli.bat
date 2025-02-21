@@ -17,17 +17,8 @@ RMDIR /S /Q build
 DEL /Q *.wixobj
 
 @echo on
-python.exe -m hatch -e packaging run ^
-  pyinstaller ^
-  --target-arch=64bit ^
-  --name snow ^
-  --onedir ^
-  --clean ^
-  --noconfirm ^
-  --console ^
-  --collect-submodules keyring ^
-  --collect-submodules shellingham ^
-  --icon=scripts\packaging\win\snowflake_msi.ico ^
-  %ENTRYPOINT%
+python.exe -m hatch -e packaging run build-binaries-pyapp
+dir dist
+dir dist\binary
 
 tar -a -c -f snowflake-cli-%CLI_VERSION%.zip dist\snow
