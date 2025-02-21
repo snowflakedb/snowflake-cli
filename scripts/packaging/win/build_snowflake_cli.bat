@@ -6,6 +6,10 @@ python.exe -c "import platform as p; print(f'{p.system()=}, {p.architecture()=}'
 
 python.exe -m pip install --upgrade pip uv hatch
 
+curl https://static.rust-lang.org/rustup.sh > rustup-init.exe
+rustup-init.exe \y
+del rustup-init.exe
+
 @echo off
 FOR /F "delims=" %%I IN ('hatch run packaging:win-build-version') DO SET CLI_VERSION=%%I
 echo %CLI_VERSION%
