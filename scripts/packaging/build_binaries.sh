@@ -29,6 +29,8 @@ build_binaries() {
     exit 0
   elif [[ ${SYSTEM} == "linux" ]]; then
     hatch -e packaging run build-binaries-pyapp
+    mkdir $DIST_DIR/snow
+    mv $DIST_DIR/binary/snow-${VERSION} $DIST_DIR/snow/snow
   else
     echo "Unsupported platform: ${SYSTEM}"
     exit 1
@@ -38,7 +40,7 @@ build_binaries() {
 execute_build() {
   echo "Executing build"
   if [[ ${SYSTEM} == "linux" ]]; then
-    $DIST_DIR/binary/snow-${VERSION} --help
+    $DIST_DIR/snow/snow --help
   else
     echo "Unsupported platform: ${SYSTEM}"
     exit 1
