@@ -38,7 +38,7 @@ build_binaries() {
 execute_build() {
   echo "Executing build"
   if [[ ${SYSTEM} == "linux" ]]; then
-    $DIST_DIR/snow/snow --help
+    $DIST_DIR/binary/snow-${VERSION} --help
   else
     echo "Unsupported platform: ${SYSTEM}"
     exit 1
