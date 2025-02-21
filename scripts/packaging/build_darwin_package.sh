@@ -16,7 +16,7 @@ CLI_VERSION=$(hatch version)
 ENTRY_POINT="src/snowflake/cli/_app/__main__.py"
 BUILD_DIR="${ROOT_DIR}/build"
 DIST_DIR=$ROOT_DIR/dist
-BINARY_NAME="snow"
+BINARY_NAME="snow-${CLI_VERSION}"
 APP_NAME="SnowflakeCLI.app"
 APP_DIR=$DIST_DIR/app
 APP_SCRIPTS=$APP_DIR/scripts
@@ -39,6 +39,7 @@ install_cargo() {
 }
 
 clean_build_workspace
+install_cargo
 
 security -v unlock-keychain -p $MAC_USERNAME_PASSWORD login.keychain-db
 
@@ -46,13 +47,11 @@ loginfo "---------------------------------"
 security find-identity -v -p codesigning
 loginfo "---------------------------------"
 
-loginfo "<<< creating binary"
 hatch -e packaging run build-binaries-pyapp
-loginfo ">>> creating binary"
 
 ls -l $DIST_DIR
 mkdir $APP_DIR || true
-mv $DIST_DIR/${BINARY_NAME}.app ${APP_DIR}/${APP_NAME}
+mv $DIST_DIR/binary/${BINARY_NAME}.app ${APP_DIR}/${APP_NAME}
 ${APP_DIR}/${APP_NAME}/Contents/MacOS/snow --help
 
 cat >${APP_DIR}/${APP_NAME}/Contents/Info.plist <<INFO_PLIST
