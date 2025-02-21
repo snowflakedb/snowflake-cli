@@ -51,7 +51,7 @@ hatch -e packaging run build-binaries-pyapp
 
 ls -l $DIST_DIR/binary
 mkdir $APP_DIR || true
-mv $DIST_DIR/binary/${BINARY_NAME}.app ${APP_DIR}/${APP_NAME}
+mv $DIST_DIR/binary/${BINARY_NAME} ${APP_DIR}/${APP_NAME}
 ${APP_DIR}/${APP_NAME}/Contents/MacOS/snow --help
 
 cat >${APP_DIR}/${APP_NAME}/Contents/Info.plist <<INFO_PLIST
