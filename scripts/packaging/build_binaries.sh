@@ -15,6 +15,7 @@ ENTRY_POINT="src/snowflake/cli/_app/__main__.py"
 install_cargo() {
   curl https://sh.rustup.rs -sSf > runstup-init.sh
   bash runstup-init.sh -y
+  . $HOME/.cargo/env
   rm runstup-init.sh
 }
 

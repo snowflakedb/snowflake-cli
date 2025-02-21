@@ -31,6 +31,13 @@ clean_build_workspace() {
   rm -rf $DIST_DIR $BUILD_DIR || true
 }
 
+install_cargo() {
+  curl https://sh.rustup.rs -sSf > runstup-init.sh
+  bash runstup-init.sh -y
+  . $HOME/.cargo/env
+  rm runstup-init.sh
+}
+
 clean_build_workspace
 
 security -v unlock-keychain -p $MAC_USERNAME_PASSWORD login.keychain-db
@@ -39,20 +46,9 @@ loginfo "---------------------------------"
 security find-identity -v -p codesigning
 loginfo "---------------------------------"
 
-hatch -e packaging run pyinstaller \
-  --name=${BINARY_NAME} \
-  --target-architecture=$MACHINE \
-  --onedir \
-  --clean \
-  --noconfirm \
-  --windowed \
-  --collect-submodules keyring \
-  --collect-submodules shellingham \
-  --osx-bundle-identifier=com.snowflake.snowflake-cli \
-  --osx-entitlements-file=scripts/packaging/macos/SnowflakeCLI_entitlements.plist \
-  --codesign-identity="${CODESIGN_IDENTITY}" \
-  --icon=scripts/packaging/macos/snowflake_darwin.icns \
-  ${ENTRY_POINT}
+loginfo "<<< creating binary"
+hatch -e packaging run build-binaries-pyapp
+loginfo ">>> creating binary"
 
 ls -l $DIST_DIR
 mkdir $APP_DIR || true
