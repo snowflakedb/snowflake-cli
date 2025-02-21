@@ -49,7 +49,7 @@ loginfo "---------------------------------"
 
 hatch -e packaging run build-binaries-pyapp
 
-ls -l $DIST_DIR
+ls -l $DIST_DIR/binary
 mkdir $APP_DIR || true
 mv $DIST_DIR/binary/${BINARY_NAME}.app ${APP_DIR}/${APP_NAME}
 ${APP_DIR}/${APP_NAME}/Contents/MacOS/snow --help
