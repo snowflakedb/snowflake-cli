@@ -21,16 +21,7 @@ build_binaries() {
     echo "Building for Darwin moved to build_darwin_package.sh"
     exit 0
   elif [[ ${SYSTEM} == "linux" ]]; then
-    hatch -e packaging run pyinstaller \
-      --name=snow \
-      --target-architecture=$MACHINE \
-      --onedir \
-      --clean \
-      --noconfirm \
-      --collect-submodules keyring \
-      --collect-submodules shellingham \
-      --contents-directory=snowflake-cli-${VERSION} \
-      ${ENTRY_POINT}
+    hatch -e packaging run build-binaries-pyapp
   else
     echo "Unsupported platform: ${SYSTEM}"
     exit 1
