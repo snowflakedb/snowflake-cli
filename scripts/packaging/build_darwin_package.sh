@@ -30,10 +30,10 @@ clean_build_workspace() {
 }
 
 install_cargo() {
-  curl https://sh.rustup.rs -sSf > runstup-init.sh
-  sudo bash runstup-init.sh -y
+  curl https://sh.rustup.rs -sSf > rustup-init.sh
+  sudo bash rustup-init.sh -y
   . $HOME/.cargo/env
-  rm runstup-init.sh
+  rm rustup-init.sh
 }
 
 create_app_template() {

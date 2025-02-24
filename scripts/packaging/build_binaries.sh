@@ -11,10 +11,10 @@ DIST_DIR="${ROOT_DIR}/dist"
 VERSION=$(hatch version)
 
 install_cargo() {
-  curl https://sh.rustup.rs -sSf > runstup-init.sh
-  bash runstup-init.sh -y
+  curl https://sh.rustup.rs -sSf > rustup-init.sh
+  bash rustup-init.sh -y
   . $HOME/.cargo/env
-  rm runstup-init.sh
+  rm rustup-init.sh
 }
 
 clean_build_workspace() {
