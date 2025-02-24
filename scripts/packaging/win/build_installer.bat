@@ -36,10 +36,9 @@ echo "DEBUG"
 dir dist\snow
 
 echo "DEBUG"
-dir dist
+dir dist\snow\_internal
 
-echo "DEBUG"
-dir
+
 
 heat.exe dir dist\snow\_internal ^
    -gg ^
