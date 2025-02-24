@@ -34,6 +34,7 @@ install_cargo() {
   bash -s rustup-init.sh -y --no-modify-path
   . $HOME/.cargo/env
   rm rustup-init.sh
+  rustup default stable
 }
 
 create_app_template() {
