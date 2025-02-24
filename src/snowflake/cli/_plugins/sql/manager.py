@@ -14,11 +14,12 @@
 
 from __future__ import annotations
 
+import re
 import sys
-from io import StringIO
+from io import StringIO, TextIOWrapper
 from itertools import chain
 from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
+from typing import Dict, Generator, Iterable, List, Tuple
 
 from click import ClickException, UsageError
 from jinja2 import UndefinedError
@@ -30,6 +31,9 @@ from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.util_text import split_statements
 
 IsSingleStatement = bool
+StatementGenerator = Generator[str, None, None]
+
+SOURCE_PATTERN = re.compile(r"!source", flags=re.IGNORECASE)
 
 
 class SqlManager(SqlExecutionMixin):
@@ -95,3 +99,52 @@ class SqlManager(SqlExecutionMixin):
         return single_statement, self._execute_string(
             "\n".join(statements), cursor_class=VerboseCursor
         )
+
+    @staticmethod
+    def check_for_source_command(statement: str) -> tuple[bool, SecurePath | None]:
+        split_result = SOURCE_PATTERN.split(statement.strip(), maxsplit=1)
+
+        match split_result:
+            case ("", file_path) if SecurePath(file_path.strip()).exists():
+                result = True, SecurePath(file_path.strip())
+            case _:
+                result = False, None
+        return result
+
+    @staticmethod
+    def _recursive_file_reader(file: SecurePath, seen_files: set) -> StatementGenerator:
+        try:
+            if file.path in seen_files:
+                raise RecursionError(
+                    f"Recursive file inclusion detected {file.path.as_posix()}"
+                )
+
+            seen_files.add(file.path)
+
+            with file.open("rb", read_file_limit_mb=UNLIMITED) as fh:
+                payload = TextIOWrapper(fh)
+                for statement, _ in split_statements(payload):
+                    yield from SqlManager.source_dispatcher(statement, seen_files)
+
+        finally:
+            if file in seen_files:
+                seen_files.remove(file.path)
+
+    @staticmethod
+    def source_dispatcher(statement: str, seen_files: set) -> StatementGenerator:
+        is_source, source_path = SqlManager.check_for_source_command(statement)
+        if is_source:
+            yield from SqlManager._recursive_file_reader(source_path, seen_files)
+        else:
+            yield statement
+
+    @staticmethod
+    def input_reader(source: str) -> StatementGenerator:
+        payload = StringIO(source)
+        for statement, _ in split_statements(payload):
+            yield from SqlManager.source_dispatcher(statement, set())
+
+    @staticmethod
+    def file_reader(source_paths: list[Path]) -> StatementGenerator:
+        for path in source_paths:
+            yield from SqlManager._recursive_file_reader(SecurePath(path), set())
