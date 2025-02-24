@@ -31,14 +31,14 @@ clean_build_workspace() {
 
 install_cargo() {
   curl https://sh.rustup.rs -sSf > rustup-init.sh
-  . $HOME/.cargo/env
-  rm rustup-init.sh
   if [[ ${MACHINE} == "arm64" ]]; then
     sudo bash rustup-init.sh -y
   else
     bash -s rustup-init.sh -y --no-modify-path
     rustup default stable
   fi
+  . $HOME/.cargo/env
+  rm rustup-init.sh
 }
 
 create_app_template() {
