@@ -6,7 +6,7 @@ python.exe -c "import platform as p; print(f'{p.system()=}, {p.architecture()=}'
 
 python.exe -m pip install --upgrade pip uv hatch
 
-curl https://static.rust-lang.org/rustup.sh > rustup-init.exe
+curl -o rustup-init.exe https://win.rustup.rs/
 rustup-init.exe \y
 del rustup-init.exe
 
