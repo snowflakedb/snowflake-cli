@@ -31,7 +31,7 @@ clean_build_workspace() {
 
 install_cargo() {
   curl https://sh.rustup.rs -sSf > rustup-init.sh
-  sudo bash rustup-init.sh -y
+  bash -s rustup-init.sh -y --no-modify-path
   . $HOME/.cargo/env
   rm rustup-init.sh
 }
