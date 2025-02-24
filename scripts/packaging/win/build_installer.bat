@@ -7,7 +7,8 @@ python.exe -c "import platform as p; print(f'{p.system()=}, {p.architecture()=}'
 
 python.exe -m pip install hatch
 FOR /F "delims=" %%I IN ('hatch run packaging:win-build-version') DO SET CLI_VERSION=%%I
-FOR /F "delims=" %%I IN ('git rev-parse %svnRevision%') DO SET REVISION=%%I
+echo "DEBUG"
+@REM FOR /F "delims=" %%I IN ('git rev-parse %svnRevision%') DO SET REVISION=%%I
 FOR /F "delims=" %%I IN ('echo %releaseType%') DO SET RELEASE_TYPE=%%I
 
 echo "DEBUG"
