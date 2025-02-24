@@ -28,6 +28,15 @@ echo "[INFO] building installer"
 signtool sign /debug /sm /d "Snowflake CLI" /t http://timestamp.digicert.com /a dist\snow\snow.exe || goto :error
 signtool verify /v /pa dist\snow\snow.exe || goto :error
 
+echo "DEBUG"
+dir dist\snow
+
+echo "DEBUG"
+dir dist
+
+echo "DEBUG"
+dir
+
 heat.exe dir dist\snow\_internal ^
    -gg ^
    -cg SnowflakeCLIInternalFiles ^
