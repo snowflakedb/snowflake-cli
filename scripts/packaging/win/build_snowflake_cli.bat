@@ -23,8 +23,25 @@ DEL /Q *.wixobj
 @echo on
 python.exe -m hatch -e packaging run build-isolated-binary
 dir dist\binary
-mkdir dist\snow
-move dist\binary\snow-%CLI_VERSION%.exe dist\snow\snow.exe
+
+set ENTRYPOINT=src\\snowflake\\cli\\_app\\__main__.py
+RMDIR /S /Q build
+python.exe -m hatch -e packaging run ^
+  pyinstaller ^
+  --target-arch=64bit ^
+  --name snow ^
+  --onedir ^
+  --clean ^
+  --noconfirm ^
+  --console ^
+  --collect-submodules keyring ^
+  --collect-submodules shellingham ^
+  --icon=scripts\packaging\win\snowflake_msi.ico ^
+  %ENTRYPOINT%
+
+@REM mkdir dist\snow
+move dist\binary\snow-%CLI_VERSION%.exe dist\snow\snow_pyapp.exe
+.\dist\snow\snow_pyapp.exe --help
 .\dist\snow\snow.exe --help
 
 tar -a -c -f snowflake-cli-%CLI_VERSION_WIN%.zip dist\snow
