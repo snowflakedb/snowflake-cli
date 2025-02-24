@@ -7,7 +7,7 @@ python.exe -c "import platform as p; print(f'{p.system()=}, {p.architecture()=}'
 python.exe -m pip install --upgrade pip uv hatch
 
 curl -o rustup-init.exe https://win.rustup.rs/
-rustup-init.exe \y
+rustup-init.exe -y
 del rustup-init.exe
 
 @echo off
@@ -21,7 +21,7 @@ RMDIR /S /Q build
 DEL /Q *.wixobj
 
 @echo on
-python.exe -m hatch -e packaging run build-binaries-pyapp
+python.exe -m hatch -e packaging run build-isolated-binary
 dir dist
 dir dist\binary
 
