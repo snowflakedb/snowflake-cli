@@ -24,7 +24,7 @@ DEL /Q *.wixobj
 python.exe -m hatch -e packaging run build-isolated-binary
 dir dist\binary
 
-@REM mkdir dist\snow
+mkdir dist\snow
 move dist\binary\snow-%CLI_VERSION%.exe dist\snow\snow.exe
 .\dist\snow\snow.exe --help
 
