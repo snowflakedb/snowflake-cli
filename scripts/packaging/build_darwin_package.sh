@@ -50,8 +50,15 @@ loginfo "---------------------------------"
 hatch -e packaging run build-binaries-pyapp
 
 ls -l $DIST_DIR/binary
-mkdir $APP_DIR || true
-mv $DIST_DIR/binary/${BINARY_NAME} ${APP_DIR}/${APP_NAME}
+
+create_app_template() {
+  rm -r ${APP_DIR}/${APP_NAME} || true
+  mkdir -p ${APP_DIR}/${APP_NAME}/Contents/MacOS
+  mkdir -p ${APP_DIR}/${APP_NAME}/Contents/Resources
+}
+
+create_app_template
+mv $DIST_DIR/binary/${BINARY_NAME} ${APP_DIR}/${APP_NAME}/Contents/MacOS/snow
 ${APP_DIR}/${APP_NAME}/Contents/MacOS/snow --help
 
 cat >${APP_DIR}/${APP_NAME}/Contents/Info.plist <<INFO_PLIST
