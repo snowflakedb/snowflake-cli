@@ -10,8 +10,11 @@ FOR /F "delims=" %%I IN ('hatch run packaging:win-build-version') DO SET CLI_VER
 FOR /F "delims=" %%I IN ('git rev-parse %svnRevision%') DO SET REVISION=%%I
 FOR /F "delims=" %%I IN ('echo %releaseType%') DO SET RELEASE_TYPE=%%I
 
-echo CLI_VERSION = %CLI_VERSION%
-echo REVISION = %REVISION%`
+echo "DEBUG"
+SET REVISION=598245abe3b6af262a411497c6f188cbde5d99cc
+
+echo CLI_VERSION = `%CLI_VERSION%`
+echo REVISION = `%REVISION%`
 echo RELEASE_TYPE = %RELEASE_TYPE%`
 
 set CLI_ZIP=snowflake-cli-%CLI_VERSION%.zip
