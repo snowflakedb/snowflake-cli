@@ -12,7 +12,7 @@ VERSION=$(hatch version)
 
 install_cargo() {
   curl https://sh.rustup.rs -sSf > runstup-init.sh
-  sudo bash runstup-init.sh -y
+  bash runstup-init.sh -y
   . $HOME/.cargo/env
   rm runstup-init.sh
 }

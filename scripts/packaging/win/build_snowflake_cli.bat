@@ -9,6 +9,7 @@ python.exe -m pip install --upgrade pip uv hatch
 curl -o rustup-init.exe https://win.rustup.rs/
 rustup-init.exe -y
 del rustup-init.exe
+set PATH=%PATH%;%USERPROFILE%\.cargo\bin\
 
 @echo off
 FOR /F "delims=" %%I IN ('hatch run packaging:win-build-version') DO SET CLI_VERSION=%%I
