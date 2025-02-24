@@ -51,7 +51,7 @@ loginfo "---------------------------------"
 security find-identity -v -p codesigning
 loginfo "---------------------------------"
 
-hatch -e packaging run build-binaries-pyapp
+hatch -e packaging run build-isolated-binary
 create_app_template
 mv $DIST_DIR/binary/${BINARY_NAME} ${APP_DIR}/${APP_NAME}/Contents/MacOS/snow
 ${APP_DIR}/${APP_NAME}/Contents/MacOS/snow --help

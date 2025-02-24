@@ -6,11 +6,9 @@ git config --global --add safe.directory /snowflake-cli
 MACHINE=$(uname -m | tr '[:upper:]' '[:lower:]')
 SYSTEM=$(uname -s | tr '[:upper:]' '[:lower:]')
 ROOT_DIR="$(git rev-parse --show-toplevel)"
-BUILD_DIR="${ROOT_DIR}/build"
 DIST_DIR="${ROOT_DIR}/dist"
 
 VERSION=$(hatch version)
-ENTRY_POINT="src/snowflake/cli/_app/__main__.py"
 
 install_cargo() {
   curl https://sh.rustup.rs -sSf > runstup-init.sh
@@ -20,7 +18,7 @@ install_cargo() {
 }
 
 clean_build_workspace() {
-  rm -rf $DIST_DIR $BUILD_DIR || true
+  rm -rf $DIST_DIR || true
 }
 
 build_binaries() {
@@ -28,7 +26,7 @@ build_binaries() {
     echo "Building for Darwin moved to build_darwin_package.sh"
     exit 0
   elif [[ ${SYSTEM} == "linux" ]]; then
-    hatch -e packaging run build-binaries-pyapp
+    hatch -e packaging run build-isolated-binary
     mkdir $DIST_DIR/snow
     mv $DIST_DIR/binary/snow-${VERSION} $DIST_DIR/snow/snow
   else
