@@ -7,12 +7,8 @@ python.exe -c "import platform as p; print(f'{p.system()=}, {p.architecture()=}'
 
 python.exe -m pip install hatch
 FOR /F "delims=" %%I IN ('hatch run packaging:win-build-version') DO SET CLI_VERSION=%%I
-echo "DEBUG"
-@REM FOR /F "delims=" %%I IN ('git rev-parse %svnRevision%') DO SET REVISION=%%I
+FOR /F "delims=" %%I IN ('git rev-parse %svnRevision%') DO SET REVISION=%%I
 FOR /F "delims=" %%I IN ('echo %releaseType%') DO SET RELEASE_TYPE=%%I
-
-echo "DEBUG"
-SET REVISION=598245abe3b6af262a411497c6f188cbde5d99cc
 
 echo CLI_VERSION = `%CLI_VERSION%`
 echo REVISION = `%REVISION%`
@@ -31,9 +27,6 @@ echo "[INFO] building installer"
 
 signtool sign /debug /sm /d "Snowflake CLI" /t http://timestamp.digicert.com /a dist\snow\snow.exe || goto :error
 signtool verify /v /pa dist\snow\snow.exe || goto :error
-
-echo "DEBUG"
-dir dist\snow
 
 candle.exe ^
   -arch x64 ^
