@@ -12,7 +12,7 @@ echo "DEBUG"
 FOR /F "delims=" %%I IN ('echo %releaseType%') DO SET RELEASE_TYPE=%%I
 
 echo "DEBUG"
-SET REVISION=a02894469dcc90a186877869f6d479eb068f2aa1
+SET REVISION=598245abe3b6af262a411497c6f188cbde5d99cc
 
 echo CLI_VERSION = `%CLI_VERSION%`
 echo REVISION = `%REVISION%`
@@ -35,26 +35,11 @@ signtool verify /v /pa dist\snow\snow.exe || goto :error
 echo "DEBUG"
 dir dist\snow
 
-echo "DEBUG"
-dir dist\snow\_internal
-
-
-
-heat.exe dir dist\snow\_internal ^
-   -gg ^
-   -cg SnowflakeCLIInternalFiles ^
-   -dr TESTFILEPRODUCTDIR ^
-   -var var.SnowflakeCLIInternalFiles ^
-   -sfrag ^
-   -o _internal.wxs || goto :error
-
 candle.exe ^
   -arch x64 ^
   -dSnowflakeCLIVersion=%CLI_VERSION% ^
-  -dSnowflakeCLIInternalFiles=dist\\snow\\_internal ^
   scripts\packaging\win\snowflake_cli.wxs ^
-  scripts\packaging\win\snowflake_cli_exitdlg.wxs ^
-  _internal.wxs || goto :error
+  scripts\packaging\win\snowflake_cli_exitdlg.wxs || goto :error
 
 light.exe ^
   -ext WixUIExtension ^
@@ -63,8 +48,7 @@ light.exe ^
   -loc scripts\packaging\win\snowflake_cli_en-us.wxl ^
   -out %CLI_MSI% ^
   snowflake_cli.wixobj ^
-  snowflake_cli_exitdlg.wixobj ^
-  _internal.wixobj || goto :error
+  snowflake_cli_exitdlg.wixobj || goto :error
 
 signtool sign /debug /sm /d "Snowflake CLI" /t http://timestamp.digicert.com /a %CLI_MSI% || goto :error
 signtool verify /v /pa %CLI_MSI% || goto :error
