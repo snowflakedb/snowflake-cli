@@ -42,14 +42,14 @@ create_app_template() {
   mkdir -p ${APP_DIR}/${APP_NAME}/Contents/Resources
 }
 
-clean_build_workspace
-install_cargo
-
 security -v unlock-keychain -p $MAC_USERNAME_PASSWORD login.keychain-db
 
 loginfo "---------------------------------"
 security find-identity -v -p codesigning
 loginfo "---------------------------------"
+
+clean_build_workspace
+install_cargo
 
 hatch -e packaging run build-isolated-binary
 create_app_template
