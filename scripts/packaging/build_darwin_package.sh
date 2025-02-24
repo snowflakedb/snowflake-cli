@@ -13,8 +13,6 @@ PLATFORM="${SYSTEM}-${MACHINE}"
 
 CLI_VERSION=$(hatch version)
 
-ENTRY_POINT="src/snowflake/cli/_app/__main__.py"
-BUILD_DIR="${ROOT_DIR}/build"
 DIST_DIR=$ROOT_DIR/dist
 BINARY_NAME="snow-${CLI_VERSION}"
 APP_NAME="SnowflakeCLI.app"
@@ -28,7 +26,7 @@ loginfo() {
 }
 
 clean_build_workspace() {
-  rm -rf $DIST_DIR $BUILD_DIR || true
+  rm -rf $DIST_DIR || true
 }
 
 install_cargo() {
@@ -36,6 +34,12 @@ install_cargo() {
   sudo bash runstup-init.sh -y
   . $HOME/.cargo/env
   rm runstup-init.sh
+}
+
+create_app_template() {
+  rm -r ${APP_DIR}/${APP_NAME} || true
+  mkdir -p ${APP_DIR}/${APP_NAME}/Contents/MacOS
+  mkdir -p ${APP_DIR}/${APP_NAME}/Contents/Resources
 }
 
 clean_build_workspace
@@ -48,15 +52,6 @@ security find-identity -v -p codesigning
 loginfo "---------------------------------"
 
 hatch -e packaging run build-binaries-pyapp
-
-ls -l $DIST_DIR/binary
-
-create_app_template() {
-  rm -r ${APP_DIR}/${APP_NAME} || true
-  mkdir -p ${APP_DIR}/${APP_NAME}/Contents/MacOS
-  mkdir -p ${APP_DIR}/${APP_NAME}/Contents/Resources
-}
-
 create_app_template
 mv $DIST_DIR/binary/${BINARY_NAME} ${APP_DIR}/${APP_NAME}/Contents/MacOS/snow
 ${APP_DIR}/${APP_NAME}/Contents/MacOS/snow --help
