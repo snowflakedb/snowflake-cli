@@ -65,7 +65,7 @@ development = [
   "factory-boy==3.3.3",
   "Faker==36.1.1",
 ]
-packaging = ["pyinstaller~=6.10"]
+packaging = []
 
 [project.urls]
 "Source code" = "https://github.com/snowflakedb/snowflake-cli"
