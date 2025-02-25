@@ -53,11 +53,12 @@ class DBTManager(StdoutExecutionMixin):
         force: bool,
     ) -> SnowflakeCursor:
         # TODO: what to do with force?
-        if not path.joinpath("dbt_project.yml").exists():
+        dbt_project_path = path.joinpath("dbt_project.yml")
+        if not dbt_project_path.exists():
             raise ClickException(f"dbt_project.yml does not exist in provided path.")
 
         if dbt_version is None:
-            with path.joinpath("dbt_project.yml").open() as fd:
+            with dbt_project_path.open() as fd:
                 dbt_project_config = yaml.safe_load(fd)
                 try:
                     dbt_version = dbt_project_config["version"]
@@ -77,7 +78,10 @@ class DBTManager(StdoutExecutionMixin):
             cli_console.step(f"Copied {len(results)} files")
 
         with cli_console.phase("Creating DBT project"):
-            query = f"CREATE OR REPLACE DBT PROJECT {name} FROM {stage_name} DBT_VERSION='{dbt_version}' DBT_ADAPTER_VERSION='{dbt_adapter_version}'"
+            staged_dbt_project_path = self._get_dbt_project_stage_path(stage_name)
+            query = f"""CREATE OR REPLACE DBT PROJECT {name}
+FROM {stage_name} MAIN_FILE='{staged_dbt_project_path}'
+DBT_VERSION='{dbt_version}' DBT_ADAPTER_VERSION='{dbt_adapter_version}'"""
             return self.execute_query(query)
 
     def execute(self, dbt_command: str, name: str, *dbt_cli_args):
@@ -85,3 +89,7 @@ class DBTManager(StdoutExecutionMixin):
         if dbt_cli_args:
             query += " " + " ".join([arg for arg in dbt_cli_args])
         return self.execute_query(query)
+
+    @staticmethod
+    def _get_dbt_project_stage_path(stage_name):
+        return "/".join([stage_name, "dbt_project.yml"])
