@@ -70,6 +70,9 @@ def deploy_dbt(
         None,
         help="Version of dbt tool to be used. Taken from dbt_project.yml if not provided.",
     ),
+    dbt_adapter_version: str = typer.Option(
+        help="dbt-snowflake adapter version to be used",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -81,7 +84,9 @@ def deploy_dbt(
     else:
         path = Path(source)
     return QueryResult(
-        DBTManager().deploy(path.resolve(), name, dbt_version, force=force)
+        DBTManager().deploy(
+            path.resolve(), name, dbt_version, dbt_adapter_version, force=force
+        )
     )
 
 
