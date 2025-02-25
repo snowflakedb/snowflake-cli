@@ -66,6 +66,10 @@ def deploy_dbt(
         False,
         help="Overwrites conflicting files in the project, if any.",
     ),
+    dbt_version: Optional[str] = typer.Option(
+        None,
+        help="Version of dbt tool to be used. Taken from dbt_project.yml if not provided.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -76,7 +80,9 @@ def deploy_dbt(
         path = Path.cwd()
     else:
         path = Path(source)
-    return QueryResult(DBTManager().deploy(path.resolve(), name, force=force))
+    return QueryResult(
+        DBTManager().deploy(path.resolve(), name, dbt_version, force=force)
+    )
 
 
 # `execute` is a pass through command group, meaning that all params after command should be passed over as they are,
