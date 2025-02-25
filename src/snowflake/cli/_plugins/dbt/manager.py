@@ -15,7 +15,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
+import yaml
 from click import ClickException
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
@@ -42,10 +44,22 @@ class DBTManager(StdoutExecutionMixin):
         query = "SHOW DBT PROJECT"
         return self.execute_query(query)
 
-    def deploy(self, path: Path, name: FQN, force: bool) -> SnowflakeCursor:
+    def deploy(
+        self, path: Path, name: FQN, dbt_version: Optional[str], force: bool
+    ) -> SnowflakeCursor:
         # TODO: what to do with force?
         if not path.joinpath("dbt_project.yml").exists():
             raise ClickException(f"dbt_project.yml does not exist in provided path.")
+
+        if dbt_version is None:
+            with path.joinpath("dbt_project.yml").open() as fd:
+                dbt_project_config = yaml.safe_load(fd)
+                try:
+                    dbt_version = dbt_project_config["version"]
+                except (KeyError, TypeError):
+                    raise ClickException(
+                        f"dbt-version was not provided and is not available in dbt_project.yml"
+                    )
 
         with cli_console.phase("Creating temporary stage"):
             stage_manager = StageManager()
@@ -58,7 +72,7 @@ class DBTManager(StdoutExecutionMixin):
             cli_console.step(f"Copied {len(results)} files")
 
         with cli_console.phase("Creating DBT project"):
-            query = f"CREATE OR REPLACE DBT PROJECT {name} FROM {stage_name}"
+            query = f"CREATE OR REPLACE DBT PROJECT {name} FROM {stage_name} DBT_VERSION='{dbt_version}'"
             return self.execute_query(query)
 
     def execute(self, dbt_command: str, name: str, *dbt_cli_args):
