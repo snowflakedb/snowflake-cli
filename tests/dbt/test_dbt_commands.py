@@ -73,7 +73,9 @@ class TestDBTDeploy:
         assert result.exit_code == 0, result.output
         assert (
             mock_connect.mocked_ctx.get_query()
-            == "CREATE OR REPLACE DBT PROJECT TEST_PIPELINE FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage DBT_VERSION='1.2.3' DBT_ADAPTER_VERSION='3.4.5'"
+            == """CREATE OR REPLACE DBT PROJECT TEST_PIPELINE
+FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage MAIN_FILE='@MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage/dbt_project.yml'
+DBT_VERSION='1.2.3' DBT_ADAPTER_VERSION='3.4.5'"""
         )
         stage_fqn = FQN.from_string(f"dbt_TEST_PIPELINE_stage").using_context()
         mock_create.assert_called_once_with(stage_fqn, temporary=True)
@@ -100,7 +102,9 @@ class TestDBTDeploy:
         assert result.exit_code == 0, result.output
         assert (
             mock_connect.mocked_ctx.get_query()
-            == "CREATE OR REPLACE DBT PROJECT TEST_PIPELINE FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage DBT_VERSION='2.3.4' DBT_ADAPTER_VERSION='3.4.5'"
+            == """CREATE OR REPLACE DBT PROJECT TEST_PIPELINE
+FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage MAIN_FILE='@MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage/dbt_project.yml'
+DBT_VERSION='2.3.4' DBT_ADAPTER_VERSION='3.4.5'"""
         )
 
     def test_raises_when_dbt_project_is_not_available(
