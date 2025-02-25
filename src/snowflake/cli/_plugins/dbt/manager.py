@@ -39,7 +39,7 @@ class StdoutExecutionMixin(SqlExecutionMixin):
 
 class DBTManager(StdoutExecutionMixin):
     def list(self) -> SnowflakeCursor:  # noqa: A003
-        query = "SHOW DBT"
+        query = "SHOW DBT PROJECT"
         return self.execute_query(query)
 
     def deploy(self, path: Path, name: FQN, force: bool) -> SnowflakeCursor:
@@ -58,11 +58,11 @@ class DBTManager(StdoutExecutionMixin):
             cli_console.step(f"Copied {len(results)} files")
 
         with cli_console.phase("Creating DBT project"):
-            query = f"CREATE OR REPLACE DBT {name} FROM {stage_name}"
+            query = f"CREATE OR REPLACE DBT PROJECT {name} FROM {stage_name}"
             return self.execute_query(query)
 
     def execute(self, dbt_command: str, name: str, *dbt_cli_args):
-        query = f"EXECUTE DBT {name} {dbt_command}"
+        query = f"EXECUTE DBT PROJECT {name} {dbt_command}"
         if dbt_cli_args:
             query += " " + " ".join([arg for arg in dbt_cli_args])
         return self.execute_query(query)
