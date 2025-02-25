@@ -45,7 +45,12 @@ class DBTManager(StdoutExecutionMixin):
         return self.execute_query(query)
 
     def deploy(
-        self, path: Path, name: FQN, dbt_version: Optional[str], force: bool
+        self,
+        path: Path,
+        name: FQN,
+        dbt_version: Optional[str],
+        dbt_adapter_version: str,
+        force: bool,
     ) -> SnowflakeCursor:
         # TODO: what to do with force?
         if not path.joinpath("dbt_project.yml").exists():
@@ -72,7 +77,7 @@ class DBTManager(StdoutExecutionMixin):
             cli_console.step(f"Copied {len(results)} files")
 
         with cli_console.phase("Creating DBT project"):
-            query = f"CREATE OR REPLACE DBT PROJECT {name} FROM {stage_name} DBT_VERSION='{dbt_version}'"
+            query = f"CREATE OR REPLACE DBT PROJECT {name} FROM {stage_name} DBT_VERSION='{dbt_version}' DBT_ADAPTER_VERSION='{dbt_adapter_version}'"
             return self.execute_query(query)
 
     def execute(self, dbt_command: str, name: str, *dbt_cli_args):
