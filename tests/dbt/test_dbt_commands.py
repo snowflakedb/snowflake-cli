@@ -35,7 +35,7 @@ class TestDBTList:
         result = runner.invoke(["dbt", "list"])
 
         assert result.exit_code == 0, result.output
-        assert mock_connect.mocked_ctx.get_query() == "SHOW DBT"
+        assert mock_connect.mocked_ctx.get_query() == "SHOW DBT PROJECT"
 
 
 class TestDBTDeploy:
@@ -64,7 +64,7 @@ class TestDBTDeploy:
         assert result.exit_code == 0, result.output
         assert (
             mock_connect.mocked_ctx.get_query()
-            == "CREATE OR REPLACE DBT TEST_PIPELINE FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"
+            == "CREATE OR REPLACE DBT PROJECT TEST_PIPELINE FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"
         )
         stage_fqn = FQN.from_string(f"dbt_TEST_PIPELINE_stage").using_context()
         mock_create.assert_called_once_with(stage_fqn, temporary=True)
@@ -98,7 +98,7 @@ class TestDBTExecute:
                     "pipeline_name",
                     "test",
                 ],
-                "EXECUTE DBT pipeline_name test",
+                "EXECUTE DBT PROJECT pipeline_name test",
                 id="simple-command",
             ),
             pytest.param(
@@ -110,12 +110,12 @@ class TestDBTExecute:
                     "-f",
                     "--select @source:snowplow,tag:nightly models/export",
                 ],
-                "EXECUTE DBT pipeline_name run -f --select @source:snowplow,tag:nightly models/export",
+                "EXECUTE DBT PROJECT pipeline_name run -f --select @source:snowplow,tag:nightly models/export",
                 id="with-dbt-options",
             ),
             pytest.param(
                 ["dbt", "execute", "pipeline_name", "compile", "--vars '{foo:bar}'"],
-                "EXECUTE DBT pipeline_name compile --vars '{foo:bar}'",
+                "EXECUTE DBT PROJECT pipeline_name compile --vars '{foo:bar}'",
                 id="with-dbt-vars",
             ),
             pytest.param(
@@ -131,7 +131,7 @@ class TestDBTExecute:
                     "--info",
                     "--config-file=/",
                 ],
-                "EXECUTE DBT pipeline_name compile --format=TXT -v -h --debug --info --config-file=/",
+                "EXECUTE DBT PROJECT pipeline_name compile --format=TXT -v -h --debug --info --config-file=/",
                 id="with-dbt-conflicting-options",
             ),
             pytest.param(
@@ -142,7 +142,7 @@ class TestDBTExecute:
                     "pipeline_name",
                     "compile",
                 ],
-                "EXECUTE DBT pipeline_name compile",
+                "EXECUTE DBT PROJECT pipeline_name compile",
                 id="with-cli-flag",
             ),
         ],
