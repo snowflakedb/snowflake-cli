@@ -24,7 +24,7 @@ from snowflake.cli._app.commands_registration.command_plugins_loader import (
 from snowflake.cli._app.commands_registration.typer_registration import (
     register_commands_from_plugins,
 )
-from snowflake.cli.api.plugins.plugin_config import PluginConfigManager
+from snowflake.cli.api.plugins.plugin_config import PluginConfigProvider
 
 
 @dataclass
@@ -34,7 +34,7 @@ class CommandRegistrationConfig:
 
 class CommandsRegistrationWithCallbacks:
     def __init__(self):
-        self._plugin_config_manager = PluginConfigManager()
+        self._plugin_config_manager = PluginConfigProvider()
         self._callbacks_after_registration: List[Callable[[], None]] = []
         self._commands_registration_config: CommandRegistrationConfig = (
             CommandRegistrationConfig(enable_external_command_plugins=True)

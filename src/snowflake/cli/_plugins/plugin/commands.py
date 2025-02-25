@@ -17,9 +17,9 @@ from __future__ import annotations
 import logging
 
 import typer
+from snowflake.cli._plugins.plugin.manager import PluginManager
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, MessageResult
-from snowflake.cli.api.plugins.plugin_config import PluginConfigManager
 
 log = logging.getLogger(__name__)
 
@@ -36,8 +36,7 @@ def enable(
     **options,
 ) -> CommandResult:
     """Enables a plugin with a given name."""
-    plugin_config_manager = PluginConfigManager()
-    plugin_config_manager.enable_plugin(plugin_name)
+    PluginManager().enable_plugin(plugin_name)
 
     return MessageResult(f"Plugin {plugin_name} successfully enabled.")
 
@@ -48,7 +47,15 @@ def disable(
     **options,
 ) -> CommandResult:
     """Disables a plugin with a given name."""
-    plugin_config_manager = PluginConfigManager()
-    plugin_config_manager.disable_plugin(plugin_name)
+    PluginManager().disable_plugin(plugin_name)
 
     return MessageResult(f"Plugin {plugin_name} successfully disabled.")
+
+
+@app.command(name="list", requires_connection=False)
+def list_(
+    **options,
+) -> CommandResult:
+    """Lists all installed plugins."""
+    plugin_manager = PluginManager()
+    return MessageResult(f"{plugin_manager.get_installed_plugin_names()}")

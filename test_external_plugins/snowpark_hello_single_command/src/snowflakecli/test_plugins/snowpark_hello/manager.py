@@ -11,14 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from snowflake.cli.api.plugins.plugin_config import PluginConfigManager
+from snowflake.cli.api.plugins.plugin_config import PluginConfigProvider
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
 
 class SnowparkHelloManager(SqlExecutionMixin):
 
-    _plugin_config_manager = PluginConfigManager()
+    _plugin_config_manager = PluginConfigProvider()
     _greeting = _plugin_config_manager.get_config("snowpark-hello").internal_config[
         "greeting"
     ]
