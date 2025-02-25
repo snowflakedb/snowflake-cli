@@ -23,7 +23,6 @@ from tests_integration.spcs.testing_utils.spcs_services_utils import (
 
 
 @pytest.mark.integration
-@pytest.mark.skip("Skipped temporarily")
 def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
 
     test_steps, service_name = _test_steps
@@ -39,10 +38,6 @@ def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
     test_steps.logs_should_return_service_logs(
         service_name, "hello-world", "Serving Flask app 'echo_service'"
     )
-    test_steps.suspend_service(service_name)
-    test_steps.wait_until_service_is_suspended(service_name)
-    test_steps.resume_service(service_name)
-    test_steps.wait_until_service_is_running(service_name)
     test_steps.describe_should_return_service(service_name)
     test_steps.list_endpoints_should_show_endpoint(service_name)
     test_steps.list_instances_should_show_instances(service_name)
@@ -50,6 +45,9 @@ def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
     test_steps.list_roles_should_show_roles(service_name)
     test_steps.upgrade_service_should_change_spec(service_name)
     test_steps.set_unset_service_property(service_name)
+    test_steps.suspend_service(service_name)
+    test_steps.wait_until_service_is_suspended(service_name)
+    test_steps.resume_service(service_name)
     test_steps.drop_service(service_name)
     test_steps.list_should_not_return_service(service_name)
 
@@ -61,17 +59,43 @@ def test_service_create_from_project_definition(
     project_directory,
 ):
     test_steps, service_name = _test_steps
+    stage = f"{service_name}_stage"
 
     with project_directory("spcs_service"):
-        alter_snowflake_yml(
-            "snowflake.yml", "entities.service.stage", f"{service_name}_stage"
-        )
+        alter_snowflake_yml("snowflake.yml", "entities.service.stage", stage)
         alter_snowflake_yml(
             "snowflake.yml", "entities.service.identifier.name", service_name
         )
 
         test_steps.deploy_service(service_name)
-        test_steps.deploy_service(service_name, additional_flags=["--replace"])
+        test_steps.describe_should_return_service(service_name)
+
+        alter_snowflake_yml(
+            "snowflake.yml",
+            "entities.service",
+            {
+                "type": "service",
+                "identifier": {
+                    "name": service_name,
+                },
+                "stage": f"{stage}_upgrade",
+                "compute_pool": "snowcli_compute_pool",
+                "spec_file": "spec_upgrade.yml",
+                "min_instances": 1,
+                "max_instances": 2,
+                "query_warehouse": "xsmall",
+                "comment": "Upgraded service",
+                "artifacts": ["spec_upgrade.yml"],
+            },
+        )
+        test_steps.upgrade_service()
+        test_steps.describe_should_return_service(
+            service_name,
+            expected_values_contain={
+                "comment": "Upgraded service",
+                "spec": 'UPGRADED: "true"',
+            },
+        )
 
 
 @pytest.mark.integration

@@ -204,7 +204,7 @@ def test_copy_to_stage(runner, sf_git_repository):
 def test_copy_directory_to_local_file_system(runner, sf_git_repository, test_root_path):
     # Project with files in root and subdirectory
     REPO_PATH_PREFIX = f"@{sf_git_repository}/tags/v2.7.0"
-    SUBDIR = "tests_integration/test_data/projects/snowpark_with_import"
+    SUBDIR = "tests_integration/test_data/projects/napp_create_db_v2"
     with tempfile.TemporaryDirectory() as tmp_dir:
         LOCAL_DIR = Path(tmp_dir) / "a_dir"
         assert not LOCAL_DIR.exists()

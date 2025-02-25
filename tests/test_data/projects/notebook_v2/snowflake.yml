@@ -1,0 +1,10 @@
+definition_version: 2
+entities:
+  my_notebook:
+    type: "notebook"
+    identifier: "custom_identifier"
+    query_warehouse: xsmall
+    notebook_file: notebook.ipynb
+    stage_path: custom_stage/particular_notebook_path
+    artifacts:
+      - notebook.ipynb

@@ -46,7 +46,7 @@ APP_AND_PACKAGE_OPTIONS = [
         annotation=Optional[str],
         default=typer.Option(
             default="",
-            help="The ID of the package entity on which to operate when definition_version is 2 or higher.",
+            help="The ID of the package entity on which to operate when the definition_version is 2 or higher.",
         ),
     ),
     inspect.Parameter(
@@ -55,7 +55,7 @@ APP_AND_PACKAGE_OPTIONS = [
         annotation=Optional[str],
         default=typer.Option(
             default="",
-            help="The ID of the application entity on which to operate when definition_version is 2 or higher.",
+            help="The ID of the application entity on which to operate when the definition_version is 2 or higher.",
         ),
     ),
 ]

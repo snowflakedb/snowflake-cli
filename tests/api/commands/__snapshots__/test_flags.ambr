@@ -1,8 +1,8 @@
 # serializer version: 1
 # name: test_format
   '''
-  Usage: default stage list-files [OPTIONS] STAGE_NAME
-  Try 'default stage list-files --help' for help.
+  Usage: root stage list-files [OPTIONS] STAGE_NAME
+  Try 'root stage list-files --help' for help.
   +- Error ----------------------------------------------------------------------+
   | Invalid value for '--format': 'invalid_format' is not one of 'TABLE',        |
   | 'JSON'.                                                                      |

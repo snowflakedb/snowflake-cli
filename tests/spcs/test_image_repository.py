@@ -142,7 +142,7 @@ def test_create_repository_already_exists(mock_handle, mock_execute):
 
 
 @patch(EXECUTE_QUERY)
-def test_create_from_project_definition(
+def test_deploy_from_project_definition(
     mock_execute_query, runner, project_directory, mock_cursor, os_agnostic_snapshot
 ):
     mock_execute_query.return_value = mock_cursor(
@@ -151,7 +151,7 @@ def test_create_from_project_definition(
     )
 
     with project_directory("spcs_image_repository"):
-        result = runner.invoke(["spcs", "image-repository", "create"])
+        result = runner.invoke(["spcs", "image-repository", "deploy"])
 
         assert result.exit_code == 0, result.output
         assert result.output == os_agnostic_snapshot
@@ -162,7 +162,7 @@ def test_create_from_project_definition(
 
 
 @patch(EXECUTE_QUERY)
-def test_create_from_project_definition_replace(
+def test_deploy_from_project_definition_replace(
     mock_execute_query, runner, project_directory, mock_cursor, os_agnostic_snapshot
 ):
     image_repository_name = "test_image_repository"
@@ -174,7 +174,7 @@ def test_create_from_project_definition_replace(
     )
 
     with project_directory("spcs_image_repository"):
-        result = runner.invoke(["spcs", "image-repository", "create", "--replace"])
+        result = runner.invoke(["spcs", "image-repository", "deploy", "--replace"])
 
         assert result.exit_code == 0, result.output
         assert result.output == os_agnostic_snapshot
@@ -185,7 +185,7 @@ def test_create_from_project_definition_replace(
 
 
 @patch(EXECUTE_QUERY)
-def test_create_from_project_definition_image_repository_already_exists(
+def test_deploy_from_project_definition_image_repository_already_exists(
     mock_execute_query, runner, project_directory
 ):
     mock_execute_query.side_effect = ProgrammingError(
@@ -193,7 +193,7 @@ def test_create_from_project_definition_image_repository_already_exists(
     )
 
     with project_directory("spcs_image_repository"):
-        result = runner.invoke(["spcs", "image-repository", "create"])
+        result = runner.invoke(["spcs", "image-repository", "deploy"])
 
         assert result.exit_code == 1, result.output
         assert (
@@ -202,20 +202,20 @@ def test_create_from_project_definition_image_repository_already_exists(
         )
 
 
-def test_create_from_project_definition_no_image_repository(runner, project_directory):
+def test_deploy_from_project_definition_no_image_repository(runner, project_directory):
     with project_directory("empty_project"):
-        result = runner.invoke(["spcs", "image-repository", "create"])
+        result = runner.invoke(["spcs", "image-repository", "deploy"])
 
         assert result.exit_code == 1, result.output
         assert "No image repository project definition found in" in result.output
 
 
-def test_create_from_project_definition_not_existing_entity_id(
+def test_deploy_from_project_definition_not_existing_entity_id(
     runner, project_directory
 ):
     with project_directory("spcs_image_repository"):
         result = runner.invoke(
-            ["spcs", "image-repository", "create", "not_existing_entity_id"]
+            ["spcs", "image-repository", "deploy", "not_existing_entity_id"]
         )
 
         assert result.exit_code == 2, result.output
@@ -226,7 +226,7 @@ def test_create_from_project_definition_not_existing_entity_id(
 
 
 @patch(EXECUTE_QUERY)
-def test_create_from_project_definition_multiple_image_repositories_with_entity_id(
+def test_deploy_from_project_definition_multiple_image_repositories_with_entity_id(
     mock_execute_query, runner, project_directory, mock_cursor, os_agnostic_snapshot
 ):
     mock_execute_query.return_value = mock_cursor(
@@ -236,7 +236,7 @@ def test_create_from_project_definition_multiple_image_repositories_with_entity_
 
     with project_directory("spcs_multiple_image_repositories"):
         result = runner.invoke(
-            ["spcs", "image-repository", "create", "test_image_repository"]
+            ["spcs", "image-repository", "deploy", "test_image_repository"]
         )
 
         assert result.exit_code == 0, result.output
@@ -247,11 +247,11 @@ def test_create_from_project_definition_multiple_image_repositories_with_entity_
         )
 
 
-def test_create_from_project_definition_multiple_image_repositories(
+def test_deploy_from_project_definition_multiple_image_repositories(
     runner, project_directory
 ):
     with project_directory("spcs_multiple_image_repositories"):
-        result = runner.invoke(["spcs", "image-repository", "create"])
+        result = runner.invoke(["spcs", "image-repository", "deploy"])
 
         assert result.exit_code == 2, result.output
         assert (

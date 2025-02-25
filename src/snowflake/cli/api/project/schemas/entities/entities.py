@@ -24,6 +24,12 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntity,
     ApplicationPackageEntityModel,
 )
+from snowflake.cli._plugins.notebook.notebook_entity import NotebookEntity
+from snowflake.cli._plugins.notebook.notebook_entity_model import NotebookEntityModel
+from snowflake.cli._plugins.project.project_entity_model import (
+    ProjectEntity,
+    ProjectEntityModel,
+)
 from snowflake.cli._plugins.snowpark.snowpark_entity import (
     FunctionEntity,
     ProcedureEntity,
@@ -56,10 +62,12 @@ Entity = Union[
     ApplicationPackageEntity,
     StreamlitEntity,
     ProcedureEntity,
+    ProjectEntity,
     FunctionEntity,
     ComputePoolEntity,
     ImageRepositoryEntity,
     ServiceEntity,
+    NotebookEntity,
 ]
 EntityModel = Union[
     ApplicationEntityModel,
@@ -70,6 +78,8 @@ EntityModel = Union[
     ComputePoolEntityModel,
     ImageRepositoryEntityModel,
     ServiceEntityModel,
+    NotebookEntityModel,
+    ProjectEntityModel,
 ]
 
 ALL_ENTITIES: List[Entity] = [*get_args(Entity)]

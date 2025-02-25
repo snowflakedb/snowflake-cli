@@ -1,0 +1,36 @@
+name: Performance testing
+
+on:
+  pull_request:
+    branches:
+      - "**"
+  push:
+    tags:
+      - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
+    branches:
+      - main
+      - features/*
+
+env:
+  TERM: unknown  # Disables colors in rich
+
+
+jobs:
+  define-matrix:
+    uses: ./.github/workflows/matrix.yaml
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install hatch
+        run: |
+          pip install -U hatch
+          hatch env create default
+      - name: Run performance tests
+        run: hatch run performance:test

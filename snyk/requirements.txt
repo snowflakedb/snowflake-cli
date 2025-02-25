@@ -7,18 +7,18 @@ requests==2.32.3
 requirements-parser==0.11.0
 setuptools==75.8.0
 snowflake.core==1.0.2; python_version < "3.12"
-snowflake-connector-python[secure-local-storage]==3.12.4
+snowflake-connector-python[secure-local-storage]==3.13.2
 snowflake-snowpark-python>=1.15.0,<1.26.0;python_version < "3.12"
 tomlkit==0.13.2
-typer==0.12.5
+typer==0.15.1
 urllib3>=1.24.3,<2.4
-GitPython==3.1.43
+GitPython==3.1.44
 pip
-pydantic==2.9.2
-coverage==7.6.10
+pydantic==2.10.6
+coverage==7.6.12
 pre-commit>=3.5.0
 pytest==8.3.4
 pytest-randomly==3.16.0
 syrupy==4.8.1
-factory-boy==3.3.1
-Faker==33.3.1
+factory-boy==3.3.3
+Faker==36.1.1

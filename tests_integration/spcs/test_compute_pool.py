@@ -41,7 +41,7 @@ def test_compute_pool(_test_steps: Tuple[ComputePoolTestSteps, str]):
 
 
 @pytest.mark.integration
-def test_compute_pool_create_from_project_definition(
+def test_compute_pool_deploy_from_project_definition(
     _test_steps: Tuple[ComputePoolTestSteps, str],
     project_directory,
     alter_snowflake_yml,
@@ -51,26 +51,33 @@ def test_compute_pool_create_from_project_definition(
 
     with project_directory("spcs_compute_pool"):
         alter_snowflake_yml(
+            "snowflake.yml", "entities.compute_pool.identifier.name", compute_pool_name
+        )
+
+        test_steps.create_compute_pool_from_project_definition(compute_pool_name)
+        test_steps.describe_should_return_compute_pool(compute_pool_name)
+
+        alter_snowflake_yml(
             "snowflake.yml",
-            "entities",
+            "entities.compute_pool",
             {
-                compute_pool_name: {
-                    "type": "compute-pool",
-                    "identifier": {
-                        "name": compute_pool_name,
-                    },
-                    "min_nodes": 1,
-                    "max_nodes": 1,
-                    "instance_family": "CPU_X64_XS",
-                    "auto_resume": True,
-                    "initially_suspended": True,
-                    "auto_suspend_seconds": 60,
-                }
+                "type": "compute-pool",
+                "identifier": {
+                    "name": compute_pool_name,
+                },
+                "min_nodes": 1,
+                "max_nodes": 2,
+                "auto_resume": True,
+                "auto_suspend_seconds": 10,
+                "comment": "Upgraded compute pool",
+                "tags": [
+                    {"name": "new_tag", "value": "new_value"},
+                ],
             },
         )
-        test_steps.create_compute_pool_from_project_definition(compute_pool_name)
-        test_steps.create_compute_pool_from_project_definition(
-            compute_pool_name, additional_flags=["--replace"]
+        test_steps.upgrade_compute_pool_from_project_definition()
+        test_steps.describe_should_return_compute_pool(
+            compute_pool_name, expected_values={"comment": "Upgraded compute pool"}
         )
 
 

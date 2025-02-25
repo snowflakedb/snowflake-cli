@@ -46,6 +46,8 @@ hatch -e packaging run pyinstaller \
   --clean \
   --noconfirm \
   --windowed \
+  --collect-submodules keyring \
+  --collect-submodules shellingham \
   --osx-bundle-identifier=com.snowflake.snowflake-cli \
   --osx-entitlements-file=scripts/packaging/macos/SnowflakeCLI_entitlements.plist \
   --codesign-identity="${CODESIGN_IDENTITY}" \

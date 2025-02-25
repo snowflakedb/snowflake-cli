@@ -52,10 +52,11 @@
 # ---
 # name: test_multiple_streamlit_raise_error_if_multiple_entities
   '''
-  Usage: default streamlit deploy [OPTIONS] [ENTITY_ID]
-  Try 'default streamlit deploy --help' for help.
+  Usage: root streamlit deploy [OPTIONS] [ENTITY_ID]
+  Try 'root streamlit deploy --help' for help.
   +- Error ----------------------------------------------------------------------+
-  | Multiple Streamlit apps found. Please provide entity id for the operation.   |
+  | Multiple entities of type streamlit found. Please provide entity id for the  |
+  | operation.                                                                   |
   +------------------------------------------------------------------------------+
   
   '''

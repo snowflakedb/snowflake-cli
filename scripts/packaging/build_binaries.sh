@@ -27,6 +27,8 @@ build_binaries() {
       --onedir \
       --clean \
       --noconfirm \
+      --collect-submodules keyring \
+      --collect-submodules shellingham \
       --contents-directory=snowflake-cli-${VERSION} \
       ${ENTRY_POINT}
   else

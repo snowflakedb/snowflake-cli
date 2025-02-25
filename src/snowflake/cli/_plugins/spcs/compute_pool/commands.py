@@ -14,20 +14,23 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 
 import typer
-from click import ClickException, UsageError
+from click import ClickException
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
 )
-from snowflake.cli._plugins.object.common import CommentOption
+from snowflake.cli._plugins.object.common import CommentOption, Tag, TagOption
+from snowflake.cli._plugins.spcs.common import validate_and_set_instances
+from snowflake.cli._plugins.spcs.compute_pool.compute_pool_entity_model import (
+    ComputePoolEntityModel,
+)
 from snowflake.cli._plugins.spcs.compute_pool.manager import ComputePoolManager
-from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     OverrideableOption,
-    ReplaceOption,
+    entity_argument,
     identifier_argument,
     like_option,
 )
@@ -38,7 +41,9 @@ from snowflake.cli.api.output.types import (
     CommandResult,
     SingleQueryResult,
 )
-from snowflake.cli.api.project.definition_helper import get_entity
+from snowflake.cli.api.project.definition_helper import (
+    get_entity_from_project_definition,
+)
 from snowflake.cli.api.project.util import is_valid_object_name
 
 app = SnowTyperFactory(
@@ -52,9 +57,7 @@ def _compute_pool_name_callback(name: FQN) -> FQN:
     """
     Verifies that compute pool name is a single valid identifier.
     """
-    if name and not is_valid_object_name(
-        name.identifier, max_depth=0, allow_quoted=False
-    ):
+    if not is_valid_object_name(name.identifier, max_depth=0, allow_quoted=False):
         raise ClickException(
             f"'{name}' is not a valid compute pool name. Note that compute pool names must be unquoted identifiers."
         )
@@ -112,77 +115,76 @@ add_object_command_aliases(
 
 @app.command(requires_connection=True)
 def create(
-    name: FQN = identifier_argument(
-        sf_object="compute pool",
-        example="my_compute_pool",
-        callback=_compute_pool_name_callback,
-        is_optional=True,
-    ),
-    instance_family: Optional[str] = typer.Option(
-        None,
+    name: FQN = ComputePoolNameArgument,
+    instance_family: str = typer.Option(
+        ...,
         "--family",
         help="Name of the instance family. For more information about instance families, refer to the SQL CREATE COMPUTE POOL command.",
         show_default=False,
     ),
-    min_nodes: Optional[int] = MinNodesOption(default=None),
-    max_nodes: Optional[int] = MaxNodesOption(default=None),
-    auto_resume: Optional[bool] = AutoResumeOption(default=None),
-    initially_suspended: Optional[bool] = typer.Option(
-        None,
+    min_nodes: int = MinNodesOption(),
+    max_nodes: Optional[int] = MaxNodesOption(),
+    auto_resume: bool = AutoResumeOption(),
+    initially_suspended: bool = typer.Option(
+        False,
         "--init-suspend/--no-init-suspend",
         help="Starts the compute pool in a suspended state.",
     ),
-    auto_suspend_secs: Optional[int] = AutoSuspendSecsOption(default=None),
+    auto_suspend_secs: int = AutoSuspendSecsOption(),
+    tags: Optional[List[Tag]] = TagOption(help="Tag for the compute pool."),
     comment: Optional[str] = CommentOption(help=_COMMENT_HELP),
-    replace: bool = ReplaceOption(),
-    if_not_exists: Optional[bool] = IfNotExistsOption(default=None),
+    if_not_exists: bool = IfNotExistsOption(),
     **options,
 ) -> CommandResult:
     """
     Creates a new compute pool.
     """
-    cli_context = get_cli_context()
-    pd = cli_context.project_definition
+    max_nodes = validate_and_set_instances(min_nodes, max_nodes, "nodes")
+    cursor = ComputePoolManager().create(
+        pool_name=name.identifier,
+        min_nodes=min_nodes,
+        max_nodes=max_nodes,
+        instance_family=instance_family,
+        auto_resume=auto_resume,
+        initially_suspended=initially_suspended,
+        auto_suspend_secs=auto_suspend_secs,
+        tags=tags,
+        comment=comment,
+        if_not_exists=if_not_exists,
+    )
+    return SingleQueryResult(cursor)
 
-    if pd:
-        flags = (
-            instance_family,
-            min_nodes,
-            max_nodes,
-            auto_resume,
-            initially_suspended,
-            comment,
-            if_not_exists,
-        )
-        if any(flags):
-            raise UsageError(
-                "Flags are not supported when creating compute pools from a project definition file."
-            )
 
-        compute_pool = get_entity(
-            pd=pd,
-            project_root=cli_context.project_root,
-            entity_type=ObjectType.COMPUTE_POOL,
-            entity_id=None if name is None else name.name,
-        )
-        cursor = ComputePoolManager().create(compute_pool=compute_pool, replace=replace)
-    else:
-        params = {
-            "pool_name": name.identifier,
-            "instance_family": instance_family,
-            "replace": replace,
-            "min_nodes": min_nodes,
-            "max_nodes": max_nodes,
-            "auto_resume": auto_resume,
-            "initially_suspended": initially_suspended,
-            "auto_suspend_secs": auto_suspend_secs,
-            "comment": comment,
-            "if_not_exists": if_not_exists,
-        }
+@app.command("deploy", requires_connection=True)
+def deploy(
+    entity_id: str = entity_argument("compute-pool"),
+    upgrade: bool = typer.Option(
+        False,
+        "--upgrade",
+        help="Updates the existing compute pool. Can update min_nodes, max_nodes, auto_resume, auto_suspend_seconds and comment.",
+    ),
+    **options,
+):
+    """
+    Deploys a compute pool from the project definition file.
+    """
+    compute_pool: ComputePoolEntityModel = get_entity_from_project_definition(
+        entity_type=ObjectType.COMPUTE_POOL, entity_id=entity_id
+    )
 
-        # Filter out None values
-        filtered_params = {k: v for k, v in params.items() if v is not None}
-        cursor = ComputePoolManager().create_from_params(**filtered_params)
+    cursor = ComputePoolManager().deploy(
+        pool_name=compute_pool.fqn.identifier,
+        min_nodes=compute_pool.min_nodes,
+        max_nodes=compute_pool.max_nodes,
+        instance_family=compute_pool.instance_family,
+        auto_resume=compute_pool.auto_resume,
+        initially_suspended=compute_pool.initially_suspended,
+        auto_suspend_seconds=compute_pool.auto_suspend_seconds,
+        tags=compute_pool.tags,
+        comment=compute_pool.comment,
+        upgrade=upgrade,
+    )
+
     return SingleQueryResult(cursor)
 
 

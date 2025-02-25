@@ -1,0 +1,40 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+from __future__ import annotations
+
+from typing import Literal, Optional, TypeVar
+
+from pydantic import Field
+from snowflake.cli.api.entities.common import EntityBase, attach_spans_to_entity_actions
+from snowflake.cli.api.project.schemas.entities.common import (
+    EntityModelBaseWithArtifacts,
+)
+from snowflake.cli.api.project.schemas.updatable_model import (
+    DiscriminatorField,
+)
+
+T = TypeVar("T")
+
+
+class ProjectEntityModel(EntityModelBaseWithArtifacts):
+    type: Literal["project"] = DiscriminatorField()  # noqa: A003
+    stage: Optional[str] = Field(
+        title="Stage in which the project artifacts will be stored", default=None
+    )
+    main_file: Optional[str] = Field(title="Path to the main file of the project")
+
+
+@attach_spans_to_entity_actions(entity_name="project")
+class ProjectEntity(EntityBase[ProjectEntityModel]):
+    """Placeholder for project entity"""

@@ -12,6 +12,7 @@ entities:
     max_instances: 2
     query_warehouse: xsmall
     comment: "This is a test service"
+    auto_resume: false
     external_access_integrations:
       - test_external_access_integration
     artifacts:

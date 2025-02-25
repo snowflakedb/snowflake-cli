@@ -1,0 +1,87 @@
+definition_version: '2'
+entities:
+  whole_new_word_procedure:
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: whole_new_word_procedure
+    artifacts:
+    - src: app/
+      dest: my_snowpark_project
+    handler: app.whole_new_word_procedure
+    returns: string
+    signature:
+    - name: base
+      type: varchar
+      default: word
+    - name: mult
+      type: number
+      default: '2'
+    - name: suffix
+      type: varchar
+      default: ', but a procedure'
+    stage: dev_deployment
+    type: procedure
+    execute_as_caller: false
+  whole_new_word:
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: whole_new_word
+    artifacts:
+    - src: app/
+      dest: my_snowpark_project
+    handler: app.whole_new_word
+    returns: string
+    signature:
+    - name: base
+      type: string
+      default: word
+    - name: mult
+      type: int
+      default: '2'
+    - name: suffix
+      type: string
+      default: '!'
+    stage: dev_deployment
+    type: function
+  check_all_types:
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: check_all_types
+    artifacts:
+    - src: app/
+      dest: my_snowpark_project
+    handler: app.check_all_types
+    returns: string
+    signature:
+    - name: s
+      type: string
+      default: <str>
+    - name: i
+      type: int
+      default: '7'
+    - name: b1
+      type: boolean
+      default: 'true'
+    - name: b2
+      type: boolean
+      default: 'True'
+    - name: f
+      type: float
+      default: '1.5'
+    - name: l
+      type: array
+      default: '[1, 2, 3]'
+    stage: dev_deployment
+    type: function
+mixins:
+  snowpark_shared:
+    stage: dev_deployment
+    artifacts:
+    - src: app/
+      dest: my_snowpark_project

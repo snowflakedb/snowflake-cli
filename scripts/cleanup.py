@@ -60,6 +60,7 @@ if __name__ == "__main__":
             "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW"
         ),
         "database": "SNOWCLI_DB",
+        "schema": "public",
         "role": role,
     }
     config = {k: v for k, v in config.items() if v is not None}
@@ -78,6 +79,7 @@ if __name__ == "__main__":
         ("service", "services"): [],
         ("application", "applications"): [],
         ("warehouse", "warehouses"): ["XSMALL"],
+        ("image repository", "image repositories"): ["SNOWCLI_REPOSITORY"],
     }
 
     for (single, plural), known in known_objects.items():

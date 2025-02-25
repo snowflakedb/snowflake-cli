@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import datetime
+from datetime import date, datetime
 from json import JSONEncoder
 from pathlib import Path
 from textwrap import indent
@@ -57,7 +57,7 @@ class CustomJSONEncoder(JSONEncoder):
             return o.result
         if isinstance(o, (CollectionResult, MultipleResults)):
             return list(o.result)
-        if isinstance(o, datetime):
+        if isinstance(o, (date, datetime)):
             return o.isoformat()
         if isinstance(o, Path):
             return str(o)

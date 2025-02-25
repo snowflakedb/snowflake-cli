@@ -46,6 +46,7 @@ from tests.testing_utils.result_assertions import assert_that_result_is_usage_er
         ("view", "views"),
         ("image-repository", "image repositories"),
         ("git-repository", "git repositories"),
+        ("notebook", "notebooks"),
     ],
 )
 def test_show(
@@ -86,6 +87,7 @@ DESCRIBE_TEST_OBJECTS = [
     ("warehouse", "warehouse_example"),
     ("view", "view_example"),
     ("git-repository", "git_repository_example"),
+    ("notebook", "notebook_example"),
 ]
 
 
@@ -218,7 +220,10 @@ def test_drop(
 ):
     mock_connector.connect.return_value.execute_stream.return_value = (
         None,
-        mock_cursor(rows=[f"{object_name} successfully dropped."], columns=["status"]),
+        mock_cursor(
+            rows=[(f"{object_name} successfully dropped.",)],
+            columns=["status"],
+        ),
     )
 
     result = runner.invoke(["object", "drop", object_type, object_name])

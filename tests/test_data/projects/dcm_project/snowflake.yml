@@ -1,0 +1,10 @@
+definition_version: 2
+entities:
+  my_project:
+    type: project
+    identifier: "my_project"
+    stage: "my_project_stage"
+    main_file: manifest.yml
+    artifacts:
+      - definitions/
+      - manifest.yml

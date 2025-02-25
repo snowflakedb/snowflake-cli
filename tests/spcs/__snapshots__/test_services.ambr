@@ -9,10 +9,20 @@
   
   '''
 # ---
+# name: test_deploy_multiple_services_without_entity_id
+  '''
+  Usage: root spcs service deploy [OPTIONS] [ENTITY_ID]
+  Try 'root spcs service deploy --help' for help.
+  +- Error ----------------------------------------------------------------------+
+  | Multiple services found. Please provide entity id for the operation.         |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
 # name: test_deploy_not_existing_entity_id
   '''
-  Usage: default spcs service deploy [OPTIONS] [ENTITY_ID]
-  Try 'default spcs service deploy --help' for help.
+  Usage: root spcs service deploy [OPTIONS] [ENTITY_ID]
+  Try 'root spcs service deploy --help' for help.
   +- Error ----------------------------------------------------------------------+
   | No 'not_existing_entity_id' entity in project definition file.               |
   +------------------------------------------------------------------------------+
@@ -44,6 +54,16 @@
   |--------+--------------------------------------------|
   | status | Service TEST_SERVICE successfully created. |
   +-----------------------------------------------------+
+  
+  '''
+# ---
+# name: test_deploy_service_with_upgrade
+  '''
+  +--------------------------------------------+
+  | key    | value                             |
+  |--------+-----------------------------------|
+  | status | Statement completed successfully. |
+  +--------------------------------------------+
   
   '''
 # ---

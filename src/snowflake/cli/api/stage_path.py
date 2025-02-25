@@ -42,6 +42,10 @@ class StagePath:
         return self._stage_name
 
     @property
+    def stage_fqn(self) -> FQN:
+        return FQN.from_stage(self.stage)
+
+    @property
     def path(self) -> PurePosixPath:
         return self._path
 
@@ -156,10 +160,11 @@ class StagePath:
     def joinpath(self, path: str | Path) -> StagePath:
         if self.is_file():
             raise ValueError("Cannot join path to a file")
-
+        if isinstance(path, Path):
+            path = str(PurePosixPath(path))
         return StagePath(
             stage_name=self._stage_name,
-            path=PurePosixPath(self._path) / str(path).lstrip("/"),
+            path=PurePosixPath(self._path) / path.lstrip("/"),
             git_ref=self._git_ref,
         )
 
