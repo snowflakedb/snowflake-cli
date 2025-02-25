@@ -17,6 +17,7 @@ from __future__ import annotations
 from unittest import mock
 
 import pytest
+import yaml
 from snowflake.cli.api.identifiers import FQN
 
 
@@ -44,6 +45,8 @@ class TestDBTDeploy:
         source_path = tmp_path_factory.mktemp("dbt_project")
         dbt_file = source_path / "dbt_project.yml"
         dbt_file.touch()
+        with dbt_file.open(mode="w") as fd:
+            yaml.dump({"version": "1.2.3"}, fd)
         yield source_path
 
     @pytest.fixture
@@ -64,12 +67,33 @@ class TestDBTDeploy:
         assert result.exit_code == 0, result.output
         assert (
             mock_connect.mocked_ctx.get_query()
-            == "CREATE OR REPLACE DBT PROJECT TEST_PIPELINE FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"
+            == "CREATE OR REPLACE DBT PROJECT TEST_PIPELINE FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage DBT_VERSION='1.2.3'"
         )
         stage_fqn = FQN.from_string(f"dbt_TEST_PIPELINE_stage").using_context()
         mock_create.assert_called_once_with(stage_fqn, temporary=True)
         mock_put_recursive.assert_called_once_with(
             dbt_project_path, "@MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"
+        )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_dbt_version_from_option_has_precedence_over_file(
+        self, _mock_create, _mock_put_recursive, mock_connect, runner, dbt_project_path
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--dbt-version=2.3.4",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "CREATE OR REPLACE DBT PROJECT TEST_PIPELINE FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage DBT_VERSION='2.3.4'"
         )
 
     def test_raises_when_dbt_project_is_not_available(
@@ -84,6 +108,24 @@ class TestDBTDeploy:
 
         assert result.exit_code == 1, result.output
         assert "dbt_project.yml does not exist in provided path." in result.output
+        assert mock_connect.mocked_ctx.get_query() == ""
+
+    def test_raises_when_dbt_project_version_is_not_specified(
+        self, dbt_project_path, mock_connect, runner
+    ):
+        dbt_file = dbt_project_path / "dbt_project.yml"
+        with dbt_file.open(mode="w") as fd:
+            yaml.dump({}, fd)
+
+        result = runner.invoke(
+            ["dbt", "deploy", "TEST_PIPELINE", f"--source={dbt_project_path}"]
+        )
+
+        assert result.exit_code == 1, result.output
+        assert (
+            "dbt-version was not provided and is not available in dbt_project.yml"
+            in result.output
+        )
         assert mock_connect.mocked_ctx.get_query() == ""
 
 
