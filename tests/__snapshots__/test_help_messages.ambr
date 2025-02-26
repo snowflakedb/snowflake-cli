@@ -5164,6 +5164,30 @@
   
   '''
 # ---
+# name: test_help_messages[plugin.list]
+  '''
+                                                                                  
+   Usage: root plugin list [OPTIONS]                                              
+                                                                                  
+   Lists all installed plugins.                                                   
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[plugin]
   '''
                                                                                   
@@ -5177,6 +5201,7 @@
   +- Commands -------------------------------------------------------------------+
   | disable   Disables a plugin with a given name.                               |
   | enable    Enables a plugin with a given name.                                |
+  | list      Lists all installed plugins.                                       |
   +------------------------------------------------------------------------------+
   
   
@@ -12361,6 +12386,7 @@
   +- Commands -------------------------------------------------------------------+
   | disable   Disables a plugin with a given name.                               |
   | enable    Enables a plugin with a given name.                                |
+  | list      Lists all installed plugins.                                       |
   +------------------------------------------------------------------------------+
   
   
