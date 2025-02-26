@@ -153,7 +153,14 @@ _DEFAULT_LOGS_CONFIG = {
     "level": "info",
 }
 
-_DEFAULT_CLI_CONFIG = {LOGS_SECTION: _DEFAULT_LOGS_CONFIG}
+_DEFAULT_PLUGINS_CONFIG = {
+    "installation_dir": str(CONFIG_MANAGER.file_path.parent / "plugins")
+}
+
+_DEFAULT_CLI_CONFIG = {
+    LOGS_SECTION: _DEFAULT_LOGS_CONFIG,
+    PLUGINS_SECTION: _DEFAULT_PLUGINS_CONFIG,
+}
 
 
 @contextmanager
@@ -223,10 +230,10 @@ def get_logs_config() -> dict:
 
 
 def get_plugins_config() -> dict:
+    plugins_config = _DEFAULT_PLUGINS_CONFIG.copy()
     if config_section_exists(*PLUGINS_SECTION_PATH):
-        return get_config_section(*PLUGINS_SECTION_PATH)
-    else:
-        return {}
+        plugins_config.update(get_config_section(*PLUGINS_SECTION_PATH))
+    return plugins_config
 
 
 def connection_exists(connection_name: str) -> bool:

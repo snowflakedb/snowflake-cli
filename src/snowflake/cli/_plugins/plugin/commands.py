@@ -18,7 +18,9 @@ import logging
 from typing import Dict, List
 
 import typer
+from click import ClickException
 from snowflake.cli._plugins.plugin.manager import PluginManager
+from snowflake.cli.api.commands.flags import IndexUrlOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -34,10 +36,13 @@ app = SnowTyperFactory(
     is_hidden=lambda: True,
 )
 
+PluginNameArgument = typer.Argument(..., help="Plugin name", show_default=False)
+PackageNameArgument = typer.Argument(..., help="Package name", show_default=False)
+
 
 @app.command(name="enable", requires_connection=False)
 def enable(
-    plugin_name: str = typer.Argument(None, help="Plugin name"),
+    plugin_name: str = PluginNameArgument,
     **options,
 ) -> CommandResult:
     """Enables a plugin with a given name."""
@@ -50,7 +55,7 @@ def enable(
 
 @app.command(name="disable", requires_connection=False)
 def disable(
-    plugin_name: str = typer.Argument(None, help="Plugin name"),
+    plugin_name: str = PluginNameArgument,
     **options,
 ) -> CommandResult:
     """Disables a plugin with a given name."""
@@ -77,3 +82,27 @@ def list_(
         )
 
     return CollectionResult(result)
+
+
+@app.command(name="install-package", requires_connection=False)
+def install_package(
+    package_name: str = typer.Argument(None, help="Package name.", show_default=False),
+    index_url: str = IndexUrlOption,
+    **options,
+) -> CommandResult:
+    """Installs a package into a plugin environment."""
+    PluginManager().install_package(package_name, index_url=index_url)
+    return MessageResult(f"Package `{package_name}` successfully installed.")
+
+
+@app.command(name="uninstall-package", requires_connection=False)
+def uninstall_package(
+    package_name: str = PackageNameArgument,
+    **options,
+) -> CommandResult:
+    """Uninstalls a package from a plugin environment."""
+    plugin_manager = PluginManager()
+    if not plugin_manager.is_package_installed(package_name):
+        raise ClickException(f"Package `{package_name}` is not installed.")
+    plugin_manager.uninstall_package(package_name)
+    return MessageResult(f"Package `{package_name}` successfully uninstalled.")

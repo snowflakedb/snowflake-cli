@@ -35,15 +35,6 @@ SkipVersionCheckOption: bool = typer.Option(
     help="Skip comparing versions of dependencies between requirements and Anaconda.",
 )
 
-IndexUrlOption: str | None = typer.Option(
-    None,
-    "--index-url",
-    help="Base URL of the Python Package Index to use for package lookup. This should point to "
-    " a repository compliant with PEP 503 (the simple repository API) or a local directory laid"
-    " out in the same format.",
-    show_default=False,
-)
-
 ReturnsOption: str = typer.Option(
     ...,
     "--returns",

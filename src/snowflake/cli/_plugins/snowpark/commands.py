@@ -58,7 +58,6 @@ from snowflake.cli._plugins.snowpark.snowpark_project_paths import (
 from snowflake.cli._plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
     IgnoreAnacondaOption,
-    IndexUrlOption,
     SkipVersionCheckOption,
 )
 from snowflake.cli._plugins.snowpark.zipper import zip_dir
@@ -71,6 +70,7 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import (
     ForceReplaceOption,
+    IndexUrlOption,
     ReplaceOption,
     execution_identifier_argument,
     identifier_argument,
