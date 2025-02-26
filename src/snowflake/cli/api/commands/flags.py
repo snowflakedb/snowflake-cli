@@ -487,6 +487,16 @@ class IdentifierStagePathType(click.ParamType):
         return StagePath.from_stage_str(value)
 
 
+IndexUrlOption: str | None = typer.Option(
+    None,
+    "--index-url",
+    help="Base URL of the Python Package Index to use for package lookup. This should point to "
+    " a repository compliant with PEP 503 (the simple repository API) or a local directory laid"
+    " out in the same format.",
+    show_default=False,
+)
+
+
 def identifier_argument(
     sf_object: str,
     example: str,

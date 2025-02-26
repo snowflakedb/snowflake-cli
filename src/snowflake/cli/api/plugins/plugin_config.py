@@ -1,7 +1,7 @@
 # Copyright (c) 2024 Snowflake Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
+# you may not use this file except in pliance with the License.
 # You may obtain a copy of the License at
 #
 # http://www.apache.org/licenses/LICENSE-2.0
@@ -35,10 +35,16 @@ class PluginConfig:
 
 
 class PluginConfigProvider:
+    def __init__(self):
+        config = get_plugins_config()
+        self.installation_dir = config["installation_dir"]
+
     @staticmethod
     def get_enabled_plugin_names() -> List[str]:
         enabled_plugins = []
         for plugin_name, plugin_config_section in get_plugins_config().items():
+            if isinstance(plugin_config_section, str):
+                continue
             enabled = plugin_config_section.get(PLUGIN_ENABLED_KEY, False)
             _assert_value_is_bool(
                 enabled, value_name=PLUGIN_ENABLED_KEY, plugin_name=plugin_name

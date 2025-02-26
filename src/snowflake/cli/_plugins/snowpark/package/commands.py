@@ -37,10 +37,10 @@ from snowflake.cli._plugins.snowpark.package_utils import (
 from snowflake.cli._plugins.snowpark.snowpark_shared import (
     AllowSharedLibrariesOption,
     IgnoreAnacondaOption,
-    IndexUrlOption,
     SkipVersionCheckOption,
 )
 from snowflake.cli._plugins.snowpark.zipper import zip_dir
+from snowflake.cli.api.commands.flags import IndexUrlOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import CommandResult, MessageResult
 from snowflake.cli.api.secure_path import SecurePath
