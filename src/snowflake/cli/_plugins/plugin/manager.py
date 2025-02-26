@@ -21,11 +21,13 @@ from snowflake.cli.api.config import (
     get_config_section,
     set_config_section,
 )
+from snowflake.cli.api.exceptions import PluginNotInstalledError
+from snowflake.cli.api.plugins.plugin_config import PluginConfigProvider
 
 
 class PluginManager:
     """
-    Manage installation and plugins
+    Manage installation of plugins.
     """
 
     def enable_plugin(self, plugin_name: str):
@@ -49,6 +51,17 @@ class PluginManager:
 
         plugin_config[PLUGIN_ENABLED_KEY] = enable
         set_config_section(*plugin_config_path, section=plugin_config)
+
+    @staticmethod
+    def is_plugin_enabled(plugin_name: str) -> bool:
+        return PluginConfigProvider.get_config(plugin_name).is_plugin_enabled
+
+    def assert_plugin_is_installed(self, plugin_name: str):
+        installed_plugins = self.get_installed_plugin_names()
+        if plugin_name not in installed_plugins:
+            raise PluginNotInstalledError(
+                plugin_name, installed_plugins=sorted(installed_plugins)
+            )
 
     @staticmethod
     def get_installed_plugin_names() -> List[str]:
