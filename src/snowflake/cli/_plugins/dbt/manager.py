@@ -52,7 +52,6 @@ class DBTManager(StdoutExecutionMixin):
         dbt_adapter_version: str,
         force: bool,
     ) -> SnowflakeCursor:
-        # TODO: what to do with force?
         dbt_project_path = path.joinpath("dbt_project.yml")
         if not dbt_project_path.exists():
             raise ClickException(f"dbt_project.yml does not exist in provided path.")
@@ -79,7 +78,7 @@ class DBTManager(StdoutExecutionMixin):
 
         with cli_console.phase("Creating DBT project"):
             staged_dbt_project_path = self._get_dbt_project_stage_path(stage_name)
-            query = f"""CREATE OR REPLACE DBT PROJECT {name}
+            query = f"""{'CREATE OR REPLACE' if force is True else 'CREATE'} DBT PROJECT {name}
 FROM {stage_name} MAIN_FILE='{staged_dbt_project_path}'
 DBT_VERSION='{dbt_version}' DBT_ADAPTER_VERSION='{dbt_adapter_version}'"""
             return self.execute_query(query)

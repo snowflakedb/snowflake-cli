@@ -73,7 +73,7 @@ class TestDBTDeploy:
         assert result.exit_code == 0, result.output
         assert (
             mock_connect.mocked_ctx.get_query()
-            == """CREATE OR REPLACE DBT PROJECT TEST_PIPELINE
+            == """CREATE DBT PROJECT TEST_PIPELINE
 FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage MAIN_FILE='@MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage/dbt_project.yml'
 DBT_VERSION='1.2.3' DBT_ADAPTER_VERSION='3.4.5'"""
         )
@@ -102,9 +102,30 @@ DBT_VERSION='1.2.3' DBT_ADAPTER_VERSION='3.4.5'"""
         assert result.exit_code == 0, result.output
         assert (
             mock_connect.mocked_ctx.get_query()
-            == """CREATE OR REPLACE DBT PROJECT TEST_PIPELINE
+            == """CREATE DBT PROJECT TEST_PIPELINE
 FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage MAIN_FILE='@MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage/dbt_project.yml'
 DBT_VERSION='2.3.4' DBT_ADAPTER_VERSION='3.4.5'"""
+        )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_force_flag_uses_create_or_replace(
+        self, _mock_create, _mock_put_recursive, mock_connect, runner, dbt_project_path
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--force",
+                "--dbt-adapter-version=3.4.5",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_connect.mocked_ctx.get_query().startswith(
+            "CREATE OR REPLACE DBT PROJECT"
         )
 
     def test_raises_when_dbt_project_is_not_available(
