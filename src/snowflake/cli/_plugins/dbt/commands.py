@@ -73,6 +73,9 @@ def deploy_dbt(
     dbt_adapter_version: str = typer.Option(
         help="dbt-snowflake adapter version to be used",
     ),
+    execute_in_warehouse: Optional[str] = typer.Option(
+        None, help="Warehouse to use when running `dbt execute` commands"
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -85,7 +88,12 @@ def deploy_dbt(
         path = Path(source)
     return QueryResult(
         DBTManager().deploy(
-            path.resolve(), name, dbt_version, dbt_adapter_version, force=force
+            path.resolve(),
+            name,
+            dbt_version,
+            dbt_adapter_version,
+            execute_in_warehouse,
+            force=force,
         )
     )
 
