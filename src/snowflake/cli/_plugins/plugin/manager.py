@@ -110,17 +110,10 @@ class PluginManager:
     def install_package(self, package_name: str, index_url: str) -> None:
         """Installs package into plugin environment."""
         installation_dir = PluginConfigProvider().installation_dir
-        _pip(
-            [
-                "install",
-                package_name,
-                "--prefix",
-                installation_dir,
-                "--index-url",
-                index_url,
-            ],
-            raise_on_error=True,
-        )
+        command = ["install", package_name, "--prefix", installation_dir]
+        if index_url:
+            command += ["--index-url", index_url]
+        _pip(command, raise_on_error=True)
 
     @staticmethod
     def _remove_plugin_from_config(plugin_name) -> None:
