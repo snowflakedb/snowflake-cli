@@ -50,6 +50,7 @@ class DBTManager(StdoutExecutionMixin):
         name: FQN,
         dbt_version: Optional[str],
         dbt_adapter_version: str,
+        execute_in_warehouse: Optional[str],
         force: bool,
     ) -> SnowflakeCursor:
         dbt_project_path = path.joinpath("dbt_project.yml")
@@ -81,6 +82,8 @@ class DBTManager(StdoutExecutionMixin):
             query = f"""{'CREATE OR REPLACE' if force is True else 'CREATE'} DBT PROJECT {name}
 FROM {stage_name} MAIN_FILE='{staged_dbt_project_path}'
 DBT_VERSION='{dbt_version}' DBT_ADAPTER_VERSION='{dbt_adapter_version}'"""
+            if execute_in_warehouse:
+                query += f" WAREHOUSE='{execute_in_warehouse}'"
             return self.execute_query(query)
 
     def execute(self, dbt_command: str, name: str, *dbt_cli_args):
