@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_e2e.conftest import subprocess_check_output
+from tests_e2e.conftest import subprocess_check_output, subprocess_run
 
 
 @pytest.mark.e2e
@@ -103,6 +103,12 @@ def test_disabling_and_enabling_command(snowcli, config_file, snapshot):
     )
     snapshot.assert_match(output)
 
+    # plugin should be marked as enabled by list command
+    output = subprocess_check_output(
+        [snowcli, "--config-file", config_file, "plugin", "list"]
+    )
+    snapshot.assert_match(output)
+
     # disable plugin
     output = subprocess_check_output(
         [
@@ -113,6 +119,12 @@ def test_disabling_and_enabling_command(snowcli, config_file, snapshot):
             "disable",
             "multilingual-hello",
         ],
+    )
+    snapshot.assert_match(output)
+
+    # plugin should be marked as disabled by list command
+    output = subprocess_check_output(
+        [snowcli, "--config-file", config_file, "plugin", "list"]
     )
     snapshot.assert_match(output)
 
@@ -151,42 +163,21 @@ def test_disabling_and_enabling_command(snowcli, config_file, snapshot):
     )
     snapshot.assert_match(output)
 
+    # plugin should be marked as enabled by list command
+    output = subprocess_check_output(
+        [snowcli, "--config-file", config_file, "plugin", "list"]
+    )
+    snapshot.assert_match(output)
+
     # enable not existing plugin
-    output = subprocess_check_output(
-        [
-            snowcli,
-            "--config-file",
-            config_file,
-            "plugin",
-            "enable",
-            "asdf1234",
-        ],
+    output = subprocess_run(
+        [snowcli, "--config-file", config_file, "plugin", "enable", "asdf1234"]
     )
-    snapshot.assert_match(output)
-
-    # disable other not existing plugin
-    output = subprocess_check_output(
-        [
-            snowcli,
-            "--config-file",
-            config_file,
-            "plugin",
-            "disable",
-            "qwerty1234",
-        ],
+    assert output.returncode == 1
+    assert (
+        "Plugin asdf1234 is not installed. Available plugins: multilingual-hello."
+        in output.stderr
     )
-    snapshot.assert_match(output)
 
-    # assert that enabled not existing plugin does not break other plugins
-    output = subprocess_check_output(
-        [
-            snowcli,
-            "--config-file",
-            config_file,
-            "--help",
-        ],
-    )
-    snapshot.assert_match(output)
-
-    # assert that config file contains configs of enabled and disabled configs (even if they do not exist)
+    # assert that config file contains configs of enabled and disabled configs
     snapshot.assert_match(config_file.read_text())
