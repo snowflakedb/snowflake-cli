@@ -22,6 +22,7 @@ from snowflake.cli.api.config import (
     set_config_section,
 )
 from snowflake.cli.api.exceptions import PluginNotInstalledError
+from snowflake.cli.api.plugins.command import SNOWCLI_COMMAND_PLUGIN_NAMESPACE
 from snowflake.cli.api.plugins.plugin_config import PluginConfigProvider
 
 
@@ -68,6 +69,6 @@ class PluginManager:
         return [
             entry_point.name
             for entry_point in importlib.metadata.entry_points(
-                group="snowflake.cli.plugin.command"
+                group=SNOWCLI_COMMAND_PLUGIN_NAMESPACE
             )
         ]

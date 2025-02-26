@@ -188,7 +188,7 @@ def test_broken_command_spec_handling(connection_command_spec_mock, runner):
 
 
 @mock.patch(
-    "snowflake.cli.api.plugins.plugin_config.PluginConfigManager.get_enabled_plugin_names"
+    "snowflake.cli.api.plugins.plugin_config.PluginConfigProvider.get_enabled_plugin_names"
 )
 def test_not_existing_external_entrypoint_handling(enabled_plugin_names_mock, runner):
     enabled_plugin_names_mock.return_value = ["xyz123"]
@@ -201,7 +201,7 @@ def test_not_existing_external_entrypoint_handling(enabled_plugin_names_mock, ru
 
 @mock.patch("pluggy.PluginManager.load_setuptools_entrypoints")
 @mock.patch(
-    "snowflake.cli.api.plugins.plugin_config.PluginConfigManager.get_enabled_plugin_names"
+    "snowflake.cli.api.plugins.plugin_config.PluginConfigProvider.get_enabled_plugin_names"
 )
 def test_broken_external_entrypoint_handling(
     enabled_plugin_names_mock, load_setuptools_entrypoints_mock, runner
