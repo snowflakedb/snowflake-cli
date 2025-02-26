@@ -8,9 +8,6 @@ def test_source_recursion_detection(recursive_source_includes):
     reader = SqlManager._recursive_file_reader(  # noqa: SLF001
         recursive_source_includes, set()
     )
-    # reader = getattr(SqlManager, "_recursive_file_reader")(
-    #     recursive_source_includes, set()
-    # )
 
     assert next(reader) == "1"
     assert next(reader) == "2"
@@ -74,10 +71,11 @@ def test_source_recursion_detection_from_input(recursive_source_includes):
         pytest.param("!SOURCE", True, id="uppercase command"),
         pytest.param("!sOuRCe", True, id="mixed case command"),
         pytest.param(" !source", True, id="leading spaces"),
+        pytest.param("! source", False, id="space between ! and command"),
     ),
 )
-def test_positive_source_command_detection(source, expected, single_select_1_file):
+def test_source_command_detection(source, expected, single_select_1_file):
     statement = f"{source} {single_select_1_file.as_posix()}"
     is_source, _ = SqlManager.check_for_source_command(statement)
 
-    assert is_source is True
+    assert is_source is expected
