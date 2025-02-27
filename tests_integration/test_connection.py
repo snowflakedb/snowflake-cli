@@ -64,17 +64,13 @@ def test_connection_not_existing_schema(
         )
 
 
-@pytest.mark.parametrize("report_dir", [None, "custom/report/dir"])
+@pytest.mark.parametrize("report_dir", [".", "custom/report/dir"])
 @pytest.mark.integration
 def test_connection_diagnostic_report(runner, report_dir, temporary_working_directory):
     from pathlib import Path
 
-    command = ["connection", "test", "--enable-diag"]
-    if report_dir:
-        command += ["--diag-log-path", report_dir]
+    command = ["connection", "test", "--enable-diag", "--diag-log-path", report_dir]
     result = runner.invoke_with_connection(command)
     assert result.exit_code == 0, result.output
-    expected_report_location = (
-        Path(report_dir or ".") / "SnowflakeConnectionTestReport.txt"
-    ).absolute()
+    expected_report_location = Path(report_dir) / "SnowflakeConnectionTestReport.txt"
     assert expected_report_location.exists(), result.output

@@ -221,8 +221,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -322,8 +322,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -477,8 +477,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -579,8 +579,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -768,8 +768,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -877,8 +877,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -985,8 +985,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -1090,8 +1090,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -1199,8 +1199,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -1307,8 +1307,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -1410,8 +1410,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -1544,8 +1544,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -1659,8 +1659,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -1770,8 +1770,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -1889,8 +1889,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -1996,8 +1996,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -2218,8 +2218,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -2346,8 +2346,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -2447,8 +2447,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -2624,8 +2624,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -2759,8 +2759,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -2860,8 +2860,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -3079,8 +3079,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -3221,8 +3221,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -3349,8 +3349,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -3442,8 +3442,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -3535,8 +3535,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -3650,8 +3650,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -3744,8 +3744,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -3842,8 +3842,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -3941,8 +3941,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -4039,8 +4039,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -4139,8 +4139,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -4244,8 +4244,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -4411,8 +4411,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -4510,8 +4510,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -4604,8 +4604,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -4698,8 +4698,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -4792,8 +4792,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -4928,8 +4928,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -5028,8 +5028,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -5128,8 +5128,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -5239,8 +5239,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -5363,8 +5363,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -5461,8 +5461,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -5559,8 +5559,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -5657,8 +5657,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -5791,8 +5791,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -5893,8 +5893,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -5992,8 +5992,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -6091,8 +6091,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -6192,8 +6192,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -6296,8 +6296,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -6404,8 +6404,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -6497,8 +6497,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -6593,8 +6593,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -6794,8 +6794,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -6890,8 +6890,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -6984,8 +6984,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -7078,8 +7078,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -7171,8 +7171,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -7265,8 +7265,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -7384,8 +7384,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -7479,8 +7479,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -7573,8 +7573,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -7668,8 +7668,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -7771,8 +7771,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -7893,8 +7893,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -7984,8 +7984,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -8082,8 +8082,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -8200,8 +8200,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -8294,8 +8294,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -8388,8 +8388,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -8482,8 +8482,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -8582,8 +8582,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -8682,8 +8682,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -8776,8 +8776,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -8959,8 +8959,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -9055,8 +9055,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -9148,8 +9148,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -9241,8 +9241,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -9350,8 +9350,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -9443,8 +9443,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -9536,8 +9536,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -9629,8 +9629,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -9722,8 +9722,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -9821,8 +9821,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -9926,8 +9926,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -10029,8 +10029,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -10122,8 +10122,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -10256,8 +10256,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -10353,8 +10353,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -10446,8 +10446,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -10552,8 +10552,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -10647,8 +10647,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -10825,8 +10825,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -10946,8 +10946,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -11039,8 +11039,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -11132,8 +11132,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -11227,8 +11227,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -11320,8 +11320,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -11432,8 +11432,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -11529,8 +11529,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -11628,8 +11628,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -11723,8 +11723,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -11855,8 +11855,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -11949,8 +11949,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -12043,8 +12043,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -12137,8 +12137,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -12232,8 +12232,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -12331,8 +12331,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
@@ -12427,8 +12427,8 @@
   |                                                 connection diagnostic        |
   |                                                 report.                      |
   | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to current  |
-  |                                                 working directory.           |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
   | --diag-allowlist-path                  TEXT     Path to a JSON file          |
   |                                                 containing allowlist         |
   |                                                 parameters.                  |
