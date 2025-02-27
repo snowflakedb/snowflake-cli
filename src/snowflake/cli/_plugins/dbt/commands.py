@@ -24,13 +24,14 @@ from snowflake.cli._plugins.dbt.manager import DBTManager
 from snowflake.cli.api.commands.decorators import global_options_with_connection
 from snowflake.cli.api.commands.flags import identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import CommandResult, QueryResult
 
 app = SnowTyperFactory(
     name="dbt",
     help="Manages dbt on Snowflake projects",
-    is_hidden=lambda: True,
+    is_hidden=FeatureFlag.ENABLE_DBT_POC.is_disabled,
 )
 log = logging.getLogger(__name__)
 
