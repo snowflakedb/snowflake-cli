@@ -227,9 +227,9 @@ class TestPackage:
         zipfile = f"{package_name.lower()}.zip"
         assert Path(zipfile).exists()
         files = self._get_filenames_from_zip(zipfile)
-        assert any(
-            file.startswith(package_name) and file.endswith("dist-info/")
-            for file in files
+        assert (
+            f"{package_name}-{package_version}.dist-info/" in files
+            or f"{package_name.lower()}-{package_version}.dist-info/" in files
         ), f"No {package_name}*.dist-info found in {list(files)}"
 
     @pytest.mark.integration
