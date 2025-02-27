@@ -287,9 +287,7 @@ def add(
         ConnectionConfig(**connection_options),
     )
     if set_as_default:
-        set_config_value(
-            section=None, key="default_connection_name", value=connection_name
-        )
+        set_config_value(path=["default_connection_name"], value=connection_name)
 
     return MessageResult(
         f"Wrote new connection {connection_name} to {connections_file}"
@@ -357,7 +355,7 @@ def set_default(
 ):
     """Changes default connection to provided value."""
     get_connection_dict(connection_name=name)
-    set_config_value(section=None, key="default_connection_name", value=name)
+    set_config_value(path=["default_connection_name"], value=name)
     return MessageResult(f"Default connection set to: {name}")
 
 

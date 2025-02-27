@@ -49,7 +49,7 @@ def v1_to_v2(
     accept_templates: bool = typer.Option(
         False, "-t", "--accept-templates", help="Allows the migration of templates."
     ),
-    migrate_local_yml: (bool | None) = typer.Option(
+    migrate_local_yml: Optional[bool] = typer.Option(
         None,
         "-l",
         "--migrate-local-overrides/--no-migrate-local-overrides",
@@ -234,7 +234,7 @@ def _validate_imported_default_connection_name(
 
 
 def _convert_connection_from_snowsql_config_section(
-    snowsql_connection: list[tuple[str, Any]]
+    snowsql_connection: list[tuple[str, Any]],
 ) -> dict[str, Any]:
     from ast import literal_eval
 
@@ -290,7 +290,6 @@ def _validate_and_save_connections_imported_from_snowsql(
             f"Setting [{default_cli_connection_name}] connection as Snowflake CLI's default connection."
         )
         set_config_value(
-            section=None,
-            key="default_connection_name",
+            path=["default_connection_name"],
             value=default_cli_connection_name,
         )

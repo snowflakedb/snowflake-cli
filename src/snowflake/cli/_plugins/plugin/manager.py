@@ -19,7 +19,7 @@ from snowflake.cli.api.config import (
     PLUGINS_SECTION_PATH,
     config_section_exists,
     get_config_section,
-    set_config_section,
+    set_config_value,
 )
 from snowflake.cli.api.exceptions import PluginNotInstalledError
 from snowflake.cli.api.plugins.command import SNOWCLI_COMMAND_PLUGIN_NAMESPACE
@@ -51,7 +51,7 @@ class PluginManager:
             return
 
         plugin_config[PLUGIN_ENABLED_KEY] = enable
-        set_config_section(*plugin_config_path, section=plugin_config)
+        set_config_value(path=plugin_config_path, value=plugin_config)
 
     @staticmethod
     def is_plugin_enabled(plugin_name: str) -> bool:
