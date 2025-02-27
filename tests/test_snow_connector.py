@@ -16,7 +16,7 @@ import os
 from unittest import mock
 
 import pytest
-from snowflake.cli._app.secret import SecretType
+from snowflake.cli.api.secret import SecretType
 
 
 # Used as a solution to syrupy having some problems with comparing multilines string
