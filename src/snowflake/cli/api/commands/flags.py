@@ -32,6 +32,7 @@ from snowflake.cli.api.connections import ConnectionContext
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.formats import OutputFormat
+from snowflake.cli.api.secret import SecretType
 from snowflake.cli.api.stage_path import StagePath
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
@@ -499,6 +500,15 @@ class IdentifierStagePathType(click.ParamType):
 
     def convert(self, value, param, ctx):
         return StagePath.from_stage_str(value)
+
+
+class SecretTypeParser(click.ParamType):
+    name = "TEXT"
+
+    def convert(self, value, param, ctx):
+        if not isinstance(value, SecretType):
+            return SecretType(value)
+        return value
 
 
 def identifier_argument(

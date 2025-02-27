@@ -58,14 +58,16 @@ class ObjectManager(SqlExecutionMixin):
         object_name = _get_object_names(object_type).sf_name
         return self.execute_query(f"drop {object_name} {fqn.sql_identifier}")
 
-    def describe(self, *, object_type: str, fqn: FQN):
+    def describe(self, *, object_type: str, fqn: FQN, **kwargs):
         # Image repository is the only supported object that does not have a DESCRIBE command.
         if object_type == "image-repository":
             raise ClickException(
                 f"Describe is currently not supported for object of type image-repository"
             )
         object_name = _get_object_names(object_type).sf_name
-        return self.execute_query(f"describe {object_name} {fqn.sql_identifier}")
+        return self.execute_query(
+            f"describe {object_name} {fqn.sql_identifier}", **kwargs
+        )
 
     def object_exists(self, *, object_type: str, fqn: FQN):
         try:
