@@ -11368,7 +11368,9 @@
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --replace                Replace the Streamlit app if it already exists.     |
+  | --replace                Replaces the Streamlit app if it already exists. It |
+  |                          only uploads new and overwrites existing files, but |
+  |                          does not remove any files already on the stage.     |
   | --open                   Whether to open the Streamlit app in a browser.     |
   | --project  -p      TEXT  Path where the Snowflake project is stored.         |
   |                          Defaults to the current working directory.          |
