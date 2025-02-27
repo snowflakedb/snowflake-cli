@@ -5632,7 +5632,9 @@
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --replace                      Replaces procedure or function if there were  |
-  |                                changes in the definition.                    |
+  |                                changes in the definition. It only uploads    |
+  |                                new and overwrites existing files, but does   |
+  |                                not remove any files already on the stage.    |
   | --force-replace                Replace this object, even if the state didn't |
   |                                change                                        |
   | --project        -p      TEXT  Path where the Snowflake project is stored.   |
