@@ -212,12 +212,13 @@ class TestPackage:
     def test_package_with_capital_letters(self, directory_for_test, runner):
         # TODO: change to package controlled by SF, for example dummy-package-with-Capital-Letters
         package_name = "Zendesk"
+        package_version = "1.0.0"
         result = runner.invoke(
             [
                 "snowpark",
                 "package",
                 "create",
-                package_name,
+                f"{package_name}=={package_version}",
                 "--ignore-anaconda",
                 "--allow-shared-libraries",
             ]
