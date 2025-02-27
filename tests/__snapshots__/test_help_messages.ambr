@@ -4304,7 +4304,9 @@
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --replace                Replace notebook object if it already exists.       |
+  | --replace                Replace notebook object if it already exists. It    |
+  |                          only uploads new and overwrites existing files, but |
+  |                          does not remove any files already on the stage.     |
   | --project  -p      TEXT  Path where the Snowflake project is stored.         |
   |                          Defaults to the current working directory.          |
   | --env              TEXT  String in the format key=value. Overrides variables |
