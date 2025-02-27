@@ -229,7 +229,7 @@ class TestPackage:
         assert any(
             file.startswith(package_name) and file.endswith("dist-info/")
             for file in files
-        )
+        ), f"No {package_name}*.dist-info found in {list(files)}"
 
     @pytest.mark.integration
     def test_incorrect_input(self, runner):
