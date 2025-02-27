@@ -42,6 +42,7 @@ class CommandsRegistrationWithCallbacks:
         self._commands_already_registered: bool = False
 
     def register_commands_from_plugins(self) -> None:
+        self._add_plugins_installation_directory_to_sys_path()
         if self._commands_registration_config.enable_external_command_plugins:
             self._register_builtin_and_enabled_external_plugin_commands()
         else:
@@ -50,6 +51,14 @@ class CommandsRegistrationWithCallbacks:
         self._commands_already_registered = True
         for callback in self._callbacks_after_registration:
             callback()
+
+    def _add_plugins_installation_directory_to_sys_path(self):
+        import site
+        from pathlib import Path
+
+        plugins_dir = self._plugin_config_manager.installation_dir
+        site_path = Path(site.USER_SITE).relative_to(site.USER_BASE)
+        site.addsitedir(plugins_dir / site_path)
 
     @staticmethod
     def _register_only_builtin_plugin_commands() -> None:
