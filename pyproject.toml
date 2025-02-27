@@ -65,7 +65,7 @@ development = [
   "factory-boy==3.3.3",
   "Faker==36.1.1",
 ]
-packaging = ["pyinstaller~=6.10"]
+packaging = []
 
 [project.urls]
 "Source code" = "https://github.com/snowflakedb/snowflake-cli"
@@ -104,6 +104,7 @@ python = "3.10"
 features = ["development", "packaging"]
 
 [tool.hatch.envs.packaging.scripts]
+build-isolated-binary = ["python scripts/packaging/build_isolated_binary_with_hatch.py"]
 build-binaries = ["./scripts/packaging/build_binaries.sh"]
 build-packages = ["./scripts/packaging/build_packages.sh"]
 package-darwin-binaries = ["./scripts/packaging/build_darwin_package.sh"]

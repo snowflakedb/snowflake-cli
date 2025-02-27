@@ -26,10 +26,10 @@
 * Added `snow compute-pool deploy` command using `snowflake.yml` file.
 * Added `snow spcs service deploy` command using `snowflake.yml` file.
 * Added `snow image-repository deploy` command using `snowflake.yml` file.
+* Change binary builds to embed whole Python environment.
 
 ## Fixes and improvements
 * Fix handling of date types in `snow sql` command when using JSON for output format
-
 
 # v3.4.1
 ## Backward incompatibility
