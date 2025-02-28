@@ -30,7 +30,9 @@ def test_snowpark_external_access(
 ):
 
     with project_directory(project_name):
-        _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
+        _test_steps.snowpark_build_should_zip_files(
+            "--allow-shared-libraries", additional_files=[Path("app.zip")]
+        )
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
