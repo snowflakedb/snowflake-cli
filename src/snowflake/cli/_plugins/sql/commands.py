@@ -86,7 +86,7 @@ def execute_sql(
     if data_override:
         data = {v.key: v.value for v in parse_key_value_variables(data_override)}
 
-    single_statement, cursors = SqlManager().execute(
+    single_statement, cursors = SqlManager().execute_(
         query, files, std_in, data=data, retain_comments=retain_comments
     )
     if single_statement:

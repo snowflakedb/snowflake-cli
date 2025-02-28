@@ -197,3 +197,22 @@ def test_sql_with_variables_from_project(runner, project_directory, template):
         )
         assert result.exit_code == 0, result.output
         assert result.json == [{"VAR": "Knights of Nii"}]
+
+
+@pytest.mark.integration
+def test_sql_source_command_from_user_input(runner, tmp_path_factory, snapshot):
+    include_file = tmp_path_factory.mktemp("data") / "include.sql"
+    include_file.write_text("select 42;")
+
+    result = runner.invoke_with_connection(
+        (
+            "sql",
+            "-q",
+            f"select 1; !source {include_file.as_posix()}; select 3;",
+        )
+    )
+
+    assert result.output == snapshot
+    assert "SELECT 1" in result.output
+    assert "SELECT 42;" in result.output
+    assert "SELECT 3;" in result.output
