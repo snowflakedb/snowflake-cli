@@ -15,6 +15,8 @@
 from typing import List, Optional
 
 import typer
+from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
+from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.project.feature_flags import FeatureFlag
 from snowflake.cli._plugins.project.manager import ProjectManager
 from snowflake.cli._plugins.project.project_entity_model import (
@@ -27,11 +29,13 @@ from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     entity_argument,
     identifier_argument,
+    like_option,
     variables_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.console.console import cli_console
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import MessageResult, SingleQueryResult
 from snowflake.cli.api.project.project_paths import ProjectPaths
@@ -48,6 +52,18 @@ version_flag = typer.Option(
 )
 variables_flag = variables_option(
     'Variables for the execution context; for example: `-D "<key>=<value>"`.'
+)
+
+
+add_object_command_aliases(
+    app=app,
+    object_type=ObjectType.PROJECT,
+    name_argument=project_identifier,
+    like_option=like_option(
+        help_example='`list --like "my%"` lists all streamlit apps that begin with “my”'
+    ),
+    scope_option=scope_option(help_example="`list --in database my_db`"),
+    ommit_commands=["drop", "create", "describe"],
 )
 
 
