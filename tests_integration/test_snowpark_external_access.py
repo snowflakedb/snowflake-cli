@@ -21,6 +21,9 @@ from tests_integration.testing_utils import SnowparkTestSetup, SnowparkTestSteps
 STAGE_NAME = "dev_deployment"
 
 
+@pytest.mark.skip(
+    reason="temporarily skip the test due to external issue (SNOW-1955010)"
+)
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "project_name", ["snowpark_external_access_v1", "snowpark_external_access_v2"]
