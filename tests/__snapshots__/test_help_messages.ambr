@@ -217,11 +217,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -314,11 +318,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -465,11 +473,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -563,11 +575,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -748,11 +764,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -853,11 +873,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -957,11 +981,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -1058,11 +1086,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -1163,11 +1195,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -1267,11 +1303,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -1366,11 +1406,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -1496,11 +1540,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -1607,11 +1655,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -1714,11 +1766,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -1829,11 +1885,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -1932,11 +1992,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -2150,11 +2214,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -2274,11 +2342,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -2371,11 +2443,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -2544,11 +2620,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -2675,11 +2755,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -2772,11 +2856,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -2987,11 +3075,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -3125,11 +3217,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -3249,11 +3345,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -3338,11 +3438,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -3427,11 +3531,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -3538,11 +3646,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -3628,11 +3740,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -3722,11 +3838,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -3817,11 +3937,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -3911,11 +4035,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -4007,11 +4135,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -4108,11 +4240,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -4271,11 +4407,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -4368,11 +4508,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -4458,11 +4602,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -4548,11 +4696,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -4638,11 +4790,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -4770,11 +4926,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -4866,11 +5026,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -4962,11 +5126,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -5069,11 +5237,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -5189,11 +5361,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -5283,11 +5459,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -5377,11 +5557,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -5471,11 +5655,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -5601,11 +5789,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -5701,11 +5893,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -5796,11 +5992,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -5891,11 +6091,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -5988,11 +6192,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -6088,11 +6296,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -6192,11 +6404,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -6281,11 +6497,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -6373,11 +6593,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -6570,11 +6794,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -6662,11 +6890,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -6752,11 +6984,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -6842,11 +7078,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -6931,11 +7171,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -7021,11 +7265,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -7136,11 +7384,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -7227,11 +7479,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -7317,11 +7573,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -7408,11 +7668,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -7507,11 +7771,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -7625,11 +7893,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -7712,11 +7984,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -7806,11 +8082,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -7920,11 +8200,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -8010,11 +8294,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -8100,11 +8388,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -8190,11 +8482,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -8286,11 +8582,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -8382,11 +8682,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -8472,11 +8776,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -8651,11 +8959,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -8743,11 +9055,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -8832,11 +9148,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -8921,11 +9241,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -9026,11 +9350,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -9115,11 +9443,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -9204,11 +9536,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -9293,11 +9629,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -9382,11 +9722,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -9477,11 +9821,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -9578,11 +9926,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -9677,11 +10029,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -9766,11 +10122,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -9896,11 +10256,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -9989,11 +10353,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -10078,11 +10446,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -10180,11 +10552,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -10271,11 +10647,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -10445,11 +10825,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -10562,11 +10946,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -10651,11 +11039,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -10740,11 +11132,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -10831,11 +11227,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -10920,11 +11320,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -11028,11 +11432,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -11121,11 +11529,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -11216,11 +11628,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -11307,11 +11723,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -11437,11 +11857,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -11527,11 +11951,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -11617,11 +12045,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -11707,11 +12139,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -11798,11 +12234,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -11893,11 +12333,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
@@ -11985,11 +12429,15 @@
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |
