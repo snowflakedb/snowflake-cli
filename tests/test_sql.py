@@ -154,7 +154,7 @@ def test_sql_overrides_connection_configuration(mock_conn, runner, mock_cursor):
     mock_conn.assert_called_once_with(
         temporary_connection=False,
         enable_diag=False,
-        diag_log_path=Path("/tmp").absolute(),
+        diag_log_path=Path("/tmp"),
         connection_name="connectionName",
         account="accountnameValue",
         user="usernameValue",
