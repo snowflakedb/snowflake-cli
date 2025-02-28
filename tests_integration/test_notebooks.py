@@ -93,6 +93,26 @@ def test_containerized_notebook(runner, project_directory, test_database):
             assert "unschedulable in full compute pool." in result.output
 
 
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_containerized_notebook_incorrect_runtime_error_qa(
+    runner, project_directory, test_database, alter_snowflake_yml
+):
+    notebook_identifier = "containerized_notebook"
+    with project_directory("notebook_containerized_v2") as project_directory:
+        # readable error message should be returned when trying to create the notebook
+        alter_snowflake_yml(
+            project_directory / "snowflake.yml",
+            f"entities.{notebook_identifier}.runtime_name",
+            "not_existing_runtime_name",
+        )
+        result = runner.invoke_with_connection(["notebook", "deploy"])
+        assert result.exit_code == 1, result.output
+        assert "Custom runtime" in result.output
+        assert "runtimeName=NOT_EXISTING_RUNTIME_NAME is not supported" in result.output
+
+
+@pytest.mark.no_qa
 @pytest.mark.integration
 def test_containerized_notebook_incorrect_runtime_error(
     runner, project_directory, test_database, alter_snowflake_yml
@@ -105,7 +125,10 @@ def test_containerized_notebook_incorrect_runtime_error(
             "not_existing_runtime_name",
         )
         result = runner.invoke_with_connection(["notebook", "deploy"])
-        assert result.exit_code == 0, result.output
+        assert result.exit_code == 0, (
+            "If this test fails here on github integration tests, "
+            "remove this test and remove '@qa_only' mark from the test above"
+        )
 
         # readable error message should be returned when trying to execute the notebook
         result = runner.invoke_with_connection(
