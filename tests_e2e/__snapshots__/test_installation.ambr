@@ -9,6 +9,205 @@
   
   '''
 # ---
+# name: test_disabling_and_enabling_command
+  '''
+                                                                                  
+   Usage: snow [OPTIONS] COMMAND [ARGS]...                                        
+                                                                                  
+   Snowflake CLI tool for developers [v3.5.0.dev0]                                
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help                -h            Show this message and exit.              |
+  | --version                           Shows version of the Snowflake CLI       |
+  | --info                              Shows information about the Snowflake    |
+  |                                     CLI                                      |
+  | --config-file                 FILE  Specifies Snowflake CLI configuration    |
+  |                                     file that should be used                 |
+  |                                     [default: None]                          |
+  | --install-completion                Install completion for the current       |
+  |                                     shell.                                   |
+  | --show-completion                   Show completion for the current shell,   |
+  |                                     to copy it or customize the              |
+  |                                     installation.                            |
+  +------------------------------------------------------------------------------+
+  +- Commands -------------------------------------------------------------------+
+  | app                  Manages a Snowflake Native App                          |
+  | connection           Manages connections to Snowflake.                       |
+  | cortex               Provides access to Snowflake Cortex.                    |
+  | git                  Manages git repositories in Snowflake.                  |
+  | helpers              Helper commands.                                        |
+  | init                 Creates project directory from template.                |
+  | notebook             Manages notebooks in Snowflake.                         |
+  | object               Manages Snowflake objects like warehouses and stages    |
+  | snowpark             Manages procedures and functions.                       |
+  | spcs                 Manages Snowpark Container Services compute pools,      |
+  |                      services, image registries, and image repositories.     |
+  | sql                  Executes Snowflake query.                               |
+  | stage                Manages stages.                                         |
+  | streamlit            Manages a Streamlit app in Snowflake.                   |
+  | multilingual-hello   Says hello in various languages                         |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_disabling_and_enabling_command.1
+  '''
+  +------------------------------+
+  | plugin name        | enabled |
+  |--------------------+---------|
+  | multilingual-hello | True    |
+  +------------------------------+
+  
+  '''
+# ---
+# name: test_disabling_and_enabling_command.2
+  '''
+  Plugin multilingual-hello successfully disabled.
+  
+  '''
+# ---
+# name: test_disabling_and_enabling_command.3
+  '''
+  +------------------------------+
+  | plugin name        | enabled |
+  |--------------------+---------|
+  | multilingual-hello | False   |
+  +------------------------------+
+  
+  '''
+# ---
+# name: test_disabling_and_enabling_command.4
+  '''
+                                                                                  
+   Usage: snow [OPTIONS] COMMAND [ARGS]...                                        
+                                                                                  
+   Snowflake CLI tool for developers [v3.5.0.dev0]                                
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help                -h            Show this message and exit.              |
+  | --version                           Shows version of the Snowflake CLI       |
+  | --info                              Shows information about the Snowflake    |
+  |                                     CLI                                      |
+  | --config-file                 FILE  Specifies Snowflake CLI configuration    |
+  |                                     file that should be used                 |
+  |                                     [default: None]                          |
+  | --install-completion                Install completion for the current       |
+  |                                     shell.                                   |
+  | --show-completion                   Show completion for the current shell,   |
+  |                                     to copy it or customize the              |
+  |                                     installation.                            |
+  +------------------------------------------------------------------------------+
+  +- Commands -------------------------------------------------------------------+
+  | app          Manages a Snowflake Native App                                  |
+  | connection   Manages connections to Snowflake.                               |
+  | cortex       Provides access to Snowflake Cortex.                            |
+  | git          Manages git repositories in Snowflake.                          |
+  | helpers      Helper commands.                                                |
+  | init         Creates project directory from template.                        |
+  | notebook     Manages notebooks in Snowflake.                                 |
+  | object       Manages Snowflake objects like warehouses and stages            |
+  | snowpark     Manages procedures and functions.                               |
+  | spcs         Manages Snowpark Container Services compute pools, services,    |
+  |              image registries, and image repositories.                       |
+  | sql          Executes Snowflake query.                                       |
+  | stage        Manages stages.                                                 |
+  | streamlit    Manages a Streamlit app in Snowflake.                           |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_disabling_and_enabling_command.5
+  '''
+  Plugin multilingual-hello successfully enabled.
+  
+  '''
+# ---
+# name: test_disabling_and_enabling_command.6
+  '''
+                                                                                  
+   Usage: snow [OPTIONS] COMMAND [ARGS]...                                        
+                                                                                  
+   Snowflake CLI tool for developers [v3.5.0.dev0]                                
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help                -h            Show this message and exit.              |
+  | --version                           Shows version of the Snowflake CLI       |
+  | --info                              Shows information about the Snowflake    |
+  |                                     CLI                                      |
+  | --config-file                 FILE  Specifies Snowflake CLI configuration    |
+  |                                     file that should be used                 |
+  |                                     [default: None]                          |
+  | --install-completion                Install completion for the current       |
+  |                                     shell.                                   |
+  | --show-completion                   Show completion for the current shell,   |
+  |                                     to copy it or customize the              |
+  |                                     installation.                            |
+  +------------------------------------------------------------------------------+
+  +- Commands -------------------------------------------------------------------+
+  | app                  Manages a Snowflake Native App                          |
+  | connection           Manages connections to Snowflake.                       |
+  | cortex               Provides access to Snowflake Cortex.                    |
+  | git                  Manages git repositories in Snowflake.                  |
+  | helpers              Helper commands.                                        |
+  | init                 Creates project directory from template.                |
+  | notebook             Manages notebooks in Snowflake.                         |
+  | object               Manages Snowflake objects like warehouses and stages    |
+  | snowpark             Manages procedures and functions.                       |
+  | spcs                 Manages Snowpark Container Services compute pools,      |
+  |                      services, image registries, and image repositories.     |
+  | sql                  Executes Snowflake query.                               |
+  | stage                Manages stages.                                         |
+  | streamlit            Manages a Streamlit app in Snowflake.                   |
+  | multilingual-hello   Says hello in various languages                         |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_disabling_and_enabling_command.7
+  '''
+  +------------------------------+
+  | plugin name        | enabled |
+  |--------------------+---------|
+  | multilingual-hello | True    |
+  +------------------------------+
+  
+  '''
+# ---
+# name: test_disabling_and_enabling_command.8
+  '''
+  # Copyright (c) 2024 Snowflake Inc.
+  #
+  # Licensed under the Apache License, Version 2.0 (the "License");
+  # you may not use this file except in compliance with the License.
+  # You may obtain a copy of the License at
+  #
+  # http://www.apache.org/licenses/LICENSE-2.0
+  #
+  # Unless required by applicable law or agreed to in writing, software
+  # distributed under the License is distributed on an "AS IS" BASIS,
+  # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  # See the License for the specific language governing permissions and
+  # limitations under the License.
+  
+  [connections.dev]
+  [connections.integration]
+  schema = "public"
+  authenticator = "SNOWFLAKE_JWT"
+  
+  
+  [cli.plugins.snowpark-hello]
+  enabled = true
+  [cli.plugins.snowpark-hello.config]
+  greeting = "Hello"
+  
+  [cli.plugins.multilingual-hello]
+  enabled = true
+  
+  '''
+# ---
 # name: test_snow_help
   '''
                                                                                   

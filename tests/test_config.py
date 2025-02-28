@@ -248,7 +248,7 @@ def test_correct_updates_of_connections_on_setting_default_connection(
     """
     )
     config_init(config)
-    set_config_value(section=None, key="default_connection_name", value="asdf_b")
+    set_config_value(path=["default_connection_name"], value="asdf_b")
 
     def assert_correct_connections_loaded():
         assert CONFIG_MANAGER["default_connection_name"] == "asdf_b"

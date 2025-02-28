@@ -20,7 +20,7 @@ import warnings
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import tomlkit
 from click import ClickException
@@ -58,6 +58,7 @@ PLUGINS_SECTION = "plugins"
 
 LOGS_SECTION_PATH = [CLI_SECTION, LOGS_SECTION]
 PLUGINS_SECTION_PATH = [CLI_SECTION, PLUGINS_SECTION]
+PLUGIN_ENABLED_KEY = "enabled"
 FEATURE_FLAGS_SECTION_PATH = [CLI_SECTION, "features"]
 
 CONFIG_MANAGER.add_option(
@@ -140,8 +141,7 @@ def add_connection_to_proper_file(name: str, connection_config: ConnectionConfig
         return CONNECTIONS_FILE
     else:
         set_config_value(
-            section=CONNECTIONS_SECTION,
-            key=name,
+            path=[CONNECTIONS_SECTION, name],
             value=connection_config.to_dict_of_all_non_empty_values(),
         )
         return CONFIG_MANAGER.file_path
@@ -200,14 +200,19 @@ def _initialise_logs_section():
             conf_file_cache[CLI_SECTION][LOGS_SECTION] = _DEFAULT_LOGS_CONFIG
 
 
-def set_config_value(section: str | None, key: str, value: Any):
+def set_config_value(path: List[str], value: Any) -> None:
+    """Sets value in config.
+    For example to set value "val" to key "key" in section [a.b.c], call
+    set_config_value(["a", "b", "c", "key"], "val").
+    If you want to override a whole section, value should be a dictionary.
+    """
     with _config_file() as conf_file_cache:
-        if section:
-            if conf_file_cache.get(section) is None:
-                conf_file_cache[section] = {}
-            conf_file_cache[section][key] = value
-        else:
-            conf_file_cache[key] = value
+        current_config_dict = conf_file_cache
+        for key in path[:-1]:
+            if key not in current_config_dict:
+                current_config_dict[key] = {}
+            current_config_dict = current_config_dict[key]
+        current_config_dict[path[-1]] = value
 
 
 def get_logs_config() -> dict:

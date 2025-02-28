@@ -33,8 +33,8 @@ class CommandRegistrationConfig:
 
 
 class CommandsRegistrationWithCallbacks:
-    def __init__(self, plugin_config_provider: PluginConfigProvider):
-        self._plugin_config_provider = plugin_config_provider
+    def __init__(self):
+        self._plugin_config_manager = PluginConfigProvider()
         self._callbacks_after_registration: List[Callable[[], None]] = []
         self._commands_registration_config: CommandRegistrationConfig = (
             CommandRegistrationConfig(enable_external_command_plugins=True)
@@ -58,7 +58,7 @@ class CommandsRegistrationWithCallbacks:
 
     def _register_builtin_and_enabled_external_plugin_commands(self):
         enabled_external_plugins = (
-            self._plugin_config_provider.get_enabled_plugin_names()
+            self._plugin_config_manager.get_enabled_plugin_names()
         )
         loaded_command_plugins = load_builtin_and_external_command_plugins(
             enabled_external_plugins

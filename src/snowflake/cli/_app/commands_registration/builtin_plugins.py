@@ -20,6 +20,7 @@ from snowflake.cli._plugins.init import plugin_spec as init_plugin_spec
 from snowflake.cli._plugins.nativeapp import plugin_spec as nativeapp_plugin_spec
 from snowflake.cli._plugins.notebook import plugin_spec as notebook_plugin_spec
 from snowflake.cli._plugins.object import plugin_spec as object_plugin_spec
+from snowflake.cli._plugins.plugin import plugin_spec as plugin_plugin_spec
 from snowflake.cli._plugins.project import plugin_spec as project_plugin_spec
 from snowflake.cli._plugins.snowpark import plugin_spec as snowpark_plugin_spec
 from snowflake.cli._plugins.spcs import plugin_spec as spcs_plugin_spec
@@ -47,6 +48,7 @@ def get_builtin_plugin_name_to_plugin_spec():
         "cortex": cortex_plugin_spec,
         "init": init_plugin_spec,
         "workspace": workspace_plugin_spec,
+        "plugin": plugin_plugin_spec,
     }
 
     return plugin_specs

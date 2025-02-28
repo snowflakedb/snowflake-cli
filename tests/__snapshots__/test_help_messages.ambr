@@ -5282,6 +5282,105 @@
   
   '''
 # ---
+# name: test_help_messages[plugin.disable]
+  '''
+                                                                                  
+   Usage: root plugin disable [OPTIONS] [PLUGIN_NAME]                             
+                                                                                  
+   Disables a plugin with a given name.                                           
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  |   plugin_name      [PLUGIN_NAME]  Plugin name                                |
+  |                                   [default: None]                            |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[plugin.enable]
+  '''
+                                                                                  
+   Usage: root plugin enable [OPTIONS] [PLUGIN_NAME]                              
+                                                                                  
+   Enables a plugin with a given name.                                            
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  |   plugin_name      [PLUGIN_NAME]  Plugin name                                |
+  |                                   [default: None]                            |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[plugin.list]
+  '''
+                                                                                  
+   Usage: root plugin list [OPTIONS]                                              
+                                                                                  
+   Lists all installed plugins.                                                   
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[plugin]
+  '''
+                                                                                  
+   Usage: root plugin [OPTIONS] COMMAND [ARGS]...                                 
+                                                                                  
+   Plugin management commands.                                                    
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Commands -------------------------------------------------------------------+
+  | disable   Disables a plugin with a given name.                               |
+  | enable    Enables a plugin with a given name.                                |
+  | list      Lists all installed plugins.                                       |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[project.add-version]
   '''
                                                                                   
@@ -12723,6 +12822,25 @@
   | describe   Provides description of an object of given type.                  |
   | drop       Drops Snowflake object of given name and type.                    |
   | list       Lists all available Snowflake objects of given type.              |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[plugin]
+  '''
+                                                                                  
+   Usage: root plugin [OPTIONS] COMMAND [ARGS]...                                 
+                                                                                  
+   Plugin management commands.                                                    
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Commands -------------------------------------------------------------------+
+  | disable   Disables a plugin with a given name.                               |
+  | enable    Enables a plugin with a given name.                                |
+  | list      Lists all installed plugins.                                       |
   +------------------------------------------------------------------------------+
   
   
