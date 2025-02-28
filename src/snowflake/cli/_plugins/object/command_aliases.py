@@ -36,8 +36,10 @@ def add_object_command_aliases(
     name_argument: typer.Argument,
     like_option: Optional[typer.Option],
     scope_option: Optional[typer.Option],
-    ommit_commands: List[str] = [],
+    ommit_commands: List[str] | None = None,
 ):
+    if ommit_commands is None:
+        ommit_commands = list()
     if "list" not in ommit_commands:
         if not like_option:
             raise ClickException('[like_option] have to be defined for "list" command')
