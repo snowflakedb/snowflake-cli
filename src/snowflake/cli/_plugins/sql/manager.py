@@ -35,7 +35,10 @@ from snowflake.connector.util_text import split_statements
 IsSingleStatement = bool
 StatementGenerator = Generator[str, None, None]
 
-SOURCE_PATTERN = re.compile(r"!source", flags=re.IGNORECASE)
+SOURCE_PATTERN = re.compile(
+    r"!source\s+[\"']?(.*?)[\"']?\s*(?:;|$)",
+    flags=re.IGNORECASE,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -217,7 +220,7 @@ class SqlManager(SqlExecutionMixin):
 
 
 StrFunction = Callable[[str], str]
-OperatorFunctions = Sequence[StrFunction | partial[StrFunction]]
+OperatorFunctions = Sequence[StrFunction]
 SQLFiles = Sequence[Path]
 StatementCompilationErrors = Sequence[str]
 StatementsCount = int
@@ -229,7 +232,12 @@ StatementCompilationResult = Tuple[
 ]
 Error = str
 Statement = str
-RawStatementGenerator = Generator[Tuple[Error | None, Statement | None], None, None]
+StatementAccumulator = int
+IS_COMMAND: StatementAccumulator = 0
+IS_STATEMENT: StatementAccumulator = 1
+RawStatementGenerator = Generator[
+    Tuple[Error | None, StatementAccumulator, Statement | None], None, None
+]
 
 
 class SQLReader:
@@ -258,21 +266,28 @@ class SQLReader:
         stmt_count = 0
         compiled_statements = []
 
-        for stmt_count, (read_error, raw_statement) in enumerate(
-            self._raw_statements, start=1
-        ):
+        for read_error, stmt_value, raw_statement in self._raw_statements:
+            stmt_count += stmt_value
             if read_error:
                 errors.append(str(read_error))
                 continue
 
             try:
-                for operator in operators:
-                    compiled_statement = operator(raw_statement)
-                    compiled_statements.append(str(compiled_statement))
+                compiled_statement = self._apply_operators(raw_statement, operators)
+                compiled_statements.append(compiled_statement)
+
             except UndefinedError as err:
                 errors.append(str(err))
 
         return errors, stmt_count, compiled_statements
+
+    @staticmethod
+    def _apply_operators(statement: str, operators: OperatorFunctions) -> str:
+        if not operators:
+            return statement
+        for operator in operators:
+            statement = operator(statement)
+        return statement
 
     @property
     def _input_reader(self) -> RawStatementGenerator:
@@ -293,7 +308,7 @@ class SQLReader:
         split_result = SOURCE_PATTERN.split(statement.strip(), maxsplit=1)
 
         match split_result:
-            case ("", file_path) if SecurePath(file_path.strip()).exists():
+            case ("", file_path, "") if SecurePath(file_path.strip()).exists():
                 result = True, SecurePath(file_path.strip())
             case _:
                 result = False, None
@@ -311,7 +326,7 @@ class SQLReader:
         if is_source and isinstance(source_path, SecurePath):
             yield from self._recursive_file_reader(source_path, seen_files)
         else:
-            yield None, statement
+            yield None, IS_STATEMENT, statement
 
     def _recursive_file_reader(
         self,
@@ -320,7 +335,11 @@ class SQLReader:
     ) -> RawStatementGenerator:
         try:
             if file.path in seen_files:
-                yield f"Recursion detected for file {file.path.as_posix()}", None
+                yield (
+                    f"Recursion detected for file {file.path.as_posix()}",
+                    IS_COMMAND,
+                    None,
+                )
 
             else:
                 seen_files.add(file.path)
