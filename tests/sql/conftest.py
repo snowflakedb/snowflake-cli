@@ -46,9 +46,9 @@ def make_recursive_source_includes(
     f2 = tmp_path_factory.mktemp("data") / ("f2.txt")
     f3 = tmp_path_factory.mktemp("data") / ("f3.txt")
 
-    f1.write_text(f"1\n!source {f2}")
-    f2.write_text(f"2\n!source {f3}")
-    f3.write_text(f"3\n!source {f1}")
+    f1.write_text(f"1; !source {f2};")
+    f2.write_text(f"2; !source {f3};")
+    f3.write_text(f"3; !source {f1}; FINAL;")
 
     yield SecurePath(f1)
 
