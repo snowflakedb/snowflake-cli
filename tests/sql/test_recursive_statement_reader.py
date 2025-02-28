@@ -1,9 +1,23 @@
 import pytest
+from click import ClickException
 from snowflake.cli._plugins.sql.manager import (
     IS_COMMAND,
     IS_STATEMENT,
     SQLReader,
 )
+from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
+
+
+def test_statement_source_is_required():
+    with pytest.raises(ClickException):
+        SQLReader(query=None, files=None)
+
+
+def test_empty_generator_from_files():
+    reader = SQLReader("a", [])
+
+    with pytest.raises(StopIteration):
+        next(reader._file_reader)  # noqa: SLF001
 
 
 def test_source_recursion_detection_from_files(recursive_source_includes):
@@ -96,6 +110,15 @@ def test_compilation_success_no_source():
     assert compiled_statemetns == ["select 1;", "select 2;", "select 3;"]
 
 
+def test_compilation_success_with_source(no_recursion_includes):
+    reader = SQLReader(query=None, files=no_recursion_includes)
+    errors, stmt_count, compiled_statements = reader.compile_statements([])
+
+    assert not errors
+    assert stmt_count == 3
+    assert compiled_statements == ["select 1;", "select 2;", "FINAL;"]
+
+
 def test_comilation_success_with_source(single_select_1_file):
     query = f"select 73; !source {single_select_1_file.as_posix()}; select 42;"
 
@@ -107,17 +130,29 @@ def test_comilation_success_with_source(single_select_1_file):
     assert compiled_statements == ["select 73;", "select 1;", "select 42;"]
 
 
-def test_compilation_error(recursive_source_includes):
+def test_compilation_recursion_error(recursive_source_includes):
     query = f"select 1; !source {recursive_source_includes.path.as_posix()}"
 
     reader = SQLReader(query=query, files=None)
 
-    errors, stmt_count, compiled_statements = reader.compile_statements([])
+    errors, stmt_count, _ = reader.compile_statements([])
     assert errors is not None
+    assert all(e.startswith("Recursion detected for file") for e in errors)
     assert stmt_count == 5
 
 
-def test_rec_count(tmp_path_factory):
+def test_compilation_operators_error(cli_context_for_sql_compilation):
+    query = "select 1; select &{foo}; select 3;"
+    reader = SQLReader(query=query, files=None)
+    errors, stmt_count, compiled_statements = reader.compile_statements(
+        [snowflake_sql_jinja_render]
+    )
+    assert errors == [], errors
+    assert stmt_count == 3
+    assert compiled_statements == ["select 1;", "select &{foo};", "select 3;"]
+
+
+def test_stmt_count_with_errors(tmp_path_factory):
     f = tmp_path_factory.mktemp("data") / "f.sql"
     query = f"select 1; !source {f};"
     f.write_text(query)

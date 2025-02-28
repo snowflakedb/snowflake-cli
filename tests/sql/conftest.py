@@ -1,9 +1,22 @@
 import typing as t
 from pathlib import Path
 from textwrap import dedent
+from unittest import mock
 
 import pytest
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.utils.models import ProjectEnvironment
+
+
+@pytest.fixture(name="cli_context_for_sql_compilation")
+def make_cli_context():
+    with mock.patch(
+        "snowflake.cli.api.rendering.sql_templates.get_cli_context"
+    ) as cli_context:
+        cli_context().template_context = {
+            "ctx": {"env": ProjectEnvironment(default_env={}, override_env={})}
+        }
+        yield cli_context()
 
 
 @pytest.fixture(name="no_command_files")
@@ -51,6 +64,18 @@ def make_recursive_source_includes(
     f3.write_text(f"3; !source {f1}; FINAL;")
 
     yield SecurePath(f1)
+
+
+@pytest.fixture(name="no_recursion_includes")
+def make_no_recursion_includes(tmp_path_factory):
+    """f1 includes f2."""
+    f1 = tmp_path_factory.mktemp("data") / ("f1.txt")
+    f2 = tmp_path_factory.mktemp("data") / ("f2.txt")
+
+    f1.write_text(f"select 1; !source {f2}; FINAL;")
+    f2.write_text(f"select 2;")
+
+    yield (f1,)
 
 
 @pytest.fixture(name="single_select_1_file")
