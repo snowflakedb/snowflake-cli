@@ -133,7 +133,8 @@ def _default_file_callback(param_name: str):
 @with_experimental_behaviour()
 def streamlit_deploy(
     replace: bool = ReplaceOption(
-        help="Replace the Streamlit app if it already exists."
+        help="Replaces the Streamlit app if it already exists. It only uploads new and overwrites existing files, "
+        "but does not remove any files already on the stage."
     ),
     entity_id: str = entity_argument("streamlit"),
     open_: bool = OpenOption,

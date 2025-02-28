@@ -4444,7 +4444,9 @@
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --replace                Replace notebook object if it already exists.       |
+  | --replace                Replace notebook object if it already exists. It    |
+  |                          only uploads new and overwrites existing files, but |
+  |                          does not remove any files already on the stage.     |
   | --project  -p      TEXT  Path where the Snowflake project is stored.         |
   |                          Defaults to the current working directory.          |
   | --env              TEXT  String in the format key=value. Overrides variables |
@@ -5824,7 +5826,9 @@
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --replace                      Replaces procedure or function if there were  |
-  |                                changes in the definition.                    |
+  |                                changes in the definition. It only uploads    |
+  |                                new and overwrites existing files, but does   |
+  |                                not remove any files already on the stage.    |
   | --force-replace                Replace this object, even if the state didn't |
   |                                change                                        |
   | --project        -p      TEXT  Path where the Snowflake project is stored.   |
@@ -11788,7 +11792,9 @@
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --replace                Replace the Streamlit app if it already exists.     |
+  | --replace                Replaces the Streamlit app if it already exists. It |
+  |                          only uploads new and overwrites existing files, but |
+  |                          does not remove any files already on the stage.     |
   | --open                   Whether to open the Streamlit app in a browser.     |
   | --project  -p      TEXT  Path where the Snowflake project is stored.         |
   |                          Defaults to the current working directory.          |
