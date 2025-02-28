@@ -1,2 +1,2 @@
-snowflake-snowpark-python==1.25.0
+snowflake-snowpark-python
 syrupy
