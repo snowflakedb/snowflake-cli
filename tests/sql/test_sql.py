@@ -69,8 +69,7 @@ def test_sql_execute_multiple_file(mock_execute, runner, mock_cursor):
     assert result.exit_code == 0
     mock_execute.assert_has_calls(
         [
-            mock.call(query, cursor_class=VerboseCursor),
-            mock.call(query, cursor_class=VerboseCursor),
+            mock.call(f"{query}\n{query}", cursor_class=VerboseCursor),
         ]
     )
 
