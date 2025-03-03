@@ -76,7 +76,7 @@ class SQLReader:
                 compiled_statements.append(compiled_statement)
 
             except UndefinedError as err:
-                errors.append(str(err))
+                errors.append(f"SQL template rendering error: {err}")
 
         return errors, stmt_count, compiled_statements
 
