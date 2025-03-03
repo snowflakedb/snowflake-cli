@@ -148,7 +148,7 @@ def test_compilation_operators_error():
     errors, stmt_count, compiled_statements = reader.compile_statements(
         (snowflake_sql_jinja_render,)
     )
-    assert errors == ["'foo' is undefined"], errors
+    assert errors == ["SQL template rendering error: 'foo' is undefined"], errors
     assert stmt_count == 3
     assert compiled_statements == ["select 1;", "select 3;"]
 
@@ -159,7 +159,7 @@ def test_stmt_count_with_errors(tmp_path_factory):
     f.write_text(query)
 
     reader = SQLReader(query=query + query, files=None)
-    errors, stmt_count, compiled_statements = reader.compile_statements(())
+    errors, stmt_count, _ = reader.compile_statements(())
     assert errors, errors
     assert len(errors) == 2
     assert stmt_count == 4
