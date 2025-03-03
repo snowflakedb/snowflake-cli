@@ -53,12 +53,6 @@ class SqlManager(SqlExecutionMixin):
         When no compilation errors are detected, the sequence on queries
         in executed and returned as tuple.
         """
-        inputs = (query, files, std_in)
-        if len([i for i in inputs if i]) > 1:
-            raise UsageError(
-                "Multiple input sources specified. Please specify only one."
-            )
-
         query = sys.stdin.read() if std_in else query
 
         stmt_reader = SQLReader(query, files, not retain_comments)
