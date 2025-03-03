@@ -24,6 +24,15 @@ EMPTY = "EMPTY"
 
 
 class StatementType(Enum):
+    """Class for labeling statement types.
+
+    Each type has a score property that is used to calculate total
+    count of statements.
+
+    Only SQL statements have score of 1.
+    All other types have score of 0.
+    """
+
     STATEMENT = STATEMENT
     COMMAND = COMMAND
     EMPTY = EMPTY
@@ -89,7 +98,7 @@ class SQLReader:
     ) -> StatementCompilationResult:
         """Transforms raw statements into list of compiled.
 
-        Calculates total number of statements by summing score for each statemetn type.
+        Calculates total number of statements by summing score for each StatementType.
 
         Returns tuple of errors, statement count and compiled statements.
         """
