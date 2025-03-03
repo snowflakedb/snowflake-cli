@@ -1,9 +1,8 @@
 import pytest
 from click import ClickException
 from snowflake.cli._plugins.sql.reader import (
-    IS_COMMAND,
-    IS_STATEMENT,
     SQLReader,
+    StatementType,
 )
 from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
 
@@ -26,17 +25,17 @@ def test_source_recursion_detection_from_files(recursive_source_includes):
         recursive_source_includes, set()
     )
 
-    assert next(raw_statements) == (None, IS_STATEMENT, "1;")
-    assert next(raw_statements) == (None, IS_STATEMENT, "2;")
-    assert next(raw_statements) == (None, IS_STATEMENT, "3;")
+    assert next(raw_statements) == (None, StatementType.STATEMENT, "1;")
+    assert next(raw_statements) == (None, StatementType.STATEMENT, "2;")
+    assert next(raw_statements) == (None, StatementType.STATEMENT, "3;")
 
     error, accumulator, statement = next(raw_statements)
     assert isinstance(error, str)
     assert error.startswith("Recursion detected for file")
-    assert accumulator == IS_COMMAND
+    assert accumulator == StatementType.COMMAND
     assert statement is None
 
-    assert next(raw_statements) == (None, IS_STATEMENT, "FINAL;")
+    assert next(raw_statements) == (None, StatementType.STATEMENT, "FINAL;")
 
     with pytest.raises(StopIteration):
         next(raw_statements)
@@ -47,17 +46,17 @@ def test_source_recursion_detection_from_query(recursive_source_includes):
     reader = SQLReader(query=query, files=None)
     raw_statements = reader._input_reader  # noqa: SLF001
 
-    assert next(raw_statements) == (None, IS_STATEMENT, "select 1;")
-    assert next(raw_statements) == (None, IS_STATEMENT, "1;")
-    assert next(raw_statements) == (None, IS_STATEMENT, "2;")
-    assert next(raw_statements) == (None, IS_STATEMENT, "3;")
+    assert next(raw_statements) == (None, StatementType.STATEMENT, "select 1;")
+    assert next(raw_statements) == (None, StatementType.STATEMENT, "1;")
+    assert next(raw_statements) == (None, StatementType.STATEMENT, "2;")
+    assert next(raw_statements) == (None, StatementType.STATEMENT, "3;")
 
     error, accumulator, statement = next(raw_statements)
     assert isinstance(error, str)
     assert error.startswith("Recursion detected for file")
-    assert accumulator == IS_COMMAND
+    assert accumulator == StatementType.COMMAND
 
-    assert next(raw_statements) == (None, IS_STATEMENT, "FINAL;")
+    assert next(raw_statements) == (None, StatementType.STATEMENT, "FINAL;")
 
     assert statement is None
 
@@ -71,7 +70,7 @@ def test_source_dispatcher_statement():
     reader = SQLReader(query="n/a", files=None)
     dispatcher = reader._command_dispatcher(statement)  # noqa: SLF001
 
-    assert next(dispatcher) == (None, IS_STATEMENT, "select 1;")
+    assert next(dispatcher) == (None, StatementType.STATEMENT, "select 1;")
 
     with pytest.raises(StopIteration):
         next(dispatcher)
@@ -82,17 +81,17 @@ def test_source_dispatcher_with_source_from_input(recursive_source_includes):
 
     reader = SQLReader(query=statement, files=None)._input_reader  # noqa: SLF001
 
-    assert next(reader) == (None, IS_STATEMENT, "select 1;")
-    assert next(reader) == (None, IS_STATEMENT, "1;")
-    assert next(reader) == (None, IS_STATEMENT, "2;")
-    assert next(reader) == (None, IS_STATEMENT, "3;")
+    assert next(reader) == (None, StatementType.STATEMENT, "select 1;")
+    assert next(reader) == (None, StatementType.STATEMENT, "1;")
+    assert next(reader) == (None, StatementType.STATEMENT, "2;")
+    assert next(reader) == (None, StatementType.STATEMENT, "3;")
 
     error, accumulator, statement = next(reader)
     assert isinstance(error, str) and error.startswith("Recursion detected for file")
     assert statement is None
-    assert accumulator == IS_COMMAND
+    assert accumulator == StatementType.COMMAND
 
-    assert next(reader) == (None, IS_STATEMENT, "FINAL;")
+    assert next(reader) == (None, StatementType.STATEMENT, "FINAL;")
 
     with pytest.raises(StopIteration):
         next(reader)
@@ -108,6 +107,15 @@ def test_compilation_success_no_source():
     assert not errors, errors
     assert stmt_count == 3, stmt_count
     assert compiled_statemetns == ["select 1;", "select 2;", "select 3;"]
+
+
+def test_compilation_empty_input():
+    query = " "
+    reader = SQLReader(query=query, files=None)
+    errors, stmt_count, compiled_statements = reader.compile_statements([])
+    assert not errors, errors
+    assert stmt_count == 0
+    assert not compiled_statements, compiled_statements
 
 
 def test_compilation_success_with_source(no_recursion_includes):

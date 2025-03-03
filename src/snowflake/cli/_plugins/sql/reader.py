@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+from enum import Enum
+from functools import cached_property
 from io import StringIO, TextIOWrapper
 from pathlib import Path
 from typing import Callable, Generator, Sequence, Tuple
@@ -15,9 +17,25 @@ SOURCE_PATTERN = re.compile(
     flags=re.IGNORECASE,
 )
 
+
+STATEMENT = "STATEMENT"
+COMMAND = "COMMAND"
+EMPTY = "EMPTY"
+
+
+class StatementType(Enum):
+    STATEMENT = STATEMENT
+    COMMAND = COMMAND
+    EMPTY = EMPTY
+
+    @cached_property
+    def score(self) -> int:
+        scores = {STATEMENT: 1}
+        return scores.get(self.value, 0)
+
+
 Error = str
 Statement = str
-StatementAccumulator = int
 StatementsCount = int
 SqlTransofrmFunc = Callable[[str], str]
 OperatorFunctions = Sequence[SqlTransofrmFunc]
@@ -30,11 +48,8 @@ StatementCompilationResult = Tuple[
     CompiledStatements,
 ]
 RawStatementGenerator = Generator[
-    Tuple[Error | None, StatementAccumulator, Statement | None], None, None
+    Tuple[Error | None, StatementType, Statement | None], None, None
 ]
-
-IS_COMMAND: StatementAccumulator = 0
-IS_STATEMENT: StatementAccumulator = 1
 
 
 class SQLReader:
@@ -65,15 +80,16 @@ class SQLReader:
         stmt_count = 0
         compiled_statements = []
 
-        for read_error, stmt_value, raw_statement in self._raw_statements:
-            stmt_count += stmt_value
+        for read_error, stmt_type, raw_statement in self._raw_statements:
+            stmt_count += stmt_type.score
             if read_error:
                 errors.append(str(read_error))
                 continue
 
             try:
                 compiled_statement = self._apply_operators(raw_statement, operators)
-                compiled_statements.append(compiled_statement)
+                if compiled_statement:
+                    compiled_statements.append(compiled_statement)
 
             except UndefinedError as err:
                 errors.append(f"SQL template rendering error: {err}")
@@ -133,7 +149,10 @@ class SQLReader:
         if is_source and isinstance(source_path, SecurePath):
             yield from self._recursive_file_reader(source_path, seen_files)
         else:
-            yield None, IS_STATEMENT, statement
+            stmt_score = (
+                StatementType.STATEMENT if statement.strip() else StatementType.EMPTY
+            )
+            yield None, stmt_score, statement
 
     def _recursive_file_reader(
         self,
@@ -144,7 +163,7 @@ class SQLReader:
             if file.path in seen_files:
                 yield (
                     f"Recursion detected for file {file.path.as_posix()}",
-                    IS_COMMAND,
+                    StatementType.COMMAND,
                     None,
                 )
 
