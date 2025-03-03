@@ -57,6 +57,8 @@ class SqlManager(SqlExecutionMixin):
             raise UsageError(
                 "Multiple input sources specified. Please specify only one."
             )
+        if not any(inputs):
+            raise UsageError("Use either query, filename or input option.")
 
         query = sys.stdin.read() if std_in else query
 
