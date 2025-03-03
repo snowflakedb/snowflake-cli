@@ -57,6 +57,7 @@ from snowflake.cli.api.errno import (
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
     CANNOT_DISABLE_RELEASE_CHANNELS,
     CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS,
+    CANNOT_SET_DEBUG_MODE_WITH_MANIFEST_VERSION,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
     INSUFFICIENT_PRIVILEGES,
@@ -2306,13 +2307,23 @@ def test_create_application_with_all_clauses(
                         create application {app_name}
                             from application package {pkg_name}
                             using @{stage_fqn}
-                            debug_mode = True
                             AUTHORIZE_TELEMETRY_EVENT_SHARING = TRUE
                             comment = {SPECIAL_COMMENT}
                         """
                     )
                 ),
-            )
+            ),
+            (
+                mock_cursor([], []),
+                mock.call(
+                    dedent(
+                        f"""\
+                            alter application {app_name}
+                            set debug_mode = True
+                        """
+                    )
+                ),
+            ),
         ]
     )
     mock_execute_query.side_effect = side_effects
@@ -2418,7 +2429,6 @@ def test_create_application_special_message_for_event_sharing_error(
                         create application {app_name}
                             from application package {pkg_name}
                             using version "3" patch 1
-                            debug_mode = False
                             AUTHORIZE_TELEMETRY_EVENT_SHARING = FALSE
                             comment = {SPECIAL_COMMENT}
                         """
@@ -2455,6 +2465,74 @@ def test_create_application_special_message_for_event_sharing_error(
     )
     assert err.match(
         "The application package requires event sharing to be authorized. Please set 'share_mandatory_events' to true in the application telemetry section of the project definition file."
+    )
+
+
+def test_create_application_returns_warning_with_debug_mode_and_manifest_app_spec(
+    mock_use_warehouse, mock_use_role, mock_execute_query, mock_cursor
+):
+    app_name = "test_app"
+    pkg_name = "test_pkg"
+    stage_fqn = "app_pkg.app_src.stage"
+    role = "test_role"
+    warehouse = "test_warehouse"
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([], []),
+                mock.call(
+                    dedent(
+                        f"""\
+                        create application {app_name}
+                            from application package {pkg_name}
+                            using @{stage_fqn}
+                            AUTHORIZE_TELEMETRY_EVENT_SHARING = TRUE
+                            comment = {SPECIAL_COMMENT}
+                        """
+                    )
+                ),
+            ),
+            (
+                ProgrammingError(
+                    errno=CANNOT_SET_DEBUG_MODE_WITH_MANIFEST_VERSION,
+                ),
+                mock.call(
+                    dedent(
+                        f"""\
+                            alter application {app_name}
+                            set debug_mode = True
+                        """
+                    )
+                ),
+            ),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_warehouse, mock.call(warehouse)),
+    ]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        _, warnings = sql_facade.create_application(
+            name=app_name,
+            package_name=pkg_name,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            path_to_version_directory=stage_fqn,
+            debug_mode=True,
+            should_authorize_event_sharing=True,
+            role=role,
+            warehouse=warehouse,
+        )
+
+    assert len(warnings) == 1
+    warning = warnings[0]
+    assert (
+        "Did not apply debug mode to application because the manifest version is set to 2 or higher. Please use session debugging instead."
+        == warning
     )
 
 
