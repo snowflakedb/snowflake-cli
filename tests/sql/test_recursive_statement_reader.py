@@ -1,6 +1,6 @@
 import pytest
 from click import ClickException
-from snowflake.cli._plugins.sql.manager import (
+from snowflake.cli._plugins.sql.reader import (
     IS_COMMAND,
     IS_STATEMENT,
     SQLReader,
@@ -141,15 +141,16 @@ def test_compilation_recursion_error(recursive_source_includes):
     assert stmt_count == 5
 
 
-def test_compilation_operators_error(cli_context_for_sql_compilation):
+@pytest.mark.usefixtures("cli_context_for_sql_compilation")
+def test_compilation_operators_error():
     query = "select 1; select &{foo}; select 3;"
     reader = SQLReader(query=query, files=None)
     errors, stmt_count, compiled_statements = reader.compile_statements(
-        [snowflake_sql_jinja_render]
+        (snowflake_sql_jinja_render,)
     )
-    assert errors == [], errors
+    assert errors == ["'foo' is undefined"], errors
     assert stmt_count == 3
-    assert compiled_statements == ["select 1;", "select &{foo};", "select 3;"]
+    assert compiled_statements == ["select 1;", "select 3;"]
 
 
 def test_stmt_count_with_errors(tmp_path_factory):
