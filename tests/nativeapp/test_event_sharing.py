@@ -291,9 +291,12 @@ def _setup_mocks_for_create_app(
     side_effects, mock_execute_query_expected = mock_execute_helper(calls)
     mock_execute_query.side_effect = side_effects
 
-    mock_sql_facade_create_application.side_effect = error_raised or mock_cursor(
-        [[(DEFAULT_SUCCESS_MESSAGE,)]], []
-    )
+    def create_app_side_effect_function(*args, **kwargs):
+        if error_raised:
+            raise error_raised
+        return (mock_cursor([(DEFAULT_SUCCESS_MESSAGE,)], []), [])
+
+    mock_sql_facade_create_application.side_effect = create_app_side_effect_function
 
     mock_sql_facade_create_application_expected = [
         mock.call(

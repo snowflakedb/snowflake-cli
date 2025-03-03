@@ -174,6 +174,13 @@ def _create_or_upgrade_app(
     )
 
 
+def set_mock_create_app_side_effects(mock_sql_facade_create_application, mock_cursor):
+    mock_sql_facade_create_application.side_effect = lambda *args, **kwargs: (
+        mock_cursor([(DEFAULT_CREATE_SUCCESS_MESSAGE,)], []),
+        [],
+    )
+
+
 test_pdf = dedent(
     """\
         definition_version: 2
@@ -325,9 +332,7 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
     mock_cursor,
 ):
     mock_conn.return_value = MockConnectionCtx()
-    mock_sql_facade_create_application.side_effect = mock_cursor(
-        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
-    )
+    set_mock_create_app_side_effects(mock_sql_facade_create_application, mock_cursor)
 
     mock_diff_result = DiffResult()
 
@@ -393,12 +398,16 @@ def test_create_or_upgrade_dev_app_with_warning(
     existing_app_info,
 ):
     status_messages = ["App created/upgraded", "Warning: some warning"]
-    status_cursor_results = [(msg,) for msg in status_messages]
 
     mock_get_existing_app_info.return_value = existing_app_info
     mock_conn.return_value = MockConnectionCtx()
-    mock_sql_facade_create_application.return_value = status_cursor_results
-    mock_sql_facade_upgrade_application.return_value = status_cursor_results
+    mock_sql_facade_create_application.return_value = (
+        [(msg,) for msg in status_messages],
+        [],
+    )
+    mock_sql_facade_upgrade_application.return_value = [
+        (msg,) for msg in status_messages
+    ]
 
     mock_diff_result = DiffResult()
     setup_project_file(os.getcwd(), test_pdf.replace("package_role", "app_role"))
@@ -471,9 +480,7 @@ def test_create_dev_app_create_new_with_additional_privileges(
     mock_cursor,
 ):
     mock_conn.return_value = MockConnectionCtx()
-    mock_sql_facade_create_application.side_effect = mock_cursor(
-        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
-    )
+    set_mock_create_app_side_effects(mock_sql_facade_create_application, mock_cursor)
 
     mock_diff_result = DiffResult()
     setup_project_file(os.getcwd())
@@ -868,9 +875,7 @@ def test_create_dev_app_create_new_quoted(
     mock_cursor,
 ):
     mock_conn.return_value = MockConnectionCtx()
-    mock_sql_facade_create_application.side_effect = mock_cursor(
-        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
-    )
+    set_mock_create_app_side_effects(mock_sql_facade_create_application, mock_cursor)
 
     mock_diff_result = DiffResult()
     pdf_content = dedent(
@@ -948,9 +953,7 @@ def test_create_dev_app_create_new_quoted_override(
     mock_cursor,
 ):
     mock_conn.return_value = MockConnectionCtx()
-    mock_sql_facade_create_application.side_effect = mock_cursor(
-        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
-    )
+    set_mock_create_app_side_effects(mock_sql_facade_create_application, mock_cursor)
 
     mock_diff_result = DiffResult()
     current_working_directory = os.getcwd()
@@ -1040,9 +1043,7 @@ def test_create_dev_app_recreate_app_when_orphaned(
         cause=ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
     )
 
-    mock_sql_facade_create_application.side_effect = mock_cursor(
-        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
-    )
+    set_mock_create_app_side_effects(mock_sql_facade_create_application, mock_cursor)
 
     setup_project_file(os.getcwd())
 
@@ -1181,9 +1182,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
         err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
         cause=ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
     )
-    mock_sql_facade_create_application.side_effect = mock_cursor(
-        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
-    )
+    set_mock_create_app_side_effects(mock_sql_facade_create_application, mock_cursor)
 
     setup_project_file(os.getcwd())
 
@@ -1320,9 +1319,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
         err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
         cause=ProgrammingError(errno=APPLICATION_NO_LONGER_AVAILABLE),
     )
-    mock_sql_facade_create_application.side_effect = mock_cursor(
-        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
-    )
+    set_mock_create_app_side_effects(mock_sql_facade_create_application, mock_cursor)
 
     setup_project_file(os.getcwd())
 
@@ -1756,9 +1753,7 @@ def test_versioned_app_upgrade_to_unversioned(
         err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
         cause=ProgrammingError(errno=CANNOT_UPGRADE_FROM_VERSION_TO_LOOSE_FILES),
     )
-    mock_sql_facade_create_application.side_effect = mock_cursor(
-        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
-    )
+    set_mock_create_app_side_effects(mock_sql_facade_create_application, mock_cursor)
 
     setup_project_file(os.getcwd())
 
@@ -1959,9 +1954,7 @@ def test_upgrade_app_recreate_app(
         err=UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE),
         cause=ProgrammingError(errno=CANNOT_UPGRADE_FROM_LOOSE_FILES_TO_VERSION),
     )
-    mock_sql_facade_create_application.side_effect = mock_cursor(
-        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
-    )
+    set_mock_create_app_side_effects(mock_sql_facade_create_application, mock_cursor)
 
     setup_project_file(os.getcwd())
 
@@ -2132,9 +2125,7 @@ def test_upgrade_app_recreate_app_from_version(
     mock_sql_facade_upgrade_application.side_effect = (
         UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE)
     )
-    mock_sql_facade_create_application.side_effect = mock_cursor(
-        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
-    )
+    set_mock_create_app_side_effects(mock_sql_facade_create_application, mock_cursor)
 
     setup_project_file(os.getcwd())
 
@@ -2271,9 +2262,7 @@ def test_run_app_from_release_directive_with_channel(
     mock_sql_facade_upgrade_application.side_effect = (
         UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE)
     )
-    mock_sql_facade_create_application.side_effect = mock_cursor(
-        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
-    )
+    set_mock_create_app_side_effects(mock_sql_facade_create_application, mock_cursor)
 
     setup_project_file(os.getcwd())
 
@@ -2397,9 +2386,7 @@ def test_run_app_from_release_directive_with_channel_but_not_from_release_direct
     mock_sql_facade_upgrade_application.side_effect = (
         UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE)
     )
-    mock_sql_facade_create_application.side_effect = mock_cursor(
-        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
-    )
+    set_mock_create_app_side_effects(mock_sql_facade_create_application, mock_cursor)
 
     setup_project_file(os.getcwd())
 
@@ -2481,9 +2468,7 @@ def test_run_app_from_release_directive_with_channel_not_in_list(
     mock_sql_facade_upgrade_application.side_effect = (
         UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE)
     )
-    mock_sql_facade_create_application.side_effect = mock_cursor(
-        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
-    )
+    set_mock_create_app_side_effects(mock_sql_facade_create_application, mock_cursor)
 
     setup_project_file(os.getcwd())
 
@@ -2561,9 +2546,7 @@ def test_run_app_from_release_directive_with_non_default_channel_but_release_cha
     mock_sql_facade_upgrade_application.side_effect = (
         UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE)
     )
-    mock_sql_facade_create_application.side_effect = mock_cursor(
-        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
-    )
+    set_mock_create_app_side_effects(mock_sql_facade_create_application, mock_cursor)
 
     setup_project_file(os.getcwd())
 
@@ -2642,9 +2625,7 @@ def test_run_app_from_release_directive_with_default_channel_when_release_channe
     mock_sql_facade_upgrade_application.side_effect = (
         UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE)
     )
-    mock_sql_facade_create_application.side_effect = mock_cursor(
-        [[(DEFAULT_CREATE_SUCCESS_MESSAGE,)]], []
-    )
+    set_mock_create_app_side_effects(mock_sql_facade_create_application, mock_cursor)
 
     setup_project_file(os.getcwd())
 
