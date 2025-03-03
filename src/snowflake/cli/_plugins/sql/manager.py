@@ -58,12 +58,10 @@ class SqlManager(SqlExecutionMixin):
             raise UsageError(
                 "Multiple input sources specified. Please specify only one."
             )
-        if not any(inputs):
-            raise UsageError("Use either query, filename or input option.")
 
         query = sys.stdin.read() if std_in else query
 
-        stmt_reader = SQLReader(query, files, retain_comments)
+        stmt_reader = SQLReader(query, files, not retain_comments)
         stmt_operator_funcs = (
             transpile_snowsql_templates,
             partial(snowflake_sql_jinja_render, data=data),
@@ -71,6 +69,9 @@ class SqlManager(SqlExecutionMixin):
         errors, stmt_count, compiled_statements = stmt_reader.compile_statements(
             stmt_operator_funcs
         )
+        if not any((errors, stmt_count, compiled_statements)):
+            raise UsageError("Use either query, filename or input option.")
+
         if errors:
             for error in errors:
                 logger.info("Statement compilation error: %s", error)

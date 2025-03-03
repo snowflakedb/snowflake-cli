@@ -433,8 +433,8 @@ def test_uses_variables_from_cli_are_added_outside_context(
 @pytest.mark.parametrize(
     "option,expected",
     [
-        ("--retain-comments", "SELECT 42;\n-- Commented line\n    SELECT 1;\n"),
-        ("", "SELECT 42;\nSELECT 1;\n"),
+        ("--retain-comments", "SELECT 42;\n-- Commented line\n    SELECT 1;"),
+        ("", "SELECT 42;\nSELECT 1;"),
     ],
 )
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
@@ -471,7 +471,7 @@ def test_comments_are_handled_correctly_from_file(
             "--retain-comments",
             "SELECT 42;\n-- Commented line\n    SELECT 1;\n--another comment;",
         ),
-        ("", "SELECT 42;\nSELECT 1;\n"),
+        ("", "SELECT 42;\nSELECT 1;"),
     ],
 )
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
