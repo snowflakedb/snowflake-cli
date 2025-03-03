@@ -53,6 +53,16 @@ RawStatementGenerator = Generator[
 
 
 class SQLReader:
+    """Ingests statements from provided input and prepares them for execution.
+
+    Accepts query as a string or files as a list of paths.
+
+    Each input is divided into separate statements for further processing.
+    Each statement is scanned for source command that triggers recursive file read.
+    Each statement is transformed by operator functions before being returned
+    as a result in form of RawStatementGenerator.
+    """
+
     def __init__(
         self,
         query: str | None,
@@ -65,6 +75,7 @@ class SQLReader:
         self._remove_comments = remove_comments
 
     def _dispatch_input(self):
+        """Maps provided inputs to common attribute for other methods to consume."""
         if self._query:
             return self._input_reader
         elif self._files:
@@ -76,6 +87,12 @@ class SQLReader:
         self,
         operators: OperatorFunctions,
     ) -> StatementCompilationResult:
+        """Transforms raw statements into list of compiled.
+
+        Calculates total number of statements by summing score for each statemetn type.
+
+        Returns tuple of errors, statement count and compiled statements.
+        """
         errors = []
         stmt_count = 0
         compiled_statements = []
@@ -98,6 +115,15 @@ class SQLReader:
 
     @staticmethod
     def _apply_operators(statement: str, operators: OperatorFunctions) -> str:
+        """Executes operator function against statement.
+
+        Each operator function accepts single parameter as string
+        and must return a transformed statement as string.
+        Operator function must raise UndefinedError if it encounters error.
+
+        Operators that require additional context should be
+        handled with functools.partial.
+        """
         if not operators:
             return statement
         for operator in operators:
@@ -106,11 +132,15 @@ class SQLReader:
 
     @property
     def remove_comments(self):
-        """Should comments be removed from statemetns."""
+        """Should comments be removed from statements."""
         return self._remove_comments
 
     @property
     def _input_reader(self) -> RawStatementGenerator:
+        """Ingests statements provided by query or stdin.
+
+        Returns tuple generator of errors, statement type and statement.
+        """
         payload = StringIO(self._query)
         for statement, _ in split_statements(
             buf=payload,
@@ -120,6 +150,9 @@ class SQLReader:
 
     @property
     def _file_reader(self) -> RawStatementGenerator:
+        """Ingests statements provided with files.
+
+        Returns tuple generator of errors, statement type and statement."""
         if not self._files:
             return
 
@@ -128,6 +161,19 @@ class SQLReader:
 
     @staticmethod
     def _check_for_source_command(statement: str) -> tuple[bool, SecurePath | None]:
+        """Detects if statement contains source command.
+
+        Returns tuple of boolean and file path if command is found and file exists.
+        Otherwise returns tuple of False and None.
+
+        Uses regex to split statement into 3 parts (left, middle, right):
+        - left part is an empty string if command is found
+          otherwise it contains the original statement
+        - middle part contains command if found
+          otherwise is an empty string
+        - left part contains possible file path to include if match
+          otherwise an empty string
+        """
         split_result = SOURCE_PATTERN.split(statement.strip(), maxsplit=1)
 
         match split_result:
@@ -142,6 +188,15 @@ class SQLReader:
         statement: str,
         seen_files: set | None = None,
     ) -> RawStatementGenerator:
+        """Parses raw statements one by one in search for commands.
+
+        Returns tuple generator of errors, statement type and statement.
+
+        Each statement is labeled with StatementType enum. If source command
+        is found recursive file reader is used to ingest statements
+        before continuing.
+
+        """
         if seen_files is None:
             seen_files = set()
 
@@ -159,6 +214,10 @@ class SQLReader:
         file: SecurePath,
         seen_files: set,
     ) -> RawStatementGenerator:
+        """Reads content of the file and tracks for recursive reads.
+
+        Read content is divided into separate statements for further processing.
+        """
         try:
             if file.path in seen_files:
                 yield (
