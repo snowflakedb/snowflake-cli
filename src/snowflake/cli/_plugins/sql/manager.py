@@ -23,6 +23,7 @@ from typing import Dict, Iterable, List, Tuple
 from click import ClickException, UsageError
 from snowflake.cli._plugins.sql.reader import SQLReader
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
 from snowflake.cli.api.sql_execution import SqlExecutionMixin, VerboseCursor
 from snowflake.connector.cursor import SnowflakeCursor
@@ -73,7 +74,8 @@ class SqlManager(SqlExecutionMixin):
         if errors:
             for error in errors:
                 logger.info("Statement compilation error: %s", error)
-            raise ClickException("Errors during SQL compilation")
+                cli_console.warning(error)
+            raise ClickException("SQL rendering error")
 
         is_single_statement = not (stmt_count > 1)
         return is_single_statement, self._execute_string(
