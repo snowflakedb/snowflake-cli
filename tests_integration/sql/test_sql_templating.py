@@ -42,7 +42,7 @@ def test_sql_undefined_env_causing_error(runner, snowflake_session):
     )
 
     assert result.exit_code == 1
-    assert "SQL template rendering error" in result.output
+    assert "SQL rendering error" in result.output
 
 
 @pytest.mark.integration

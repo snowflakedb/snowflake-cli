@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added support for `!source` command in SQL. This command allows to execute SQL from a local file.
 
 ## Fixes and improvements
 
