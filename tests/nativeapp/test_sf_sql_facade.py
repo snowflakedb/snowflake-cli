@@ -2536,6 +2536,75 @@ def test_create_application_returns_warning_with_debug_mode_and_manifest_app_spe
     )
 
 
+def test_create_application_succeeds_when_debug_mode_couldnt_be_set(
+    mock_use_warehouse, mock_use_role, mock_execute_query, mock_cursor
+):
+    app_name = "test_app"
+    pkg_name = "test_pkg"
+    stage_fqn = "app_pkg.app_src.stage"
+    role = "test_role"
+    warehouse = "test_warehouse"
+
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([], []),
+                mock.call(
+                    dedent(
+                        f"""\
+                        create application {app_name}
+                            from application package {pkg_name}
+                            using @{stage_fqn}
+                            AUTHORIZE_TELEMETRY_EVENT_SHARING = TRUE
+                            comment = {SPECIAL_COMMENT}
+                        """
+                    )
+                ),
+            ),
+            (
+                ProgrammingError(
+                    msg="Failed to set debug mode because of an error",
+                    errno=1234,
+                ),
+                mock.call(
+                    dedent(
+                        f"""\
+                            alter application {app_name}
+                            set debug_mode = True
+                        """
+                    )
+                ),
+            ),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    expected_use_objects = [
+        (mock_use_role, mock.call(role)),
+        (mock_use_warehouse, mock.call(warehouse)),
+    ]
+    expected_execute_query = [(mock_execute_query, call) for call in expected]
+
+    with assert_in_context(expected_use_objects, expected_execute_query):
+        _, warnings = sql_facade.create_application(
+            name=app_name,
+            package_name=pkg_name,
+            install_method=SameAccountInstallMethod.unversioned_dev(),
+            path_to_version_directory=stage_fqn,
+            debug_mode=True,
+            should_authorize_event_sharing=True,
+            role=role,
+            warehouse=warehouse,
+        )
+
+    assert len(warnings) == 1
+    warning = warnings[0]
+    assert (
+        "Failed to set debug mode for application test_app. 001234: 1234: Failed to set debug mode because of an error"
+        == warning
+    )
+
+
 def test_create_application_converts_unexpected_programmingerrors_to_unclassified_errors(
     mock_use_warehouse, mock_use_role, mock_execute_query
 ):

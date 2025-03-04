@@ -180,6 +180,7 @@ def test_nativeapp_run_existing(
     "command,test_project",
     [
         ["app run", "napp_app_manifest_v2"],
+        ["app run --debug", "napp_app_manifest_v2"],
     ],
 )
 def test_nativeapp_init_manifest_v2(
@@ -218,6 +219,14 @@ def test_nativeapp_init_manifest_v2(
                 )
             ),
             dict(name=app_name),
+        )
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"desc application {app_name}",
+                )
+            ),
+            {"property": "debug_mode", "value": "false"},
         )
 
 

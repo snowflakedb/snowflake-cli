@@ -892,6 +892,7 @@ class SnowflakeSQLFacade:
         release_channel_clause = (
             f"using release channel {release_channel}" if release_channel else ""
         )
+        warnings = []
 
         with self._use_role_optional(role), self._use_warehouse_optional(warehouse):
             try:
@@ -909,17 +910,6 @@ class SnowflakeSQLFacade:
                         )
                     ),
                 )
-                if initial_debug_mode:
-                    self._sql_executor.execute_query(
-                        dedent(
-                            _strip_empty_lines(
-                                f"""\
-                                    alter application {name}
-                                    set debug_mode = {initial_debug_mode}
-                                """
-                            )
-                        )
-                    )
 
             except Exception as err:
                 if isinstance(err, ProgrammingError):
@@ -938,14 +928,35 @@ class SnowflakeSQLFacade:
                             f"Failed to create application {name} with the following error message:\n"
                             f"{err.msg}"
                         ) from err
-                    if err.errno == CANNOT_SET_DEBUG_MODE_WITH_MANIFEST_VERSION:
-                        return create_cursor.fetchall(), [
-                            "Did not apply debug mode to application because the manifest version is set to 2 or higher. Please use session debugging instead."
-                        ]
 
                 handle_unclassified_error(err, f"Failed to create application {name}.")
 
-            return create_cursor.fetchall(), []
+            try:
+                if initial_debug_mode:
+                    self._sql_executor.execute_query(
+                        dedent(
+                            _strip_empty_lines(
+                                f"""\
+                                    alter application {name}
+                                    set debug_mode = {initial_debug_mode}
+                                """
+                            )
+                        )
+                    )
+            except Exception as err:
+                if (
+                    isinstance(err, ProgrammingError)
+                    and err.errno == CANNOT_SET_DEBUG_MODE_WITH_MANIFEST_VERSION
+                ):
+                    warnings.append(
+                        "Did not apply debug mode to application because the manifest version is set to 2 or higher. Please use session debugging instead."
+                    )
+                else:
+                    warnings.append(
+                        f"Failed to set debug mode for application {name}. {str(err)}"
+                    )
+
+            return create_cursor.fetchall(), warnings
 
     def create_application_package(
         self,
