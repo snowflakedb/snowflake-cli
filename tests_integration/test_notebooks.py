@@ -108,8 +108,10 @@ def test_containerized_notebook_incorrect_runtime_error_qa(
         )
         result = runner.invoke_with_connection(["notebook", "deploy"])
         assert result.exit_code == 1, result.output
-        assert "Custom runtime" in result.output
-        assert "runtimeName=NOT_EXISTING_RUNTIME_NAME is not supported" in result.output
+        assert (
+            "invalid value 'NOT_EXISTING_RUNTIME_NAME' for property 'RUNTIME_NAME'"
+            in result.output
+        )
 
 
 @pytest.mark.no_qa
