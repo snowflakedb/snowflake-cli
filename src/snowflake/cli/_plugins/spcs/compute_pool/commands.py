@@ -171,11 +171,14 @@ def deploy(
     compute_pool: ComputePoolEntityModel = get_entity_from_project_definition(
         entity_type=ObjectType.COMPUTE_POOL, entity_id=entity_id
     )
+    max_nodes = validate_and_set_instances(
+        compute_pool.min_nodes, compute_pool.max_nodes, "nodes"
+    )
 
     cursor = ComputePoolManager().deploy(
         pool_name=compute_pool.fqn.identifier,
         min_nodes=compute_pool.min_nodes,
-        max_nodes=compute_pool.max_nodes,
+        max_nodes=max_nodes,
         instance_family=compute_pool.instance_family,
         auto_resume=compute_pool.auto_resume,
         initially_suspended=compute_pool.initially_suspended,
