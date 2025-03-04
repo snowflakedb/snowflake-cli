@@ -141,12 +141,35 @@ def test_queries_are_streamed_to_output(
 def test_trailing_comments_queries(runner, test_root_path):
     trailin_comment_query = "select 1;\n\n-- trailing comment\n"
     result = runner.invoke_with_connection_json(["sql", "-q", trailin_comment_query])
+@pytest.mark.parametrize(
+    "query, expected",
+    (
+        pytest.param(
+            "select 1; -- trailing comment\n",
+            [
+                {"1": 1},
+            ],
+            id="single query",
+        ),
+        pytest.param(
+            "select 1; --comment\n select 2; \n -- trailing comment\n",
+            [
+                [
+                    {"1": 1},
+                ],
+                [
+                    {"2": 2},
+                ],
+            ],
+        ),
+    ),
+)
+def test_trailing_comments_queries(runner, query, expected):
+    result = runner.invoke_with_connection_json(
+        ["sql", "-q", query, "--format", "JSON"]
+    )
     assert result.exit_code == 0
-    assert result.json == [
-        [
-            {"1": 1},
-        ],
-    ]
+    assert result.json == expected, result.json
 
 
 @pytest.mark.integration
@@ -213,6 +236,4 @@ def test_sql_source_command_from_user_input(runner, tmp_path_factory, snapshot):
     )
 
     assert result.output == snapshot
-    assert "SELECT 1" in result.output
-    assert "SELECT 42;" in result.output
-    assert "SELECT 3;" in result.output
+    assert result.exit_code == 0, result.output
