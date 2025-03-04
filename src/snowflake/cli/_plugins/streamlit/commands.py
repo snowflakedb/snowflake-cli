@@ -20,17 +20,20 @@ from pathlib import Path
 import click
 import typer
 from click import ClickException
+
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
 )
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
+from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
 from snowflake.cli._plugins.streamlit.streamlit_project_paths import (
     StreamlitProjectPaths,
 )
+from snowflake.cli._plugins.workspace.context import WorkspaceContext
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_experimental_behaviour,
@@ -44,6 +47,7 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import get_entity_for_operation
+from snowflake.cli.api.console.console import CliConsole
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
@@ -156,11 +160,14 @@ def streamlit_deploy(
             )
         pd = convert_project_definition_to_v2(cli_context.project_root, pd)
 
-    streamlit: StreamlitEntityModel = get_entity_for_operation(
+    streamlit: StreamlitEntity = StreamlitEntity(
+        entity_model=get_entity_for_operation(
         cli_context=cli_context,
         entity_id=entity_id,
         project_definition=pd,
         entity_type="streamlit",
+        ),
+        workspace_ctx=_get_current_workspace_context()
     )
 
     streamlit_project_paths = StreamlitProjectPaths(cli_context.project_root)
@@ -187,3 +194,13 @@ def get_url(
     if open_:
         typer.launch(url)
     return MessageResult(url)
+
+def _get_current_workspace_context():
+    ctx = get_cli_context()
+
+    return WorkspaceContext(
+        console = CliConsole(),
+        project_root = ctx.project_root,
+        get_default_role = lambda: ctx.connection.role,
+        get_default_warehouse = lambda: ctx.connection.warehouse,
+    )
