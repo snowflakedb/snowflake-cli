@@ -13,7 +13,7 @@ from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector.util_text import split_statements
 
 SOURCE_PATTERN = re.compile(
-    r"!source\s+[\"']?(.*?)[\"']?\s*(?:;|$)",
+    r"!(source|load)\s+[\"']?(.*?)[\"']?\s*(?:;|$)",
     flags=re.IGNORECASE,
 )
 
@@ -175,18 +175,19 @@ class SQLReader:
         Returns tuple of boolean and file path if command is found and file exists.
         Otherwise returns tuple of False and None.
 
-        Uses regex to split statement into 3 parts (left, middle, right):
+        Uses regex to split statement into 4 parts (left, command, path, right):
         - left part is an empty string if command is found
           otherwise it contains the original statement
-        - middle part contains command if found
+        - command part contains command if found
           otherwise is an empty string
-        - left part contains possible file path to include if match
+        - path part contains possible file path to include if match
           otherwise an empty string
+        - right is the reminder of the split
         """
         split_result = SOURCE_PATTERN.split(statement.strip(), maxsplit=1)
 
         match split_result:
-            case ("", file_path, "") if SecurePath(file_path.strip()).exists():
+            case ("", command, file_path, "") if SecurePath(file_path.strip()).exists():
                 result = True, SecurePath(file_path.strip())
             case _:
                 result = False, None
