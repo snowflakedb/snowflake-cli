@@ -34,6 +34,7 @@ from snowflake.cli._plugins.spcs.services.service_project_paths import (
     ServiceProjectPaths,
 )
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     OverrideableOption,
@@ -210,6 +211,7 @@ def create(
 
 
 @app.command(requires_connection=True)
+@with_project_definition()
 def deploy(
     entity_id: str = entity_argument("service"),
     upgrade: bool = typer.Option(

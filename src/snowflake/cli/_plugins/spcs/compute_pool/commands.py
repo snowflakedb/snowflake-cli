@@ -27,6 +27,7 @@ from snowflake.cli._plugins.spcs.compute_pool.compute_pool_entity_model import (
     ComputePoolEntityModel,
 )
 from snowflake.cli._plugins.spcs.compute_pool.manager import ComputePoolManager
+from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     OverrideableOption,
@@ -156,6 +157,7 @@ def create(
 
 
 @app.command("deploy", requires_connection=True)
+@with_project_definition()
 def deploy(
     entity_id: str = entity_argument("compute-pool"),
     upgrade: bool = typer.Option(
