@@ -892,7 +892,6 @@ class SnowflakeSQLFacade:
         release_channel_clause = (
             f"using release channel {release_channel}" if release_channel else ""
         )
-        warnings = []
 
         with self._use_role_optional(role), self._use_warehouse_optional(warehouse):
             try:
@@ -931,6 +930,7 @@ class SnowflakeSQLFacade:
 
                 handle_unclassified_error(err, f"Failed to create application {name}.")
 
+            warnings = []
             try:
                 if initial_debug_mode:
                     self._sql_executor.execute_query(
