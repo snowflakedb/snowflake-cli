@@ -43,3 +43,16 @@ def test_project_deploy(
             ]
         )
         assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(
+            [
+                "project",
+                "list",
+                "--like",
+                "MY_PROJECT",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert len(result.json) == 1
+        project = result.json[0]
+        assert project["name"].lower() == "my_project".lower()
