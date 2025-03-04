@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import tempfile
 from textwrap import dedent
 from unittest.mock import Mock, patch
 
@@ -33,6 +34,7 @@ from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
+from tests.testing_utils.files_and_dirs import pushd
 from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_is_successful_and_executed_successfully,
 )
@@ -206,6 +208,14 @@ def test_create_compute_pool_if_not_exists(mock_execute_query):
     actual_query = " ".join(mock_execute_query.mock_calls[0].args[0].split())
     assert expected_query == actual_query
     assert result == cursor
+
+
+def test_deploy_command_requires_pdf(runner):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with pushd(tmpdir):
+            result = runner.invoke(["spcs", "compute-pool", "deploy"])
+            assert result.exit_code == 1
+            assert "Cannot find project definition (snowflake.yml)." in result.output
 
 
 @patch(EXECUTE_QUERY)

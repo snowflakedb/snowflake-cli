@@ -14,6 +14,7 @@
 import itertools
 import json
 import re
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -34,6 +35,7 @@ from snowflake.connector.cursor import SnowflakeCursor
 from yaml import YAMLError
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
+from tests.testing_utils.files_and_dirs import pushd
 
 SPEC_CONTENT = dedent(
     """
@@ -301,6 +303,14 @@ def test_create_service_if_not_exists(mock_execute_query, other_directory):
     actual_query = " ".join(mock_execute_query.mock_calls[0].args[0].split())
     assert expected_query == actual_query
     assert result == cursor
+
+
+def test_deploy_command_requires_pdf(runner):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with pushd(tmpdir):
+            result = runner.invoke(["spcs", "service", "deploy"])
+            assert result.exit_code == 1
+            assert "Cannot find project definition (snowflake.yml)." in result.output
 
 
 @patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
