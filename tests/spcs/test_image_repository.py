@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import tempfile
 from typing import Dict
 from unittest import mock
 from unittest.mock import Mock, patch
@@ -28,6 +29,7 @@ from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
+from tests.testing_utils.files_and_dirs import pushd
 
 MOCK_ROWS = [
     [
@@ -139,6 +141,14 @@ def test_create_repository_already_exists(mock_handle, mock_execute):
         repo_name,
         replace_available=True,
     )
+
+
+def test_deploy_command_requires_pdf(runner):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with pushd(tmpdir):
+            result = runner.invoke(["spcs", "image-repository", "deploy"])
+            assert result.exit_code == 1
+            assert "Cannot find project definition (snowflake.yml)." in result.output
 
 
 @patch(EXECUTE_QUERY)

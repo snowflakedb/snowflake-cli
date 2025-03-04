@@ -26,6 +26,7 @@ from snowflake.cli._plugins.object.command_aliases import (
 )
 from snowflake.cli._plugins.spcs.image_registry.manager import RegistryManager
 from snowflake.cli._plugins.spcs.image_repository.manager import ImageRepositoryManager
+from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     ReplaceOption,
@@ -99,6 +100,7 @@ def create(
 
 
 @app.command(requires_connection=True)
+@with_project_definition()
 def deploy(
     entity_id: str = entity_argument("image-repository"),
     replace: bool = ReplaceOption(
