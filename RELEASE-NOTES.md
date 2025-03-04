@@ -21,7 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
-
+- Fix for incompatible options in `snow spcs compute-pool` commands didn't raise error
 
 # v3.5.0
 
