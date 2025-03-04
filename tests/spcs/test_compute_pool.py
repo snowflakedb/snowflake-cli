@@ -339,6 +339,33 @@ def test_deploy_from_project_definition_multiple_compute_pools(
 
 
 @patch(EXECUTE_QUERY)
+def test_deploy_only_required(
+    mock_execute_query, runner, mock_cursor, project_directory, os_agnostic_snapshot
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Compute pool TEST_COMPUTE_POOL successfully created."]],
+        columns=["status"],
+    )
+
+    with project_directory("spcs_compute_pool_only_required"):
+        result = runner.invoke(["spcs", "compute-pool", "deploy"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        expected_query = dedent(
+            """\
+            CREATE COMPUTE POOL test_compute_pool
+            MIN_NODES = 1
+            MAX_NODES = 1
+            INSTANCE_FAMILY = CPU_X64_XS
+            AUTO_RESUME = True
+            INITIALLY_SUSPENDED = False
+            AUTO_SUSPEND_SECS = 3600"""
+        )
+        mock_execute_query.assert_called_once_with(expected_query)
+
+
+@patch(EXECUTE_QUERY)
 def test_stop(mock_execute_query):
     pool_name = "test_pool"
     cursor = Mock(spec=SnowflakeCursor)
