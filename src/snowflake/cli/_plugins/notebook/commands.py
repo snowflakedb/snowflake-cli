@@ -21,9 +21,7 @@ from snowflake.cli._plugins.notebook.notebook_entity_model import NotebookEntity
 from snowflake.cli._plugins.notebook.types import NotebookStagePath
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.commands.decorators import (
-    with_project_definition,
-)
+from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     ReplaceOption,
     entity_argument,
