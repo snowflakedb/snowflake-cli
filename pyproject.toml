@@ -34,14 +34,14 @@ dependencies = [
   "requirements-parser==0.11.0",
   "setuptools==75.8.0",
   'snowflake.core==1.0.2; python_version < "3.12"',
-  "snowflake-connector-python[secure-local-storage]==3.12.4",
+  "snowflake-connector-python[secure-local-storage]==3.13.2",
   'snowflake-snowpark-python>=1.15.0,<1.26.0;python_version < "3.12"',
   "tomlkit==0.13.2",
-  "typer==0.12.5",
+  "typer==0.15.1",
   "urllib3>=1.24.3,<2.4",
   "GitPython==3.1.44",
   "pip",
-  "pydantic==2.9.2",
+  "pydantic==2.10.6",
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -57,13 +57,13 @@ classifiers = [
 
 [project.optional-dependencies]
 development = [
-  "coverage==7.6.10",
+  "coverage==7.6.12",
   "pre-commit>=3.5.0",
   "pytest==8.3.4",
   "pytest-randomly==3.16.0",
-  "syrupy==4.8.1",
-  "factory-boy==3.3.1",
-  "Faker==35.2.0",
+  "syrupy==4.8.2",
+  "factory-boy==3.3.3",
+  "Faker==36.1.1",
 ]
 packaging = ["pyinstaller~=6.10"]
 
@@ -140,10 +140,7 @@ features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
 test = [
-  "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/spcs tests_integration/",
-]
-test-spcs = [
-  "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/spcs",
+  'pytest -m "integration and not qa_only" -n6 --dist=worksteal --deflake-test-type=integration tests_integration/',
 ]
 test_qa = [
   "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/",
@@ -183,6 +180,7 @@ markers = [
   "patch_app_version: sets app version to 0.0.0-test_patched",
   "integration_experimental: experimental integration test",
   "no_qa: mark test as not to be run in QA",
+  "qa_only: mark test as to be run only in QA",
 ]
 
 

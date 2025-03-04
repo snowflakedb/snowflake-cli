@@ -1,7 +1,7 @@
 definition_version: "2"
 
 entities:
-  test_compute_pool:
+  compute_pool:
     type: compute-pool
     identifier:
       name: test_compute_pool

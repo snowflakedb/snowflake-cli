@@ -54,6 +54,8 @@ from snowflake.cli.api.errno import (
     APPLICATION_PACKAGE_MAX_VERSIONS_HIT,
     APPLICATION_PACKAGE_PATCH_ALREADY_EXISTS,
     APPLICATION_REQUIRES_TELEMETRY_SHARING,
+    CANNOT_ADD_PATCH_WITH_NON_INCREASING_PATCH_NUMBER,
+    CANNOT_CREATE_VERSION_WITH_NON_ZERO_PATCH,
     CANNOT_DEREGISTER_VERSION_ASSOCIATED_WITH_CHANNEL,
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
     CANNOT_DISABLE_RELEASE_CHANNELS,
@@ -65,6 +67,7 @@ from snowflake.cli.api.errno import (
     MAX_VERSIONS_IN_RELEASE_CHANNEL_REACHED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
     RELEASE_DIRECTIVE_DOES_NOT_EXIST,
+    RELEASE_DIRECTIVE_UNAPPROVED_VERSION_OR_PATCH,
     RELEASE_DIRECTIVES_VERSION_PATCH_NOT_FOUND,
     SQL_COMPILATION_ERROR,
     TARGET_ACCOUNT_USED_BY_OTHER_RELEASE_DIRECTIVE,
@@ -346,6 +349,10 @@ class SnowflakeSQLFacade:
                             f"Maximum versions reached for application package {package_name}. "
                             "Please drop the other versions first."
                         ) from err
+                    if err.errno == CANNOT_CREATE_VERSION_WITH_NON_ZERO_PATCH:
+                        raise UserInputError(
+                            "Cannot create a new version with a non-zero patch in the manifest file."
+                        ) from err
                 handle_unclassified_error(
                     err,
                     f"Failed to {action} version {version} to application package {package_name}.",
@@ -437,8 +444,17 @@ class SnowflakeSQLFacade:
             except Exception as err:
                 if isinstance(err, ProgrammingError):
                     if err.errno == APPLICATION_PACKAGE_PATCH_ALREADY_EXISTS:
+                        extra_message = (
+                            " Check the manifest file for any hard-coded patch value."
+                            if patch is None
+                            else ""
+                        )
                         raise UserInputError(
-                            f"Patch {patch} already exists for version {version} in application package {package_name}."
+                            f"Patch{patch_query} already exists for version {version} in application package {package_name}.{extra_message}"
+                        ) from err
+                    if err.errno == CANNOT_ADD_PATCH_WITH_NON_INCREASING_PATCH_NUMBER:
+                        raise UserInputError(
+                            f"Cannot add a patch with a non-increasing patch number to version {version} in application package {package_name}."
                         ) from err
                 handle_unclassified_error(
                     err,
@@ -1100,13 +1116,22 @@ class SnowflakeSQLFacade:
                         raise UserInputError(
                             f"Some target accounts are already referenced by other release directives in application package {package_name}.\n{str(err.msg)}"
                         ) from err
-                    _handle_release_directive_version_error(
-                        err,
-                        package_name=package_name,
-                        release_channel=release_channel,
-                        version=version,
-                        patch=patch,
-                    )
+                    if err.errno == VERSION_NOT_ADDED_TO_RELEASE_CHANNEL:
+                        raise UserInputError(
+                            f"Version {version} is not added to release channel {release_channel}. Please add it to the release channel first."
+                        ) from err
+                    if err.errno == RELEASE_DIRECTIVES_VERSION_PATCH_NOT_FOUND:
+                        raise UserInputError(
+                            f"Patch {patch} for version {version} not found in application package {package_name}."
+                        ) from err
+                    if err.errno == RELEASE_DIRECTIVE_UNAPPROVED_VERSION_OR_PATCH:
+                        raise UserInputError(
+                            f"Version {version}, patch {patch} has not yet been approved to release to accounts outside of this organization."
+                        ) from err
+                    if err.errno == VERSION_DOES_NOT_EXIST:
+                        raise UserInputError(
+                            f"Version {version} does not exist in application package {package_name}."
+                        ) from err
                 handle_unclassified_error(
                     err,
                     f"Failed to set release directive {release_directive} for application package {package_name}.",
@@ -1602,26 +1627,3 @@ def _strip_empty_lines(text: str) -> str:
     other_lines = [line for line in all_lines[:-1] if line.strip()]
 
     return "\n".join(other_lines) + "\n" + last_line
-
-
-def _handle_release_directive_version_error(
-    err: ProgrammingError,
-    *,
-    package_name: str,
-    release_channel: str | None,
-    version: str,
-    patch: int,
-) -> None:
-
-    if err.errno == VERSION_NOT_ADDED_TO_RELEASE_CHANNEL:
-        raise UserInputError(
-            f"Version {version} is not added to release channel {release_channel}. Please add it to the release channel first."
-        ) from err
-    if err.errno == RELEASE_DIRECTIVES_VERSION_PATCH_NOT_FOUND:
-        raise UserInputError(
-            f"Patch {patch} for version {version} not found in application package {package_name}."
-        ) from err
-    if err.errno == VERSION_DOES_NOT_EXIST:
-        raise UserInputError(
-            f"Version {version} does not exist in application package {package_name}."
-        ) from err

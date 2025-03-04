@@ -1,0 +1,13 @@
+definition_version: '2'
+entities:
+  check_mypy_version:
+    identifier:
+      name: check_mypy_version
+    artifacts:
+    - src: app/
+      dest: my_snowpark_project
+    handler: app.check_mypy_version
+    returns: string
+    signature: ''
+    stage: dev_deployment
+    type: function

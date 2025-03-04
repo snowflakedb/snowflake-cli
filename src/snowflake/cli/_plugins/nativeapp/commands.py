@@ -229,7 +229,7 @@ def app_teardown(
     # Same as the param auto-added by @force_project_definition_v2 if single_app_and_package were true
     package_entity_id: Optional[str] = typer.Option(
         default="",
-        help="The ID of the package entity on which to operate when definition_version is 2 or higher.",
+        help="The ID of the package entity on which to operate when the definition_version is 2 or higher.",
     ),
     **options,
 ) -> CommandResult:
@@ -308,7 +308,7 @@ def app_deploy(
         show_default=False,
         help=dedent(
             f"""
-            Paths, relative to the the project root, of files or directories you want to upload to a stage. If a file is
+            Paths, relative to the project root, of files or directories you want to upload to a stage. If a file is
             specified, it must match one of the artifacts src pattern entries in snowflake.yml. If a directory is
             specified, it will be searched for subfolders or files to deploy based on artifacts src pattern entries. If
             unspecified, the command syncs all local changes to the stage."""

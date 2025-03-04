@@ -29,6 +29,7 @@ from snowflake.cli._plugins.spcs.common import (
     validate_and_set_instances,
 )
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
+from snowflake.cli._plugins.spcs.services.service_entity_model import ServiceEntityModel
 from snowflake.cli._plugins.spcs.services.service_project_paths import (
     ServiceProjectPaths,
 )
@@ -36,7 +37,6 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     OverrideableOption,
-    ReplaceOption,
     entity_argument,
     identifier_argument,
     like_option,
@@ -45,8 +45,8 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
     IncompatibleParametersError,
-    NoProjectDefinitionError,
 )
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -57,7 +57,9 @@ from snowflake.cli.api.output.types import (
     SingleQueryResult,
     StreamResult,
 )
-from snowflake.cli.api.project.definition_helper import get_entity
+from snowflake.cli.api.project.definition_helper import (
+    get_entity_from_project_definition,
+)
 from snowflake.cli.api.project.util import is_valid_object_name
 
 app = SnowTyperFactory(
@@ -209,32 +211,40 @@ def create(
 
 @app.command(requires_connection=True)
 def deploy(
-    replace: bool = ReplaceOption(help="Replace the service if it already exists."),
     entity_id: str = entity_argument("service"),
+    upgrade: bool = typer.Option(
+        False,
+        "--upgrade",
+        help="Updates the existing service. Can update min_instances, max_instances, query_warehouse, auto_resume, external_access_integrations and comment.",
+    ),
     **options,
 ) -> CommandResult:
     """
     Deploys a service defined in the project definition file.
     """
-    cli_context = get_cli_context()
-    pd = cli_context.project_definition
-
-    if pd is None:
-        raise NoProjectDefinitionError(
-            project_type="service", project_root=cli_context.project_root
-        )
-
-    service = get_entity(
-        pd=pd,
-        project_root=cli_context.project_root,
+    service: ServiceEntityModel = get_entity_from_project_definition(
         entity_type=ObjectType.SERVICE,
         entity_id=entity_id,
     )
-    service_project_paths = ServiceProjectPaths(cli_context.project_root)
+    service_project_paths = ServiceProjectPaths(get_cli_context().project_root)
+    max_instances = validate_and_set_instances(
+        service.min_instances, service.max_instances, "instances"
+    )
     cursor = ServiceManager().deploy(
-        service=service,
+        service_name=service.fqn.identifier,
+        stage=service.stage,
+        artifacts=service.artifacts,
+        compute_pool=service.compute_pool,
+        spec_path=service.spec_file,
+        min_instances=service.min_instances,
+        max_instances=max_instances,
+        auto_resume=service.auto_resume,
+        external_access_integrations=service.external_access_integrations,
+        query_warehouse=service.query_warehouse,
+        tags=service.tags,
+        comment=service.comment,
         service_project_paths=service_project_paths,
-        replace=replace,
+        upgrade=upgrade,
     )
     return SingleQueryResult(cursor)
 
@@ -360,6 +370,7 @@ def logs(
 
 @app.command(
     requires_connection=True,
+    is_enabled=FeatureFlag.ENABLE_SPCS_SERVICE_EVENTS.is_enabled,
 )
 def events(
     name: FQN = ServiceNameArgument,

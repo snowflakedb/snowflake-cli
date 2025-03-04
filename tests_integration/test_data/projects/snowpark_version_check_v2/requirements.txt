@@ -1,0 +1,1 @@
+mypy==1.3.0  # Earliest 1.* version in Anaconda is 1.5

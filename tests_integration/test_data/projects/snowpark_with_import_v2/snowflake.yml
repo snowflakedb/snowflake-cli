@@ -1,0 +1,17 @@
+definition_version: '2'
+entities:
+  test_func:
+    imports:
+    - '@dev_deployment/dummy_pkg_for_tests.zip'
+    identifier:
+      name: test_func
+    artifacts:
+    - src: app/
+      dest: my_snowpark_project
+    handler: functions.hello_function
+    returns: string
+    signature:
+    - name: name
+      type: string
+    stage: TEST
+    type: function

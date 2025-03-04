@@ -1524,7 +1524,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     ) -> bool:
         """
         Returns true if the 'distribution' attribute of an existing application package in snowflake
-        is the same as the the attribute specified in project definition file.
+        is the same as the attribute specified in project definition file.
         """
         model = self._entity_model
         workspace_ctx = self._workspace_ctx

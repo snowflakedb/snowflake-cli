@@ -16,6 +16,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from textwrap import dedent
 from unittest.mock import Mock, call, patch
 
@@ -61,6 +62,18 @@ SPEC_DICT = {
 EXECUTE_QUERY = (
     "snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_query"
 )
+
+
+@pytest.fixture()
+def enable_events_and_metrics_config():
+    with TemporaryDirectory() as tempdir:
+        config_toml = Path(tempdir) / "config.toml"
+        config_toml.write_text(
+            "[cli.features]\n"
+            "enable_spcs_service_events = true\n"
+            "enable_spcs_service_metrics = true\n"
+        )
+        yield config_toml
 
 
 @patch(EXECUTE_QUERY)
@@ -314,11 +327,12 @@ def test_deploy_service(
         IN COMPUTE POOL test_compute_pool
         FROM @test_stage
         SPECIFICATION_FILE = 'spec.yml'
+        AUTO_RESUME = False
         MIN_INSTANCES = 1
         MAX_INSTANCES = 2
         QUERY_WAREHOUSE = xsmall
-        COMMENT = 'This is a test service'
         EXTERNAL_ACCESS_INTEGRATIONS = (test_external_access_integration)
+        COMMENT = 'This is a test service'
         WITH TAG (test_tag='test_value')"""
         )
         assert result.exit_code == 0, result.output
@@ -335,41 +349,48 @@ def test_deploy_service(
         )
 
 
-@patch("snowflake.cli._plugins.object.manager.ObjectManager.execute_query")
 @patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
 @patch(EXECUTE_QUERY)
-def test_deploy_service_replace(
+def test_deploy_service_with_upgrade(
     mock_execute_query,
     mock_stage_manager_execute_query,
-    mock_object_manager_execute_query,
     runner,
     project_directory,
     mock_cursor,
     os_agnostic_snapshot,
 ):
     mock_execute_query.return_value = mock_cursor(
-        rows=[["Service TEST_SERVICE successfully created."]],
+        rows=[["Statement completed successfully."]],
         columns=["status"],
     )
 
     with project_directory("spcs_service") as tmp_dir:
-        result = runner.invoke(["spcs", "service", "deploy", "--replace"])
+        result = runner.invoke(["spcs", "service", "deploy", "--upgrade"])
 
-        expected_query = dedent(
+        expected_params_query = dedent(
             """\
-        CREATE SERVICE test_service
-        IN COMPUTE POOL test_compute_pool
+            alter service test_service set
+            min_instances = 1
+            max_instances = 2
+            query_warehouse = xsmall
+            auto_resume = False
+            external_access_integrations = (test_external_access_integration)
+            comment = 'This is a test service'"""
+        )
+        expected_spec_query = dedent(
+            """\
+        ALTER SERVICE test_service
         FROM @test_stage
-        SPECIFICATION_FILE = 'spec.yml'
-        MIN_INSTANCES = 1
-        MAX_INSTANCES = 2
-        QUERY_WAREHOUSE = xsmall
-        COMMENT = 'This is a test service'
-        EXTERNAL_ACCESS_INTEGRATIONS = (test_external_access_integration)
-        WITH TAG (test_tag='test_value')"""
+        SPECIFICATION_FILE = 'spec.yml'"""
         )
         assert result.exit_code == 0, result.output
         assert result.output == os_agnostic_snapshot
+        mock_execute_query.assert_has_calls(
+            [
+                call(expected_params_query),
+                call(expected_spec_query),
+            ]
+        )
         mock_stage_manager_execute_query.assert_has_calls(
             [
                 call("create stage if not exists IDENTIFIER('test_stage')"),
@@ -377,13 +398,6 @@ def test_deploy_service_replace(
                     f"put file://{Path(tmp_dir).resolve() / 'output' / 'bundle' / 'service' / 'spec.yml'} @test_stage auto_compress=false parallel=4 overwrite=True",
                     cursor_class=SnowflakeCursor,
                 ),
-            ]
-        )
-        mock_execute_query.assert_called_once_with(expected_query)
-        mock_object_manager_execute_query.assert_has_calls(
-            [
-                call("describe service IDENTIFIER('test_service')"),
-                call("drop service IDENTIFIER('test_service')"),
             ]
         )
 
@@ -415,11 +429,12 @@ def test_deploy_service_already_exists(
         IN COMPUTE POOL test_compute_pool
         FROM @test_stage
         SPECIFICATION_FILE = 'spec.yml'
+        AUTO_RESUME = False
         MIN_INSTANCES = 1
         MAX_INSTANCES = 2
         QUERY_WAREHOUSE = xsmall
-        COMMENT = 'This is a test service'
         EXTERNAL_ACCESS_INTEGRATIONS = (test_external_access_integration)
+        COMMENT = 'This is a test service'
         WITH TAG (test_tag='test_value')"""
         )
         assert result.exit_code == 1, result.output
@@ -476,11 +491,12 @@ def test_deploy_multiple_services(
         IN COMPUTE POOL test_compute_pool
         FROM @test_stage
         SPECIFICATION_FILE = 'spec.yml'
+        AUTO_RESUME = True
         MIN_INSTANCES = 1
         MAX_INSTANCES = 2
         QUERY_WAREHOUSE = xsmall
-        COMMENT = 'This is a test service'
         EXTERNAL_ACCESS_INTEGRATIONS = (test_external_access_integration)
+        COMMENT = 'This is a test service'
         WITH TAG (test_tag='test_value')"""
         )
         assert result.exit_code == 0, result.output
@@ -495,6 +511,51 @@ def test_deploy_multiple_services(
                 ),
             ]
         )
+
+
+def test_deploy_multiple_services_without_entity_id(
+    runner,
+    project_directory,
+    os_agnostic_snapshot,
+):
+    with project_directory("spcs_multiple_services"):
+        result = runner.invoke(["spcs", "service", "deploy"])
+
+        assert result.exit_code == 2, result.output
+        assert result.output == os_agnostic_snapshot
+
+
+@patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
+@patch(EXECUTE_QUERY)
+def test_deploy_only_required_fields(
+    mock_execute_query,
+    mock_stage_manager_execute_query,
+    runner,
+    mock_cursor,
+    project_directory,
+    os_agnostic_snapshot,
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Service TEST_SERVICE successfully created."]],
+        columns=["status"],
+    )
+
+    with project_directory("spcs_service_only_required"):
+        result = runner.invoke(["spcs", "service", "deploy"])
+
+        expected_query = dedent(
+            """\
+        CREATE SERVICE test_service
+        IN COMPUTE POOL test_compute_pool
+        FROM @test_stage
+        SPECIFICATION_FILE = 'spec.yml'
+        AUTO_RESUME = True
+        MIN_INSTANCES = 1
+        MAX_INSTANCES = 1"""
+        )
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        mock_execute_query.assert_called_once_with(expected_query)
 
 
 @patch(EXECUTE_QUERY)
@@ -819,7 +880,9 @@ def test_stream_logs_with_include_timestamps_true(mock_sleep, mock_logs):
 
 
 @patch(EXECUTE_QUERY)
-def test_logs_incompatible_flags(mock_execute_query, runner):
+def test_logs_incompatible_flags(
+    mock_execute_query, runner, enable_events_and_metrics_config
+):
     result = runner.invoke(
         [
             "spcs",
@@ -874,7 +937,9 @@ def test_logs_streaming_flag_is_hidden(runner):
 
 
 @patch(EXECUTE_QUERY)
-def test_events_all_filters(mock_execute_query, runner):
+def test_events_all_filters(
+    mock_execute_query, runner, enable_events_and_metrics_config
+):
     mock_execute_query.side_effect = [
         [
             {
@@ -917,7 +982,8 @@ def test_events_all_filters(mock_execute_query, runner):
         ),
     ]
 
-    result = runner.invoke(
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
         [
             "spcs",
             "service",
@@ -973,8 +1039,9 @@ def test_events_all_filters(mock_execute_query, runner):
     ), f"Generated query does not match expected query.\n\nActual:\n{actual_query}\n\nExpected:\n{expected_query}"
 
 
-def test_events_first_last_incompatibility(runner):
-    result = runner.invoke(
+def test_events_first_last_incompatibility(runner, enable_events_and_metrics_config):
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
         [
             "spcs",
             "service",
@@ -1002,7 +1069,9 @@ def test_events_first_last_incompatibility(runner):
 
 
 @patch(EXECUTE_QUERY)
-def test_latest_metrics(mock_execute_query, runner, snapshot):
+def test_latest_metrics(
+    mock_execute_query, runner, snapshot, enable_events_and_metrics_config
+):
     mock_execute_query.side_effect = [
         [
             {
@@ -1041,7 +1110,8 @@ def test_latest_metrics(mock_execute_query, runner, snapshot):
         ),
     ]
 
-    result = runner.invoke(
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
         [
             "spcs",
             "service",
@@ -1099,8 +1169,41 @@ def test_latest_metrics(mock_execute_query, runner, snapshot):
     )
 
 
+def test_service_events_disabled(runner, empty_snowcli_config):
+    result = runner.invoke_with_config_file(
+        empty_snowcli_config,
+        [
+            "spcs",
+            "service",
+            "events",
+            "LOG_EVENT",
+            "--container-name",
+            "log-printer",
+            "--instance-id",
+            "0",
+            "--since",
+            "1 minute",
+        ],
+    )
+    assert (
+        result.exit_code != 0
+    ), "Expected a non-zero exit code due to feature flag being disabled"
+    expected_output = (
+        "Usage: root spcs service [OPTIONS] COMMAND [ARGS]...\n"
+        "Try 'root spcs service --help' for help.\n"
+        "+- Error ----------------------------------------------------------------------+\n"
+        "| No such command 'events'.                                                    |\n"
+        "+------------------------------------------------------------------------------+\n"
+    )
+    assert (
+        result.output == expected_output
+    ), f"Expected formatted output not found: {result.output}"
+
+
 @patch(EXECUTE_QUERY)
-def test_metrics_all_filters(mock_execute_query, runner):
+def test_metrics_all_filters(
+    mock_execute_query, runner, enable_events_and_metrics_config
+):
     mock_execute_query.side_effect = [
         [
             {
@@ -1139,7 +1242,8 @@ def test_metrics_all_filters(mock_execute_query, runner):
         ),
     ]
 
-    result = runner.invoke(
+    result = runner.invoke_with_config_file(
+        enable_events_and_metrics_config,
         [
             "spcs",
             "service",

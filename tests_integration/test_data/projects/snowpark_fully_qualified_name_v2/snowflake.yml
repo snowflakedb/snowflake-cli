@@ -1,0 +1,72 @@
+definition_version: '2'
+entities:
+  fqn_function:
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: db.schema.fqn_function
+    handler: app.hello_function
+    returns: string
+    signature:
+    - name: name
+      type: string
+    type: function
+  fqn_function2:
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: db.schema.fqn_function2
+    handler: app.hello_function
+    returns: string
+    signature:
+    - name: name
+      type: string
+    type: function
+  schema_function:
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: schema_function
+      schema: custom_schema
+    handler: app.hello_function
+    returns: string
+    signature:
+    - name: name
+      type: string
+    type: function
+  database_function:
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: database_function
+      database: custom_database
+    handler: app.hello_function
+    returns: string
+    signature:
+    - name: name
+      type: string
+    type: function
+  database_schema_function:
+    meta:
+      use_mixins:
+      - snowpark_shared
+    identifier:
+      name: database_schema_function
+      schema: custom_schema
+      database: custom_database
+    handler: app.hello_function
+    returns: string
+    signature:
+    - name: name
+      type: string
+    type: function
+mixins:
+  snowpark_shared:
+    stage: dev_deployment
+    artifacts:
+    - src: app/
+      dest: my_snowpark_project

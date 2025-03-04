@@ -1,0 +1,4 @@
+.packages/
+.venv/
+app.zip
+__pycache__

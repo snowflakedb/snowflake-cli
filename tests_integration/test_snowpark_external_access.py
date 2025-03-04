@@ -21,10 +21,18 @@ from tests_integration.testing_utils import SnowparkTestSetup, SnowparkTestSteps
 STAGE_NAME = "dev_deployment"
 
 
+@pytest.mark.skip(
+    reason="temporarily skip the test due to external issue (SNOW-1955010)"
+)
 @pytest.mark.integration
-def test_snowpark_external_access(project_directory, _test_steps, test_database):
+@pytest.mark.parametrize(
+    "project_name", ["snowpark_external_access_v1", "snowpark_external_access_v2"]
+)
+def test_snowpark_external_access(
+    project_directory, _test_steps, test_database, project_name
+):
 
-    with project_directory("snowpark_external_access") as project_dir:
+    with project_directory(project_name):
         _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
 
         _test_steps.snowpark_deploy_should_finish_successfully_and_return(

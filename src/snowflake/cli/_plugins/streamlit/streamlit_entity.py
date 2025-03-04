@@ -28,8 +28,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
     """
 
     def __init__(self, *args, **kwargs):
-        if not FeatureFlag.ENABLE_NATIVE_APP_CHILDREN.is_enabled():
-            raise NotImplementedError("Streamlit entity is not implemented yet")
         super().__init__(*args, **kwargs)
 
     @property

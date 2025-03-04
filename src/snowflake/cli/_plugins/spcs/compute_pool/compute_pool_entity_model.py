@@ -1,13 +1,15 @@
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
+from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli.api.project.schemas.entities.common import EntityModelBase
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
+from snowflake.cli.api.project.util import to_string_literal
 
 
 class ComputePoolEntityModel(EntityModelBase):
     type: Literal["compute-pool"] = DiscriminatorField()  # noqa: A003
-    min_nodes: int = Field(title="Minimum number of nodes", default=None, ge=1)
+    min_nodes: Optional[int] = Field(title="Minimum number of nodes", default=1, ge=1)
     max_nodes: Optional[int] = Field(
         title="Maximum number of nodes", default=None, ge=1
     )
@@ -25,3 +27,11 @@ class ComputePoolEntityModel(EntityModelBase):
         ge=1,
     )
     comment: Optional[str] = Field(title="Comment for the compute pool", default=None)
+    tags: Optional[List[Tag]] = Field(title="Tag for the compute pool", default=None)
+
+    @field_validator("comment")
+    @classmethod
+    def _convert_artifacts(cls, comment: Optional[str]):
+        if comment:
+            return to_string_literal(comment)
+        return comment

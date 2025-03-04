@@ -16,22 +16,24 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Dict
 
 import click
 import typer
-from click import ClickException, UsageError
+from click import ClickException
+
 from snowflake.cli._plugins.object.command_aliases import (
     add_object_command_aliases,
     scope_option,
 )
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
+from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
 from snowflake.cli._plugins.streamlit.streamlit_project_paths import (
     StreamlitProjectPaths,
 )
+from snowflake.cli._plugins.workspace.context import WorkspaceContext
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_experimental_behaviour,
@@ -44,6 +46,8 @@ from snowflake.cli.api.commands.flags import (
     like_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.commands.utils import get_entity_for_operation
+from snowflake.cli.api.console.console import CliConsole
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
@@ -133,7 +137,8 @@ def _default_file_callback(param_name: str):
 @with_experimental_behaviour()
 def streamlit_deploy(
     replace: bool = ReplaceOption(
-        help="Replace the Streamlit app if it already exists."
+        help="Replaces the Streamlit app if it already exists. It only uploads new and overwrites existing files, "
+        "but does not remove any files already on the stage."
     ),
     entity_id: str = entity_argument("streamlit"),
     open_: bool = OpenOption,
@@ -155,30 +160,17 @@ def streamlit_deploy(
             )
         pd = convert_project_definition_to_v2(cli_context.project_root, pd)
 
-    streamlits: Dict[str, StreamlitEntityModel] = pd.get_entities_by_type(
-        entity_type="streamlit"
+    streamlit: StreamlitEntity = StreamlitEntity(
+        entity_model=get_entity_for_operation(
+        cli_context=cli_context,
+        entity_id=entity_id,
+        project_definition=pd,
+        entity_type="streamlit",
+        ),
+        workspace_ctx=_get_current_workspace_context()
     )
 
     streamlit_project_paths = StreamlitProjectPaths(cli_context.project_root)
-
-    if not streamlits:
-        raise NoProjectDefinitionError(
-            project_type="streamlit", project_root=cli_context.project_root
-        )
-
-    if entity_id and entity_id not in streamlits:
-        raise UsageError(f"No '{entity_id}' entity in project definition file.")
-
-    if len(streamlits.keys()) == 1:
-        entity_id = list(streamlits.keys())[0]
-
-    if entity_id is None:
-        raise UsageError(
-            "Multiple Streamlit apps found. Please provide entity id for the operation."
-        )
-
-    # Get first streamlit
-    streamlit: StreamlitEntityModel = streamlits[entity_id]
     url = StreamlitManager().deploy(
         streamlit=streamlit,
         streamlit_project_paths=streamlit_project_paths,
@@ -202,3 +194,13 @@ def get_url(
     if open_:
         typer.launch(url)
     return MessageResult(url)
+
+def _get_current_workspace_context():
+    ctx = get_cli_context()
+
+    return WorkspaceContext(
+        console = CliConsole(),
+        project_root = ctx.project_root,
+        get_default_role = lambda: ctx.connection.role,
+        get_default_warehouse = lambda: ctx.connection.warehouse,
+    )

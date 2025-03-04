@@ -2,7 +2,7 @@
 # name: test_sql_help_if_no_query_file_or_stdin
   '''
                                                                                   
-   Usage: default sql [OPTIONS]                                                   
+   Usage: root sql [OPTIONS]                                                      
                                                                                   
    Executes Snowflake query.                                                      
    Use either query, filename or input option. Query to execute can be specified  
@@ -21,10 +21,10 @@
   |                                  and rendered using provided data.           |
   | --retain-comments                Retains comments in queries passed to       |
   |                                  Snowflake                                   |
-  | --project          -p      TEXT  Path where Snowflake project resides.       |
-  |                                  Defaults to current working directory.      |
-  | --env                      TEXT  String in format of key=value. Overrides    |
-  |                                  variables from env section used for         |
+  | --project          -p      TEXT  Path where the Snowflake project is stored. |
+  |                                  Defaults to the current working directory.  |
+  | --env                      TEXT  String in the format key=value. Overrides   |
+  |                                  variables from the env section used for     |
   |                                  templates.                                  |
   | --help             -h            Show this message and exit.                 |
   +------------------------------------------------------------------------------+
@@ -76,18 +76,22 @@
   | --warehouse                            TEXT     Warehouse to use. Overrides  |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
-  | --temporary-connection         -x               Uses connection defined with |
-  |                                                 command line parameters,     |
-  |                                                 instead of one defined in    |
-  |                                                 config                       |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
   | --mfa-passcode                         TEXT     Token to use for             |
   |                                                 multi-factor authentication  |
   |                                                 (MFA)                        |
-  | --enable-diag                                   Run Python connector         |
-  |                                                 diagnostic test              |
-  | --diag-log-path                        TEXT     Diagnostic report path       |
-  | --diag-allowlist-path                  TEXT     Diagnostic report path to    |
-  |                                                 optional allowlist           |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format           [TABLE|JSON]  Specifies the output format.                |

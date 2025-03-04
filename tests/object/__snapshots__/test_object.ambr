@@ -439,8 +439,8 @@
 # ---
 # name: test_replace_and_not_exists_cannot_be_used_together
   '''
-  Usage: default object create [OPTIONS] OBJECT_TYPE [OBJECT_ATTRIBUTES]...
-  Try 'default object create --help' for help.
+  Usage: root object create [OPTIONS] OBJECT_TYPE [OBJECT_ATTRIBUTES]...
+  Try 'root object create --help' for help.
   +- Error ----------------------------------------------------------------------+
   | Parameters '--if-not-exists' and '--replace' are incompatible and cannot be  |
   | used simultaneously.                                                         |

@@ -107,7 +107,8 @@ def create(
 def deploy(
     entity_id: str = entity_argument("notebook"),
     replace: bool = ReplaceOption(
-        help="Replace notebook object if it already exists.",
+        help="Replace notebook object if it already exists. It only uploads new and overwrites existing files, "
+        "but does not remove any files already on the stage.",
     ),
     **options,
 ) -> CommandResult:

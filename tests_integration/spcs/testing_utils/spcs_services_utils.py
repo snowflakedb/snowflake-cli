@@ -20,7 +20,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
-from typing import List
+from typing import List, Dict
 
 import pytest
 from snowflake.connector import SnowflakeConnection
@@ -77,19 +77,29 @@ class SnowparkServicesTestSteps:
             result, {"status": f"Service {service_name.upper()} successfully created."}
         )
 
-    def deploy_service(
-        self, service_name: str, additional_flags: List[str] = []
-    ) -> None:
+    def deploy_service(self, service_name: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
             [
                 "spcs",
                 "service",
                 "deploy",
-                *additional_flags,
             ],
         )
         assert_that_result_is_successful_and_output_json_equals(
             result, {"status": f"Service {service_name.upper()} successfully created."}
+        )
+
+    def upgrade_service(self) -> None:
+        result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "service",
+                "deploy",
+                "--upgrade",
+            ],
+        )
+        assert_that_result_is_successful_and_output_json_equals(
+            result, {"status": f"Statement executed successfully."}
         )
 
     def execute_job_service(self, job_service_name: str) -> None:
@@ -150,10 +160,16 @@ class SnowparkServicesTestSteps:
         result = self._execute_list()
         assert not_contains_row_with(result.json, {"name": service_name.upper()})
 
-    def describe_should_return_service(self, service_name: str) -> None:
+    def describe_should_return_service(
+        self, service_name: str, expected_values_contain: Dict[str, str] = {}
+    ) -> None:
         result = self._execute_describe(service_name)
-        assert result.json
-        assert result.json[0]["name"] == service_name.upper()  # type: ignore
+        assert_that_result_is_successful(result)
+        assert_that_result_is_successful_and_output_json_contains(
+            result, {"name": service_name.upper()}
+        )
+        for key, value in expected_values_contain.items():
+            assert value in result.json[0][key]
 
     def set_unset_service_property(self, service_name: str) -> None:
         comment = "test comment"

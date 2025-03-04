@@ -51,6 +51,8 @@ from snowflake.cli.api.errno import (
     APPLICATION_PACKAGE_MAX_VERSIONS_HIT,
     APPLICATION_PACKAGE_PATCH_ALREADY_EXISTS,
     APPLICATION_REQUIRES_TELEMETRY_SHARING,
+    CANNOT_ADD_PATCH_WITH_NON_INCREASING_PATCH_NUMBER,
+    CANNOT_CREATE_VERSION_WITH_NON_ZERO_PATCH,
     CANNOT_DEREGISTER_VERSION_ASSOCIATED_WITH_CHANNEL,
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
     CANNOT_DISABLE_RELEASE_CHANNELS,
@@ -61,6 +63,7 @@ from snowflake.cli.api.errno import (
     MAX_UNBOUND_VERSIONS_REACHED,
     NO_WAREHOUSE_SELECTED_IN_SESSION,
     RELEASE_DIRECTIVE_DOES_NOT_EXIST,
+    RELEASE_DIRECTIVE_UNAPPROVED_VERSION_OR_PATCH,
     RELEASE_DIRECTIVES_VERSION_PATCH_NOT_FOUND,
     SQL_COMPILATION_ERROR,
     TARGET_ACCOUNT_USED_BY_OTHER_RELEASE_DIRECTIVE,
@@ -3353,6 +3356,11 @@ def test_set_default_release_directive_no_release_channel(
             "Some target accounts are already referenced by other release directives in application package test_package.",
         ),
         (
+            ProgrammingError(errno=RELEASE_DIRECTIVE_UNAPPROVED_VERSION_OR_PATCH),
+            UserInputError,
+            'Version "1.0.0", patch 1 has not yet been approved to release to accounts outside of this organization.',
+        ),
+        (
             ProgrammingError(),
             InvalidSQLError,
             "Failed to set release directive test_directive for application package test_package.",
@@ -3908,6 +3916,11 @@ def test_create_version_with_special_characters(
             "Please drop the other versions first.",
         ),
         (
+            ProgrammingError(errno=CANNOT_CREATE_VERSION_WITH_NON_ZERO_PATCH),
+            UserInputError,
+            "Cannot create a new version with a non-zero patch in the manifest file.",
+        ),
+        (
             ProgrammingError(),
             InvalidSQLError,
             "Failed to ACTION_PLACEHOLDER version v1 to application package test_package.",
@@ -4153,6 +4166,11 @@ def test_add_patch_to_package_version_valid_input_then_success_no_patch_in_input
             "Patch 1 already exists for version v1 in application package test_package.",
         ),
         (
+            ProgrammingError(errno=CANNOT_ADD_PATCH_WITH_NON_INCREASING_PATCH_NUMBER),
+            UserInputError,
+            "Cannot add a patch with a non-increasing patch number to version v1 in application package test_package.",
+        ),
+        (
             ProgrammingError(),
             InvalidSQLError,
             "Failed to create patch 1 for version v1 in application package test_package.",
@@ -4182,6 +4200,30 @@ def test_add_patch_to_package_version_with_error(
             patch=patch,
         )
     assert error_message in str(err)
+
+
+def test_add_patch_to_package_with_patch_already_exist_error_and_null_patch(
+    mock_use_role, mock_execute_query
+):
+    # In the case where the patch is None but we still get patch already exist error,
+    # this would be caused by a hard-coded patch value in the manifest
+    package_name = "test_package"
+    version = "v1"
+    patch = None
+    stage_fqn = "src.stage"
+
+    mock_execute_query.side_effect = ProgrammingError(
+        errno=APPLICATION_PACKAGE_PATCH_ALREADY_EXISTS
+    )
+
+    with pytest.raises(UserInputError) as err:
+        sql_facade.add_patch_to_package_version(
+            package_name=package_name,
+            path_to_version_directory=stage_fqn,
+            version=version,
+            patch=patch,
+        )
+    assert "Patch already exists for version v1 in application package test_package. Check the manifest file for any harded-coded patch value."
 
 
 def test_add_accounts_to_release_channel_valid_input_then_success(

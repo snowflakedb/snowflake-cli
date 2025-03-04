@@ -1,0 +1,9 @@
+definition_version: 2
+entities:
+  my_project:
+    type: project
+    stage: "my_project_stage"
+    main_file: manifest.yml
+    artifacts:
+      - file_a.sql
+      - manifest.yml

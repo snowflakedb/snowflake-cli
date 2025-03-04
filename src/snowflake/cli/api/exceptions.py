@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from click.exceptions import ClickException, UsageError
 from snowflake.cli.api.constants import ObjectType
@@ -52,6 +52,13 @@ class InvalidLogsConfiguration(ClickException):
 class InvalidPluginConfiguration(ClickException):
     def format_message(self):
         return f"Invalid plugin configuration. {self.message}"
+
+
+class PluginNotInstalledError(ClickException):
+    def __init__(self, plugin_name, installed_plugins: List[str]):
+        super().__init__(
+            f"Plugin {plugin_name} is not installed. Available plugins: {', '.join(installed_plugins)}."
+        )
 
 
 class SnowflakeConnectionError(ClickException):

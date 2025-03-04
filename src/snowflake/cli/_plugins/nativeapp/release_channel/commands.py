@@ -82,7 +82,7 @@ def release_channel_add_accounts(
     ),
     target_accounts: str = typer.Option(
         show_default=False,
-        help="The accounts to add to the release channel. Format has to be `org1.account1,org2.account2`.",
+        help="The accounts to add to the release channel. Format must be `org1.account1,org2.account2`.",
     ),
     **options,
 ) -> CommandResult:
@@ -116,7 +116,7 @@ def release_channel_remove_accounts(
     ),
     target_accounts: str = typer.Option(
         show_default=False,
-        help="The accounts to remove from the release channel. Format has to be `org1.account1,org2.account2`.",
+        help="The accounts to remove from the release channel. Format must be `org1.account1,org2.account2`.",
     ),
     **options,
 ) -> CommandResult:
@@ -150,7 +150,7 @@ def release_channel_set_accounts(
     ),
     target_accounts: str = typer.Option(
         show_default=False,
-        help="The accounts to set for the release channel. Format has to be `org1.account1,org2.account2`.",
+        help="The accounts to set for the release channel. Format must be `org1.account1,org2.account2`.",
     ),
     **options,
 ) -> CommandResult:

@@ -18,11 +18,12 @@ mock_streamlit_exists = mock.patch(
 )
 
 
+@mock.patch("snowflake.cli.api.artifacts.upload.StageManager")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StageManager")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.get_url")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query")
 @mock_streamlit_exists
-def test_deploy_streamlit(mock_execute_query, _, mock_stage_manager, temp_dir):
+def test_deploy_streamlit(mock_execute_query, _, mock_stage_manager, __):
     mock_stage_manager().get_standard_stage_prefix.return_value = "stage_root"
 
     main_file = Path("main.py")
@@ -58,12 +59,13 @@ def test_deploy_streamlit(mock_execute_query, _, mock_stage_manager, temp_dir):
     )
 
 
+@mock.patch("snowflake.cli.api.artifacts.upload.StageManager")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StageManager")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.get_url")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query")
 @mock_streamlit_exists
 def test_deploy_streamlit_with_api_integrations(
-    mock_execute_query, _, mock_stage_manager, temp_dir
+    mock_execute_query, _, mock_stage_manager, __
 ):
     mock_stage_manager().get_standard_stage_prefix.return_value = "stage_root"
 
@@ -102,12 +104,13 @@ def test_deploy_streamlit_with_api_integrations(
     )
 
 
+@mock.patch("snowflake.cli.api.artifacts.upload.StageManager")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StageManager")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.get_url")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query")
 @mock_streamlit_exists
 def test_deploy_streamlit_with_comment(
-    mock_execute_query, _, mock_stage_manager, temp_dir
+    mock_execute_query, _, mock_stage_manager, __, temp_dir
 ):
     mock_stage_manager().get_standard_stage_prefix.return_value = "stage_root"
 
@@ -143,12 +146,13 @@ def test_deploy_streamlit_with_comment(
     )
 
 
+@mock.patch("snowflake.cli.api.artifacts.upload.StageManager")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StageManager")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.get_url")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query")
 @mock_streamlit_exists
 def test_deploy_streamlit_with_default_warehouse(
-    mock_execute_query, _, mock_stage_manager, temp_dir
+    mock_execute_query, _, mock_stage_manager, __, temp_dir
 ):
     mock_stage_manager().get_standard_stage_prefix.return_value = "stage_root"
 
@@ -183,6 +187,7 @@ def test_deploy_streamlit_with_default_warehouse(
     )
 
 
+@mock.patch("snowflake.cli.api.artifacts.upload.StageManager")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StageManager")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.get_url")
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query")
@@ -190,7 +195,9 @@ def test_deploy_streamlit_with_default_warehouse(
     "snowflake.cli._plugins.streamlit.manager.StreamlitManager.grant_privileges"
 )
 @mock_streamlit_exists
-def test_deploy_streamlit_with_grants(mock_grants, _, __, mock_stage_manager, temp_dir):
+def test_deploy_streamlit_with_grants(
+    mock_grants, _, __, mock_stage_manager, ___, temp_dir
+):
     mock_stage_manager().get_standard_stage_prefix.return_value = "stage_root"
 
     main_file = Path(temp_dir) / "main.py"

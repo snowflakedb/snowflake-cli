@@ -41,30 +41,30 @@ class SnowparkProjectPaths(ProjectPaths):
             return artifact_path
         return (self.project_root / artifact_path).resolve()
 
-    def get_artefact_dto(self, artifact_path: PathMapping) -> Artefact:
+    def get_artifact_dto(self, artifact_path: PathMapping) -> Artifact:
         if FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled():
-            return Artefact(
+            return Artifact(
                 project_root=self.project_root,
                 bundle_root=self.bundle_root,
                 dest=artifact_path.dest,
                 path=Path(artifact_path.src),
             )
         else:
-            return ArtefactOldBuild(
+            return ArtifactOldBuild(
                 dest=artifact_path.dest,
                 path=self.path_relative_to_root(Path(artifact_path.src)),
             )
 
-    def get_dependencies_artefact(self) -> Artefact:
+    def get_dependencies_artifact(self) -> Artifact:
         if FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled():
-            return Artefact(
+            return Artifact(
                 project_root=self.project_root,
                 bundle_root=self.bundle_root,
                 dest=None,
                 path=Path("dependencies.zip"),
             )
         else:
-            return ArtefactOldBuild(
+            return ArtifactOldBuild(
                 dest=None, path=self.path_relative_to_root(Path("dependencies.zip"))
             )
 
@@ -84,8 +84,8 @@ class SnowparkProjectPaths(ProjectPaths):
 
 
 @dataclass(unsafe_hash=True)
-class Artefact:
-    """Helper for getting paths related to given artefact."""
+class Artifact:
+    """Helper for getting paths related to given artifact."""
 
     project_root: Path
     bundle_root: Path
@@ -107,9 +107,9 @@ class Artefact:
             self.dest = self.dest + "/"
 
     @property
-    def _artefact_name(self) -> str:
+    def _artifact_name(self) -> str:
         """
-        Returns artefact name. Directories are mapped to corresponding .zip files.
+        Returns artifact name. Directories are mapped to corresponding .zip files.
         For paths with glob patterns, the last part of the path is used.
         For files, the file name is used.
         """
@@ -134,7 +134,7 @@ class Artefact:
     @property
     def post_build_path(self) -> Path:
         """
-        Returns post-build artefact path. Directories are mapped to corresponding .zip files.
+        Returns post-build artifact path. Directories are mapped to corresponding .zip files.
         """
         bundle_root = self.bundle_root
         path = (
@@ -144,11 +144,11 @@ class Artefact:
         )
         if self._is_dest_a_file():
             return bundle_root / self.dest  # type: ignore
-        return bundle_root / (self.dest or path) / self._artefact_name
+        return bundle_root / (self.dest or path) / self._artifact_name
 
     def upload_path(self, stage: FQN | str | None) -> str:
         """
-        Path on stage to which the artefact should be uploaded.
+        Path on stage to which the artifact should be uploaded.
         """
         stage = stage or DEPLOYMENT_STAGE
         if isinstance(stage, str):
@@ -170,7 +170,7 @@ class Artefact:
 
     def import_path(self, stage: FQN | str | None) -> str:
         """Path for UDF/sproc imports clause."""
-        return self.upload_path(stage) + self._artefact_name
+        return self.upload_path(stage) + self._artifact_name
 
     def _is_dest_a_file(self) -> bool:
         if not self.dest:
@@ -188,12 +188,12 @@ class Artefact:
 
     # Can be removed after removing ENABLE_SNOWPARK_GLOB_SUPPORT feature flag.
     def build(self) -> None:
-        raise NotImplementedError("Not implemented in Artefact class.")
+        raise NotImplementedError("Not implemented in Artifact class.")
 
 
 @dataclass(unsafe_hash=True)
-class ArtefactOldBuild(Artefact):
-    """Helper for getting paths related to given artefact."""
+class ArtifactOldBuild(Artifact):
+    """Helper for getting paths related to given artifact."""
 
     path: Path
     dest: str | None = None
@@ -202,7 +202,7 @@ class ArtefactOldBuild(Artefact):
         super().__init__(project_root=Path(), bundle_root=Path(), path=path, dest=dest)
 
     @property
-    def _artefact_name(self) -> str:
+    def _artifact_name(self) -> str:
         if self.path.is_dir():
             return self.path.stem + ".zip"
         return self.path.name
@@ -210,13 +210,13 @@ class ArtefactOldBuild(Artefact):
     @property
     def post_build_path(self) -> Path:
         """
-        Returns post-build artefact path. Directories are mapped to corresponding .zip files.
+        Returns post-build artifact path. Directories are mapped to corresponding .zip files.
         """
-        return self.path.parent / self._artefact_name
+        return self.path.parent / self._artifact_name
 
     def upload_path(self, stage: FQN | str | None) -> str:
         """
-        Path on stage to which the artefact should be uploaded.
+        Path on stage to which the artifact should be uploaded.
         """
         stage = stage or DEPLOYMENT_STAGE
         if isinstance(stage, str):
@@ -229,10 +229,10 @@ class ArtefactOldBuild(Artefact):
 
     def import_path(self, stage: FQN | str | None) -> str:
         """Path for UDF/sproc imports clause."""
-        return self.upload_path(stage) + self._artefact_name
+        return self.upload_path(stage) + self._artifact_name
 
     def build(self) -> None:
-        """Build the artefact. Applies only to directories. Files are untouched."""
+        """Build the artifact. Applies only to directories. Files are untouched."""
         if not self.path.is_dir():
             return
         cli_console.step(f"Creating: {self.post_build_path.name}")

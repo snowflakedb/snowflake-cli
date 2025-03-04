@@ -122,10 +122,10 @@ class UpdatableModel(BaseModel):
             class_dict = class_.__dict__
             field_annotations.update(class_dict.get("__annotations__", {}))
 
-            if "model_fields" in class_dict:
+            if "model_fields" in class_dict and class_.model_fields:
                 # This means the class dict has already been processed by Pydantic
                 # All fields should properly be populated in model_fields
-                field_values.update(class_dict["model_fields"])
+                field_values.update(class_.model_fields)
             else:
                 # If Pydantic did not process this class yet, get the values from class_dict directly
                 field_values.update(class_dict)

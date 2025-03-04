@@ -51,7 +51,7 @@ jobs:
           description: >
             _Created from GitHub Action_ for ${{ github.event.issue.html_url }}
             ```${{ github.event.issue.body }}```
-          fields: '{"customfield_11401":{"id":"14723"},"labels":["dp-snowcli","github"],"parent":{"key":"SNOW-1747450"}}'
+          fields: '{"customfield_11401":{"id":"14723"},"labels":["dp-snowcli","github"],"parent":{"key":"SNOW-1747450"}, "components":[{"id":"18653"}]}'
 
       - name: Update GitHub Issue
         uses: ./jira/gajira-issue-update
