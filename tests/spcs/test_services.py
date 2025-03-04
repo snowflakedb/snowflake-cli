@@ -525,6 +525,39 @@ def test_deploy_multiple_services_without_entity_id(
         assert result.output == os_agnostic_snapshot
 
 
+@patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
+@patch(EXECUTE_QUERY)
+def test_deploy_only_required_fields(
+    mock_execute_query,
+    mock_stage_manager_execute_query,
+    runner,
+    mock_cursor,
+    project_directory,
+    os_agnostic_snapshot,
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Service TEST_SERVICE successfully created."]],
+        columns=["status"],
+    )
+
+    with project_directory("spcs_service_only_required"):
+        result = runner.invoke(["spcs", "service", "deploy"])
+
+        expected_query = dedent(
+            """\
+        CREATE SERVICE test_service
+        IN COMPUTE POOL test_compute_pool
+        FROM @test_stage
+        SPECIFICATION_FILE = 'spec.yml'
+        AUTO_RESUME = True
+        MIN_INSTANCES = 1
+        MAX_INSTANCES = 1"""
+        )
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        mock_execute_query.assert_called_once_with(expected_query)
+
+
 @patch(EXECUTE_QUERY)
 def test_execute_job_service(mock_execute_query, other_directory):
     job_service_name = "test_job_service"
