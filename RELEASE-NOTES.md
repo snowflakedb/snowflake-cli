@@ -21,7 +21,8 @@
 ## New additions
 
 ## Fixes and improvements
-- Fix for incompatible options in `snow spcs compute-pool` commands didn't raise error
+* Fix for incompatible options in `snow spcs compute-pool` commands didn't raise error.
+* Change binary builds to embed whole Python environment.
 
 # v3.5.0
 
@@ -35,7 +36,6 @@
 * Added `snow compute-pool deploy` command using `snowflake.yml` file.
 * Added `snow spcs service deploy` command using `snowflake.yml` file.
 * Added `snow image-repository deploy` command using `snowflake.yml` file.
-* Change binary builds to embed whole Python environment.
 
 ## Fixes and improvements
 * Fix handling of date types in `snow sql` command when using JSON for output format
