@@ -35,6 +35,11 @@
 * Added `snow compute-pool deploy` command using `snowflake.yml` file.
 * Added `snow spcs service deploy` command using `snowflake.yml` file.
 * Added `snow image-repository deploy` command using `snowflake.yml` file.
+* Added new `snow auth keypair` commands:
+  * `setup` - generate key pair, set public key for the user in Snowflake and update/create connection.
+  * `rotate` - rotate keys for connection.
+  * `list` - list the public keys for the user.
+  * `remove` - remove the public key for the user.
 
 ## Fixes and improvements
 * Fix handling of date types in `snow sql` command when using JSON for output format

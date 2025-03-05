@@ -22,7 +22,6 @@ from unittest import mock
 
 import pytest
 from snowflake import connector
-from snowflake.cli._app.secret import SecretType
 from snowflake.cli.api.exceptions import EnvironmentVariableNotFoundError
 from snowflake.cli._app.snow_connector import update_connection_details_with_private_key
 

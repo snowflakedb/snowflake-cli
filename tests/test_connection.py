@@ -21,9 +21,9 @@ from unittest import mock
 
 import pytest
 import tomlkit
-from snowflake.cli._app.secret import SecretType
 from snowflake.cli.api.config import ConnectionConfig
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.secret import SecretType
 
 from tests.testing_utils.files_and_dirs import pushd
 from tests_common import IS_WINDOWS
