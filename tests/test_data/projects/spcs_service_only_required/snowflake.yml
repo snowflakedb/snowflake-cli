@@ -1,0 +1,11 @@
+definition_version: "2"
+
+entities:
+  test_service:
+    type: service
+    identifier: test_service
+    stage: test_stage
+    compute_pool: test_compute_pool
+    spec_file: spec.yml
+    artifacts:
+      - spec.yml

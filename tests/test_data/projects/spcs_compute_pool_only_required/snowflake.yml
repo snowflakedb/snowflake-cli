@@ -1,0 +1,7 @@
+definition_version: "2"
+
+entities:
+  test_compute_pool:
+    type: compute-pool
+    identifier: test_compute_pool
+    instance_family: CPU_X64_XS

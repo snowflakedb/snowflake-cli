@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_e2e.conftest import subprocess_check_output
+from tests_e2e.conftest import subprocess_check_output, subprocess_run
 
 
 @pytest.mark.e2e
@@ -88,3 +88,96 @@ def test_command_from_external_plugin(snowcli, test_root_path, snapshot):
         ],
     )
     snapshot.assert_match(output)
+
+
+@pytest.mark.e2e
+def test_disabling_and_enabling_command(snowcli, config_file, snapshot):
+    # assert that test starts with enabled plugin (command group visible in help)
+    output = subprocess_check_output(
+        [
+            snowcli,
+            "--config-file",
+            config_file,
+            "--help",
+        ],
+    )
+    snapshot.assert_match(output)
+
+    # plugin should be marked as enabled by list command
+    output = subprocess_check_output(
+        [snowcli, "--config-file", config_file, "plugin", "list"]
+    )
+    snapshot.assert_match(output)
+
+    # disable plugin
+    output = subprocess_check_output(
+        [
+            snowcli,
+            "--config-file",
+            config_file,
+            "plugin",
+            "disable",
+            "multilingual-hello",
+        ],
+    )
+    snapshot.assert_match(output)
+
+    # plugin should be marked as disabled by list command
+    output = subprocess_check_output(
+        [snowcli, "--config-file", config_file, "plugin", "list"]
+    )
+    snapshot.assert_match(output)
+
+    # assert that plugin is disabled (command group not visible in help)
+    output = subprocess_check_output(
+        [
+            snowcli,
+            "--config-file",
+            config_file,
+            "--help",
+        ],
+    )
+    snapshot.assert_match(output)
+
+    # enable plugin
+    output = subprocess_check_output(
+        [
+            snowcli,
+            "--config-file",
+            config_file,
+            "plugin",
+            "enable",
+            "multilingual-hello",
+        ],
+    )
+    snapshot.assert_match(output)
+
+    # assert that plugin is enabled (command group visible in help)
+    output = subprocess_check_output(
+        [
+            snowcli,
+            "--config-file",
+            config_file,
+            "--help",
+        ],
+    )
+    snapshot.assert_match(output)
+
+    # plugin should be marked as enabled by list command
+    output = subprocess_check_output(
+        [snowcli, "--config-file", config_file, "plugin", "list"]
+    )
+    snapshot.assert_match(output)
+
+    # enable not existing plugin
+    output = subprocess_run(
+        [snowcli, "--config-file", config_file, "plugin", "enable", "asdf1234"]
+    )
+    assert output.returncode == 1
+    assert (
+        "Plugin asdf1234 is not installed. Available plugins: multilingual-hello."
+        in output.stderr
+    )
+
+    # assert that config file contains configs of enabled and disabled configs
+    snapshot.assert_match(config_file.read_text())

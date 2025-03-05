@@ -61,7 +61,7 @@ development = [
   "pre-commit>=3.5.0",
   "pytest==8.3.4",
   "pytest-randomly==3.16.0",
-  "syrupy==4.8.1",
+  "syrupy==4.8.2",
   "factory-boy==3.3.3",
   "Faker==36.1.1",
 ]
@@ -141,7 +141,10 @@ features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
 test = [
-  'pytest -m "integration and not qa_only" -n6 --dist=worksteal --deflake-test-type=integration tests_integration/',
+  'pytest -m "integration and not qa_only" -n6 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/spcs tests_integration/',
+]
+test-spcs = [
+  "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/spcs",
 ]
 test_qa = [
   "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/",

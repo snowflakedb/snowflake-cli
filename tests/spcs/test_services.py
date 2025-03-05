@@ -14,6 +14,7 @@
 import itertools
 import json
 import re
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -34,6 +35,7 @@ from snowflake.connector.cursor import SnowflakeCursor
 from yaml import YAMLError
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
+from tests.testing_utils.files_and_dirs import pushd
 
 SPEC_CONTENT = dedent(
     """
@@ -303,6 +305,14 @@ def test_create_service_if_not_exists(mock_execute_query, other_directory):
     assert result == cursor
 
 
+def test_deploy_command_requires_pdf(runner):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with pushd(tmpdir):
+            result = runner.invoke(["spcs", "service", "deploy"])
+            assert result.exit_code == 1
+            assert "Cannot find project definition (snowflake.yml)." in result.output
+
+
 @patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
 @patch(EXECUTE_QUERY)
 def test_deploy_service(
@@ -523,6 +533,39 @@ def test_deploy_multiple_services_without_entity_id(
 
         assert result.exit_code == 2, result.output
         assert result.output == os_agnostic_snapshot
+
+
+@patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
+@patch(EXECUTE_QUERY)
+def test_deploy_only_required_fields(
+    mock_execute_query,
+    mock_stage_manager_execute_query,
+    runner,
+    mock_cursor,
+    project_directory,
+    os_agnostic_snapshot,
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Service TEST_SERVICE successfully created."]],
+        columns=["status"],
+    )
+
+    with project_directory("spcs_service_only_required"):
+        result = runner.invoke(["spcs", "service", "deploy"])
+
+        expected_query = dedent(
+            """\
+        CREATE SERVICE test_service
+        IN COMPUTE POOL test_compute_pool
+        FROM @test_stage
+        SPECIFICATION_FILE = 'spec.yml'
+        AUTO_RESUME = True
+        MIN_INSTANCES = 1
+        MAX_INSTANCES = 1"""
+        )
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        mock_execute_query.assert_called_once_with(expected_query)
 
 
 @patch(EXECUTE_QUERY)

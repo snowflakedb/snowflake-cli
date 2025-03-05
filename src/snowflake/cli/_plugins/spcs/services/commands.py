@@ -34,6 +34,7 @@ from snowflake.cli._plugins.spcs.services.service_project_paths import (
     ServiceProjectPaths,
 )
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     OverrideableOption,
@@ -210,6 +211,7 @@ def create(
 
 
 @app.command(requires_connection=True)
+@with_project_definition()
 def deploy(
     entity_id: str = entity_argument("service"),
     upgrade: bool = typer.Option(
@@ -227,6 +229,9 @@ def deploy(
         entity_id=entity_id,
     )
     service_project_paths = ServiceProjectPaths(get_cli_context().project_root)
+    max_instances = validate_and_set_instances(
+        service.min_instances, service.max_instances, "instances"
+    )
     cursor = ServiceManager().deploy(
         service_name=service.fqn.identifier,
         stage=service.stage,
@@ -234,7 +239,7 @@ def deploy(
         compute_pool=service.compute_pool,
         spec_path=service.spec_file,
         min_instances=service.min_instances,
-        max_instances=service.max_instances,
+        max_instances=max_instances,
         auto_resume=service.auto_resume,
         external_access_integrations=service.external_access_integrations,
         query_warehouse=service.query_warehouse,

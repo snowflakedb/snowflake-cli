@@ -27,6 +27,7 @@ from snowflake.cli._plugins.spcs.compute_pool.compute_pool_entity_model import (
     ComputePoolEntityModel,
 )
 from snowflake.cli._plugins.spcs.compute_pool.manager import ComputePoolManager
+from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     IfNotExistsOption,
     OverrideableOption,
@@ -87,9 +88,17 @@ MaxNodesOption = OverrideableOption(
 _AUTO_RESUME_HELP = "The compute pool will automatically resume when a service or job is submitted to it."
 
 AutoResumeOption = OverrideableOption(
-    True,
-    "--auto-resume/--no-auto-resume",
+    False,
+    "--auto-resume",
     help=_AUTO_RESUME_HELP,
+    mutually_exclusive=["no_auto_resume"],
+)
+
+NoAutoResumeOption = OverrideableOption(
+    False,
+    "--no-auto-resume",
+    help=_AUTO_RESUME_HELP,
+    mutually_exclusive=["auto_resume"],
 )
 
 _AUTO_SUSPEND_SECS_HELP = "Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool."
@@ -125,6 +134,7 @@ def create(
     min_nodes: int = MinNodesOption(),
     max_nodes: Optional[int] = MaxNodesOption(),
     auto_resume: bool = AutoResumeOption(),
+    no_auto_resume: bool = NoAutoResumeOption(),
     initially_suspended: bool = typer.Option(
         False,
         "--init-suspend/--no-init-suspend",
@@ -139,13 +149,14 @@ def create(
     """
     Creates a new compute pool.
     """
+    resume_option = True if auto_resume else False if no_auto_resume else True
     max_nodes = validate_and_set_instances(min_nodes, max_nodes, "nodes")
     cursor = ComputePoolManager().create(
         pool_name=name.identifier,
         min_nodes=min_nodes,
         max_nodes=max_nodes,
         instance_family=instance_family,
-        auto_resume=auto_resume,
+        auto_resume=resume_option,
         initially_suspended=initially_suspended,
         auto_suspend_secs=auto_suspend_secs,
         tags=tags,
@@ -156,6 +167,7 @@ def create(
 
 
 @app.command("deploy", requires_connection=True)
+@with_project_definition()
 def deploy(
     entity_id: str = entity_argument("compute-pool"),
     upgrade: bool = typer.Option(
@@ -171,11 +183,14 @@ def deploy(
     compute_pool: ComputePoolEntityModel = get_entity_from_project_definition(
         entity_type=ObjectType.COMPUTE_POOL, entity_id=entity_id
     )
+    max_nodes = validate_and_set_instances(
+        compute_pool.min_nodes, compute_pool.max_nodes, "nodes"
+    )
 
     cursor = ComputePoolManager().deploy(
         pool_name=compute_pool.fqn.identifier,
         min_nodes=compute_pool.min_nodes,
-        max_nodes=compute_pool.max_nodes,
+        max_nodes=max_nodes,
         instance_family=compute_pool.instance_family,
         auto_resume=compute_pool.auto_resume,
         initially_suspended=compute_pool.initially_suspended,
@@ -218,7 +233,8 @@ def set_property(
     name: FQN = ComputePoolNameArgument,
     min_nodes: Optional[int] = MinNodesOption(default=None, show_default=False),
     max_nodes: Optional[int] = MaxNodesOption(show_default=False),
-    auto_resume: Optional[bool] = AutoResumeOption(default=None, show_default=False),
+    auto_resume: bool = AutoResumeOption(default=None, show_default=False),
+    no_auto_resume: bool = NoAutoResumeOption(default=None, show_default=False),
     auto_suspend_secs: Optional[int] = AutoSuspendSecsOption(
         default=None, show_default=False
     ),
@@ -230,11 +246,12 @@ def set_property(
     """
     Sets one or more properties for the compute pool.
     """
+    resume_option = True if auto_resume else False if no_auto_resume else None
     cursor = ComputePoolManager().set_property(
         pool_name=name.identifier,
         min_nodes=min_nodes,
         max_nodes=max_nodes,
-        auto_resume=auto_resume,
+        auto_resume=resume_option,
         auto_suspend_secs=auto_suspend_secs,
         comment=comment,
     )

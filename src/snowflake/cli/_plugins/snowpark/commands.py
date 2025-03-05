@@ -129,7 +129,8 @@ LikeOption = like_option(
 @with_project_definition()
 def deploy(
     replace: bool = ReplaceOption(
-        help="Replaces procedure or function if there were changes in the definition."
+        help="Replaces procedure or function if there were changes in the definition. It only uploads new and "
+        "overwrites existing files, but does not remove any files already on the stage."
     ),
     force_replace: bool = ForceReplaceOption(),
     **options,

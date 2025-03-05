@@ -11,3 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+from snowflake.cli._plugins.plugin import commands
+from snowflake.cli.api.plugins.command import (
+    SNOWCLI_ROOT_COMMAND_PATH,
+    CommandSpec,
+    CommandType,
+    plugin_hook_impl,
+)
+
+
+@plugin_hook_impl
+def command_spec():
+    return CommandSpec(
+        parent_command_path=SNOWCLI_ROOT_COMMAND_PATH,
+        command_type=CommandType.COMMAND_GROUP,
+        typer_instance=commands.app.create_instance(),
+    )

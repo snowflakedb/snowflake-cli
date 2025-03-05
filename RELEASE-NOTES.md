@@ -19,6 +19,15 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+- Fix for incompatible options in `snow spcs compute-pool` commands didn't raise error
+
+# v3.5.0
+
+## Deprecations
+
+## New additions
 * Extended snowflake.yml support for new entities:
   * SPCS compute pool
   * SPCS service

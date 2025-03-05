@@ -96,13 +96,13 @@
     Token to use for multi-factor authentication (MFA).
   
   :samp:`--enable-diag`
-    Run Python connector diagnostic test. Default: False.
+    Whether to generate a connection diagnostic report. Default: False.
   
   :samp:`--diag-log-path {TEXT}`
-    Diagnostic report path. Default: <temporary_directory>.
+    Path for the generated report. Defaults to system temporary directory. Default: <system_temporary_directory>.
   
   :samp:`--diag-allowlist-path {TEXT}`
-    Diagnostic report path to optional allowlist.
+    Path to a JSON file containing allowlist parameters.
   
   :samp:`--format [TABLE|JSON]`
     Specifies the output format. Default: TABLE.

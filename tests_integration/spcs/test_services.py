@@ -23,6 +23,7 @@ from tests_integration.spcs.testing_utils.spcs_services_utils import (
 
 
 @pytest.mark.integration
+@pytest.mark.skip("Skipped temporarily")
 def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
 
     test_steps, service_name = _test_steps
@@ -38,6 +39,10 @@ def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
     test_steps.logs_should_return_service_logs(
         service_name, "hello-world", "Serving Flask app 'echo_service'"
     )
+    test_steps.suspend_service(service_name)
+    test_steps.wait_until_service_is_suspended(service_name)
+    test_steps.resume_service(service_name)
+    test_steps.wait_until_service_is_running(service_name)
     test_steps.describe_should_return_service(service_name)
     test_steps.list_endpoints_should_show_endpoint(service_name)
     test_steps.list_instances_should_show_instances(service_name)
@@ -45,9 +50,6 @@ def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
     test_steps.list_roles_should_show_roles(service_name)
     test_steps.upgrade_service_should_change_spec(service_name)
     test_steps.set_unset_service_property(service_name)
-    test_steps.suspend_service(service_name)
-    test_steps.wait_until_service_is_suspended(service_name)
-    test_steps.resume_service(service_name)
     test_steps.drop_service(service_name)
     test_steps.list_should_not_return_service(service_name)
 

@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -277,7 +276,7 @@ MfaPasscodeOption = typer.Option(
 EnableDiagOption = typer.Option(
     False,
     "--enable-diag",
-    help="Run Python connector diagnostic test",
+    help="Whether to generate a connection diagnostic report.",
     callback=_connection_callback("enable_diag"),
     show_default=False,
     is_flag=True,
@@ -286,20 +285,29 @@ EnableDiagOption = typer.Option(
 
 # Set default via callback to avoid including tempdir path in generated docs (snow --docs).
 # Use constant instead of None, as None is removed from telemetry data.
-_DIAG_LOG_DEFAULT_VALUE = "<temporary_directory>"
+_DIAG_LOG_DEFAULT_VALUE = "<system_temporary_directory>"
 
 
 def _diag_log_path_callback(path: str):
     if path == _DIAG_LOG_DEFAULT_VALUE:
+        import tempfile
+
         path = tempfile.gettempdir()
-    get_cli_context_manager().connection_context.diag_log_path = Path(path)
-    return path
+
+    absolute_path = Path(path).absolute()
+    if not absolute_path.exists():
+        # if the path does not exist the report is not generated
+        from snowflake.cli.api.secure_path import SecurePath
+
+        SecurePath(absolute_path).mkdir(parents=True)
+
+    return _connection_callback("diag_log_path")(absolute_path)
 
 
 DiagLogPathOption: Path = typer.Option(
     _DIAG_LOG_DEFAULT_VALUE,
     "--diag-log-path",
-    help="Diagnostic report path",
+    help="Path for the generated report. Defaults to system temporary directory.",
     callback=_diag_log_path_callback,
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
@@ -307,11 +315,17 @@ DiagLogPathOption: Path = typer.Option(
     writable=True,
 )
 
+
+def _diag_log_allowlist_path_callback(path: str):
+    absolute_path = Path(path).absolute() if path else None
+    return _connection_callback("diag_allowlist_path")(absolute_path)
+
+
 DiagAllowlistPathOption: Path = typer.Option(
     None,
     "--diag-allowlist-path",
-    help="Diagnostic report path to optional allowlist",
-    callback=_connection_callback("diag_allowlist_path"),
+    help="Path to a JSON file containing allowlist parameters.",
+    callback=_diag_log_allowlist_path_callback,
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
     exists=True,

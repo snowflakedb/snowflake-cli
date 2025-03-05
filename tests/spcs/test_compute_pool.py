@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import tempfile
 from textwrap import dedent
 from unittest.mock import Mock, patch
 
@@ -33,6 +34,7 @@ from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
+from tests.testing_utils.files_and_dirs import pushd
 from tests_integration.testing_utils.assertions.test_result_assertions import (
     assert_that_result_is_successful_and_executed_successfully,
 )
@@ -208,6 +210,14 @@ def test_create_compute_pool_if_not_exists(mock_execute_query):
     assert result == cursor
 
 
+def test_deploy_command_requires_pdf(runner):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with pushd(tmpdir):
+            result = runner.invoke(["spcs", "compute-pool", "deploy"])
+            assert result.exit_code == 1
+            assert "Cannot find project definition (snowflake.yml)." in result.output
+
+
 @patch(EXECUTE_QUERY)
 def test_deploy_from_project_definition(
     mock_execute_query, runner, project_directory, mock_cursor, os_agnostic_snapshot
@@ -336,6 +346,33 @@ def test_deploy_from_project_definition_multiple_compute_pools(
 
         assert result.exit_code == 2, result.output
         assert result.output == os_agnostic_snapshot
+
+
+@patch(EXECUTE_QUERY)
+def test_deploy_only_required(
+    mock_execute_query, runner, mock_cursor, project_directory, os_agnostic_snapshot
+):
+    mock_execute_query.return_value = mock_cursor(
+        rows=[["Compute pool TEST_COMPUTE_POOL successfully created."]],
+        columns=["status"],
+    )
+
+    with project_directory("spcs_compute_pool_only_required"):
+        result = runner.invoke(["spcs", "compute-pool", "deploy"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        expected_query = dedent(
+            """\
+            CREATE COMPUTE POOL test_compute_pool
+            MIN_NODES = 1
+            MAX_NODES = 1
+            INSTANCE_FAMILY = CPU_X64_XS
+            AUTO_RESUME = True
+            INITIALLY_SUSPENDED = False
+            AUTO_SUSPEND_SECS = 3600"""
+        )
+        mock_execute_query.assert_called_once_with(expected_query)
 
 
 @patch(EXECUTE_QUERY)
@@ -653,3 +690,75 @@ def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
 
     queries = ctx.get_queries()
     assert queries[0] == queries[1]
+
+
+def test_mutually_exclusive_options_raise_error(runner):
+    result = runner.invoke(
+        [
+            "spcs",
+            "compute-pool",
+            "create",
+            "CACHE_COMPUTE_POOL_CPU",
+            "--min-nodes",
+            1,
+            "--max-nodes",
+            2,
+            "--auto-resume",
+            "--no-auto-resume",
+            "--family",
+            "CPU_X64_XS",
+        ]
+    )
+    assert result.exit_code == 2, result.output
+    assert (
+        "Parameters '--no-auto-resume' and '--auto-resume' are incompatible"
+        in result.output
+    )
+
+
+@patch("snowflake.connector.connect")
+@pytest.mark.parametrize(
+    "flag,expected_value",
+    [
+        ("--auto-resume", "True"),
+        ("--no-auto-resume", "False"),
+        (
+            "--verbose",
+            "True",
+        ),  # Global flag used to create case with no resume flag passed.
+    ],
+)
+def test_resume_options_are_passing_correct_values(
+    mock_connector, runner, mock_ctx, flag, expected_value
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "compute-pool",
+            "create",
+            "CACHE_COMPUTE_POOL_CPU",
+            "--min-nodes",
+            1,
+            "--max-nodes",
+            2,
+            "--family",
+            "CPU_X64_XS",
+            flag,
+        ]
+    )
+    assert result.exit_code == 0, result.output
+
+    queries = ctx.get_queries()
+    assert (
+        queries[0]
+        == f"""CREATE COMPUTE POOL CACHE_COMPUTE_POOL_CPU
+MIN_NODES = 1
+MAX_NODES = 2
+INSTANCE_FAMILY = CPU_X64_XS
+AUTO_RESUME = {expected_value}
+INITIALLY_SUSPENDED = False
+AUTO_SUSPEND_SECS = 3600"""
+    )

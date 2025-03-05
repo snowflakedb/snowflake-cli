@@ -21,7 +21,7 @@ class ServiceEntityModel(EntityModelBaseWithArtifacts, ExternalAccessBaseModel):
         title="Path to service specification file on stage", default=None
     )
     min_instances: Optional[int] = Field(
-        title="Minimum number of instances", default=None, ge=1
+        title="Minimum number of instances", default=1, ge=1
     )
     max_instances: Optional[int] = Field(
         title="Maximum number of instances", default=None, ge=1

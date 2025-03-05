@@ -25,9 +25,6 @@ import click
 import typer
 from click import Context as ClickContext
 from snowflake.cli import __about__
-from snowflake.cli._app.api_impl.plugin.plugin_config_provider_impl import (
-    PluginConfigProviderImpl,
-)
 from snowflake.cli._app.commands_registration.commands_registration_with_callbacks import (
     CommandsRegistrationWithCallbacks,
 )
@@ -42,7 +39,6 @@ from snowflake.cli._app.version_check import (
     get_new_version_msg,
     show_new_version_banner_callback,
 )
-from snowflake.cli.api import Api, api_provider
 from snowflake.cli.api.config import config_init, get_feature_flags_section
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import CollectionResult
@@ -63,12 +59,7 @@ def _do_not_execute_on_completion(callback):
 
 class CliAppFactory:
     def __init__(self):
-        api = Api(plugin_config_provider=PluginConfigProviderImpl())
-        self._api = api
-        self._commands_registration = CommandsRegistrationWithCallbacks(
-            api.plugin_config_provider
-        )
-        api_provider.register_api(api)
+        self._commands_registration = CommandsRegistrationWithCallbacks()
         self._app: Optional[SnowCliMainTyper] = None
         self._click_context: Optional[ClickContext] = None
 

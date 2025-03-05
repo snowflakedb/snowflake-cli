@@ -21,9 +21,7 @@ from snowflake.cli._plugins.notebook.notebook_entity_model import NotebookEntity
 from snowflake.cli._plugins.notebook.types import NotebookStagePath
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.commands.decorators import (
-    with_project_definition,
-)
+from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     ReplaceOption,
     entity_argument,
@@ -107,7 +105,8 @@ def create(
 def deploy(
     entity_id: str = entity_argument("notebook"),
     replace: bool = ReplaceOption(
-        help="Replace notebook object if it already exists.",
+        help="Replace notebook object if it already exists. It only uploads new and overwrites existing files, "
+        "but does not remove any files already on the stage.",
     ),
     **options,
 ) -> CommandResult:
