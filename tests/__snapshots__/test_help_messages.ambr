@@ -6799,15 +6799,20 @@
   |                                            [x>=1]           of nodes for the |
   |                                                             compute pool.    |
   |                                                             [default: None]  |
-  |    --auto-resume        --no-auto-resu…                     The compute pool |
+  |    --auto-resume                                            The compute pool |
   |                                                             will             |
   |                                                             automatically    |
   |                                                             resume when a    |
   |                                                             service or job   |
   |                                                             is submitted to  |
   |                                                             it.              |
-  |                                                             [default:        |
-  |                                                             auto-resume]     |
+  |    --no-auto-resu…                                          The compute pool |
+  |                                                             will             |
+  |                                                             automatically    |
+  |                                                             resume when a    |
+  |                                                             service or job   |
+  |                                                             is submitted to  |
+  |                                                             it.              |
   |    --init-suspend       --no-init-susp…                     Starts the       |
   |                                                             compute pool in  |
   |                                                             a suspended      |
@@ -7405,32 +7410,27 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --min-nodes                               INTEGER RANGE     Minimum number   |
-  |                                           [x>=1]            of nodes for the |
-  |                                                             compute pool.    |
-  | --max-nodes                               INTEGER RANGE     Maximum number   |
-  |                                           [x>=1]            of nodes for the |
-  |                                                             compute pool.    |
-  | --auto-resume          --no-auto-resu…                      The compute pool |
-  |                                                             will             |
-  |                                                             automatically    |
-  |                                                             resume when a    |
-  |                                                             service or job   |
-  |                                                             is submitted to  |
-  |                                                             it.              |
-  | --auto-suspend-s…                         INTEGER RANGE     Number of        |
-  |                                           [x>=1]            seconds of       |
-  |                                                             inactivity after |
-  |                                                             which you want   |
-  |                                                             Snowflake to     |
-  |                                                             automatically    |
-  |                                                             suspend the      |
-  |                                                             compute pool.    |
-  | --comment                                 TEXT              Comment for the  |
-  |                                                             compute pool.    |
-  | --help             -h                                       Show this        |
-  |                                                             message and      |
-  |                                                             exit.            |
+  | --min-nodes                  INTEGER RANGE [x>=1]  Minimum number of nodes   |
+  |                                                    for the compute pool.     |
+  | --max-nodes                  INTEGER RANGE [x>=1]  Maximum number of nodes   |
+  |                                                    for the compute pool.     |
+  | --auto-resume                                      The compute pool will     |
+  |                                                    automatically resume when |
+  |                                                    a service or job is       |
+  |                                                    submitted to it.          |
+  | --no-auto-resume                                   The compute pool will     |
+  |                                                    automatically resume when |
+  |                                                    a service or job is       |
+  |                                                    submitted to it.          |
+  | --auto-suspend-secs          INTEGER RANGE [x>=1]  Number of seconds of      |
+  |                                                    inactivity after which    |
+  |                                                    you want Snowflake to     |
+  |                                                    automatically suspend the |
+  |                                                    compute pool.             |
+  | --comment                    TEXT                  Comment for the compute   |
+  |                                                    pool.                     |
+  | --help               -h                            Show this message and     |
+  |                                                    exit.                     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |

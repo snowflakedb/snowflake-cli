@@ -690,3 +690,75 @@ def test_command_aliases(mock_connector, runner, mock_ctx, command, parameters):
 
     queries = ctx.get_queries()
     assert queries[0] == queries[1]
+
+
+def test_mutually_exclusive_options_raise_error(runner):
+    result = runner.invoke(
+        [
+            "spcs",
+            "compute-pool",
+            "create",
+            "CACHE_COMPUTE_POOL_CPU",
+            "--min-nodes",
+            1,
+            "--max-nodes",
+            2,
+            "--auto-resume",
+            "--no-auto-resume",
+            "--family",
+            "CPU_X64_XS",
+        ]
+    )
+    assert result.exit_code == 2, result.output
+    assert (
+        "Parameters '--no-auto-resume' and '--auto-resume' are incompatible"
+        in result.output
+    )
+
+
+@patch("snowflake.connector.connect")
+@pytest.mark.parametrize(
+    "flag,expected_value",
+    [
+        ("--auto-resume", "True"),
+        ("--no-auto-resume", "False"),
+        (
+            "--verbose",
+            "True",
+        ),  # Global flag used to create case with no resume flag passed.
+    ],
+)
+def test_resume_options_are_passing_correct_values(
+    mock_connector, runner, mock_ctx, flag, expected_value
+):
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "compute-pool",
+            "create",
+            "CACHE_COMPUTE_POOL_CPU",
+            "--min-nodes",
+            1,
+            "--max-nodes",
+            2,
+            "--family",
+            "CPU_X64_XS",
+            flag,
+        ]
+    )
+    assert result.exit_code == 0, result.output
+
+    queries = ctx.get_queries()
+    assert (
+        queries[0]
+        == f"""CREATE COMPUTE POOL CACHE_COMPUTE_POOL_CPU
+MIN_NODES = 1
+MAX_NODES = 2
+INSTANCE_FAMILY = CPU_X64_XS
+AUTO_RESUME = {expected_value}
+INITIALLY_SUSPENDED = False
+AUTO_SUSPEND_SECS = 3600"""
+    )
