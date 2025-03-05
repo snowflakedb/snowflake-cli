@@ -313,7 +313,6 @@ def test_create_error_database_not_exist(runner):
 
 
 @pytest.mark.integration
-@pytest.mark.skip(reason="Server-side issue: SNOW-1855040")
 def test_create_error_schema_not_exist(runner, test_database):
     # schema does not exist
     result = runner.invoke_with_connection(
