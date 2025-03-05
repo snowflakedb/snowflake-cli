@@ -174,6 +174,62 @@ def test_nativeapp_run_existing(
             )
 
 
+# Tests a simple flow of initiating a project, executing snow app run and teardown, all with app spec enabled
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "command,test_project",
+    [
+        ["app run", "napp_app_manifest_v2"],
+        ["app run --debug", "napp_app_manifest_v2"],
+    ],
+)
+def test_nativeapp_init_manifest_v2(
+    command,
+    test_project,
+    nativeapp_project_directory,
+    runner,
+    snowflake_session,
+    default_username,
+    resource_suffix,
+):
+    project_name = "myapp"
+    with nativeapp_project_directory(test_project):
+        result = runner.invoke_with_connection(split(command))
+        assert result.exit_code == 0
+        assert (
+            "Did not apply debug mode to application because the manifest version is set to 2 or higher. Please use session debugging instead."
+            in result.output
+        )
+
+        # app + package exist
+        package_name = f"{project_name}_pkg_{default_username}{resource_suffix}".upper()
+        app_name = f"{project_name}_{default_username}{resource_suffix}".upper()
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show application packages like '{package_name}'",
+                )
+            ),
+            dict(name=package_name),
+        )
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"show applications like '{app_name}'",
+                )
+            ),
+            dict(name=app_name),
+        )
+        assert contains_row_with(
+            row_from_snowflake_session(
+                snowflake_session.execute_string(
+                    f"desc application {app_name}",
+                )
+            ),
+            {"property": "debug_mode", "value": "false"},
+        )
+
+
 # Tests a simple flow of initiating a project, executing snow app run and teardown, all with distribution=internal
 @pytest.mark.integration
 @pytest.mark.parametrize(

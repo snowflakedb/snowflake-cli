@@ -35,6 +35,7 @@
 * Added `snow compute-pool deploy` command using `snowflake.yml` file.
 * Added `snow spcs service deploy` command using `snowflake.yml` file.
 * Added `snow image-repository deploy` command using `snowflake.yml` file.
+* Added support for creating native applications with manifest version 2.
 
 ## Fixes and improvements
 * Fix handling of date types in `snow sql` command when using JSON for output format

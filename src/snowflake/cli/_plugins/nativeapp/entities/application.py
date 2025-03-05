@@ -669,7 +669,7 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
                 role_to_use=package.role,
             )
 
-        return get_snowflake_facade().create_application(
+        create_app_result, warnings = get_snowflake_facade().create_application(
             name=self.name,
             package_name=package.name,
             install_method=install_method,
@@ -680,6 +680,9 @@ class ApplicationEntity(EntityBase[ApplicationEntityModel]):
             warehouse=self.warehouse,
             release_channel=release_channel,
         )
+        for warning in warnings:
+            self.console.warning(warning)
+        return create_app_result
 
     @span("update_app_object")
     def create_or_upgrade_app(
