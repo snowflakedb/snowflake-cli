@@ -109,12 +109,12 @@ class EntityBase(Generic[T]):
         return get_cli_context().snow_api_root
 
     @property
-    def stage_object(self) -> "StageResource":
+    def stage_object(self) -> "StageResource":  # type: ignore
         from snowflake.core import CreateMode
 
         if not hasattr(self._entity_model, "stage"):
             raise ValueError(
-                f"Entity model of type {self._entity_model.type } for {self.identifier} does not have a stage attribute"
+                f"Entity model of type {self._entity_model.type } for {self.identifier} does not have a stage attribute"  # type: ignore
             )
         stage_name = self._entity_model.stage
 
