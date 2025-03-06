@@ -5,5 +5,8 @@ class SecretType:
     def __repr__(self):
         return "SecretType(***)"
 
-    def __str___(self):
+    def __str__(self):
         return "***"
+
+    def __bool__(self):
+        return self.value is not None and self.value != ""

@@ -1,20 +1,20 @@
+GitPython==3.1.44
 jinja2==3.1.6
-pluggy==1.5.0
-PyYAML==6.0.2
 packaging
-rich==13.9.4
+pip
+pluggy==1.5.0
+pydantic==2.10.6
+PyYAML==6.0.2
 requests==2.32.3
 requirements-parser==0.11.0
+rich==13.9.4
 setuptools==75.8.0
-snowflake.core==1.0.2; python_version < "3.12"
 snowflake-connector-python[secure-local-storage]==3.14.0
 snowflake-snowpark-python>=1.15.0,<1.26.0;python_version < "3.12"
+snowflake.core==1.0.2; python_version < "3.12"
 tomlkit==0.13.2
 typer==0.15.1
 urllib3>=1.24.3,<2.4
-GitPython==3.1.44
-pip
-pydantic==2.10.6
 coverage==7.6.12
 pre-commit>=3.5.0
 pytest==8.3.4

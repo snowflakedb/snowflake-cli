@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from snowflake.cli._plugins.auth.keypair import plugin_spec as auth_plugin_spec
 from snowflake.cli._plugins.connection import plugin_spec as connection_plugin_spec
 from snowflake.cli._plugins.cortex import plugin_spec as cortex_plugin_spec
 from snowflake.cli._plugins.git import plugin_spec as git_plugin_spec
@@ -33,6 +34,7 @@ from snowflake.cli._plugins.workspace import plugin_spec as workspace_plugin_spe
 # plugin name to plugin spec
 def get_builtin_plugin_name_to_plugin_spec():
     plugin_specs = {
+        "auth": auth_plugin_spec,
         "connection": connection_plugin_spec,
         "helpers": migrate_plugin_spec,
         "spcs": spcs_plugin_spec,

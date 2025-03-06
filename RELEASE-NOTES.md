@@ -19,6 +19,11 @@
 ## Deprecations
 
 ## New additions
+* Added new `snow auth keypair` commands:
+    * `setup` - generate key pair, set public key for the user in Snowflake and update/create connection.
+    * `rotate` - rotate keys for connection.
+    * `list` - list the public keys for the user.
+    * `remove` - remove the public key for the user.
 
 ## Fixes and improvements
 - Fix for incompatible options in `snow spcs compute-pool` commands didn't raise error

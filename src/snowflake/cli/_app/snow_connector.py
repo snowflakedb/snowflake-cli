@@ -26,7 +26,6 @@ from snowflake.cli._app.constants import (
     INTERNAL_APPLICATION_NAME,
     PARAM_APPLICATION_NAME,
 )
-from snowflake.cli._app.secret import SecretType
 from snowflake.cli._app.telemetry import command_info
 from snowflake.cli.api.config import (
     get_connection_dict,
@@ -38,6 +37,7 @@ from snowflake.cli.api.exceptions import (
     SnowflakeConnectionError,
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
+from snowflake.cli.api.secret import SecretType
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.errors import DatabaseError, ForbiddenError

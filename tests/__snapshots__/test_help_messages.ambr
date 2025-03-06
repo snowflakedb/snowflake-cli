@@ -22,6 +22,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app          Manages a Snowflake Native App                                  |
+  | auth         Manages authentication methods.                                 |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |
@@ -2938,6 +2939,420 @@
   | validate            Validates a deployed Snowflake Native App's setup        |
   |                     script.                                                  |
   | version             Manages versions defined in an application package       |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[auth.keypair.list]
+  '''
+                                                                                  
+   Usage: root auth keypair list [OPTIONS]                                        
+                                                                                  
+   Lists the public keys set for the user.                                        
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[auth.keypair.remove]
+  '''
+                                                                                  
+   Usage: root auth keypair remove [OPTIONS]                                      
+                                                                                  
+   Removes the public key for the user.                                           
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | *  --key-id          [RSA_PUBLIC_KEY|RSA_PUBLIC  local path to template      |
+  |                      _KEY_2]                     directory or URL to git     |
+  |                                                  repository with templates.  |
+  |                                                  [required]                  |
+  |    --help    -h                                  Show this message and exit. |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[auth.keypair.rotate]
+  '''
+                                                                                  
+   Usage: root auth keypair rotate [OPTIONS]                                      
+                                                                                  
+   Rotates the key for the connection. Generates the key pair, sets the public    
+   key for the user in Snowflake and creates or updates the connection.           
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --key-length                      INTEGER  The RSA key length.               |
+  |                                            [default: 2048]                   |
+  | --output-path                     PATH     The output path for private and   |
+  |                                            public keys                       |
+  |                                            [default: ~/.ssh]                 |
+  | --private-key-passphrase          TEXT     The private key passphrase.       |
+  | --help                    -h               Show this message and exit.       |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[auth.keypair.setup]
+  '''
+                                                                                  
+   Usage: root auth keypair setup [OPTIONS]                                       
+                                                                                  
+   Generates the key pair, sets the public key for the user in Snowflake and      
+   creates or updates the connection.                                             
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --key-length                      INTEGER  The RSA key length.               |
+  |                                            [default: 2048]                   |
+  | --output-path                     PATH     The output path for private and   |
+  |                                            public keys                       |
+  |                                            [default: ~/.ssh]                 |
+  | --private-key-passphrase          TEXT     The private key passphrase.       |
+  | --help                    -h               Show this message and exit.       |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token that should be used    |
+  |                                                 when connecting to Snowflake |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
+  |                                                 containing allowlist         |
+  |                                                 parameters.                  |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format           [TABLE|JSON]  Specifies the output format.                |
+  |                                  [default: TABLE]                            |
+  | --verbose  -v                    Displays log entries for log levels info    |
+  |                                  and higher.                                 |
+  | --debug                          Displays log entries for log levels debug   |
+  |                                  and higher; debug logs contain additional   |
+  |                                  information.                                |
+  | --silent                         Turns off intermediate output to console.   |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[auth.keypair]
+  '''
+                                                                                  
+   Usage: root auth keypair [OPTIONS] COMMAND [ARGS]...                           
+                                                                                  
+   Manages authentication.                                                        
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Commands -------------------------------------------------------------------+
+  | list     Lists the public keys set for the user.                             |
+  | remove   Removes the public key for the user.                                |
+  | rotate   Rotates the key for the connection. Generates the key pair, sets    |
+  |          the public key for the user in Snowflake and creates or updates the |
+  |          connection.                                                         |
+  | setup    Generates the key pair, sets the public key for the user in         |
+  |          Snowflake and creates or updates the connection.                    |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[auth]
+  '''
+                                                                                  
+   Usage: root auth [OPTIONS] COMMAND [ARGS]...                                   
+                                                                                  
+   Manages authentication methods.                                                
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Commands -------------------------------------------------------------------+
+  | keypair   Manages authentication.                                            |
   +------------------------------------------------------------------------------+
   
   
@@ -12617,6 +13032,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app          Manages a Snowflake Native App                                  |
+  | auth         Manages authentication methods.                                 |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |
@@ -12740,6 +13156,46 @@
   | validate            Validates a deployed Snowflake Native App's setup        |
   |                     script.                                                  |
   | version             Manages versions defined in an application package       |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[auth.keypair]
+  '''
+                                                                                  
+   Usage: root auth keypair [OPTIONS] COMMAND [ARGS]...                           
+                                                                                  
+   Manages authentication.                                                        
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Commands -------------------------------------------------------------------+
+  | list     Lists the public keys set for the user.                             |
+  | remove   Removes the public key for the user.                                |
+  | rotate   Rotates the key for the connection. Generates the key pair, sets    |
+  |          the public key for the user in Snowflake and creates or updates the |
+  |          connection.                                                         |
+  | setup    Generates the key pair, sets the public key for the user in         |
+  |          Snowflake and creates or updates the connection.                    |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages_no_help_flag[auth]
+  '''
+                                                                                  
+   Usage: root auth [OPTIONS] COMMAND [ARGS]...                                   
+                                                                                  
+   Manages authentication methods.                                                
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Commands -------------------------------------------------------------------+
+  | keypair   Manages authentication.                                            |
   +------------------------------------------------------------------------------+
   
   
