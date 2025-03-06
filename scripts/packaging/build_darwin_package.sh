@@ -13,10 +13,8 @@ PLATFORM="${SYSTEM}-${MACHINE}"
 
 CLI_VERSION=$(hatch version)
 
-ENTRY_POINT="src/snowflake/cli/_app/__main__.py"
-BUILD_DIR="${ROOT_DIR}/build"
 DIST_DIR=$ROOT_DIR/dist
-BINARY_NAME="snow"
+BINARY_NAME="snow-${CLI_VERSION}"
 APP_NAME="SnowflakeCLI.app"
 APP_DIR=$DIST_DIR/app
 APP_SCRIPTS=$APP_DIR/scripts
@@ -28,10 +26,32 @@ loginfo() {
 }
 
 clean_build_workspace() {
-  rm -rf $DIST_DIR $BUILD_DIR || true
+  rm -rf $DIST_DIR || true
 }
 
-clean_build_workspace
+install_cargo() {
+  curl https://sh.rustup.rs -sSf > rustup-init.sh
+
+  if [[ ${MACHINE} == "arm64" ]]; then
+    sudo bash rustup-init.sh -y
+    . $HOME/.cargo/env
+  elif [[ ${MACHINE} == "x86_64" ]]; then
+    bash -s rustup-init.sh -y --no-modify-path
+    . $HOME/.cargo/env
+    rustup default stable
+  else
+    echo "Unsupported machine: ${MACHINE}"
+    exit 1
+  fi
+
+  rm rustup-init.sh
+}
+
+create_app_template() {
+  rm -r ${APP_DIR}/${APP_NAME} || true
+  mkdir -p ${APP_DIR}/${APP_NAME}/Contents/MacOS
+  mkdir -p ${APP_DIR}/${APP_NAME}/Contents/Resources
+}
 
 security -v unlock-keychain -p $MAC_USERNAME_PASSWORD login.keychain-db
 
@@ -39,24 +59,12 @@ loginfo "---------------------------------"
 security find-identity -v -p codesigning
 loginfo "---------------------------------"
 
-hatch -e packaging run pyinstaller \
-  --name=${BINARY_NAME} \
-  --target-architecture=$MACHINE \
-  --onedir \
-  --clean \
-  --noconfirm \
-  --windowed \
-  --collect-submodules keyring \
-  --collect-submodules shellingham \
-  --osx-bundle-identifier=com.snowflake.snowflake-cli \
-  --osx-entitlements-file=scripts/packaging/macos/SnowflakeCLI_entitlements.plist \
-  --codesign-identity="${CODESIGN_IDENTITY}" \
-  --icon=scripts/packaging/macos/snowflake_darwin.icns \
-  ${ENTRY_POINT}
+clean_build_workspace
+install_cargo
 
-ls -l $DIST_DIR
-mkdir $APP_DIR || true
-mv $DIST_DIR/${BINARY_NAME}.app ${APP_DIR}/${APP_NAME}
+hatch -e packaging run build-isolated-binary
+create_app_template
+mv $DIST_DIR/binary/${BINARY_NAME} ${APP_DIR}/${APP_NAME}/Contents/MacOS/snow
 ${APP_DIR}/${APP_NAME}/Contents/MacOS/snow --help
 
 cat >${APP_DIR}/${APP_NAME}/Contents/Info.plist <<INFO_PLIST

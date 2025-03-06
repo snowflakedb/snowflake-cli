@@ -26,7 +26,8 @@
     * `remove` - remove the public key for the user.
 
 ## Fixes and improvements
-- Fix for incompatible options in `snow spcs compute-pool` commands didn't raise error
+* Fix for incompatible options in `snow spcs compute-pool` commands didn't raise error.
+* Change binary builds to embed whole Python environment.
 
 # v3.5.0
 
@@ -44,7 +45,6 @@
 
 ## Fixes and improvements
 * Fix handling of date types in `snow sql` command when using JSON for output format
-
 
 # v3.4.1
 ## Backward incompatibility
