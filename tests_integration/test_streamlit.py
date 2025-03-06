@@ -158,9 +158,9 @@ def test_streamlit_deploy_with_glob_patterns(
 
 
 @pytest.mark.integration
-@pytest.mark.skip(
-    reason="only works in accounts with experimental checkout behavior enabled"
-)
+# @pytest.mark.skip(
+#     reason="only works in accounts with experimental checkout behavior enabled"
+# )
 @pytest.mark.parametrize("pdf_version", ["1", "2"])
 def test_streamlit_deploy_experimental_twice(
     runner,

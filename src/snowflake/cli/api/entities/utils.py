@@ -354,6 +354,7 @@ class EntityActions(str, Enum):
     VALIDATE = "action_validate"
     EVENTS = "action_events"
     DIFF = "action_diff"
+    GET_URL = "action_get_url"
 
     VERSION_LIST = "action_version_list"
     VERSION_CREATE = "action_version_create"

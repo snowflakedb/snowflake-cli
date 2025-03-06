@@ -14,7 +14,7 @@ entities:
     type: procedure
   my_streamlit:
     type: "streamlit"
-    identifier: test_streamlit_deploy_snowcli
+    identifier: test_streamlit
     title: "My Fancy Streamlit"
     stage: streamlit
     query_warehouse: xsmall
