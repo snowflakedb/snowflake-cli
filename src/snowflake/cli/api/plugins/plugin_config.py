@@ -35,9 +35,11 @@ class PluginConfig:
 
 
 class PluginConfigProvider:
+    """Reads data from plugins section of the config file."""
+
     def __init__(self):
         config = get_plugins_config()
-        self.installation_dir = config["installation_dir"]
+        self.installation_dir: str = config["installation_dir"]
 
     @staticmethod
     def get_enabled_plugin_names() -> List[str]:
@@ -53,9 +55,8 @@ class PluginConfigProvider:
                 enabled_plugins.append(plugin_name)
         return enabled_plugins
 
-    @staticmethod
-    def get_config(plugin_name: str) -> PluginConfig:
-        config_path = PLUGINS_SECTION_PATH + [plugin_name]
+    def get_config(self, plugin_name: str) -> PluginConfig:
+        config_path = self.plugin_config_section_path(plugin_name)
         plugin_config = PluginConfig(is_plugin_enabled=False, internal_config={})
         plugin_config.is_plugin_enabled = get_config_value(
             *config_path, key=PLUGIN_ENABLED_KEY, default=False
@@ -68,6 +69,10 @@ class PluginConfigProvider:
         if config_section_exists(*config_path, "config"):
             plugin_config.internal_config = get_config_section(*config_path, "config")
         return plugin_config
+
+    @staticmethod
+    def plugin_config_section_path(plugin_name: str) -> List[str]:
+        return PLUGINS_SECTION_PATH + [plugin_name]
 
 
 def _assert_value_is_bool(value, *, value_name: str, plugin_name: str) -> None:

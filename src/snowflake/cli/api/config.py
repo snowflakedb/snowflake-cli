@@ -219,7 +219,21 @@ def set_config_value(path: List[str], value: Any) -> None:
             if key not in current_config_dict:
                 current_config_dict[key] = {}
             current_config_dict = current_config_dict[key]
-        current_config_dict[path[-1]] = value
+
+    current_config_dict[path[-1]] = value
+
+
+def remove_config_path(path: List[str]) -> None:
+    """Removes path from config."""
+    with _config_file() as conf_file_cache:
+        current_config_dict = conf_file_cache
+        for key in path[:-1]:
+            if key not in current_config_dict:
+                return
+            current_config_dict = current_config_dict[key]
+
+    if path[-1] in current_config_dict:
+        del current_config_dict[path[-1]]
 
 
 def get_logs_config() -> dict:
