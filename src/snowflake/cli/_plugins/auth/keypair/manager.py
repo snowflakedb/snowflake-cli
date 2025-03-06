@@ -2,6 +2,8 @@ from enum import Enum
 from typing import Dict, List, Optional, Tuple
 
 from click import ClickException
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.config import (
@@ -189,9 +191,6 @@ class AuthManager(SqlExecutionMixin):
         key_name: str,
         private_key_passphrase: SecretType,
     ) -> str:
-        from cryptography.hazmat.primitives import serialization
-        from cryptography.hazmat.primitives.asymmetric import rsa
-
         private_key = rsa.generate_private_key(
             public_exponent=65537,
             key_size=key_length,
