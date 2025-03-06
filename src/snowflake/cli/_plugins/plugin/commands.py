@@ -84,15 +84,19 @@ def list_(
     return CollectionResult(result)
 
 
-@app.command(name="install-package", requires_connection=False)
-def install_package(
+@app.command(name="install", requires_connection=False)
+def install(
     package_name: str = typer.Argument(None, help="Package name.", show_default=False),
     index_url: str = IndexUrlOption,
     **options,
 ) -> CommandResult:
     """Installs a package into a plugin environment."""
-    PluginManager().install_package(package_name, index_url=index_url)
-    return MessageResult(f"Package `{package_name}` successfully installed.")
+    installed_plugins = PluginManager().install_package(
+        package_name, index_url=index_url
+    )
+    return MessageResult(
+        f"Package `{package_name}` successfully installed. New plugins: {installed_plugins}"
+    )
 
 
 @app.command(name="uninstall-package", requires_connection=False)

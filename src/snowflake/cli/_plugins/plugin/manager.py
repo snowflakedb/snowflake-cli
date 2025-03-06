@@ -36,6 +36,7 @@ from snowflake.cli.api.config import (
     remove_config_path,
     set_config_value,
 )
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import PluginNotInstalledError
 from snowflake.cli.api.plugins.command import SNOWCLI_COMMAND_PLUGIN_NAMESPACE
@@ -128,7 +129,7 @@ class PluginInfo:
         return cls(**data)
 
     def save_to_file(self, file: SecurePath) -> None:
-        file.write_text(json.dumps(self, indent=2))
+        file.write_text(json.dumps(dataclasses.asdict(self), indent=2))
 
     def add_plugin(self, plugin_name: str, package_name: str) -> None:
         self.plugin_info[plugin_name] = _normalize_package_name(package_name)
@@ -196,7 +197,10 @@ class PluginManager:
 
     @cached_property
     def installation_dir(self):
-        return Path(PluginConfigProvider().installation_dir)
+        installation_dir = Path(PluginConfigProvider().installation_dir)
+        if not installation_dir.exists():
+            SecurePath(installation_dir).mkdir(parents=True)
+        return installation_dir
 
     @cached_property
     def _plugin_info_path(self) -> SecurePath:
@@ -279,9 +283,9 @@ class PluginManager:
             config_section_path = plugin_config_provider.plugin_config_section_path(
                 plugin_name
             )
-            if not config_section_exists(config_section_path):
+            if not config_section_exists(*config_section_path):
                 log.info("Initializing config for plugin %s", plugin_name)
-                set_config_value(config_section_path + PLUGIN_ENABLED_KEY, False)
+                set_config_value(config_section_path + [PLUGIN_ENABLED_KEY], False)
 
     def _remove_plugins_from_config(self, removed_plugins: List[str]) -> None:
         plugin_config_provider = PluginConfigProvider()
@@ -289,7 +293,7 @@ class PluginManager:
             config_section_path = plugin_config_provider.plugin_config_section_path(
                 plugin_name
             )
-            if config_section_exists(plugin_name):
+            if config_section_exists(*config_section_path):
                 log.info("Removing config for plugin %s", plugin_name)
                 remove_config_path(config_section_path)
 
@@ -297,8 +301,10 @@ class PluginManager:
         """Installs package into plugin environment. Returns a list of installed plugins."""
         self._assert_not_already_installed(package_name)
         installed_plugins_before = set(self.get_installed_plugin_names())
-        self._check_for_dependency_conflicts(package_name, index_url)
-        self._install_package(package_name, index_url)
+        with cli_console.phase("Checking dependencies"):
+            self._check_for_dependency_conflicts(package_name, index_url)
+        with cli_console.phase("Installing package"):
+            self._install_package(package_name, index_url)
         installed_plugins = self._get_installed_plugins_from_package(package_name)
 
         if not installed_plugins:
