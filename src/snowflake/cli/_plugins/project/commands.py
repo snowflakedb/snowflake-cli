@@ -60,7 +60,7 @@ add_object_command_aliases(
     object_type=ObjectType.PROJECT,
     name_argument=project_identifier,
     like_option=like_option(
-        help_example='`list --like "my%"` lists all streamlit apps that begin with “my”'
+        help_example='`list --like "my%"` lists all projects that begin with “my”'
     ),
     scope_option=scope_option(help_example="`list --in database my_db`"),
     ommit_commands=["drop", "create", "describe"],
