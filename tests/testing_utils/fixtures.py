@@ -487,3 +487,12 @@ def enable_snowpark_glob_support_feature_flag():
         return_value=False,
     ):
         yield
+
+
+@pytest.fixture
+def mock_connect(mock_ctx):
+    with mock.patch("snowflake.connector.connect") as _fixture:
+        ctx = mock_ctx()
+        _fixture.return_value = ctx
+        _fixture.mocked_ctx = _fixture.return_value
+        yield _fixture

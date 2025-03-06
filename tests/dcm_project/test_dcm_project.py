@@ -1,21 +1,11 @@
 from pathlib import Path
 from unittest import mock
 
-import pytest
 from snowflake.cli.api.identifiers import FQN
 
 from tests_common import IS_WINDOWS
 
 ProjectManager = "snowflake.cli._plugins.project.commands.ProjectManager"
-
-
-@pytest.fixture
-def mock_connect(mock_ctx):
-    with mock.patch("snowflake.connector.connect") as _fixture:
-        ctx = mock_ctx()
-        _fixture.return_value = ctx
-        _fixture.mocked_ctx = _fixture.return_value
-        yield _fixture
 
 
 @mock.patch(ProjectManager)
