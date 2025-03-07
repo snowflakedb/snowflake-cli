@@ -84,7 +84,7 @@ def list_(
     return CollectionResult(result)
 
 
-@app.command(name="install", requires_connection=False)
+@app.command(requires_connection=False)
 def install(
     package_name: str = typer.Argument(None, help="Package name.", show_default=False),
     index_url: str = IndexUrlOption,
@@ -94,19 +94,19 @@ def install(
     installed_plugins = PluginManager().install_package(
         package_name, index_url=index_url
     )
+    if not installed_plugins:
+        raise ClickException(f"No plugins found in package `{package_name}`.")
     return MessageResult(
         f"Package `{package_name}` successfully installed. New plugins: {installed_plugins}"
     )
 
 
-@app.command(name="uninstall-package", requires_connection=False)
-def uninstall_package(
-    package_name: str = PackageNameArgument,
+@app.command(requires_connection=False)
+def uninstall(
+    plugin_name: str = PackageNameArgument,
     **options,
 ) -> CommandResult:
     """Uninstalls a package from a plugin environment."""
     plugin_manager = PluginManager()
-    if not plugin_manager.is_package_installed(package_name):
-        raise ClickException(f"Package `{package_name}` is not installed.")
-    plugin_manager.uninstall_package(package_name)
-    return MessageResult(f"Package `{package_name}` successfully uninstalled.")
+    removed_plugins = plugin_manager.uninstall(plugin_name)
+    return MessageResult(f"Plugins `{removed_plugins}` were removed.")

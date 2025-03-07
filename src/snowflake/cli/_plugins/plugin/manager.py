@@ -196,23 +196,23 @@ class PluginManager:
             )
 
     @cached_property
-    def installation_dir(self):
-        installation_dir = Path(PluginConfigProvider().installation_dir)
-        if not installation_dir.exists():
-            SecurePath(installation_dir).mkdir(parents=True)
-        return installation_dir
+    def installation_path(self):
+        installation_path = Path(PluginConfigProvider().installation_path)
+        if not installation_path.exists():
+            SecurePath(installation_path).mkdir(parents=True)
+        return installation_path
 
     @cached_property
     def _plugin_info_path(self) -> SecurePath:
-        return SecurePath(self.installation_dir) / _PLUGIN_INFO_FILENAME
+        return SecurePath(self.installation_path) / _PLUGIN_INFO_FILENAME
 
     def _package_site_path(self, package_name: str) -> Path:
         # python library path inside installation directory deduced from base library path
         site_subpath = Path(site.getusersitepackages()).relative_to(site.getuserbase())
-        return self._package_installation_dir(package_name) / site_subpath
+        return self._package_installation_path(package_name) / site_subpath
 
     def _add_all_installed_packages_to_syspath(self):
-        for plugin_dir in self.installation_dir.iterdir():
+        for plugin_dir in self.installation_path.iterdir():
             if plugin_dir.is_dir():
                 plugin_site_path = self._package_site_path(plugin_dir.name)
                 if plugin_site_path.exists() and not str(plugin_site_path) in sys.path:
@@ -244,22 +244,22 @@ class PluginManager:
         with _override_os_pythonpath(sys.path), tempfile.TemporaryDirectory() as tmpdir:
             _pip_install(package_name, index_url, prefix=Path(tmpdir))
 
-    def _package_installation_dir(self, package_name: str) -> Path:
-        return self.installation_dir / _normalize_package_name(package_name)
+    def _package_installation_path(self, package_name: str) -> Path:
+        return self.installation_path / _normalize_package_name(package_name)
 
     def _install_package(self, package_name: str, index_url: Optional[str]) -> None:
         # cleanup pythonpath, so new plugin dependencies will be isolated
-        plugin_dir = self._package_installation_dir(package_name)
+        plugin_dir = self._package_installation_path(package_name)
         log.info("Installing package %s into %s", package_name, plugin_dir)
         with _override_os_pythonpath(None):
             _pip_install(package_name, index_url, prefix=plugin_dir)
 
     def _remove_package(self, package_name: str, missing_ok: bool = True) -> None:
-        package_dir = self._package_installation_dir(package_name)
+        package_dir = self._package_installation_path(package_name)
         log.info("Removing package %s located in %s", package_name, package_dir)
         if not missing_ok and not package_dir.exists():
             raise ClickException(f"Package {package_name} is not installed")
-        SecurePath(self._package_installation_dir(package_name)).rmdir(
+        SecurePath(self._package_installation_path(package_name)).rmdir(
             recursive=True, missing_ok=True
         )
 
@@ -284,7 +284,7 @@ class PluginManager:
                 plugin_name
             )
             if not config_section_exists(*config_section_path):
-                log.info("Initializing config for plugin %s", plugin_name)
+                cli_console.step(f"Initializing config for plugin {plugin_name}")
                 set_config_value(config_section_path + [PLUGIN_ENABLED_KEY], False)
 
     def _remove_plugins_from_config(self, removed_plugins: List[str]) -> None:
@@ -354,5 +354,5 @@ class PluginManager:
         return actually_removed_plugins
 
     def _assert_not_already_installed(self, package_name):
-        if self._package_installation_dir(package_name).exists():
+        if self._package_installation_path(package_name).exists():
             raise ClickException(f"Package {package_name} is already installed.")

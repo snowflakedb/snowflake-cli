@@ -56,7 +56,7 @@ class CommandsRegistrationWithCallbacks:
         import site
         from pathlib import Path
 
-        plugins_dir = self._plugin_config_manager.installation_dir
+        plugins_dir = self._plugin_config_manager.installation_path
         site_path = Path(site.USER_SITE).relative_to(site.USER_BASE)
         site.addsitedir(plugins_dir / site_path)
 

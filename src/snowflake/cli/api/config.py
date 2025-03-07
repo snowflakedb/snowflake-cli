@@ -154,7 +154,7 @@ _DEFAULT_LOGS_CONFIG = {
 }
 
 _DEFAULT_PLUGINS_CONFIG = {
-    "installation_dir": str(CONFIG_MANAGER.file_path.parent / "plugins")
+    "installation_path": str(CONFIG_MANAGER.file_path.parent / "plugins")
 }
 
 _DEFAULT_CLI_CONFIG = {
@@ -220,7 +220,7 @@ def set_config_value(path: List[str], value: Any) -> None:
                 current_config_dict[key] = {}
             current_config_dict = current_config_dict[key]
 
-    current_config_dict[path[-1]] = value
+        current_config_dict[path[-1]] = value
 
 
 def remove_config_path(path: List[str]) -> None:

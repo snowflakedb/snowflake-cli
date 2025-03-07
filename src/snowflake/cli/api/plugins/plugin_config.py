@@ -39,7 +39,7 @@ class PluginConfigProvider:
 
     def __init__(self):
         config = get_plugins_config()
-        self.installation_dir: str = config["installation_dir"]
+        self.installation_path: str = config["installation_path"]
 
     @staticmethod
     def get_enabled_plugin_names() -> List[str]:
