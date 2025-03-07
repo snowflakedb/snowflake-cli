@@ -232,8 +232,8 @@ def remove_config_path(path: List[str]) -> None:
                 return
             current_config_dict = current_config_dict[key]
 
-    if path[-1] in current_config_dict:
-        del current_config_dict[path[-1]]
+        if path[-1] in current_config_dict:
+            del current_config_dict[path[-1]]
 
 
 def get_logs_config() -> dict:

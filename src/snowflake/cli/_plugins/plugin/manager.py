@@ -49,17 +49,16 @@ _PYTHONPATH = "PYTHONPATH"
 
 
 def _pip_install(
-    package_name: str, index_url: Optional[str], prefix: Path
+    package_name: str,
+    index_url: Optional[str],
+    prefix: Optional[Path] = None,
+    target: Optional[Path] = None,
 ) -> subprocess.CompletedProcess:
-    command = [
-        sys.executable,
-        "-m",
-        "pip",
-        "install",
-        package_name,
-        "--prefix",
-        str(prefix),
-    ]
+    command = [sys.executable, "-m", "pip", "install", package_name]
+    if prefix:
+        command += ["--prefix", str(prefix)]
+    if target:
+        command += ["--target", str(prefix)]
     if index_url:
         command += ["--index-url", index_url]
 
@@ -84,7 +83,10 @@ def _pip_install(
 
 
 def _normalize_package_name(package_name: str) -> str:
-    """As defined in https://packaging.python.org/en/latest/specifications/name-normalization/"""
+    is_a_path = Path(package_name).is_dir()
+    if is_a_path:
+        package_name = Path(package_name).name
+    # As defined in https://packaging.python.org/en/latest/specifications/name-normalization/
     return re.sub(r"[-_.]+", "-", package_name).lower()
 
 
@@ -242,7 +244,7 @@ class PluginManager:
         # add all packages to pythonpath for to be detected by pip
         self._add_all_installed_packages_to_syspath()
         with _override_os_pythonpath(sys.path), tempfile.TemporaryDirectory() as tmpdir:
-            _pip_install(package_name, index_url, prefix=Path(tmpdir))
+            _pip_install(package_name, index_url, target=Path(tmpdir))
 
     def _package_installation_path(self, package_name: str) -> Path:
         return self.installation_path / _normalize_package_name(package_name)
@@ -294,6 +296,7 @@ class PluginManager:
                 plugin_name
             )
             if config_section_exists(*config_section_path):
+                cli_console.step(f"Removing config for plugin {plugin_name}")
                 log.info("Removing config for plugin %s", plugin_name)
                 remove_config_path(config_section_path)
 
@@ -331,12 +334,14 @@ class PluginManager:
         return installed_plugins
 
     def uninstall(self, plugin_name: str) -> List[str]:
-        """Uninstall package from plugin environment and removes its config section (if it exists).
+        """Uninstall plugin package from plugin environment and removes config section of all plugins it contains.
         Returns list of removed plugins names."""
         package_name = self._plugin_info.get_package_name(plugin_name)
+        if not package_name:
+            raise ClickException(f'Plugin "{plugin_name}" is not installed')
         plugins_from_package = self._plugin_info.get_plugins_from_package(package_name)
         if not click.confirm(
-            f"This will uninstall package {package_name} containing plugins {','.join(plugins_from_package)}."
+            f"This will uninstall package {package_name} containing plugins {plugins_from_package}."
             " Do you want to continue?"
         ):
             return []

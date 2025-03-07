@@ -109,4 +109,8 @@ def uninstall(
     """Uninstalls a package from a plugin environment."""
     plugin_manager = PluginManager()
     removed_plugins = plugin_manager.uninstall(plugin_name)
-    return MessageResult(f"Plugins `{removed_plugins}` were removed.")
+    return MessageResult(
+        f"Plugins {removed_plugins} were removed."
+        if removed_plugins
+        else "No plugins were removed."
+    )
