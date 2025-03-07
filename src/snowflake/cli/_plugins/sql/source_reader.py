@@ -33,6 +33,15 @@ class SourceType(enum.Enum):
 
 
 class ParsedSource:
+    """Container for parsed statement.
+
+    Holds:
+      - source: statement on command content
+      - source_type: type of source
+      - source_path: in case of URL or FILE path of the origin
+      - error: optional message
+    """
+
     __slots__ = ("source", "source_type", "source_path", "error")
     __match_args__ = ("source_type", "error")
 
@@ -73,6 +82,7 @@ class ParsedSource:
 
     @classmethod
     def from_url(cls, path_part: str, raw_source: str) -> "ParsedSource":
+        """Constructor for loading from file."""
         try:
             payload = urlopen(path_part, timeout=10.0).read().decode()
             return cls(payload, SourceType.URL, path_part)
@@ -83,6 +93,7 @@ class ParsedSource:
 
     @classmethod
     def from_file(cls, path_part: str, raw_source: str) -> "ParsedSource":
+        """Constructor for loading from URL."""
         path = SecurePath(path_part)
 
         if path.is_file():
@@ -97,6 +108,9 @@ RecursiveStatementReader = Generator[ParsedSource, Any, Any]
 
 
 def parse_source(source: str, operators: OperatorFunctions) -> ParsedSource:
+    """Evaluates templating and source commands.
+
+    Returns parsed source according to origin."""
     try:
         statement = source
         for operator in operators:
@@ -134,6 +148,7 @@ def recursive_source_reader(
     operators: OperatorFunctions,
     remove_comments: bool,
 ) -> RecursiveStatementReader:
+    """Based on detected source command reads content of the source and tracks for recursion."""
     for stmt, _ in source:
         if not stmt:
             continue
@@ -158,24 +173,6 @@ def recursive_source_reader(
 
                 seen_files.pop()
 
-            # case ParsedSource(SourceType.URL, None):
-            #     if parsed_source.source_path in seen_files:
-            #         error = f"Recursion detected: {' -> '.join(seen_files)}"
-            #         parsed_source.error = error
-            #         yield parsed_source
-            #         continue
-            #
-            #     seen_files.append(parsed_source.source_path)
-            #
-            #     yield from recursive_source_reader(
-            #         split_statements(parsed_source.source, remove_comments),
-            #         seen_files,
-            #         operators,
-            #         remove_comments,
-            #     )
-            #
-            #     seen_files.pop()
-
             case ParsedSource(SourceType.URL, error) if error:
                 yield parsed_source
 
@@ -189,6 +186,9 @@ def files_reader(
     operators: OperatorFunctions,
     remove_comments: bool = False,
 ) -> RecursiveStatementReader:
+    """Entry point for reading statements from files.
+
+    Returns a generator with statements."""
     for path in paths:
         with path.open(read_file_limit_mb=UNLIMITED) as f:
             stmts = split_statements(io.StringIO(f.read()), remove_comments)
@@ -205,11 +205,15 @@ def query_reader(
     operators: OperatorFunctions,
     remove_comments: bool = False,
 ) -> RecursiveStatementReader:
+    """Entry point for reading statements from query.
+
+    Returns a generator with statements."""
     stmts = split_statements(io.StringIO(source), remove_comments)
     yield from recursive_source_reader(stmts, [], operators, remove_comments)
 
 
 def compile_statements(source: RecursiveStatementReader):
+    """Tracks statements evaluation and collects errors."""
     errors = []
     cnt = 0
     compiled = []
