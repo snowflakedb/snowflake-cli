@@ -326,6 +326,24 @@ def test_rendering_of_sql(mock_execute_query, query, runner):
     )
 
 
+@pytest.mark.parametrize(
+    "query",
+    [
+        "!source &{ aaa }.&{ bbb }",
+        "!source &aaa.&bbb",
+        "!source &aaa.&{ bbb }",
+        "!source <% aaa %>.<% bbb %>",
+    ],
+)
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
+def test_rendering_of_sql_with_commands(mock_execute_query, query, runner):
+    result = runner.invoke(["sql", "-q", query, "-D", "aaa=foo", "-D", "bbb=bar"])
+    assert result.exit_code == 0, result.output
+    mock_execute_query.assert_called_once_with(
+        "!source foo.bar", cursor_class=VerboseCursor
+    )
+
+
 @mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
 def test_old_template_syntax_causes_warning(mock_execute_query, runner):
     result = runner.invoke(["sql", "-q", "select &{ aaa }", "-D", "aaa=foo"])

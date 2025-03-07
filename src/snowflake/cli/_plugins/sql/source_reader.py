@@ -2,15 +2,26 @@ import enum
 import io
 import re
 import urllib.error
+from typing import Any, Callable, Generator, Literal, Sequence
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
+from snowflake.connector.util_text import split_statements
 
 SOURCE_PATTERN = re.compile(
     r"!(source|load)\s+[\"']?(.*?)[\"']?\s*(?:;|$)",
     flags=re.IGNORECASE,
 )
+
+SplitedStatements = Generator[
+    tuple[str, bool | None] | tuple[str, Literal[False]],
+    Any,
+    None,
+]
+
+SqlTransofrmFunc = Callable[[str], str]
+OperatorFunctions = Sequence[SqlTransofrmFunc]
 
 
 class SourceType(enum.Enum):
@@ -59,6 +70,9 @@ class ParsedSource:
         return f"{self.__class__.__name__}(source_type={self.source_type}, source_path={self.source_path}, error={self.error})"
 
 
+RecursiveStatementReader = Generator[ParsedSource, Any, Any]
+
+
 def parse_source(source: str) -> ParsedSource:
     split_result = SOURCE_PATTERN.split(source, maxsplit=1)
     split_result = [p.strip() for p in split_result]
@@ -93,3 +107,77 @@ def parse_source(source: str) -> ParsedSource:
             error_msg = f"Unknown source: {source_path}"
 
     return ParsedSource(source_path, SourceType.UNKNOWN, source, error_msg)
+
+
+def recursive_source_reader(
+    source: SplitedStatements,
+    seen_files: list,
+) -> RecursiveStatementReader:
+    for stmt, _ in source:
+        parsed_source = parse_source(stmt)
+
+        match parsed_source:
+            case ParsedSource(SourceType.FILE, None):
+                if parsed_source.source_path in seen_files:
+                    error = f"Recursion detected: {' -> '.join(seen_files)}"
+                    parsed_source.error = error
+                    yield parsed_source
+                    continue
+
+                seen_files.append(parsed_source.source_path)
+
+                yield from recursive_source_reader(
+                    split_statements(parsed_source.source), seen_files
+                )
+
+                seen_files.pop()
+
+            case ParsedSource(SourceType.URL, None):
+                if parsed_source.source_path in seen_files:
+                    error = f"Recursion detected: {' -> '.join(seen_files)}"
+                    parsed_source.error = error
+                    yield parsed_source
+                    continue
+
+                seen_files.append(parsed_source.source_path)
+
+                yield from recursive_source_reader(
+                    split_statements(parsed_source.source), seen_files
+                )
+
+                seen_files.pop()
+
+            case ParsedSource(SourceType.URL, error) if error:
+                yield parsed_source
+
+            case _:
+                yield parsed_source
+    return
+
+
+def file_reader(paths: Sequence[SecurePath]) -> RecursiveStatementReader:
+    for path in paths:
+        with path.open(read_file_limit_mb=UNLIMITED) as f:
+            stmts = split_statements(io.StringIO(f.read()))
+            yield from recursive_source_reader(stmts, [path.as_posix()])
+
+
+def query_reader(source: str) -> RecursiveStatementReader:
+    stmts = split_statements(io.StringIO(source))
+    yield from recursive_source_reader(stmts, [])
+
+
+def compile_statements(source: RecursiveStatementReader, operators: OperatorFunctions):
+    errors = []
+    cnt = 0
+    compiled = []
+
+    for stmt in source:
+        if stmt.source_type == SourceType.QUERY:
+            cnt += 1
+            if not stmt.error:
+                compiled.append(stmt.source.read())
+        if stmt.error:
+            errors.append(stmt.error)
+
+    return errors, cnt, compiled
