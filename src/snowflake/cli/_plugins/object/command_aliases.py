@@ -36,7 +36,7 @@ def add_object_command_aliases(
     name_argument: typer.Argument,
     like_option: Optional[typer.Option],
     scope_option: Optional[typer.Option],
-    ommit_commands: List[str] | None = None,
+    ommit_commands: Optional[List[str]] = None,
 ):
     if ommit_commands is None:
         ommit_commands = list()
