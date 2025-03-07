@@ -121,3 +121,34 @@ def test_validate_project(mock_pm, runner, project_directory):
         dry_run=True,
         variables=["key=value"],
     )
+
+
+def test_list_command_alias(mock_connect, runner):
+
+    result = runner.invoke(
+        [
+            "object",
+            "list",
+            "project",
+            "--like",
+            "%PROJECT_NAME%",
+            "--in",
+            "database",
+            "my_db",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    result = runner.invoke(
+        ["project", "list", "--like", "%PROJECT_NAME%", "--in", "database", "my_db"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+
+    queries = mock_connect.mocked_ctx.get_queries()
+    assert len(queries) == 2
+    assert (
+        queries[0]
+        == queries[1]
+        == "show projects like '%PROJECT_NAME%' in database my_db"
+    )

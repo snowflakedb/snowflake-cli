@@ -47,6 +47,7 @@ class ObjectType(Enum):
     NETWORK_RULE = ObjectNames("network-rule", "network rule", "network rules")
     NOTEBOOK = ObjectNames("notebook", "notebook", "notebooks")
     PROCEDURE = ObjectNames("procedure", "procedure", "procedures")
+    PROJECT = ObjectNames("project", "project", "projects")
     ROLE = ObjectNames("role", "role", "roles")
     SCHEMA = ObjectNames("schema", "schema", "schemas")
     SERVICE = ObjectNames("service", "service", "services")
@@ -77,6 +78,7 @@ OBJECT_TO_NAMES = {o.value.cli_name: o.value for o in ObjectType}
 UNSUPPORTED_OBJECTS = {
     ObjectType.APPLICATION.value.cli_name,
     ObjectType.APPLICATION_PACKAGE.value.cli_name,
+    ObjectType.PROJECT.value.cli_name,
 }
 SUPPORTED_OBJECTS = sorted(OBJECT_TO_NAMES.keys() - UNSUPPORTED_OBJECTS)
 
