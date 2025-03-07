@@ -21,10 +21,15 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
 from click import ClickException, UsageError
-from snowflake.cli._plugins.sql.reader import SQLReader
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
+from snowflake.cli._plugins.sql.source_reader import (
+    compile_statements,
+    files_reader,
+    query_reader,
+)
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin, VerboseCursor
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -55,14 +60,21 @@ class SqlManager(SqlExecutionMixin):
         """
         query = sys.stdin.read() if std_in else query
 
-        stmt_reader = SQLReader(query, files, not retain_comments)
-        stmt_operator_funcs = (
+        stmt_operators = (
             transpile_snowsql_templates,
             partial(snowflake_sql_jinja_render, data=data),
         )
-        errors, stmt_count, compiled_statements = stmt_reader.compile_statements(
-            stmt_operator_funcs
-        )
+        remove_comments = not retain_comments
+
+        if query:
+            stmt_reader = query_reader(query, stmt_operators, remove_comments)
+        elif files:
+            secured_files = [SecurePath(f) for f in files]
+            stmt_reader = files_reader(secured_files, stmt_operators, remove_comments)
+        else:
+            raise UsageError("Use either query, filename or input option.")
+
+        errors, stmt_count, compiled_statements = compile_statements(stmt_reader)
         if not any((errors, stmt_count, compiled_statements)):
             raise UsageError("Use either query, filename or input option.")
 

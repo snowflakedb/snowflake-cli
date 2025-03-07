@@ -6,6 +6,7 @@ from typing import Any, Callable, Generator, Literal, Sequence
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
+from jinja2 import UndefinedError
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector.util_text import split_statements
 
@@ -47,6 +48,7 @@ class ParsedSource:
         source_path: str | None,
         error: str | None = None,
     ):
+        # TODO: render each SourceType.QUERY to handle variables resolution
         self.source = io.StringIO(source)
         self.source_type = source_type
         self.source_path = source_path
@@ -69,39 +71,56 @@ class ParsedSource:
     def __repr__(self):
         return f"{self.__class__.__name__}(source_type={self.source_type}, source_path={self.source_path}, error={self.error})"
 
+    @classmethod
+    def from_url(cls, path_part: str, raw_source: str) -> "ParsedSource":
+        try:
+            payload = urlopen(path_part, timeout=10.0).read().decode()
+            return cls(payload, SourceType.URL, path_part)
+
+        except urllib.error.HTTPError as err:
+            error = f"Could not fetch {path_part}: {err}"
+            return cls(path_part, SourceType.URL, raw_source, error)
+
+    @classmethod
+    def from_file(cls, path_part: str, raw_source: str) -> "ParsedSource":
+        path = SecurePath(path_part)
+
+        if path.is_file():
+            payload = path.read_text(file_size_limit_mb=UNLIMITED)
+            return cls(payload, SourceType.FILE, path.as_posix())
+
+        error_msg = f"Could not read: {path_part}"
+        return cls(path_part, SourceType.FILE, raw_source, error_msg)
+
 
 RecursiveStatementReader = Generator[ParsedSource, Any, Any]
 
 
-def parse_source(source: str) -> ParsedSource:
-    split_result = SOURCE_PATTERN.split(source, maxsplit=1)
+def parse_source(source: str, operators: OperatorFunctions) -> ParsedSource:
+    try:
+        statement = source
+        for operator in operators:
+            statement = operator(statement)
+    except UndefinedError as e:
+        error_msg = f"SQL template rendering error: {e}"
+        return ParsedSource(source, SourceType.UNKNOWN, source, error_msg)
+
+    split_result = SOURCE_PATTERN.split(statement, maxsplit=1)
     split_result = [p.strip() for p in split_result]
 
     if len(split_result) == 1:
-        return ParsedSource(source, SourceType.QUERY, None)
+        return ParsedSource(statement, SourceType.QUERY, None)
 
     _, command, source_path, *_ = split_result
 
     match command.lower(), urlparse(source_path):
         # load content from an URL
         case "source" | "load", ("http" | "https", netloc, path, *_) if netloc and path:
-            try:
-                payload = urlopen(source_path, timeout=10.0).read().decode()
-                return ParsedSource(payload, SourceType.URL, source_path)
-            except urllib.error.HTTPError as err:
-                error = f"Could not fetch {source_path}: {err}"
-                return ParsedSource(source_path, SourceType.URL, source, error)
+            return ParsedSource.from_url(source_path, statement)
 
         # load content from a local file
-        case "source" | "load", ("", "", path, *_) if SecurePath(path).is_file():
-            _path = SecurePath(path)
-            payload = _path.read_text(file_size_limit_mb=UNLIMITED)
-            return ParsedSource(payload, SourceType.FILE, _path.as_posix())
-
-        # load content from a non existing local file
-        case "source" | "load", ("", "", path, *_) if not SecurePath(path).is_file():
-            error_msg = f"Could not read: {source_path}"
-            return ParsedSource(source_path, SourceType.FILE, source, error_msg)
+        case "source" | "load", ("", "", path, *_) if path:
+            return ParsedSource.from_file(path, statement)
 
         case _:
             error_msg = f"Unknown source: {source_path}"
@@ -112,12 +131,16 @@ def parse_source(source: str) -> ParsedSource:
 def recursive_source_reader(
     source: SplitedStatements,
     seen_files: list,
+    operators: OperatorFunctions,
+    remove_comments: bool,
 ) -> RecursiveStatementReader:
     for stmt, _ in source:
-        parsed_source = parse_source(stmt)
+        if not stmt:
+            continue
+        parsed_source = parse_source(stmt, operators)
 
         match parsed_source:
-            case ParsedSource(SourceType.FILE, None):
+            case ParsedSource(SourceType.FILE | SourceType.URL, None):
                 if parsed_source.source_path in seen_files:
                     error = f"Recursion detected: {' -> '.join(seen_files)}"
                     parsed_source.error = error
@@ -127,25 +150,31 @@ def recursive_source_reader(
                 seen_files.append(parsed_source.source_path)
 
                 yield from recursive_source_reader(
-                    split_statements(parsed_source.source), seen_files
+                    split_statements(parsed_source.source, remove_comments),
+                    seen_files,
+                    operators,
+                    remove_comments,
                 )
 
                 seen_files.pop()
 
-            case ParsedSource(SourceType.URL, None):
-                if parsed_source.source_path in seen_files:
-                    error = f"Recursion detected: {' -> '.join(seen_files)}"
-                    parsed_source.error = error
-                    yield parsed_source
-                    continue
-
-                seen_files.append(parsed_source.source_path)
-
-                yield from recursive_source_reader(
-                    split_statements(parsed_source.source), seen_files
-                )
-
-                seen_files.pop()
+            # case ParsedSource(SourceType.URL, None):
+            #     if parsed_source.source_path in seen_files:
+            #         error = f"Recursion detected: {' -> '.join(seen_files)}"
+            #         parsed_source.error = error
+            #         yield parsed_source
+            #         continue
+            #
+            #     seen_files.append(parsed_source.source_path)
+            #
+            #     yield from recursive_source_reader(
+            #         split_statements(parsed_source.source, remove_comments),
+            #         seen_files,
+            #         operators,
+            #         remove_comments,
+            #     )
+            #
+            #     seen_files.pop()
 
             case ParsedSource(SourceType.URL, error) if error:
                 yield parsed_source
@@ -155,19 +184,32 @@ def recursive_source_reader(
     return
 
 
-def file_reader(paths: Sequence[SecurePath]) -> RecursiveStatementReader:
+def files_reader(
+    paths: Sequence[SecurePath],
+    operators: OperatorFunctions,
+    remove_comments: bool = False,
+) -> RecursiveStatementReader:
     for path in paths:
         with path.open(read_file_limit_mb=UNLIMITED) as f:
-            stmts = split_statements(io.StringIO(f.read()))
-            yield from recursive_source_reader(stmts, [path.as_posix()])
+            stmts = split_statements(io.StringIO(f.read()), remove_comments)
+            yield from recursive_source_reader(
+                stmts,
+                [path.as_posix()],
+                operators,
+                remove_comments,
+            )
 
 
-def query_reader(source: str) -> RecursiveStatementReader:
-    stmts = split_statements(io.StringIO(source))
-    yield from recursive_source_reader(stmts, [])
+def query_reader(
+    source: str,
+    operators: OperatorFunctions,
+    remove_comments: bool = False,
+) -> RecursiveStatementReader:
+    stmts = split_statements(io.StringIO(source), remove_comments)
+    yield from recursive_source_reader(stmts, [], operators, remove_comments)
 
 
-def compile_statements(source: RecursiveStatementReader, operators: OperatorFunctions):
+def compile_statements(source: RecursiveStatementReader):
     errors = []
     cnt = 0
     compiled = []
