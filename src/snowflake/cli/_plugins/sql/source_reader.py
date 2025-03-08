@@ -3,7 +3,6 @@ import io
 import re
 import urllib.error
 from typing import Any, Callable, Generator, Literal, Sequence
-from urllib.parse import urlparse
 from urllib.request import urlopen
 
 from jinja2 import UndefinedError
@@ -11,9 +10,11 @@ from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector.util_text import split_statements
 
 SOURCE_PATTERN = re.compile(
-    r"!(source|load)\s+[\"']?(.*?)[\"']?\s*(?:;|$)",
+    r"^!(source|load)\s+[\"']?(.*?)[\"']?\s*(?:;|$)",
     flags=re.IGNORECASE,
 )
+
+URL_PATTERN = re.compile(r"^(\w+?):\/(\/.*)", flags=re.IGNORECASE)
 
 SplitedStatements = Generator[
     tuple[str, bool | None] | tuple[str, Literal[False]],
@@ -126,15 +127,16 @@ def parse_source(source: str, operators: OperatorFunctions) -> ParsedSource:
         return ParsedSource(statement, SourceType.QUERY, None)
 
     _, command, source_path, *_ = split_result
+    _path_match = URL_PATTERN.split(source_path.lower())
 
-    match command.lower(), urlparse(source_path):
+    match command.lower(), _path_match:
         # load content from an URL
-        case "source" | "load", ("http" | "https", netloc, path, *_) if netloc and path:
+        case "source" | "load", ("", "http" | "https", *_):
             return ParsedSource.from_url(source_path, statement)
 
         # load content from a local file
-        case "source" | "load", ("", "", path, *_) if path:
-            return ParsedSource.from_file(path, statement)
+        case "source" | "load", (str(),):
+            return ParsedSource.from_file(source_path, statement)
 
         case _:
             error_msg = f"Unknown source: {source_path}"
