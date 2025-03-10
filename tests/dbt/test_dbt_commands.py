@@ -37,7 +37,7 @@ class TestDBTList:
         result = runner.invoke(["dbt", "list"])
 
         assert result.exit_code == 0, result.output
-        assert mock_connect.mocked_ctx.get_query() == "SHOW DBT PROJECT"
+        assert mock_connect.mocked_ctx.get_query() == "SHOW DBT PROJECTS"
 
 
 class TestDBTDeploy:
@@ -75,8 +75,9 @@ class TestDBTDeploy:
         assert (
             mock_connect.mocked_ctx.get_query()
             == """CREATE DBT PROJECT TEST_PIPELINE
-FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage MAIN_FILE='@MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage/dbt_project.yml'
-DBT_VERSION='1.2.3' DBT_ADAPTER_VERSION='3.4.5'"""
+FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage
+DBT_VERSION='1.2.3'
+DBT_ADAPTER_VERSION='3.4.5'"""
         )
         stage_fqn = FQN.from_string(f"dbt_TEST_PIPELINE_stage").using_context()
         mock_create.assert_called_once_with(stage_fqn, temporary=True)
@@ -104,8 +105,9 @@ DBT_VERSION='1.2.3' DBT_ADAPTER_VERSION='3.4.5'"""
         assert (
             mock_connect.mocked_ctx.get_query()
             == """CREATE DBT PROJECT TEST_PIPELINE
-FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage MAIN_FILE='@MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage/dbt_project.yml'
-DBT_VERSION='2.3.4' DBT_ADAPTER_VERSION='3.4.5'"""
+FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage
+DBT_VERSION='2.3.4'
+DBT_ADAPTER_VERSION='3.4.5'"""
         )
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
@@ -149,8 +151,10 @@ DBT_VERSION='2.3.4' DBT_ADAPTER_VERSION='3.4.5'"""
         assert result.exit_code == 0, result.output
         assert mock_connect.mocked_ctx.get_query() == dedent(
             """CREATE DBT PROJECT TEST_PIPELINE
-FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage MAIN_FILE='@MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage/dbt_project.yml'
-DBT_VERSION='1.2.3' DBT_ADAPTER_VERSION='3.4.5' WAREHOUSE='XL'"""
+FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage
+DBT_VERSION='1.2.3'
+DBT_ADAPTER_VERSION='3.4.5'
+WAREHOUSE='XL'"""
         )
 
     def test_raises_when_dbt_project_is_not_available(
@@ -209,7 +213,7 @@ class TestDBTExecute:
                     "pipeline_name",
                     "test",
                 ],
-                "EXECUTE DBT PROJECT pipeline_name test",
+                "EXECUTE DBT PROJECT pipeline_name args='test'",
                 id="simple-command",
             ),
             pytest.param(
@@ -221,12 +225,12 @@ class TestDBTExecute:
                     "-f",
                     "--select @source:snowplow,tag:nightly models/export",
                 ],
-                "EXECUTE DBT PROJECT pipeline_name run -f --select @source:snowplow,tag:nightly models/export",
+                "EXECUTE DBT PROJECT pipeline_name args='run -f --select @source:snowplow,tag:nightly models/export'",
                 id="with-dbt-options",
             ),
             pytest.param(
                 ["dbt", "execute", "pipeline_name", "compile", "--vars '{foo:bar}'"],
-                "EXECUTE DBT PROJECT pipeline_name compile --vars '{foo:bar}'",
+                "EXECUTE DBT PROJECT pipeline_name args='compile --vars '{foo:bar}''",
                 id="with-dbt-vars",
             ),
             pytest.param(
@@ -242,7 +246,7 @@ class TestDBTExecute:
                     "--info",
                     "--config-file=/",
                 ],
-                "EXECUTE DBT PROJECT pipeline_name compile --format=TXT -v -h --debug --info --config-file=/",
+                "EXECUTE DBT PROJECT pipeline_name args='compile --format=TXT -v -h --debug --info --config-file=/'",
                 id="with-dbt-conflicting-options",
             ),
             pytest.param(
@@ -253,7 +257,7 @@ class TestDBTExecute:
                     "pipeline_name",
                     "compile",
                 ],
-                "EXECUTE DBT PROJECT pipeline_name compile",
+                "EXECUTE DBT PROJECT pipeline_name args='compile'",
                 id="with-cli-flag",
             ),
         ],
