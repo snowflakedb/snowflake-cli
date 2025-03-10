@@ -442,9 +442,8 @@ class StageManager(SqlExecutionMixin):
                 # Add parent directory to the list if it's not already there
                 if directory.parent not in deepest_dirs_list and not any(
                     (
-                        1
+                        existing_dir.is_relative_to(directory.parent)
                         for existing_dir in deepest_dirs_list
-                        if existing_dir.is_relative_to(directory.parent)
                     )
                 ):
                     deepest_dirs_list.append(directory.parent)
