@@ -350,8 +350,8 @@ def test_mixed_template_syntax_error(mock_execute_query, runner):
     "query",
     [
         "select &{ foo }",
-        # "select &foo",
-        # "select <% foo %>",
+        "select &foo",
+        "select <% foo %>",
     ],
 )
 def test_execution_fails_if_unknown_variable(runner, query):

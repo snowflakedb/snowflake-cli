@@ -22,8 +22,8 @@ SplitedStatements = Generator[
     None,
 ]
 
-SqlTransofrmFunc = Callable[[str], str]
-OperatorFunctions = Sequence[SqlTransofrmFunc]
+SqlTransformFunc = Callable[[str], str]
+OperatorFunctions = Sequence[SqlTransformFunc]
 
 
 class SourceType(enum.Enum):
@@ -82,7 +82,7 @@ class ParsedSource:
 
     @classmethod
     def from_url(cls, path_part: str, raw_source: str) -> "ParsedSource":
-        """Constructor for loading from file."""
+        """Constructor for loading from URL."""
         try:
             payload = urlopen(path_part, timeout=10.0).read().decode()
             return cls(payload, SourceType.URL, path_part)
@@ -93,7 +93,7 @@ class ParsedSource:
 
     @classmethod
     def from_file(cls, path_part: str, raw_source: str) -> "ParsedSource":
-        """Constructor for loading from URL."""
+        """Constructor for loading from file."""
         path = SecurePath(path_part)
 
         if path.is_file():
