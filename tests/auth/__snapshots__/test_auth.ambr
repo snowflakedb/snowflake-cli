@@ -212,3 +212,28 @@
   
   '''
 # ---
+# name: test_status
+  '''
+  Private key set for connection - OK
+  Test connection - OK
+  Status check completed.
+  
+  '''
+# ---
+# name: test_status_no_authenticator
+  '''
+  Private key set for connection - OK
+  +- Error ----------------------------------------------------------------------+
+  | Private Key authentication requires authenticator set to SNOWFLAKE_JWT       |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_status_no_private_key_in_connection
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | The private key is not set in default connection.                            |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---

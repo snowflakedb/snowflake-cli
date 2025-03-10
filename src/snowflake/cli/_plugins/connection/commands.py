@@ -17,7 +17,7 @@ from __future__ import annotations
 import logging
 import os.path
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 import typer
 from click import (  # type: ignore
@@ -28,6 +28,9 @@ from click import (  # type: ignore
 )
 from click.core import ParameterSource  # type: ignore
 from snowflake import connector
+from snowflake.cli._app.snow_connector import connect_to_snowflake
+from snowflake.cli._plugins.auth.keypair.commands import KEY_PAIR_DEFAULT_PATH
+from snowflake.cli._plugins.auth.keypair.manager import AuthManager
 from snowflake.cli._plugins.connection.util import (
     strip_if_value_present,
 )
@@ -67,6 +70,8 @@ from snowflake.cli.api.output.types import (
     MessageResult,
     ObjectResult,
 )
+from snowflake.cli.api.secret import SecretType
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import ProgrammingError
 from snowflake.connector.constants import CONNECTIONS_FILE
 
@@ -282,6 +287,9 @@ def add(
     if connection_exists(connection_name):
         raise UsageError(f"Connection {connection_name} already exists")
 
+    if not no_interactive:
+        _extend_add_with_key_pair(connection_name, connection_options)
+
     connections_file = add_connection_to_proper_file(
         connection_name,
         ConnectionConfig(**connection_options),
@@ -402,3 +410,50 @@ def generate_jwt(
         return MessageResult(token)
     except (ValueError, TypeError) as err:
         raise ClickException(str(err))
+
+
+def _extend_add_with_key_pair(connection_name: str, connection_options: Dict):
+    if (
+        connection_options.get("password") is not None
+        and connection_options.get("private_key_file") is None
+        and connection_options.get("private_key_path") is None
+    ):
+        configure_key_pair = typer.confirm(
+            "Do you want to configure key pair authentication?",
+            default=False,
+        )
+        if configure_key_pair:
+            key_length = typer.prompt(
+                "Key length",
+                default=2048,
+                show_default=True,
+            )
+
+            def output_path_parser(value: str) -> SecurePath:
+                if value == KEY_PAIR_DEFAULT_PATH:
+                    return SecurePath(Path.home())
+                return SecurePath(value)
+
+            output_path = typer.prompt(
+                "Output path",
+                default=KEY_PAIR_DEFAULT_PATH,
+                show_default=True,
+                value_proc=output_path_parser,
+            )
+            private_key_passphrase = typer.prompt(
+                "Private key passphrase",
+                default="",
+                hide_input=True,
+                show_default=False,
+                value_proc=lambda value: SecretType(value),
+            )
+            connection = connect_to_snowflake(
+                temporary_connection=True, **connection_options
+            )
+            AuthManager(connection=connection).extend_connection_add(
+                connection_name=connection_name,
+                connection_options=connection_options,
+                key_length=key_length,
+                output_path=output_path,
+                private_key_passphrase=private_key_passphrase,
+            )
