@@ -17,7 +17,7 @@ typer==0.15.2
 urllib3>=1.24.3,<2.4
 coverage==7.6.12
 pre-commit>=3.5.0
-pytest==8.3.4
+pytest==8.3.5
 pytest-randomly==3.16.0
 syrupy==4.8.2
 factory-boy==3.3.3
