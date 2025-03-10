@@ -71,7 +71,8 @@ def deploy_dbt(
         None,
         help="Version of dbt tool to be used. Taken from dbt_project.yml if not provided.",
     ),
-    dbt_adapter_version: str = typer.Option(
+    dbt_adapter_version: Optional[str] = typer.Option(
+        None,
         help="dbt-snowflake adapter version to be used",
     ),
     execute_in_warehouse: Optional[str] = typer.Option(
@@ -82,7 +83,6 @@ def deploy_dbt(
     """
     Copy dbt files and create or update dbt on Snowflake project.
     """
-    # TODO: options for DBT version?
     if source is None:
         path = Path.cwd()
     else:
@@ -131,7 +131,6 @@ for cmd in DBT_COMMANDS:
     def _dbt_execute(
         ctx: typer.Context,
     ) -> CommandResult:
-        # TODO: figure out how to present logs to users
         dbt_cli_args = ctx.args
         dbt_command = ctx.command.name
         name = ctx.parent.params["name"]
