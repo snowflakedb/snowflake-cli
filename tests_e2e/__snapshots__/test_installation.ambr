@@ -14,7 +14,7 @@
                                                                                   
    Usage: snow [OPTIONS] COMMAND [ARGS]...                                        
                                                                                   
-   Snowflake CLI tool for developers [v3.5.0rc2]                                  
+   Snowflake CLI tool for developers [v3.5.0]                                     
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
@@ -82,7 +82,7 @@
                                                                                   
    Usage: snow [OPTIONS] COMMAND [ARGS]...                                        
                                                                                   
-   Snowflake CLI tool for developers [v3.5.0rc2]                                  
+   Snowflake CLI tool for developers [v3.5.0]                                     
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
@@ -129,7 +129,7 @@
                                                                                   
    Usage: snow [OPTIONS] COMMAND [ARGS]...                                        
                                                                                   
-   Snowflake CLI tool for developers [v3.5.0rc2]                                  
+   Snowflake CLI tool for developers [v3.5.0]                                     
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
@@ -213,7 +213,7 @@
                                                                                   
    Usage: snow [OPTIONS] COMMAND [ARGS]...                                        
                                                                                   
-   Snowflake CLI tool for developers [v3.5.0rc2]                                  
+   Snowflake CLI tool for developers [v3.5.0]                                     
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
