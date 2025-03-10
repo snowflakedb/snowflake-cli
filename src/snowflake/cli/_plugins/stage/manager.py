@@ -439,9 +439,13 @@ class StageManager(SqlExecutionMixin):
                 # We end if we reach the root directory
                 if directory == temp_dir_with_copy:
                     break
-
                 # Add parent directory to the list if it's not already there
-                if directory.parent not in deepest_dirs_list:
+                if directory.parent not in deepest_dirs_list and not any(
+                    (
+                        existing_dir.is_relative_to(directory.parent)
+                        for existing_dir in deepest_dirs_list
+                    )
+                ):
                     deepest_dirs_list.append(directory.parent)
 
                 # Remove the directory so the parent directory will contain only files

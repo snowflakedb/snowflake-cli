@@ -1339,3 +1339,30 @@ def test_recursive_upload_no_recursive_glob_pattern(temp_dir):
             stage_path=StagePath.from_stage_str("@stageName"),
         ),
     ]
+
+
+NESTED_UNBALANCED_STRUCTURE = {
+    "dir1": {
+        "dir2": {
+            "file2.py": "content2",
+        },
+        "dir3": {
+            "dir4": {
+                "dir5": {
+                    "file5.py": "content5",
+                }
+            },
+        },
+    },
+}
+
+
+def test_recursive_unbalanced_tree(temp_dir):
+    """
+    SNOW-1966187 - with certain directory structure we were deleting nodes
+    before they were processed. This was mostly visible when there was a
+    shallow branch and deep branch starting from the same directory.
+    """
+    tester = RecursiveUploadTester(temp_dir)
+    tester.prepare(structure=NESTED_UNBALANCED_STRUCTURE)
+    tester.execute(local_path=temp_dir + "/")
