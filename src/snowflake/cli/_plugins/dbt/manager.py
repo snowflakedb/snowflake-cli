@@ -41,7 +41,7 @@ class StdoutExecutionMixin(SqlExecutionMixin):
 
 class DBTManager(StdoutExecutionMixin):
     def list(self) -> SnowflakeCursor:  # noqa: A003
-        query = "SHOW DBT PROJECT"
+        query = "SHOW DBT PROJECTS"
         return self.execute_query(query)
 
     def deploy(
@@ -78,20 +78,18 @@ class DBTManager(StdoutExecutionMixin):
             cli_console.step(f"Copied {len(results)} files")
 
         with cli_console.phase("Creating DBT project"):
-            staged_dbt_project_path = self._get_dbt_project_stage_path(stage_name)
             query = f"""{'CREATE OR REPLACE' if force is True else 'CREATE'} DBT PROJECT {name}
-FROM {stage_name} MAIN_FILE='{staged_dbt_project_path}'
-DBT_VERSION='{dbt_version}' DBT_ADAPTER_VERSION='{dbt_adapter_version}'"""
+FROM {stage_name}
+DBT_VERSION='{dbt_version}'"""
+
+            if dbt_adapter_version:
+                query += f"\nDBT_ADAPTER_VERSION='{dbt_adapter_version}'"
             if execute_in_warehouse:
-                query += f" WAREHOUSE='{execute_in_warehouse}'"
+                query += f"\nWAREHOUSE='{execute_in_warehouse}'"
             return self.execute_query(query)
 
     def execute(self, dbt_command: str, name: str, *dbt_cli_args):
-        query = f"EXECUTE DBT PROJECT {name} {dbt_command}"
         if dbt_cli_args:
-            query += " " + " ".join([arg for arg in dbt_cli_args])
+            dbt_command = dbt_command + " " + " ".join([arg for arg in dbt_cli_args])
+        query = f"EXECUTE DBT PROJECT {name} args='{dbt_command.strip()}'"
         return self.execute_query(query)
-
-    @staticmethod
-    def _get_dbt_project_stage_path(stage_name):
-        return "/".join([stage_name, "dbt_project.yml"])
