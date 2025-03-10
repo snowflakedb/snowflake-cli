@@ -48,6 +48,7 @@ def _clean_output(text: str):
         .replace("╰", "+")
         .replace("╯", "+")
         .replace("╮", "+")
+        .replace(__about__.VERSION, "0.0.1-test_patched")
     )
 
 
