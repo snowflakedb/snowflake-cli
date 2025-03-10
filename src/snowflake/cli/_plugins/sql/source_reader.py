@@ -58,7 +58,6 @@ class ParsedSource:
         source_path: str | None,
         error: str | None = None,
     ):
-        # TODO: render each SourceType.QUERY to handle variables resolution
         self.source = io.StringIO(source)
         self.source_type = source_type
         self.source_path = source_path
