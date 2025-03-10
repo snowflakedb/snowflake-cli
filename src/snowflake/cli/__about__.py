@@ -14,4 +14,4 @@
 
 from __future__ import annotations
 
-VERSION = "3.5.0rc2"
+VERSION = "3.5.0"
