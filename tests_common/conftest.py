@@ -30,7 +30,7 @@ def temp_dir():
     with tempfile.TemporaryDirectory() as tmp_dir:
         try:
             os.chdir(tmp_dir)
-            yield tmp_dir
+            yield str(os.path.realpath(tmp_dir))
         finally:
             # this has to happen before tmp_dir is cleaned up
             # so that we don't try to remove the cwd of the process
