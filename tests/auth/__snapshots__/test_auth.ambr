@@ -54,6 +54,16 @@
   
   '''
 # ---
+# name: test_rotate_create_output_directory_with_proper_privileges
+  '''
+  Create a new connection? [Y/n]: Y
+  Enter connection name: keypairconnection
+  Enter key length [2048]: 4096
+  Enter private key passphrase []: 
+  Rotate completed.
+  
+  '''
+# ---
 # name: test_rotate_no_prompts
   '''
   Create a new connection? [Y/n]: 

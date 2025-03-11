@@ -436,6 +436,47 @@ def test_rotate_connection_already_exists(
 @mock.patch(EXECUTE_QUERY)
 @mock.patch(OBJECT_EXECUTE_QUERY)
 @mock.patch(CONNECT)
+def test_rotate_create_output_directory_with_proper_privileges(
+    mock_connect,
+    mock_object_execute_query,
+    mock_execute_query,
+    runner,
+    mock_cursor,
+    os_agnostic_snapshot,
+):
+    _mock_user_and_public_key_for_rotate(
+        mock_connect, mock_object_execute_query, mock_cursor
+    )
+
+    with TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir) / "some" / "subdirectory" / "location"
+        runner.invoke(
+            ["auth", "keypair", "setup", "--output-path", tmp_path],
+            input=f"Y\n{key_pair}\n4096\n\n",
+        )
+
+        result = runner.invoke(
+            ["auth", "keypair", "rotate", "--output-path", tmp_path, "-c", key_pair],
+            input=f"Y\n{new_connection}\n4096\n\n",
+        )
+
+        private_key_path = tmp_path / f"{new_connection}.p8"
+        public_key_path = tmp_path / f"{new_connection}.pub"
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        assert file_permissions_are_strict(tmp_path)
+        assert private_key_path.exists()
+        assert file_permissions_are_strict(private_key_path)
+        assert public_key_path.exists()
+        assert file_permissions_are_strict(public_key_path)
+        assert _call_contains(
+            mock_execute_query, f"ALTER USER {user_name} SET RSA_PUBLIC_KEY_2="
+        )
+
+
+@mock.patch(EXECUTE_QUERY)
+@mock.patch(OBJECT_EXECUTE_QUERY)
+@mock.patch(CONNECT)
 def test_rotate_no_public_key_set(
     mock_connect,
     mock_object_execute_query,
