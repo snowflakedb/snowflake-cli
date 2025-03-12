@@ -149,7 +149,7 @@ def recursive_source_reader(
     operators: OperatorFunctions,
     remove_comments: bool,
 ) -> RecursiveStatementReader:
-    """Based on detected source command reads content of the source and tracks for recursion."""
+    """Based on detected source command reads content of the source and tracks for recursion cycles."""
     for stmt, _ in source:
         if not stmt:
             continue

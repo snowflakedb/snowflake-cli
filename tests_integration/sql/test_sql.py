@@ -137,10 +137,6 @@ def test_queries_are_streamed_to_output(
     assert "waited 10 seconds" in query_1
 
 
-@pytest.mark.integration
-def test_trailing_comments_queries(runner, test_root_path):
-    trailin_comment_query = "select 1;\n\n-- trailing comment\n"
-    result = runner.invoke_with_connection_json(["sql", "-q", trailin_comment_query])
 @pytest.mark.parametrize(
     "query, expected",
     (
@@ -164,7 +160,7 @@ def test_trailing_comments_queries(runner, test_root_path):
         ),
     ),
 )
-def test_trailing_comments_queries(runner, query, expected):
+def test_trailing_comments_queries(runner, query, expected, test_root_path):
     result = runner.invoke_with_connection_json(
         ["sql", "-q", query, "--format", "JSON"]
     )
