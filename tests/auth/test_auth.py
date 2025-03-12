@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from textwrap import dedent
@@ -7,8 +6,6 @@ from unittest import mock
 import pytest
 from snowflake.cli.api.config import get_connection_dict
 from snowflake.cli.api.secure_utils import file_permissions_are_strict
-
-from tests.testing_utils.fixtures import _named_temporary_file
 
 EXECUTE_QUERY = "snowflake.cli._plugins.auth.keypair.manager.AuthManager.execute_query"
 OBJECT_EXECUTE_QUERY = (
@@ -794,18 +791,6 @@ def test_remove(
     assert result.exit_code == 0, result.output
     assert result.output == os_agnostic_snapshot
     mock_execute_query.assert_called_once_with(f"ALTER USER test_user UNSET {key}")
-
-
-@pytest.fixture
-def config_file():
-    @contextmanager
-    def _config_file(content: str):
-        with _named_temporary_file(suffix=".toml") as p:
-            p.write_text(content)
-            p.chmod(0o600)  # Make config file private
-            yield p
-
-    return _config_file
 
 
 def _mock_user_and_empty_public_keys(

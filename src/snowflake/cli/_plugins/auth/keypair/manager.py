@@ -82,7 +82,7 @@ class AuthManager(SqlExecutionMixin):
         if not connection_name:
             connection_name = cli_context.connection_context.connection_name
 
-        self._check_if_connection_has_private_key(
+        self._ensure_connection_has_private_key(
             cli_context.connection_context.connection_name
         )
 
@@ -177,7 +177,7 @@ class AuthManager(SqlExecutionMixin):
 
     def status(self):
         cli_context = get_cli_context()
-        self._check_if_connection_has_private_key(
+        self._ensure_connection_has_private_key(
             cli_context.connection_context.connection_name
         )
         cli_console.step("Private key set for connection - OK")
@@ -212,7 +212,7 @@ class AuthManager(SqlExecutionMixin):
         return connection_options
 
     @staticmethod
-    def _check_if_connection_has_private_key(connection_name: str) -> None:
+    def _ensure_connection_has_private_key(connection_name: str) -> None:
         connection = get_connection_dict(connection_name)
         if not connection.get("private_key_file") and not connection.get(
             "private_key_path"

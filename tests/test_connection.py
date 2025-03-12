@@ -1531,9 +1531,6 @@ def test_connection_add_no_key_pair_setup_if_private_key_provided(
 def test_connection_add_no_key_pair_setup_if_no_interactive(
     runner, tmp_path, test_snowcli_config
 ):
-    key = tmp_path / "key.p8"
-    key.touch()
-
     result = runner.invoke(
         [
             "connection",
@@ -1546,20 +1543,6 @@ def test_connection_add_no_key_pair_setup_if_no_interactive(
             "account",
             "--no-interactive",
         ],
-        input="conn\n"  # connection name: zz
-        "test\n"  # account:
-        "user\n"  # user:
-        "\n"  # password:
-        "\n"  # role:
-        "\n"  # warehouse:
-        "\n"  # database:
-        "\n"  # schema:
-        "\n"  # host:
-        "\n"  # port:
-        "\n"  # region:
-        "\n"  # authenticator:
-        f"{key}\n"  # private key file:
-        "\n",  # token file path:
     )
     assert result.exit_code == 0, result.output
     assert (

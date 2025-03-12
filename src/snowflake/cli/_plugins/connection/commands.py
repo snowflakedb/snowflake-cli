@@ -429,16 +429,11 @@ def _extend_add_with_key_pair(connection_name: str, connection_options: Dict):
                 show_default=True,
             )
 
-            def output_path_parser(value: str) -> SecurePath:
-                if value == KEY_PAIR_DEFAULT_PATH:
-                    return SecurePath(Path.home())
-                return SecurePath(value)
-
             output_path = typer.prompt(
                 "Output path",
                 default=KEY_PAIR_DEFAULT_PATH,
                 show_default=True,
-                value_proc=output_path_parser,
+                value_proc=lambda value: SecurePath(value),
             )
             private_key_passphrase = typer.prompt(
                 "Private key passphrase",
