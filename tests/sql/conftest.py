@@ -49,7 +49,6 @@ def make_no_commands_files(
     yield (fh1, fh2)
 
 
-# To be
 @pytest.fixture(name="recursive_source_includes")
 def make_recursive_source_includes(
     tmp_path_factory,
