@@ -21,25 +21,12 @@ import yaml
 from click import ClickException
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
 
-class StdoutExecutionMixin(SqlExecutionMixin):
-    def execute_query(self, query, **kwargs):
-        if FeatureFlag.ENABLE_DBT_POC.is_enabled():
-            from unittest.mock import MagicMock
-
-            cli_console.message(f"Sending query: {query}")
-            mock_cursor = MagicMock()
-            mock_cursor.description = []
-            return mock_cursor
-        return super().execute_query(query, **kwargs)
-
-
-class DBTManager(StdoutExecutionMixin):
+class DBTManager(SqlExecutionMixin):
     def list(self) -> SnowflakeCursor:  # noqa: A003
         query = "SHOW DBT PROJECTS"
         return self.execute_query(query)
