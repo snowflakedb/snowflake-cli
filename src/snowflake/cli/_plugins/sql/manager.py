@@ -49,14 +49,11 @@ class SqlManager(SqlExecutionMixin):
     ) -> Tuple[IsSingleStatement, Iterable[SnowflakeCursor]]:
         """Reads, transforms and execute statements from input.
 
-        Only one input can be consumed at a time. If multiple inputs are provided, the
-        order of precedence is as follows:
-        - stdin
-        - query
-        - files
-
+        Only one input can be consumed at a time.
         When no compilation errors are detected, the sequence on queries
         in executed and returned as tuple.
+
+        Throws an exception ff multiple inputs are provided.
         """
         query = sys.stdin.read() if std_in else query
 
