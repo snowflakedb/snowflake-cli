@@ -15,6 +15,7 @@ snowflake.core==1.0.2; python_version < "3.12"
 tomlkit==0.13.2
 typer==0.15.2
 urllib3>=1.24.3,<2.4
+prompt-toolkit==3.0.50
 coverage==7.6.12
 pre-commit>=3.5.0
 pytest==8.3.5
