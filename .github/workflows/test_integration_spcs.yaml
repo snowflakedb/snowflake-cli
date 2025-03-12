@@ -1,9 +1,6 @@
 name: SPCS Integration testing
 
 on:
-  pull_request:
-    branches:
-      - "**"
   push:
     tags:
       - "v*" # Push events to matching v*, i.e. v1.0, v20.15.10
@@ -12,8 +9,6 @@ on:
       - features/*
   repository_dispatch:
     types: [ok-to-test-command]
-  schedule:
-    - cron: "0 8 * * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
