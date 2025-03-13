@@ -308,8 +308,7 @@ class AuthManager(SqlExecutionMixin):
         private_key_path: SecurePath,
     ):
         connection = get_connection_dict(current_connection)
-        if connection.get("password"):
-            del connection["password"]
+        connection.pop("password", None)
         connection["authenticator"] = "SNOWFLAKE_JWT"
         connection["private_key_file"] = str(private_key_path.path)
 
