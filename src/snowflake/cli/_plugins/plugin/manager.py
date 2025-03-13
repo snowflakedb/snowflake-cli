@@ -321,8 +321,8 @@ class PluginManager:
         with cli_console.phase("Installing package"):
             cli_console.step("Isolating environment")
             with virtualenv() as venv_executable:
-                with cli_console.phase("Installing package"):
-                    self._install_package(venv_executable, package_name, index_url)
+                cli_console.step("Installing package")
+                self._install_package(venv_executable, package_name, index_url)
 
             cli_console.step("validating package")
             installed_plugins = self._get_installed_plugins_from_package(package_name)
@@ -348,7 +348,6 @@ class PluginManager:
                     " which conflicts with already installed plugins."
                 )
 
-            cli_console.step("initializing config")
             self._add_new_plugins_to_plugin_info_file(installed_plugins, package_name)
             self._add_new_plugins_to_config(installed_plugins)
         return installed_plugins
