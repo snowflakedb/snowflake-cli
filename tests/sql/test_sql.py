@@ -69,8 +69,7 @@ def test_sql_execute_multiple_file(mock_execute, runner, mock_cursor):
     assert result.exit_code == 0
     mock_execute.assert_has_calls(
         [
-            mock.call(query, cursor_class=VerboseCursor),
-            mock.call(query, cursor_class=VerboseCursor),
+            mock.call(f"{query}\n{query}", cursor_class=VerboseCursor),
         ]
     )
 
@@ -348,7 +347,12 @@ def test_mixed_template_syntax_error(mock_execute_query, runner):
 
 
 @pytest.mark.parametrize(
-    "query", ["select &{ foo }", "select &foo", "select <% foo %>"]
+    "query",
+    [
+        "select &{ foo }",
+        "select &foo",
+        "select <% foo %>",
+    ],
 )
 def test_execution_fails_if_unknown_variable(runner, query):
     result = runner.invoke(["sql", "-q", query, "-D", "bbb=1"])
@@ -434,8 +438,8 @@ def test_uses_variables_from_cli_are_added_outside_context(
 @pytest.mark.parametrize(
     "option,expected",
     [
-        ("--retain-comments", "SELECT 42;\n-- Commented line\n    SELECT 1;\n"),
-        ("", "SELECT 42;\nSELECT 1;\n"),
+        ("--retain-comments", "SELECT 42;\n-- Commented line\n    SELECT 1;"),
+        ("", "SELECT 42;\nSELECT 1;"),
     ],
 )
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
@@ -472,7 +476,7 @@ def test_comments_are_handled_correctly_from_file(
             "--retain-comments",
             "SELECT 42;\n-- Commented line\n    SELECT 1;\n--another comment;",
         ),
-        ("", "SELECT 42;\nSELECT 1;\n"),
+        ("", "SELECT 42;\nSELECT 1;"),
     ],
 )
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")

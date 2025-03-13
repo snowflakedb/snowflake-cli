@@ -21,7 +21,7 @@ import shutil
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional, Union
+from typing import IO, Any, Generator, Optional, Union
 
 from snowflake.cli.api.exceptions import DirectoryIsNotEmptyError, FileTooLargeError
 from snowflake.cli.api.secure_utils import (
@@ -108,13 +108,19 @@ class SecurePath:
         Return True if the path points to a regular file (or a symbolic link pointing to a regular file),
         False if it points to another kind of file.
         """
-        return self._path.is_file()
+        return self._path.expanduser().absolute().is_file()
 
     def glob(self, pattern: str):
         """
         Return a generator yielding Path objects that match the given pattern.
         """
         return self._path.glob(pattern)
+
+    def as_posix(self) -> str:
+        """
+        Return the string representation of the path with forward slashes (/) as the path separator.
+        """
+        return self._path.as_posix()
 
     @property
     def name(self) -> str:
@@ -178,7 +184,7 @@ class SecurePath:
         mode="r",
         read_file_limit_mb: Optional[int] = None,
         **open_kwargs,
-    ):
+    ) -> Generator[IO[Any], None, None]:
         """
         Open the file pointed by this path and return a file object, as
         the built-in open() function does.
