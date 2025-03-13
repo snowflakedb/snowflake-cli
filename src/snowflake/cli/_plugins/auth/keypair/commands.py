@@ -31,12 +31,6 @@ def _show_connection_name_prompt(ctx: typer.Context, value: str):
     return value
 
 
-def _resolve_default_and_convert(value: Path) -> Path:
-    if value:
-        return value
-    return Path.home()
-
-
 _new_connection_option = typer.Option(
     True,
     help="Create a new connection.",
@@ -69,7 +63,6 @@ _output_path_option = typer.Option(
     "--output-path",
     help="The output path for private and public keys",
     prompt="Enter output path",
-    callback=_resolve_default_and_convert,
 )
 
 
