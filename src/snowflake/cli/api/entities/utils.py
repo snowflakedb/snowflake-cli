@@ -19,7 +19,10 @@ from snowflake.cli._plugins.stage.diff import (
     sync_local_diff_with_stage,
     to_stage_path,
 )
-from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
+from snowflake.cli._plugins.stage.manager import (
+    StageManager,
+    StagePathParts,
+)
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.cli_global_context import get_cli_context, span
@@ -33,6 +36,7 @@ from snowflake.cli.api.exceptions import (
     NoWarehouseSelectedInSessionError,
     SnowflakeSQLExecutionError,
 )
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 from snowflake.cli.api.rendering.sql_templates import (
@@ -79,12 +83,12 @@ def _get_stage_paths_to_sync(
 def sync_deploy_root_with_stage(
     console: AbstractConsole,
     deploy_root: Path,
-    package_name: str,
     bundle_map: BundleMap,
-    role: str,
     prune: bool,
     recursive: bool,
-    stage_path: DefaultStagePathParts,
+    stage_path: StagePathParts,
+    role: str | None = None,
+    package_name: str | None = None,
     local_paths_to_sync: List[Path] | None = None,
     print_diff: bool = True,
 ) -> DiffResult:
@@ -106,17 +110,9 @@ def sync_deploy_root_with_stage(
     Returns:
         A `DiffResult` instance describing the changes that were performed.
     """
-    sql_facade = get_snowflake_facade()
-    schema = stage_path.schema
-    stage_fqn = stage_path.stage
-    # Does a stage already exist within the application package, or we need to create one?
-    # Using "if not exists" should take care of either case.
-    console.step(
-        f"Checking if stage {stage_fqn} exists, or creating a new one if none exists."
-    )
-    if not sql_facade.stage_exists(stage_fqn):
-        sql_facade.create_schema(schema, database=package_name)
-        sql_facade.create_stage(stage_fqn)
+    stage_fqn = FQN.from_stage(stage_path.stage)
+    console.step(f"Creating stage {stage_fqn} if not exists")
+    StageManager().create(fqn=stage_fqn)
 
     # Perform a diff operation and display results to the user for informational purposes
     if print_diff:

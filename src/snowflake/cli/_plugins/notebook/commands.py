@@ -132,6 +132,7 @@ def deploy(
         notebook.entity_id,
         EntityActions.DEPLOY,
         replace=replace,
+        prune=True,
     )
     return MessageResult(
         f"Notebook successfully deployed and available under {notebook_url}"

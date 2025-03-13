@@ -4,12 +4,13 @@ from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.notebook.notebook_entity_model import NotebookEntityModel
 from snowflake.cli._plugins.notebook.notebook_project_paths import NotebookProjectPaths
-from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli._plugins.stage.manager import StageManager, StagePathParts
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.artifacts.utils import bundle_artifacts
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.entities.common import EntityBase
+from snowflake.cli.api.entities.utils import sync_deploy_root_with_stage
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
@@ -30,6 +31,10 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
         return StagePath.from_stage_str(stage_path)
 
     @functools.cached_property
+    def _stage_path_parts(self) -> StagePathParts:
+        return StageManager().stage_path_parts_from_str(self.model.stage_path)
+
+    @functools.cached_property
     def _project_paths(self):
         return NotebookProjectPaths(get_cli_context().project_root)
 
@@ -41,25 +46,18 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
         except ProgrammingError:
             return False
 
-    def _upload_artifacts(self):
-        stage_fqn = self._stage_path.stage_fqn
-        stage_manager = StageManager()
-        cli_console.step(f"Creating stage {stage_fqn} if not exists")
-        stage_manager.create(fqn=stage_fqn)
-
+    def _upload_artifacts(self, prune: bool) -> None:
         cli_console.step("Uploading artifacts")
-
-        # creating bundle map to handle glob patterns logic
         bundle_map = bundle_artifacts(self._project_paths, self.model.artifacts)
-        for absolute_src, absolute_dest in bundle_map.all_mappings(
-            absolute=True, expand_directories=True
-        ):
-            artifact_stage_path = self._stage_path / (
-                absolute_dest.relative_to(self._project_paths.bundle_root).parent
-            )
-            stage_manager.put(
-                local_path=absolute_src, stage_path=artifact_stage_path, overwrite=True
-            )
+        sync_deploy_root_with_stage(
+            console=cli_console,
+            deploy_root=self._project_paths.bundle_root,
+            bundle_map=bundle_map,
+            prune=prune,
+            recursive=True,
+            stage_path=self._stage_path_parts,
+            print_diff=True,
+        )
 
     def get_create_sql(self, replace: bool) -> str:
         main_file_stage_path = self._stage_path / (
@@ -99,6 +97,7 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
         self,
         action_ctx: ActionContext,
         replace: bool,
+        prune: bool,
         *args,
         **kwargs,
     ) -> str:
@@ -108,7 +107,8 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
                     f"Notebook {self.fqn.name} already exists. Consider using --replace."
                 )
         with cli_console.phase(f"Uploading artifacts to {self._stage_path}"):
-            self._upload_artifacts()
+            self._upload_artifacts(prune=prune)
+
         with cli_console.phase(f"Creating notebook {self.fqn}"):
             return self.action_create(replace=replace)
 
