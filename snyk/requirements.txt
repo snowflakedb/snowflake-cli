@@ -22,4 +22,4 @@ pytest-randomly==3.16.0
 pytest-httpserver==1.1.2
 syrupy==4.8.2
 factory-boy==3.3.3
-Faker==36.1.1
+Faker==37.0.0
