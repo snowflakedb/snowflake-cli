@@ -5,7 +5,10 @@ from click import ClickException
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from snowflake.cli._plugins.object.manager import ObjectManager
-from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.cli_global_context import (
+    _CliGlobalContextAccess,
+    get_cli_context,
+)
 from snowflake.cli.api.config import (
     connection_exists,
     get_connection_dict,
@@ -45,24 +48,12 @@ class AuthManager(SqlExecutionMixin):
         if not connection_name:
             connection_name = cli_context.connection_context.connection_name
 
-        public_key_exists, public_key_2_exists = self._get_public_keys()
-
-        if public_key_exists or public_key_2_exists:
-            raise ClickException(
-                "The public key is set already. Use the rotate command instead."
-            )
-
-        if not output_path.exists():
-            output_path.mkdir(parents=True)
-
-        public_key = self._generate_keys_and_return_public_key(
+        self._generate_key_pair_and_set_public_key(
+            user=cli_context.connection.user,
             key_length=key_length,
             output_path=output_path,
-            key_name=connection_name,  # type: ignore[arg-type]
+            connection_name=connection_name,  # type: ignore[arg-type]
             private_key_passphrase=private_key_passphrase,
-        )
-        self.set_public_key(
-            cli_context.connection.user, PublicKeyProperty.RSA_PUBLIC_KEY, public_key
         )
 
         self._create_or_update_connection(
@@ -91,7 +82,7 @@ class AuthManager(SqlExecutionMixin):
         if not connection_name:
             connection_name = cli_context.connection_context.connection_name
 
-        self._check_if_connection_has_private_key(
+        self._ensure_connection_has_private_key(
             cli_context.connection_context.connection_name
         )
 
@@ -124,6 +115,32 @@ class AuthManager(SqlExecutionMixin):
             ),
         )
 
+    def _generate_key_pair_and_set_public_key(
+        self,
+        user: str,
+        key_length: int,
+        output_path: SecurePath,
+        connection_name: str,
+        private_key_passphrase: SecretType,
+    ):
+        public_key_exists, public_key_2_exists = self._get_public_keys()
+
+        if public_key_exists or public_key_2_exists:
+            raise ClickException(
+                "The public key is set already. Use the rotate command instead."
+            )
+
+        if not output_path.exists():
+            output_path.mkdir(parents=True)
+
+        public_key = self._generate_keys_and_return_public_key(
+            key_length=key_length,
+            output_path=output_path,
+            key_name=connection_name,  # type: ignore[arg-type]
+            private_key_passphrase=private_key_passphrase,
+        )
+        self.set_public_key(user, PublicKeyProperty.RSA_PUBLIC_KEY, public_key)
+
     def list_keys(self) -> List[Dict]:
         key_properties = [
             "RSA_PUBLIC_KEY",
@@ -133,10 +150,9 @@ class AuthManager(SqlExecutionMixin):
             "RSA_PUBLIC_KEY_2_FP",
             "RSA_PUBLIC_KEY_2_LAST_SET_TIME",
         ]
-        cli_context = get_cli_context()
-        cursor = ObjectManager().describe(
+        cursor = ObjectManager(connection=self._conn).describe(
             object_type=ObjectType.USER.value.sf_name,
-            fqn=FQN.from_string(cli_context.connection.user),
+            fqn=FQN.from_string(self._conn.user),
             cursor_class=DictCursor,
         )
         only_public_key_properties = [
@@ -159,13 +175,55 @@ class AuthManager(SqlExecutionMixin):
             f"ALTER USER {cli_context.connection.user} UNSET {public_key_property.value}"
         )
 
+    def status(self):
+        cli_context = get_cli_context()
+        self._ensure_connection_has_private_key(
+            cli_context.connection_context.connection_name
+        )
+        cli_console.step("Private key set for connection - OK")
+        self._check_connection(cli_context)
+        cli_console.step("Test connection - OK")
+
+    def extend_connection_add(
+        self,
+        connection_name: str,
+        connection_options: Dict,
+        key_length: int,
+        output_path: SecurePath,
+        private_key_passphrase: SecretType,
+    ) -> Dict:
+        self._generate_key_pair_and_set_public_key(
+            user=connection_options["user"],
+            key_length=key_length,
+            output_path=output_path,
+            connection_name=connection_name,
+            private_key_passphrase=private_key_passphrase,
+        )
+
+        connection_options["authenticator"] = "SNOWFLAKE_JWT"
+        connection_options["private_key_file"] = str(
+            self._get_private_key_path(
+                output_path=output_path, key_name=connection_name
+            ).path
+        )
+        if connection_options.get("password"):
+            del connection_options["password"]
+
+        return connection_options
+
     @staticmethod
-    def _check_if_connection_has_private_key(connection_name: str):
+    def _ensure_connection_has_private_key(connection_name: str) -> None:
         connection = get_connection_dict(connection_name)
-        if connection.get("private_key_file") and connection.get("private_key_path"):
+        if not connection.get("private_key_file") and not connection.get(
+            "private_key_path"
+        ):
             raise ClickException(
                 f"The private key is not set in {connection_name} connection."
             )
+
+    @staticmethod
+    def _check_connection(cli_context: _CliGlobalContextAccess) -> None:
+        cli_context.connection
 
     def _get_public_keys(self) -> Tuple[str, str]:
         keys = self.list_keys()
@@ -250,14 +308,8 @@ class AuthManager(SqlExecutionMixin):
         private_key_path: SecurePath,
     ):
         connection = get_connection_dict(current_connection)
-        del connection["password"]
+        connection.pop("password", None)
         connection["authenticator"] = "SNOWFLAKE_JWT"
         connection["private_key_file"] = str(private_key_path.path)
 
         set_config_value(["connections", connection_name], value=connection)
-
-    @staticmethod
-    def _find_public_key_2(list_keys: List[Dict[str, str]]):
-        for p in list_keys:
-            if p.get("property") == PublicKeyProperty.RSA_PUBLIC_KEY_2.value:
-                return p.get("value")

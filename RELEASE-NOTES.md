@@ -24,6 +24,8 @@
     * `rotate` - rotate keys for connection.
     * `list` - list the public keys for the user.
     * `remove` - remove the public key for the user.
+    * `status` - verifies the key pair configuration and tests the connection.
+* The `snow connection add` command has been enhanced to include key pair authentication when a password is provided.
 
 ## Fixes and improvements
 * Fix for incompatible options in `snow spcs compute-pool` commands didn't raise error.

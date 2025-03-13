@@ -286,6 +286,18 @@ def test_snowcli_config():
         yield p
 
 
+@pytest.fixture
+def config_file():
+    @contextmanager
+    def _config_file(content: str):
+        with _named_temporary_file(suffix=".toml") as p:
+            p.write_text(content)
+            p.chmod(0o600)  # Make config file private
+            yield p
+
+    return _config_file
+
+
 @pytest.fixture(scope="function")
 def empty_snowcli_config():
     with _named_temporary_file(suffix=".toml") as p:

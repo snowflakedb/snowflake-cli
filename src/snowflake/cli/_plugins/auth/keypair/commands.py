@@ -19,6 +19,9 @@ app = SnowTyperFactory(
 )
 
 
+KEY_PAIR_DEFAULT_PATH = "~/.ssh"
+
+
 def _show_connection_name_prompt(ctx: typer.Context, value: str):
     for param in ctx.command.params:
         if param.name == "connection_name":
@@ -28,17 +31,10 @@ def _show_connection_name_prompt(ctx: typer.Context, value: str):
     return value
 
 
-def _resolve_default_and_convert(value: Path) -> Path:
-    if value:
-        return value
-    return Path.home()
-
-
 _new_connection_option = typer.Option(
     True,
     help="Create a new connection.",
     prompt="Create a new connection?",
-    confirmation_prompt=True,
     callback=_show_connection_name_prompt,
     show_default=False,
     hidden=True,
@@ -63,11 +59,10 @@ _key_length_option = typer.Option(
 
 
 _output_path_option = typer.Option(
-    "~/.ssh",
+    KEY_PAIR_DEFAULT_PATH,
     "--output-path",
     help="The output path for private and public keys",
     prompt="Enter output path",
-    callback=_resolve_default_and_convert,
 )
 
 
@@ -148,3 +143,12 @@ def remove(
     return SingleQueryResult(
         AuthManager().remove_public_key(public_key_property=public_key_property)
     )
+
+
+@app.command("status", requires_connection=True)
+def status(**options):
+    """
+    Verifies the key pair configuration and tests the connection.
+    """
+    AuthManager().status()
+    return MessageResult("Status check completed.")

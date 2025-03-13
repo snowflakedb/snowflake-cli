@@ -13,7 +13,12 @@ OBJECT_EXECUTE_QUERY = (
 )
 CONNECTION = "snowflake.cli._plugins.auth.keypair.manager.AuthManager._conn"
 CONNECT = "snowflake.connector.connect"
+SECURE_PATH = "snowflake.cli.api.secure_path.SecurePath"
+UPDATE_CONNECTION = (
+    "snowflake.cli._app.snow_connector.update_connection_details_with_private_key"
+)
 
+key_pair = "key_pair"
 new_connection = "keypairconnection"
 user_name = "test_user"
 
@@ -278,16 +283,18 @@ def test_rotate(
     mock_cursor,
     os_agnostic_snapshot,
 ):
-    _mock_user_and_public_key(mock_connect, mock_object_execute_query, mock_cursor)
+    _mock_user_and_public_key_for_rotate(
+        mock_connect, mock_object_execute_query, mock_cursor
+    )
 
     with TemporaryDirectory() as tmp_dir:
         runner.invoke(
             ["auth", "keypair", "setup"],
-            input=f"Y\n{new_connection}\n4096\n{tmp_dir}\n\n",
+            input=f"Y\n{key_pair}\n4096\n{tmp_dir}\n\n",
         )
 
         result = runner.invoke(
-            ["auth", "keypair", "rotate", "--format", "JSON"],
+            ["auth", "keypair", "rotate", "--format", "JSON", "-c", key_pair],
             input=f"Y\n{new_connection}\n4096\n{tmp_dir}\n\n",
         )
 
@@ -327,16 +334,18 @@ def test_rotate_with_password(
     mock_cursor,
     os_agnostic_snapshot,
 ):
-    _mock_user_and_public_key(mock_connect, mock_object_execute_query, mock_cursor)
+    _mock_user_and_public_key_for_rotate(
+        mock_connect, mock_object_execute_query, mock_cursor
+    )
 
     with TemporaryDirectory() as tmp_dir:
         runner.invoke(
             ["auth", "keypair", "setup"],
-            input=f"Y\n{new_connection}\n4096\n{tmp_dir}\n\n",
+            input=f"Y\n{key_pair}\n4096\n{tmp_dir}\n\n",
         )
 
         result = runner.invoke(
-            ["auth", "keypair", "rotate", "--output-path", tmp_dir],
+            ["auth", "keypair", "rotate", "--output-path", tmp_dir, "-c", key_pair],
             input=f"Y\n{new_connection}\n4096\n123\n",
         )
 
@@ -366,9 +375,16 @@ def test_rotate_no_prompts(
     mock_cursor,
     os_agnostic_snapshot,
 ):
-    _mock_user_and_public_key(mock_connect, mock_object_execute_query, mock_cursor)
+    _mock_user_and_public_key_for_rotate(
+        mock_connect, mock_object_execute_query, mock_cursor
+    )
 
     with TemporaryDirectory() as tmp_dir:
+        runner.invoke(
+            ["auth", "keypair", "setup"],
+            input=f"Y\n{key_pair}\n4096\n{tmp_dir}\n\n",
+        )
+
         result = runner.invoke(
             [
                 "auth",
@@ -380,6 +396,8 @@ def test_rotate_no_prompts(
                 tmp_dir,
                 "--private-key-passphrase",
                 "123",
+                "-c",
+                key_pair,
             ],
             input=f"\n{new_connection}\n",
         )
@@ -399,7 +417,9 @@ def test_rotate_connection_already_exists(
     mock_cursor,
     os_agnostic_snapshot,
 ):
-    _mock_user_and_public_key(mock_connect, mock_object_execute_query, mock_cursor)
+    _mock_user_and_public_key_for_rotate(
+        mock_connect, mock_object_execute_query, mock_cursor
+    )
 
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
@@ -408,6 +428,47 @@ def test_rotate_connection_already_exists(
 
         assert result.exit_code == 1, result.output
         assert result.output == os_agnostic_snapshot
+
+
+@mock.patch(EXECUTE_QUERY)
+@mock.patch(OBJECT_EXECUTE_QUERY)
+@mock.patch(CONNECT)
+def test_rotate_create_output_directory_with_proper_privileges(
+    mock_connect,
+    mock_object_execute_query,
+    mock_execute_query,
+    runner,
+    mock_cursor,
+    os_agnostic_snapshot,
+):
+    _mock_user_and_public_key_for_rotate(
+        mock_connect, mock_object_execute_query, mock_cursor
+    )
+
+    with TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir) / "some" / "subdirectory" / "location"
+        runner.invoke(
+            ["auth", "keypair", "setup", "--output-path", tmp_path],
+            input=f"Y\n{key_pair}\n4096\n\n",
+        )
+
+        result = runner.invoke(
+            ["auth", "keypair", "rotate", "--output-path", tmp_path, "-c", key_pair],
+            input=f"Y\n{new_connection}\n4096\n\n",
+        )
+
+        private_key_path = tmp_path / f"{new_connection}.p8"
+        public_key_path = tmp_path / f"{new_connection}.pub"
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+        assert file_permissions_are_strict(tmp_path)
+        assert private_key_path.exists()
+        assert file_permissions_are_strict(private_key_path)
+        assert public_key_path.exists()
+        assert file_permissions_are_strict(public_key_path)
+        assert _call_contains(
+            mock_execute_query, f"ALTER USER {user_name} SET RSA_PUBLIC_KEY_2="
+        )
 
 
 @mock.patch(EXECUTE_QUERY)
@@ -451,23 +512,18 @@ def test_rotate_only_public_key_set(
     mock_cursor,
     os_agnostic_snapshot,
 ):
-    mock_connect.return_value.user = user_name
-    mock_object_execute_query.return_value = mock_cursor(
-        rows=[
-            {"property": "RSA_PUBLIC_KEY", "value": "KEY"},
-            {"property": "RSA_PUBLIC_KEY_2", "value": None},
-        ],
-        columns=[],
+    _mock_user_and_public_key_for_rotate(
+        mock_connect, mock_object_execute_query, mock_cursor
     )
 
     with TemporaryDirectory() as tmp_dir:
         runner.invoke(
             ["auth", "keypair", "setup"],
-            input=f"Y\n{new_connection}\n4096\n{tmp_dir}\n\n",
+            input=f"Y\n{key_pair}\n4096\n{tmp_dir}\n\n",
         )
 
         result = runner.invoke(
-            ["auth", "keypair", "rotate", "--output-path", tmp_dir],
+            ["auth", "keypair", "rotate", "--output-path", tmp_dir, "-c", key_pair],
             input=f"Y\n{new_connection}\n4096\n\n",
         )
 
@@ -506,22 +562,31 @@ def test_rotate_other_public_key_set_options(
     key_2_value,
 ):
     mock_connect.return_value.user = user_name
-    mock_object_execute_query.return_value = mock_cursor(
-        rows=[
-            {"property": "RSA_PUBLIC_KEY", "value": key_value},
-            {"property": "RSA_PUBLIC_KEY_2", "value": key_2_value},
-        ],
-        columns=[],
-    )
+    mock_object_execute_query.side_effect = [
+        mock_cursor(
+            rows=[
+                {"property": "RSA_PUBLIC_KEY", "value": None},
+                {"property": "RSA_PUBLIC_KEY_2", "value": None},
+            ],
+            columns=[],
+        ),
+        mock_cursor(
+            rows=[
+                {"property": "RSA_PUBLIC_KEY", "value": key_value},
+                {"property": "RSA_PUBLIC_KEY_2", "value": key_2_value},
+            ],
+            columns=[],
+        ),
+    ]
 
     with TemporaryDirectory() as tmp_dir:
         runner.invoke(
             ["auth", "keypair", "setup"],
-            input=f"Y\n{new_connection}\n4096\n{tmp_dir}\n\n",
+            input=f"Y\n{key_pair}\n4096\n{tmp_dir}\n\n",
         )
 
         result = runner.invoke(
-            ["auth", "keypair", "rotate", "--output-path", tmp_dir],
+            ["auth", "keypair", "rotate", "--output-path", tmp_dir, "-c", key_pair],
             input=f"Y\n{new_connection}\n4096\n\n",
         )
 
@@ -554,7 +619,9 @@ def test_rotate_overwrite_connection(
     test_snowcli_config,
     os_agnostic_snapshot,
 ):
-    _mock_user_and_public_key(mock_connect, mock_object_execute_query, mock_cursor)
+    _mock_user_and_public_key_for_rotate(
+        mock_connect, mock_object_execute_query, mock_cursor
+    )
 
     with TemporaryDirectory() as tmp_dir:
         runner.invoke(
@@ -563,17 +630,84 @@ def test_rotate_overwrite_connection(
         )
 
         result = runner.invoke(
-            ["auth", "keypair", "rotate", "--output-path", tmp_dir], input="n\n\n\n"
+            [
+                "auth",
+                "keypair",
+                "rotate",
+                "--output-path",
+                tmp_dir,
+                "-c",
+                new_connection,
+            ],
+            input="n\n\n\n",
         )
 
         tmp_path = Path(tmp_dir)
-        private_key_path = tmp_path / "default.p8"
+        private_key_path = tmp_path / f"{new_connection}.p8"
         assert result.exit_code == 0, result.output
         assert result.output == os_agnostic_snapshot
-        connection_config = get_connection_dict("default")
+        connection_config = get_connection_dict(new_connection)
         assert connection_config["authenticator"] == "SNOWFLAKE_JWT"
         assert connection_config["private_key_file"] == str(private_key_path.resolve())
         assert "password" not in connection_config.keys()
+
+
+@mock.patch(UPDATE_CONNECTION)
+@mock.patch(SECURE_PATH)
+@mock.patch(CONNECT)
+def test_status(
+    mock_connect,
+    mock_secure_path,
+    mock_update_connection,
+    runner,
+    config_file,
+    os_agnostic_snapshot,
+):
+    mock_connect.return_value.user = user_name
+    mock_secure_path.exists.return_value = True
+
+    connection = dedent(
+        """\
+    [connections.default]
+    authenticator = "SNOWFLAKE_JWT"
+    private_key_file = "key.p8"
+    """
+    )
+
+    with config_file(connection) as config:
+        result = runner.invoke_with_config_file(config, ["auth", "keypair", "status"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == os_agnostic_snapshot
+
+
+@mock.patch(SECURE_PATH)
+@mock.patch(CONNECT)
+def test_status_no_authenticator(
+    mock_connect, mock_secure_path, runner, config_file, os_agnostic_snapshot
+):
+    mock_connect.return_value.user = user_name
+    mock_secure_path.exists.return_value = True
+
+    connection = dedent(
+        """\
+    [connections.default]
+    private_key_file = "key.p8"
+    """
+    )
+
+    with config_file(connection) as config:
+        result = runner.invoke_with_config_file(config, ["auth", "keypair", "status"])
+
+        assert result.exit_code == 1, result.output
+        assert result.output == os_agnostic_snapshot
+
+
+def test_status_no_private_key_in_connection(runner, os_agnostic_snapshot):
+    result = runner.invoke(["auth", "keypair", "status"])
+
+    assert result.exit_code == 1, result.output
+    assert result.output == os_agnostic_snapshot
 
 
 @mock.patch(OBJECT_EXECUTE_QUERY)
@@ -672,15 +806,26 @@ def _mock_user_and_empty_public_keys(
     )
 
 
-def _mock_user_and_public_key(mock_connect, mock_object_execute_query, mock_cursor):
+def _mock_user_and_public_key_for_rotate(
+    mock_connect, mock_object_execute_query, mock_cursor
+):
     mock_connect.return_value.user = user_name
-    mock_object_execute_query.return_value = mock_cursor(
-        rows=[
-            {"property": "RSA_PUBLIC_KEY", "value": "KEY"},
-            {"property": "RSA_PUBLIC_KEY_2", "value": None},
-        ],
-        columns=[],
-    )
+    mock_object_execute_query.side_effect = [
+        mock_cursor(
+            rows=[
+                {"property": "RSA_PUBLIC_KEY", "value": None},
+                {"property": "RSA_PUBLIC_KEY_2", "value": None},
+            ],
+            columns=[],
+        ),
+        mock_cursor(
+            rows=[
+                {"property": "RSA_PUBLIC_KEY", "value": "KEY"},
+                {"property": "RSA_PUBLIC_KEY_2", "value": None},
+            ],
+            columns=[],
+        ),
+    ]
 
 
 def _call_contains(mock, search_string: str) -> bool:

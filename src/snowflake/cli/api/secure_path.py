@@ -38,7 +38,7 @@ UNLIMITED = -1
 
 class SecurePath:
     def __init__(self, path: Union[Path, str]):
-        self._path = Path(path)
+        self._path = Path(os.path.expanduser(path))
 
     def __repr__(self):
         return f'SecurePath("{self._path}")'
