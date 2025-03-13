@@ -1,0 +1,15 @@
+# serializer version: 1
+# name: test_repl_input_handling
+  '''
+  ╭──────────────────────────────────────────────────────────────────────────────╮
+  │ Welcome to Snowflake-CLI REPL PoC                                            │
+  │ Type 'exit' or 'quit' to leave                                               │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+   >    >
+  Do you want to exit? [y/n]: [prompt.invalid.choice]Please select one of the available options
+  Do you want to exit? [y/n]: 
+  Leaving REPL bye ...
+  See you
+  
+  '''
+# ---
