@@ -23,6 +23,7 @@ import site
 import subprocess
 import sys
 import tempfile
+import venv
 from functools import cached_property
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -53,12 +54,13 @@ def _pip_install(
     index_url: Optional[str],
     prefix: Optional[Path] = None,
     target: Optional[Path] = None,
+    python_executable: str = sys.executable,
 ) -> subprocess.CompletedProcess:
-    command = [sys.executable, "-m", "pip", "install", package_name]
+    command = [python_executable, "-m", "pip", "install", package_name]
     if prefix:
         command += ["--prefix", str(prefix)]
     if target:
-        command += ["--target", str(prefix)]
+        command += ["--target", str(target)]
     if index_url:
         command += ["--index-url", index_url]
 
@@ -80,6 +82,13 @@ def _pip_install(
             "Please re-run with --verbose or --debug for more details."
         )
     return result
+
+
+@contextlib.contextmanager
+def virtualenv():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        venv.create(Path(tmpdir) / "venv", with_pip=True)
+        yield Path(tmpdir) / "venv" / "bin" / "python"
 
 
 def _normalize_package_name(package_name: str) -> str:
@@ -188,7 +197,7 @@ class PluginManager:
 
     @staticmethod
     def is_plugin_enabled(plugin_name: str) -> bool:
-        return PluginConfigProvider.get_config(plugin_name).is_plugin_enabled
+        return PluginConfigProvider().get_config(plugin_name).is_plugin_enabled
 
     def assert_plugin_is_installed(self, plugin_name: str):
         installed_plugins = self.get_installed_plugin_names()
@@ -216,9 +225,8 @@ class PluginManager:
     def _add_all_installed_packages_to_syspath(self):
         for plugin_dir in self.installation_path.iterdir():
             if plugin_dir.is_dir():
-                plugin_site_path = self._package_site_path(plugin_dir.name)
-                if plugin_site_path.exists() and not str(plugin_site_path) in sys.path:
-                    site.addsitedir(str(plugin_site_path))
+                if plugin_dir.absolute() not in sys.path:
+                    site.addsitedir(str(plugin_dir))
 
     @staticmethod
     def _detect_plugin_names_from_syspath() -> List[str]:
@@ -234,8 +242,7 @@ class PluginManager:
         return self._detect_plugin_names_from_syspath()
 
     def _get_installed_plugins_from_package(self, package_name) -> List[str]:
-        package_site_path = self._package_site_path(package_name)
-        with _override_sys_path([str(package_site_path)]):
+        with _override_sys_path([str(self._package_installation_path(package_name))]):
             return self._detect_plugin_names_from_syspath()
 
     def _check_for_dependency_conflicts(
@@ -249,12 +256,19 @@ class PluginManager:
     def _package_installation_path(self, package_name: str) -> Path:
         return self.installation_path / _normalize_package_name(package_name)
 
-    def _install_package(self, package_name: str, index_url: Optional[str]) -> None:
+    def _install_package(
+        self, venv_executable: Path, package_name: str, index_url: Optional[str]
+    ) -> None:
         # cleanup pythonpath, so new plugin dependencies will be isolated
         plugin_dir = self._package_installation_path(package_name)
         log.info("Installing package %s into %s", package_name, plugin_dir)
         with _override_os_pythonpath(None):
-            _pip_install(package_name, index_url, prefix=plugin_dir)
+            _pip_install(
+                package_name,
+                index_url,
+                target=plugin_dir,
+                python_executable=str(venv_executable),
+            )
 
     def _remove_package(self, package_name: str, missing_ok: bool = True) -> None:
         package_dir = self._package_installation_path(package_name)
@@ -304,33 +318,39 @@ class PluginManager:
         """Installs package into plugin environment. Returns a list of installed plugins."""
         self._assert_not_already_installed(package_name)
         installed_plugins_before = set(self.get_installed_plugin_names())
-        with cli_console.phase("Checking dependencies"):
-            self._check_for_dependency_conflicts(package_name, index_url)
         with cli_console.phase("Installing package"):
-            self._install_package(package_name, index_url)
-        installed_plugins = self._get_installed_plugins_from_package(package_name)
+            cli_console.step("Isolating environment")
+            with virtualenv() as venv_executable:
+                with cli_console.phase("Installing package"):
+                    self._install_package(venv_executable, package_name, index_url)
 
-        if not installed_plugins:
-            log.error("No new plugins detected, removing package...")
-            self._remove_package(package_name)
-            return []
+            cli_console.step("validating package")
+            installed_plugins = self._get_installed_plugins_from_package(package_name)
 
-        conflicting_plugins = [
-            plugin for plugin in installed_plugins if plugin in installed_plugins_before
-        ]
-        if conflicting_plugins:
-            log.error(
-                "Detected plugin name conflicts: %s, removing package...",
-                ",".join(conflicting_plugins),
-            )
-            self._remove_package(package_name)
-            raise ClickException(
-                f'Package {package_name} contains plugins {",".join(conflicting_plugins)},'
-                " which conflicts with already installed plugins."
-            )
+            if not installed_plugins:
+                log.error("No new plugins detected, removing package...")
+                self._remove_package(package_name)
+                return []
 
-        self._add_new_plugins_to_plugin_info_file(installed_plugins, package_name)
-        self._add_new_plugins_to_config(installed_plugins)
+            conflicting_plugins = [
+                plugin
+                for plugin in installed_plugins
+                if plugin in installed_plugins_before
+            ]
+            if conflicting_plugins:
+                log.error(
+                    "Detected plugin name conflicts: %s, removing package...",
+                    ",".join(conflicting_plugins),
+                )
+                self._remove_package(package_name)
+                raise ClickException(
+                    f'Package {package_name} contains plugins {",".join(conflicting_plugins)},'
+                    " which conflicts with already installed plugins."
+                )
+
+            cli_console.step("initializing config")
+            self._add_new_plugins_to_plugin_info_file(installed_plugins, package_name)
+            self._add_new_plugins_to_config(installed_plugins)
         return installed_plugins
 
     def uninstall(self, plugin_name: str) -> List[str]:

@@ -57,8 +57,9 @@ class CommandsRegistrationWithCallbacks:
         from pathlib import Path
 
         plugins_dir = self._plugin_config_manager.installation_path
-        site_path = Path(site.USER_SITE).relative_to(site.USER_BASE)
-        site.addsitedir(plugins_dir / site_path)
+        for plugin in Path(plugins_dir).iterdir():
+            if plugin.is_dir():
+                site.addsitedir(str(plugin))
 
     @staticmethod
     def _register_only_builtin_plugin_commands() -> None:
