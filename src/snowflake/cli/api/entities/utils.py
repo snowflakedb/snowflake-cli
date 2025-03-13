@@ -103,6 +103,8 @@ def sync_deploy_root_with_stage(
         recursive (bool): Whether to traverse directories recursively.
         stage_path (DefaultStagePathParts): stage path object.
 
+        package_name (str): supported for Native App compatibility
+
         local_paths_to_sync (List[Path], optional): List of local paths to sync. Defaults to None to sync all
         local paths. Note that providing an empty list here is equivalent to None.
         print_diff (bool): Whether to print the diff between the local files and the remote stage. Defaults to True
@@ -110,9 +112,24 @@ def sync_deploy_root_with_stage(
     Returns:
         A `DiffResult` instance describing the changes that were performed.
     """
-    stage_fqn = FQN.from_stage(stage_path.stage)
-    console.step(f"Creating stage {stage_fqn} if not exists")
-    StageManager().create(fqn=stage_fqn)
+    if not package_name:
+        # ensure stage exists
+        stage_fqn = FQN.from_stage(stage_path.stage)
+        console.step(f"Creating stage {stage_fqn} if not exists.")
+        StageManager().create(fqn=stage_fqn)
+    else:
+        # ensure stage exists - nativeapp way
+        sql_facade = get_snowflake_facade()
+        schema = stage_path.schema
+        stage_fqn = stage_path.stage
+        # Does a stage already exist within the application package, or we need to create one?
+        # Using "if not exists" should take care of either case.
+        console.step(
+            f"Checking if stage {stage_fqn} exists, or creating a new one if none exists."
+        )
+        if not sql_facade.stage_exists(stage_fqn):
+            sql_facade.create_schema(schema, database=package_name)
+            sql_facade.create_stage(stage_fqn)
 
     # Perform a diff operation and display results to the user for informational purposes
     if print_diff:
