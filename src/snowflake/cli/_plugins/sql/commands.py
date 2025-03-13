@@ -101,7 +101,7 @@ def execute_sql(
     if not any([query, files, std_in]):
         from snowflake.cli._plugins.sql.repl import Repl
 
-        Repl().run()
+        Repl(SqlManager()).run()
         return MessageResult("See you")
 
     single_statement, cursors = SqlManager().execute(

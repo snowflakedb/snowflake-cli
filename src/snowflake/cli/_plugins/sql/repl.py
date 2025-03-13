@@ -4,7 +4,9 @@ from prompt_toolkit.history import FileHistory
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
-from rich.syntax import Syntax
+from snowflake.cli._app.printing import print_result
+from snowflake.cli._plugins.sql.manager import SqlManager
+from snowflake.cli.api.output.types import MultipleResults, QueryResult
 from snowflake.cli.api.secure_path import SecurePath
 
 from .lexer import SQL_KEYWORDS
@@ -19,6 +21,20 @@ sql_completer = WordCompleter(SQL_KEYWORDS, ignore_case=True)
 
 class Repl:
     prompt_session: PromptSession
+    sql_manager: SqlManager
+    data: dict
+    retain_comments: bool
+
+    def __init__(
+        self,
+        sql_manager: SqlManager,
+        data: dict | None = None,
+        reatin_comments: bool = False,
+    ):
+        super().__init__()
+        self.sql_manager = sql_manager
+        self.data = data or {}
+        self.retain_comments = reatin_comments
 
     def run(self):
         try:
@@ -47,9 +63,17 @@ class Repl:
                 if user_input.lower() in EXIT_KEYWORDS:
                     break
 
-                highlighted = Syntax(user_input, "sql", line_numbers=False)
+                # highlighted = Syntax(user_input, "sql", line_numbers=False)
+                # console.print(highlighted)
+                _, cursors = self.sql_manager.execute(
+                    query=user_input,
+                    files=None,
+                    std_in=False,
+                    data=self.data,
+                    retain_comments=self.retain_comments,
+                )
 
-                console.print(highlighted)
+                print_result(MultipleResults(QueryResult(c) for c in cursors))
 
             except KeyboardInterrupt:  # a.k.a Ctrl-C
                 continue
