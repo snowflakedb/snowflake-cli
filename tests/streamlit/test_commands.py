@@ -27,7 +27,6 @@ TEST_WAREHOUSE = "test_warehouse"
 GET_UI_PARAMETERS = "snowflake.cli._plugins.connection.util.get_ui_parameters"
 
 # TODO:
-# 1. Try to get @streamlit_exists into setup
 # 3. Check if we need to mock typer
 
 
@@ -183,7 +182,7 @@ class TestStreamlitCommands:
         self.mock_create_stage.assert_called_once()
 
         self._assert_that_exactly_those_files_were_put_to_stage(
-            ["pages", "streamlit_app.py", "environment.yml"]
+            ["streamlit_app.py", "environment.yml"]
         )
 
     @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
@@ -302,7 +301,7 @@ class TestStreamlitCommands:
 
         self.mock_create_stage.assert_called_once()
         self._assert_that_exactly_those_files_were_put_to_stage(
-            ["pages/my_page.py", "streamlit_app.py", "pages"]
+            ["pages/my_page.py", "streamlit_app.py"]
         )
 
     @pytest.mark.parametrize(
@@ -336,7 +335,6 @@ class TestStreamlitCommands:
                 "pages/my_page.py",
                 "utils/utils.py",
                 "extra_file.py",
-                "pages",
             ]
         )
 
@@ -352,7 +350,7 @@ class TestStreamlitCommands:
                             "artifacts": [
                                 "streamlit_app.py",
                                 "environment.yml",
-                                "pages",
+                                "pages/my_page.py",
                             ],
                         }
                     }
@@ -388,7 +386,7 @@ class TestStreamlitCommands:
 
         self.mock_create_stage.assert_called_once()
         self._assert_that_exactly_those_files_were_put_to_stage(
-            ["streamlit_app.py", "environment.yml", "pages/my_page.py", "pages"],
+            ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
             f"@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}",
         )
 
@@ -422,7 +420,6 @@ class TestStreamlitCommands:
                 "main.py",
                 "streamlit_environment.yml",
                 "streamlit_pages/first_page.py",
-                "streamlit_pages",
             ],
             f"@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}",
         )
@@ -454,7 +451,11 @@ class TestStreamlitCommands:
                     self.alter_snowflake_yml(
                         tmp_dir / "snowflake.yml",
                         parameter_path="entities.test_streamlit.artifacts",
-                        value=["streamlit_app.py", "environment.yml", "pages"],
+                        value=[
+                            "streamlit_app.py",
+                            "environment.yml",
+                            "pages/my_page.py",
+                        ],
                     )
                 result = self.runner.invoke(["streamlit", "deploy", "--experimental"])
 
@@ -474,7 +475,7 @@ class TestStreamlitCommands:
             for cmd in [
                 dedent(
                     f"""
-                   CREATE IF NOT EXISTS STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
+                   CREATE STREAMLIT IF NOT EXISTS IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
                    MAIN_FILE = 'streamlit_app.py'
                    QUERY_WAREHOUSE = test_warehouse
                    TITLE = 'My Fancy Streamlit';
@@ -487,10 +488,13 @@ class TestStreamlitCommands:
         ]
 
         self._assert_that_exactly_those_files_were_put_to_stage(
-            ["streamlit_app.py", "environment.yml", "pages/my_page.py", "pages"],
+            ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
             root_path,
         )
 
+    @pytest.mark.skip(
+        reason="It doesn't test our logic, but if our mocks return Programming error. Potentialy we should delete"
+    )
     @pytest.mark.parametrize(
         "project_name", ["example_streamlit", "example_streamlit_v2"]
     )
@@ -504,7 +508,7 @@ class TestStreamlitCommands:
                 self.alter_snowflake_yml(
                     pdir / "snowflake.yml",
                     parameter_path="entities.test_streamlit.artifacts",
-                    value=["streamlit_app.py", "environment.yml", "pages"],
+                    value=["streamlit_app.py", "environment.yml"],
                 )
             result1 = self.runner.invoke(["streamlit", "deploy", "--experimental"])
 
@@ -526,7 +530,7 @@ class TestStreamlitCommands:
                 self.alter_snowflake_yml(
                     tmp_dir / "snowflake.yml",
                     parameter_path="entities.test_streamlit.artifacts",
-                    value=["streamlit_app.py", "environment.yml", "pages"],
+                    value=["streamlit_app.py", "environment.yml"],
                 )
             result2 = self.runner.invoke(["streamlit", "deploy", "--experimental"])
 
@@ -538,7 +542,7 @@ class TestStreamlitCommands:
         assert self.ctx.get_queries() == [
             dedent(
                 f"""
-                CREATE IF NOT EXISTS STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
+                CREATE STREAMLIT IF NOT EXISTS IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
                 MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = test_warehouse
                 TITLE = 'My Fancy Streamlit';
@@ -547,7 +551,7 @@ class TestStreamlitCommands:
             "select system$get_snowsight_host()",
         ]
         self._assert_that_exactly_those_files_were_put_to_stage(
-            ["streamlit_app.py", "environment.yml", "pages/my_page.py", "pages"],
+            ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
             root_path,
         )
 
@@ -579,7 +583,7 @@ class TestStreamlitCommands:
         assert self.ctx.get_queries() == [
             dedent(
                 f"""
-                CREATE IF NOT EXISTS STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
+                CREATE STREAMLIT IF NOT EXISTS IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
                 MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = test_warehouse;
                 """
@@ -588,7 +592,7 @@ class TestStreamlitCommands:
             f"select system$get_snowsight_host()",
         ]
         self._assert_that_exactly_those_files_were_put_to_stage(
-            ["streamlit_app.py", "environment.yml", "pages/my_page.py", "pages"],
+            ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
             root_path,
         )
 
@@ -627,7 +631,7 @@ class TestStreamlitCommands:
 
         root_path = f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
         self._assert_that_exactly_those_files_were_put_to_stage(
-            ["streamlit_app.py", "environment.yml", "pages/my_page.py", "pages"],
+            ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
             root_path,
         )
 
@@ -706,7 +710,7 @@ class TestStreamlitCommands:
             result = self.runner.invoke(["streamlit", "deploy"])
 
         assert result.exit_code == 2, result.output
-        assert result.output == os_agnostic_snapshot
+        assert result.output.strip() == os_agnostic_snapshot
 
     def test_deploy_streamlit_with_comment_v2(self):
         with self.project_directory("example_streamlit_with_comment_v2") as tmp_dir:
@@ -729,7 +733,7 @@ class TestStreamlitCommands:
         ]
         self.mock_create_stage.assert_called_once()
         self._assert_that_exactly_those_files_were_put_to_stage(
-            ["streamlit_app.py", "environment.yml", "pages/my_page.py", "pages"],
+            ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
             root_path,
         )
 

@@ -166,13 +166,13 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
     ) -> str:
 
         if replace:
-            query = "CREATE OR REPLACE "
+            query = "CREATE OR REPLACE STREAMLIT"
         elif if_not_exists:
-            query = "CREATE IF NOT EXISTS "
+            query = "CREATE STREAMLIT IF NOT EXISTS"
         else:
-            query = "CREATE "
+            query = "CREATE STREAMLIT"
 
-        query += f"STREAMLIT {self._get_identifier(schema, database)}"
+        query += f" {self._get_identifier(schema, database)}"
 
         if from_stage_name:
             query += f"\nROOT_LOCATION = '{from_stage_name}'"
@@ -234,7 +234,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             .stages
         )
 
-        if not stage_collection[stage_name]:
+        if not (stage_name in stage_collection.keys()):
             stage_object = Stage(
                 name=stage_name, encryption=StageEncryption(type="SNOWFLAKE_SSE")
             )
@@ -295,5 +295,8 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         for src, dest in bundle_map.all_mappings(
             absolute=False, expand_directories=True
         ):
-            stage_dest = f"{stage_root}/{dest}" if stage_root else dest
-            stage.put(local_file_name=src, stage_location=stage_dest, overwrite=True)
+            if src.is_file():
+                stage_dest = f"{stage_root}/{dest}" if stage_root else dest
+                stage.put(
+                    local_file_name=src, stage_location=stage_dest, overwrite=True
+                )
