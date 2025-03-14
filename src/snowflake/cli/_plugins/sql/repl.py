@@ -1,6 +1,7 @@
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import FileHistory
+from prompt_toolkit.key_binding.key_bindings import KeyBindings
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
@@ -18,6 +19,17 @@ console = Console()
 exit_prompt = Prompt("[bold red]Do you want to exit?", choices=["y", "n"])
 sql_completer = WordCompleter(SQL_KEYWORDS, ignore_case=True)
 
+key_bindings = KeyBindings()
+
+
+@key_bindings.add("enter")
+def _(event):
+    buffer = event.app.current_buffer
+    if buffer.text and not buffer.text.endswith("\n"):
+        buffer.insert_text("\n")
+    else:
+        event.app.exit(result=buffer.text)
+
 
 class Repl:
     prompt_session: PromptSession
@@ -29,18 +41,21 @@ class Repl:
         self,
         sql_manager: SqlManager,
         data: dict | None = None,
-        reatin_comments: bool = False,
+        retain_comments: bool = False,
     ):
         super().__init__()
         self.sql_manager = sql_manager
         self.data = data or {}
-        self.retain_comments = reatin_comments
+        self.retain_comments = retain_comments
 
     def run(self):
         try:
             self.prompt_session = PromptSession(
                 history=FileHistory(HISTORY_FILE),
                 completer=sql_completer,
+                multiline=True,
+                wrap_lines=True,
+                key_bindings=key_bindings,
             )
             self._repl_loop()
         except (KeyboardInterrupt, EOFError):
