@@ -27,17 +27,17 @@ key_bindings = KeyBindings()
 @key_bindings.add("enter")
 def _(event):
     buffer = event.app.current_buffer
+
     if buffer.text:
         if not buffer.text.endswith("\n"):
             buffer.insert_text("\n")
         if buffer.text.strip().endswith(";"):
-            event.app.exit(result=buffer.text.strip())
+            buffer.validate_and_handle()
     else:
-        event.app.exit(result=buffer.text)
+        buffer.validate_and_handle()
 
 
 class Repl:
-    prompt_session: PromptSession
     sql_manager: SqlManager
     data: dict
     retain_comments: bool
@@ -62,23 +62,23 @@ class Repl:
 
     def run(self):
         try:
-            self.prompt_session = PromptSession(
-                history=FileHistory(HISTORY_FILE),
-                lexer=PygmentsLexer(SqlLexer),
-                completer=sql_completer,
-                multiline=True,
-                wrap_lines=True,
-                key_bindings=key_bindings,
-            )
             console.print(self._welcome_banner)
             self._repl_loop()
         except (KeyboardInterrupt, EOFError):
             console.print("\n[bold orange]Leaving REPL bye ...")
 
     def _repl_loop(self):
+        prompt_session = PromptSession(
+            history=FileHistory(HISTORY_FILE),
+            lexer=PygmentsLexer(SqlLexer),
+            completer=sql_completer,
+            multiline=True,
+            wrap_lines=True,
+            key_bindings=key_bindings,
+        )
         while True:
             try:
-                user_input = self.prompt_session.prompt(" > ").strip()
+                user_input = prompt_session.prompt(" > ").strip()
 
                 if not user_input.strip():
                     continue
