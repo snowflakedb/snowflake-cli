@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
 from typing import Optional
 
 import typer
@@ -27,6 +26,7 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import CommandResult, MessageResult, QueryResult
+from snowflake.cli.api.secure_path import SecurePath
 
 app = SnowTyperFactory(
     name="dbt",
@@ -84,9 +84,9 @@ def deploy_dbt(
     Copy dbt files and create or update dbt on Snowflake project.
     """
     if source is None:
-        path = Path.cwd()
+        path = SecurePath.cwd()
     else:
-        path = Path(source)
+        path = SecurePath(source)
     return QueryResult(
         DBTManager().deploy(
             path.resolve(),
