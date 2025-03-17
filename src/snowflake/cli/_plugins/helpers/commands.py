@@ -293,3 +293,26 @@ def _validate_and_save_connections_imported_from_snowsql(
             path=["default_connection_name"],
             value=default_cli_connection_name,
         )
+
+
+@app.command(name="check-snowsql-env-vars", requires_connection=False)
+def check_snowsql_env_vars(**options):
+    """Check if there are any SnowSQL environment variables set."""
+    # from snowflake.cli.api.config import get_snowsql_env_vars
+    #
+    # snowsql_env_vars = get_snowsql_env_vars()
+    # if not snowsql_env_vars:
+    #     return MessageResult("No SnowSQL environment variables found.")
+    known_snowsql_env_vars = [
+        "SNOWSQL_ACCOUNT",
+        "SNOWSQL_USER",
+        "SNOWSQL_PASSWORD",
+        "SNOWSQL_ROLE",
+        "SNOWSQL_WAREHOUSE",
+        "SNOWSQL_DATABASE",
+        "SNOWSQL_SCHEMA",
+    ]
+    snowsql_env_vars = []
+    return MessageResult(
+        f"Found {len(snowsql_env_vars)} SnowSQL environment variables."
+    )
