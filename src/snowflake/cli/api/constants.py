@@ -35,6 +35,7 @@ class ObjectNames:
 
 class ObjectType(Enum):
     COMPUTE_POOL = ObjectNames("compute-pool", "compute pool", "compute pools")
+    DBT_PROJECT = ObjectNames("dbt-project", "DBT project", "DBT projects")
     DATABASE = ObjectNames("database", "database", "databases")
     FUNCTION = ObjectNames("function", "function", "functions")
     INTEGRATION = ObjectNames("integration", "integration", "integrations")
@@ -79,6 +80,7 @@ UNSUPPORTED_OBJECTS = {
     ObjectType.APPLICATION.value.cli_name,
     ObjectType.APPLICATION_PACKAGE.value.cli_name,
     ObjectType.PROJECT.value.cli_name,
+    ObjectType.DBT_PROJECT.value.cli_name,
 }
 SUPPORTED_OBJECTS = sorted(OBJECT_TO_NAMES.keys() - UNSUPPORTED_OBJECTS)
 
