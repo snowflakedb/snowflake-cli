@@ -481,7 +481,7 @@ def test_nativeapp_post_deploy_logs_relative_paths(
 
 @pytest.mark.integration
 def test_nativeapp_converted_package_scripts_logs_relative_paths(
-    runner, nativeapp_teardown, temp_dir
+    runner, nativeapp_teardown, temporary_directory
 ):
     package_scripts = {
         "scripts/package_script1.sql": "select 'package script 1 for {{ package_name }}'",
@@ -506,7 +506,7 @@ def test_nativeapp_converted_package_scripts_logs_relative_paths(
         }
         | package_scripts,
     )
-    with nativeapp_teardown(project_dir=Path(temp_dir)):
+    with nativeapp_teardown(project_dir=Path(temporary_directory)):
         result = runner.invoke_with_connection(["app", "run"])
         for filename in package_scripts:
             assert f"Executing SQL script: {filename}" in result.output

@@ -25,7 +25,7 @@ from snowflake.cli._plugins.snowpark.package_utils import (
     DownloadUnavailablePackagesResult,
 )
 
-from tests.snowpark.mocks import mock_available_packages_sql_result  # noqa: F401
+from tests.snowpark.conftest import mock_available_packages_sql_result  # noqa: F401
 
 
 class TestPackage:
@@ -64,7 +64,7 @@ class TestPackage:
         mock_pip_wheel,
         mock_download,
         caplog,
-        temp_dir,
+        temporary_directory,
         runner,
         extra_flags,
         mock_available_packages_sql_result,

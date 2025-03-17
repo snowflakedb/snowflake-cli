@@ -71,6 +71,7 @@ from snowflake.cli.api.project.util import extract_schema
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
+from tests.conftest import MockConnectionCtx
 from tests.nativeapp.patch_utils import (
     mock_connection,
     mock_get_app_pkg_distribution_in_sf,
@@ -94,7 +95,6 @@ from tests.nativeapp.utils import (
     touch,
 )
 from tests.testing_utils.files_and_dirs import create_named_file
-from tests.testing_utils.fixtures import MockConnectionCtx
 
 
 def _get_dm(working_dir: Optional[str] = None):
@@ -121,7 +121,7 @@ def test_sync_deploy_root_with_stage(
     mock_create_stage,
     mock_create_schema,
     mock_stage_exists,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
     stage_exists,
 ):
@@ -182,7 +182,7 @@ def test_sync_deploy_root_with_stage_subdir(
     mock_create_stage,
     mock_create_schema,
     mock_stage_exists,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
     stage_exists,
 ):
@@ -261,7 +261,7 @@ def test_sync_deploy_root_with_stage_prune(
     prune,
     only_on_stage_files,
     expected_warn,
-    temp_dir,
+    temporary_directory,
 ):
     mock_stage_exists.return_value = True
     mock_compute_stage_diff.return_value = DiffResult(only_on_stage=only_on_stage_files)
@@ -301,7 +301,7 @@ Use the --prune flag to delete them from the stage."""
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake(
-    mock_execute, temp_dir, mock_cursor, workspace_context
+    mock_execute, temporary_directory, mock_cursor, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -343,7 +343,7 @@ def test_get_app_pkg_distribution_in_snowflake(
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
-    mock_execute, temp_dir, mock_cursor, workspace_context
+    mock_execute, temporary_directory, mock_cursor, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -382,7 +382,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_programming_error(
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
-    mock_execute, temp_dir, mock_cursor, workspace_context
+    mock_execute, temporary_directory, mock_cursor, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -416,7 +416,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_execution_error(
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
-    mock_execute, temp_dir, mock_cursor, workspace_context
+    mock_execute, temporary_directory, mock_cursor, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -461,7 +461,7 @@ def test_get_app_pkg_distribution_in_snowflake_throws_distribution_error(
 
 @mock_get_app_pkg_distribution_in_sf()
 def test_is_app_pkg_distribution_same_in_sf_w_arg(
-    mock_mismatch, temp_dir, workspace_context
+    mock_mismatch, temporary_directory, workspace_context
 ):
     current_working_directory = os.getcwd()
     create_named_file(
@@ -494,7 +494,7 @@ def test_is_app_pkg_distribution_same_in_sf_w_arg(
 
 @mock_get_app_pkg_distribution_in_sf()
 def test_is_app_pkg_distribution_same_in_sf_no_mismatch(
-    mock_mismatch, temp_dir, workspace_context
+    mock_mismatch, temporary_directory, workspace_context
 ):
     mock_mismatch.return_value = "external"
 
@@ -528,7 +528,7 @@ def test_is_app_pkg_distribution_same_in_sf_no_mismatch(
 
 @mock_get_app_pkg_distribution_in_sf()
 def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
-    mock_mismatch, temp_dir, workspace_context
+    mock_mismatch, temporary_directory, workspace_context
 ):
     mock_mismatch.return_value = "external"
 
@@ -551,7 +551,7 @@ def test_is_app_pkg_distribution_same_in_sf_has_mismatch(
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_info_app_exists(
-    mock_execute, temp_dir, mock_cursor, workspace_context
+    mock_execute, temporary_directory, mock_cursor, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -597,7 +597,7 @@ def test_get_existing_app_info_app_exists(
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_info_app_does_not_exist(
-    mock_execute, temp_dir, mock_cursor, workspace_context
+    mock_execute, temporary_directory, mock_cursor, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -632,7 +632,7 @@ def test_get_existing_app_info_app_does_not_exist(
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_pkg_info_app_pkg_exists(
-    mock_execute, temp_dir, mock_cursor, workspace_context
+    mock_execute, temporary_directory, mock_cursor, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -681,7 +681,7 @@ def test_get_existing_app_pkg_info_app_pkg_exists(
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
-    mock_execute, temp_dir, mock_cursor, workspace_context
+    mock_execute, temporary_directory, mock_cursor, workspace_context
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -748,7 +748,7 @@ def test_get_snowsight_url_with_pdf_warehouse(
     warehouse,
     fallback_warehouse_call,
     fallback_side_effect,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
     workspace_context,
 ):
@@ -850,7 +850,7 @@ def test_given_no_existing_pkg_when_create_app_pkg_then_success_and_respect_rele
     mock_create_app_pkg,
     mock_get_ui_parameter,
     mock_get_existing_app_pkg_info,
-    temp_dir,
+    temporary_directory,
     workspace_context,
     feature_flag,
 ):
@@ -895,7 +895,7 @@ def test_given_existing_app_package_with_feature_flag_set_when_create_pkg_then_s
     mock_is_distribution_same,
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
-    temp_dir,
+    temporary_directory,
     workspace_context,
     feature_flag,
 ):
@@ -944,7 +944,7 @@ def test_create_app_pkg_different_owner(
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
     mock_execute,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
     workspace_context,
 ):
@@ -989,7 +989,7 @@ def test_create_app_pkg_external_distribution(
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
     is_pkg_distribution_same,
-    temp_dir,
+    temporary_directory,
     workspace_context,
 ):
     mock_is_distribution_same.return_value = is_pkg_distribution_same
@@ -1040,7 +1040,7 @@ def test_create_app_pkg_internal_distribution_special_comment(
     mock_get_existing_app_pkg_info,
     is_pkg_distribution_same,
     special_comment,
-    temp_dir,
+    temporary_directory,
     workspace_context,
 ):
     mock_is_distribution_same.return_value = is_pkg_distribution_same
@@ -1083,7 +1083,7 @@ def test_create_app_pkg_internal_distribution_no_special_comment(
     mock_get_distribution,
     mock_get_existing_app_pkg_info,
     is_pkg_distribution_same,
-    temp_dir,
+    temporary_directory,
     workspace_context,
 ):
     mock_is_distribution_same.return_value = is_pkg_distribution_same
@@ -1125,7 +1125,7 @@ def test_existing_app_pkg_without_special_comment(
     mock_get_existing_app_pkg_info,
     mock_get_distribution,
     mock_is_distribution_same,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
     workspace_context,
 ):
@@ -1167,7 +1167,7 @@ def test_existing_app_pkg_without_special_comment(
     ],
 )
 def test_get_paths_to_sync(
-    temp_dir,
+    temporary_directory,
     paths_to_sync,
     expected_result,
 ):
@@ -1182,10 +1182,10 @@ def test_get_paths_to_sync(
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_validate_passing(mock_execute, temp_dir, mock_cursor):
+def test_validate_passing(mock_execute, temporary_directory, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
-        dir_name=temp_dir,
+        dir_name=temporary_directory,
         contents=[mock_snowflake_yml_file_v2],
     )
 
@@ -1217,11 +1217,11 @@ def test_validate_passing(mock_execute, temp_dir, mock_cursor):
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch("snowflake.cli._plugins.workspace.manager.cc.warning")
 def test_validate_passing_with_warnings(
-    mock_warning, mock_execute, temp_dir, mock_cursor
+    mock_warning, mock_execute, temporary_directory, mock_cursor
 ):
     create_named_file(
         file_name="snowflake.yml",
-        dir_name=temp_dir,
+        dir_name=temporary_directory,
         contents=[mock_snowflake_yml_file_v2],
     )
 
@@ -1264,10 +1264,10 @@ def test_validate_passing_with_warnings(
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock.patch("snowflake.cli._plugins.workspace.manager.cc.warning")
-def test_validate_failing(mock_warning, mock_execute, temp_dir, mock_cursor):
+def test_validate_failing(mock_warning, mock_execute, temporary_directory, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
-        dir_name=temp_dir,
+        dir_name=temporary_directory,
         contents=[mock_snowflake_yml_file_v2],
     )
 
@@ -1326,10 +1326,10 @@ def test_validate_failing(mock_warning, mock_execute, temp_dir, mock_cursor):
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_validate_query_error(mock_execute, temp_dir, mock_cursor):
+def test_validate_query_error(mock_execute, temporary_directory, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
-        dir_name=temp_dir,
+        dir_name=temporary_directory,
         contents=[mock_snowflake_yml_file_v2],
     )
 
@@ -1359,10 +1359,10 @@ def test_validate_query_error(mock_execute, temp_dir, mock_cursor):
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_validate_not_deployed(mock_execute, temp_dir, mock_cursor):
+def test_validate_not_deployed(mock_execute, temporary_directory, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
-        dir_name=temp_dir,
+        dir_name=temporary_directory,
         contents=[mock_snowflake_yml_file_v2],
     )
 
@@ -1396,10 +1396,12 @@ def test_validate_not_deployed(mock_execute, temp_dir, mock_cursor):
 
 @mock.patch(APP_PACKAGE_ENTITY_DEPLOY)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_validate_use_scratch_stage(mock_execute, mock_deploy, temp_dir, mock_cursor):
+def test_validate_use_scratch_stage(
+    mock_execute, mock_deploy, temporary_directory, mock_cursor
+):
     create_named_file(
         file_name="snowflake.yml",
-        dir_name=temp_dir,
+        dir_name=temporary_directory,
         contents=[mock_snowflake_yml_file_v2],
     )
 
@@ -1460,11 +1462,11 @@ def test_validate_use_scratch_stage(mock_execute, mock_deploy, temp_dir, mock_cu
 @mock.patch(APP_PACKAGE_ENTITY_DEPLOY)
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_validate_failing_drops_scratch_stage(
-    mock_execute, mock_deploy, temp_dir, mock_cursor
+    mock_execute, mock_deploy, temporary_directory, mock_cursor
 ):
     create_named_file(
         file_name="snowflake.yml",
-        dir_name=temp_dir,
+        dir_name=temporary_directory,
         contents=[mock_snowflake_yml_file_v2],
     )
 
@@ -1537,10 +1539,10 @@ def test_validate_failing_drops_scratch_stage(
 
 
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_validate_raw_returns_data(mock_execute, temp_dir, mock_cursor):
+def test_validate_raw_returns_data(mock_execute, temporary_directory, mock_cursor):
     create_named_file(
         file_name="snowflake.yml",
-        dir_name=temp_dir,
+        dir_name=temporary_directory,
         contents=[mock_snowflake_yml_file_v2],
     )
 
@@ -1704,7 +1706,7 @@ def test_validate_raw_returns_data(mock_execute, temp_dir, mock_cursor):
 def test_get_events(
     mock_execute,
     mock_account_event_table,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
     since,
     expected_since_clause,
@@ -1726,7 +1728,7 @@ def test_get_events(
 ):
     create_named_file(
         file_name="snowflake.yml",
-        dir_name=temp_dir,
+        dir_name=temporary_directory,
         contents=[mock_snowflake_yml_file_v2],
     )
 
@@ -1794,16 +1796,20 @@ def test_get_events(
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_events_quoted_app_name(
-    mock_execute, mock_account_event_table, temp_dir, mock_cursor, workspace_context
+    mock_execute,
+    mock_account_event_table,
+    temporary_directory,
+    mock_cursor,
+    workspace_context,
 ):
     create_named_file(
         file_name="snowflake.yml",
-        dir_name=temp_dir,
+        dir_name=temporary_directory,
         contents=[mock_snowflake_yml_file_v2],
     )
     create_named_file(
         file_name="snowflake.local.yml",
-        dir_name=temp_dir,
+        dir_name=temporary_directory,
         contents=[quoted_override_yml_file_v2],
     )
 
@@ -1846,12 +1852,12 @@ def test_get_events_quoted_app_name(
 
 @mock.patch(SQL_FACADE_GET_ACCOUNT_EVENT_TABLE)
 def test_get_events_no_event_table(
-    mock_account_event_table, temp_dir, mock_cursor, workspace_context
+    mock_account_event_table, temporary_directory, mock_cursor, workspace_context
 ):
     mock_account_event_table.return_value = None
     create_named_file(
         file_name="snowflake.yml",
-        dir_name=temp_dir,
+        dir_name=temporary_directory,
         contents=[mock_snowflake_yml_file_v2],
     )
 
@@ -1869,7 +1875,11 @@ def test_get_events_no_event_table(
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_events_event_table_dne_or_unauthorized(
-    mock_execute, mock_account_event_table, temp_dir, mock_cursor, workspace_context
+    mock_execute,
+    mock_account_event_table,
+    temporary_directory,
+    mock_cursor,
+    workspace_context,
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -1904,7 +1914,7 @@ def test_get_events_event_table_dne_or_unauthorized(
 
     create_named_file(
         file_name="snowflake.yml",
-        dir_name=temp_dir,
+        dir_name=temporary_directory,
         contents=[mock_snowflake_yml_file_v2],
     )
 
@@ -1931,11 +1941,15 @@ def test_get_events_event_table_dne_or_unauthorized(
 )
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_stream_events(
-    mock_execute, mock_account_event_table, temp_dir, mock_cursor, workspace_context
+    mock_execute,
+    mock_account_event_table,
+    temporary_directory,
+    mock_cursor,
+    workspace_context,
 ):
     create_named_file(
         file_name="snowflake.yml",
-        dir_name=temp_dir,
+        dir_name=temporary_directory,
         contents=[mock_snowflake_yml_file_v2],
     )
 

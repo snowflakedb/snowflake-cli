@@ -15,10 +15,9 @@
 from shlex import split
 from unittest import mock
 
-from snowflake.cli.api.secure_path import SecurePath
 from tests.project.fixtures import *
+from tests_common import change_directory
 from tests_integration.test_utils import (
-    pushd,
     contains_row_with,
     not_contains_row_with,
     row_from_snowflake_session,
@@ -127,7 +126,7 @@ def test_nativeapp_run_existing(
 ):
     project_name = "integration"
     project_dir = project_definition_files[0].parent
-    with pushd(project_dir):
+    with change_directory(project_dir):
         result = runner.invoke_with_connection_json(["app", "run"])
         assert result.exit_code == 0
 

@@ -896,7 +896,7 @@ def test_bundle_map_ignores_sources_in_deploy_root(bundle_map):
     ],
 )
 def test_source_path_to_deploy_path(
-    temp_dir,
+    temporary_directory,
     project_path,
     expected_path,
 ):

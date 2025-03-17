@@ -618,15 +618,21 @@ def test_stage_list(runner, test_database):
 
 @pytest.mark.integration
 @pytest.mark.parametrize("pattern", ["", "**/*", "**"])
-def test_recursive_upload(temp_dir, pattern, runner, test_database):
+def test_recursive_upload(temporary_directory, pattern, runner, test_database):
     stage_name = "@recursive_upload"
     runner.invoke_with_connection_json(["stage", "create", stage_name])
 
-    tester = RecursiveUploadTester(temp_dir)
+    tester = RecursiveUploadTester(temporary_directory)
     tester.prepare(structure=NESTED_STRUCTURE)
 
     result = runner.invoke_with_connection_json(
-        ["stage", "copy", temp_dir + "/" + pattern, stage_name, "--recursive"]
+        [
+            "stage",
+            "copy",
+            temporary_directory + "/" + pattern,
+            stage_name,
+            "--recursive",
+        ]
     )
 
     assert len(result.json) == 9
@@ -725,26 +731,26 @@ def test_recursive_upload(temp_dir, pattern, runner, test_database):
 
 
 @pytest.mark.integration
-def test_recursive_upload_with_empty_dir(temp_dir):
+def test_recursive_upload_with_empty_dir(temporary_directory):
     structure = {}
 
-    tester = RecursiveUploadTester(temp_dir)
+    tester = RecursiveUploadTester(temporary_directory)
     tester.prepare(structure=structure)
-    _ = tester.execute(local_path=temp_dir)
+    _ = tester.execute(local_path=temporary_directory)
 
     assert tester.calls == []
 
 
 @pytest.mark.integration
-def test_recursive_upload_glob_file_pattern(temp_dir, runner, test_database):
+def test_recursive_upload_glob_file_pattern(temporary_directory, runner, test_database):
     stage_name = "@recursive_upload"
     runner.invoke_with_connection_json(["stage", "create", stage_name])
 
-    tester = RecursiveUploadTester(temp_dir)
+    tester = RecursiveUploadTester(temporary_directory)
     tester.prepare(structure=NESTED_STRUCTURE)
 
     result = runner.invoke_with_connection_json(
-        ["stage", "copy", f"{temp_dir}/**/*.py", stage_name, "--recursive"]
+        ["stage", "copy", f"{temporary_directory}/**/*.py", stage_name, "--recursive"]
     )
 
     assert result.exit_code == 0, result.output
@@ -785,15 +791,17 @@ def test_recursive_upload_glob_file_pattern(temp_dir, runner, test_database):
 
 
 @pytest.mark.integration
-def test_recursive_upload_no_recursive_glob_pattern(temp_dir, runner, test_database):
+def test_recursive_upload_no_recursive_glob_pattern(
+    temporary_directory, runner, test_database
+):
     stage_name = "@recursive_upload"
     runner.invoke_with_connection_json(["stage", "create", stage_name])
 
-    tester = RecursiveUploadTester(temp_dir)
+    tester = RecursiveUploadTester(temporary_directory)
     tester.prepare(structure=NESTED_STRUCTURE)
 
     result = runner.invoke_with_connection_json(
-        ["stage", "copy", f"{temp_dir}/*.foo", stage_name, "--recursive"]
+        ["stage", "copy", f"{temporary_directory}/*.foo", stage_name, "--recursive"]
     )
 
     assert result.exit_code == 0, result.output

@@ -106,7 +106,7 @@ def nativeapp_teardown(runner: SnowCLIRunner):
 
 
 @pytest.fixture
-def nativeapp_basic_pdf(temp_dir):
+def nativeapp_basic_pdf(temporary_directory):
     return ProjectV2Factory(
         pdf__entities=dict(
             pkg=ApplicationPackageEntityModelFactory(

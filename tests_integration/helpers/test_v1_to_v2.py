@@ -9,7 +9,7 @@ from tests.nativeapp.factories import ProjectV11Factory
 
 
 @pytest.mark.integration
-def test_v1_to_v2_converts_templates_in_files(temp_dir, runner):
+def test_v1_to_v2_converts_templates_in_files(temporary_directory, runner):
     native_app_name = "my_native_app_project"
 
     src_to_result = {

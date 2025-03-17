@@ -19,8 +19,7 @@ from snowflake.connector.connection import SnowflakeConnection
 from snowflake.connector.errors import ProgrammingError
 
 from tests.project.fixtures import *
-
-from tests_integration.test_utils import pushd
+from tests_common import change_directory
 
 
 class ApplicationNotFoundError(Exception):
@@ -96,7 +95,7 @@ def test_nativeapp_controlled_debug_mode(
     project_name = "integration"
     project_dir = project_definition_files[0].parent
     snowflake_yml = project_dir / "snowflake.yml"
-    with pushd(project_dir):
+    with change_directory(project_dir):
 
         # make sure our chosen snowflake.yml doesn't have an opinion on debug mode
         set_yml_application_debug(snowflake_yml, None)

@@ -22,7 +22,7 @@ from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli._plugins.stage.md5 import parse_multipart_md5sum
 
 from tests.project.fixtures import *
-from tests_integration.test_utils import pushd
+from tests_common import change_directory
 
 THRESHOLD_BYTES: int | None = None  # if set, passes this option with PUT
 TEMP_FILE_SIZE_BYTES = 200 * 1024 * 1024
@@ -43,7 +43,7 @@ def test_large_upload_skips_reupload(
     This test will currently fail when run on a non-AWS deployment.
     """
     project_dir = project_definition_files[0].parent
-    with pushd(project_dir):
+    with change_directory(project_dir):
         # figure out what the source stage is resolved to
         dm = DefinitionManager(project_dir)
         pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["pkg"]

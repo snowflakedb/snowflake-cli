@@ -85,9 +85,13 @@ class BaseSqlExecutor:
         )
         return stream_generator if return_cursors else list()
 
+    def execute_string(self, query: str, **kwargs) -> Iterable[SnowflakeCursor]:
+        """Executes a single SQL query and returns the results"""
+        return self._execute_string(query, **kwargs)
+
     def execute_query(self, query: str, **kwargs):
-        """Executes a single SQL query and returns the result"""
-        *_, last_result = list(self._execute_string(dedent(query), **kwargs))
+        """Executes a single SQL query and returns the last result"""
+        *_, last_result = list(self.execute_string(dedent(query), **kwargs))
         return last_result
 
     def execute_queries(self, queries: str, **kwargs):
@@ -95,7 +99,7 @@ class BaseSqlExecutor:
 
         # Without remove_comments=True, connectors might throw an error if there is a comment at the end of the file
         return list(
-            self._execute_string(dedent(queries), remove_comments=True, **kwargs)
+            self.execute_string(dedent(queries), remove_comments=True, **kwargs)
         )
 
 

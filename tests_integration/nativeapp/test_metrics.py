@@ -24,7 +24,6 @@ from tests.nativeapp.factories import (
     ApplicationEntityModelFactory,
 )
 from tests.project.fixtures import *
-from tests_common import temp_dir
 from tests_integration.test_utils import extract_first_telemetry_message_of_type
 
 
@@ -90,7 +89,7 @@ def test_feature_counters_v1_post_deploy_set_and_package_scripts_available(
     mock_telemetry,
     runner,
     nativeapp_teardown,
-    temp_dir,
+    temporary_directory,
 ):
     ProjectV11Factory(
         pdf__native_app__artifacts=["README.md", "setup.sql", "manifest.yml"],
@@ -105,7 +104,7 @@ def test_feature_counters_v1_post_deploy_set_and_package_scripts_available(
         },
     )
 
-    with nativeapp_teardown(project_dir=Path(temp_dir)):
+    with nativeapp_teardown(project_dir=Path(temporary_directory)):
         runner.invoke_with_connection(["app", "deploy"])
 
         message = extract_first_telemetry_message_of_type(
@@ -127,7 +126,7 @@ def test_feature_counters_v2_post_deploy_not_available_in_bundle(
     mock_telemetry,
     runner,
     nativeapp_teardown,
-    temp_dir,
+    temporary_directory,
 ):
     ProjectV2Factory(
         pdf__entities=dict(
@@ -155,7 +154,7 @@ def test_feature_counters_v2_post_deploy_not_available_in_bundle(
         },
     )
 
-    with nativeapp_teardown(project_dir=Path(temp_dir)):
+    with nativeapp_teardown(project_dir=Path(temporary_directory)):
         runner.invoke_with_connection(["ws", "bundle", "--entity-id=pkg"])
 
         message = extract_first_telemetry_message_of_type(
@@ -175,7 +174,7 @@ def test_feature_counter_v2_templates_processor_set(
     mock_telemetry,
     runner,
     nativeapp_teardown,
-    temp_dir,
+    temporary_directory,
 ):
     ProjectV2Factory(
         pdf__entities=dict(
@@ -201,7 +200,7 @@ def test_feature_counter_v2_templates_processor_set(
         },
     )
 
-    with nativeapp_teardown(project_dir=Path(temp_dir)):
+    with nativeapp_teardown(project_dir=Path(temporary_directory)):
         runner.invoke_with_connection(["app", "run"])
 
         message = extract_first_telemetry_message_of_type(
@@ -225,7 +224,7 @@ def test_feature_counter_v1_package_scripts_converted_to_post_deploy_and_both_se
     mock_telemetry,
     runner,
     nativeapp_teardown,
-    temp_dir,
+    temporary_directory,
 ):
     ProjectV11Factory(
         pdf__native_app__package__scripts=["scripts/package_script1.sql"],
@@ -238,7 +237,7 @@ def test_feature_counter_v1_package_scripts_converted_to_post_deploy_and_both_se
         },
     )
 
-    with nativeapp_teardown(project_dir=Path(temp_dir)):
+    with nativeapp_teardown(project_dir=Path(temporary_directory)):
         runner.invoke_with_connection(["app", "deploy"])
 
         message = extract_first_telemetry_message_of_type(
@@ -260,7 +259,7 @@ def test_feature_counter_v2_post_deploy_set_and_package_scripts_not_available(
     mock_telemetry,
     runner,
     nativeapp_teardown,
-    temp_dir,
+    temporary_directory,
 ):
     ProjectV2Factory(
         pdf__entities=dict(
@@ -283,7 +282,7 @@ def test_feature_counter_v2_post_deploy_set_and_package_scripts_not_available(
         },
     )
 
-    with nativeapp_teardown(project_dir=Path(temp_dir)):
+    with nativeapp_teardown(project_dir=Path(temporary_directory)):
         runner.invoke_with_connection(["app", "deploy"])
 
         message = extract_first_telemetry_message_of_type(
@@ -304,7 +303,7 @@ def test_spans_bundle(
     mock_telemetry,
     runner,
     nativeapp_teardown,
-    temp_dir,
+    temporary_directory,
 ):
     ProjectV2Factory(
         pdf__entities=dict(
@@ -328,7 +327,7 @@ def test_spans_bundle(
         },
     )
 
-    with nativeapp_teardown(project_dir=Path(temp_dir)):
+    with nativeapp_teardown(project_dir=Path(temporary_directory)):
         runner.invoke_with_connection(["ws", "bundle", "--entity-id=pkg"])
 
         message = extract_first_telemetry_message_of_type(
@@ -351,7 +350,7 @@ def test_spans_run_with_all_features(
     mock_telemetry,
     runner,
     nativeapp_teardown,
-    temp_dir,
+    temporary_directory,
 ):
     ProjectV2Factory(
         pdf__entities=dict(
@@ -385,7 +384,7 @@ def test_spans_run_with_all_features(
         },
     )
 
-    with nativeapp_teardown(project_dir=Path(temp_dir)):
+    with nativeapp_teardown(project_dir=Path(temporary_directory)):
         runner.invoke_with_connection(["app", "run"])
 
         message = extract_first_telemetry_message_of_type(
@@ -450,7 +449,7 @@ def test_spans_validate(
     mock_telemetry,
     runner,
     nativeapp_teardown,
-    temp_dir,
+    temporary_directory,
 ):
     ProjectV2Factory(
         pdf__entities=dict(
@@ -474,7 +473,7 @@ def test_spans_validate(
         },
     )
 
-    with nativeapp_teardown(project_dir=Path(temp_dir)):
+    with nativeapp_teardown(project_dir=Path(temporary_directory)):
         runner.invoke_with_connection(["app", "validate"])
 
         message = extract_first_telemetry_message_of_type(
@@ -511,7 +510,7 @@ def test_spans_teardown(
     mock_telemetry,
     runner,
     nativeapp_teardown,
-    temp_dir,
+    temporary_directory,
 ):
     ProjectV2Factory(
         pdf__entities=dict(
@@ -535,7 +534,7 @@ def test_spans_teardown(
         },
     )
 
-    with nativeapp_teardown(project_dir=Path(temp_dir)):
+    with nativeapp_teardown(project_dir=Path(temporary_directory)):
         runner.invoke_with_connection(["app", "teardown"])
 
         message = extract_first_telemetry_message_of_type(

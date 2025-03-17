@@ -15,7 +15,6 @@ from pathlib import Path
 
 import pytest
 
-from tests.testing_utils.fixtures import alter_snowflake_yml
 from tests_integration.testing_utils import SnowparkTestSetup, SnowparkTestSteps
 
 STAGE_NAME = "dev_deployment"

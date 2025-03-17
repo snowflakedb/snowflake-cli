@@ -121,7 +121,7 @@ def _teardown(
 
 # Test drop_generic_object() with success
 @mock.patch(SQL_EXECUTOR_EXECUTE)
-def test_drop_generic_object_success(mock_execute, temp_dir, mock_cursor):
+def test_drop_generic_object_success(mock_execute, temporary_directory, mock_cursor):
     side_effects, expected = mock_execute_helper(
         [
             (
@@ -155,7 +155,7 @@ def test_drop_generic_object_success(mock_execute, temp_dir, mock_cursor):
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_drop_generic_object_failure_w_exception(
     mock_execute,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     side_effects, expected = mock_execute_helper(
@@ -201,7 +201,7 @@ def test_drop_generic_object_failure_w_exception(
     [True, False],  # This should have no effect on the test
 )
 def test_drop_application_no_existing_application(
-    mock_get_existing_app_info, auto_yes_param, temp_dir
+    mock_get_existing_app_info, auto_yes_param, temporary_directory
 ):
     current_working_directory = os.getcwd()
     create_named_file(
@@ -237,7 +237,7 @@ def test_drop_application_current_role_is_not_owner(
     mock_drop_generic_object,
     mock_get_existing_app_info,
     auto_yes_param,
-    temp_dir,
+    temporary_directory,
 ):
     mock_get_existing_app_info.return_value = {
         "name": "myapp",
@@ -276,7 +276,7 @@ def test_drop_application_has_special_comment(
     mock_get_existing_app_info,
     auto_yes_param,
     special_comment,
-    temp_dir,
+    temporary_directory,
 ):
     mock_get_existing_app_info.return_value = {
         "name": "myapp",
@@ -313,7 +313,7 @@ def test_drop_application_has_special_comment_and_quoted_name(
     mock_execute,
     auto_yes_param,
     special_comment,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     side_effects, expected = mock_execute_helper(
@@ -377,7 +377,7 @@ def test_drop_application_user_prohibits_drop(
     mock_confirm,
     mock_drop_generic_object,
     mock_get_existing_app_info,
-    temp_dir,
+    temporary_directory,
 ):
     mock_get_existing_app_info.return_value = {
         "name": "myapp",
@@ -422,7 +422,7 @@ def test_drop_application_user_allows_drop(
     mock_drop_generic_object,
     mock_get_existing_app_info,
     auto_yes_param,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
@@ -460,7 +460,7 @@ def test_drop_application_idempotent(
     mock_drop_generic_object,
     mock_get_existing_app_info,
     auto_yes_param,
-    temp_dir,
+    temporary_directory,
 ):
     side_effects_for_get_existing_app_info = [
         {"name": "myapp", "owner": "app_role", "comment": SPECIAL_COMMENT},
@@ -494,7 +494,7 @@ def test_drop_application_idempotent(
     [True, False],  # This should have no effect on the test
 )
 def test_drop_package_no_existing_application(
-    mock_get_existing_app_pkg_info, auto_yes_param, temp_dir
+    mock_get_existing_app_pkg_info, auto_yes_param, temporary_directory
 ):
     current_working_directory = os.getcwd()
     create_named_file(
@@ -534,7 +534,7 @@ def test_drop_package_current_role_is_not_owner(
     mock_execute,
     mock_get_existing_app_pkg_info,
     auto_yes_param,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_pkg_info.return_value = {
@@ -578,7 +578,7 @@ def test_drop_package_current_role_is_not_owner(
 def test_show_versions_failure_w_exception(
     mock_execute,
     mock_get_existing_app_pkg_info,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_pkg_info.return_value = {
@@ -626,7 +626,7 @@ def test_drop_package_no_mismatch_no_drop(
     mock_get_distribution,
     mock_execute,
     mock_get_existing_app_pkg_info,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_distribution.return_value = "external"
@@ -690,7 +690,7 @@ def test_drop_package_variable_mismatch_allowed_user_allows_drop(
     mock_get_existing_app_pkg_info,
     auto_yes_param,
     is_pkg_distribution_same,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_is_distribution_same.return_value = is_pkg_distribution_same
@@ -761,7 +761,7 @@ def test_drop_package_variable_mistmatch_w_special_comment_auto_drop(
     mock_get_existing_app_pkg_info,
     auto_yes_param,
     is_pkg_distribution_same,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_is_distribution_same.return_value = is_pkg_distribution_same
@@ -827,7 +827,7 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
     mock_execute,
     auto_yes_param,
     special_comment,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_distribution.return_value = "internal"
@@ -914,7 +914,7 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_prohibits_drop(
     mock_execute,
     mock_get_existing_app_pkg_info,
     is_pkg_distribution_same,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_is_distribution_same.return_value = is_pkg_distribution_same
@@ -985,7 +985,7 @@ def test_drop_package_variable_mistmatch_no_special_comment_user_allows_drop(
     mock_get_existing_app_pkg_info,
     auto_yes_param,
     is_pkg_distribution_same,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_is_distribution_same.return_value = is_pkg_distribution_same
@@ -1046,7 +1046,7 @@ def test_drop_package_idempotent(
     mock_drop_generic_object,
     mock_get_existing_app_pkg_info,
     auto_yes_param,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_app_pkg_distribution.return_value = "internal"
@@ -1131,7 +1131,7 @@ def test_drop_application_cascade(
     application_objects,
     interactive_response,
     expected_cascade,
-    temp_dir,
+    temporary_directory,
     capsys,
     os_agnostic_snapshot,
 ):

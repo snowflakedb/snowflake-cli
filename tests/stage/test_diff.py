@@ -294,8 +294,8 @@ def test_build_md5_map(mock_cursor):
 
 
 @mock.patch(f"{STAGE_MANAGER}.remove")
-def test_sync_local_diff_with_stage(mock_remove, other_directory):
-    temp_dir = Path(other_directory)
+def test_sync_local_diff_with_stage(mock_remove, temporary_directory):
+    temp_dir = Path(temporary_directory)
     mock_remove.side_effect = Exception("Mock Exception")
     mock_remove.return_value = None
     diff = DiffResult()

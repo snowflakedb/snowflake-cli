@@ -29,7 +29,7 @@ from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
-from tests.testing_utils.files_and_dirs import pushd
+from tests_common import change_directory
 
 MOCK_ROWS = [
     [
@@ -145,7 +145,7 @@ def test_create_repository_already_exists(mock_handle, mock_execute):
 
 def test_deploy_command_requires_pdf(runner):
     with tempfile.TemporaryDirectory() as tmpdir:
-        with pushd(tmpdir):
+        with change_directory(tmpdir):
             result = runner.invoke(["spcs", "image-repository", "deploy"])
             assert result.exit_code == 1
             assert "Cannot find project definition (snowflake.yml)." in result.output

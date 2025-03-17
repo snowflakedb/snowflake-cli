@@ -91,16 +91,3 @@ def merge_left(target: Dict, source: Dict) -> None:
             merge_left(target[k], v)
         else:
             target[k] = v
-
-
-# Borrowed from tests_integration/test_utils.py
-# TODO: remove from here when testing utils become shared
-# TODO: contextlib.chdir isn't available before Python 3.11, so this is an alternative for older versions
-@contextmanager
-def pushd(directory: Path):
-    cwd = os.getcwd()
-    os.chdir(directory)
-    try:
-        yield directory
-    finally:
-        os.chdir(cwd)
