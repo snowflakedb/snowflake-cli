@@ -14,14 +14,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Optional
 
 import yaml
 from click import ClickException
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -33,19 +34,19 @@ class DBTManager(SqlExecutionMixin):
 
     def deploy(
         self,
-        path: Path,
+        path: SecurePath,
         name: FQN,
         dbt_version: Optional[str],
         dbt_adapter_version: str,
         execute_in_warehouse: Optional[str],
         force: bool,
     ) -> SnowflakeCursor:
-        dbt_project_path = path.joinpath("dbt_project.yml")
+        dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
             raise ClickException(f"dbt_project.yml does not exist in provided path.")
 
         if dbt_version is None:
-            with dbt_project_path.open() as fd:
+            with dbt_project_path.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
                 dbt_project_config = yaml.safe_load(fd)
                 try:
                     dbt_version = dbt_project_config["version"]
@@ -61,7 +62,7 @@ class DBTManager(SqlExecutionMixin):
             stage_manager.create(stage_fqn, temporary=True)
 
         with cli_console.phase("Copying project files to stage"):
-            results = list(stage_manager.put_recursive(path, stage_name))
+            results = list(stage_manager.put_recursive(path.path, stage_name))
             cli_console.step(f"Copied {len(results)} files")
 
         with cli_console.phase("Creating DBT project"):
