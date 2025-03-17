@@ -23,7 +23,11 @@ import typer
 import yaml
 from click import ClickException
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.output.types import CommandResult, MessageResult
+from snowflake.cli.api.output.types import (
+    CollectionResult,
+    CommandResult,
+    MessageResult,
+)
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
 )
@@ -145,28 +149,65 @@ def import_snowsql_connections(
 @app.command(name="check-snowsql-env-vars", requires_connection=False)
 def check_snowsql_env_vars(**options):
     """Check if there are any SnowSQL environment variables set."""
-    # from snowflake.cli.api.config import get_snowsql_env_vars
-    #
-    # snowsql_env_vars = get_snowsql_env_vars()
-    # if not snowsql_env_vars:
-    #     return MessageResult("No SnowSQL environment variables found.")
+
     known_snowsql_env_vars = {
-        "SNOWSQL_ACCOUNT": "SNOWFLAKE_ACCOUNT",
-        "SNOWSQL_USER": "SNOWFLAKE_USER",
-        "SNOWSQL_PASSWORD": "SNOWFLAKE_PASSWORD",
-        "SNOWSQL_ROLE": "SNOWFLAKE_ROLE",
-        "SNOWSQL_WAREHOUSE": "SNOWFLAKE_WAREHOUSE",
-        "SNOWSQL_DATABASE": "SNOWFLAKE_DATABASE",
-        "SNOWSQL_SCHEMA": "SNOWFLAKE_SCHEMA",
+        "SNOWSQL_ROLE": {},
+        "SNOWSQL_HOST": {},
+        "SNOWSQL_PORT": {},
+        "SNOWSQL_PROTOCOL": {},
+        "SNOWSQL_PROXY_HOST": {},
+        "SNOWSQL_PROXY_PORT": {},
+        "SNOWSQL_PROXY_USER": {},
+        "SNOWSQL_PROXY_PWD": {},
+        "SNOWSQL_PRIVATE_KEY_PASSPHRASE": {},
+        "SNOWSQL_USER": {
+            "Found": "SNOWSQL_USER",
+            "Suggested": "SNOWFLAKE_USER",
+            "Additional info": "For more info visit: https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections",
+        },
+        "SNOWSQL_REGION": {},
+        "SNOWSQL_QUERY_TAG": {},
+        "SNOWSQL_HTTP_PORT": {},
+        "SNOWSQL_ALLOW_EMPTY_ENV_VARS": {},
+        "SNOWSQL_OUTPUT_AS_UNICODE": {},
+        "SNOWSQL_ACCOUNT": {
+            "Found": "SNOWSQL_ACCOUNT",
+            "Suggested": "SNOWFLAKE_CONNECTIONS_<connection_name>_ACCOUNT",
+            "Additional info": "For more info visit: https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections",
+        },
+        "SNOWSQL_PWD": {
+            "Found": "SNOWSQL_PASSWORD",
+            "Suggested": "SNOWFLAKE_PASSWORD",
+            "Additional info": "Extra info",
+        },
+        "SNOWSQL_HOME": {},
+        "SNOWSQL_ROLE": {
+            "Found": "SNOWSQL_ROLE",
+            "Suggested": "SNOWFLAKE_ROLE",
+            "additional info": "Extra info",
+        },
+        "SNOWSQL_WAREHOUSE": {
+            "Found": "SNOWSQL_WAREHOUSE",
+            "Suggested": "SNOWFLAKE_WAREHOUSE",
+            "Additional info": "Extra info",
+        },
+        "SNOWSQL_DATABASE": {
+            "Found": "SNOWSQL_DATABASE",
+            "Suggested": "SNOWFLAKE_DATABASE",
+            "Additional info": "Extra info",
+        },
+        "SNOWSQL_SCHEMA": {
+            "found": "SNOWSQL_SCHEMA",
+            "Suggested": "SNOWFLAKE_SCHEMA",
+            "Additional info": "Extra info",
+        },
     }
 
-    snowsql_env_vars = []
+    discovered_env_vars = []
     possible_vars = (e for e in os.environ if e.lower().startswith("snowsql"))
 
     for ev in possible_vars:
         if ev not in known_snowsql_env_vars:
             continue
-        snowsql_env_vars.append(known_snowsql_env_vars[ev])
-    return MessageResult(
-        f"Found {len(snowsql_env_vars)} SnowSQL environment variables."
-    )
+        discovered_env_vars.append(known_snowsql_env_vars[ev])
+    return CollectionResult(discovered_env_vars)
