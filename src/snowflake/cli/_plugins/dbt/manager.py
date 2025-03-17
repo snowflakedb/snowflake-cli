@@ -18,9 +18,10 @@ from typing import Optional
 
 import yaml
 from click import ClickException
+from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -31,6 +32,12 @@ class DBTManager(SqlExecutionMixin):
     def list(self) -> SnowflakeCursor:  # noqa: A003
         query = "SHOW DBT PROJECTS"
         return self.execute_query(query)
+
+    @staticmethod
+    def exists(name: FQN) -> bool:
+        return ObjectManager().object_exists(
+            object_type=ObjectType.DBT_PROJECT.value.cli_name, fqn=name
+        )
 
     def deploy(
         self,
@@ -54,6 +61,11 @@ class DBTManager(SqlExecutionMixin):
                     raise ClickException(
                         f"dbt-version was not provided and is not available in dbt_project.yml"
                     )
+
+        if self.exists(name=name) and force is not True:
+            raise ClickException(
+                f"DBT project {name} already exists. Use --force flag to overwrite"
+            )
 
         with cli_console.phase("Creating temporary stage"):
             stage_manager = StageManager()

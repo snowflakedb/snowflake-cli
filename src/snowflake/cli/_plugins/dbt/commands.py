@@ -36,7 +36,7 @@ app = SnowTyperFactory(
 log = logging.getLogger(__name__)
 
 
-DBTNameArgument = identifier_argument(sf_object="DBT Object", example="my_pipeline")
+DBTNameArgument = identifier_argument(sf_object="DBT Project", example="my_pipeline")
 
 
 @app.command(

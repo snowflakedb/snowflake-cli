@@ -55,10 +55,23 @@ class TestDBTDeploy:
         with mock.patch("snowflake.cli.api.console") as _fixture:
             yield _fixture
 
+    @pytest.fixture
+    def mock_exists(self):
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager.exists", return_value=False
+        ) as _fixture:
+            yield _fixture
+
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     def test_deploys_project_from_source(
-        self, mock_create, mock_put_recursive, mock_connect, runner, dbt_project_path
+        self,
+        mock_create,
+        mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_exists,
     ):
 
         result = runner.invoke(
@@ -88,7 +101,13 @@ DBT_ADAPTER_VERSION='3.4.5'"""
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     def test_dbt_version_from_option_has_precedence_over_file(
-        self, _mock_create, _mock_put_recursive, mock_connect, runner, dbt_project_path
+        self,
+        _mock_create,
+        _mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_exists,
     ):
         result = runner.invoke(
             [
@@ -110,11 +129,21 @@ DBT_VERSION='2.3.4'
 DBT_ADAPTER_VERSION='3.4.5'"""
         )
 
+    @pytest.mark.parametrize("exists", (True, False))
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     def test_force_flag_uses_create_or_replace(
-        self, _mock_create, _mock_put_recursive, mock_connect, runner, dbt_project_path
+        self,
+        _mock_create,
+        _mock_put_recursive,
+        exists,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_exists,
     ):
+        mock_exists.return_value = exists
+
         result = runner.invoke(
             [
                 "dbt",
@@ -134,7 +163,13 @@ DBT_ADAPTER_VERSION='3.4.5'"""
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     def test_execute_in_warehouse(
-        self, _mock_create, _mock_put_recursive, mock_connect, runner, dbt_project_path
+        self,
+        _mock_create,
+        _mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_exists,
     ):
 
         result = runner.invoke(
@@ -197,6 +232,27 @@ WAREHOUSE='XL'"""
         assert result.exit_code == 1, result.output
         assert (
             "dbt-version was not provided and is not available in dbt_project.yml"
+            in result.output
+        )
+        assert mock_connect.mocked_ctx.get_query() == ""
+
+    def test_raises_when_dbt_project_exists_and_is_not_force(
+        self, dbt_project_path, mock_connect, runner, mock_exists
+    ):
+        mock_exists.return_value = True
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+            ],
+        )
+
+        assert result.exit_code == 1, result.output
+        assert (
+            "DBT project TEST_PIPELINE already exists. Use --force flag to overwrite"
             in result.output
         )
         assert mock_connect.mocked_ctx.get_query() == ""
