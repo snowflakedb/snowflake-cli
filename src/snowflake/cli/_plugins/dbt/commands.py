@@ -20,9 +20,12 @@ from typing import Optional
 import typer
 from snowflake.cli._plugins.dbt.constants import DBT_COMMANDS
 from snowflake.cli._plugins.dbt.manager import DBTManager
+from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
+from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli.api.commands.decorators import global_options_with_connection
-from snowflake.cli.api.commands.flags import identifier_argument
+from snowflake.cli.api.commands.flags import identifier_argument, like_option
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import CommandResult, MessageResult, QueryResult
@@ -39,17 +42,16 @@ log = logging.getLogger(__name__)
 DBTNameArgument = identifier_argument(sf_object="DBT Project", example="my_pipeline")
 
 
-@app.command(
-    "list",
-    requires_connection=True,
+add_object_command_aliases(
+    app=app,
+    object_type=ObjectType.DBT_PROJECT,
+    name_argument=DBTNameArgument,
+    like_option=like_option(
+        help_example='`list --like "my%"` lists all dbt projects that begin with “my”'
+    ),
+    scope_option=scope_option(help_example="`list --in database my_db`"),
+    ommit_commands=["drop", "create", "describe"],
 )
-def list_dbts(
-    **options,
-) -> CommandResult:
-    """
-    List all dbt on Snowflake projects.
-    """
-    return QueryResult(DBTManager().list())
 
 
 @app.command(
