@@ -35,7 +35,7 @@ class ObjectNames:
 
 class ObjectType(Enum):
     COMPUTE_POOL = ObjectNames("compute-pool", "compute pool", "compute pools")
-    DBT_PROJECT = ObjectNames("dbt-project", "DBT project", "DBT projects")
+    DBT_PROJECT = ObjectNames("dbt-project", "dbt project", "dbt projects")
     DATABASE = ObjectNames("database", "database", "databases")
     FUNCTION = ObjectNames("function", "function", "functions")
     INTEGRATION = ObjectNames("integration", "integration", "integrations")

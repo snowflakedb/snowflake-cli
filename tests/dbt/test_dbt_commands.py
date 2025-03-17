@@ -32,12 +32,34 @@ def mock_connect(mock_ctx):
 
 
 class TestDBTList:
-    def test_dbt_list(self, mock_connect, runner):
-
-        result = runner.invoke(["dbt", "list"])
+    def test_list_command_alias(self, mock_connect, runner):
+        result = runner.invoke(
+            [
+                "object",
+                "list",
+                "dbt-project",
+                "--like",
+                "%PROJECT_NAME%",
+                "--in",
+                "database",
+                "my_db",
+            ]
+        )
 
         assert result.exit_code == 0, result.output
-        assert mock_connect.mocked_ctx.get_query() == "SHOW DBT PROJECTS"
+        result = runner.invoke(
+            ["dbt", "list", "--like", "%PROJECT_NAME%", "--in", "database", "my_db"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
+
+        queries = mock_connect.mocked_ctx.get_queries()
+        assert len(queries) == 2
+        assert (
+            queries[0]
+            == queries[1]
+            == "show dbt projects like '%PROJECT_NAME%' in database my_db"
+        )
 
 
 class TestDBTDeploy:
