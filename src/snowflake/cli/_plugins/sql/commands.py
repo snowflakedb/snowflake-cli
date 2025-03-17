@@ -98,6 +98,9 @@ def execute_sql(
     if data_override:
         data = {v.key: v.value for v in parse_key_value_variables(data_override)}
 
+    retain_comments = bool(retain_comments)
+    std_in = bool(std_in)
+
     if not any([query, files, std_in]):
         from snowflake.cli._plugins.sql.repl import Repl
 

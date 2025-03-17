@@ -111,11 +111,14 @@ def connect_to_snowflake(
         temporary_connection, using_session_token, using_master_token
     )
 
+    connection_parameters = {}
     if connection_name:
         connection_parameters = {
             _resolve_alias(k): v
             for k, v in get_connection_dict(connection_name).items()
         }
+        connection_parameters["keep_alive"] = True
+
     elif temporary_connection:
         connection_parameters = {}  # we will apply overrides in next step
 
