@@ -267,4 +267,24 @@ class TestDBTExecute:
         result = runner.invoke(args)
 
         assert result.exit_code == 0, result.output
+        assert mock_connect.mocked_ctx.kwargs[0]["_exec_async"] is False
         assert mock_connect.mocked_ctx.get_query() == expected_query
+
+    def test_execute_async(self, mock_connect, runner):
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "--run-async",
+                "pipeline_name",
+                "compile",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert result.output.startswith("Command submitted")
+        assert mock_connect.mocked_ctx.kwargs[0]["_exec_async"] is True
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == "EXECUTE DBT PROJECT pipeline_name args='compile'"
+        )
