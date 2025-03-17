@@ -74,6 +74,7 @@ from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
+from tests.conftest import MockConnectionCtx
 from tests.nativeapp.patch_utils import (
     mock_connection,
 )
@@ -93,7 +94,6 @@ from tests.nativeapp.utils import (
     quoted_override_yml_file_v2,
 )
 from tests.testing_utils.files_and_dirs import create_named_file
-from tests.testing_utils.fixtures import MockConnectionCtx
 
 allow_always_policy = AllowAlwaysPolicy()
 ask_always_policy = AskAlwaysPolicy()
@@ -251,7 +251,7 @@ def test_create_dev_app_w_warehouse_access_exception(
     mock_sql_facade_grant_privileges_to_role,
     mock_get_existing_app_info,
     mock_sql_facade_create_application,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_conn.return_value = MockConnectionCtx()
@@ -328,7 +328,7 @@ def test_create_dev_app_create_new_w_no_additional_privileges(
     mock_sql_facade_get_event_definitions,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_conn.return_value = MockConnectionCtx()
@@ -393,7 +393,7 @@ def test_create_or_upgrade_dev_app_with_warning(
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
     existing_app_info,
 ):
@@ -476,7 +476,7 @@ def test_create_dev_app_create_new_with_additional_privileges(
     mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_conn.return_value = MockConnectionCtx()
@@ -546,7 +546,7 @@ def test_create_dev_app_create_new_w_missing_warehouse_exception(
     mock_conn,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_conn.return_value = MockConnectionCtx()
@@ -608,7 +608,7 @@ def test_create_dev_app_incorrect_properties(
     mock_get_existing_app_info,
     comment,
     version,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
@@ -651,7 +651,7 @@ def test_create_dev_app_incorrect_owner(
     mock_conn,
     mock_sql_facade_upgrade_application,
     mock_get_existing_app_info,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
@@ -712,7 +712,7 @@ def test_create_dev_app_no_diff_changes(
     mock_sql_facade_get_event_definitions,
     mock_sql_facade_upgrade_application,
     mock_get_existing_app_info,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
@@ -769,7 +769,7 @@ def test_create_dev_app_w_diff_changes(
     mock_sql_facade_get_event_definitions,
     mock_sql_facade_upgrade_application,
     mock_get_existing_app_info,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
@@ -824,7 +824,7 @@ def test_create_dev_app_recreate_w_missing_warehouse_exception(
     mock_conn,
     mock_sql_facade_upgrade_application,
     mock_get_existing_app_info,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
@@ -871,7 +871,7 @@ def test_create_dev_app_create_new_quoted(
     mock_sql_facade_get_event_definitions,
     mock_sql_facade_create_application,
     mock_get_existing_app_info,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_conn.return_value = MockConnectionCtx()
@@ -949,7 +949,7 @@ def test_create_dev_app_create_new_quoted_override(
     mock_sql_facade_create_application,
     mock_sql_facade_get_event_definitions,
     mock_get_existing_app_info,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_conn.return_value = MockConnectionCtx()
@@ -1014,7 +1014,7 @@ def test_create_dev_app_recreate_app_when_orphaned(
     mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
@@ -1134,7 +1134,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade(
     mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
@@ -1276,7 +1276,7 @@ def test_create_dev_app_recreate_app_when_orphaned_requires_cascade_unknown_obje
     mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
@@ -1403,7 +1403,7 @@ def test_upgrade_app_warehouse_error(
     mock_get_existing_app_info,
     mock_execute,
     policy_param,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     side_effects, expected = mock_execute_helper(
@@ -1460,7 +1460,7 @@ def test_upgrade_app_incorrect_owner(
     mock_execute,
     mock_sql_facade_upgrade_application,
     policy_param,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
@@ -1522,7 +1522,7 @@ def test_upgrade_app_succeeds(
     mock_sql_facade_get_event_definitions,
     mock_sql_facade_upgrade_application,
     policy_param,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
@@ -1578,7 +1578,7 @@ def test_upgrade_app_fails_generic_error(
     mock_get_existing_app_info,
     mock_sql_facade_upgrade_application,
     policy_param,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
@@ -1647,7 +1647,7 @@ def test_upgrade_app_fails_upgrade_restriction_error(
     policy_param,
     interactive,
     expected_code,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
@@ -1722,7 +1722,7 @@ def test_versioned_app_upgrade_to_unversioned(
     mock_sql_facade_grant_privileges_to_role,
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     """
@@ -1844,7 +1844,7 @@ def test_upgrade_app_fails_drop_fails(
     mock_sql_facade_upgrade_application,
     policy_param,
     interactive,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
@@ -1928,7 +1928,7 @@ def test_upgrade_app_recreate_app(
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     policy_param,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_get_existing_app_info.return_value = {
@@ -2023,7 +2023,9 @@ def test_upgrade_app_recreate_app(
     APP_PACKAGE_ENTITY_GET_EXISTING_VERSION_INFO,
     return_value=None,
 )
-def test_upgrade_app_from_version_throws_usage_error_one(mock_existing, temp_dir):
+def test_upgrade_app_from_version_throws_usage_error_one(
+    mock_existing, temporary_directory
+):
     setup_project_file(os.getcwd())
 
     wm = _get_wm()
@@ -2047,7 +2049,7 @@ def test_upgrade_app_from_version_throws_usage_error_one(mock_existing, temp_dir
 )
 def test_upgrade_app_from_version_throws_usage_error_two(
     mock_existing,
-    temp_dir,
+    temporary_directory,
 ):
     setup_project_file(os.getcwd())
 
@@ -2100,7 +2102,7 @@ def test_upgrade_app_recreate_app_from_version(
     mock_sql_facade_create_application,
     mock_existing,
     policy_param,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
     mock_bundle_map,
 ):
@@ -2236,7 +2238,7 @@ def test_run_app_from_release_directive_with_channel(
     mock_sql_facade_create_application,
     mock_existing,
     policy_param,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
     mock_bundle_map,
 ):
@@ -2372,7 +2374,7 @@ def test_run_app_from_release_directive_with_channel_but_not_from_release_direct
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_existing,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
     mock_bundle_map,
 ):
@@ -2451,7 +2453,7 @@ def test_run_app_from_release_directive_with_channel_not_in_list(
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_existing,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
     mock_bundle_map,
 ):
@@ -2532,7 +2534,7 @@ def test_run_app_from_release_directive_with_non_default_channel_but_release_cha
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_existing,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
     mock_bundle_map,
 ):
@@ -2611,7 +2613,7 @@ def test_run_app_from_release_directive_with_default_channel_when_release_channe
     mock_sql_facade_upgrade_application,
     mock_sql_facade_create_application,
     mock_existing,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
     mock_bundle_map,
 ):
@@ -2698,7 +2700,7 @@ def test_run_app_from_release_directive_with_default_channel_when_release_channe
 # Test get_existing_version_info returns version info correctly
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_version_info(
-    mock_execute, temp_dir, mock_cursor, workspace_context
+    mock_execute, temporary_directory, mock_cursor, workspace_context
 ):
     version = "V1"
     side_effects, expected = mock_execute_helper(

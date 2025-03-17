@@ -54,8 +54,8 @@ def fake_venv_root(fake_venv_root_unix, fake_venv_root_win32):
 
 
 @pytest.fixture
-def fake_venv_root_unix(temp_dir):
-    venv_root = Path(temp_dir) / "venv-unix"
+def fake_venv_root_unix(temporary_directory):
+    venv_root = Path(temporary_directory) / "venv-unix"
     venv_root.mkdir()
 
     bin_dir = venv_root / "bin"
@@ -68,8 +68,8 @@ def fake_venv_root_unix(temp_dir):
 
 
 @pytest.fixture
-def fake_venv_root_win32(temp_dir):
-    venv_root = Path(temp_dir) / "venv-win32"
+def fake_venv_root_win32(temporary_directory):
+    venv_root = Path(temporary_directory) / "venv-win32"
     venv_root.mkdir()
 
     bin_dir = venv_root / "Scripts"
@@ -825,8 +825,8 @@ def test_execute_does_not_interpret_return_codes(
     assert not mock_which.called
 
 
-def test_sandbox_env_builder(temp_dir):
-    env_path = Path(temp_dir) / "venv"
+def test_sandbox_env_builder(temporary_directory):
+    env_path = Path(temporary_directory) / "venv"
     builder = sandbox.SandboxEnvBuilder(env_path)
     builder.ensure_created()  # exercise the creation path
 

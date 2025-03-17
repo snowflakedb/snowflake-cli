@@ -24,7 +24,9 @@ from snowflake.cli.api.project.schemas.project_definition import DefinitionV11
 @mock.patch(
     "snowflake.cli._app.dev.docs.project_definition_generate_json_schema.ProjectDefinitionGenerateJsonSchema.generate"
 )
-def test_definition_file_format_generated_from_json(mock_generate, runner, temp_dir):
+def test_definition_file_format_generated_from_json(
+    mock_generate, runner, temporary_directory
+):
     property1 = {
         "path": "propertyA",
         "title": "Title of property A",
@@ -61,7 +63,7 @@ def test_definition_file_format_generated_from_json(mock_generate, runner, temp_
 
     runner.invoke(["--docs"])
     project_definition_path = (
-        Path(temp_dir)
+        Path(temporary_directory)
         / "gen_docs"
         / "project_definition"
         / "definition_section_demo.txt"
@@ -111,10 +113,12 @@ The following table describes the project definition properties.
 
 
 def test_files_generated_for_each_optional_project_definition_property(
-    runner, temp_dir
+    runner, temporary_directory
 ):
     runner.invoke(["--docs"])
-    project_definition_path = Path(temp_dir) / "gen_docs" / "project_definition"
+    project_definition_path = (
+        Path(temporary_directory) / "gen_docs" / "project_definition"
+    )
     errors = []
 
     model_json = model_json_schema(DefinitionV11, schema_generator=GenerateJsonSchema)
@@ -127,10 +131,12 @@ def test_files_generated_for_each_optional_project_definition_property(
     assert len(errors) == 0, "\n".join(errors)
 
 
-def test_all_commands_have_generated_files(runner, temp_dir, get_click_context):
+def test_all_commands_have_generated_files(
+    runner, temporary_directory, get_click_context
+):
     runner.invoke(["--docs"])
 
-    commands_path = Path(temp_dir) / "gen_docs" / "commands"
+    commands_path = Path(temporary_directory) / "gen_docs" / "commands"
 
     errors = []
 
@@ -162,14 +168,18 @@ def test_all_commands_have_generated_files(runner, temp_dir, get_click_context):
     assert len(errors) == 0, "\n".join(errors)
 
 
-def test_flags_have_default_values(runner, temp_dir, snapshot):
+def test_flags_have_default_values(runner, temporary_directory, snapshot):
     runner.invoke(["--docs"])
 
     # cortex complete checks:
     # "Default: False" case
     # "--diag-log-path" flag, with tempdir path as default value
     example_generated_file = (
-        Path(temp_dir) / "gen_docs" / "commands" / "cortex" / "usage-complete.txt"
+        Path(temporary_directory)
+        / "gen_docs"
+        / "commands"
+        / "cortex"
+        / "usage-complete.txt"
     )
     assert example_generated_file.exists()
     assert example_generated_file.read_text() == snapshot

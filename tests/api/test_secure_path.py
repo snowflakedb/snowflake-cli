@@ -76,8 +76,8 @@ def _assert_count_matching_logs(
     assert count == expected_count
 
 
-def test_read_text(temp_dir, save_logs):
-    path = Path(temp_dir) / "file.txt"
+def test_read_text(temporary_directory, save_logs):
+    path = Path(temporary_directory) / "file.txt"
     expected_result = "Noble Knight\n" * 1024
     path.write_text(expected_result)
     spath = SecurePath(path)
@@ -92,16 +92,18 @@ def test_read_text(temp_dir, save_logs):
 
     # not existing file causes an error
     with pytest.raises(FileNotFoundError):
-        (SecurePath(temp_dir) / "not_a_file.txt").read_text(file_size_limit_mb=100)
+        (SecurePath(temporary_directory) / "not_a_file.txt").read_text(
+            file_size_limit_mb=100
+        )
 
     # "opening" directory causes an error
     with pytest.raises(IsADirectoryError):
         SecurePath(save_logs).read_text(file_size_limit_mb=100)
 
 
-def test_write_text(temp_dir, save_logs, _widen_umask_for_testing):
+def test_write_text(temporary_directory, save_logs, _widen_umask_for_testing):
     # not existing file
-    path = Path(temp_dir) / "file.txt"
+    path = Path(temporary_directory) / "file.txt"
     text = "What say you, noble knight?"
     SecurePath(path).write_text(text)
     assert path.read_text() == text
@@ -122,8 +124,8 @@ def test_write_text(temp_dir, save_logs, _widen_umask_for_testing):
     )
 
 
-def test_open_write(temp_dir, save_logs, _widen_umask_for_testing):
-    path = SecurePath(temp_dir) / "file.txt"
+def test_open_write(temporary_directory, save_logs, _widen_umask_for_testing):
+    path = SecurePath(temporary_directory) / "file.txt"
     with path.open("w") as fd:
         # permissions are limited on freshly-created file
         assert_file_permissions_are_strict(path.path)
@@ -135,8 +137,8 @@ def test_open_write(temp_dir, save_logs, _widen_umask_for_testing):
     _assert_count_matching_logs(save_logs, 1, "Closing file", "file.txt")
 
 
-def test_open_read(temp_dir, save_logs):
-    path = Path(temp_dir) / "file.txt"
+def test_open_read(temporary_directory, save_logs):
+    path = Path(temporary_directory) / "file.txt"
     path.write_text("You play dirty noble knight.")
 
     with SecurePath(path).open("r", read_file_limit_mb=10) as fd:
@@ -156,7 +158,7 @@ def test_open_read(temp_dir, save_logs):
 
     # not existing file causes an error
     with pytest.raises(FileNotFoundError):
-        not_existing_path = SecurePath(temp_dir) / "not_a_file.txt"
+        not_existing_path = SecurePath(temporary_directory) / "not_a_file.txt"
         with not_existing_path.open("r", read_file_limit_mb=100):
             pass
 
@@ -174,33 +176,33 @@ def test_navigation():
     assert type(p.absolute()) is SecurePath
 
 
-def test_iterdir(temp_dir):
+def test_iterdir(temporary_directory):
     for d in "abcde":
-        (Path(temp_dir) / "dir" / d).mkdir(parents=True)
+        (Path(temporary_directory) / "dir" / d).mkdir(parents=True)
     counter = 0
-    for file in (SecurePath(temp_dir) / "dir").iterdir():
+    for file in (SecurePath(temporary_directory) / "dir").iterdir():
         assert type(file) is SecurePath
         counter += 1
     assert counter == 5
 
 
-def test_default_permissions(temp_dir, _widen_umask_for_testing):
-    s_temp_dir = SecurePath(temp_dir)
+def test_default_permissions(temporary_directory, _widen_umask_for_testing):
+    s_temporary_directory = SecurePath(temporary_directory)
     # test default permissions
-    file1 = s_temp_dir / "file1.txt"
+    file1 = s_temporary_directory / "file1.txt"
     file1.touch()
     assert_file_permissions_are_strict(file1.path)
 
 
-def test_permissions(temp_dir, save_logs):
-    s_temp_dir = SecurePath(temp_dir)
+def test_permissions(temporary_directory, save_logs):
+    s_temporary_directory = SecurePath(temporary_directory)
     # test default permissions
-    file1 = s_temp_dir / "file1.txt"
+    file1 = s_temporary_directory / "file1.txt"
     file1.touch()
     assert_file_permissions_are_strict(file1.path)
 
     # permissions cannot be widened by touch() due to os.umask
-    file2 = s_temp_dir / "file2.txt"
+    file2 = s_temporary_directory / "file2.txt"
     file2.touch(permissions_mask=0o660)
     assert_file_permissions_are_strict(file2.path)
     # but can be widened using chmod
@@ -221,9 +223,9 @@ def test_permissions(temp_dir, save_logs):
     )
 
 
-def test_mkdir(temp_dir, save_logs, _widen_umask_for_testing):
-    dir1 = SecurePath(temp_dir) / "dir1"
-    dir2 = SecurePath(temp_dir) / "dir2" / "a" / "b" / "c" / "d"
+def test_mkdir(temporary_directory, save_logs, _widen_umask_for_testing):
+    dir1 = SecurePath(temporary_directory) / "dir1"
+    dir2 = SecurePath(temporary_directory) / "dir2" / "a" / "b" / "c" / "d"
     dir2_regex = r"[\/]".join(["dir2", "a", "b", "c", "d"])
 
     dir1.mkdir()
@@ -242,19 +244,19 @@ def test_mkdir(temp_dir, save_logs, _widen_umask_for_testing):
 
     dir2.mkdir(parents=True)
     _assert_count_matching_logs(save_logs, 2, "Creating directory", dir2_regex)
-    while dir2.path != Path(temp_dir):
+    while dir2.path != Path(temporary_directory):
         assert_file_permissions_are_strict(dir2.path)
         dir2 = dir2.parent
 
 
-def test_move(temp_dir, save_logs):
+def test_move(temporary_directory, save_logs):
     def _get_new_file():
-        file = Path(temp_dir) / "file.txt"
+        file = Path(temporary_directory) / "file.txt"
         file.touch()
         return file
 
     def _get_new_dir():
-        dir_ = Path(temp_dir) / "dir"
+        dir_ = Path(temporary_directory) / "dir"
         (dir_ / "subdir").mkdir(parents=True)
         (dir_ / "empty").mkdir()
         (dir_ / "file1.txt").touch()
@@ -319,20 +321,20 @@ def test_move(temp_dir, save_logs):
         dir_.move("moved_dir")
 
 
-def test_copy_file(temp_dir, save_logs, _widen_umask_for_testing):
-    file = SecurePath(temp_dir) / "file.txt"
+def test_copy_file(temporary_directory, save_logs, _widen_umask_for_testing):
+    file = SecurePath(temporary_directory) / "file.txt"
     file.touch()
     file.chmod(permissions_mask=0o660)
 
     # copy into file
-    dest = Path(temp_dir) / "file.copy.txt"
+    dest = Path(temporary_directory) / "file.copy.txt"
     file.copy(dest)
     assert dest.exists()
     # copying should restrict permissions
     assert_file_permissions_are_strict(dest)
 
     # copy into directory
-    dest = Path(temp_dir) / "a_directory"
+    dest = Path(temporary_directory) / "a_directory"
     dest.mkdir()
     dest.chmod(0o771)
     copied_file = file.copy(dest)
@@ -347,7 +349,7 @@ def test_copy_file(temp_dir, save_logs, _widen_umask_for_testing):
     )
 
 
-def test_copy_directory(temp_dir, save_logs, _widen_umask_for_testing):
+def test_copy_directory(temporary_directory, save_logs, _widen_umask_for_testing):
     files = [
         "dir/",
         "dir/file1.txt",
@@ -364,7 +366,7 @@ def test_copy_directory(temp_dir, save_logs, _widen_umask_for_testing):
         return filename.endswith(".txt")
 
     for file in files:
-        path = Path(temp_dir) / file
+        path = Path(temporary_directory) / file
         if _is_dummy_file(file):
             path.write_text("Quite a content")
             path.chmod(0o666)
@@ -372,13 +374,13 @@ def test_copy_directory(temp_dir, save_logs, _widen_umask_for_testing):
             path.mkdir()
             path.chmod(0o771)
 
-    src = SecurePath(temp_dir) / "dir"
+    src = SecurePath(temporary_directory) / "dir"
 
     # argument is non-existing directory
-    dest = Path(temp_dir) / "copydir"
+    dest = Path(temporary_directory) / "copydir"
     src.copy(dest)
     for newfile in ["copy" + f for f in files]:
-        path = Path(temp_dir) / newfile
+        path = Path(temporary_directory) / newfile
         assert path.exists()
         # restricted permissions of files and directory structure
         assert_file_permissions_are_strict(path)
@@ -399,7 +401,7 @@ def test_copy_directory(temp_dir, save_logs, _widen_umask_for_testing):
     _assert_count_matching_logs(save_logs, 8, "Creating directory", "")
 
 
-def test_copy_dir_onto_existing_dir(temp_dir, save_logs):
+def test_copy_dir_onto_existing_dir(temporary_directory, save_logs):
     dir_, file = "DIR", "FILE"
     original = [
         (dir_, "dir"),
@@ -459,7 +461,7 @@ def test_copy_dir_onto_existing_dir(temp_dir, save_logs):
                 (root / filename).write_text(file_content)
                 (root / filename).chmod(0o660)
 
-    tmpdir = Path(temp_dir)
+    tmpdir = Path(temporary_directory)
     _create_tree(tmpdir / "original", original, file_content="new")
     src = SecurePath(tmpdir / "original" / "dir")
 
@@ -486,11 +488,11 @@ def test_copy_dir_onto_existing_dir(temp_dir, save_logs):
     _check_result_tree(tmpdir / "good2")
 
 
-def test_rm(temp_dir, save_logs):
-    temp_dir = Path(temp_dir)
+def test_rm(temporary_directory, save_logs):
+    temporary_directory = Path(temporary_directory)
 
     # removing file
-    file = Path(temp_dir) / "file.txt"
+    file = Path(temporary_directory) / "file.txt"
     file.touch()
     with pytest.raises(NotADirectoryError):
         SecurePath(file).rmdir()
@@ -505,7 +507,7 @@ def test_rm(temp_dir, save_logs):
     _assert_count_matching_logs(save_logs, 1, "Removing file", "file.txt")
 
     # removing a directory
-    base_dir = Path(temp_dir) / "base"
+    base_dir = Path(temporary_directory) / "base"
     full_dir = base_dir / "full"
     empty_dir = full_dir / "empty"
     empty_dir.mkdir(parents=True)
@@ -548,8 +550,8 @@ def test_temporary_directory(save_logs, _widen_umask_for_testing):
     _assert_count_matching_logs(save_logs, 1, "Removing temporary directory", "")
 
 
-def test_file_size_limit_calculation(temp_dir):
-    a_file = Path(temp_dir) / "a_file.txt"
+def test_file_size_limit_calculation(temporary_directory):
+    a_file = Path(temporary_directory) / "a_file.txt"
 
     # should work
     a_file.write_bytes(b"x" * 1024 * 900)  # ~900 KB

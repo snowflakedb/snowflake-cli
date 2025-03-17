@@ -570,7 +570,7 @@ def test_nativeapp_version_create_and_drop_from_manifest(
 @pytest.mark.integration
 @pytest.mark.parametrize("temporary_role", ["version_manager"], indirect=True)
 def test_version_create_with_manage_versions_only(
-    temp_dir, snowflake_session, runner, temporary_role, resource_suffix
+    temporary_directory, snowflake_session, runner, temporary_role, resource_suffix
 ):
     package_name = "myapp_pkg"
     stage_schema = "app_src"

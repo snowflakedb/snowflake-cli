@@ -41,26 +41,29 @@ from tests.test_data import test_data
 
 
 def test_prepare_app_zip(
-    temp_dir,
+    temporary_directory,
     app_zip: str,
-    temp_directory_for_app_zip: str,
 ):
+    temp_dir = SecurePath(temporary_directory) / "new_path"
+    temp_dir.mkdir()
+
     result = (
         snowflake.cli._plugins.snowpark.package.utils.prepare_app_zip(  # noqa: SLF001
-            SecurePath(app_zip), SecurePath(temp_directory_for_app_zip)
+            SecurePath(app_zip), temp_dir
         )
     )
-    assert str(result.path) == os.path.join(
-        temp_directory_for_app_zip, Path(app_zip).name
-    )
+    assert str(result.path) == os.path.join(temp_dir.path, Path(app_zip).name)
 
 
 def test_prepare_app_zip_if_exception_is_raised_if_no_source(
-    temp_directory_for_app_zip,
+    temporary_directory,
 ):
+    temp_dir = SecurePath(temporary_directory) / "new_path"
+    temp_dir.mkdir()
+
     with pytest.raises(FileNotFoundError) as expected_error:
         snowflake.cli._plugins.snowpark.package.utils.prepare_app_zip(  # noqa: SLF001
-            SecurePath("/non/existent/path"), SecurePath(temp_directory_for_app_zip)
+            SecurePath("/non/existent/path"), temp_dir
         )
 
     assert expected_error.value.errno == 2
@@ -78,7 +81,7 @@ def test_prepare_app_zip_if_exception_is_raised_if_no_dst(app_zip):
 
 
 def test_parse_requirements_with_correct_file(
-    correct_requirements_snowflake_txt: str, temp_dir
+    correct_requirements_snowflake_txt: str, temporary_directory
 ):
     result = package_utils.parse_requirements(
         SecurePath(correct_requirements_snowflake_txt)
@@ -87,8 +90,8 @@ def test_parse_requirements_with_correct_file(
     assert len(result) == len(test_data.requirements)
 
 
-def test_parse_requirements_with_nonexistent_file(temp_dir):
-    path = os.path.join(temp_dir, "non_existent.file")
+def test_parse_requirements_with_nonexistent_file(temporary_directory):
+    path = os.path.join(temporary_directory, "non_existent.file")
     result = package_utils.parse_requirements(SecurePath(path))
 
     assert result == []
