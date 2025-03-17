@@ -103,7 +103,7 @@ def deploy_dbt(
 # suppressing usual CLI behaviour for displaying help or formatting options.
 dbt_execute_app = SnowTyperFactory(
     name="execute",
-    help="Execute a dbt command",
+    help="Execute a dbt command on Snowflake",
 )
 app.add_typer(dbt_execute_app)
 
@@ -125,7 +125,7 @@ for cmd in DBT_COMMANDS:
         requires_connection=False,
         requires_global_options=False,
         context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
-        help=f"Execute {cmd} command on dbt on Snowflake project.",
+        help=f"Execute {cmd} command on Snowflake.",
         add_help_option=False,
     )
     def _dbt_execute(
