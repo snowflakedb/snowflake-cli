@@ -106,6 +106,7 @@ def deploy_dbt(
 dbt_execute_app = SnowTyperFactory(
     name="execute",
     help="Execute a dbt command on Snowflake",
+    subcommand_metavar="DBT_COMMAND",
 )
 app.add_typer(dbt_execute_app)
 
