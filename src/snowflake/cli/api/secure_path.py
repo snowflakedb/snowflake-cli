@@ -72,6 +72,10 @@ class SecurePath:
         """
         return SecurePath(self._path.absolute())
 
+    @classmethod
+    def cwd(cls) -> SecurePath:
+        return cls(Path.cwd())
+
     def resolve(self):
         """
         Make the path absolute, resolving symlinks
