@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -149,16 +150,23 @@ def check_snowsql_env_vars(**options):
     # snowsql_env_vars = get_snowsql_env_vars()
     # if not snowsql_env_vars:
     #     return MessageResult("No SnowSQL environment variables found.")
-    known_snowsql_env_vars = [
-        "SNOWSQL_ACCOUNT",
-        "SNOWSQL_USER",
-        "SNOWSQL_PASSWORD",
-        "SNOWSQL_ROLE",
-        "SNOWSQL_WAREHOUSE",
-        "SNOWSQL_DATABASE",
-        "SNOWSQL_SCHEMA",
-    ]
+    known_snowsql_env_vars = {
+        "SNOWSQL_ACCOUNT": "SNOWFLAKE_ACCOUNT",
+        "SNOWSQL_USER": "SNOWFLAKE_USER",
+        "SNOWSQL_PASSWORD": "SNOWFLAKE_PASSWORD",
+        "SNOWSQL_ROLE": "SNOWFLAKE_ROLE",
+        "SNOWSQL_WAREHOUSE": "SNOWFLAKE_WAREHOUSE",
+        "SNOWSQL_DATABASE": "SNOWFLAKE_DATABASE",
+        "SNOWSQL_SCHEMA": "SNOWFLAKE_SCHEMA",
+    }
+
     snowsql_env_vars = []
+    possible_vars = (e for e in os.environ if e.lower().startswith("snowsql"))
+
+    for ev in possible_vars:
+        if ev not in known_snowsql_env_vars:
+            continue
+        snowsql_env_vars.append(known_snowsql_env_vars[ev])
     return MessageResult(
         f"Found {len(snowsql_env_vars)} SnowSQL environment variables."
     )
