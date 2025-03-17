@@ -85,7 +85,7 @@ class BaseSqlExecutor:
         )
         return stream_generator if return_cursors else list()
 
-    def execute_query(self, query: str, **kwargs):
+    def execute_query(self, query: str, **kwargs) -> SnowflakeCursor:
         """Executes a single SQL query and returns the result"""
         *_, last_result = list(self._execute_string(dedent(query), **kwargs))
         return last_result
