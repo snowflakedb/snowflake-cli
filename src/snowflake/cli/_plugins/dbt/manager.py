@@ -75,8 +75,8 @@ DBT_VERSION='{dbt_version}'"""
                 query += f"\nWAREHOUSE='{execute_in_warehouse}'"
             return self.execute_query(query)
 
-    def execute(self, dbt_command: str, name: str, *dbt_cli_args):
+    def execute(self, dbt_command: str, name: str, run_async: bool, *dbt_cli_args):
         if dbt_cli_args:
             dbt_command = dbt_command + " " + " ".join([arg for arg in dbt_cli_args])
         query = f"EXECUTE DBT PROJECT {name} args='{dbt_command.strip()}'"
-        return self.execute_query(query)
+        return self.execute_query(query, _exec_async=run_async)

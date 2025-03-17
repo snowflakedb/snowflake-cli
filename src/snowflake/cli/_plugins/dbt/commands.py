@@ -26,7 +26,7 @@ from snowflake.cli.api.commands.flags import identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.types import CommandResult, QueryResult
+from snowflake.cli.api.output.types import CommandResult, MessageResult, QueryResult
 
 app = SnowTyperFactory(
     name="dbt",
@@ -112,6 +112,9 @@ app.add_typer(dbt_execute_app)
 @global_options_with_connection
 def before_callback(
     name: FQN = DBTNameArgument,
+    run_async: Optional[bool] = typer.Option(
+        False, help="Run dbt command asynchronously and check it's result later."
+    ),
     **options,
 ):
     """Handles global options passed before the command and takes pipeline name to be accessed through child context later"""
@@ -134,4 +137,10 @@ for cmd in DBT_COMMANDS:
         dbt_cli_args = ctx.args
         dbt_command = ctx.command.name
         name = ctx.parent.params["name"]
-        return QueryResult(DBTManager().execute(dbt_command, name, *dbt_cli_args))
+        run_async = ctx.parent.params["run_async"]
+        result = DBTManager().execute(dbt_command, name, run_async, *dbt_cli_args)
+        if not run_async:
+            return QueryResult(result)
+        return MessageResult(
+            f"Command submitted. You can check the result with `snow sql -q \"select execution_status from table(information_schema.query_history_by_user()) where query_id in ('{result.sfqid}');\"`"
+        )
