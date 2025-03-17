@@ -210,6 +210,7 @@ class SnowTyperFactory:
         short_help: Optional[str] = None,
         is_hidden: Optional[Callable[[], bool]] = None,
         deprecated: bool = False,
+        subcommand_metavar: Optional[str] = None,
     ):
         self.name = name
         self.help = help
@@ -219,6 +220,7 @@ class SnowTyperFactory:
         self.commands_to_register: List[SnowTyperCommandData] = []
         self.subapps_to_register: List[SnowTyperFactory] = []
         self.callbacks_to_register: List[Callable] = []
+        self.subcommand_metavar = subcommand_metavar
 
     def create_instance(self) -> SnowTyper:
         app = SnowTyper(
@@ -227,6 +229,7 @@ class SnowTyperFactory:
             short_help=self.short_help,
             hidden=self.is_hidden() if self.is_hidden else False,
             deprecated=self.deprecated,
+            subcommand_metavar=self.subcommand_metavar,
         )
         # register commands
         for command in self.commands_to_register:
