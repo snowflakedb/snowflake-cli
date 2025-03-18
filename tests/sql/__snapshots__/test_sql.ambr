@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_repl_input_handling
+# name: test_sql_repl_if_no_query_file_or_stdin
   '''
   ╭──────────────────────────────────────────────────────────────────────────────╮
   │ Welcome to Snowflake-CLI REPL PoC                                            │
