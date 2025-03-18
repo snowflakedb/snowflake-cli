@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import List, Optional
 
@@ -100,6 +101,9 @@ def execute_sql(
 
     retain_comments = bool(retain_comments)
     std_in = bool(std_in)
+
+    if not sys.stdin.isatty():
+        query = sys.stdin.read().strip()
 
     if not any([query, files, std_in]):
         from snowflake.cli._plugins.sql.repl import Repl
