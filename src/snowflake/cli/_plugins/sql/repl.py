@@ -61,7 +61,7 @@ class Repl:
             console.print(self._welcome_banner)
             self._repl_loop()
         except (KeyboardInterrupt, EOFError):
-            console.print("\n[bold orange]Leaving REPL bye ...")
+            console.print("\nLeaving REPL, bye ...", style="bold orange_red1")
 
     def _repl_loop(self):
         prompt_session = PromptSession(
@@ -90,7 +90,7 @@ class Repl:
                     break
 
             except Exception as e:
-                console.print(f"[bold orange] Error occurred: {e}")
+                console.print(f"\nError occurred: {e}", style="dark_orange bold")
 
             else:
                 _, cursors = self.sql_manager.execute(
