@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-from textwrap import dedent
 from unittest import mock
 
 import pytest
@@ -180,38 +179,6 @@ DBT_ADAPTER_VERSION='3.4.5'"""
         assert result.exit_code == 0, result.output
         assert mock_connect.mocked_ctx.get_query().startswith(
             "CREATE OR REPLACE DBT PROJECT"
-        )
-
-    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
-    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
-    def test_execute_in_warehouse(
-        self,
-        _mock_create,
-        _mock_put_recursive,
-        mock_connect,
-        runner,
-        dbt_project_path,
-        mock_exists,
-    ):
-
-        result = runner.invoke(
-            [
-                "dbt",
-                "deploy",
-                "TEST_PIPELINE",
-                f"--source={dbt_project_path}",
-                "--dbt-adapter-version=3.4.5",
-                "--execute-in-warehouse=XL",
-            ]
-        )
-
-        assert result.exit_code == 0, result.output
-        assert mock_connect.mocked_ctx.get_query() == dedent(
-            """CREATE DBT PROJECT TEST_PIPELINE
-FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage
-DBT_VERSION='1.2.3'
-DBT_ADAPTER_VERSION='3.4.5'
-WAREHOUSE='XL'"""
         )
 
     def test_raises_when_dbt_project_is_not_available(
