@@ -44,13 +44,6 @@ SourceOption = OverrideableOption(
 )
 
 
-# @app.command(hidden=True, requires_connection=False, no_args_is_help=True)
-# def _other():
-#     """Just to properly resolve params."""
-#     pass
-#
-
-
 @app.command(name="sql", requires_connection=True, no_args_is_help=False)
 @with_project_definition(is_optional=True)
 def execute_sql(
