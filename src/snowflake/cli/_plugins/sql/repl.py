@@ -1,25 +1,21 @@
 from prompt_toolkit import PromptSession
-from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding.key_bindings import KeyBindings
 from prompt_toolkit.lexers import PygmentsLexer
-from pygments.lexers.sql import SqlLexer
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt
 from snowflake.cli._app.printing import print_result
+from snowflake.cli._plugins.sql.lexer import CliLexer, cli_completer
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli.api.output.types import MultipleResults, QueryResult
 from snowflake.cli.api.secure_path import SecurePath
-
-from .lexer import SQL_KEYWORDS
 
 HISTORY_FILE = SecurePath("~/.snowflake/repl_history").path.expanduser()
 EXIT_KEYWORDS = ("exit", "quit")
 
 console = Console()
 exit_prompt = Prompt("[bold red]Do you want to exit?", choices=["y", "n"])
-sql_completer = WordCompleter(SQL_KEYWORDS, ignore_case=True)
 
 key_bindings = KeyBindings()
 
@@ -70,8 +66,8 @@ class Repl:
     def _repl_loop(self):
         prompt_session = PromptSession(
             history=FileHistory(HISTORY_FILE),
-            lexer=PygmentsLexer(SqlLexer),
-            completer=sql_completer,
+            lexer=PygmentsLexer(CliLexer),
+            completer=cli_completer,
             multiline=True,
             wrap_lines=True,
             key_bindings=key_bindings,
