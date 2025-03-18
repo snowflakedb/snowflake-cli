@@ -129,6 +129,15 @@
   |                                              [env var:                       |
   |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
+# name: test_sql_repl_if_no_query_file_or_stdin
+  '''
+  ╭──────────────────────────────────────────────────────────────────────────────╮
+  │ Welcome to Snowflake-CLI REPL PoC                                            │
+  │ Type 'exit' or 'quit' to leave                                               │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+   >    >
+  Do you want to exit? [y/n]: 
+  Leaving REPL bye ...
   
   
   '''

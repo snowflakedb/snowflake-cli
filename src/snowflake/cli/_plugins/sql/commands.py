@@ -102,10 +102,14 @@ def execute_sql(
     retain_comments = bool(retain_comments)
     std_in = bool(std_in)
 
-    if not sys.stdin.isatty():
-        query = sys.stdin.read().strip()
+    no_source_provided = not any([query, files, std_in])
+    if no_source_provided and not sys.stdin.isatty():
+        maybe_pipe = sys.stdin.read().strip()
+        if maybe_pipe:
+            query = maybe_pipe
+            std_in = True
 
-    if not any([query, files, std_in]):
+    if no_source_provided:
         from snowflake.cli._plugins.sql.repl import Repl
 
         Repl(SqlManager(), data=data, retain_comments=retain_comments).run()
