@@ -18,6 +18,7 @@ import logging
 from typing import Optional
 
 import typer
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from snowflake.cli._plugins.dbt.constants import DBT_COMMANDS
 from snowflake.cli._plugins.dbt.manager import DBTManager
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
@@ -137,9 +138,18 @@ for cmd in DBT_COMMANDS:
         dbt_command = ctx.command.name
         name = ctx.parent.params["name"]
         run_async = ctx.parent.params["run_async"]
-        result = DBTManager().execute(dbt_command, name, run_async, *dbt_cli_args)
-        if not run_async:
-            return QueryResult(result)
-        return MessageResult(
-            f"Command submitted. You can check the result with `snow sql -q \"select execution_status from table(information_schema.query_history_by_user()) where query_id in ('{result.sfqid}');\"`"
-        )
+        execute_args = (dbt_command, name, run_async, *dbt_cli_args)
+
+        if run_async is True:
+            result = DBTManager().execute(*execute_args)
+            return MessageResult(
+                f"Command submitted. You can check the result with `snow sql -q \"select execution_status from table(information_schema.query_history_by_user()) where query_id in ('{result.sfqid}');\"`"
+            )
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            progress.add_task(description="Executing dbt command...", total=None)
+            return QueryResult(DBTManager().execute(*execute_args))
