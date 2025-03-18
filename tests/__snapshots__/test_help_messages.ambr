@@ -4673,7 +4673,7 @@
                                                                                   
                                     Usage notes                                   
                                                                                   
-   You will be prompted for:                                                      
+   You can use options to specify details, otherwise you will be prompted for:    
                                                                                   
     • url - address of repository to be used for git clone operation              
     • secret - Snowflake secret containing authentication credentials. Not needed 
@@ -4688,7 +4688,25 @@
   |                                 [required]                                   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --url                                   TEXT  Origin URL.                    |
+  | --no-secret                                   Mark that your repository does |
+  |                                               not require a secret.          |
+  | --secret                                TEXT  The identifier of the secret   |
+  |                                               (will be created if not        |
+  |                                               exists).                       |
+  | --new-secret-default-name                     Use a default name for a newly |
+  |                                               created secret.                |
+  | --new-secret-user                       TEXT  An user being a part of a new  |
+  |                                               secret definition.             |
+  | --new-secret-password,--new-s…          TEXT  A password or a token being a  |
+  |                                               part of new a secret           |
+  |                                               definition.                    |
+  | --api-integration                       TEXT  The identifier of the API      |
+  |                                               integration (will be created   |
+  |                                               if not exists).                |
+  | --new-api-integration-default…                Use a default name for a newly |
+  |                                               created API integration.       |
+  | --help                          -h            Show this message and exit.    |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |

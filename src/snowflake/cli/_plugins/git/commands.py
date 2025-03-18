@@ -16,9 +16,10 @@ from __future__ import annotations
 
 import itertools
 import logging
+from dataclasses import dataclass
 from os import path
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import typer
 from click import ClickException
@@ -31,6 +32,7 @@ from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.commands.common import OnErrorType
 from snowflake.cli.api.commands.flags import (
     ExecuteVariablesOption,
+    IdentifierType,
     OnErrorOption,
     PatternOption,
     identifier_argument,
@@ -39,9 +41,11 @@ from snowflake.cli.api.commands.flags import (
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.exceptions import IncompatibleParametersError
 from snowflake.cli.api.output.types import CollectionResult, CommandResult, QueryResult
 from snowflake.cli.api.utils.path_utils import is_stage_path
 from snowflake.connector import DictCursor
+from typer.models import OptionInfo
 
 app = SnowTyperFactory(
     name="git",
@@ -74,6 +78,61 @@ RepoPathArgument = typer.Argument(
     callback=_repo_path_argument_callback,
     show_default=False,
 )
+OriginUrlOption: OptionInfo = typer.Option(
+    None,
+    "--url",
+    help="Origin URL.",
+    show_default=False,
+)
+NoSecretOption: OptionInfo = typer.Option(
+    False,
+    "--no-secret",
+    help="Mark that your repository does not require a secret.",
+    is_flag=True,
+    show_default=False,
+)
+SecretIdentifierOption: OptionInfo = typer.Option(
+    None,
+    "--secret",
+    help="The identifier of the secret (will be created if not exists).",
+    show_default=False,
+    click_type=IdentifierType(),
+)
+NewSecretDefaultNameOption: OptionInfo = typer.Option(
+    False,
+    "--new-secret-default-name",
+    help="Use a default name for a newly created secret.",
+    is_flag=True,
+    show_default=False,
+)
+NewSecretUserOption: OptionInfo = typer.Option(
+    None,
+    "--new-secret-user",
+    help="An user being a part of a new secret definition.",
+    show_default=False,
+)
+NewSecretPasswordOption: OptionInfo = typer.Option(
+    None,
+    "--new-secret-password",
+    "--new-secret-token",
+    help="A password or a token being a part of new a secret definition.",
+    show_default=False,
+)
+ApiIntegrationIdentifierOption: OptionInfo = typer.Option(
+    None,
+    "--api-integration",
+    help="The identifier of the API integration (will be created if not exists).",
+    show_default=False,
+    click_type=IdentifierType(),
+)
+NewApiIntegrationDefaultNameOption: OptionInfo = typer.Option(
+    False,
+    "--new-api-integration-default-name",
+    help="Use a default name for a newly created API integration.",
+    is_flag=True,
+    show_default=False,
+)
+
 add_object_command_aliases(
     app=app,
     object_type=ObjectType.GIT_REPOSITORY,
@@ -117,35 +176,76 @@ def _unique_new_object_name(
     return result
 
 
-@app.command("setup", requires_connection=True)
-def setup(
-    repository_name: FQN = RepoNameArgument,
-    **options,
-) -> CommandResult:
-    """
-    Sets up a git repository object.
+def _validate_exclusivity_of_git_setup_params(
+    use_no_secret: Optional[bool],
+    provided_secret_identifier: Optional[FQN],
+    use_new_secret_default_name: Optional[bool],
+    new_secret_user: Optional[str],
+    new_secret_password: Optional[str],
+    provided_api_integration_identifier: Optional[FQN],
+    use_new_api_integration_default_name: Optional[bool],
+):
+    def validate_params_incompatibility(
+        param1: Tuple[OptionInfo, Optional[Any]],
+        param2: Tuple[OptionInfo, Optional[Any]],
+    ):
+        def1: OptionInfo
+        def2: OptionInfo
+        (def1, value1) = param1
+        (def2, value2) = param2
+        if value1 and value2:
+            raise IncompatibleParametersError(
+                [def1.param_decls[0], def2.param_decls[0]]
+            )
 
-    ## Usage notes
+    def validate_incompability_with_no_secret(
+        param_def: OptionInfo, param_value: Optional[Any]
+    ):
+        validate_params_incompatibility(
+            param1=(param_def, param_value), param2=(NoSecretOption, use_no_secret)
+        )
 
-    You will be prompted for:
+    validate_incompability_with_no_secret(
+        SecretIdentifierOption, provided_secret_identifier
+    )
+    validate_incompability_with_no_secret(
+        NewSecretDefaultNameOption, use_new_secret_default_name
+    )
+    validate_incompability_with_no_secret(NewSecretUserOption, new_secret_user)
+    validate_incompability_with_no_secret(NewSecretPasswordOption, new_secret_password)
+    validate_params_incompatibility(
+        param1=(SecretIdentifierOption, provided_secret_identifier),
+        param2=(NewSecretDefaultNameOption, use_new_secret_default_name),
+    )
+    validate_params_incompatibility(
+        param1=(ApiIntegrationIdentifierOption, provided_api_integration_identifier),
+        param2=(
+            NewApiIntegrationDefaultNameOption,
+            use_new_api_integration_default_name,
+        ),
+    )
 
-    * url - address of repository to be used for git clone operation
 
-    * secret - Snowflake secret containing authentication credentials. Not needed if origin repository does not require
-    authentication for RO operations (clone, fetch)
-
-    * API integration - object allowing Snowflake to interact with git repository.
-    """
-    manager = GitManager()
-    om = ObjectManager()
-    _assure_repository_does_not_exist(om, repository_name)
-
-    url = typer.prompt("Origin url")
-    _validate_origin_url(url)
-
-    secret_needed = typer.confirm("Use secret for authentication?")
+def _collect_git_setup_secret_details(
+    om: ObjectManager,
+    repository_name: FQN,
+    use_no_secret: Optional[bool],
+    provided_secret_identifier: Optional[FQN],
+    use_new_secret_default_name: Optional[bool],
+    new_secret_user: Optional[str],
+    new_secret_password: Optional[str],
+) -> _GitSetupSecretDetails:
+    secret_needed = (
+        False
+        if use_no_secret
+        else True
+        if provided_secret_identifier or use_new_secret_default_name
+        else typer.confirm("Use secret for authentication?")
+    )
     should_create_secret = False
     secret_name = None
+    secret_username = None
+    secret_password = None
     if secret_needed:
         default_secret_name = (
             FQN.from_string(f"{repository_name.name}_secret")
@@ -157,10 +257,17 @@ def setup(
                 om, object_type=ObjectType.SECRET, proposed_fqn=default_secret_name
             ),
         )
-        secret_name = FQN.from_string(
-            typer.prompt(
-                "Secret identifier (will be created if not exists)",
-                default=default_secret_name.name,
+        forced_default_secret_name: Optional[FQN] = (
+            default_secret_name if use_new_secret_default_name else None
+        )
+        secret_name = (
+            provided_secret_identifier
+            or forced_default_secret_name
+            or FQN.from_string(
+                typer.prompt(
+                    "Secret identifier (will be created if not exists)",
+                    default=default_secret_name.name,
+                )
             )
         )
         if not secret_name.database:
@@ -175,27 +282,67 @@ def setup(
         else:
             should_create_secret = True
             cli_console.step(f"Secret '{secret_name}' will be created")
-            secret_username = typer.prompt("username")
-            secret_password = typer.prompt("password/token", hide_input=True)
+            secret_username = new_secret_user or typer.prompt("username")
+            secret_password = new_secret_password or typer.prompt(
+                "password/token", hide_input=True
+            )
+    return _GitSetupSecretDetails(
+        secret_needed=secret_needed,
+        should_create_secret=should_create_secret,
+        secret_name=secret_name,
+        secret_username=secret_username,
+        secret_password=secret_password,
+    )
 
+
+def _collect_api_integration_details(
+    om: ObjectManager,
+    repository_name: FQN,
+    provided_api_integration_identifier: Optional[FQN],
+    use_new_api_integration_default_name: Optional[bool],
+) -> FQN:
     # API integration is an account-level object
-    api_integration = FQN.from_string(f"{repository_name.name}_api_integration")
-    api_integration.set_name(
-        typer.prompt(
-            "API integration identifier (will be created if not exists)",
-            default=_unique_new_object_name(
+    if provided_api_integration_identifier:
+        api_integration = provided_api_integration_identifier
+    else:
+        api_integration = FQN.from_string(f"{repository_name.name}_api_integration")
+
+        def generate_api_integration_name():
+            return _unique_new_object_name(
                 om,
                 object_type=ObjectType.INTEGRATION,
                 proposed_fqn=api_integration,
-            ),
-        )
-    )
+            )
 
-    if should_create_secret:
-        manager.create_password_secret(
-            name=secret_name, username=secret_username, password=secret_password
+        forced_default_api_integration_name: Optional[str] = (
+            generate_api_integration_name()
+            if use_new_api_integration_default_name
+            else None
         )
-        cli_console.step(f"Secret '{secret_name}' successfully created.")
+        api_integration.set_name(
+            forced_default_api_integration_name
+            or typer.prompt(
+                "API integration identifier (will be created if not exists)",
+                default=generate_api_integration_name(),
+            )
+        )
+    return api_integration
+
+
+def _create_secret_and_api_integration_objects_if_needed(
+    om: ObjectManager,
+    manager: GitManager,
+    url: str,
+    secret_details: _GitSetupSecretDetails,
+    api_integration: FQN,
+):
+    if secret_details.should_create_secret:
+        manager.create_password_secret(
+            name=secret_details.secret_name,
+            username=secret_details.secret_username,
+            password=secret_details.secret_password,
+        )
+        cli_console.step(f"Secret '{secret_details.secret_name}' successfully created.")
 
     if not om.object_exists(
         object_type=ObjectType.INTEGRATION.value.cli_name, fqn=api_integration
@@ -204,18 +351,88 @@ def setup(
             name=api_integration,
             api_provider="git_https_api",
             allowed_prefix=url,
-            secret=secret_name,
+            secret=secret_details.secret_name,
         )
         cli_console.step(f"API integration '{api_integration}' successfully created.")
     else:
         cli_console.step(f"Using existing API integration '{api_integration}'.")
+
+
+@app.command("setup", requires_connection=True)
+def setup(
+    repository_name: FQN = RepoNameArgument,
+    url: Optional[str] = OriginUrlOption,
+    use_no_secret: Optional[bool] = NoSecretOption,
+    provided_secret_identifier: Optional[FQN] = SecretIdentifierOption,
+    use_new_secret_default_name: Optional[bool] = NewSecretDefaultNameOption,
+    new_secret_user: Optional[str] = NewSecretUserOption,
+    new_secret_password: Optional[str] = NewSecretPasswordOption,
+    provided_api_integration_identifier: Optional[FQN] = ApiIntegrationIdentifierOption,
+    use_new_api_integration_default_name: Optional[
+        bool
+    ] = NewApiIntegrationDefaultNameOption,
+    **options,
+) -> CommandResult:
+    """
+    Sets up a git repository object.
+
+    ## Usage notes
+
+    You can use options to specify details, otherwise you will be prompted for:
+
+    * url - address of repository to be used for git clone operation
+
+    * secret - Snowflake secret containing authentication credentials. Not needed if origin repository does not require
+    authentication for RO operations (clone, fetch)
+
+    * API integration - object allowing Snowflake to interact with git repository.
+    """
+    _validate_exclusivity_of_git_setup_params(
+        use_no_secret=use_no_secret,
+        provided_secret_identifier=provided_secret_identifier,
+        use_new_secret_default_name=use_new_secret_default_name,
+        new_secret_user=new_secret_user,
+        new_secret_password=new_secret_password,
+        provided_api_integration_identifier=provided_api_integration_identifier,
+        use_new_api_integration_default_name=use_new_api_integration_default_name,
+    )
+
+    manager = GitManager()
+    om = ObjectManager()
+    _assure_repository_does_not_exist(om, repository_name)
+
+    url = url or typer.prompt("Origin url")
+    _validate_origin_url(url)
+
+    secret_details = _collect_git_setup_secret_details(
+        om=om,
+        repository_name=repository_name,
+        use_no_secret=use_no_secret,
+        provided_secret_identifier=provided_secret_identifier,
+        use_new_secret_default_name=use_new_secret_default_name,
+        new_secret_user=new_secret_user,
+        new_secret_password=new_secret_password,
+    )
+    api_integration = _collect_api_integration_details(
+        om=om,
+        repository_name=repository_name,
+        provided_api_integration_identifier=provided_api_integration_identifier,
+        use_new_api_integration_default_name=use_new_api_integration_default_name,
+    )
+    _create_secret_and_api_integration_objects_if_needed(
+        om=om,
+        manager=manager,
+        url=url,
+        secret_details=secret_details,
+        api_integration=api_integration,
+    )
 
     return QueryResult(
         manager.create(
             repo_name=repository_name,
             url=url,
             api_integration=api_integration,
-            secret=secret_name,
+            secret=secret_details.secret_name,
         )
     )
 
@@ -359,3 +576,12 @@ def get(source_path: str, destination_path: str, parallel: int):
         key=lambda e: (path.dirname(e["file"]), path.basename(e["file"])),
     )
     return CollectionResult(sorted_results)
+
+
+@dataclass
+class _GitSetupSecretDetails:
+    secret_needed: bool = False
+    should_create_secret: bool = False
+    secret_name: Optional[FQN] = None
+    secret_username: Optional[str] = None
+    secret_password: Optional[str] = None
