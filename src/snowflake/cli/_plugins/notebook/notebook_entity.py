@@ -23,16 +23,19 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
     A notebook.
     """
 
+    @property
+    def _stage_path_from_model(self) -> str:
+        if self.model.stage_path is None:
+            return f"{_DEFAULT_NOTEBOOK_STAGE_NAME}/{self.fqn.name}"
+        return self.model.stage_path
+
     @functools.cached_property
     def _stage_path(self) -> StagePath:
-        stage_path = self.model.stage_path
-        if stage_path is None:
-            stage_path = f"{_DEFAULT_NOTEBOOK_STAGE_NAME}/{self.fqn.name}"
-        return StagePath.from_stage_str(stage_path)
+        return StagePath.from_stage_str(self._stage_path_from_model)
 
     @functools.cached_property
     def _stage_path_parts(self) -> StagePathParts:
-        return StageManager().stage_path_parts_from_str(self.model.stage_path)
+        return StageManager().stage_path_parts_from_str(self._stage_path_from_model)
 
     @functools.cached_property
     def _project_paths(self):

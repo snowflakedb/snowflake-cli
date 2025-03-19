@@ -1,22 +1,15 @@
 import pytest
+from typing import List
 
 
 @pytest.mark.integration
 def test_deploy_by_id(runner, project_directory, test_database):
-    def expected_output_prefix(notebook_id):
-        return (
-            f"Uploading artifacts to @notebooks/{notebook_id}\n"
-            f"  Creating stage notebooks if not exists\n"
-            f"  Uploading artifacts\n"
-            f"Creating notebook {notebook_id}\n"
-            f"Notebook successfully deployed and available under"
-        )
-
     with project_directory("notebooks_multiple_v2"):
         for notebook_id in ["notebook1", "notebook2"]:
             result = runner.invoke_with_connection(["notebook", "deploy", notebook_id])
             assert result.exit_code == 0, result.output
-            assert result.output.startswith(expected_output_prefix(notebook_id))
+            assert f"Uploading artifacts to @notebooks/{notebook_id}" in result.output
+            assert "Notebook successfully deployed and available under" in result.output
 
         # default stage file paths should be different even though filenames are equal
         result = runner.invoke_with_connection_json(
@@ -32,28 +25,44 @@ def test_deploy_by_id(runner, project_directory, test_database):
 
 @pytest.mark.integration
 def test_deploy_single_notebook(runner, project_directory, test_database):
-    expected_output_prefix = (
-        "Uploading artifacts to @custom_stage/particular_notebook_path\n"
-        "  Creating stage custom_stage if not exists\n"
-        "  Uploading artifacts\n"
-        "Creating notebook custom_identifier\n"
-        "Notebook successfully deployed and available under"
-    )
+    def _assert_file_names_on_stage(stage: str, expected_files: List[str]) -> None:
+        result = runner.invoke_with_connection_json(["stage", "list-files", stage])
+        assert result.exit_code == 0, result.output
+        assert set(file["name"] for file in result.json) == set(expected_files)
 
-    with project_directory("notebook_v2"):
+    with project_directory("notebook_v2") as project_root:
         result = runner.invoke_with_connection(["notebook", "deploy"])
         assert result.exit_code == 0, result.output
-        assert result.output.startswith(expected_output_prefix)
-
-        result = runner.invoke_with_connection_json(
-            ["stage", "list-files", "custom_stage"]
-        )
-        assert result.exit_code == 0, result.output
         assert (
-            result.json[0]["name"]
-            == "custom_stage/particular_notebook_path/notebook.ipynb"
+            "Uploading artifacts to @custom_stage/particular_notebook_path\n"
+            in result.output
+        )
+        assert "added:    notebook.ipynb -> notebook.ipynb" in result.output
+        assert "Notebook successfully deployed and available under" in result.output
+        _assert_file_names_on_stage(
+            "custom_stage", ["custom_stage/particular_notebook_path/notebook.ipynb"]
         )
 
+        # upload file to stage to test --purge flag
+        file = project_root / "unexpected.txt"
+        file.write_text("this was unexpected")
+        runner.invoke_with_connection(
+            [
+                "stage",
+                "copy",
+                "unexpected.txt",
+                "@custom_stage/particular_notebook_path",
+            ]
+        )
+        _assert_file_names_on_stage(
+            "custom_stage",
+            [
+                "custom_stage/particular_notebook_path/notebook.ipynb",
+                "custom_stage/particular_notebook_path/unexpected.txt",
+            ],
+        )
+
+        # no --replace error
         result = runner.invoke_with_connection(["notebook", "deploy"])
         assert result.exit_code == 1, result.output
         assert (
@@ -61,9 +70,32 @@ def test_deploy_single_notebook(runner, project_directory, test_database):
             in result.output
         )
 
+        # additional files should stay if --prune is not provided
         result = runner.invoke_with_connection(["notebook", "deploy", "--replace"])
         assert result.exit_code == 0, result.output
-        assert result.output.startswith(expected_output_prefix)
+        assert "modified: notebook.ipynb -> notebook.ipynb" in result.output
+        assert "Use the --prune flag to delete them from the stage." in result.output
+        assert "Notebook successfully deployed and available under" in result.output
+        _assert_file_names_on_stage(
+            "custom_stage",
+            [
+                "custom_stage/particular_notebook_path/notebook.ipynb",
+                "custom_stage/particular_notebook_path/unexpected.txt",
+            ],
+        )
+
+        # --prune flag should delete additional files
+        result = runner.invoke_with_connection(
+            ["notebook", "deploy", "--replace", "--prune"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Notebook successfully deployed and available under" in result.output
+        _assert_file_names_on_stage(
+            "custom_stage",
+            [
+                "custom_stage/particular_notebook_path/notebook.ipynb",
+            ],
+        )
 
 
 @pytest.mark.integration

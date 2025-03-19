@@ -103,7 +103,7 @@ def sync_deploy_root_with_stage(
         recursive (bool): Whether to traverse directories recursively.
         stage_path (DefaultStagePathParts): stage path object.
 
-        package_name (str): supported for Native App compatibility
+        package_name (str): supported for Native App compatibility. Should be None out of Native App context.
 
         local_paths_to_sync (List[Path], optional): List of local paths to sync. Defaults to None to sync all
         local paths. Note that providing an empty list here is equivalent to None.
@@ -118,7 +118,7 @@ def sync_deploy_root_with_stage(
         console.step(f"Creating stage {stage_fqn} if not exists.")
         StageManager().create(fqn=stage_fqn)
     else:
-        # ensure stage exists - nativeapp way
+        # ensure stage exists - nativeapp behavior
         sql_facade = get_snowflake_facade()
         schema = stage_path.schema
         stage_fqn = stage_path.stage
@@ -191,7 +191,7 @@ def sync_deploy_root_with_stage(
     if print_diff:
         print_diff_to_console(diff, bundle_map)
 
-    # Upload diff-ed files to application package stage
+    # Upload diff-ed files to the stage
     if diff.has_changes():
         console.step(
             "Updating the Snowflake stage from your local %s directory."
