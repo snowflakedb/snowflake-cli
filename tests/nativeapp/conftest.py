@@ -13,9 +13,13 @@
 # limitations under the License.
 
 import unittest.mock as mock
+from typing import Any, Dict
 
 import factory
 import pytest
+from snowflake.cli._plugins.nativeapp.codegen.snowpark.models import (
+    NativeAppExtensionFunction,
+)
 from snowflake.cli._plugins.nativeapp.entities.application import (
     ApplicationEntity,
     ApplicationEntityModel,
@@ -53,3 +57,30 @@ def application_entity(workspace_context, request):
     data = ApplicationEntityModelFactory(identifier=factory.Faker("word"), **app_params)
     model = ApplicationEntityModel(**data)
     return ApplicationEntity(model, workspace_context)
+
+
+@pytest.fixture
+def native_app_extension_function_raw_data() -> Dict[str, Any]:
+    return {
+        "type": "procedure",
+        "lineno": 42,
+        "name": "my_function",
+        "signature": [{"name": "first", "type": "int", "default": "42"}],
+        "returns": "int",
+        "runtime": "3.11",
+        "handler": "my_function_handler",
+        "external_access_integrations": ["integration_one", "integration_two"],
+        "secrets": {"key1": "secret_one", "key2": "integration_two"},
+        "packages": ["package_one==1.0.2", "package_two"],
+        "imports": ["/path/to/import1.py", "/path/to/import2.zip"],
+        "execute_as_caller": False,
+        "schema": "DATA",
+        "application_roles": ["APP_ADMIN", "APP_VIEWER"],
+    }
+
+
+@pytest.fixture
+def native_app_extension_function(
+    native_app_extension_function_raw_data,
+) -> NativeAppExtensionFunction:
+    return NativeAppExtensionFunction(**native_app_extension_function_raw_data)

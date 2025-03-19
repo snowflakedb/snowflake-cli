@@ -26,7 +26,7 @@ PYTHON_W_SNOWPARK = dedent(
 
 
 @pytest.fixture
-def setup_v2_project_w_subdir(temp_dir):
+def setup_v2_project_w_subdir(temporary_directory):
     def wrapper():
         readme_v1 = (
             "This is the <% ctx.pkg_v1.stage_subdirectory %> version of this package!"
@@ -67,13 +67,13 @@ def setup_v2_project_w_subdir(temp_dir):
                 "app/v2/setup.sql": "SELECT 1;",
             },
         )
-        return project_name, temp_dir
+        return project_name, temporary_directory
 
     return wrapper
 
 
 @pytest.fixture
-def setup_v2_project_w_subdir_w_snowpark(temp_dir):
+def setup_v2_project_w_subdir_w_snowpark(temporary_directory):
     def wrapper():
         setup_script = dedent(
             """\
@@ -121,6 +121,6 @@ def setup_v2_project_w_subdir_w_snowpark(temp_dir):
                 "app/v2/module-echo-v2/echo-v2.py": PYTHON_W_SNOWPARK,
             },
         )
-        return project_name, temp_dir
+        return project_name, temporary_directory
 
     return wrapper

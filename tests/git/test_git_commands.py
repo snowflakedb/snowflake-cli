@@ -122,7 +122,7 @@ def test_fetch(mock_connector, runner, mock_ctx):
 @mock.patch.object(StageManager, "iter_stage")
 @mock.patch("snowflake.cli._plugins.git.commands.QueryResult")
 def test_copy_to_local_file_system(
-    mock_result, mock_iter, mock_connector, runner, mock_ctx, temp_dir
+    mock_result, mock_iter, mock_connector, runner, mock_ctx, temporary_directory
 ):
     repo_prefix = "@repo_name/branches/main/"
     ctx = mock_ctx()
@@ -134,7 +134,7 @@ def test_copy_to_local_file_system(
     mock_iter.__len__.return_value = 2
     mock_result.result = {"file": "mock"}
 
-    local_path = Path(temp_dir) / "local_dir"
+    local_path = Path(temporary_directory) / "local_dir"
     assert not local_path.exists()
     result = runner.invoke(["git", "copy", repo_prefix, str(local_path)])
 

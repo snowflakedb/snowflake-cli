@@ -428,7 +428,7 @@ def test_copy_throws_error_for_same_platform_operation(
 def test_copy_get_recursive(
     mock_execute,
     mock_cursor,
-    temp_dir,
+    temporary_directory,
     stage_path,
     files_on_stage,
     expected_stage_path,
@@ -438,11 +438,13 @@ def test_copy_get_recursive(
         [{"name": f"exe/{file}"} for file in files_on_stage], []
     )
 
-    StageManager().get_recursive(stage_path, Path(temp_dir))
+    StageManager().get_recursive(stage_path, Path(temporary_directory))
 
     ls_call, *copy_calls = mock_execute.mock_calls
     assert ls_call == mock.call(f"ls {expected_stage_path}", cursor_class=DictCursor)
-    assert copy_calls == [mock.call(c.format(temp_dir)) for c in expected_calls]
+    assert copy_calls == [
+        mock.call(c.format(temporary_directory)) for c in expected_calls
+    ]
 
 
 @pytest.mark.parametrize(
@@ -489,7 +491,7 @@ def test_copy_get_recursive(
 def test_copy_get_recursive_from_user_stage(
     mock_execute,
     mock_cursor,
-    temp_dir,
+    temporary_directory,
     stage_path,
     files_on_stage,
     expected_stage_path,
@@ -499,11 +501,13 @@ def test_copy_get_recursive_from_user_stage(
         [{"name": file} for file in files_on_stage], []
     )
 
-    StageManager().get_recursive(stage_path, Path(temp_dir))
+    StageManager().get_recursive(stage_path, Path(temporary_directory))
 
     ls_call, *copy_calls = mock_execute.mock_calls
     assert ls_call == mock.call(f"ls '{expected_stage_path}'", cursor_class=DictCursor)
-    assert copy_calls == [mock.call(c.format(temp_dir)) for c in expected_calls]
+    assert copy_calls == [
+        mock.call(c.format(temporary_directory)) for c in expected_calls
+    ]
 
 
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
@@ -1254,10 +1258,10 @@ NESTED_STRUCTURE = {
 
 
 @pytest.mark.parametrize("pattern", ["", "**/*", "**"])
-def test_recursive_upload(temp_dir, pattern):
-    tester = RecursiveUploadTester(temp_dir)
+def test_recursive_upload(temporary_directory, pattern):
+    tester = RecursiveUploadTester(temporary_directory)
     tester.prepare(structure=NESTED_STRUCTURE)
-    tmp_created_by_copy = tester.execute(local_path=temp_dir + "/" + pattern)
+    tmp_created_by_copy = tester.execute(local_path=temporary_directory + "/" + pattern)
 
     assert tester.calls == [
         # Leaves
@@ -1295,20 +1299,20 @@ def test_recursive_upload(temp_dir, pattern):
     ]
 
 
-def test_recursive_upload_with_empty_dir(temp_dir):
+def test_recursive_upload_with_empty_dir(temporary_directory):
     structure = {}
 
-    tester = RecursiveUploadTester(temp_dir)
+    tester = RecursiveUploadTester(temporary_directory)
     tester.prepare(structure=structure)
-    _ = tester.execute(local_path=temp_dir)
+    _ = tester.execute(local_path=temporary_directory)
 
     assert tester.calls == []
 
 
-def test_recursive_upload_glob_file_pattern(temp_dir):
-    tester = RecursiveUploadTester(temp_dir)
+def test_recursive_upload_glob_file_pattern(temporary_directory):
+    tester = RecursiveUploadTester(temporary_directory)
     tester.prepare(structure=NESTED_STRUCTURE)
-    tmp_created_by_copy = tester.execute(local_path=f"{temp_dir}/**/*.py")
+    tmp_created_by_copy = tester.execute(local_path=f"{temporary_directory}/**/*.py")
 
     assert tester.calls == [
         # Leaves
@@ -1328,10 +1332,10 @@ def test_recursive_upload_glob_file_pattern(temp_dir):
     ]
 
 
-def test_recursive_upload_no_recursive_glob_pattern(temp_dir):
-    tester = RecursiveUploadTester(temp_dir)
+def test_recursive_upload_no_recursive_glob_pattern(temporary_directory):
+    tester = RecursiveUploadTester(temporary_directory)
     tester.prepare(structure=NESTED_STRUCTURE)
-    tmp_created_by_copy = tester.execute(local_path=f"{temp_dir}/*.foo")
+    tmp_created_by_copy = tester.execute(local_path=f"{temporary_directory}/*.foo")
 
     assert tester.calls == [
         dict(
@@ -1357,12 +1361,12 @@ NESTED_UNBALANCED_STRUCTURE = {
 }
 
 
-def test_recursive_unbalanced_tree(temp_dir):
+def test_recursive_unbalanced_tree(temporary_directory):
     """
     SNOW-1966187 - with certain directory structure we were deleting nodes
     before they were processed. This was mostly visible when there was a
     shallow branch and deep branch starting from the same directory.
     """
-    tester = RecursiveUploadTester(temp_dir)
+    tester = RecursiveUploadTester(temporary_directory)
     tester.prepare(structure=NESTED_UNBALANCED_STRUCTURE)
-    tester.execute(local_path=temp_dir + "/")
+    tester.execute(local_path=temporary_directory + "/")

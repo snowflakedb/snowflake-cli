@@ -40,7 +40,8 @@ from tests.nativeapp.factories import ManifestFactory
 from tests.nativeapp.utils import (
     assert_dir_snapshot,
 )
-from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
+from tests.testing_utils.files_and_dirs import temp_local_dir
+from tests_common import change_directory
 
 
 @pytest.mark.parametrize("project_definition_files", ["napp_project_1"], indirect=True)
@@ -48,7 +49,7 @@ def test_napp_project_1_artifacts(project_definition_files, os_agnostic_snapshot
     project_root = project_definition_files[0].parent
     native_app = load_project(project_definition_files).project_definition.native_app
 
-    with pushd(project_root) as local_path:
+    with change_directory(project_root) as local_path:
         deploy_root = Path(local_path, native_app.deploy_root)
         build_bundle(local_path, deploy_root, native_app.artifacts)
 

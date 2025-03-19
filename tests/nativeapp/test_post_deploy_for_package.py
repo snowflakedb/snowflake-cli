@@ -31,6 +31,7 @@ from snowflake.cli.api.exceptions import InvalidTemplate
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
 
+from tests.conftest import MockConnectionCtx
 from tests.nativeapp.factories import (
     ApplicationEntityModelFactory,
     ApplicationPackageEntityModelFactory,
@@ -42,7 +43,6 @@ from tests.nativeapp.utils import (
     CLI_GLOBAL_TEMPLATE_CONTEXT,
     SQL_FACADE_EXECUTE_USER_SCRIPT,
 )
-from tests.testing_utils.fixtures import MockConnectionCtx
 
 DEFAULT_POST_DEPLOY_FILENAME_1 = "scripts/pkg_post_deploy1.sql"
 DEFAULT_POST_DEPLOY_CONTENT_1 = dedent(
@@ -97,7 +97,7 @@ def test_package_post_deploy_scripts(
     project_directory,
     mock_cursor,
     workspace_context,
-    temp_dir,
+    temporary_directory,
 ):
     mock_conn.return_value = MockConnectionCtx()
 
@@ -138,7 +138,7 @@ def test_package_post_deploy_scripts_with_no_scripts(
     mock_sqlfacade_execute_user_script,
     project_directory,
     workspace_context,
-    temp_dir,
+    temporary_directory,
 ):
     mock_conn.return_value = MockConnectionCtx()
     ProjectV2Factory(
@@ -160,7 +160,7 @@ def test_package_post_deploy_scripts_with_no_scripts(
 
     execute_post_deploy_hooks(
         console=cc,
-        project_root=temp_dir,
+        project_root=temporary_directory,
         post_deploy_hooks=pkg_model.meta.post_deploy,
         deployed_object_type=pkg_model.get_type(),
         database_name=pkg_model.fqn.name,
@@ -182,7 +182,7 @@ def test_package_post_deploy_scripts_with_non_existing_scripts(
     project_directory,
     mock_cursor,
     workspace_context,
-    temp_dir,
+    temporary_directory,
 ):
     mock_conn.return_value = MockConnectionCtx()
 
@@ -209,7 +209,7 @@ def test_package_post_deploy_scripts_with_non_existing_scripts(
     with pytest.raises(MissingScriptError) as err:
         execute_post_deploy_hooks(
             console=cc,
-            project_root=temp_dir,
+            project_root=temporary_directory,
             post_deploy_hooks=pkg_model.meta.post_deploy,
             deployed_object_type=pkg_model.get_type(),
             database_name=pkg_model.fqn.name,
@@ -233,7 +233,7 @@ def test_package_post_deploy_scripts_with_sql_error(
     mock_sqlfacade_execute_user_script,
     project_directory,
     workspace_context,
-    temp_dir,
+    temporary_directory,
 ):
     mock_conn.return_value = MockConnectionCtx()
 
@@ -249,7 +249,7 @@ def test_package_post_deploy_scripts_with_sql_error(
     with pytest.raises(UserScriptError):
         execute_post_deploy_hooks(
             console=cc,
-            project_root=temp_dir,
+            project_root=temporary_directory,
             post_deploy_hooks=pkg_model.meta.post_deploy,
             deployed_object_type=pkg_model.get_type(),
             database_name=pkg_model.fqn.name,
@@ -260,7 +260,7 @@ def test_package_post_deploy_scripts_with_sql_error(
 
 @mock.patch.dict(os.environ, {"USER": "test_user"})
 def test_package_scripts_and_post_deploy_found(
-    temp_dir,
+    temporary_directory,
 ):
     ProjectV11Factory(
         pdf__native_app__package__scripts=["scripts/package_script1.sql"],
@@ -302,7 +302,7 @@ def test_package_post_deploy_scripts_with_templates(
     template_syntax,
     mock_cursor,
     workspace_context,
-    temp_dir,
+    temporary_directory,
 ):
     mock_conn.return_value = MockConnectionCtx()
 
@@ -357,7 +357,7 @@ def test_package_post_deploy_scripts_with_mix_syntax_templates(
     mock_sqlfacade_execute_user_script,
     project_directory,
     workspace_context,
-    temp_dir,
+    temporary_directory,
 ):
     mock_conn.return_value = MockConnectionCtx()
     pkg_post_deploy_project_factory(
@@ -378,7 +378,7 @@ def test_package_post_deploy_scripts_with_mix_syntax_templates(
     with pytest.raises(InvalidTemplate) as err:
         execute_post_deploy_hooks(
             console=cc,
-            project_root=temp_dir,
+            project_root=temporary_directory,
             post_deploy_hooks=pkg_model.meta.post_deploy,
             deployed_object_type=pkg_model.get_type(),
             database_name=pkg_model.fqn.name,

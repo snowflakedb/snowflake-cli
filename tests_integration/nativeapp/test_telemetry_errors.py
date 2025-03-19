@@ -26,7 +26,7 @@ from tests_integration.test_utils import extract_first_telemetry_message_of_type
 @pytest.mark.integration
 @mock.patch("snowflake.connector.telemetry.TelemetryClient.try_add_log_to_batch")
 def test_not_programmingerror_does_not_attach_any_info(
-    mock_telemetry, runner, nativeapp_project_directory, temp_dir
+    mock_telemetry, runner, nativeapp_project_directory, temporary_directory
 ):
     ProjectV11Factory(
         pdf__native_app__artifacts=["setup.sql", "manifest.yml"],
@@ -40,7 +40,7 @@ def test_not_programmingerror_does_not_attach_any_info(
         },
     )
 
-    with nativeapp_project_directory(temp_dir):
+    with nativeapp_project_directory(temporary_directory):
         result = runner.invoke_with_connection_json(["app", "deploy"])
         assert result.exit_code == 1
 
@@ -82,7 +82,7 @@ def test_programmingerror_attaches_errno_and_sqlstate(
 @pytest.mark.integration
 @mock.patch("snowflake.connector.telemetry.TelemetryClient.try_add_log_to_batch")
 def test_programmingerror_cause_attaches_errno_and_sqlstate(
-    mock_telemetry, runner, nativeapp_project_directory, temp_dir
+    mock_telemetry, runner, nativeapp_project_directory, temporary_directory
 ):
     ProjectV11Factory(
         pdf__native_app__artifacts=["setup.sql", "manifest.yml"],
@@ -95,7 +95,7 @@ def test_programmingerror_cause_attaches_errno_and_sqlstate(
         files={"post_deploy1.sql": "\n", "setup.sql": "\n", "manifest.yml": "\n"},
     )
 
-    with nativeapp_project_directory(Path(temp_dir)):
+    with nativeapp_project_directory(Path(temporary_directory)):
         result = runner.invoke_with_connection_json(["app", "deploy"])
         assert result.exit_code == 1
 

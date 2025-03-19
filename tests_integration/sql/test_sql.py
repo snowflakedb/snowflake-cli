@@ -137,6 +137,7 @@ def test_queries_are_streamed_to_output(
     assert "waited 10 seconds" in query_1
 
 
+@pytest.mark.integration
 @pytest.mark.parametrize(
     "query, expected",
     (

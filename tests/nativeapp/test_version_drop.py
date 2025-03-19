@@ -78,7 +78,7 @@ def _drop_version(
 @pytest.mark.parametrize("force", [True, False])
 @pytest.mark.parametrize("interactive", [True, False])
 def test_process_has_no_existing_app_pkg(
-    mock_get_existing, force, interactive, temp_dir
+    mock_get_existing, force, interactive, temporary_directory
 ):
 
     current_working_directory = os.getcwd()
@@ -115,7 +115,7 @@ def test_process_no_version_from_user_no_version_in_manifest(
     mock_get_existing,
     force,
     interactive,
-    temp_dir,
+    temporary_directory,
 ):
 
     mock_distribution.return_value = "internal"
@@ -166,7 +166,7 @@ def test_process_drop_cannot_complete(
     mock_get_existing,
     interactive,
     expected_code,
-    temp_dir,
+    temporary_directory,
 ):
 
     mock_distribution.return_value = "internal"
@@ -211,7 +211,7 @@ def test_process_drop_from_manifest(
     mock_distribution,
     mock_get_existing,
     force,
-    temp_dir,
+    temporary_directory,
 ):
 
     mock_distribution.return_value = "internal"
@@ -255,7 +255,7 @@ def test_process_drop_specific_version(
     mock_distribution,
     mock_get_existing,
     force,
-    temp_dir,
+    temporary_directory,
     version,
     version_identifier,
 ):
