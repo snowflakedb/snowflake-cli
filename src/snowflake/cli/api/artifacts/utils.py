@@ -69,6 +69,7 @@ def bundle_artifacts(project_paths: ProjectPaths, artifacts: Artifacts) -> Bundl
         bundle_map.add(artifact)
 
     project_paths.remove_up_bundle_root()
+    SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
     for absolute_src, absolute_dest in bundle_map.all_mappings(
         absolute=True, expand_directories=True
     ):

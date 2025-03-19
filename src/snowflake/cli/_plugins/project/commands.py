@@ -23,7 +23,7 @@ from snowflake.cli._plugins.project.project_entity_model import (
     ProjectEntityModel,
 )
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli.api.artifacts.upload import put_files
+from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
@@ -124,7 +124,7 @@ def create_version(
         cli_console.step(f"Creating stage {stage_name}")
         sm.create(fqn=stage_name)
 
-        put_files(
+        sync_artifacts_with_stage(
             project_paths=ProjectPaths(project_root=cli_context.project_root),
             stage_root=project.stage,
             artifacts=project.artifacts,
