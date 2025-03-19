@@ -4,13 +4,11 @@ from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.notebook.notebook_entity_model import NotebookEntityModel
 from snowflake.cli._plugins.notebook.notebook_project_paths import NotebookProjectPaths
-from snowflake.cli._plugins.stage.manager import StageManager, StagePathParts
 from snowflake.cli._plugins.workspace.context import ActionContext
-from snowflake.cli.api.artifacts.utils import bundle_artifacts
+from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.entities.common import EntityBase
-from snowflake.cli.api.entities.utils import sync_deploy_root_with_stage
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
@@ -34,10 +32,6 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
         return StagePath.from_stage_str(self._stage_path_from_model)
 
     @functools.cached_property
-    def _stage_path_parts(self) -> StagePathParts:
-        return StageManager().stage_path_parts_from_str(self._stage_path_from_model)
-
-    @functools.cached_property
     def _project_paths(self):
         return NotebookProjectPaths(get_cli_context().project_root)
 
@@ -48,19 +42,6 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
             return True
         except ProgrammingError:
             return False
-
-    def _upload_artifacts(self, prune: bool) -> None:
-        cli_console.step("Uploading artifacts")
-        bundle_map = bundle_artifacts(self._project_paths, self.model.artifacts)
-        sync_deploy_root_with_stage(
-            console=cli_console,
-            deploy_root=self._project_paths.bundle_root,
-            bundle_map=bundle_map,
-            prune=prune,
-            recursive=True,
-            stage_path=self._stage_path_parts,
-            print_diff=True,
-        )
 
     def get_create_sql(self, replace: bool) -> str:
         main_file_stage_path = self._stage_path / (
@@ -110,7 +91,12 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
                     f"Notebook {self.fqn.name} already exists. Consider using --replace."
                 )
         with cli_console.phase(f"Uploading artifacts to {self._stage_path}"):
-            self._upload_artifacts(prune=prune)
+            sync_artifacts_with_stage(
+                project_paths=self._project_paths,
+                stage_root=self._stage_path_from_model,
+                prune=prune,
+                artifacts=self.model.artifacts,
+            )
 
         with cli_console.phase(f"Creating notebook {self.fqn}"):
             return self.action_create(replace=replace)
