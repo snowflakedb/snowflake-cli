@@ -146,6 +146,9 @@ def print_unstructured(obj: CommandResult | None):
     elif isinstance(obj, MessageResult):
         rich_print(sanitize_for_terminal(obj.message), flush=True)
     else:
+        full_width_table = get_cli_context().full_width_table
+        if full_width_table:
+            get_console().width = sys.maxsize
         if isinstance(obj, ObjectResult):
             _print_single_table(obj)
         elif isinstance(obj, CollectionResult):

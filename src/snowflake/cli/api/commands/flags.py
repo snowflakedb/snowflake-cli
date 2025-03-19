@@ -342,6 +342,15 @@ OutputFormatOption = typer.Option(
     rich_help_panel=_CLI_BEHAVIOUR,
 )
 
+FullWidthTableOption = typer.Option(
+    False,
+    "--full-width-table",
+    help="Table is printed without consideration for screen size, for use with text output and pagers.",
+    callback=_context_callback("full_width_table"),
+    is_flag=True,
+    rich_help_panel=_CLI_BEHAVIOUR,
+)
+
 SilentOption = typer.Option(
     False,
     "--silent",
