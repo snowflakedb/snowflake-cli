@@ -393,7 +393,7 @@ def test_v1_to_v2_conversion(
             _assert_entities_are_equal(v1_function, v2_function)
 
 
-def test_v1_to_v2_conversion_in_memory_package_scripts(temp_dir):
+def test_v1_to_v2_conversion_in_memory_package_scripts(temporary_directory):
     package_script = "select '{{ package_name }}';"
     package_script_filename = "scripts/package-script.sql"
     ProjectV11Factory(
@@ -405,9 +405,9 @@ def test_v1_to_v2_conversion_in_memory_package_scripts(temp_dir):
         },
     )
 
-    definition_v1 = DefinitionManager(temp_dir).project_definition
+    definition_v1 = DefinitionManager(temporary_directory).project_definition
     definition_v2 = convert_project_definition_to_v2(
-        Path(temp_dir), definition_v1, in_memory=True
+        Path(temporary_directory), definition_v1, in_memory=True
     )
 
     # Actual contents of package script in project was not changed

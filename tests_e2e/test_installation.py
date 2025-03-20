@@ -53,8 +53,8 @@ def test_snow_sql(snowcli, test_root_path, snapshot):
         ("example_snowpark", ["requirements.txt", "app/functions.py", "snowflake.yml"]),
     ],
 )
-def test_snow_init(temp_dir, snowcli, template, files_to_check):
-    project_path = Path(temp_dir) / "streamlit_template"
+def test_snow_init(temporary_directory, snowcli, template, files_to_check):
+    project_path = Path(temporary_directory) / "streamlit_template"
     output = subprocess_check_output(
         [
             snowcli,

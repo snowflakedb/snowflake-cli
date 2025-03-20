@@ -110,7 +110,7 @@ def test_deploy_streamlit_with_api_integrations(
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query")
 @mock_streamlit_exists
 def test_deploy_streamlit_with_comment(
-    mock_execute_query, _, mock_stage_manager, __, temp_dir
+    mock_execute_query, _, mock_stage_manager, __, temporary_directory
 ):
     mock_stage_manager().get_standard_stage_prefix.return_value = "stage_root"
 
@@ -152,11 +152,11 @@ def test_deploy_streamlit_with_comment(
 @mock.patch("snowflake.cli._plugins.streamlit.manager.StreamlitManager.execute_query")
 @mock_streamlit_exists
 def test_deploy_streamlit_with_default_warehouse(
-    mock_execute_query, _, mock_stage_manager, __, temp_dir
+    mock_execute_query, _, mock_stage_manager, __, temporary_directory
 ):
     mock_stage_manager().get_standard_stage_prefix.return_value = "stage_root"
 
-    main_file = Path(temp_dir) / "main.py"
+    main_file = Path(temporary_directory) / "main.py"
     main_file.touch()
 
     st = StreamlitEntityModel(
@@ -170,7 +170,7 @@ def test_deploy_streamlit_with_default_warehouse(
 
     StreamlitManager(MagicMock(database="DB", schema="SH")).deploy(
         streamlit=st,
-        streamlit_project_paths=StreamlitProjectPaths(Path(temp_dir)),
+        streamlit_project_paths=StreamlitProjectPaths(Path(temporary_directory)),
         replace=False,
     )
 
@@ -196,11 +196,11 @@ def test_deploy_streamlit_with_default_warehouse(
 )
 @mock_streamlit_exists
 def test_deploy_streamlit_with_grants(
-    mock_grants, _, __, mock_stage_manager, ___, temp_dir
+    mock_grants, _, __, mock_stage_manager, ___, temporary_directory
 ):
     mock_stage_manager().get_standard_stage_prefix.return_value = "stage_root"
 
-    main_file = Path(temp_dir) / "main.py"
+    main_file = Path(temporary_directory) / "main.py"
     main_file.touch()
 
     st = StreamlitEntityModel(
@@ -216,7 +216,7 @@ def test_deploy_streamlit_with_grants(
     StreamlitManager(MagicMock(database="DB", schema="SH")).deploy(
         streamlit=st,
         replace=False,
-        streamlit_project_paths=StreamlitProjectPaths(Path(temp_dir)),
+        streamlit_project_paths=StreamlitProjectPaths(Path(temporary_directory)),
     )
 
     mock_grants.assert_called_once_with(st)

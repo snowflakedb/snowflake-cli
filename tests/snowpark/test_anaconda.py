@@ -21,7 +21,7 @@ from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AvailablePackage,
 )
 
-from tests.snowpark.mocks import mock_available_packages_sql_result  # noqa: F401
+from tests.snowpark.conftest import mock_available_packages_sql_result  # noqa: F401
 
 ANACONDA_PACKAGES = AnacondaPackages(
     packages={

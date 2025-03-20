@@ -49,6 +49,7 @@ from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.connector.cursor import DictCursor
 from snowflake.connector.errors import ProgrammingError
 
+from tests.conftest import MockConnectionCtx
 from tests.nativeapp.factories import (
     ApplicationEntityModelFactory,
     ApplicationPackageEntityModelFactory,
@@ -67,7 +68,6 @@ from tests.nativeapp.utils import (
     mock_execute_helper,
     mock_side_effect_error_with_cause,
 )
-from tests.testing_utils.fixtures import MockConnectionCtx
 
 DEFAULT_APP_ID = "myapp"
 DEFAULT_PKG_ID = "app_pkg"
@@ -477,7 +477,7 @@ def test_event_sharing_disabled_no_change_to_current_behavior(
     install_method,
     stage_subdir,
     is_upgrade,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     expected = _setup_mocks_for_app(
@@ -559,7 +559,7 @@ def test_event_sharing_disabled_but_we_add_event_sharing_flag_in_project_definit
     install_method,
     stage_subdir,
     is_upgrade,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     expected = _setup_mocks_for_app(
@@ -646,7 +646,7 @@ def test_event_sharing_enabled_not_enforced_no_mandatory_events_then_flag_respec
     install_method,
     stage_subdir,
     is_upgrade,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     expected = _setup_mocks_for_app(
@@ -729,7 +729,7 @@ def test_event_sharing_enabled_when_upgrade_flag_matches_existing_app_then_do_no
     install_method,
     stage_subdir,
     is_upgrade,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     expected = _setup_mocks_for_app(
@@ -810,7 +810,7 @@ def test_event_sharing_enabled_with_mandatory_events_and_explicit_authorization_
     install_method,
     stage_subdir,
     is_upgrade,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     expected = _setup_mocks_for_app(
@@ -899,7 +899,7 @@ def test_event_sharing_enabled_with_mandatory_events_but_no_authorization_then_f
     install_method,
     stage_subdir,
     is_upgrade,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     expected = _setup_mocks_for_app(
@@ -993,7 +993,7 @@ def test_enforced_events_sharing_with_no_mandatory_events_then_use_value_provide
     install_method,
     stage_subdir,
     is_upgrade,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     expected = _setup_mocks_for_app(
@@ -1074,7 +1074,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_provide
     install_method,
     is_upgrade,
     stage_subdir,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     expected = _setup_mocks_for_app(
@@ -1155,7 +1155,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_refused
     install_method,
     stage_subdir,
     is_upgrade,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     mock_execute_query_expected = _setup_mocks_for_app(
@@ -1247,7 +1247,7 @@ def test_enforced_events_sharing_with_mandatory_events_manifest_and_authorizatio
     install_method,
     stage_subdir,
     is_upgrade,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     expected = _setup_mocks_for_app(
@@ -1338,7 +1338,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_dev_mode_then_default
     install_method,
     stage_subdir,
     is_upgrade,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     expected = _setup_mocks_for_app(
@@ -1421,7 +1421,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
     install_method,
     stage_subdir,
     is_upgrade,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     expected = _setup_mocks_for_app(
@@ -1512,7 +1512,7 @@ def test_enforced_events_sharing_with_mandatory_events_and_authorization_not_spe
     install_method,
     stage_subdir,
     is_upgrade,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     expected = _setup_mocks_for_app(
@@ -1599,7 +1599,7 @@ def test_shared_events_with_no_enabled_mandatory_events_then_error(
     install_method,
     stage_subdir,
     is_upgrade,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     expected = _setup_mocks_for_app(
@@ -1678,7 +1678,7 @@ def test_shared_events_with_authorization_then_success(
     install_method,
     stage_subdir,
     is_upgrade,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     shared_events = ["DEBUG_LOGS", "ERRORS_AND_WARNINGS"]

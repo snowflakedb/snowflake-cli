@@ -82,7 +82,7 @@ class SqlManager(SqlExecutionMixin):
             raise ClickException("SQL rendering error")
 
         is_single_statement = not (stmt_count > 1)
-        return is_single_statement, self._execute_string(
+        return is_single_statement, self.execute_string(
             "\n".join(compiled_statements),
             cursor_class=VerboseCursor,
         )

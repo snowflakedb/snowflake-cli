@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Generator, List
 
 import pytest
+from snowflake.cli.api.project.schemas.v1.snowpark.callable import FunctionSchema
 
 PROJECT_DIR = Path(__file__).parent.parent / "test_data" / "projects"
 
@@ -68,3 +69,13 @@ def project_definition_files(request) -> Generator[List[Path], None, None]:
     dir_name = request.param
     with snowflake_ymls(dir_name) as ymls:
         yield ymls
+
+
+@pytest.fixture()
+def function_instance():
+    return FunctionSchema(
+        name="func1",
+        handler="app.func1_handler",
+        signature=[{"name": "a", "type": "string"}, {"name": "b", "type": "variant"}],
+        returns="string",
+    )

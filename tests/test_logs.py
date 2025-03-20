@@ -121,8 +121,8 @@ def assert_log_is_empty(logs_path: Path) -> None:
     assert get_logs_file(logs_path).read_text() == ""
 
 
-def test_logs_section_appears_in_fresh_config_file(temp_dir):
-    config_file = Path(temp_dir) / "sub" / "config.toml"
+def test_logs_section_appears_in_fresh_config_file(temporary_directory):
+    config_file = Path(temporary_directory) / "sub" / "config.toml"
     assert config_file.exists() is False
     config_init(config_file)
     assert config_file.exists() is True

@@ -8,7 +8,7 @@ from tests.nativeapp.factories import (
 
 @pytest.mark.integration
 @pytest.mark.parametrize("package_identifier", ["myapp_pkg", dict(name="myapp_pkg")])
-def test_app_diff(temp_dir, runner, package_identifier):
+def test_app_diff(temporary_directory, runner, package_identifier):
     ProjectV2Factory(
         pdf__entities=dict(
             pkg=ApplicationPackageEntityModelFactory(

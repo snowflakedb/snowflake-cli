@@ -105,8 +105,8 @@ def snowcli(test_root_path):
 
 
 @pytest.fixture(autouse=True)
-def isolate_default_config_location(monkeypatch, temp_dir):
-    monkeypatch.setenv("SNOWFLAKE_HOME", temp_dir)
+def isolate_default_config_location(monkeypatch, temporary_directory):
+    monkeypatch.setenv("SNOWFLAKE_HOME", temporary_directory)
 
 
 def _create_venv(tmp_dir: Path) -> None:
@@ -155,20 +155,20 @@ def _python_path(venv_path: Path) -> Path:
 # Inspired by project_directory fixture in tests_integration/conftest.py
 # This is a simpler implementation of that fixture, i.e. does not include supporting local PDFs.
 @pytest.fixture
-def project_directory(temp_dir, test_root_path):
+def project_directory(temporary_directory, test_root_path):
     @contextmanager
     def _temporary_project_directory(project_name):
         test_data_file = test_root_path / "test_data" / project_name
-        shutil.copytree(test_data_file, temp_dir, dirs_exist_ok=True)
-        yield Path(temp_dir)
+        shutil.copytree(test_data_file, temporary_directory, dirs_exist_ok=True)
+        yield Path(temporary_directory)
 
     return _temporary_project_directory
 
 
 @pytest.fixture()
-def prepare_test_config_file(temp_dir):
+def prepare_test_config_file(temporary_directory):
     def f(config_file_path: SecurePath):
-        target_file_path = Path(temp_dir) / "config.toml"
+        target_file_path = Path(temporary_directory) / "config.toml"
         config_file_path.copy(target_file_path)
         return target_file_path
 

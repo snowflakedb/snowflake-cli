@@ -21,20 +21,20 @@ from snowflake.cli.api.artifacts.common import NotInDeployRootError
 from snowflake.cli.api.artifacts.utils import symlink_or_copy
 
 from tests.nativeapp.utils import assert_dir_snapshot, touch
-from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
-from tests_common import IS_WINDOWS
+from tests.testing_utils.files_and_dirs import temp_local_dir
+from tests_common import IS_WINDOWS, change_directory
 
 
 @pytest.mark.skipif(
     IS_WINDOWS, reason="Symlinks on Windows are restricted to Developer mode or admins"
 )
-def test_symlink_or_copy_raises_error(temp_dir, os_agnostic_snapshot):
+def test_symlink_or_copy_raises_error(temporary_directory, os_agnostic_snapshot):
     touch("GrandA/ParentA/ChildA")
-    with open(Path(temp_dir, "GrandA/ParentA/ChildA"), "w") as f:
+    with open(Path(temporary_directory, "GrandA/ParentA/ChildA"), "w") as f:
         f.write("Test 1")
 
     # Create the deploy root
-    deploy_root = Path(temp_dir, "output", "deploy")
+    deploy_root = Path(temporary_directory, "output", "deploy")
     os.makedirs(deploy_root)
 
     # Incorrect dst path
@@ -107,7 +107,7 @@ def test_symlink_or_copy_with_no_symlinks_in_project_root(os_agnostic_snapshot):
         "output/deploy": None,  # dir
     }
     with temp_local_dir(test_dir_structure) as project_root:
-        with pushd(project_root):
+        with change_directory(project_root):
             # Sanity Check
             assert_dir_snapshot(Path("."), os_agnostic_snapshot)
 
@@ -214,7 +214,7 @@ def test_symlink_or_copy_with_symlinks_in_project_root(os_agnostic_snapshot):
         "output/deploy": None,  # dir
     }
     with temp_local_dir(test_dir_structure) as project_root:
-        with pushd(project_root):
+        with change_directory(project_root):
             # Sanity Check
             assert_dir_snapshot(Path("."), os_agnostic_snapshot)
 

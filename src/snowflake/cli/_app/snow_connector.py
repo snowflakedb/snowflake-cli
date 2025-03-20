@@ -56,6 +56,7 @@ SUPPORTED_ENV_OVERRIDES = [
     "authenticator",
     "private_key_file",
     "private_key_path",
+    "private_key_raw",
     "database",
     "schema",
     "role",

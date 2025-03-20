@@ -55,7 +55,7 @@ def assert_events_in_app(snowflake_session, resource_suffix, events):
 
 @pytest.mark.integration
 def test_given_event_sharing_with_mandatory_events_and_sharing_allowed_then_success(
-    temp_dir, runner, events_assertion, nativeapp_teardown
+    temporary_directory, runner, events_assertion, nativeapp_teardown
 ):
     manifest_yml = ManifestFactory(
         configuration__telemetry_event_definitions=[
@@ -109,7 +109,7 @@ def test_given_event_sharing_with_mandatory_events_and_sharing_allowed_then_succ
 
 @pytest.mark.integration
 def test_given_event_sharing_with_mandatory_events_and_sharing_not_allowed_then_error(
-    temp_dir, runner, nativeapp_teardown
+    temporary_directory, runner, nativeapp_teardown
 ):
     manifest_yml = ManifestFactory(
         configuration__telemetry_event_definitions=[
@@ -147,7 +147,7 @@ def test_given_event_sharing_with_mandatory_events_and_sharing_not_allowed_then_
 
 @pytest.mark.integration
 def test_given_event_sharing_with_no_mandatory_events_and_sharing_not_allowed_then_success(
-    temp_dir, runner, events_assertion, nativeapp_teardown
+    temporary_directory, runner, events_assertion, nativeapp_teardown
 ):
     manifest_yml = ManifestFactory(
         configuration__telemetry_event_definitions=[
@@ -199,7 +199,7 @@ def test_given_event_sharing_with_no_mandatory_events_and_sharing_not_allowed_th
 
 @pytest.mark.integration
 def test_given_event_sharing_with_no_mandatory_events_and_sharing_is_allowed_then_success(
-    temp_dir, runner, events_assertion, nativeapp_teardown
+    temporary_directory, runner, events_assertion, nativeapp_teardown
 ):
     manifest_yml = ManifestFactory(
         configuration__telemetry_event_definitions=[

@@ -26,7 +26,6 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.secret import SecretType
 from snowflake.cli.api.secure_utils import file_permissions_are_strict
 
-from tests.testing_utils.files_and_dirs import pushd
 from tests_common import IS_WINDOWS
 
 if IS_WINDOWS:
@@ -695,11 +694,11 @@ def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
 
 
 @mock.patch("snowflake.connector.connect")
-def test_token_file_path_tokens(mock_connector, mock_ctx, runner, temp_dir):
+def test_token_file_path_tokens(mock_connector, mock_ctx, runner, temporary_directory):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    token_file = Path(temp_dir) / "token.file"
+    token_file = Path(temporary_directory) / "token.file"
     token_file.touch()
 
     result = runner.invoke(
@@ -732,7 +731,7 @@ def test_token_file_path_tokens(mock_connector, mock_ctx, runner, temp_dir):
 @mock.patch("snowflake.cli._app.snow_connector._load_pem_from_file")
 @mock.patch("snowflake.cli._app.snow_connector._load_pem_to_der")
 def test_key_pair_authentication_from_config(
-    mock_convert, mock_load_file, mock_connector, mock_ctx, temp_dir, runner
+    mock_convert, mock_load_file, mock_connector, mock_ctx, temporary_directory, runner
 ):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -1119,23 +1118,22 @@ def test_new_connection_is_added_to_connections_toml(
         )
     )
 
-    with pushd(snowflake_home):
-        result = runner.super_invoke(
-            [
-                "connection",
-                "add",
-                "--connection-name",
-                "new_one",
-                "--username",
-                "user1",
-                "--password",
-                "password1",
-                "--account",
-                "account1",
-                "--port",
-                "8080",
-            ],
-        )
+    result = runner.super_invoke(
+        [
+            "connection",
+            "add",
+            "--connection-name",
+            "new_one",
+            "--username",
+            "user1",
+            "--password",
+            "password1",
+            "--account",
+            "account1",
+            "--port",
+            "8080",
+        ],
+    )
 
     assert result.exit_code == 0, result.output
     assert f"Wrote new connection new_one to {connections_toml}" in result.output
