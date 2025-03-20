@@ -32,6 +32,7 @@
 * Fix for incompatible options in `snow spcs compute-pool` commands didn't raise error.
 * Change binary builds to embed whole Python environment.
 * Fixed recursive copying to stage for unbalanced directory trees.
+* Fixed checking for new CLI version.
 
 # v3.5.0
 
