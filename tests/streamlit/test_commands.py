@@ -24,6 +24,7 @@ from snowflake.cli.api.identifiers import FQN
 STREAMLIT_NAME = "test_streamlit"
 TEST_WAREHOUSE = "test_warehouse"
 GET_UI_PARAMETERS = "snowflake.cli._plugins.connection.util.get_ui_parameters"
+STAGE_MANAGER = "snowflake.cli._plugins.stage.manager.StageManager"
 
 mock_streamlit_exists = mock.patch(
     "snowflake.cli._plugins.streamlit.manager.ObjectManager.object_exists",
@@ -57,7 +58,7 @@ def test_describe_streamlit(mock_connector, runner, mock_ctx):
 
 def _put_query(project_root: Path, source: str, dest: str):
     return dedent(
-        f"put file://{project_root.resolve() / 'output' / 'bundle' / 'streamlit' / source} {dest} auto_compress=false parallel=4 overwrite=True"
+        f"put file://{project_root.resolve() / 'output' / 'bundle' / 'streamlit' / source} {dest} auto_compress=false parallel=4 overwrite=False"
     )
 
 
@@ -68,8 +69,10 @@ def _put_query(project_root: Path, source: str, dest: str):
     GET_UI_PARAMETERS,
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 @mock_streamlit_exists
 def test_deploy_only_streamlit_file(
+    mock_list_files,
     mock_param,
     mock_connector,
     mock_typer,
@@ -125,8 +128,10 @@ def test_deploy_only_streamlit_file(
     GET_UI_PARAMETERS,
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 @mock_streamlit_exists
 def test_deploy_only_streamlit_file_no_stage(
+    mock_list_files,
     mock_param,
     mock_connector,
     mock_typer,
@@ -181,8 +186,10 @@ def test_deploy_only_streamlit_file_no_stage(
     GET_UI_PARAMETERS,
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 @mock_streamlit_exists
 def test_deploy_with_empty_pages(
+    mock_list_files,
     mock_param,
     mock_connector,
     mock_typer,
@@ -213,12 +220,12 @@ def test_deploy_with_empty_pages(
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
         _put_query(
             tmp_dir,
-            "streamlit_app.py",
+            "environment.yml",
             "@MockDatabase.MockSchema.streamlit/test_streamlit",
         ),
         _put_query(
             tmp_dir,
-            "environment.yml",
+            "streamlit_app.py",
             "@MockDatabase.MockSchema.streamlit/test_streamlit",
         ),
         dedent(
@@ -240,8 +247,10 @@ def test_deploy_with_empty_pages(
     GET_UI_PARAMETERS,
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 @mock_streamlit_exists
 def test_deploy_only_streamlit_file_replace(
+    mock_list_files,
     mock_param,
     mock_connector,
     mock_typer,
@@ -297,8 +306,10 @@ def test_deploy_only_streamlit_file_replace(
     GET_UI_PARAMETERS,
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 @mock_streamlit_exists
 def test_deploy_launch_browser(
+    mock_list_files,
     mock_param,
     mock_connector,
     mock_typer,
@@ -334,8 +345,10 @@ def test_deploy_launch_browser(
     GET_UI_PARAMETERS,
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 @mock_streamlit_exists
 def test_deploy_streamlit_and_environment_files(
+    mock_list_files,
     mock_param,
     mock_connector,
     mock_cursor,
@@ -371,8 +384,8 @@ def test_deploy_streamlit_and_environment_files(
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
-        _put_query(tmp_dir, "streamlit_app.py", root_path),
         _put_query(tmp_dir, "environment.yml", root_path),
+        _put_query(tmp_dir, "streamlit_app.py", root_path),
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
@@ -393,8 +406,10 @@ def test_deploy_streamlit_and_environment_files(
     GET_UI_PARAMETERS,
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 @mock_streamlit_exists
 def test_deploy_streamlit_and_pages_files(
+    mock_list_files,
     mock_param,
     mock_connector,
     mock_cursor,
@@ -429,8 +444,8 @@ def test_deploy_streamlit_and_pages_files(
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
-        _put_query(tmp_dir, "streamlit_app.py", root_path),
         _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
+        _put_query(tmp_dir, "streamlit_app.py", root_path),
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
@@ -453,8 +468,10 @@ def test_deploy_streamlit_and_pages_files(
     GET_UI_PARAMETERS,
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 @mock_streamlit_exists
 def test_deploy_all_streamlit_files(
+    mock_list_files,
     mock_param,
     mock_connector,
     mock_cursor,
@@ -481,11 +498,11 @@ def test_deploy_all_streamlit_files(
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
-        _put_query(tmp_dir, "streamlit_app.py", root_path),
         _put_query(tmp_dir, "environment.yml", root_path),
-        _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
-        _put_query(tmp_dir, "utils/utils.py", f"{root_path}/utils"),
         _put_query(tmp_dir, "extra_file.py", root_path),
+        _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
+        _put_query(tmp_dir, "streamlit_app.py", root_path),
+        _put_query(tmp_dir, "utils/utils.py", f"{root_path}/utils"),
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
@@ -521,8 +538,10 @@ def test_deploy_all_streamlit_files(
     GET_UI_PARAMETERS,
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 @mock_streamlit_exists
 def test_deploy_put_files_on_stage(
+    test_list_files,
     mock_param,
     mock_connector,
     mock_cursor,
@@ -554,9 +573,9 @@ def test_deploy_put_files_on_stage(
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit_stage')",
-        _put_query(tmp_dir, "streamlit_app.py", root_path),
         _put_query(tmp_dir, "environment.yml", root_path),
         _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
+        _put_query(tmp_dir, "streamlit_app.py", root_path),
         dedent(
             f"""
                 CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
@@ -580,8 +599,10 @@ def test_deploy_put_files_on_stage(
     GET_UI_PARAMETERS,
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 @mock_streamlit_exists
 def test_deploy_all_streamlit_files_not_defaults(
+    mock_list_files,
     mock_param,
     mock_connector,
     mock_cursor,
@@ -634,8 +655,10 @@ def test_deploy_all_streamlit_files_not_defaults(
     GET_UI_PARAMETERS,
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 @mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental(
+    mock_list_files,
     mock_param,
     mock_connector,
     mock_cursor,
@@ -705,9 +728,10 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
                """
             ).strip(),
             post_create_command,
-            _put_query(tmp_dir, "streamlit_app.py", root_path),
+            "create stage if not exists IDENTIFIER('streamlit')",
             _put_query(tmp_dir, "environment.yml", f"{root_path}"),
             _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
+            _put_query(tmp_dir, "streamlit_app.py", root_path),
             "select system$get_snowsight_host()",
             "select current_account_name()",
         ]
@@ -721,8 +745,10 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
     GET_UI_PARAMETERS,
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 @mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
+    mock_list_files,
     mock_param,
     mock_connector,
     mock_cursor,
@@ -786,9 +812,10 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
             TITLE = 'My Fancy Streamlit'
             """
         ).strip(),
-        _put_query(tmp_dir, "streamlit_app.py", root_path),
+        "create stage if not exists IDENTIFIER('streamlit')",
         _put_query(tmp_dir, "environment.yml", f"{root_path}"),
         _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
+        _put_query(tmp_dir, "streamlit_app.py", root_path),
         "select system$get_snowsight_host()",
         "select current_account_name()",
     ]
@@ -803,8 +830,10 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
     GET_UI_PARAMETERS,
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 @mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
+    mock_list_files,
     mock_param,
     mock_connector,
     mock_cursor,
@@ -855,9 +884,10 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
             """
         ).strip(),
         post_create_command,
-        _put_query(tmp_dir, "streamlit_app.py", root_path),
+        "create stage if not exists IDENTIFIER('streamlit')",
         _put_query(tmp_dir, "environment.yml", f"{root_path}"),
         _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
+        _put_query(tmp_dir, "streamlit_app.py", root_path),
         f"select system$get_snowsight_host()",
         f"select current_account_name()",
     ]
@@ -869,8 +899,10 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
     GET_UI_PARAMETERS,
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 @mock_streamlit_exists
 def test_deploy_streamlit_main_and_pages_files_experimental_replace(
+    mock_list_files,
     mock_param,
     mock_connector,
     mock_cursor,
@@ -912,9 +944,10 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
             """
         ).strip(),
         f"ALTER streamlit MockDatabase.MockSchema.{STREAMLIT_NAME} CHECKOUT",
-        _put_query(tmp_dir, "streamlit_app.py", root_path),
+        "create stage if not exists IDENTIFIER('streamlit')",
         _put_query(tmp_dir, "environment.yml", f"{root_path}"),
         _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
+        _put_query(tmp_dir, "streamlit_app.py", root_path),
         f"select system$get_snowsight_host()",
         f"select current_account_name()",
     ]
@@ -1033,8 +1066,15 @@ def test_multiple_streamlit_raise_error_if_multiple_entities(
     GET_UI_PARAMETERS,
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 def test_deploy_streamlit_with_comment_v2(
-    mock_param, mock_connector, mock_cursor, runner, mock_ctx, project_directory
+    mock_list_files,
+    mock_param,
+    mock_connector,
+    mock_cursor,
+    runner,
+    mock_ctx,
+    project_directory,
 ):
     ctx = mock_ctx(
         mock_cursor(
@@ -1055,9 +1095,9 @@ def test_deploy_streamlit_with_comment_v2(
     assert ctx.get_queries() == [
         f"describe streamlit IDENTIFIER('MockDatabase.MockSchema.test_streamlit_deploy_snowcli')",
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
-        _put_query(tmp_dir, "streamlit_app.py", root_path),
-        _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
         _put_query(tmp_dir, "environment.yml", root_path),
+        _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
+        _put_query(tmp_dir, "streamlit_app.py", root_path),
         dedent(
             f"""
             CREATE OR REPLACE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.test_streamlit_deploy_snowcli')

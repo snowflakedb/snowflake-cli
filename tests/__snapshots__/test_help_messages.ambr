@@ -12514,6 +12514,8 @@
   | --replace                Replaces the Streamlit app if it already exists. It |
   |                          only uploads new and overwrites existing files, but |
   |                          does not remove any files already on the stage.     |
+  | --prune                  Delete files that exist in the stage, but not in    |
+  |                          the local filesystem.                               |
   | --open                   Whether to open the Streamlit app in a browser.     |
   | --project  -p      TEXT  Path where the Snowflake project is stored.         |
   |                          Defaults to the current working directory.          |
