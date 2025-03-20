@@ -73,11 +73,12 @@ def bundle_artifacts(project_paths: ProjectPaths, artifacts: Artifacts) -> Bundl
     for absolute_src, absolute_dest in bundle_map.all_mappings(
         absolute=True, expand_directories=True
     ):
-        # We treat the bundle root as deploy root
-        symlink_or_copy(
-            absolute_src,
-            absolute_dest,
-            deploy_root=project_paths.bundle_root,
-        )
+        if absolute_src.is_file():
+            # We treat the bundle root as deploy root
+            symlink_or_copy(
+                absolute_src,
+                absolute_dest,
+                deploy_root=project_paths.bundle_root,
+            )
 
     return bundle_map

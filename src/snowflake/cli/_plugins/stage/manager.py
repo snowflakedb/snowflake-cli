@@ -65,7 +65,7 @@ EXECUTE_SUPPORTED_FILES_FORMATS = (
 
 # Replace magic numbers with constants
 OMIT_FIRST = slice(1, None)
-STAGE_PATH_REGEX = rf"(?P<prefix>@)?(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?P<name>{VALID_IDENTIFIER_REGEX})/?(?P<directory>([^/]*/?)*)?"
+STAGE_PATH_REGEX = rf"(?P<prefix>(@|{re.escape('snow://')}))?(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?P<name>{VALID_IDENTIFIER_REGEX})/?(?P<directory>([^/]*/?)*)?"
 
 
 @dataclass
@@ -119,6 +119,14 @@ class StagePathParts:
         raise NotImplementedError
 
 
+def _strip_standard_stage_prefix(path: str) -> str:
+    """Removes '@' or 'snow://' prefix from given string"""
+    for prefix in ["@", "snow://"]:
+        if path.startswith(prefix):
+            path = path.removeprefix(prefix)
+    return path
+
+
 @dataclass
 class DefaultStagePathParts(StagePathParts):
     """
@@ -126,8 +134,8 @@ class DefaultStagePathParts(StagePathParts):
         directory = dir
         stage = @db.schema.stage
         stage_name = stage
-    For `@stage/dir` to
-        stage -> @stage
+    For `snow://stage/dir` to
+        stage -> snow://stage
         stage_name -> stage
         directory -> dir
     """
@@ -138,12 +146,12 @@ class DefaultStagePathParts(StagePathParts):
             raise ClickException("Invalid stage path")
         self.directory = match.group("directory")
         self._schema = match.group("second_qualifier") or match.group("first_qualifier")
+        self._prefix = match.group("prefix") or "@"
         self.stage = stage_path.removesuffix(self.directory).rstrip("/")
 
         stage_name = FQN.from_stage(self.stage).name
-        stage_name = (
-            stage_name[OMIT_FIRST] if stage_name.startswith("@") else stage_name
-        )
+        if stage_name.startswith(self._prefix):
+            stage_name = stage_name.removeprefix(self._prefix)
         self.stage_name = stage_name
         self.is_directory = True if stage_path.endswith("/") else False
 
@@ -167,13 +175,12 @@ class DefaultStagePathParts(StagePathParts):
         return self._schema
 
     def replace_stage_prefix(self, file_path: str) -> str:
-        stage = Path(self.stage).parts[0]
+        file_path = _strip_standard_stage_prefix(file_path)
         file_path_without_prefix = Path(file_path).parts[OMIT_FIRST]
-        return f"{stage}/{'/'.join(file_path_without_prefix)}"
+        return f"{self.stage}/{'/'.join(file_path_without_prefix)}"
 
     def strip_stage_prefix(self, file_path: str) -> str:
-        if file_path.startswith("@"):
-            file_path = file_path[OMIT_FIRST]
+        file_path = _strip_standard_stage_prefix(file_path)
         if file_path.startswith(self.stage_name):
             return file_path[len(self.stage_name) :]
         return file_path
