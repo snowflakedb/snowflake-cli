@@ -1,0 +1,84 @@
+# serializer version: 1
+# name: test_correct_query_is_constructed
+  '''
+  SELECT
+                  timestamp,
+                  resource_attributes:"snow.database.name"::string as database_name,
+                  resource_attributes:"snow.schema.name"::string as schema_name,
+                  resource_attributes:"snow.compute_pool.name"::string as object_name,
+                  record:severity_text::string as log_level,
+                  value::string as log_message
+              FROM foo
+              WHERE record_type = 'LOG'
+              AND (record:severity_text = 'INFO' or record:severity_text is NULL )
+              AND object_name = 'bar'
+              AND timestamp >= TO_TIMESTAMP_LTZ('2022-02-02 02:02:02')
+  AND timestamp <= TO_TIMESTAMP_LTZ('2022-02-03 02:02:02')
+  
+              ORDER BY timestamp;
+  '''
+# ---
+# name: test_providing_time_in_incorrect_format_causes_error[2024-11-03 12:00:00 UTC---from]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Incorrect format for '--from'. Please use one of approved ISO formats.       |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_providing_time_in_incorrect_format_causes_error[2024-11-03 12:00:00 UTC---to]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Incorrect format for '--to'. Please use one of approved ISO formats.         |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_providing_time_in_incorrect_format_causes_error[2024.11.03 12 00---from]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Incorrect format for '--from'. Please use one of approved ISO formats.       |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_providing_time_in_incorrect_format_causes_error[2024.11.03 12 00---to]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Incorrect format for '--to'. Please use one of approved ISO formats.         |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_providing_time_in_incorrect_format_causes_error[92348573948753202---from]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Incorrect format for '--from'. Please use one of approved ISO formats.       |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_providing_time_in_incorrect_format_causes_error[92348573948753202---to]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Incorrect format for '--to'. Please use one of approved ISO formats.         |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_providing_time_in_incorrect_format_causes_error[About one hour ago---from]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Incorrect format for '--from'. Please use one of approved ISO formats.       |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_providing_time_in_incorrect_format_causes_error[About one hour ago---to]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Incorrect format for '--to'. Please use one of approved ISO formats.         |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
