@@ -19,7 +19,7 @@ from contextlib import contextmanager
 from typing import Callable, Iterator, Optional
 
 from rich import print as rich_print
-from rich.text import Text
+from rich.jupyter import JupyterMixin
 from snowflake.cli.api.cli_global_context import (
     _CliGlobalContextAccess,
     get_cli_context,
@@ -57,7 +57,7 @@ class AbstractConsole(ABC):
         """Indicated whether output should be grouped."""
         return self._in_phase
 
-    def _print(self, text: Text):
+    def _print(self, text: JupyterMixin):
         if self.is_silent:
             return
         rich_print(text)
@@ -92,3 +92,9 @@ class AbstractConsole(ABC):
         """Displays message in a style that makes it visually stand out from other output.
 
         Intended for displaying messages related to important messages."""
+
+    @abstractmethod
+    def panel(self, message: str):
+        """Displays message in a panel that makes it visually stand out from other output.
+
+        Intended for displaying visually separated messages."""
