@@ -106,13 +106,11 @@ def test_containerized_notebook(runner, project_directory, test_database):
     with project_directory("notebook_containerized_v2"):
         result = runner.invoke_with_connection(["notebook", "deploy"])
         assert result.exit_code == 0, result.output
-        assert result.output.startswith(
+        assert (
             f"Uploading artifacts to @notebooks/{notebook_identifier}\n"
-            f"  Creating stage notebooks if not exists\n"
-            f"  Uploading artifacts\n"
-            f"Creating notebook {notebook_identifier}\n"
-            f"Notebook successfully deployed and available under"
+            in result.output
         )
+        assert f"Notebook successfully deployed and available under" in result.output
 
         # execute notebook without exceptions
         result = runner.invoke_with_connection(

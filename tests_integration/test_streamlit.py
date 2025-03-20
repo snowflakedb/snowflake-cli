@@ -374,6 +374,7 @@ def _new_streamlit_role(snowflake_session, test_database):
 def test_streamlit_execute_in_headless_mode(
     runner,
     snowflake_session,
+    test_database,
     project_directory,
 ):
     streamlit_name = "test_streamlit_deploy_snowcli"
