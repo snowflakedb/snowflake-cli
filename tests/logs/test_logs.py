@@ -43,10 +43,10 @@ def test_providing_to_time_earlier_than_from_time_causes_error(mock_table, runne
 @pytest.mark.parametrize(
     "time_string",
     [
-        "2022-22-22 12:00:00",
-        "2024-11-03",
-        "2024-11-03 12:00:00:00",
-        "About one hour ago" "92348573948753202",
+        "2024-11-03 12:00:00 UTC",
+        "2024.11.03 12 00",
+        "About one hour ago",
+        "92348573948753202",
     ],
 )
 def test_providing_time_in_incorrect_format_causes_error(
@@ -58,14 +58,18 @@ def test_providing_time_in_incorrect_format_causes_error(
     assert result.output == snapshot
 
 
-@mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli._plugins.logs.manager.LogsManager.logs_table")
-def test_correct_query_is_constructed(mock_table, mock_conn, mock_ctx, runner):
+@mock.patch(
+    "snowflake.cli._plugins.logs.manager.LogsManager.logs_table",
+    new_callable=mock.PropertyMock,
+)
+def test_correct_query_is_constructed(
+    mock_table, mock_connect, mock_ctx, runner, snapshot
+):
     mock_table.return_value = "foo"
     ctx = mock_ctx()
-    mock_conn.return_value = ctx
+    mock_connect.return_value = ctx
 
-    result = runner.invoke(
+    _ = runner.invoke(
         [
             "logs",
             "compute_pool",
@@ -77,4 +81,6 @@ def test_correct_query_is_constructed(mock_table, mock_conn, mock_ctx, runner):
         ]
     )
 
-    assert result.exit_code == 0
+    queries = ctx.get_queries()
+    assert len(queries) == 1
+    assert queries[0] == snapshot

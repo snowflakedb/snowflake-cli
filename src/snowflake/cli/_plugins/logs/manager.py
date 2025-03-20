@@ -1,9 +1,8 @@
 import functools
-import re
 import time
 from datetime import datetime
 from textwrap import dedent
-from typing import Iterable, List, Optional
+from typing import Iterable, List, NamedTuple, Optional
 
 from click import ClickException
 from snowflake.cli._plugins.object.commands import NameArgument, ObjectArgument
@@ -14,6 +13,30 @@ from snowflake.connector.cursor import SnowflakeCursor
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 DATETIME_FORMAT_IN_OUTPUT = "%d/%b/%Y %H:%M:%S"
 DATE_PATTERN = r"\[(\d{2}/\w{3}/\d{4} \d{2}:\d{2}:\d{2})\]"
+
+Logs_table_query_result = NamedTuple(
+    "Logs_table_query_result",
+    [
+        ("key", str),
+        ("table_name", str),
+        ("default", str),
+        ("level", str),
+        ("description", str),
+        ("type", str),
+    ],
+)
+
+Logs_query_row = NamedTuple(
+    "Logs_query_row",
+    [
+        ("timestamp", datetime),
+        ("database_name", str),
+        ("schema_name", str),
+        ("object_name", str),
+        ("log_level", str),
+        ("log_message", str),
+    ],
+)
 
 
 class LogsManager(SqlExecutionMixin):
@@ -35,8 +58,9 @@ class LogsManager(SqlExecutionMixin):
                     )
                 ]
                 if logs:
-                    yield logs
-                    previous_end = get_timestamps_from_log_messages(logs[-1])[0]
+                    result = self.sanitize_logs(logs)
+                    yield result
+                    previous_end = logs[-1].timestamp
                 time.sleep(refresh_time)
 
         except KeyboardInterrupt:
@@ -64,7 +88,6 @@ class LogsManager(SqlExecutionMixin):
         from_time: Optional[datetime] = None,
         to_time: Optional[datetime] = None,
     ) -> SnowflakeCursor:
-        """ """
         query = dedent(
             f"""
             SELECT
@@ -79,27 +102,29 @@ class LogsManager(SqlExecutionMixin):
             AND (record:severity_text = 'INFO' or record:severity_text is NULL )
             AND object_name = '{object_name}'
             {self._get_timestamp_query(from_time, to_time)}
-            ORDER BY timestamp
+            ORDER BY timestamp;
 """
         ).strip()
 
-        return self.execute_query(query + ";")
+        result = self.execute_query(query)
+
+        return result
 
     @functools.cached_property
-    def logs_table(self) -> str:  # Maybe this should be a cached property?
+    def logs_table(self) -> str:
         """
-        Get the table where logs are.
-        The query returns a tuple with fields:
-        0: Key ("EVENT_TABLE")
-        1: table name <- this is where the logs are stored
-        2: default (where the logs are stored by default)
-        3: level (log level currently set, by default is NULL)
-        4: description
-        5: type
-        """
-        return self.execute_query(
+        Get the table where logs are."""
+        query_result = self.execute_query(
             f"SHOW PARAMETERS LIKE 'event_table' IN ACCOUNT;"
-        ).fetchone()[1]
+        ).fetchone()
+
+        try:
+            logs_table_query_result = Logs_table_query_result(*query_result)
+        except TypeError:
+            raise ClickException(
+                "Encountered error while querying for logs table. Please check if your account has an event_table"
+            )
+        return logs_table_query_result.table_name
 
     def _get_timestamp_query(
         self, from_time: Optional[datetime], to_time: Optional[datetime]
@@ -123,26 +148,11 @@ class LogsManager(SqlExecutionMixin):
         return "".join(query)
 
     def sanitize_logs(self, logs: SnowflakeCursor) -> List[str]:
-        if [metadata.name for metadata in logs.description] != [
-            "TIMESTAMP",
-            "DATABASE_NAME",
-            "SCHEMA_NAME",
-            "OBJECT_NAME",
-            "LOG_LEVEL",
-            "LOG_MESSAGE",
-        ]:
+        try:
+            logs = [Logs_query_row(*log) for log in logs]
+        except TypeError:
             raise ClickException(
                 "Logs table has incorrect format. Please check the logs_table in your database"
             )
 
-        if logs:
-            return [log[5] for log in logs]
-        else:
-            return []
-
-
-def get_timestamps_from_log_messages(log_message: str) -> List[datetime]:
-    return [
-        datetime.strptime(date, DATETIME_FORMAT_IN_OUTPUT)
-        for date in re.findall(DATE_PATTERN, log_message)
-    ]
+        return logs
