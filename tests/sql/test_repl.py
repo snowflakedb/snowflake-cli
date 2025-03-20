@@ -1,9 +1,47 @@
 from unittest import mock
 
+import pytest
+from snowflake.cli._plugins.sql.manager import SqlManager
+from snowflake.cli._plugins.sql.repl import Repl
 
-@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
-def test_repl_input_handling(mock_execute, runner, mock_cursor, snapshot):
-    mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
-    result = runner.invoke(["sql"])
-    assert result.exit_code == 0
-    snapshot.assert_match(result.output)
+
+@pytest.fixture(name="repl")
+def make_repl(mock_cursor):
+    mocked_cursor = [mock_cursor(["1"], [("1",)])]
+    with mock.patch.object(SqlManager, "_execute_string", return_value=mocked_cursor):
+        yield Repl(SqlManager())
+
+
+def test_repl_input_handling(repl, capsys, snapshot):
+    user_inputs = iter(("select 1;", "exit", "y"))
+
+    with mock.patch.object(
+        repl.session,
+        "prompt",
+        side_effect=user_inputs,
+    ):
+        repl.run()
+    snapshot.assert_match(capsys.readouterr())
+
+
+@pytest.mark.parametrize(
+    "user_inputs",
+    (
+        pytest.param(("exit", "y"), id="exit"),
+        pytest.param(("quit", "y"), id="quit"),
+        pytest.param(("exit", "n", "exit", "y"), id="hesistate on exit"),
+        pytest.param(("quit", "n", "quit", "y"), id="hesistate on quit"),
+    ),
+)
+def test_exit_sequence(user_inputs, repl, capsys):
+    user_inputs = iter(user_inputs)
+
+    with mock.patch.object(
+        repl.session,
+        "prompt",
+        side_effect=user_inputs,
+    ):
+        repl.run()
+
+    output = capsys.readouterr().out
+    assert "Leaving REPL, bye ..." in output, output
