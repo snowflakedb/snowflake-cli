@@ -21,6 +21,11 @@ import typer
 import yaml
 from click import ClickException
 from snowflake.cli.__about__ import VERSION
+from snowflake.cli._plugins.cicd.manager import (
+    CIProvider,
+    CIProviderChoices,
+    CIProviderManager,
+)
 from snowflake.cli.api.commands.flags import (
     NoInteractiveOption,
     variables_option,
@@ -42,6 +47,7 @@ app = SnowTyperFactory()
 
 
 DEFAULT_SOURCE = "https://github.com/snowflakedb/snowflake-cli-templates"
+DEFAULT_CI_SOURCE = DEFAULT_SOURCE + "/cicd"
 
 log = logging.getLogger(__name__)
 
@@ -71,6 +77,17 @@ SourceOption = typer.Option(
     DEFAULT_SOURCE,
     "--template-source",
     help=f"local path to template directory or URL to git repository with templates.",
+)
+CIProviderOption = typer.Option(
+    None,
+    "--ci-provider",
+    help=f"CI provider to generate workflow for.",
+    case_sensitive=True,
+)
+CITemplateSourceOption = typer.Option(
+    None,
+    "--ci-template-source",
+    help=f"local path to template directory or URL to git repository with ci/cd templates.",
 )
 VariablesOption = variables_option(
     "String in `key=value` format. Provided variables will not be prompted for."
@@ -191,6 +208,8 @@ def init(
     path: str = PathArgument,
     template: Optional[str] = TemplateOption,
     template_source: Optional[str] = SourceOption,
+    ci_provider: Optional[CIProviderChoices] = CIProviderOption,
+    ci_template_source: Optional[str] = CITemplateSourceOption,
     variables: Optional[List[str]] = VariablesOption,
     no_interactive: bool = NoInteractiveOption,
     **options,
@@ -219,6 +238,28 @@ def init(
                 destination=tmpdir,
             )
 
+        if ci_provider:
+            ci_provider_instance = CIProvider.from_choice(ci_provider)
+            if ci_template_source is not None:
+                with SecurePath.temporary_directory() as cicd_tmpdir:
+                    cicd_template_root = _fetch_remote_template(
+                        url=ci_template_source,
+                        path=None,
+                        destination=cicd_tmpdir
+                        # type: ignore
+                    )
+                    cicd_template_root.copy(template_root.path)
+
+            elif ci_provider_instance.has_template(template_root):
+                pass  # template has ci files
+            else:
+                # use generic ci/cd template
+                with SecurePath.temporary_directory() as cicd_tmpdir:
+                    cicd_template_root = _fetch_remote_template(
+                        url=DEFAULT_SOURCE, path=f"cicd/{ci_provider_instance.name.lower()}", destination=cicd_tmpdir  # type: ignore
+                    )
+                    cicd_template_root.copy(template_root.path)
+
         template_metadata = _read_template_metadata(
             template_root, args_error_msg=args_error_msg
         )
@@ -233,16 +274,22 @@ def init(
             "project_dir_name": SecurePath(path).name,
             "snowflake_cli_version": VERSION,
         }
-        log.debug(
-            "Rendering template files: %s", ", ".join(template_metadata.files_to_render)
+        files_to_render = template_metadata.files_to_render + list(
+            ci_provider_instance.get_files_to_render(template_root)
         )
+        log.debug("Rendering template files: %s", ", ".join(files_to_render))
         render_template_files(
             template_root=template_root,
-            files_to_render=template_metadata.files_to_render,
+            files_to_render=files_to_render,
             data=variable_values,
         )
         _remove_template_metadata_file(template_root)
+        post_generate(template_root, ci_provider_instance)
         SecurePath(path).parent.mkdir(exist_ok=True, parents=True)
         template_root.copy(path)
 
     return MessageResult(f"Initialized the new project in {path}")
+
+
+def post_generate(template_root: SecurePath, ci_provider: Optional[CIProvider]):
+    CIProviderManager.project_post_gen_cleanup(ci_provider, template_root)
