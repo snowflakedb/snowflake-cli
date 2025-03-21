@@ -20,7 +20,8 @@ build-backend = "setuptools.build_meta"
 name = "snowflakecli-internal-release-plugin"
 requires-python = ">=3.8"
 dependencies = [
-    "snowflake-cli>=1.1.0"
+    "snowflake-cli>=1.1.0",
+    "PyGithub"
 ]
 version = "0.0.1"
 
