@@ -47,7 +47,6 @@ app = SnowTyperFactory()
 
 
 DEFAULT_SOURCE = "https://github.com/snowflakedb/snowflake-cli-templates"
-DEFAULT_CI_SOURCE = DEFAULT_SOURCE + "/cicd"
 
 log = logging.getLogger(__name__)
 
@@ -220,51 +219,29 @@ def init(
     variables_from_flags = {
         v.key: v.value for v in parse_key_value_variables(variables)
     }
-    is_remote = any(
-        template_source.startswith(prefix) for prefix in ["git@", "http://", "https://"]  # type: ignore
-    )
     args_error_msg = f"Check whether {TemplateOption.param_decls[0]} and {SourceOption.param_decls[0]} arguments are correct."
 
     # copy/download template into tmpdir, so it is going to be removed in case command ends with an error
     with SecurePath.temporary_directory() as tmpdir:
-        if is_remote:
-            template_root = _fetch_remote_template(
-                url=template_source, path=template, destination=tmpdir  # type: ignore
-            )
-        else:
-            template_root = _fetch_local_template(
-                template_source=SecurePath(template_source),
-                path=template,
-                destination=tmpdir,
-            )
-
-        if ci_provider:
-            ci_provider_instance = CIProvider.from_choice(ci_provider)
-            if ci_template_source is not None:
-                with SecurePath.temporary_directory() as cicd_tmpdir:
-                    cicd_template_root = _fetch_remote_template(
-                        url=ci_template_source,
-                        path=None,
-                        destination=cicd_tmpdir
-                        # type: ignore
-                    )
-                    cicd_template_root.copy(template_root.path)
-
-            elif ci_provider_instance.has_template(template_root):
-                pass  # template has ci files
-            else:
-                # use generic ci/cd template
-                with SecurePath.temporary_directory() as cicd_tmpdir:
-                    cicd_template_root = _fetch_remote_template(
-                        url=DEFAULT_SOURCE, path=f"cicd/{ci_provider_instance.name.lower()}", destination=cicd_tmpdir  # type: ignore
-                    )
-                    cicd_template_root.copy(template_root.path)
+        assert isinstance(template_source, str)
+        template_root = _fetch_template(template_source, template, tmpdir)
 
         template_metadata = _read_template_metadata(
             template_root, args_error_msg=args_error_msg
         )
         if template_metadata.minimum_cli_version:
             _validate_cli_version(template_metadata.minimum_cli_version)
+
+        if ci_provider:
+            ci_provider_instance = CIProvider.from_choice(ci_provider)
+            clone(
+                ci_provider_instance,
+                ci_template_source,
+                template_metadata,
+                template_root,
+            )
+        else:
+            ci_provider_instance = None
 
         variable_values = _determine_variable_values(
             variables_metadata=template_metadata.variables,
@@ -274,13 +251,12 @@ def init(
             "project_dir_name": SecurePath(path).name,
             "snowflake_cli_version": VERSION,
         }
-        files_to_render = template_metadata.files_to_render + list(
-            ci_provider_instance.get_files_to_render(template_root)
+        log.debug(
+            "Rendering template files: %s", ", ".join(template_metadata.files_to_render)
         )
-        log.debug("Rendering template files: %s", ", ".join(files_to_render))
         render_template_files(
             template_root=template_root,
-            files_to_render=files_to_render,
+            files_to_render=template_metadata.files_to_render,
             data=variable_values,
         )
         _remove_template_metadata_file(template_root)
@@ -289,6 +265,52 @@ def init(
         template_root.copy(path)
 
     return MessageResult(f"Initialized the new project in {path}")
+
+
+def clone(
+    ci_provider_instance: CIProvider,
+    ci_template_source: Optional[str],
+    template_metadata: Template,
+    template_root: SecurePath,
+):
+    if ci_template_source is not None:
+        with SecurePath.temporary_directory() as cicd_tmpdir:
+            cicd_template_root = _fetch_template(ci_template_source, None, cicd_tmpdir)
+            ci_provider_instance.copy(cicd_template_root, template_root)
+            ci_template_metadata = _read_template_metadata(
+                cicd_template_root,
+                args_error_msg="template.yml is required for --ci-template-source.",
+            )
+            template_metadata.merge(ci_template_metadata)
+
+    elif ci_provider_instance.has_template(template_root):
+        pass  # template has ci files
+    else:
+        raise ClickException(
+            f"Template for {ci_provider_instance.NAME} not provided and not configured on selected template."
+        )
+
+
+def _fetch_template(
+    template_source: str, template: Optional[str], tmpdir: SecurePath
+) -> SecurePath:
+    if _is_remote_source(template_source):
+        template_root = _fetch_remote_template(
+            url=template_source, path=template, destination=tmpdir  # type: ignore
+        )
+    else:
+        template_root = _fetch_local_template(
+            template_source=SecurePath(template_source),
+            path=template,
+            destination=tmpdir,
+        )
+    return template_root
+
+
+def _is_remote_source(template_source: str) -> bool:
+    return any(
+        template_source.startswith(prefix) for prefix in ["git@", "http://", "https://"]  # type: ignore
+    )
 
 
 def post_generate(template_root: SecurePath, ci_provider: Optional[CIProvider]):

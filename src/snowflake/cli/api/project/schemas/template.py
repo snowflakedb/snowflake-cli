@@ -18,12 +18,14 @@ from typing import Any, List, Literal, Optional, Union
 
 import typer
 from click import ClickException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from snowflake.cli.api.exceptions import InvalidTemplate
 from snowflake.cli.api.secure_path import SecurePath
 
 
 class TemplateVariable(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     name: str = Field(..., title="Variable identifier")
     type: Optional[Literal["string", "float", "int"]] = Field(  # noqa: A003
         title="Type of the variable", default=None
@@ -63,6 +65,32 @@ class Template(BaseModel):
     def __init__(self, template_root: SecurePath, **kwargs):
         super().__init__(**kwargs)
         self._validate_files_exist(template_root)
+
+    def merge(self, other: Template):
+        if not isinstance(other, Template):
+            raise ClickException(f"Can not merge template with {type(other)}")
+
+        errors = []
+        if self.minimum_cli_version != other.minimum_cli_version:
+            errors.append(
+                f"minimum_cli_versions do not match: {self.minimum_cli_version} != {other.minimum_cli_version}"
+            )
+        variable_map = {variable.name: variable for variable in self.variables}
+        for other_variable in other.variables:
+            if self_variable := variable_map.get(other_variable.name):
+                for attr in ["type", "prompt", "default"]:
+                    if getattr(self_variable, attr) != getattr(other_variable, attr):
+                        errors.append(
+                            f"Conflicting variable definitions: '{self_variable.name}' has different values for attribute '{attr}': '{getattr(self_variable, attr)}' != '{getattr(other_variable, attr)}'"
+                        )
+        if errors:
+            error_str = "\n\t" + "\n\t".join(error for error in errors)
+            raise ClickException(
+                f"Could not merge templates. Following errors found:{error_str}"
+            )
+        self.files_to_render = list(set(self.files_to_render + other.files_to_render))
+        self.variables = list(set(self.variables + other.variables))
+        return self
 
     def _validate_files_exist(self, template_root: SecurePath) -> None:
         for path_in_template in self.files_to_render:

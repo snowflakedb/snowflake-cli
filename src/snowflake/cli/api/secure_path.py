@@ -116,14 +116,6 @@ class SecurePath:
         """
         return self._path.glob(pattern)
 
-    def rglob(self, pattern: str) -> Generator[Path, None, None]:
-        """
-        Recursively yield all existing files (of any kind, including
-        directories) matching the given relative pattern, anywhere in
-        this subtree.
-        """
-        return self._path.rglob(pattern)
-
     def as_posix(self) -> str:
         """
         Return the string representation of the path with forward slashes (/) as the path separator.
