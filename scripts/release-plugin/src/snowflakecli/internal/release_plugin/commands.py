@@ -27,6 +27,9 @@ app = SnowTyperFactory(
     help="Internal release helper",
 )
 
+UPDATE_RELEASE_NOTES_SCRIPT ="scripts/main.py"
+GITHUB_TOKEN_ENV = "SNOWCLI_GITHUB_TOKEN"
+
 
 def _check_version_format_callback(version: str) -> str:
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
@@ -64,6 +67,15 @@ def release_branch_name(version: str) -> str:
 def get_origin_url() -> str:
     return subprocess_run(["git", "ls-remote", "--get-url", "origin"]).stdout.strip()
 
+@cache
+def get_github_token() -> str:
+    token = os.environ.get(GITHUB_TOKEN_ENV)
+
+    if not token:
+        raise ClickException("No github token set. Please set SNOWCLI_GITHUB_TOKEN environment variable.")
+
+    return token
+
 
 @cache
 def get_repo_home() -> Path:
@@ -81,7 +93,7 @@ def init_release(version: str = VersionArgument):
     os.chdir(get_repo_home())
     subprocess.run(["git", "fetch", "--all"])
     subprocess.run(["git", "checkout", "origin/main"])
-    subprocess.run([sys.executable, "scripts/main.py", "update-release-notes", version])
+    subprocess.run([sys.executable, UPDATE_RELEASE_NOTES_SCRIPT, "update-release-notes", version])
 
     subprocess.run(["git", "checkout", "-b", branch_name ])
     subprocess.run(["git", "add", "."])
