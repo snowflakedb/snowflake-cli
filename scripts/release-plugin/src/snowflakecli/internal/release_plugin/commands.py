@@ -16,15 +16,14 @@ import re
 import subprocess
 import sys
 from functools import cache
-from git import Repo
-from github import Auth, Github
 from pathlib import Path
 
 import click
 import typer
 from click.exceptions import ClickException
+from git import Repo
+from github import Auth, Github
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.output.types import CollectionResult, MessageResult
 
@@ -117,7 +116,12 @@ def init_release(version: str = VersionArgument):
     repo.git.checkout("-b", branch_name)
 
     subprocess_run(
-        [sys.executable, UPDATE_RELEASE_NOTES_SCRIPT, "update-release-notes", version]
+        [
+            sys.executable,
+            str(get_repo_home() / UPDATE_RELEASE_NOTES_SCRIPT),
+            "update-release-notes",
+            version,
+        ]
     )
 
     repo.git.add(A=True)
