@@ -23,14 +23,15 @@ from pathlib import Path
 import typer
 from click.exceptions import ClickException
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.output.types import MessageResult
+from snowflake.cli.api.output.types import CollectionResult, MessageResult
+
 
 app = SnowTyperFactory(
     name="release",
     help="Internal release helper",
 )
 
-UPDATE_RELEASE_NOTES_SCRIPT ="scripts/main.py"
+UPDATE_RELEASE_NOTES_SCRIPT = "scripts/main.py"
 GITHUB_TOKEN_ENV = "SNOWCLI_GITHUB_TOKEN"
 SNOWFLAKE_CLI_REPO = "snowflakedb/snowflake-cli"
 
@@ -67,16 +68,27 @@ def release_branch_name(version: str) -> str:
     return f"release-v{version}"
 
 
+def release_tag_name(version: str) -> str:
+    return f"v{version}"
+
+
+def rc_tag_name(version: str, number: int) -> str:
+    return f"{release_tag_name(version)}-rc{number}"
+
+
 @cache
 def get_origin_url() -> str:
     return subprocess_run(["git", "ls-remote", "--get-url", "origin"]).stdout.strip()
+
 
 @cache
 def get_github_token() -> str:
     token = os.environ.get(GITHUB_TOKEN_ENV)
 
     if not token:
-        raise ClickException("No github token set. Please set SNOWCLI_GITHUB_TOKEN environment variable.")
+        raise ClickException(
+            "No github token set. Please set SNOWCLI_GITHUB_TOKEN environment variable."
+        )
 
     return token
 
@@ -98,11 +110,13 @@ def init_release(version: str = VersionArgument):
     origin = repo.remotes.origin
     origin.fetch()
 
-    repo.git.checkout('main')
-    repo.git.pull('origin', 'main')
-    repo.git.checkout('-b', branch_name)
+    repo.git.checkout("main")
+    repo.git.pull("origin", "main")
+    repo.git.checkout("-b", branch_name)
 
-    subprocess_run([sys.executable, UPDATE_RELEASE_NOTES_SCRIPT, "update-release-notes", version])
+    subprocess_run(
+        [sys.executable, UPDATE_RELEASE_NOTES_SCRIPT, "update-release-notes", version]
+    )
 
     repo.git.add(A=True)
     repo.index.commit(message)
@@ -113,18 +127,17 @@ def init_release(version: str = VersionArgument):
     return MessageResult(f"PR created at {pr.html_url}")
 
 
-def create_pull_request(title, body, source_branch, target_branch= "main"):
+def create_pull_request(title, body, source_branch, target_branch="main"):
     token = get_github_token()
     auth = Auth.Token(token)
     github = Github(auth)
 
     repo = github.get_repo(SNOWFLAKE_CLI_REPO)
-    pr = repo.create_pull(title=title, body=body, head=source_branch, base=target_branch)
+    pr = repo.create_pull(
+        title=title, body=body, head=source_branch, base=target_branch
+    )
 
     return pr
-
-
-
 
     # can we open PR from python?
 
@@ -146,7 +159,30 @@ def get_existing_tag_names(version: str):
     return [tag for tag in all_tags if version in tag]
 
 
+@cache
+def release_branch_exists(version: str):
+    all_branches = subprocess_run(["git", "branch"]).split()
+    return release_branch_name(version) in all_branches
+
+
 @app.command()
 def status(version: str = VersionArgument, **options):
     """Check current release status."""
-    print("Tags", get_existing_tag_names(version))
+    all_tags = get_existing_tag_names(version)
+    status = "release not started"
+
+    if release_branch_exists(version):
+        status = "release in progress"
+    if release_tag_name(version) in all_tags:
+        status = "release finished"
+
+    def _row(key, value):
+        return {"check": key, "status": value}
+
+    result = [
+        _row("status", status),
+        _row("latest rc", max(all_tags, default="N/A")),
+        _row("release tags", all_tags),
+    ]
+
+    return CollectionResult(result)
