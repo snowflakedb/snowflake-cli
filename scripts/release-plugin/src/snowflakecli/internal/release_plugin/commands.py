@@ -92,6 +92,9 @@ def init_release(version: str = VersionArgument):
 
 @app.command()
 def create_rc(version: str = VersionArgument, **options):
+    """
+    Creates a release candidate branch for the given version.
+    """
 
     # create release branch
 
