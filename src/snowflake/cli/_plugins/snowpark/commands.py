@@ -71,6 +71,7 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import (
     ForceReplaceOption,
+    PruneOption,
     ReplaceOption,
     execution_identifier_argument,
     identifier_argument,
@@ -133,6 +134,9 @@ def deploy(
         "overwrites existing files, but does not remove any files already on the stage."
     ),
     force_replace: bool = ForceReplaceOption(),
+    prune: bool = PruneOption(
+        help="Delete files from stage before uploading artifacts."
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -174,7 +178,7 @@ def deploy(
             snowpark_entities=snowpark_entities,
         )
 
-        create_stages_and_upload_artifacts(stages_to_artifact_map)
+        create_stages_and_upload_artifacts(stages_to_artifact_map, prune=prune)
 
     # Create snowpark entities
     with cli_console.phase("Creating Snowpark entities"):
@@ -242,8 +246,22 @@ def build_artifacts_mappings(
     return entities_to_imports_map, stages_to_artifact_map
 
 
-def create_stages_and_upload_artifacts(stages_to_artifact_map: StageToArtifactMapping):
+def create_stages_and_upload_artifacts(
+    stages_to_artifact_map: StageToArtifactMapping, prune: bool
+):
     stage_manager = StageManager()
+    if prune:
+        # removing all files from stage
+        for stage in stages_to_artifact_map.keys():
+            for file_stage_path in stage_manager.iter_stage(
+                stage_manager.build_path(stage)
+            ):
+                cli_console.step(f"Removing {file_stage_path}")
+                stage_manager.remove(
+                    stage_name=file_stage_path.stage,
+                    path=file_stage_path.path.as_posix(),
+                )
+
     for stage, artifacts in stages_to_artifact_map.items():
         cli_console.step(f"Creating (if not exists) stage: {stage}")
         stage = FQN.from_stage(stage).using_context()

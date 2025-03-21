@@ -6537,6 +6537,8 @@
   |                                not remove any files already on the stage.    |
   | --force-replace                Replace this object, even if the state didn't |
   |                                change                                        |
+  | --prune                        Delete files from stage before uploading      |
+  |                                artifacts.                                    |
   | --project        -p      TEXT  Path where the Snowflake project is stored.   |
   |                                Defaults to the current working directory.    |
   | --env                    TEXT  String in the format key=value. Overrides     |
