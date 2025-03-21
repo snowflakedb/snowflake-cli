@@ -1,1 +1,0 @@
-/Users/jsikorski/PycharmProjects/snowflake-cli/main.py
