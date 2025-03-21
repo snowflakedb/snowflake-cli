@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import logging
 import os
 import re
 import subprocess
@@ -31,6 +32,8 @@ app = SnowTyperFactory(
     name="release",
     help="Internal release helper",
 )
+
+log = logging.getLogger(__name__)
 
 UPDATE_RELEASE_NOTES_SCRIPT = "scripts/main.py"
 GITHUB_TOKEN_ENV = "SNOWCLI_GITHUB_TOKEN"
@@ -99,11 +102,11 @@ def get_repo_home() -> Path:
     result = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
     )
-    return Path(result.stdout)
+    return Path(result.stdout.strip())
 
 
 @app.command(name="init")
-def init_release(version: str = VersionArgument):
+def init_release(version: str = VersionArgument, **options):
     """Update release notes and version on branch `main`, create branch release-vX.Y.Z."""
     branch_name = release_branch_name(version)
     message = f"Update release notes for {version}"
