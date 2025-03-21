@@ -77,12 +77,13 @@ def get_repo_home() -> Path:
 def init_release(version: str = VersionArgument):
     """Update release notes and version on branch `main`, create branch release-vX.Y.Z."""
 
+    branch_name = f"update-release-notes-for-{version}"
     os.chdir(get_repo_home())
     subprocess.run(["git", "fetch", "--all"])
     subprocess.run(["git", "checkout", "origin/main"])
     subprocess.run([sys.executable, "scripts/main.py", "update-release-notes", version])
 
-    subprocess.run(["git", "checkout", "-b", f"update-release-notes-for-{version}"])
+    subprocess.run(["git", "checkout", "-b", branch_name ])
     subprocess.run(["git", "add", "."])
     subprocess.run(["git", "commit", "-m", f"release notes update for {version}"])
     subprocess.run(["git", "push", "origin"])
