@@ -61,6 +61,11 @@ def release_branch_name(version: str) -> str:
 
 
 @cache
+def get_origin_url() -> str:
+    return subprocess_run(["git", "ls-remote", "--get-url", "origin"]).stdout.strip()
+
+
+@cache
 def get_repo_home() -> Path:
     result = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
