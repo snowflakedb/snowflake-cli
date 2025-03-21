@@ -7,8 +7,11 @@
       │ Welcome to Snowflake-CLI REPL PoC                                            │
       │ Type 'exit' or 'quit' to leave                                               │
       ╰──────────────────────────────────────────────────────────────────────────────╯
-      
-      Error occurred: Unable to get render width for ('1',); a str, Segment, or object with __rich_console__ method is required
+      +---+
+      | 1 |
+      |---|
+      | 1 |
+      +---+
       
       Leaving REPL, bye ...
   
