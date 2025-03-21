@@ -40,8 +40,10 @@ VersionArgument = typer.Argument(
 )
 
 
-def subprocess_run(command, *args, **kwargs):
-    result = subprocess.run(command, *args, **kwargs)
+def subprocess_run(command, *args, capture_output=True, text=True, **kwargs):
+    result = subprocess.run(
+        command, *args, capture_output=capture_output, text=text, **kwargs
+    )
     if result.returncode != 0:
         raise ClickException(
             f""""Command finished with non-zero exit code: {result.returncode}
@@ -51,6 +53,7 @@ def subprocess_run(command, *args, **kwargs):
             {result.stderr}
             """
         )
+    return result.stdout
 
 
 def release_branch_name(version: str) -> str:
