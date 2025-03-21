@@ -20,11 +20,13 @@ from git import Repo
 from github import Auth, Github
 from pathlib import Path
 
+import click
 import typer
 from click.exceptions import ClickException
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.output.types import CollectionResult, MessageResult
 
+from snowflake.cli.api.console.console import cli_console
+from snowflake.cli.api.output.types import CollectionResult, MessageResult
 
 app = SnowTyperFactory(
     name="release",
@@ -72,7 +74,7 @@ def release_tag_name(version: str) -> str:
     return f"v{version}"
 
 
-def rc_tag_name(version: str, number: int) -> str:
+def rc_tag_name(version: str, number) -> str:
     return f"{release_tag_name(version)}-rc{number}"
 
 
@@ -147,11 +149,39 @@ def create_rc(version: str = VersionArgument, **options):
     """
     Creates a release candidate branch for the given version.
     """
+    if not release_branch_exists(version):
+        raise ClickException(
+            f"Branch `{release_branch_name(version)}` does not exist. Did you call 'snow release init'?"
+        )
+
+    with cli_console.phase("checking out to release branch"):
+        os.chdir(get_repo_home())
+        subprocess_run(["git", "checkout", release_branch_name(version)])
 
     # create release branch
+    with cli_console.phase("bump version"):
+        version_info = subprocess_run(["hatch", "version", "rc"])
+        new_version = version_info.split("\n")[1].removeprefix("New:").strip()
+        cli_console.step("New version: {}".format(new_version))
 
-    # update version on branch ("hatch version rc")
-    pass
+    with cli_console.phase("Creating rc tag"):
+        new_tag_name = rc_tag_name(version, new_version.removeprefix(f"{version}rc"))
+        changes = subprocess_run(["git", "diff"])
+        commit = click.confirm(
+            f"This will create the release tag `{new_tag_name}` with the following changes:\n{changes}\nDo you want to continue?"
+        )
+        if not commit:
+            return MessageResult("Aborted. Changes reverted.")
+
+        cli_console.step("Committing changes to git")
+        subprocess_run(["git", "add", "."])
+        subprocess_run(["git", "commit", "-m", f"Bump version to {new_version}"])
+        cli_console.step("Creating tag")
+        subprocess_run(["git", "tag", new_tag_name])
+        cli_console.step("Pushing changes")
+        subprocess_run(["git", "push", "--tags"])
+
+        return MessageResult(f"New release tag {new_tag_name} created.")
 
 
 def get_existing_tag_names(version: str):
