@@ -46,17 +46,15 @@ class LogsManager(SqlExecutionMixin):
         object_type: str = ObjectArgument,
         object_name: FQN = NameArgument,
         from_time: Optional[datetime] = None,
-    ):
+    ) -> Iterable[NamedTuple]:
         try:
             previous_end = from_time
 
             while True:
-                logs = [
-                    log
-                    for log in self.get_raw_logs(
+                logs = self.get_raw_logs(
                         object_type, object_name, previous_end, None
                     )
-                ]
+
                 if logs:
                     result = self.sanitize_logs(logs)
                     yield result
@@ -72,7 +70,7 @@ class LogsManager(SqlExecutionMixin):
         object_name: FQN = NameArgument,
         from_time: Optional[datetime] = None,
         to_time: Optional[datetime] = None,
-    ) -> Iterable[str]:
+    ) -> Iterable[NamedTuple]:
         """
         Basic function to get a single batch of logs from the server
         """
@@ -147,12 +145,10 @@ class LogsManager(SqlExecutionMixin):
 
         return "".join(query)
 
-    def sanitize_logs(self, logs: SnowflakeCursor) -> List[str]:
+    def sanitize_logs(self, logs: SnowflakeCursor) -> List[NamedTuple]:
         try:
-            logs = [Logs_query_row(*log) for log in logs]
+            return [Logs_query_row(*log) for log in logs]
         except TypeError:
             raise ClickException(
                 "Logs table has incorrect format. Please check the logs_table in your database"
             )
-
-        return logs

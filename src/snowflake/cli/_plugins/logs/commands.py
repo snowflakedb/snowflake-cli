@@ -1,9 +1,9 @@
 from datetime import datetime
-from typing import Generator, Optional, cast
+from typing import Generator, Optional, cast, Iterable
 
 import typer
 from click import ClickException
-from snowflake.cli._plugins.logs.manager import LogsManager
+from snowflake.cli._plugins.logs.manager import LogsManager, Logs_query_row
 from snowflake.cli._plugins.object.commands import NameArgument, ObjectArgument
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.identifiers import FQN
@@ -49,21 +49,21 @@ def get_logs(
     to_time = get_datetime_from_string(to, "--to") if to else None
 
     if refresh_time:
-        logs = LogsManager().stream_logs(
+        logs : Iterable[Logs_query_row] = LogsManager().stream_logs(
             object_type=object_type,
             object_name=object_name,
             from_time=from_time,
             refresh_time=refresh_time,
         )
     else:
-        logs = LogsManager().get_logs(
+        logs: Iterable[Logs_query_row] = LogsManager().get_logs(
             object_type=object_type,
             object_name=object_name,
             from_time=from_time,
             to_time=to_time,
         )
 
-    messages = (MessageResult(log) for log in logs)
+    messages = (MessageResult(log.log_message) for log in logs)
 
     return StreamResult(cast(Generator[CommandResult, None, None], messages))
 
