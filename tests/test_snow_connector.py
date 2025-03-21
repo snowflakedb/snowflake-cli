@@ -143,6 +143,7 @@ def test_private_key_loading_and_aliases(
             application=mock_command_info.return_value,
             authenticator="SNOWFLAKE_JWT",
             application_name="snowcli",
+            keep_alive=True,
             **expected_private_key_args,
         )
         if expected_private_key_file_value is not None:
@@ -197,7 +198,7 @@ def test_returns_nice_error_in_case_of_session_token_without_temporary_connectio
     assert (
         "When using a session or master token, you must use a temporary connection"
         in result.output
-    )
+    ), result.output
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
