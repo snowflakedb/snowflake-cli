@@ -139,3 +139,14 @@ def create_rc(version: str = VersionArgument, **options):
 
     # update version on branch ("hatch version rc")
     pass
+
+
+def get_existing_tag_names(version: str):
+    all_tags = subprocess_run(["git", "tag"]).split()
+    return [tag for tag in all_tags if version in tag]
+
+
+@app.command()
+def status(version: str = VersionArgument, **options):
+    """Check current release status."""
+    print("Tags", get_existing_tag_names(version))
