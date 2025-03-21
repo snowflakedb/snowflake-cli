@@ -198,7 +198,7 @@ def test_returns_nice_error_in_case_of_session_token_without_temporary_connectio
     assert (
         "When using a session or master token, you must use a temporary connection"
         in result.output
-    ), result.output
+    )
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
