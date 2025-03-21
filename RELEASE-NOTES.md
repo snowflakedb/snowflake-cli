@@ -27,6 +27,7 @@
     * `status` - verifies the key pair configuration and tests the connection.
 * The `snow connection add` command has been enhanced to include key pair authentication when a password is provided.
 * Added support for `!source` command in SQL. This command allows to execute SQL from a local file.
+* Added `snow logs` command for retrieving and streaming logs from the server
 
 ## Fixes and improvements
 * Fix for incompatible options in `snow spcs compute-pool` commands didn't raise error.
