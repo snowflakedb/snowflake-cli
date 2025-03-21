@@ -41,6 +41,7 @@ def _clean_output(text: str):
     """
     if text is None:
         return None
+    text = "\n".join(line.rstrip() for line in text.splitlines())
     return (
         text.replace("│", "|")
         .replace("─", "-")

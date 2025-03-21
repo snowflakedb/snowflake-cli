@@ -40,7 +40,7 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path, config_
 
     assert "SQL compilation error" in result.stderr
     assert traceback_msg not in result.stderr
-    assert result.stdout == "select foo\n"
+    assert result.stdout == "select foo"
 
 
 @pytest.mark.e2e
