@@ -31,7 +31,7 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
 from snowflake.cli._plugins.streamlit.streamlit_project_paths import (
     StreamlitProjectPaths,
 )
-from snowflake.cli.api.artifacts.upload import put_files
+from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.commands.experimental_behaviour import (
     experimental_behaviour_enabled,
 )
@@ -56,18 +56,20 @@ class StreamlitManager(SqlExecutionMixin):
             f"grant usage on streamlit {streamlit_name.sql_identifier} to role {to_role}"
         )
 
-    def _put_streamlit_files(
+    def _upload_artifacts(
         self,
         streamlit_project_paths: StreamlitProjectPaths,
         stage_root: str,
+        prune: bool,
         artifacts: Optional[List[PathMapping]] = None,
     ):
-        cli_console.step(f"Deploying files to {stage_root}")
-        put_files(
-            project_paths=streamlit_project_paths,
-            stage_root=stage_root,
-            artifacts=artifacts,
-        )
+        with cli_console.phase(f"Deploying files to {stage_root}"):
+            sync_artifacts_with_stage(
+                project_paths=streamlit_project_paths,
+                stage_root=stage_root,
+                prune=prune,
+                artifacts=artifacts,
+            )
 
     def _create_streamlit(
         self,
@@ -126,6 +128,7 @@ class StreamlitManager(SqlExecutionMixin):
         streamlit: StreamlitEntityModel,
         streamlit_project_paths: StreamlitProjectPaths,
         replace: bool = False,
+        prune: bool = False,
     ):
         streamlit_id = streamlit.fqn.using_connection(self._conn)
         if (
@@ -182,10 +185,11 @@ class StreamlitManager(SqlExecutionMixin):
             else:
                 stage_root = f"{embedded_stage_name}/default_checkout"
 
-            self._put_streamlit_files(
+            self._upload_artifacts(
                 streamlit_project_paths,
                 stage_root,
-                streamlit.artifacts,
+                prune=prune,
+                artifacts=streamlit.artifacts,
             )
         else:
             """
@@ -198,15 +202,15 @@ class StreamlitManager(SqlExecutionMixin):
             stage_name = streamlit.stage or "streamlit"
             stage_name = FQN.from_string(stage_name).using_connection(self._conn)
 
-            cli_console.step(f"Creating {stage_name} stage")
-            stage_manager.create(fqn=stage_name)
-
             stage_root = stage_manager.get_standard_stage_prefix(
                 f"{stage_name}/{streamlit_name_for_root_location}"
             )
 
-            self._put_streamlit_files(
-                streamlit_project_paths, stage_root, streamlit.artifacts
+            self._upload_artifacts(
+                streamlit_project_paths,
+                stage_root,
+                prune=prune,
+                artifacts=streamlit.artifacts,
             )
 
             self._create_streamlit(

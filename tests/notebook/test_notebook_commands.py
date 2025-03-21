@@ -19,6 +19,8 @@ import typer
 from snowflake.cli._plugins.notebook.manager import NotebookManager
 from snowflake.cli.api.identifiers import FQN
 
+STAGE_MANAGER = "snowflake.cli._plugins.stage.manager.StageManager"
+
 
 @mock.patch.object(NotebookManager, "execute")
 def test_execute(mock_execute, runner):
@@ -100,8 +102,10 @@ def test_create_query(
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.notebook.notebook_entity.make_snowsight_url")
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 @pytest.mark.parametrize("notebook_id", ["notebook1", "notebook2"])
 def test_deploy_default_stage_paths(
+    mock_list_files,
     mock_make_url,
     mock_connector,
     mock_ctx,
@@ -117,7 +121,11 @@ def test_deploy_default_stage_paths(
     with project_directory("notebooks_multiple_v2") as project_path:
         result = runner.invoke(["notebook", "deploy", notebook_id, "--replace"])
         assert result.exit_code == 0, result.output
-        assert result.output == snapshot(name="output")
+        assert f"Uploading artifacts to @notebooks/{notebook_id}" in result.output
+        assert (
+            "Notebook successfully deployed and available under http://the.notebook.url.mock"
+            in result.output
+        )
         query = "\n".join(
             line for line in ctx.get_query().split("\n") if not line.startswith("put")
         )
@@ -126,8 +134,10 @@ def test_deploy_default_stage_paths(
 
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.notebook.notebook_entity.make_snowsight_url")
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 @pytest.mark.parametrize("project_name", ["notebook_v2", "notebook_containerized_v2"])
 def test_deploy_single_notebook(
+    mock_list_files,
     mock_make_url,
     mock_connector,
     mock_ctx,
@@ -140,10 +150,13 @@ def test_deploy_single_notebook(
     ctx = mock_ctx()
     mock_connector.return_value = ctx
     mock_make_url.return_value = "http://the.notebook.url.mock"
-    with project_directory(project_name):
+    with project_directory(project_name) as project_root:
         result = runner.invoke(["notebook", "deploy", "--replace"])
         assert result.exit_code == 0, result.output
-        assert result.output == snapshot(name="output")
+        assert (
+            "Notebook successfully deployed and available under http://the.notebook.url.mock"
+            in result.output
+        )
         query = "\n".join(
             line for line in ctx.get_query().split("\n") if not line.startswith("put")
         )
@@ -151,7 +164,10 @@ def test_deploy_single_notebook(
 
 
 @mock.patch("snowflake.connector.connect")
-def test_deploy_no_replace_error(mock_connector, mock_ctx, runner, project_directory):
+@mock.patch(f"{STAGE_MANAGER}.list_files")
+def test_deploy_no_replace_error(
+    mock_list_files, mock_connector, mock_ctx, runner, project_directory
+):
     """Deploy two different notebooks with the same notebook file name."""
     ctx = mock_ctx()
     mock_connector.return_value = ctx

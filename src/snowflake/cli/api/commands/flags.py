@@ -412,6 +412,13 @@ OnErrorOption = typer.Option(
 
 NoInteractiveOption = typer.Option(False, "--no-interactive", help="Disable prompting.")
 
+PruneOption = OverrideableOption(
+    False,
+    "--prune",
+    help=f"Delete files that exist in the stage, but not in the local filesystem.",
+    show_default=False,
+)
+
 
 def entity_argument(entity_type: str) -> typer.Argument:
     return typer.Argument(None, help=f"ID of {entity_type} entity.")

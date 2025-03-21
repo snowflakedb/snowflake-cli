@@ -122,6 +122,8 @@ class FQN:
         name = stage
         if stage.startswith("@"):
             name = stage[1:]
+        if stage.startswith("snow://"):
+            name = stage[7:]
         if stage.startswith("~"):
             return cls(name="~", database=None, schema=None)
         return cls.from_string(name)

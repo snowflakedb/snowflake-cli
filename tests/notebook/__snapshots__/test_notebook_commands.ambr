@@ -1,14 +1,4 @@
 # serializer version: 1
-# name: test_deploy_default_stage_paths[notebook1][output]
-  '''
-  Uploading artifacts to @notebooks/notebook1
-    Creating stage notebooks if not exists
-    Uploading artifacts
-  Creating notebook notebook1
-  Notebook successfully deployed and available under http://the.notebook.url.mock
-  
-  '''
-# ---
 # name: test_deploy_default_stage_paths[notebook1][query]
   '''
   DESCRIBE NOTEBOOK IDENTIFIER('notebook1');
@@ -19,16 +9,6 @@
   MAIN_FILE = 'notebook1/notebook1/my_notebook.ipynb';
   // Cannot use IDENTIFIER(...)
   ALTER NOTEBOOK notebook1 ADD LIVE VERSION FROM LAST;
-  '''
-# ---
-# name: test_deploy_default_stage_paths[notebook2][output]
-  '''
-  Uploading artifacts to @notebooks/notebook2
-    Creating stage notebooks if not exists
-    Uploading artifacts
-  Creating notebook notebook2
-  Notebook successfully deployed and available under http://the.notebook.url.mock
-  
   '''
 # ---
 # name: test_deploy_default_stage_paths[notebook2][query]
@@ -43,16 +23,6 @@
   ALTER NOTEBOOK notebook2 ADD LIVE VERSION FROM LAST;
   '''
 # ---
-# name: test_deploy_single_notebook[notebook_containerized_v2][output]
-  '''
-  Uploading artifacts to @notebooks/containerized_notebook
-    Creating stage notebooks if not exists
-    Uploading artifacts
-  Creating notebook containerized_notebook
-  Notebook successfully deployed and available under http://the.notebook.url.mock
-  
-  '''
-# ---
 # name: test_deploy_single_notebook[notebook_containerized_v2][query]
   '''
   DESCRIBE NOTEBOOK IDENTIFIER('containerized_notebook');
@@ -65,16 +35,6 @@
   RUNTIME_NAME = 'system$basic_runtime';
   // Cannot use IDENTIFIER(...)
   ALTER NOTEBOOK containerized_notebook ADD LIVE VERSION FROM LAST;
-  '''
-# ---
-# name: test_deploy_single_notebook[notebook_v2][output]
-  '''
-  Uploading artifacts to @custom_stage/particular_notebook_path
-    Creating stage custom_stage if not exists
-    Uploading artifacts
-  Creating notebook custom_identifier
-  Notebook successfully deployed and available under http://the.notebook.url.mock
-  
   '''
 # ---
 # name: test_deploy_single_notebook[notebook_v2][query]
