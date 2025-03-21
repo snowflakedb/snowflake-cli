@@ -132,8 +132,8 @@ class Repl:
 
     def _initialize_connection(self):
         cursor = self._execute("select current_version();")
-        res = next(cursor)
-        log.debug("REPL: Snowflake version: %s", res.fetchall())
+        res = next(iter(cursor))
+        log.debug("REPL: Snowflake version: %s", res.fetchall()[0][0])
 
     def _execute(self, user_input: str) -> Iterable[SnowflakeCursor]:
         """Executes a query and returns a list of cursors."""

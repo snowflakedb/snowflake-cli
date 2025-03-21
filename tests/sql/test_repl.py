@@ -7,7 +7,13 @@ from snowflake.cli._plugins.sql.repl import Repl
 
 @pytest.fixture(name="repl")
 def make_repl(mock_cursor):
-    mocked_cursor = [mock_cursor(["1"], [("1",)])]
+    mocked_cursor = [
+        mock_cursor(
+            rows=[("1",)],
+            columns=["1"],
+        ),
+    ]
+
     with mock.patch.object(SqlManager, "_execute_string", return_value=mocked_cursor):
         yield Repl(SqlManager())
 
