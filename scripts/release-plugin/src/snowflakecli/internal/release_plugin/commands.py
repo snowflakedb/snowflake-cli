@@ -16,11 +16,14 @@ import re
 import subprocess
 import sys
 from functools import cache
+from git import Repo
+from github import Auth, Github
 from pathlib import Path
 
 import typer
 from click.exceptions import ClickException
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.output.types import MessageResult
 
 app = SnowTyperFactory(
     name="release",
@@ -29,6 +32,7 @@ app = SnowTyperFactory(
 
 UPDATE_RELEASE_NOTES_SCRIPT ="scripts/main.py"
 GITHUB_TOKEN_ENV = "SNOWCLI_GITHUB_TOKEN"
+SNOWFLAKE_CLI_REPO = "snowflakedb/snowflake-cli"
 
 
 def _check_version_format_callback(version: str) -> str:
@@ -88,17 +92,39 @@ def get_repo_home() -> Path:
 @app.command(name="init")
 def init_release(version: str = VersionArgument):
     """Update release notes and version on branch `main`, create branch release-vX.Y.Z."""
+    branch_name = release_branch_name(version)
+    message = f"Update release notes for {version}"
+    repo = Repo(get_repo_home())
+    origin = repo.remotes.origin
+    origin.fetch()
 
-    branch_name = f"update-release-notes-for-{version}"
-    os.chdir(get_repo_home())
-    subprocess.run(["git", "fetch", "--all"])
-    subprocess.run(["git", "checkout", "origin/main"])
-    subprocess.run([sys.executable, UPDATE_RELEASE_NOTES_SCRIPT, "update-release-notes", version])
+    repo.git.checkout('main')
+    repo.git.pull('origin', 'main')
+    repo.git.checkout('-b', branch_name)
 
-    subprocess.run(["git", "checkout", "-b", branch_name ])
-    subprocess.run(["git", "add", "."])
-    subprocess.run(["git", "commit", "-m", f"release notes update for {version}"])
-    subprocess.run(["git", "push", "origin"])
+    subprocess_run([sys.executable, UPDATE_RELEASE_NOTES_SCRIPT, "update-release-notes", version])
+
+    repo.git.add(A=True)
+    repo.index.commit(message)
+    origin.push(branch_name)
+
+    pr = create_pull_request(message, message, branch_name)
+
+    return MessageResult(f"PR created at {pr.html_url}")
+
+
+def create_pull_request(title, body, source_branch, target_branch= "main"):
+    token = get_github_token()
+    auth = Auth.Token(token)
+    github = Github(auth)
+
+    repo = github.get_repo(SNOWFLAKE_CLI_REPO)
+    pr = repo.create_pull(title=title, body=body, head=source_branch, base=target_branch)
+
+    return pr
+
+
+
 
     # can we open PR from python?
 
