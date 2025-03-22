@@ -36,7 +36,7 @@ def temporary_directory():
     with tempfile.TemporaryDirectory() as tmp_dir:
         try:
             os.chdir(tmp_dir)
-            yield tmp_dir
+            yield str(os.path.realpath(tmp_dir))
         finally:
             os.chdir(initial_dir)
 
