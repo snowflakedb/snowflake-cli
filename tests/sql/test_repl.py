@@ -1,6 +1,8 @@
+import sys
 from unittest import mock
 
 import pytest
+from prompt_toolkit.output import DummyOutput
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.repl import Repl
 
@@ -15,7 +17,13 @@ def make_repl(mock_cursor):
     ]
 
     with mock.patch.object(SqlManager, "_execute_string", return_value=mocked_cursor):
-        yield Repl(SqlManager())
+        repl = Repl(SqlManager())
+
+        if sys.platform == "win32":
+            with mock.patch.object(repl.session, "output", new=DummyOutput()):
+                yield repl
+        else:
+            yield repl
 
 
 def test_repl_input_handling(repl, capsys, snapshot):
