@@ -143,6 +143,7 @@ def test_private_key_loading_and_aliases(
             application=mock_command_info.return_value,
             authenticator="SNOWFLAKE_JWT",
             application_name="snowcli",
+            keep_alive=True,
             **expected_private_key_args,
         )
         if expected_private_key_file_value is not None:
