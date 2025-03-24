@@ -34,7 +34,7 @@ def iter_through_all_commands(command_groups_only: bool = False):
     Generator iterating through all commands.
     Paths are yielded as List[str]
     """
-    ignore_plugins = ["helpers", "cortex", "workspace", "dbt"]
+    ignore_plugins = ["helpers", "cortex", "workspace"]
 
     no_command: List[str] = []
     yield no_command
