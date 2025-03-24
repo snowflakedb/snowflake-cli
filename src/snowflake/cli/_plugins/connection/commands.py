@@ -98,10 +98,11 @@ def list_connections(**options) -> CommandResult:
     """
     Lists configured connections.
     """
-    from snowflake.cli._app.telemetry import _get_installation_source
 
     with cli_console.phase("Checking installation source:"):
-        cli_console.step(_get_installation_source().value)
+        from snowflake.cli.__about__ import INSTALLATION_SOURCE
+
+        cli_console.step(INSTALLATION_SOURCE.value)
     connections = get_all_connections()
     default_connection = get_default_connection_name()
     result = (
