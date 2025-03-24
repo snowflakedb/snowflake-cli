@@ -164,7 +164,7 @@ def main():
     print("-> installed")
 
     print(f"Installing project into Python distribution...")
-    with override_is_installed_from_binary_variable():
+    with override_is_installation_source_variable():
         pip_install_project(str(settings.python_dist_exe))
     print("-> installed")
 
