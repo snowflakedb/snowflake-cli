@@ -151,55 +151,85 @@ def check_snowsql_env_vars(**options):
     """Check if there are any SnowSQL environment variables set."""
 
     known_snowsql_env_vars = {
-        "SNOWSQL_ROLE": {},
-        "SNOWSQL_HOST": {},
-        "SNOWSQL_PORT": {},
-        "SNOWSQL_PROTOCOL": {},
-        "SNOWSQL_PROXY_HOST": {},
-        "SNOWSQL_PROXY_PORT": {},
-        "SNOWSQL_PROXY_USER": {},
-        "SNOWSQL_PROXY_PWD": {},
-        "SNOWSQL_PRIVATE_KEY_PASSPHRASE": {},
-        "SNOWSQL_USER": {
-            "Found": "SNOWSQL_USER",
-            "Suggested": "SNOWFLAKE_USER",
-            "Additional info": "For more info visit: https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections",
-        },
-        "SNOWSQL_REGION": {},
-        "SNOWSQL_QUERY_TAG": {},
-        "SNOWSQL_HTTP_PORT": {},
-        "SNOWSQL_ALLOW_EMPTY_ENV_VARS": {},
-        "SNOWSQL_OUTPUT_AS_UNICODE": {},
         "SNOWSQL_ACCOUNT": {
             "Found": "SNOWSQL_ACCOUNT",
-            "Suggested": "SNOWFLAKE_CONNECTIONS_<connection_name>_ACCOUNT",
-            "Additional info": "For more info visit: https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections",
+            "Suggested": "SNOWFLAKE_ACCOUNT",
+            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
         },
         "SNOWSQL_PWD": {
             "Found": "SNOWSQL_PASSWORD",
             "Suggested": "SNOWFLAKE_PASSWORD",
-            "Additional info": "Extra info",
+            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
         },
-        "SNOWSQL_HOME": {},
+        "SNOWSQL_USER": {
+            "Found": "SNOWSQL_USER",
+            "Suggested": "SNOWFLAKE_USER",
+            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
+        },
+        "SNOWSQL_REGION": {
+            "Found": "SNOWSQL_REGION",
+            "Suggested": "SNOWFLAKE_REGION",
+            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
+        },
         "SNOWSQL_ROLE": {
             "Found": "SNOWSQL_ROLE",
             "Suggested": "SNOWFLAKE_ROLE",
-            "additional info": "Extra info",
+            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
         },
         "SNOWSQL_WAREHOUSE": {
             "Found": "SNOWSQL_WAREHOUSE",
             "Suggested": "SNOWFLAKE_WAREHOUSE",
-            "Additional info": "Extra info",
+            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
         },
         "SNOWSQL_DATABASE": {
             "Found": "SNOWSQL_DATABASE",
             "Suggested": "SNOWFLAKE_DATABASE",
-            "Additional info": "Extra info",
+            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
         },
         "SNOWSQL_SCHEMA": {
             "found": "SNOWSQL_SCHEMA",
             "Suggested": "SNOWFLAKE_SCHEMA",
-            "Additional info": "Extra info",
+            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
+        },
+        "SNOWSQL_HOST": {
+            "Found": "SNOWSQL_HOST",
+            "Suggested": "SNOWFLAKE_HOST",
+            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
+        },
+        "SNOWSQL_PORT": {
+            "Found": "SNOWSQL_PORT",
+            "Suggested": "SNOWFLAKE_PORT",
+            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
+        },
+        "SNOWSQL_PROTOCOL": {
+            "Found": "SNOWSQL_PROTOCOL",
+            "Suggested": "SNOWFLAKE_PROTOCOL",
+            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
+        },
+        "SNOWSQL_PROXY_HOST": {
+            "Found": "SNOWSQL_PROXY_HOST",
+            "Suggested": "PROXY_HOST",
+            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-cli#use-a-proxy-server",
+        },
+        "SNOWSQL_PROXY_PORT": {
+            "Found": "SNOWSQL_PROXY_HOST",
+            "Suggested": "PROXY_HOST",
+            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-cli#use-a-proxy-server",
+        },
+        "SNOWSQL_PROXY_USER": {
+            "Found": "SNOWSQL_PROXY_PORT",
+            "Suggested": "PROXY_PORT",
+            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-cli#use-a-proxy-server",
+        },
+        "SNOWSQL_PROXY_PWD": {
+            "Found": "SNOWSQL_PROXY_PWD",
+            "Suggested": "PROXY_PWD",
+            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-cli#use-a-proxy-server",
+        },
+        "SNOWSQL_PRIVATE_KEY_PASSPHRASE": {
+            "Found": "SNOWSQL_PRIVATE_KEY_PASSPHRASE",
+            "Suggested": "PRIVATE_KEY_PASSPHRASE",
+            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections",
         },
     }
 
