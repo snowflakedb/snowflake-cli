@@ -22,6 +22,7 @@ import tomlkit
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
+IS_INSTALLED_FROM_BINARY = "IS_INSTALLED_FROM_BINARY"
 
 
 @contextlib.contextmanager
@@ -112,10 +113,27 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     return not completed_proc.returncode
 
 
-def pip_install_project(python_exe: str, project_whl: Path) -> bool:
+@contextlib.contextmanager
+def override_is_installed_from_binary_variable():
+    about_file = PROJECT_ROOT / "src" / "snowflake" / "cli" / "__about__.py"
+    contents = about_file.read_text()
+    if "IS_INSTALLED_FROM_BINARY" not in contents:
+        raise RuntimeError(
+            "IS_INSTALLED_FROM_BINARY variable not defined in __about__.py"
+        )
+    about_file.write_text(
+        contents.replace(
+            f"{IS_INSTALLED_FROM_BINARY} = False", f"{IS_INSTALLED_FROM_BINARY} = True"
+        )
+    )
+    yield
+    subprocess.run(["git", "checkout", str(PROJECT_ROOT)])
+
+
+def pip_install_project(python_exe: str) -> bool:
     """Install the project into the Python distribution."""
     completed_proc = subprocess.run(
-        [python_exe, "-m", "pip", "install", "-U", str(project_whl)],
+        [python_exe, "-m", "pip", "install", "-U", str(PROJECT_ROOT)],
         capture_output=True,
     )
     return not completed_proc.returncode
@@ -124,6 +142,7 @@ def pip_install_project(python_exe: str, project_whl: Path) -> bool:
 def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     """Use hatch to build the binary."""
     os.environ["PYAPP_SKIP_INSTALL"] = "1"
+    os.environ["PYAPP_SELF_COMMAND"] = "1"
     os.environ["PYAPP_DISTRIBUTION_PATH"] = str(archive_path)
     os.environ["PYAPP_FULL_ISOLATION"] = "1"
     os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = str(python_path)
@@ -145,7 +164,8 @@ def main():
     print("-> installed")
 
     print(f"Installing project into Python distribution...")
-    pip_install_project(str(settings.python_dist_exe), PROJECT_ROOT)
+    with override_is_installed_from_binary_variable():
+        pip_install_project(str(settings.python_dist_exe))
     print("-> installed")
 
     print("Making distribution archive...")
