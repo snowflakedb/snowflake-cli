@@ -24,7 +24,7 @@ from datetime import datetime
 from io import StringIO
 from logging import FileHandler
 from pathlib import Path
-from typing import Generator, List, NamedTuple, Optional, Union
+from typing import Any, Dict, Generator, List, NamedTuple, Optional, Union
 from unittest import mock
 
 import pytest
@@ -289,6 +289,7 @@ class MockConnectionCtx(mock.MagicMock):
         self._checkout_count = 0
         self._role = role
         self._warehouse = warehouse
+        self.kwargs: List[Dict[str, Any]] = []
 
     def get_query(self):
         return "\n".join(self.queries)
@@ -328,6 +329,7 @@ class MockConnectionCtx(mock.MagicMock):
             if self._checkout_count > 1:
                 raise ProgrammingError("Checkout already exists")
         self.queries.append(query)
+        self.kwargs.append(kwargs)
         return (self.cs,)
 
     def execute_stream(self, query: StringIO, **kwargs):
