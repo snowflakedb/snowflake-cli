@@ -173,7 +173,9 @@ def _get_definition_version() -> str | None:
 
 
 def _get_installation_source() -> CLIInstallationSource:
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    from snowflake.cli.__about__ import IS_INSTALLED_FROM_BINARY
+
+    if IS_INSTALLED_FROM_BINARY:
         return CLIInstallationSource.BINARY
     return CLIInstallationSource.PYPI
 

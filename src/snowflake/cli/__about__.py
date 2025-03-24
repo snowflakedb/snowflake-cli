@@ -15,3 +15,5 @@
 from __future__ import annotations
 
 VERSION = "3.6.0rc0"
+
+IS_INSTALLED_FROM_BINARY = False
