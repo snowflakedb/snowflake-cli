@@ -19,6 +19,15 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v3.6.0
+
+## Deprecations
+
+## New additions
 * Added new `snow auth keypair` commands:
     * `setup` - generate key pair, set public key for the user in Snowflake and update/create connection.
     * `rotate` - rotate keys for connection.
@@ -32,6 +41,7 @@
 * Fix for incompatible options in `snow spcs compute-pool` commands didn't raise error.
 * Change binary builds to embed whole Python environment.
 * Fixed recursive copying to stage for unbalanced directory trees.
+* Fixed checking for new CLI version.
 
 # v3.5.0
 

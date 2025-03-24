@@ -1,9 +1,11 @@
 from io import BytesIO
+from itertools import cycle
 from unittest.mock import patch
 
 from packaging.version import Version
 from requests import Response
 from snowflake.cli._app.version_check import _VersionCache, get_new_version_msg
+from snowflake.cli.api.secure_path import SecurePath
 
 
 @patch("snowflake.cli._app.version_check.VERSION", "1.0.0")
@@ -93,7 +95,7 @@ def test_get_version_from_pypi(mock_get):
     mock_get.return_value = r
     assert _VersionCache()._get_version_from_pypi() == "1.2.3"  # noqa
     mock_get.assert_called_once_with(
-        "https://pypi.org/pypi/snowflake-cli-labs/json",
+        "https://pypi.org/pypi/snowflake-cli/json",
         headers={"Content-Type": "application/vnd.pypi.simple.v1+json"},
         timeout=3,
     )
@@ -112,8 +114,9 @@ def test_saves_latest_version(named_temporary_file):
 @patch("snowflake.cli._app.version_check.time.time", lambda: 60)
 def test_read_last_version(named_temporary_file):
     with named_temporary_file() as f:
+        sf = SecurePath(f)
         vc = _VersionCache()
-        vc._cache_file = f  # noqa
+        vc._cache_file = sf  # noqa
         f.write_text('{"last_time_check": 0.0, "version": "4.2.3"}')
         assert vc._read_latest_version() == Version("4.2.3")  # noqa
 
@@ -124,12 +127,13 @@ def test_read_last_version(named_temporary_file):
 )
 @patch("snowflake.cli._app.version_check.time.time")
 def test_read_last_version_and_updates_it(mock_time, named_temporary_file):
-    mock_time.side_effect = [2 * 60 * 60, 120]
+    mock_time.side_effect = cycle((2 * 60 * 60, 120))
 
     with named_temporary_file() as f:
-        vc = _VersionCache()
-        vc._cache_file = f  # noqa
         f.write_text('{"last_time_check": 0.0, "version": "1.2.3"}')
+        sf = SecurePath(f)
+        vc = _VersionCache()
+        vc._cache_file = sf  # noqa
         assert vc._read_latest_version() == Version("8.0.0")  # noqa
-        data = f.read_text()
+        data = sf.read_text(file_size_limit_mb=1)
         assert data == '{"last_time_check": 120, "version": "8.0.0"}'
