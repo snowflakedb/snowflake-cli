@@ -1,1 +1,0 @@
-/Users/mraba/sources/snowflake-cli.worktree/SNOW-1980772-helper-for-displaying-snowsql-set-env-vars/main.py
