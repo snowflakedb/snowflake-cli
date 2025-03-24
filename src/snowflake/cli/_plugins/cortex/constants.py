@@ -14,4 +14,4 @@
 
 from snowflake.cli._plugins.cortex.types import Model
 
-DEFAULT_MODEL: Model = Model("snowflake-arctic")
+DEFAULT_MODEL: Model = Model("snowflake-llama-3.3-70b")
