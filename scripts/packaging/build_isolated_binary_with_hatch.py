@@ -22,7 +22,7 @@ import tomlkit
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
-IS_INSTALLED_FROM_BINARY = "IS_INSTALLED_FROM_BINARY"
+INSTALLATION_SOURCE_VARIABLE = "INSTALLATION_SOURCE"
 
 
 @contextlib.contextmanager
@@ -114,16 +114,17 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
 
 
 @contextlib.contextmanager
-def override_is_installed_from_binary_variable():
+def override_is_installation_source_variable():
     about_file = PROJECT_ROOT / "src" / "snowflake" / "cli" / "__about__.py"
     contents = about_file.read_text()
-    if "IS_INSTALLED_FROM_BINARY" not in contents:
+    if INSTALLATION_SOURCE_VARIABLE not in contents:
         raise RuntimeError(
-            "IS_INSTALLED_FROM_BINARY variable not defined in __about__.py"
+            f"{INSTALLATION_SOURCE_VARIABLE} variable not defined in __about__.py"
         )
     about_file.write_text(
         contents.replace(
-            f"{IS_INSTALLED_FROM_BINARY} = False", f"{IS_INSTALLED_FROM_BINARY} = True"
+            f"{INSTALLATION_SOURCE_VARIABLE} = CLIInstallationSource.PYPI",
+            f"{INSTALLATION_SOURCE_VARIABLE} = CLIInstallationSource.BINARY",
         )
     )
     yield
