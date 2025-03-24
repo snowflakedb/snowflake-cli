@@ -27,6 +27,7 @@ from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
     MessageResult,
+    MultipleResults,
 )
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
@@ -234,10 +235,33 @@ def check_snowsql_env_vars(**options):
     }
 
     discovered_env_vars = []
+    unused_vars = []
     possible_vars = (e for e in os.environ if e.lower().startswith("snowsql"))
 
     for ev in possible_vars:
         if ev not in known_snowsql_env_vars:
-            continue
-        discovered_env_vars.append(known_snowsql_env_vars[ev])
-    return CollectionResult(discovered_env_vars)
+            unused_vars.append(
+                {
+                    "Found": ev,
+                    "Suggested": "n/a",
+                    "Additional": "Unused variable",
+                }
+            )
+        else:
+            discovered_env_vars.append(known_snowsql_env_vars[ev])
+
+    discovered_count = len(discovered_env_vars)
+    unused_count = len(unused_vars)
+
+    results = []
+    if discovered_count:
+        results.append(CollectionResult(discovered_env_vars))
+    if unused_count:
+        results.append(CollectionResult(unused_vars))
+
+    results.append(
+        MessageResult(
+            f"Found {discovered_count + unused_count} SnowSQL environment variables, {discovered_count} with replacements, {unused_count} unused.",
+        )
+    )
+    return MultipleResults(results)
