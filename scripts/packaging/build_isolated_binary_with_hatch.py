@@ -128,7 +128,7 @@ def override_is_installation_source_variable():
         )
     )
     yield
-    subprocess.run(["git", "checkout", str(PROJECT_ROOT)])
+    subprocess.run(["git", "checkout", str(about_file)])
 
 
 def pip_install_project(python_exe: str) -> bool:
@@ -165,7 +165,7 @@ def main():
     print("-> installed")
 
     print(f"Installing project into Python distribution...")
-    with override_is_installed_from_binary_variable():
+    with override_is_installation_source_variable():
         pip_install_project(str(settings.python_dist_exe))
     print("-> installed")
 
