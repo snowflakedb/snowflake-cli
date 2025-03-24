@@ -1,20 +1,22 @@
 DBT_COMMANDS = [
     "build",
-    "clean",
-    "clone",
     "compile",
-    "debug",
     "deps",
-    "docs",
-    "init",
     "list",
     "parse",
-    "retry",
-    "run",
     "run",
     "seed",
     "show",
     "snapshot",
-    "source",
     "test",
+]
+
+UNSUPPORTED_COMMANDS = [
+    "clean",
+    "clone",
+    "debug",
+    "docs",
+    "init",
+    "retry",
+    "source",
 ]
