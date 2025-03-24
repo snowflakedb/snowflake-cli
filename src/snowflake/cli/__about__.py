@@ -14,6 +14,16 @@
 
 from __future__ import annotations
 
+from enum import Enum, unique
+
 VERSION = "3.6.0rc0"
 
-IS_INSTALLED_FROM_BINARY = False
+
+@unique
+class CLIInstallationSource(Enum):
+    BINARY = "binary"
+    PYPI = "pypi"
+
+
+# This variable is changed in binary release script
+INSTALLATION_SOURCE = CLIInstallationSource.PYPI
