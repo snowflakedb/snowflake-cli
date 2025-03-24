@@ -142,7 +142,6 @@ def pip_install_project(python_exe: str) -> bool:
 def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     """Use hatch to build the binary."""
     os.environ["PYAPP_SKIP_INSTALL"] = "1"
-    os.environ["PYAPP_SELF_COMMAND"] = "1"
     os.environ["PYAPP_DISTRIBUTION_PATH"] = str(archive_path)
     os.environ["PYAPP_FULL_ISOLATION"] = "1"
     os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = str(python_path)
