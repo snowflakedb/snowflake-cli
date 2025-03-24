@@ -127,7 +127,7 @@ def override_is_installed_from_binary_variable():
         )
     )
     yield
-    subprocess.run(["git", "checkout", str(PROJECT_ROOT)])
+    subprocess.run(["git", "checkout", str(about_file)])
 
 
 def pip_install_project(python_exe: str) -> bool:
