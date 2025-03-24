@@ -14,14 +14,11 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
-import yaml
 from click import ClickException
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -43,23 +40,11 @@ class DBTManager(SqlExecutionMixin):
         self,
         path: SecurePath,
         name: FQN,
-        dbt_version: Optional[str],
-        dbt_adapter_version: str,
         force: bool,
     ) -> SnowflakeCursor:
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
             raise ClickException(f"dbt_project.yml does not exist in provided path.")
-
-        if dbt_version is None:
-            with dbt_project_path.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
-                dbt_project_config = yaml.safe_load(fd)
-                try:
-                    dbt_version = dbt_project_config["version"]
-                except (KeyError, TypeError):
-                    raise ClickException(
-                        f"dbt-version was not provided and is not available in dbt_project.yml"
-                    )
 
         if self.exists(name=name) and force is not True:
             raise ClickException(
@@ -78,11 +63,8 @@ class DBTManager(SqlExecutionMixin):
 
         with cli_console.phase("Creating DBT project"):
             query = f"""{'CREATE OR REPLACE' if force is True else 'CREATE'} DBT PROJECT {name}
-FROM {stage_name}
-DBT_VERSION='{dbt_version}'"""
+FROM {stage_name}"""
 
-            if dbt_adapter_version:
-                query += f"\nDBT_ADAPTER_VERSION='{dbt_adapter_version}'"
             return self.execute_query(query)
 
     def execute(self, dbt_command: str, name: str, run_async: bool, *dbt_cli_args):

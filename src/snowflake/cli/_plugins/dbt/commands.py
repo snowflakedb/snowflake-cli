@@ -70,14 +70,6 @@ def deploy_dbt(
         False,
         help="Overwrites conflicting files in the project, if any.",
     ),
-    dbt_version: Optional[str] = typer.Option(
-        None,
-        help="Version of dbt tool to be used. Taken from dbt_project.yml if not provided.",
-    ),
-    dbt_adapter_version: Optional[str] = typer.Option(
-        None,
-        help="dbt-snowflake adapter version to be used",
-    ),
     **options,
 ) -> CommandResult:
     """
@@ -91,8 +83,6 @@ def deploy_dbt(
         DBTManager().deploy(
             path.resolve(),
             name,
-            dbt_version,
-            dbt_adapter_version,
             force=force,
         )
     )
