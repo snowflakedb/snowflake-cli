@@ -16,8 +16,9 @@ import os
 import re
 import subprocess
 import sys
-from functools import cache
+from functools import cache, cached_property
 from pathlib import Path
+from typing import Optional
 
 import click
 import typer
@@ -68,16 +69,63 @@ def subprocess_run(command, *args, capture_output=True, text=True, **kwargs):
     return result.stdout
 
 
-def release_branch_name(version: str) -> str:
-    return f"release-v{version}"
+def branch_exists(branch_name: str) -> bool:
+    return subprocess_run(["git", "show-ref", branch_name]).strip() != ""
 
 
-def release_tag_name(version: str) -> str:
-    return f"v{version}"
+class ReleaseInfo:
+    def __init__(self, version):
+        subprocess_run(["git", "fetch", "--all"])
+        self.version = version
 
+    @property
+    def release_branch_name(self) -> str:
+        return f"release-v{self.version}"
 
-def rc_tag_name(version: str, number) -> str:
-    return f"{release_tag_name(version)}-rc{number}"
+    @property
+    def final_tag_name(self) -> str:
+        return f"v{self.version}"
+
+    def rc_tag_name(self, number: int) -> str:
+        return f"{self.final_tag_name}-rc{number}"
+
+    @cached_property
+    def last_released_rc(self) -> Optional[int]:
+        last_tag = max(self._existing_tags, default=None)
+        if last_tag is None or last_tag == self.final_tag_name:
+            return None
+        rc_number = last_tag.removeprefix(f"{self.final_tag_name}-rc")
+        return int(rc_number)
+
+    @property
+    def next_rc(self) -> int:
+        if self.last_released_rc is None:
+            return 0
+        return self.last_released_rc + 1
+
+    def charrypick_branch_name(self, number: int) -> str:
+        return f"test-cherrypicks-{self.rc_tag_name(number)}"
+
+    @cached_property
+    def _existing_tags(self):
+        all_tags = subprocess_run(["git", "tag"]).split()
+        return [tag for tag in all_tags if self.version in tag]
+
+    def tag_exists(self, tag_name: str) -> bool:
+        return tag_name in self._existing_tags
+
+    def check_status(self):
+        release_branch = self.release_branch_name
+        if not branch_exists(self.release_branch_name):
+            release_branch = None
+
+        return {
+            "version": self.version,
+            "branch": release_branch,
+            "last released rc": self.last_released_rc,
+            "next rc": self.next_rc,
+            "next rc cherrypick branch": self.charrypick_branch_name(self.next_rc),
+        }
 
 
 @cache
@@ -108,7 +156,8 @@ def get_repo_home() -> Path:
 @app.command(name="init")
 def init_release(version: str = VersionArgument, **options):
     """Update release notes and version on branch `main`, create branch release-vX.Y.Z."""
-    branch_name = release_branch_name(version)
+    release_info = ReleaseInfo(version)
+    branch_name = release_info.release_branch_name
     message = f"Update release notes for {version}"
     repo = Repo(get_repo_home())
     origin = repo.remotes.origin
@@ -152,74 +201,56 @@ def create_pull_request(title, body, source_branch, target_branch="main"):
 
 
 @app.command()
-def create_rc(version: str = VersionArgument, **options):
+def init_rc(version: str = VersionArgument, **options):
     """
-    Creates a release candidate branch for the given version.
+    Creates a cherry-pick branch with appropriate release candidate version.
     """
-    if not release_branch_exists(version):
+    release_info = ReleaseInfo(version)
+    branch_name = release_info.charrypick_branch_name(release_info.next_rc)
+    if branch_exists(branch_name):
+        return MessageResult(f"Branch {branch_name} already exists.")
+    if not branch_exists(release_info.release_branch_name):
         raise ClickException(
-            f"Branch `{release_branch_name(version)}` does not exist. Did you call 'snow release init'?"
+            f"Branch `{release_info.release_branch_name}` does not exist. Did you call 'snow release init'?"
         )
 
+    os.chdir(get_repo_home())
     with cli_console.phase("checking out to release branch"):
-        os.chdir(get_repo_home())
-        subprocess_run(["git", "checkout", release_branch_name(version)])
+        subprocess_run(["git", "checkout", release_info.release_branch_name])
 
-    # create release branch
+    # draft-bump version
     with cli_console.phase("bump version"):
         version_info = subprocess_run(["hatch", "version", "rc"])
         new_version = version_info.split("\n")[1].removeprefix("New:").strip()
         cli_console.step("New version: {}".format(new_version))
 
-    with cli_console.phase("Creating rc tag"):
-        new_tag_name = rc_tag_name(version, new_version.removeprefix(f"{version}rc"))
-        changes = subprocess_run(["git", "diff"])
-        commit = click.confirm(
-            f"This will create the release tag `{new_tag_name}` with the following changes:\n{changes}\nDo you want to continue?"
-        )
-        if not commit:
-            return MessageResult("Aborted. Changes reverted.")
+    changes = subprocess_run(["git", "diff"])
+    commit = click.confirm(
+        f"This will create the branch `{branch_name}` with the following changes:\n{changes}\nDo you want to continue?"
+    )
+    if not commit:
+        subprocess_run("git", "checkout", str(get_repo_home()))
+        return MessageResult("Aborted. Changes reverted.")
 
+    with cli_console.phase("Creating cherrypick branch"):
+        cli_console.step("Creating", branch_name)
+        subprocess_run(["git", "checkout", "-b", branch_name])
         cli_console.step("Committing changes to git")
-        subprocess_run(["git", "add", "."])
+        subprocess_run(["git", "add", str(get_repo_home())])
         subprocess_run(["git", "commit", "-m", f"Bump version to {new_version}"])
-        cli_console.step("Creating tag")
-        subprocess_run(["git", "tag", new_tag_name])
         cli_console.step("Pushing changes")
-        subprocess_run(["git", "push", "--tags"])
+        subprocess_run(["git", "push", "--set-upstream", "origin", branch_name])
 
-        return MessageResult(f"New release tag {new_tag_name} created.")
-
-
-def get_existing_tag_names(version: str):
-    all_tags = subprocess_run(["git", "tag"]).split()
-    return [tag for tag in all_tags if version in tag]
-
-
-@cache
-def release_branch_exists(version: str):
-    all_branches = subprocess_run(["git", "branch"]).split()
-    return release_branch_name(version) in all_branches
+    # TODO: create pull request
+    return MessageResult(f"Branch {branch_name} successfully created.")
 
 
 @app.command()
 def status(version: str = VersionArgument, **options):
     """Check current release status."""
-    all_tags = get_existing_tag_names(version)
-    status = "release not started"
-
-    if release_branch_exists(version):
-        status = "release in progress"
-    if release_tag_name(version) in all_tags:
-        status = "release finished"
+    release_info = ReleaseInfo(version)
 
     def _row(key, value):
         return {"check": key, "status": value}
 
-    result = [
-        _row("status", status),
-        _row("latest rc", max(all_tags, default="N/A")),
-        _row("release tags", all_tags),
-    ]
-
-    return CollectionResult(result)
+    return CollectionResult(_row(*info) for info in release_info.check_status().items())
