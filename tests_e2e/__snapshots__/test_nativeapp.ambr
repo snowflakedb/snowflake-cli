@@ -57,7 +57,6 @@
           "NUMBER": -1
       }
   ]
-  
   '''
 # ---
 # name: test_full_lifecycle_with_codegen.8
@@ -97,6 +96,5 @@
           "NUMBER": -1
       }
   ]
-  
   '''
 # ---
