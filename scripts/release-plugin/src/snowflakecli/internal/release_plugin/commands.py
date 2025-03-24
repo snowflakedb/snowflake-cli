@@ -53,13 +53,17 @@ VersionArgument = typer.Argument(
 )
 
 
-def subprocess_run(command, *args, capture_output=True, text=True, **kwargs):
+def subprocess_run(
+    command, *args, capture_output=True, text=True, allow_fail=False, **kwargs
+):
     result = subprocess.run(
         command, *args, capture_output=capture_output, text=text, **kwargs
     )
     if result.returncode != 0:
+        if allow_fail:
+            return None
         raise ClickException(
-            f""""Command finished with non-zero exit code: {result.returncode}
+            f"""Command '{command}' finished with non-zero exit code: {result.returncode}
             stdout:
             {result.stdout}
             stderr:
@@ -70,7 +74,7 @@ def subprocess_run(command, *args, capture_output=True, text=True, **kwargs):
 
 
 def branch_exists(branch_name: str) -> bool:
-    return subprocess_run(["git", "show-ref", branch_name]).strip() != ""
+    return subprocess_run(["git", "show-ref", branch_name]) is not None
 
 
 class ReleaseInfo:
