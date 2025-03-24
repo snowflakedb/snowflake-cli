@@ -274,7 +274,7 @@ def _load_pem_to_der(private_key_pem: SecretType) -> SecretType:
         and private_key_passphrase.value is None
     ):
         raise ClickException(
-            "Encrypted private key, you must provide the"
+            "Encrypted private key, you must provide the "
             "passphrase in the environment variable PRIVATE_KEY_PASSPHRASE"
         )
 
