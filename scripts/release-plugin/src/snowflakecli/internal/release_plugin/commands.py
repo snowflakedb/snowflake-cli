@@ -55,7 +55,7 @@ VersionArgument = typer.Argument(
 
 def subprocess_run(
     command, *args, capture_output=True, text=True, allow_fail=False, **kwargs
-):
+) -> Optional[str]:
     result = subprocess.run(
         command, *args, capture_output=capture_output, text=text, **kwargs
     )
@@ -74,7 +74,7 @@ def subprocess_run(
 
 
 def branch_exists(branch_name: str) -> bool:
-    return subprocess_run(["git", "show-ref", branch_name]) is not None
+    return subprocess_run(["git", "show-ref", branch_name], allow_fail=True) is not None
 
 
 class ReleaseInfo:
@@ -119,22 +119,23 @@ class ReleaseInfo:
         return tag_name in self._existing_tags
 
     def check_status(self):
-        release_branch = self.release_branch_name
-        if not branch_exists(self.release_branch_name):
-            release_branch = None
+        def _show_branch_if_exists(branch_name: str) -> Optional[str]:
+            return branch_name if branch_exists(branch_name) else None
 
         return {
             "version": self.version,
-            "branch": release_branch,
+            "branch": _show_branch_if_exists(self.release_branch_name),
             "last released rc": self.last_released_rc,
             "next rc": self.next_rc,
-            "next rc cherrypick branch": self.charrypick_branch_name(self.next_rc),
+            "next rc cherrypick branch": _show_branch_if_exists(
+                self.charrypick_branch_name(self.next_rc)
+            ),
         }
 
 
 @cache
 def get_origin_url() -> str:
-    return subprocess_run(["git", "ls-remote", "--get-url", "origin"]).stdout.strip()
+    return subprocess_run(["git", "ls-remote", "--get-url", "origin"]).strip()  # type: ignore
 
 
 @cache
@@ -225,23 +226,29 @@ def init_rc(version: str = VersionArgument, **options):
     # draft-bump version
     with cli_console.phase("bump version"):
         version_info = subprocess_run(["hatch", "version", "rc"])
-        new_version = version_info.split("\n")[1].removeprefix("New:").strip()
-        cli_console.step("New version: {}".format(new_version))
+        cli_console.step(version_info)
 
     changes = subprocess_run(["git", "diff"])
     commit = click.confirm(
         f"This will create the branch `{branch_name}` with the following changes:\n{changes}\nDo you want to continue?"
     )
     if not commit:
-        subprocess_run("git", "checkout", str(get_repo_home()))
+        subprocess_run(["git", "checkout", "."])
         return MessageResult("Aborted. Changes reverted.")
 
-    with cli_console.phase("Creating cherrypick branch"):
-        cli_console.step("Creating", branch_name)
+    with cli_console.phase("Creating cherrypick branch:"):
+        cli_console.step(f"Creating {branch_name}")
         subprocess_run(["git", "checkout", "-b", branch_name])
         cli_console.step("Committing changes to git")
-        subprocess_run(["git", "add", str(get_repo_home())])
-        subprocess_run(["git", "commit", "-m", f"Bump version to {new_version}"])
+        subprocess_run(["git", "add", "."])
+        subprocess_run(
+            [
+                "git",
+                "commit",
+                "-m",
+                f"Bump version to {release_info.rc_tag_name(release_info.next_rc)}",
+            ]
+        )
         cli_console.step("Pushing changes")
         subprocess_run(["git", "push", "--set-upstream", "origin", branch_name])
 
