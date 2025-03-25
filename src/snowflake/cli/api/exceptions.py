@@ -238,5 +238,8 @@ class ShowSpecificObjectMultipleRowsError(RuntimeError):
         )
 
 
-class CouldNotSetKeyPairError(Exception):
-    ...
+class CouldNotSetKeyPairError(ClickException):
+    def __init__(self):
+        super().__init__(
+            "The public key is set already. Use the rotate command instead."
+        )

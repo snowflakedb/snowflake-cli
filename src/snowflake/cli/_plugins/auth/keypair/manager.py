@@ -50,18 +50,13 @@ class AuthManager(SqlExecutionMixin):
             connection_name = cli_context.connection_context.connection_name
 
         key_name = AuthManager._get_free_key_name(output_path, connection_name)  # type: ignore[arg-type]
-        try:
-            self._generate_key_pair_and_set_public_key(
-                user=cli_context.connection.user,
-                key_length=key_length,
-                output_path=output_path,
-                key_name=key_name,  # type: ignore[arg-type]
-                private_key_passphrase=private_key_passphrase,
-            )
-        except exceptions.CouldNotSetKeyPairError:
-            raise ClickException(
-                "The public key is set already. Use the rotate command instead."
-            )
+        self._generate_key_pair_and_set_public_key(
+            user=cli_context.connection.user,
+            key_length=key_length,
+            output_path=output_path,
+            key_name=key_name,  # type: ignore[arg-type]
+            private_key_passphrase=private_key_passphrase,
+        )
 
         self._create_or_update_connection(
             current_connection=cli_context.connection_context.connection_name,
