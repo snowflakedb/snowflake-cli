@@ -35,7 +35,7 @@ from snowflake.cli.api.secure_path import SecurePath
 app = SnowTyperFactory(
     name="dbt",
     help="Manages dbt on Snowflake projects",
-    is_hidden=FeatureFlag.ENABLE_DBT_POC.is_disabled,
+    is_hidden=FeatureFlag.ENABLE_DBT.is_disabled,
 )
 log = logging.getLogger(__name__)
 
