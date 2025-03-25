@@ -236,3 +236,10 @@ class ShowSpecificObjectMultipleRowsError(RuntimeError):
         super().__init__(
             f"Received multiple rows from result of SQL statement: {show_obj_query}. Usage of 'show_specific_object' may not be properly scoped."
         )
+
+
+class CouldNotSetKeyPairError(ClickException):
+    def __init__(self):
+        super().__init__(
+            "The public key is set already. Use the rotate command instead."
+        )
