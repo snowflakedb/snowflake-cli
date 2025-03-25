@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import sys
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest import mock
@@ -91,6 +92,10 @@ def test_sql_repl_if_no_query_file_or_stdin(runner, os_agnostic_snapshot):
     assert result.output == os_agnostic_snapshot
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Skipping on Windows without console.",
+)
 def test_sql_fails_if_query_and_stdin_and_file_provided(runner):
     with NamedTemporaryFile("r") as tmp_file:
         result = runner.invoke(["sql", "-i", "-q", "foo", "-f", tmp_file.name])
