@@ -40,7 +40,7 @@ UPDATE_RELEASE_NOTES_SCRIPT = "scripts/main.py"
 GITHUB_TOKEN_ENV = "SNOWCLI_GITHUB_TOKEN"
 SNOWFLAKE_CLI_REPO = "snowflakedb/snowflake-cli"
 
-FinalOption = typer.Option(help="Use final release instead of -rc")
+FinalOption = typer.Option(False, "--final", help="Use final release instead of -rc")
 
 
 def _check_version_format_callback(version: str) -> str:
@@ -258,6 +258,7 @@ def init_rc(version: str = VersionArgument, **options):
     return MessageResult(f"Branch {branch_name} successfully created.")
 
 
+@app.command()
 def tag(version: str = VersionArgument, final: bool = FinalOption, **options):
     """Publish release tag."""
     release_info = ReleaseInfo(version)
