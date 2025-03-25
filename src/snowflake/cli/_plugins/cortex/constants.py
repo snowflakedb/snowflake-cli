@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from snowflake.cli._plugins.cortex.types import Model, Backend
+from snowflake.cli._plugins.cortex.types import Backend, Model
 
 DEFAULT_MODEL: Model = Model("mistral-large2")
 DEFAULT_BACKEND: Backend = "REST"

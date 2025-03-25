@@ -16,9 +16,10 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Callable, Optional, Dict, Any
+from typing import Any, Callable, Dict, Optional
 
 from click import ClickException
+
 from snowflake.cli._plugins.cortex.types import (
     Language,
     Model,
@@ -28,9 +29,9 @@ from snowflake.cli._plugins.cortex.types import (
 )
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.rest_api import RestApi
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
-from snowflake.cli.api.rest_api import RestApi
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
