@@ -198,8 +198,8 @@ class CortexManager(SqlExecutionMixin):
         data = {
             "model": str(model),
             "stream": False,
+            "messages": [{"content": str(prompt)}],
         }
-        data["messages"] = [{"content": str(prompt)}]
         return data
 
     def rest_complete_for_prompt(
