@@ -135,7 +135,7 @@ def deploy(
     ),
     force_replace: bool = ForceReplaceOption(),
     prune: bool = PruneOption(
-        help="Delete files from stage before uploading artifacts."
+        help="Remove contents of the stage before uploading artifacts."
     ),
     **options,
 ) -> CommandResult:
@@ -251,16 +251,11 @@ def create_stages_and_upload_artifacts(
 ):
     stage_manager = StageManager()
     if prune:
-        # removing all files from stage
+        # snowflake.cli._plugins.snowpark.snowpark_project_paths.Artifact class assumes that "stage"
+        # is a stage object, not path on stage - whole stage is managed by snowpark - it can be removed
         for stage in stages_to_artifact_map.keys():
-            for file_stage_path in stage_manager.iter_stage(
-                stage_manager.build_path(stage)
-            ):
-                cli_console.step(f"Removing {file_stage_path}")
-                stage_manager.remove(
-                    stage_name=file_stage_path.stage,
-                    path=file_stage_path.path.as_posix(),
-                )
+            cli_console.step(f"Removing contents of stage {stage}")
+            stage_manager.remove(stage, path="")
 
     for stage, artifacts in stages_to_artifact_map.items():
         cli_console.step(f"Creating (if not exists) stage: {stage}")
