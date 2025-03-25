@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Callable, Optional
+from typing import Callable, Optional, Dict, Any
 
 from click import ClickException
 from snowflake.cli._plugins.cortex.types import (
@@ -30,6 +30,7 @@ from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.rest_api import RestApi
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
 
@@ -187,3 +188,48 @@ class CortexManager(SqlExecutionMixin):
         except ProgrammingError as ex:
             log.debug("ProgrammingError occurred during SQL execution", exc_info=ex)
             raise ClickException(str(ex))
+
+    def make_rest_request_body(
+        self,
+        model: Model,
+        prompt: Text,
+    ) -> Dict[str, Any]:
+        data = {
+            "model": str(model),
+            "stream": False,
+        }
+        data["messages"] = [{"content": str(prompt)}]
+        return data
+    
+    def rest_complete_for_prompt(
+        self,
+        text: Text,
+        model: Model,
+        url: str,
+    ) -> str:
+        rest_api = RestApi(self.snowpark_session.connection)
+        data = self.make_rest_request_body(model=model, prompt=text)
+        try:
+            raw_resp = rest_api.send_rest_request(url=url, method="POST", data=data)
+        except Exception as e:
+            print(f"Error executing REST request: {e}")
+            raise
+        return raw_resp["choices"][0]["message"]["content"]
+    
+    def rest_complete_for_conversation(
+        self,
+        conversation_json_file: SecurePath,
+        model: Model,
+        url: str,
+    ) -> str:
+        rest_api = RestApi(self.snowpark_session.connection)
+        json_content = conversation_json_file.read_text(
+            file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB
+        )
+        data = self.make_rest_request_body(model=model, prompt=json_content)
+        try:
+            raw_resp = rest_api.send_rest_request(url=url, method="POST", data=data)
+        except Exception as e:
+            print(f"Error executing REST request: {e}")
+            raise
+        return raw_resp["choices"][0]["message"]["content"]
