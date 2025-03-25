@@ -8,6 +8,8 @@ import pytest
 from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.core.stage import StageResource
 
+from tests_common import IS_WINDOWS
+
 GET_UI_PARAMETERS = "snowflake.cli._plugins.connection.util.get_ui_parameters"
 STREAMLIT_NAME = "test_streamlit"
 
@@ -79,8 +81,13 @@ class StreamlitTestClass:
                 local = file
                 stage = f"{stage_name}/{file}"
 
+            if IS_WINDOWS:
+                local_file_path = (project_root / local).resolve()
+            else:
+                local_file_path = (project_root / local).absolute()
+
             self.mock_put.assert_any_call(
-                local_file_name=(project_root / local).absolute(),
+                local_file_name=local_file_path,
                 stage_location=stage,
                 overwrite=True,
             )
