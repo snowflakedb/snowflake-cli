@@ -44,6 +44,7 @@
 * Change binary builds to embed whole Python environment.
 * Fixed recursive copying to stage for unbalanced directory trees.
 * Fixed checking for new CLI version.
+* Added file execution log in stage and git commands.
 
 # v3.5.0
 

@@ -22,6 +22,7 @@ import tomlkit
 
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 PYPROJECT_PATH = PROJECT_ROOT / "pyproject.toml"
+INSTALLATION_SOURCE_VARIABLE = "INSTALLATION_SOURCE"
 
 
 @contextlib.contextmanager
@@ -112,10 +113,28 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     return not completed_proc.returncode
 
 
-def pip_install_project(python_exe: str, project_whl: Path) -> bool:
+@contextlib.contextmanager
+def override_is_installation_source_variable():
+    about_file = PROJECT_ROOT / "src" / "snowflake" / "cli" / "__about__.py"
+    contents = about_file.read_text()
+    if INSTALLATION_SOURCE_VARIABLE not in contents:
+        raise RuntimeError(
+            f"{INSTALLATION_SOURCE_VARIABLE} variable not defined in __about__.py"
+        )
+    about_file.write_text(
+        contents.replace(
+            f"{INSTALLATION_SOURCE_VARIABLE} = CLIInstallationSource.PYPI",
+            f"{INSTALLATION_SOURCE_VARIABLE} = CLIInstallationSource.BINARY",
+        )
+    )
+    yield
+    subprocess.run(["git", "checkout", str(about_file)])
+
+
+def pip_install_project(python_exe: str) -> bool:
     """Install the project into the Python distribution."""
     completed_proc = subprocess.run(
-        [python_exe, "-m", "pip", "install", "-U", str(project_whl)],
+        [python_exe, "-m", "pip", "install", "-U", str(PROJECT_ROOT)],
         capture_output=True,
     )
     return not completed_proc.returncode
@@ -145,7 +164,8 @@ def main():
     print("-> installed")
 
     print(f"Installing project into Python distribution...")
-    pip_install_project(str(settings.python_dist_exe), PROJECT_ROOT)
+    with override_is_installation_source_variable():
+        pip_install_project(str(settings.python_dist_exe))
     print("-> installed")
 
     print("Making distribution archive...")

@@ -48,11 +48,12 @@ class AuthManager(SqlExecutionMixin):
         if not connection_name:
             connection_name = cli_context.connection_context.connection_name
 
+        key_name = AuthManager._get_free_key_name(output_path, connection_name)  # type: ignore[arg-type]
         self._generate_key_pair_and_set_public_key(
             user=cli_context.connection.user,
             key_length=key_length,
             output_path=output_path,
-            connection_name=connection_name,  # type: ignore[arg-type]
+            key_name=key_name,  # type: ignore[arg-type]
             private_key_passphrase=private_key_passphrase,
         )
 
@@ -60,27 +61,18 @@ class AuthManager(SqlExecutionMixin):
             current_connection=cli_context.connection_context.connection_name,
             connection_name=connection_name,  # type: ignore[arg-type]
             private_key_path=self._get_private_key_path(
-                output_path=output_path, key_name=connection_name  # type: ignore[arg-type]
+                output_path=output_path, key_name=key_name  # type: ignore[arg-type]
             ),
         )
 
     def rotate(
         self,
-        connection_name: str,
         key_length: int,
         output_path: SecurePath,
         private_key_passphrase: SecretType,
     ):
-        # When the user provide new connection name
-        if connection_name and connection_exists(connection_name):
-            raise ClickException(
-                f"Connection with name {connection_name} already exists."
-            )
-
         cli_context = get_cli_context()
-        # When the use not provide connection name, so we overwrite the current connection
-        if not connection_name:
-            connection_name = cli_context.connection_context.connection_name
+        connection_name = cli_context.connection_context.connection_name
 
         self._ensure_connection_has_private_key(
             cli_context.connection_context.connection_name
@@ -98,10 +90,11 @@ class AuthManager(SqlExecutionMixin):
                 public_key_2,
             )
 
+        key_name = AuthManager._get_free_key_name(output_path, connection_name)
         public_key = self._generate_keys_and_return_public_key(
             key_length=key_length,
             output_path=output_path,
-            key_name=connection_name,
+            key_name=key_name,
             private_key_passphrase=private_key_passphrase,
         )
         self.set_public_key(
@@ -111,7 +104,7 @@ class AuthManager(SqlExecutionMixin):
             current_connection=cli_context.connection_context.connection_name,
             connection_name=connection_name,
             private_key_path=self._get_private_key_path(
-                output_path=output_path, key_name=connection_name
+                output_path=output_path, key_name=key_name
             ),
         )
 
@@ -120,7 +113,7 @@ class AuthManager(SqlExecutionMixin):
         user: str,
         key_length: int,
         output_path: SecurePath,
-        connection_name: str,
+        key_name: str,
         private_key_passphrase: SecretType,
     ):
         public_key_exists, public_key_2_exists = self._get_public_keys()
@@ -136,7 +129,7 @@ class AuthManager(SqlExecutionMixin):
         public_key = self._generate_keys_and_return_public_key(
             key_length=key_length,
             output_path=output_path,
-            key_name=connection_name,  # type: ignore[arg-type]
+            key_name=key_name,  # type: ignore[arg-type]
             private_key_passphrase=private_key_passphrase,
         )
         self.set_public_key(user, PublicKeyProperty.RSA_PUBLIC_KEY, public_key)
@@ -192,19 +185,19 @@ class AuthManager(SqlExecutionMixin):
         output_path: SecurePath,
         private_key_passphrase: SecretType,
     ) -> Dict:
+        key_name = AuthManager._get_free_key_name(output_path, connection_name)
+
         self._generate_key_pair_and_set_public_key(
             user=connection_options["user"],
             key_length=key_length,
             output_path=output_path,
-            connection_name=connection_name,
+            key_name=key_name,
             private_key_passphrase=private_key_passphrase,
         )
 
         connection_options["authenticator"] = "SNOWFLAKE_JWT"
         connection_options["private_key_file"] = str(
-            self._get_private_key_path(
-                output_path=output_path, key_name=connection_name
-            ).path
+            self._get_private_key_path(output_path=output_path, key_name=key_name).path
         )
         if connection_options.get("password"):
             del connection_options["password"]
@@ -292,6 +285,30 @@ class AuthManager(SqlExecutionMixin):
             file.write(public_pem)
 
         return public_pem.decode("utf-8")
+
+    @staticmethod
+    def _get_free_key_name(output_path: SecurePath, key_name: str) -> str:
+        new_private_key = f"{key_name}.p8"
+        new_public_key = f"{key_name}.pub"
+        new_key_name = key_name
+        counter = 1
+
+        while (
+            (output_path / new_private_key).exists()
+            and (output_path / new_public_key).exists()
+            and counter <= 100
+        ):
+            new_key_name = f"{key_name}_{counter}"
+            new_private_key = f"{new_key_name}.p8"
+            new_public_key = f"{new_key_name}.pub"
+            counter += 1
+
+        if counter == 100:
+            raise ClickException(
+                "Too many key pairs with the same name in the output directory."
+            )
+
+        return new_key_name
 
     @staticmethod
     def _get_private_key_path(output_path: SecurePath, key_name: str) -> SecurePath:

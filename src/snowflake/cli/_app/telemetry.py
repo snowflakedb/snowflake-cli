@@ -41,12 +41,6 @@ from snowflake.connector.time_util import get_time_millis
 
 
 @unique
-class CLIInstallationSource(Enum):
-    BINARY = "binary"
-    PYPI = "pypi"
-
-
-@unique
 class CLITelemetryField(Enum):
     # Basic information
     SOURCE = "source"
@@ -172,12 +166,6 @@ def _get_definition_version() -> str | None:
     return None
 
 
-def _get_installation_source() -> CLIInstallationSource:
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        return CLIInstallationSource.BINARY
-    return CLIInstallationSource.PYPI
-
-
 def _get_ci_environment_type() -> str:
     if "GITHUB_ACTIONS" in os.environ:
         return "GITHUB_ACTIONS"
@@ -214,7 +202,7 @@ class CLITelemetryClient:
     ) -> Dict[str, Any]:
         data = {
             CLITelemetryField.SOURCE: PARAM_APPLICATION_NAME,
-            CLITelemetryField.INSTALLATION_SOURCE: _get_installation_source().value,
+            CLITelemetryField.INSTALLATION_SOURCE: __about__.INSTALLATION_SOURCE.value,
             CLITelemetryField.VERSION_CLI: __about__.VERSION,
             CLITelemetryField.VERSION_OS: platform.platform(),
             CLITelemetryField.VERSION_PYTHON: python_version(),
