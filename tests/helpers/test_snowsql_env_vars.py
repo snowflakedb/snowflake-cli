@@ -1,23 +1,20 @@
 import os
-
-import pytest
+from unittest import mock
 
 COMMAND = "check-snowsql-env-vars"
 
+VALID_VARS = {
+    "SNOWSQL_ACCOUNT": "test",
+    "SNOWSQL_WAREHOUSE": "whwhw",
+}
+INVALID_VARS = {
+    "SNOWSQL_ABC": "test",
+    "SNOWSQL_CBD": "whwhw",
+}
 
-@pytest.fixture(name="pristine_env", scope="function", autouse=True)
-def kepp_env_clean():
-    old_env = os.environ.copy()
-    for e in old_env:
-        if e.startswith("SNOWSQL_"):
-            os.environ.pop(e, None)
-    yield
-    os.environ = old_env
 
-
+@mock.patch.dict(os.environ, VALID_VARS, clear=True)
 def test_replecaple_env_found(runner):
-    os.environ["SNOWSQL_ACCOUNT"] = "test"
-    os.environ["SNOWSQL_WAREHOUSE"] = "whwhw"
     result = runner.invoke(("helpers", COMMAND))
     assert result.exit_code == 0
     assert (
@@ -26,9 +23,8 @@ def test_replecaple_env_found(runner):
     )
 
 
+@mock.patch.dict(os.environ, INVALID_VARS, clear=True)
 def test_non_replacable_env_found(runner):
-    os.environ["SNOWSQL_ABC"] = "test"
-    os.environ["SNOWSQL_CBD"] = "whwhw"
     result = runner.invoke(("helpers", COMMAND))
     assert result.exit_code == 0
     assert (
