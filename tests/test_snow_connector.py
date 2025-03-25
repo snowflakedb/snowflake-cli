@@ -64,6 +64,7 @@ def test_command_context_is_passed_to_snowflake_connection(
         warehouse="xs",
         password="dummy_password",
         application_name="snowcli",
+        keep_alive=True,
     )
 
 
@@ -238,6 +239,7 @@ def test_internal_application_data_is_sent_if_feature_flag_is_set(
         "warehouse": "xs",
         "password": "dummy_password",
         "application_name": "snowcli",
+        "keep_alive": True,
     }
     env = {}
     if feature_flag is not None:

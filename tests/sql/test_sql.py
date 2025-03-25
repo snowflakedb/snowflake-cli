@@ -86,7 +86,15 @@ def test_sql_execute_from_stdin(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with(query, cursor_class=VerboseCursor)
 
 
-def test_sql_repl_if_no_query_file_or_stdin(runner, os_agnostic_snapshot):
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl._execute")
+def test_sql_repl_if_no_query_file_or_stdin(
+    mock_execute,
+    runner,
+    os_agnostic_snapshot,
+    mock_cursor,
+):
+    mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(2))
+
     result = runner.invoke(["sql"])
     assert result.exit_code == 0, result.output
     assert result.output == os_agnostic_snapshot
