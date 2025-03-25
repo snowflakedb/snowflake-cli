@@ -1617,8 +1617,8 @@ def test_connection_add_with_key_pair_saves_password_if_keypair_is_set(
         Key length [2048]: 
         Output path [~/.ssh]: {tmp_path}
         Private key passphrase: 
-        Wrote new password-based connection conn to {test_snowcli_config}, however there were some issues during key pair setup:
-        The public key is set already. Use the rotate command instead.
+        Wrote new password-based connection conn to {test_snowcli_config}, however there were some issues during key pair setup. Review the following error and check 'snow auth keypair' commands to setup key pair authentication:
+         * The public key is set already.
         """
     )
     assert not private_key_path.exists()

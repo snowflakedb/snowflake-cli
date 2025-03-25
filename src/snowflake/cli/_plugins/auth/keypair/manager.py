@@ -5,6 +5,7 @@ from click import ClickException
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli.api import exceptions
 from snowflake.cli.api.cli_global_context import (
     _CliGlobalContextAccess,
     get_cli_context,
@@ -49,13 +50,18 @@ class AuthManager(SqlExecutionMixin):
             connection_name = cli_context.connection_context.connection_name
 
         key_name = AuthManager._get_free_key_name(output_path, connection_name)  # type: ignore[arg-type]
-        self._generate_key_pair_and_set_public_key(
-            user=cli_context.connection.user,
-            key_length=key_length,
-            output_path=output_path,
-            key_name=key_name,  # type: ignore[arg-type]
-            private_key_passphrase=private_key_passphrase,
-        )
+        try:
+            self._generate_key_pair_and_set_public_key(
+                user=cli_context.connection.user,
+                key_length=key_length,
+                output_path=output_path,
+                key_name=key_name,  # type: ignore[arg-type]
+                private_key_passphrase=private_key_passphrase,
+            )
+        except exceptions.CouldNotSetKeyPairError:
+            raise ClickException(
+                "The public key is set already. Use the rotate command instead."
+            )
 
         self._create_or_update_connection(
             current_connection=cli_context.connection_context.connection_name,
@@ -119,9 +125,7 @@ class AuthManager(SqlExecutionMixin):
         public_key_exists, public_key_2_exists = self._get_public_keys()
 
         if public_key_exists or public_key_2_exists:
-            raise ClickException(
-                "The public key is set already. Use the rotate command instead."
-            )
+            raise exceptions.CouldNotSetKeyPairError()
 
         if not output_path.exists():
             output_path.mkdir(parents=True)
