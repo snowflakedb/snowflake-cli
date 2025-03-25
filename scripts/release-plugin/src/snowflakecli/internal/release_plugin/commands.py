@@ -40,6 +40,8 @@ UPDATE_RELEASE_NOTES_SCRIPT = "scripts/main.py"
 GITHUB_TOKEN_ENV = "SNOWCLI_GITHUB_TOKEN"
 SNOWFLAKE_CLI_REPO = "snowflakedb/snowflake-cli"
 
+FinalOption = typer.Option(help="Use final release instead of -rc")
+
 
 def _check_version_format_callback(version: str) -> str:
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
@@ -254,6 +256,38 @@ def init_rc(version: str = VersionArgument, **options):
 
     # TODO: create pull request
     return MessageResult(f"Branch {branch_name} successfully created.")
+
+
+def tag(version: str = VersionArgument, final: bool = FinalOption, **options):
+    """Publish release tag."""
+    release_info = ReleaseInfo(version)
+
+    os.chdir(get_repo_home())
+    with cli_console.phase("checking out to release branch"):
+        subprocess_run(["git", "checkout", release_info.release_branch_name])
+
+    if final:
+        tag_name = release_info.final_tag_name
+    else:
+        tag_name = release_info.rc_tag_name(release_info.next_rc)
+
+    with cli_console.phase("validating version"):
+        current_version = subprocess_run(["hatch", "version"]).strip()  # type: ignore
+        if current_version != tag_name.replace("-", ""):
+            raise ClickException(
+                f"Published version does not match version on release branch:\n"
+                f"expected version: {tag_name}\nversion on branch: {current_version}"
+            )
+
+    typer.confirm(
+        f"This command is going to publish tag `{tag_name}`. This cannot be undone. Do you want to continue?",
+        abort=True,
+    )
+    with cli_console.phase(f"Publishing tag `{tag_name}`"):
+        subprocess_run(["git", "tag", tag_name])
+        subprocess_run(["git", "push", "--tags"])
+
+    return MessageResult(f"Tag `{tag_name}` successfully published.")
 
 
 @app.command()
