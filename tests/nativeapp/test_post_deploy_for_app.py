@@ -29,6 +29,7 @@ from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
 
+from tests.conftest import MockConnectionCtx
 from tests.nativeapp.factories import (
     ApplicationEntityModelFactory,
     ApplicationPackageEntityModelFactory,
@@ -39,10 +40,9 @@ from tests.nativeapp.utils import (
     CLI_GLOBAL_TEMPLATE_CONTEXT,
     SQL_FACADE_EXECUTE_USER_SCRIPT,
 )
-from tests.testing_utils.fixtures import MockConnectionCtx
 
-MOCK_CONNECTION_DB = "tests.testing_utils.fixtures.MockConnectionCtx.database"
-MOCK_CONNECTION_WH = "tests.testing_utils.fixtures.MockConnectionCtx.warehouse"
+MOCK_CONNECTION_DB = "tests.testing_utils.conftest.MockConnectionCtx.database"
+MOCK_CONNECTION_WH = "tests.testing_utils.conftest.MockConnectionCtx.warehouse"
 
 DEFAULT_POST_DEPLOY_FILENAME_1 = "scripts/app_post_deploy1.sql"
 DEFAULT_POST_DEPLOY_CONTENT_1 = dedent(
@@ -94,7 +94,7 @@ def test_sql_scripts(
     mock_conn,
     mock_cli_ctx,
     mock_sqlfacade_execute_user_script,
-    temp_dir,
+    temporary_directory,
     workspace_context,
 ):
     mock_conn.return_value = MockConnectionCtx()
@@ -172,7 +172,7 @@ def test_app_post_deploy_with_template(
     project_directory,
     template_syntax,
     workspace_context,
-    temp_dir,
+    temporary_directory,
 ):
     mock_conn.return_value = MockConnectionCtx()
     mock_cli_ctx.return_value = {"ctx": {"env": {"test": "test_value"}}}
@@ -227,7 +227,7 @@ def test_app_post_deploy_with_mixed_syntax_template(
     mock_sqlfacade_execute_user_script,
     project_directory,
     workspace_context,
-    temp_dir,
+    temporary_directory,
 ):
     mock_conn.return_value = MockConnectionCtx()
     mock_cli_ctx.return_value = {"ctx": {"env": {"test": "test_value"}}}

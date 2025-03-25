@@ -11,10 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from pathlib import Path
+from typing import List
 
-from tests.project.fixtures import *
+import pytest
+
+from tests_common import change_directory
 from tests_integration.test_utils import (
-    pushd,
     contains_row_with,
     row_from_snowflake_session,
 )
@@ -44,7 +47,7 @@ def test_nativeapp_project_templating_use_env_from_os(
     test_ci_env = "prod"
     local_test_env = {"INTERMEDIATE_CI_ENV": test_ci_env, "APP_DIR": "app"}
 
-    with pushd(project_dir):
+    with change_directory(project_dir):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=local_test_env,
@@ -113,7 +116,7 @@ def test_nativeapp_project_templating_use_env_from_os_through_intermediate_var(
     test_ci_env = "prod"
     local_test_env = {"CI_ENV": test_ci_env, "APP_DIR": "app"}
 
-    with pushd(project_dir):
+    with change_directory(project_dir):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=local_test_env,
@@ -182,7 +185,7 @@ def test_nativeapp_project_templating_use_default_env_from_project(
     default_ci_env = "dev"
     local_test_env = {"APP_DIR": "app"}
 
-    with pushd(project_dir):
+    with change_directory(project_dir):
         result = runner.invoke_with_connection_json(
             ["app", "run"],
             env=local_test_env,
@@ -253,7 +256,7 @@ def test_nativeapp_project_templating_use_env_from_cli_as_highest_priority(
     local_test_env["CI_ENV"] = "value_from_os_env"
     local_test_env["APP_DIR"] = "app"
 
-    with pushd(project_dir):
+    with change_directory(project_dir):
         result = runner.invoke_with_connection_json(
             ["app", "run", "--env", f"CI_ENV={expected_value}"],
             env=local_test_env,
@@ -325,7 +328,7 @@ def test_nativeapp_project_templating_bundle_deploy_successful(
     test_ci_env = "prod"
     local_test_env = {"CI_ENV": test_ci_env, "APP_DIR": "app"}
 
-    with pushd(project_dir):
+    with change_directory(project_dir):
         with nativeapp_teardown(env=local_test_env):
             result = runner.invoke_json(
                 ["app", "bundle"],

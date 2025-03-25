@@ -60,6 +60,7 @@ from snowflake.cli.api.errno import (
     CANNOT_DISABLE_MANDATORY_TELEMETRY,
     CANNOT_DISABLE_RELEASE_CHANNELS,
     CANNOT_MODIFY_RELEASE_CHANNEL_ACCOUNTS,
+    CANNOT_SET_DEBUG_MODE_WITH_MANIFEST_VERSION,
     DOES_NOT_EXIST_OR_CANNOT_BE_PERFORMED,
     DOES_NOT_EXIST_OR_NOT_AUTHORIZED,
     INSUFFICIENT_PRIVILEGES,
@@ -854,7 +855,7 @@ class SnowflakeSQLFacade:
         debug_mode: bool | None,
         should_authorize_event_sharing: bool | None,
         release_channel: str | None = None,
-    ) -> list[tuple[str]]:
+    ) -> tuple[list[tuple[str]], list[str]]:
         """
         Creates a new application object using an application package,
         running the setup script of the application package
@@ -868,6 +869,7 @@ class SnowflakeSQLFacade:
         @param debug_mode: Whether to enable debug mode; None means not explicitly enabled or disabled
         @param should_authorize_event_sharing: Whether to enable event sharing; None means not explicitly enabled or disabled
         @param release_channel [Optional]: Release channel to use when creating the application
+        @return: a tuple containing the result of the create application query and possible warning messages
         """
         package_name = to_identifier(package_name)
         name = to_identifier(name)
@@ -875,11 +877,9 @@ class SnowflakeSQLFacade:
 
         # by default, applications are created in debug mode when possible;
         # this can be overridden in the project definition
-        debug_mode_clause = ""
+        initial_debug_mode = False
         if install_method.is_dev_mode:
             initial_debug_mode = debug_mode if debug_mode is not None else True
-            debug_mode_clause = f"debug_mode = {initial_debug_mode}"
-
         authorize_telemetry_clause = ""
         if should_authorize_event_sharing is not None:
             self._log.info(
@@ -903,13 +903,13 @@ class SnowflakeSQLFacade:
                                     from application package {package_name}
                                     {using_clause}
                                     {release_channel_clause}
-                                    {debug_mode_clause}
                                     {authorize_telemetry_clause}
                                     comment = {SPECIAL_COMMENT}
                             """
                         )
                     ),
                 )
+
             except Exception as err:
                 if isinstance(err, ProgrammingError):
                     if err.errno == APPLICATION_REQUIRES_TELEMETRY_SHARING:
@@ -927,9 +927,36 @@ class SnowflakeSQLFacade:
                             f"Failed to create application {name} with the following error message:\n"
                             f"{err.msg}"
                         ) from err
+
                 handle_unclassified_error(err, f"Failed to create application {name}.")
 
-            return create_cursor.fetchall()
+            warnings = []
+            try:
+                if initial_debug_mode:
+                    self._sql_executor.execute_query(
+                        dedent(
+                            _strip_empty_lines(
+                                f"""\
+                                    alter application {name}
+                                    set debug_mode = {initial_debug_mode}
+                                """
+                            )
+                        )
+                    )
+            except Exception as err:
+                if (
+                    isinstance(err, ProgrammingError)
+                    and err.errno == CANNOT_SET_DEBUG_MODE_WITH_MANIFEST_VERSION
+                ):
+                    warnings.append(
+                        "Did not apply debug mode to application because the manifest version is set to 2 or higher. Please use session debugging instead."
+                    )
+                else:
+                    warnings.append(
+                        f"Failed to set debug mode for application {name}. {str(err)}"
+                    )
+
+            return create_cursor.fetchall(), warnings
 
     def create_application_package(
         self,

@@ -21,12 +21,11 @@ from typing import Dict, Optional
 
 import snowflake.connector
 from click.exceptions import ClickException
-from snowflake.cli.__about__ import VERSION
+from snowflake.cli import __about__
 from snowflake.cli._app.constants import (
     INTERNAL_APPLICATION_NAME,
     PARAM_APPLICATION_NAME,
 )
-from snowflake.cli._app.secret import SecretType
 from snowflake.cli._app.telemetry import command_info
 from snowflake.cli.api.config import (
     get_connection_dict,
@@ -38,6 +37,7 @@ from snowflake.cli.api.exceptions import (
     SnowflakeConnectionError,
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
+from snowflake.cli.api.secret import SecretType
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.errors import DatabaseError, ForbiddenError
@@ -56,6 +56,7 @@ SUPPORTED_ENV_OVERRIDES = [
     "authenticator",
     "private_key_file",
     "private_key_path",
+    "private_key_raw",
     "database",
     "schema",
     "role",
@@ -247,7 +248,7 @@ def _update_internal_application_info(connection_parameters: Dict):
     """Update internal application data if ENABLE_SEPARATE_AUTHENTICATION_POLICY_ID is enabled."""
     if FeatureFlag.ENABLE_SEPARATE_AUTHENTICATION_POLICY_ID.is_enabled():
         connection_parameters["internal_application_name"] = INTERNAL_APPLICATION_NAME
-        connection_parameters["internal_application_version"] = VERSION
+        connection_parameters["internal_application_version"] = __about__.VERSION
 
 
 def _load_pem_from_file(private_key_file: str) -> SecretType:
@@ -273,7 +274,7 @@ def _load_pem_to_der(private_key_pem: SecretType) -> SecretType:
         and private_key_passphrase.value is None
     ):
         raise ClickException(
-            "Encrypted private key, you must provide the"
+            "Encrypted private key, you must provide the "
             "passphrase in the environment variable PRIVATE_KEY_PASSPHRASE"
         )
 

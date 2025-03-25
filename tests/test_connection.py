@@ -21,11 +21,11 @@ from unittest import mock
 
 import pytest
 import tomlkit
-from snowflake.cli._app.secret import SecretType
 from snowflake.cli.api.config import ConnectionConfig
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.secret import SecretType
+from snowflake.cli.api.secure_utils import file_permissions_are_strict
 
-from tests.testing_utils.files_and_dirs import pushd
 from tests_common import IS_WINDOWS
 
 if IS_WINDOWS:
@@ -694,11 +694,11 @@ def test_session_and_master_tokens(mock_connector, mock_ctx, runner):
 
 
 @mock.patch("snowflake.connector.connect")
-def test_token_file_path_tokens(mock_connector, mock_ctx, runner, temp_dir):
+def test_token_file_path_tokens(mock_connector, mock_ctx, runner, temporary_directory):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
 
-    token_file = Path(temp_dir) / "token.file"
+    token_file = Path(temporary_directory) / "token.file"
     token_file.touch()
 
     result = runner.invoke(
@@ -731,7 +731,7 @@ def test_token_file_path_tokens(mock_connector, mock_ctx, runner, temp_dir):
 @mock.patch("snowflake.cli._app.snow_connector._load_pem_from_file")
 @mock.patch("snowflake.cli._app.snow_connector._load_pem_to_der")
 def test_key_pair_authentication_from_config(
-    mock_convert, mock_load_file, mock_connector, mock_ctx, temp_dir, runner
+    mock_convert, mock_load_file, mock_connector, mock_ctx, temporary_directory, runner
 ):
     ctx = mock_ctx()
     mock_connector.return_value = ctx
@@ -1118,23 +1118,22 @@ def test_new_connection_is_added_to_connections_toml(
         )
     )
 
-    with pushd(snowflake_home):
-        result = runner.super_invoke(
-            [
-                "connection",
-                "add",
-                "--connection-name",
-                "new_one",
-                "--username",
-                "user1",
-                "--password",
-                "password1",
-                "--account",
-                "account1",
-                "--port",
-                "8080",
-            ],
-        )
+    result = runner.super_invoke(
+        [
+            "connection",
+            "add",
+            "--connection-name",
+            "new_one",
+            "--username",
+            "user1",
+            "--password",
+            "password1",
+            "--account",
+            "account1",
+            "--port",
+            "8080",
+        ],
+    )
 
     assert result.exit_code == 0, result.output
     assert f"Wrote new connection new_one to {connections_toml}" in result.output
@@ -1237,7 +1236,7 @@ def test_generate_jwt_with_passphrase(
     )
 
 
-@mock.patch.dict(os.environ, {"PRIVATE_KEY_PASSPHRASE": "123"})
+@mock.patch.dict(os.environ, {"PRIVATE_KEY_PASSPHRASE": "123"}, clear=True)
 @mock.patch(
     "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
 )
@@ -1396,4 +1395,154 @@ def test_connection_add_no_interactive(mock_add, runner):
             token_file_path=None,
             _other_settings={},
         ),
+    )
+
+
+@mock.patch("snowflake.cli._plugins.auth.keypair.manager.AuthManager.execute_query")
+@mock.patch("snowflake.cli._plugins.object.manager.ObjectManager.execute_query")
+@mock.patch("snowflake.connector.connect")
+def test_connection_add_with_key_pair(
+    mock_connect,
+    mock_object_execute_query,
+    mock_auth_execute_query,
+    runner,
+    tmp_path,
+    mock_cursor,
+    test_snowcli_config,
+):
+    mock_connect.return_value.user = "user"
+    mock_object_execute_query.return_value = mock_cursor(
+        rows=[
+            {"property": "RSA_PUBLIC_KEY", "value": None},
+            {"property": "RSA_PUBLIC_KEY_2", "value": None},
+        ],
+        columns=[],
+    )
+
+    result = runner.invoke(
+        [
+            "connection",
+            "add",
+        ],
+        input="conn\n"  # connection name: zz
+        "test\n"  # account:
+        "user\n"  # user:
+        "123\n"  # password:
+        "\n"  # role:
+        "\n"  # warehouse:
+        "\n"  # database:
+        "\n"  # schema:
+        "\n"  # host:
+        "\n"  # port:
+        "\n"  # region:
+        "\n"  # authenticator:
+        "\n"  # private key file:
+        "\n"  # token file path:
+        "y\n"  #
+        "4096\n"  # key_length
+        f"{tmp_path}\n"  # output_path
+        "123\n",  # passphrase
+    )
+
+    private_key_path = tmp_path / "conn.p8"
+    public_key_path = tmp_path / "conn.pub"
+    assert result.exit_code == 0, result.output
+    assert result.output == dedent(
+        f"""\
+        Enter connection name: conn
+        Enter account: test
+        Enter user: user
+        Enter password: 
+        Enter role: 
+        Enter warehouse: 
+        Enter database: 
+        Enter schema: 
+        Enter host: 
+        Enter port: 
+        Enter region: 
+        Enter authenticator: 
+        Enter private key file: 
+        Enter token file path: 
+        Do you want to configure key pair authentication? [y/N]: y
+        Key length [2048]: 4096
+        Output path [~/.ssh]: {tmp_path}
+        Private key passphrase: 
+        Set the `PRIVATE_KEY_PASSPHRASE` environment variable before using the connection.
+        Wrote new connection conn to {test_snowcli_config}
+        """
+    )
+    assert private_key_path.exists()
+    assert "BEGIN ENCRYPTED PRIVATE KEY" in private_key_path.read_text()
+    assert file_permissions_are_strict(private_key_path)
+    assert public_key_path.exists()
+    assert file_permissions_are_strict(public_key_path)
+
+
+def test_connection_add_no_key_pair_setup_if_private_key_provided(
+    runner, test_snowcli_config, tmp_path
+):
+    key = tmp_path / "key.p8"
+    key.touch()
+
+    result = runner.invoke(
+        [
+            "connection",
+            "add",
+        ],
+        input="conn\n"  # connection name: zz
+        "test\n"  # account:
+        "user\n"  # user:
+        "\n"  # password:
+        "\n"  # role:
+        "\n"  # warehouse:
+        "\n"  # database:
+        "\n"  # schema:
+        "\n"  # host:
+        "\n"  # port:
+        "\n"  # region:
+        "\n"  # authenticator:
+        f"{key}\n"  # private key file:
+        "\n",  # token file path:
+    )
+    assert result.exit_code == 0, result.output
+    assert result.output == dedent(
+        f"""\
+        Enter connection name: conn
+        Enter account: test
+        Enter user: user
+        Enter password: 
+        Enter role: 
+        Enter warehouse: 
+        Enter database: 
+        Enter schema: 
+        Enter host: 
+        Enter port: 
+        Enter region: 
+        Enter authenticator: 
+        Enter private key file: {key.resolve()}
+        Enter token file path: 
+        Wrote new connection conn to {test_snowcli_config}
+        """
+    )
+
+
+def test_connection_add_no_key_pair_setup_if_no_interactive(
+    runner, tmp_path, test_snowcli_config
+):
+    result = runner.invoke(
+        [
+            "connection",
+            "add",
+            "--connection-name",
+            "conn",
+            "--user",
+            "user",
+            "--account",
+            "account",
+            "--no-interactive",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert (
+        result.output.strip() == f"Wrote new connection conn to {test_snowcli_config}"
     )

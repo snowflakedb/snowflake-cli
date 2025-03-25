@@ -40,14 +40,18 @@ def test_error_traceback_disabled_without_debug(snowcli, test_root_path, config_
 
     assert "SQL compilation error" in result.stderr
     assert traceback_msg not in result.stderr
-    assert result.stdout == "select foo\n"
+    assert result.stdout == "select foo"
 
 
 @pytest.mark.e2e
 def test_corrupted_config_in_default_location(
-    snowcli, temp_dir, isolate_default_config_location, test_root_path, snapshot
+    snowcli,
+    temporary_directory,
+    isolate_default_config_location,
+    test_root_path,
+    snapshot,
 ):
-    default_config = Path(temp_dir) / "config.toml"
+    default_config = Path(temporary_directory) / "config.toml"
     default_config.write_text("[connections.demo]\n[connections.demo]")
     restrict_file_permissions(default_config)
     # corrupted config should produce human-friendly error
@@ -66,10 +70,10 @@ def test_corrupted_config_in_default_location(
 
 @pytest.mark.e2e
 def test_initial_log_with_loaded_external_plugins_in_custom_log_path(
-    snowcli, temp_dir, isolate_default_config_location
+    snowcli, temporary_directory, isolate_default_config_location
 ):
-    custom_log_path = os.path.join(temp_dir, "custom", "logs")
-    default_config = Path(temp_dir) / "config.toml"
+    custom_log_path = os.path.join(temporary_directory, "custom", "logs")
+    default_config = Path(temporary_directory) / "config.toml"
     config_logs_path = custom_log_path.replace("\\", "\\\\")
     default_config.write_text(
         dedent(
@@ -103,10 +107,10 @@ def test_initial_log_with_loaded_external_plugins_in_custom_log_path(
 
 @pytest.mark.e2e
 def test_initial_log_with_loaded_external_plugins_in_custom_log_path_with_custom_config(
-    snowcli, temp_dir, isolate_default_config_location
+    snowcli, temporary_directory, isolate_default_config_location
 ):
-    custom_log_path = os.path.join(temp_dir, "custom", "logs")
-    custom_config = Path(temp_dir) / "custom" / "config.toml"
+    custom_log_path = os.path.join(temporary_directory, "custom", "logs")
+    custom_config = Path(temporary_directory) / "custom" / "config.toml"
     custom_config.parent.mkdir()
     config_logs_path = custom_log_path.replace("\\", "\\\\")
     custom_config.write_text(

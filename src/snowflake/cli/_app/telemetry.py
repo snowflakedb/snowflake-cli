@@ -22,7 +22,7 @@ from typing import Any, Dict, Union
 
 import click
 import typer
-from snowflake.cli.__about__ import VERSION
+from snowflake.cli import __about__
 from snowflake.cli._app.constants import PARAM_APPLICATION_NAME
 from snowflake.cli.api.cli_global_context import (
     _CliGlobalContextAccess,
@@ -38,12 +38,6 @@ from snowflake.connector.telemetry import (
     TelemetryField,
 )
 from snowflake.connector.time_util import get_time_millis
-
-
-@unique
-class CLIInstallationSource(Enum):
-    BINARY = "binary"
-    PYPI = "pypi"
 
 
 @unique
@@ -172,12 +166,6 @@ def _get_definition_version() -> str | None:
     return None
 
 
-def _get_installation_source() -> CLIInstallationSource:
-    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
-        return CLIInstallationSource.BINARY
-    return CLIInstallationSource.PYPI
-
-
 def _get_ci_environment_type() -> str:
     if "GITHUB_ACTIONS" in os.environ:
         return "GITHUB_ACTIONS"
@@ -214,8 +202,8 @@ class CLITelemetryClient:
     ) -> Dict[str, Any]:
         data = {
             CLITelemetryField.SOURCE: PARAM_APPLICATION_NAME,
-            CLITelemetryField.INSTALLATION_SOURCE: _get_installation_source().value,
-            CLITelemetryField.VERSION_CLI: VERSION,
+            CLITelemetryField.INSTALLATION_SOURCE: __about__.INSTALLATION_SOURCE.value,
+            CLITelemetryField.VERSION_CLI: __about__.VERSION,
             CLITelemetryField.VERSION_OS: platform.platform(),
             CLITelemetryField.VERSION_PYTHON: python_version(),
             CLITelemetryField.COMMAND_CI_ENVIRONMENT: _get_ci_environment_type(),

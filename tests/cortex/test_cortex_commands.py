@@ -22,7 +22,7 @@ from unittest import mock
 
 import pytest
 
-from tests.testing_utils.fixtures import TEST_DIR
+from tests.conftest import TEST_DIR
 from tests.testing_utils.result_assertions import (
     assert_successful_result_message,
     assert_that_result_is_usage_error,

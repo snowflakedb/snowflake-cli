@@ -6,7 +6,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
 
 
 @pytest.fixture
-def make_project(temp_dir):
+def make_project(temporary_directory):
     def _make_project(entities=None, env=None, mixins=None):
         env = env or {}
         mixins = mixins or {}

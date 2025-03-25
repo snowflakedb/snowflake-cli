@@ -6,16 +6,15 @@
   |----------+-------------|
   | GREETING | Hello John! |
   +------------------------+
-  
   '''
 # ---
 # name: test_disabling_and_enabling_command
   '''
-                                                                                  
-   Usage: snow [OPTIONS] COMMAND [ARGS]...                                        
-                                                                                  
-   Snowflake CLI tool for developers [v3.5.0.dev0]                                
-                                                                                  
+  
+   Usage: snow [OPTIONS] COMMAND [ARGS]...
+  
+   Snowflake CLI tool for developers [v0.0.1-test_patched]
+  
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
@@ -32,6 +31,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app                  Manages a Snowflake Native App                          |
+  | auth                 Manages authentication methods.                         |
   | connection           Manages connections to Snowflake.                       |
   | cortex               Provides access to Snowflake Cortex.                    |
   | git                  Manages git repositories in Snowflake.                  |
@@ -48,7 +48,6 @@
   | multilingual-hello   Says hello in various languages                         |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_disabling_and_enabling_command.1
@@ -58,14 +57,10 @@
   |--------------------+---------|
   | multilingual-hello | True    |
   +------------------------------+
-  
   '''
 # ---
 # name: test_disabling_and_enabling_command.2
-  '''
-  Plugin multilingual-hello successfully disabled.
-  
-  '''
+  'Plugin multilingual-hello successfully disabled.'
 # ---
 # name: test_disabling_and_enabling_command.3
   '''
@@ -74,16 +69,15 @@
   |--------------------+---------|
   | multilingual-hello | False   |
   +------------------------------+
-  
   '''
 # ---
 # name: test_disabling_and_enabling_command.4
   '''
-                                                                                  
-   Usage: snow [OPTIONS] COMMAND [ARGS]...                                        
-                                                                                  
-   Snowflake CLI tool for developers [v3.5.0.dev0]                                
-                                                                                  
+  
+   Usage: snow [OPTIONS] COMMAND [ARGS]...
+  
+   Snowflake CLI tool for developers [v0.0.1-test_patched]
+  
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
@@ -100,6 +94,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app          Manages a Snowflake Native App                                  |
+  | auth         Manages authentication methods.                                 |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |
@@ -115,22 +110,18 @@
   | streamlit    Manages a Streamlit app in Snowflake.                           |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_disabling_and_enabling_command.5
-  '''
-  Plugin multilingual-hello successfully enabled.
-  
-  '''
+  'Plugin multilingual-hello successfully enabled.'
 # ---
 # name: test_disabling_and_enabling_command.6
   '''
-                                                                                  
-   Usage: snow [OPTIONS] COMMAND [ARGS]...                                        
-                                                                                  
-   Snowflake CLI tool for developers [v3.5.0.dev0]                                
-                                                                                  
+  
+   Usage: snow [OPTIONS] COMMAND [ARGS]...
+  
+   Snowflake CLI tool for developers [v0.0.1-test_patched]
+  
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
@@ -147,6 +138,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app                  Manages a Snowflake Native App                          |
+  | auth                 Manages authentication methods.                         |
   | connection           Manages connections to Snowflake.                       |
   | cortex               Provides access to Snowflake Cortex.                    |
   | git                  Manages git repositories in Snowflake.                  |
@@ -163,7 +155,6 @@
   | multilingual-hello   Says hello in various languages                         |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_disabling_and_enabling_command.7
@@ -173,7 +164,6 @@
   |--------------------+---------|
   | multilingual-hello | True    |
   +------------------------------+
-  
   '''
 # ---
 # name: test_disabling_and_enabling_command.8
@@ -210,11 +200,11 @@
 # ---
 # name: test_snow_help
   '''
-                                                                                  
-   Usage: snow [OPTIONS] COMMAND [ARGS]...                                        
-                                                                                  
-   Snowflake CLI tool for developers [v3.5.0.dev0]                                
-                                                                                  
+  
+   Usage: snow [OPTIONS] COMMAND [ARGS]...
+  
+   Snowflake CLI tool for developers [v0.0.1-test_patched]
+  
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
@@ -231,6 +221,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app          Manages a Snowflake Native App                                  |
+  | auth         Manages authentication methods.                                 |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |
@@ -246,7 +237,6 @@
   | streamlit    Manages a Streamlit app in Snowflake.                           |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_snow_sql
@@ -257,6 +247,5 @@
   |------------------|
   | 2.3              |
   +------------------+
-  
   '''
 # ---

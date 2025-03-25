@@ -43,12 +43,9 @@ from snowflake.cli.api.connections import OpenConnectionCache
 from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 from tests.conftest import clean_logging_handlers_fixture  # noqa: F401
 from tests.testing_utils.files_and_dirs import merge_left
-from tests.testing_utils.fixtures import (
-    alter_snowflake_yml,  # noqa: F401
-    snowflake_home,
-)
 
 pytest_plugins = [
+    "tests.project.fixtures",
     "tests_common",
     "tests_common.deflake",
     "tests_integration.testing_utils",

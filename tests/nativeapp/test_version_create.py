@@ -93,7 +93,7 @@ def _version_create(
 # Test get_existing_release_directive_info_for_version returns release directives info correctly
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 def test_get_existing_release_direction_info(
-    mock_execute, temp_dir, mock_cursor, workspace_context
+    mock_execute, temporary_directory, mock_cursor, workspace_context
 ):
     version = "V1"
     side_effects, expected = mock_execute_helper(
@@ -146,7 +146,7 @@ def test_get_existing_release_direction_info(
 )
 def test_add_version(
     mock_create_version,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
     version,
     workspace_context,
@@ -180,7 +180,12 @@ def test_add_version(
     [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
 )
 def test_add_new_patch_auto(
-    mock_execute, temp_dir, mock_cursor, version, version_identifier, workspace_context
+    mock_execute,
+    temporary_directory,
+    mock_cursor,
+    version,
+    version_identifier,
+    workspace_context,
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -231,7 +236,12 @@ def test_add_new_patch_auto(
     [("V1", "V1"), ("1.0.0", '"1.0.0"'), ('"1.0.0"', '"1.0.0"')],
 )
 def test_add_new_patch_custom(
-    mock_execute, temp_dir, mock_cursor, version, version_identifier, workspace_context
+    mock_execute,
+    temporary_directory,
+    mock_cursor,
+    version,
+    version_identifier,
+    workspace_context,
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -292,7 +302,7 @@ def test_process_no_version_from_user_no_version_in_manifest(
     force,
     interactive,
     skip_git_check,
-    temp_dir,
+    temporary_directory,
 ):
     current_working_directory = os.getcwd()
     create_named_file(
@@ -328,7 +338,7 @@ def test_process_no_version_exists_throws_bad_option_exception_one(
     force,
     interactive,
     skip_git_check,
-    temp_dir,
+    temporary_directory,
 ):
     current_working_directory = os.getcwd()
     create_named_file(
@@ -362,7 +372,7 @@ def test_process_no_version_exists_throws_bad_option_exception_two(
     force,
     interactive,
     skip_git_check,
-    temp_dir,
+    temporary_directory,
 ):
     current_working_directory = os.getcwd()
     create_named_file(
@@ -412,7 +422,7 @@ def test_process_no_existing_release_directives_or_versions(
     mock_find_version,
     force,
     interactive,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     version = "V1"
@@ -472,7 +482,7 @@ def test_process_no_existing_release_directives_w_existing_version(
     mock_find_version,
     force,
     interactive,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     version = "V1"
@@ -541,7 +551,7 @@ def test_process_existing_release_directives_user_does_not_proceed(
     mock_check_git,
     interactive,
     expected_code,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     version = "V1"
@@ -606,7 +616,7 @@ def test_process_existing_release_directives_w_existing_version_two(
     mock_check_git,
     force,
     interactive,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     version = "V1"
@@ -673,7 +683,7 @@ def test_manifest_version_info_not_used(
     mock_bundle,
     mock_deploy,
     mock_find_info_manifest,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
 
@@ -740,7 +750,7 @@ def test_manifest_patch_is_not_used(
     mock_find_info_manifest,
     patch,
     label,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
 
@@ -811,7 +821,7 @@ def test_version_from_manifest(
     cli_label,
     manifest_patch,
     manifest_label,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
 
@@ -885,7 +895,7 @@ def test_patch_from_manifest(
     mock_find_info_manifest,
     cli_label,
     manifest_label,
-    temp_dir,
+    temporary_directory,
     mock_cursor,
 ):
     manifest_patch = 4

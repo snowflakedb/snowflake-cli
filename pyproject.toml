@@ -25,23 +25,23 @@ requires-python = ">=3.10"
 description = "Snowflake CLI"
 readme = "README.md"
 dependencies = [
-  "jinja2==3.1.5",
-  "pluggy==1.5.0",
-  "PyYAML==6.0.2",
+  "GitPython==3.1.44",
+  "jinja2==3.1.6",
   "packaging",
-  "rich==13.9.4",
+  "pip",
+  "pluggy==1.5.0",
+  "pydantic==2.10.6",
+  "PyYAML==6.0.2",
   "requests==2.32.3",
   "requirements-parser==0.11.0",
-  "setuptools==75.8.0",
-  'snowflake.core==1.0.2; python_version < "3.12"',
-  "snowflake-connector-python[secure-local-storage]==3.13.2",
+  "rich==13.9.4",
+  "setuptools==76.0.0",
+  "snowflake-connector-python[secure-local-storage]==3.14.0",
   'snowflake-snowpark-python>=1.15.0,<1.26.0;python_version < "3.12"',
+  'snowflake.core==1.0.2; python_version < "3.12"',
   "tomlkit==0.13.2",
-  "typer==0.15.1",
+  "typer==0.15.2",
   "urllib3>=1.24.3,<2.4",
-  "GitPython==3.1.44",
-  "pip",
-  "pydantic==2.10.6",
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -59,13 +59,14 @@ classifiers = [
 development = [
   "coverage==7.6.12",
   "pre-commit>=3.5.0",
-  "pytest==8.3.4",
+  "pytest==8.3.5",
   "pytest-randomly==3.16.0",
-  "syrupy==4.8.2",
+  "pytest-httpserver==1.1.2",
+  "syrupy==4.9.1",
   "factory-boy==3.3.3",
-  "Faker==36.1.1",
+  "Faker==37.0.0",
 ]
-packaging = ["pyinstaller~=6.10"]
+packaging = []
 
 [project.urls]
 "Source code" = "https://github.com/snowflakedb/snowflake-cli"
@@ -104,6 +105,7 @@ python = "3.10"
 features = ["development", "packaging"]
 
 [tool.hatch.envs.packaging.scripts]
+build-isolated-binary = ["python scripts/packaging/build_isolated_binary_with_hatch.py"]
 build-binaries = ["./scripts/packaging/build_binaries.sh"]
 build-packages = ["./scripts/packaging/build_packages.sh"]
 package-darwin-binaries = ["./scripts/packaging/build_darwin_package.sh"]
@@ -140,7 +142,10 @@ features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
 test = [
-  'pytest -m "integration and not qa_only" -n6 --dist=worksteal --deflake-test-type=integration tests_integration/',
+  'pytest -m "integration and not qa_only" -n6 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/spcs tests_integration/',
+]
+test-spcs = [
+  "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/spcs",
 ]
 test_qa = [
   "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/",

@@ -17,7 +17,7 @@ from unittest import mock
 
 import pytest
 
-from tests.testing_utils.fixtures import TEST_DIR
+from tests.conftest import TEST_DIR
 
 
 @pytest.fixture
@@ -36,3 +36,37 @@ def mock_available_packages_sql_result(mock_ctx, mock_cursor):
         "snowflake.cli._app.snow_connector.connect_to_snowflake", return_value=ctx
     ):
         yield
+
+
+@pytest.fixture
+def mock_procedure_description(mock_cursor):
+    yield mock_cursor(
+        rows=[
+            ("signature", "(NAME VARCHAR)"),
+            ("returns", "VARCHAR(16777216)"),
+            ("language", "PYTHON"),
+            ("null handling", "CALLED ON NULL INPUT"),
+            ("volatility", "VOLATILE"),
+            ("execute as", "CALLER"),
+            ("body", None),
+            ("imports", "[@FOO.BAR.BAZ/my_snowpark_project/app.zip]"),
+            ("handler", "app.hello_procedure"),
+            ("runtime_version", "3.10"),
+            ("packages", "['snowflake-snowpark-python','pytest<9.0.0,>=7.0.0']"),
+            ("installed_packages", "['_libgcc_mutex==0.1']"),
+        ],
+        columns=[
+            "signature",
+            "returns",
+            "language",
+            "null handling",
+            "volatility",
+            "execute as",
+            "body",
+            "imports",
+            "handler",
+            "runtime_version",
+            "packages",
+            "installed_packages",
+        ],
+    )

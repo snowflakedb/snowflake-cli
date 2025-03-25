@@ -19,7 +19,7 @@ from zipfile import ZipFile
 from snowflake.cli._plugins.snowpark.zipper import add_file_to_existing_zip, zip_dir
 
 
-def test_zip_current_dir(temp_dir):
+def test_zip_current_dir(temporary_directory):
     zip_name = Path("zip_name.zip")
     files = [
         Path(".DS_Store"),
@@ -57,7 +57,7 @@ def test_zip_current_dir(temp_dir):
     for file in files:
         file.touch()
 
-    zip_dir(source=Path(temp_dir), dest_zip=zip_name)
+    zip_dir(source=Path(temporary_directory), dest_zip=zip_name)
 
     zip_file = ZipFile(zip_name)
     assert set(zip_file.namelist()) == {

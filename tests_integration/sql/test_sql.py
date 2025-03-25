@@ -21,7 +21,7 @@ from tests_integration.testing_utils import ObjectNameProvider
 
 
 @pytest.mark.integration
-def test_query_parameter(runner, snowflake_session):
+def test_query_parameter(runner):
     result = runner.invoke_with_connection_json(["sql", "-q", "select pi()"])
 
     assert result.exit_code == 0
@@ -29,7 +29,7 @@ def test_query_parameter(runner, snowflake_session):
 
 
 @pytest.mark.integration
-def test_multi_queries_from_file(runner, snowflake_session, test_root_path):
+def test_multi_queries_from_file(runner, test_root_path):
     result = runner.invoke_with_connection_json(
         [
             "sql",
@@ -47,7 +47,7 @@ def test_multi_queries_from_file(runner, snowflake_session, test_root_path):
 
 
 @pytest.mark.integration
-def test_multiple_files(runner, snowflake_session, test_root_path, snapshot):
+def test_multiple_files(runner, test_root_path, snapshot):
     query_file = f"{test_root_path}/test_data/sql_multi_queries.sql"
     result = runner.invoke_with_connection(
         [
@@ -66,9 +66,7 @@ def test_multiple_files(runner, snowflake_session, test_root_path, snapshot):
 
 
 @pytest.mark.integration
-def test_multi_queries_where_one_of_them_is_failing(
-    runner, snowflake_session, test_root_path
-):
+def test_multi_queries_where_one_of_them_is_failing(runner, test_root_path):
     result = runner.invoke_with_connection_json(
         ["sql", "-q", f"select 1; select 2; select foo; select 4", "--format", "json"],
     )
@@ -80,7 +78,7 @@ def test_multi_queries_where_one_of_them_is_failing(
 
 
 @pytest.mark.integration
-def test_multi_input_from_stdin(runner, snowflake_session, test_root_path):
+def test_multi_input_from_stdin(runner, test_root_path):
     result = runner.invoke_with_connection_json(
         [
             "sql",
@@ -140,15 +138,35 @@ def test_queries_are_streamed_to_output(
 
 
 @pytest.mark.integration
-def test_trailing_comments_queries(runner, snowflake_session, test_root_path):
-    trailin_comment_query = "select 1;\n\n-- trailing comment\n"
-    result = runner.invoke_with_connection_json(["sql", "-q", trailin_comment_query])
+@pytest.mark.parametrize(
+    "query, expected",
+    (
+        pytest.param(
+            "select 1; -- trailing comment\n",
+            [
+                {"1": 1},
+            ],
+            id="single query",
+        ),
+        pytest.param(
+            "select 1; --comment\n select 2; \n -- trailing comment\n",
+            [
+                [
+                    {"1": 1},
+                ],
+                [
+                    {"2": 2},
+                ],
+            ],
+        ),
+    ),
+)
+def test_trailing_comments_queries(runner, query, expected, test_root_path):
+    result = runner.invoke_with_connection_json(
+        ["sql", "-q", query, "--format", "JSON"]
+    )
     assert result.exit_code == 0
-    assert result.json == [
-        [
-            {"1": 1},
-        ],
-    ]
+    assert result.json == expected, result.json
 
 
 @pytest.mark.integration

@@ -40,7 +40,7 @@ def test_napp_project_1(project_definition_files):
 
 
 @mock.patch.dict(os.environ, {"USER": "jsmith"})
-def test_na_minimal_project(temp_dir):
+def test_na_minimal_project(temporary_directory):
     minimal_pdf = PdfV10Factory(native_app__artifacts=["setup.sql", "README.md"])
     project = load_project([minimal_pdf.path]).project_definition
     assert project.native_app.name == minimal_pdf.yml["native_app"]["name"]

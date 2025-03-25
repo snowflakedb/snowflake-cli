@@ -40,8 +40,8 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
 from snowflake.cli.api.project.schemas.entities.common import ProcessorMapping
 
 from tests.nativeapp.utils import assert_dir_snapshot
-from tests.testing_utils.files_and_dirs import pushd, temp_local_dir
-from tests_common import IS_WINDOWS
+from tests.testing_utils.files_and_dirs import temp_local_dir
+from tests_common import IS_WINDOWS, change_directory
 
 PROJECT_ROOT = Path("/path/to/project")
 
@@ -241,7 +241,7 @@ def test_edit_setup_script_with_exec_imm_sql(os_agnostic_snapshot):
     }
 
     with temp_local_dir(dir_structure=dir_structure) as local_path:
-        with pushd(local_path):
+        with change_directory(local_path):
             deploy_root = Path(local_path, "output", "deploy")
             generated_root = Path(deploy_root, "__generated", "snowpark")
             collected_sql_files = [
@@ -276,7 +276,7 @@ def test_edit_setup_script_with_exec_imm_sql_noop(os_agnostic_snapshot):
     }
 
     with temp_local_dir(dir_structure=dir_structure) as local_path:
-        with pushd(local_path):
+        with change_directory(local_path):
             deploy_root = Path(local_path, "output", "deploy")
             collected_sql_files = [
                 Path(deploy_root, "__generated", "snowpark", "dummy.sql"),
@@ -310,7 +310,7 @@ def test_edit_setup_script_with_exec_imm_sql_symlink(os_agnostic_snapshot):
     }
 
     with temp_local_dir(dir_structure=dir_structure) as local_path:
-        with pushd(local_path):
+        with change_directory(local_path):
             deploy_root = Path(local_path, "output", "deploy")
 
             deploy_root_setup_script = Path(deploy_root, "setup.sql")
@@ -364,7 +364,7 @@ def test_process_no_collected_functions(
     mock_sandbox, native_app_project_instance, os_agnostic_snapshot
 ):
     with temp_local_dir(minimal_dir_structure) as local_path:
-        with pushd(local_path):
+        with change_directory(local_path):
             pkg_model = native_app_project_instance.entities["pkg"]
             pkg_model.artifacts = [
                 {"src": "a/b/c/*.py", "dest": "stagepath/", "processors": ["SNOWPARK"]}
@@ -395,7 +395,7 @@ def test_process_with_collected_functions(
 ):
 
     with temp_local_dir(minimal_dir_structure) as local_path:
-        with pushd(local_path):
+        with change_directory(local_path):
             imports_variation = copy.deepcopy(native_app_extension_function_raw_data)
             imports_variation["imports"] = [
                 "@dummy_stage_str",
@@ -471,7 +471,7 @@ def test_package_normalization(
 ):
 
     with temp_local_dir(minimal_dir_structure) as local_path:
-        with pushd(local_path):
+        with change_directory(local_path):
             processor_mapping = ProcessorMapping(
                 name="snowpark",
             )

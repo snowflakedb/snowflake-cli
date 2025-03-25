@@ -1,0 +1,214 @@
+# serializer version: 1
+# name: test_list
+  '''
+  +------------------------------------------------------------------------------+
+  | property             | value                | default | description          |
+  |----------------------+----------------------+---------+----------------------|
+  | RSA_PUBLIC_KEY       | -----BEGIN PUBLIC    | None    | RSA public key of    |
+  |                      | KEY-----             |         | the user             |
+  | RSA_PUBLIC_KEY_FP    | SHA256               | None    | Fingerprint of       |
+  |                      |                      |         | user's RSA public    |
+  |                      |                      |         | key.                 |
+  | RSA_PUBLIC_KEY_LAST_ | 2025-02-17           | None    | The timestamp        |
+  | SET_TIME             | 12:53:51.212         |         |                      |
+  | RSA_PUBLIC_KEY_2     | None                 | None    | Second RSA public    |
+  |                      |                      |         | key of the user      |
+  | RSA_PUBLIC_KEY_2_FP  | None                 | None    | Fingerprint of       |
+  |                      |                      |         | user's second RSA    |
+  |                      |                      |         | public key.          |
+  | RSA_PUBLIC_KEY_2_LAS | None                 | None    | The timestamp        |
+  | T_SET_TIME           |                      |         |                      |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_remove[RSA_PUBLIC_KEY]
+  '''
+  +-------------------------------------------+
+  | key    | value                            |
+  |--------+----------------------------------|
+  | status | Statement executed successfully. |
+  +-------------------------------------------+
+  
+  '''
+# ---
+# name: test_remove[RSA_PUBLIC_KEY_2]
+  '''
+  +-------------------------------------------+
+  | key    | value                            |
+  |--------+----------------------------------|
+  | status | Statement executed successfully. |
+  +-------------------------------------------+
+  
+  '''
+# ---
+# name: test_rotate_create_output_directory_with_proper_privileges
+  '''
+  Enter key length [2048]: 4096
+  Enter private key passphrase []: 
+  Rotate completed.
+  
+  '''
+# ---
+# name: test_rotate_no_prompts
+  '''
+  Set the `PRIVATE_KEY_PASSPHRASE` environment variable before using the connection.
+  Rotate completed.
+  
+  '''
+# ---
+# name: test_rotate_no_public_key_set
+  '''
+  Enter key length [2048]: 
+  Enter private key passphrase []: 
+  +- Error ----------------------------------------------------------------------+
+  | No public key found. Use the setup command first.                            |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_rotate_only_public_key_set
+  '''
+  Enter key length [2048]: 4096
+  Enter private key passphrase []: 
+  Rotate completed.
+  
+  '''
+# ---
+# name: test_rotate_other_public_key_set_options[KEY-KEY]
+  '''
+  Enter key length [2048]: 4096
+  Enter private key passphrase []: 
+  Rotate completed.
+  
+  '''
+# ---
+# name: test_rotate_other_public_key_set_options[None-KEY]
+  '''
+  Enter key length [2048]: 4096
+  Enter private key passphrase []: 
+  Rotate completed.
+  
+  '''
+# ---
+# name: test_rotate_with_password
+  '''
+  Enter key length [2048]: 4096
+  Enter private key passphrase []: 
+  Set the `PRIVATE_KEY_PASSPHRASE` environment variable before using the connection.
+  Rotate completed.
+  
+  '''
+# ---
+# name: test_setup_connection_already_exists
+  '''
+  Create a new connection? [Y/n]: 
+  Enter connection name: default
+  Enter key length [2048]: 
+  Enter private key passphrase []: 
+  +- Error ----------------------------------------------------------------------+
+  | Connection with name default already exists.                                 |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_setup_create_output_directory_with_proper_privileges
+  '''
+  Create a new connection? [Y/n]: Y
+  Enter connection name: keypairconnection
+  Enter key length [2048]: 4096
+  Enter private key passphrase []: 
+  Setup completed.
+  
+  '''
+# ---
+# name: test_setup_error_if_any_public_key_is_set[KEY-KEY]
+  '''
+  Create a new connection? [Y/n]: Y
+  Enter connection name: keypairconnection
+  Enter key length [2048]: 4096
+  Enter private key passphrase []: 
+  +- Error ----------------------------------------------------------------------+
+  | The public key is set already. Use the rotate command instead.               |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_setup_error_if_any_public_key_is_set[KEY-None]
+  '''
+  Create a new connection? [Y/n]: Y
+  Enter connection name: keypairconnection
+  Enter key length [2048]: 4096
+  Enter private key passphrase []: 
+  +- Error ----------------------------------------------------------------------+
+  | The public key is set already. Use the rotate command instead.               |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_setup_error_if_any_public_key_is_set[None-KEY]
+  '''
+  Create a new connection? [Y/n]: Y
+  Enter connection name: keypairconnection
+  Enter key length [2048]: 4096
+  Enter private key passphrase []: 
+  +- Error ----------------------------------------------------------------------+
+  | The public key is set already. Use the rotate command instead.               |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_setup_no_prompts
+  '''
+  Create a new connection? [Y/n]: 
+  Enter connection name: keypairconnection
+  Set the `PRIVATE_KEY_PASSPHRASE` environment variable before using the connection.
+  Setup completed.
+  
+  '''
+# ---
+# name: test_setup_overwrite_connection
+  '''
+  Create a new connection? [Y/n]: n
+  Enter key length [2048]: 
+  Enter private key passphrase []: 
+  Setup completed.
+  
+  '''
+# ---
+# name: test_setup_with_password
+  '''
+  Create a new connection? [Y/n]: Y
+  Enter connection name: keypairconnection
+  Enter key length [2048]: 4096
+  Enter private key passphrase []: 
+  Set the `PRIVATE_KEY_PASSPHRASE` environment variable before using the connection.
+  Setup completed.
+  
+  '''
+# ---
+# name: test_status
+  '''
+  Private key set for connection - OK
+  Test connection - OK
+  Status check completed.
+  
+  '''
+# ---
+# name: test_status_no_authenticator
+  '''
+  Private key set for connection - OK
+  +- Error ----------------------------------------------------------------------+
+  | Private Key authentication requires authenticator set to SNOWFLAKE_JWT       |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: test_status_no_private_key_in_connection
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | The private key is not set in default connection.                            |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---

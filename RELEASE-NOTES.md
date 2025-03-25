@@ -23,6 +23,27 @@
 ## Fixes and improvements
 
 
+# v3.6.0
+
+## Deprecations
+
+## New additions
+* Added new `snow auth keypair` commands:
+    * `setup` - generate key pair, set public key for the user in Snowflake and update/create connection.
+    * `rotate` - rotate keys for connection.
+    * `list` - list the public keys for the user.
+    * `remove` - remove the public key for the user.
+    * `status` - verifies the key pair configuration and tests the connection.
+* The `snow connection add` command has been enhanced to include key pair authentication when a password is provided.
+* Added support for `!source` command in SQL. This command allows to execute SQL from a local file.
+
+## Fixes and improvements
+* Fix for incompatible options in `snow spcs compute-pool` commands didn't raise error.
+* Change binary builds to embed whole Python environment.
+* Fixed recursive copying to stage for unbalanced directory trees.
+* Fixed checking for new CLI version.
+* Added file execution log in stage and git commands.
+
 # v3.5.0
 
 ## Deprecations
@@ -35,10 +56,10 @@
 * Added `snow compute-pool deploy` command using `snowflake.yml` file.
 * Added `snow spcs service deploy` command using `snowflake.yml` file.
 * Added `snow image-repository deploy` command using `snowflake.yml` file.
+* Added support for creating native applications with manifest version 2.
 
 ## Fixes and improvements
 * Fix handling of date types in `snow sql` command when using JSON for output format
-
 
 # v3.4.1
 ## Backward incompatibility

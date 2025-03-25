@@ -23,16 +23,6 @@ from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.telemetry import TelemetryField
 
 
-@contextmanager
-def pushd(directory: Path):
-    cwd = os.getcwd()
-    os.chdir(directory)
-    try:
-        yield directory
-    finally:
-        os.chdir(cwd)
-
-
 def row_from_mock(mock_print) -> List[Dict[str, Any]]:
     return row_from_cursor(mock_print.call_args.args[0])
 

@@ -14,6 +14,7 @@
 import itertools
 import json
 import re
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -34,6 +35,7 @@ from snowflake.connector.cursor import SnowflakeCursor
 from yaml import YAMLError
 
 from tests.spcs.test_common import SPCS_OBJECT_EXISTS_ERROR
+from tests_common import change_directory
 
 SPEC_CONTENT = dedent(
     """
@@ -77,12 +79,12 @@ def enable_events_and_metrics_config():
 
 
 @patch(EXECUTE_QUERY)
-def test_create_service(mock_execute_query, other_directory):
+def test_create_service(mock_execute_query, temporary_directory):
     service_name = "test_service"
     compute_pool = "test_pool"
     min_instances = 42
     max_instances = 43
-    tmp_dir = Path(other_directory)
+    tmp_dir = Path(temporary_directory)
     spec_path = tmp_dir / "spec.yml"
     spec_path.write_text(SPEC_CONTENT)
     auto_resume = True
@@ -129,8 +131,8 @@ def test_create_service(mock_execute_query, other_directory):
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.create")
-def test_create_service_cli_defaults(mock_create, other_directory, runner):
-    tmp_dir = Path(other_directory)
+def test_create_service_cli_defaults(mock_create, temporary_directory, runner):
+    tmp_dir = Path(temporary_directory)
     spec_path = tmp_dir / "spec.yml"
     spec_path.write_text(SPEC_CONTENT)
     result = runner.invoke(
@@ -162,8 +164,8 @@ def test_create_service_cli_defaults(mock_create, other_directory, runner):
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.create")
-def test_create_service_cli(mock_create, other_directory, runner):
-    tmp_dir = Path(other_directory)
+def test_create_service_cli(mock_create, temporary_directory, runner):
+    tmp_dir = Path(temporary_directory)
     spec_path = tmp_dir / "spec.yml"
     spec_path.write_text(SPEC_CONTENT)
     result = runner.invoke(
@@ -270,10 +272,10 @@ def test_create_service_already_exists(mock_handle, mock_execute, mock_read_yaml
 
 
 @patch(EXECUTE_QUERY)
-def test_create_service_if_not_exists(mock_execute_query, other_directory):
+def test_create_service_if_not_exists(mock_execute_query, temporary_directory):
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
-    tmp_dir = Path(other_directory)
+    tmp_dir = Path(temporary_directory)
     spec_path = tmp_dir / "spec.yml"
     spec_path.write_text(SPEC_CONTENT)
     result = ServiceManager().create(
@@ -301,6 +303,14 @@ def test_create_service_if_not_exists(mock_execute_query, other_directory):
     actual_query = " ".join(mock_execute_query.mock_calls[0].args[0].split())
     assert expected_query == actual_query
     assert result == cursor
+
+
+def test_deploy_command_requires_pdf(runner):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with change_directory(tmpdir):
+            result = runner.invoke(["spcs", "service", "deploy"])
+            assert result.exit_code == 1
+            assert "Cannot find project definition (snowflake.yml)." in result.output
 
 
 @patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
@@ -559,10 +569,10 @@ def test_deploy_only_required_fields(
 
 
 @patch(EXECUTE_QUERY)
-def test_execute_job_service(mock_execute_query, other_directory):
+def test_execute_job_service(mock_execute_query, temporary_directory):
     job_service_name = "test_job_service"
     compute_pool = "test_pool"
-    tmp_dir = Path(other_directory)
+    tmp_dir = Path(temporary_directory)
     spec_path = tmp_dir / "spec.yml"
     spec_path.write_text(SPEC_CONTENT)
     external_access_integrations = [
@@ -600,8 +610,10 @@ def test_execute_job_service(mock_execute_query, other_directory):
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_job")
-def test_execute_job_service_cli_defaults(mock_execute_job, other_directory, runner):
-    tmp_dir = Path(other_directory)
+def test_execute_job_service_cli_defaults(
+    mock_execute_job, temporary_directory, runner
+):
+    tmp_dir = Path(temporary_directory)
     spec_path = tmp_dir / "spec.yml"
     spec_path.write_text(SPEC_CONTENT)
     result = runner.invoke(
@@ -628,8 +640,8 @@ def test_execute_job_service_cli_defaults(mock_execute_job, other_directory, run
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.execute_job")
-def test_execute_job_service_cli(mock_execute_job, other_directory, runner):
-    tmp_dir = Path(other_directory)
+def test_execute_job_service_cli(mock_execute_job, temporary_directory, runner):
+    tmp_dir = Path(temporary_directory)
     spec_path = tmp_dir / "spec.yml"
     spec_path.write_text(SPEC_CONTENT)
     result = runner.invoke(
@@ -1169,22 +1181,23 @@ def test_latest_metrics(
     )
 
 
-def test_service_events_disabled(runner, empty_snowcli_config):
-    result = runner.invoke_with_config_file(
-        empty_snowcli_config,
-        [
-            "spcs",
-            "service",
-            "events",
-            "LOG_EVENT",
-            "--container-name",
-            "log-printer",
-            "--instance-id",
-            "0",
-            "--since",
-            "1 minute",
-        ],
-    )
+def test_service_events_disabled(runner, config_file):
+    with config_file("") as config:
+        result = runner.invoke_with_config_file(
+            config,
+            [
+                "spcs",
+                "service",
+                "events",
+                "LOG_EVENT",
+                "--container-name",
+                "log-printer",
+                "--instance-id",
+                "0",
+                "--since",
+                "1 minute",
+            ],
+        )
     assert (
         result.exit_code != 0
     ), "Expected a non-zero exit code due to feature flag being disabled"
@@ -1291,8 +1304,8 @@ def test_metrics_all_filters(
     ), f"Generated query does not match expected query.\n\nActual:\n{actual_query}\n\nExpected:\n{expected_query}"
 
 
-def test_read_yaml(other_directory):
-    tmp_dir = Path(other_directory)
+def test_read_yaml(temporary_directory):
+    tmp_dir = Path(temporary_directory)
     spec_path = tmp_dir / "spec.yml"
     spec_path.write_text(SPEC_CONTENT)
     result = ServiceManager()._read_yaml(spec_path)  # noqa: SLF001
@@ -1300,11 +1313,11 @@ def test_read_yaml(other_directory):
 
 
 @patch(EXECUTE_QUERY)
-def test_upgrade_spec(mock_execute_query, other_directory):
+def test_upgrade_spec(mock_execute_query, temporary_directory):
     service_name = "test_service"
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
-    tmp_dir = Path(other_directory)
+    tmp_dir = Path(temporary_directory)
     spec_path = tmp_dir / "spec.yml"
     spec_path.write_text(SPEC_CONTENT)
     result = ServiceManager().upgrade_spec(service_name, spec_path)
@@ -1317,11 +1330,11 @@ def test_upgrade_spec(mock_execute_query, other_directory):
 
 
 @patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager.upgrade_spec")
-def test_upgrade_spec_cli(mock_upgrade_spec, mock_cursor, runner, other_directory):
+def test_upgrade_spec_cli(mock_upgrade_spec, mock_cursor, runner, temporary_directory):
     cursor = mock_cursor(rows=[["Statement executed successfully"]], columns=["status"])
     mock_upgrade_spec.return_value = cursor
     service_name = "test_service"
-    tmp_dir = Path(other_directory)
+    tmp_dir = Path(temporary_directory)
     spec_path = tmp_dir / "spec.yml"
     spec_path.write_text(SPEC_CONTENT)
 
