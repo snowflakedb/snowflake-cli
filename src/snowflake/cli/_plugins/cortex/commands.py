@@ -156,12 +156,12 @@ def complete(
     backend = Backend(backend)
 
     if text:
-        if backend == Backend("SQL") or backend == Backend("sql"):
+        if backend.lower() == "sql":
             result_text = manager.complete_for_prompt(
                 text=Text(text),
                 model=Model(model),
             )
-        elif backend == Backend("REST") or backend == Backend("rest"):
+        elif backend.lower() == "rest":
             result_text = manager.rest_complete_for_prompt(
                 text=Text(text),
                 model=Model(model),
@@ -170,12 +170,12 @@ def complete(
         else:
             raise UsageError("--backend option should be either REST or SQL.")
     elif file:
-        if backend == Backend("SQL") or backend == Backend("sql"):
+        if backend.lower() == "sql":
             result_text = manager.complete_for_conversation(
                 conversation_json_file=SecurePath(file),
                 model=Model(model),
             )
-        elif backend == Backend("REST") or backend == Backend("rest"):
+        elif backend.lower() == "rest":
             result_text = manager.rest_complete_for_conversation(
                 conversation_json_file=SecurePath(file),
                 model=Model(model),
