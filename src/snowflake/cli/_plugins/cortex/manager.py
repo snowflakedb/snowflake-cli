@@ -171,7 +171,7 @@ class CortexManager(SqlExecutionMixin):
 
     @staticmethod
     def _extract_text_result_from_json_result(
-        extract_function: Callable[[], str]
+        extract_function: Callable[[], str],
     ) -> str:
         try:
             return extract_function()
@@ -200,7 +200,7 @@ class CortexManager(SqlExecutionMixin):
         }
         data["messages"] = [{"content": str(prompt)}]
         return data
-    
+
     def rest_complete_for_prompt(
         self,
         text: Text,
@@ -212,10 +212,9 @@ class CortexManager(SqlExecutionMixin):
         try:
             raw_resp = rest_api.send_rest_request(url=url, method="POST", data=data)
         except Exception as e:
-            print(f"Error executing REST request: {e}")
             raise
         return raw_resp["choices"][0]["message"]["content"]
-    
+
     def rest_complete_for_conversation(
         self,
         conversation_json_file: SecurePath,
@@ -230,6 +229,5 @@ class CortexManager(SqlExecutionMixin):
         try:
             raw_resp = rest_api.send_rest_request(url=url, method="POST", data=data)
         except Exception as e:
-            print(f"Error executing REST request: {e}")
             raise
         return raw_resp["choices"][0]["message"]["content"]
