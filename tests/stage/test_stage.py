@@ -815,6 +815,7 @@ def test_execute(
     expected_stage,
     expected_files,
     os_agnostic_snapshot,
+    caplog,
 ):
     mock_execute.return_value = mock_cursor(
         [
@@ -835,6 +836,8 @@ def test_execute(
         mock.call(f"execute immediate from {p}") for p in expected_files
     ]
     assert result.output == os_agnostic_snapshot
+    for expected_file in expected_files:
+        assert f"Executing SQL file: {expected_file}" in caplog.messages
 
 
 @pytest.mark.parametrize(
@@ -855,6 +858,7 @@ def test_execute_from_user_stage(
     stage_path,
     expected_files,
     snapshot,
+    caplog,
 ):
     mock_execute.return_value = mock_cursor(
         [
@@ -875,6 +879,8 @@ def test_execute_from_user_stage(
         mock.call(f"execute immediate from '{p}'") for p in expected_files
     ]
     assert result.output == snapshot
+    for expected_file in expected_files:
+        assert f"Executing SQL file: {expected_file}" in caplog.messages
 
 
 @mock.patch(f"{STAGE_MANAGER}.execute_query")

@@ -707,6 +707,7 @@ class StageManager(SqlExecutionMixin):
         original_file: str,
     ) -> Dict:
         try:
+            log.info("Executing SQL file: %s", file_stage_path)
             query = f"execute immediate from {self.quote_stage_name(file_stage_path)}"
             if variables:
                 query += variables
@@ -820,6 +821,7 @@ class StageManager(SqlExecutionMixin):
         from snowflake.snowpark.exceptions import SnowparkSQLException
 
         try:
+            log.info("Executing Python file: %s", file_stage_path)
             self._python_exe_procedure(self.get_standard_stage_prefix(file_stage_path), variables, session=self.snowpark_session)  # type: ignore
             return StageManager._success_result(file=original_file)
         except SnowparkSQLException as e:
