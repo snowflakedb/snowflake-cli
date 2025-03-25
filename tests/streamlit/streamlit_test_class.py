@@ -80,7 +80,7 @@ class StreamlitTestClass:
                 stage = f"{stage_name}/{file}"
 
             self.mock_put.assert_any_call(
-                local_file_name=(project_root / local).resolve(),
+                local_file_name=(project_root / local).absolute(),
                 stage_location=stage,
                 overwrite=True,
             )

@@ -8,41 +8,22 @@ from tests.streamlit.streamlit_test_class import StreamlitTestClass
 BUNDLE_ROOT = Path("output") / "bundle" / "streamlit"
 STREAMLIT_NAME = "test_streamlit"
 
+ALL_PATHS = [
+    {"local": Path("src") / "app.py", "stage": "/src"},
+    {
+        "local": Path("src") / "dir" / "dir_app.py",
+        "stage": "/src/dir",
+    },
+]
+
 
 class TestArtifacts(StreamlitTestClass):
     @pytest.mark.parametrize(
         "artifacts, paths",
         [
-            (
-                "src",
-                [
-                    {"local": Path("src") / "app.py", "stage": "/src"},
-                    {
-                        "local": Path("src") / "dir" / "dir_app.py",
-                        "stage": "/src/dir",
-                    },
-                ],
-            ),
-            (
-                "src/",
-                [
-                    {"local": Path("src") / "app.py", "stage": "/src"},
-                    {
-                        "local": Path("src") / "dir" / "dir_app.py",
-                        "stage": "/src/dir",
-                    },
-                ],
-            ),
-            (
-                "src/*",
-                [
-                    {"local": Path("src") / "app.py", "stage": "/src"},
-                    {
-                        "local": Path("src") / "dir" / "dir_app.py",
-                        "stage": "/src/dir",
-                    },
-                ],
-            ),
+            ("src", ALL_PATHS),
+            ("src/", ALL_PATHS),
+            ("src/*", ALL_PATHS),
             ("src/*.py", [{"local": Path("src") / "app.py", "stage": "/src"}]),
             (
                 "src/dir/dir_app.py",
@@ -148,93 +129,31 @@ class TestArtifacts(StreamlitTestClass):
     @pytest.mark.parametrize(
         "artifacts, paths",
         [
-            (
-                "src",
-                [
-                    {"local": BUNDLE_ROOT / "src" / "app.py", "stage": "/src"},
-                    {
-                        "local": BUNDLE_ROOT / "src" / "dir" / "dir_app.py",
-                        "stage": "/src/dir",
-                    },
-                ],
-            ),
-            (
-                "src/",
-                [
-                    {"local": BUNDLE_ROOT / "src" / "app.py", "stage": "/src"},
-                    {
-                        "local": BUNDLE_ROOT / "src" / "dir" / "dir_app.py",
-                        "stage": "/src/dir",
-                    },
-                ],
-            ),
-            (
-                "src/*",
-                [
-                    {"local": BUNDLE_ROOT / "src" / "app.py", "stage": "/src"},
-                    {
-                        "local": BUNDLE_ROOT / "src" / "dir" / "dir_app.py",
-                        "stage": "/src/dir",
-                    },
-                ],
-            ),
-            ("src/*.py", [{"local": BUNDLE_ROOT / "src" / "app.py", "stage": "/src"}]),
-            (
-                "src/dir/dir_app.py",
-                [
-                    {
-                        "local": BUNDLE_ROOT / "src" / "dir" / "dir_app.py",
-                        "stage": "/src/dir",
-                    }
-                ],
-            ),
+            ("src", ALL_PATHS),
+            ("src/", ALL_PATHS),
+            ("src/*", ALL_PATHS),
+            ("src/*.py", [{"local": Path("src") / "app.py", "stage": "/src"}]),
             (
                 {"src": "src/**/*", "dest": "source/"},
                 [
-                    {"local": BUNDLE_ROOT / "source" / "app.py", "stage": "/source"},
+                    {"local": Path("src") / "app.py", "stage": "/source"},
                     {
-                        "local": BUNDLE_ROOT / "source" / "dir_app.py",
+                        "local": Path("src") / "dir" / "dir_app.py",
                         "stage": "/source",
                     },
                     {
-                        "local": BUNDLE_ROOT / "source" / "dir" / "dir_app.py",
+                        "local": Path("src") / "dir" / "dir_app.py",
                         "stage": "/source/dir",
-                    },
-                ],
-            ),
-            (
-                {"src": "src", "dest": "source/"},
-                [
-                    {
-                        "local": BUNDLE_ROOT / "source" / "src" / "app.py",
-                        "stage": "/source/src",
-                    },
-                    {
-                        "local": BUNDLE_ROOT / "source" / "src" / "dir" / "dir_app.py",
-                        "stage": "/source/src/dir",
                     },
                 ],
             ),
             (
                 {"src": "src/", "dest": "source/"},
                 [
+                    {"local": Path("src") / "app.py", "stage": "/source/src"},
                     {
-                        "local": BUNDLE_ROOT / "source" / "src" / "app.py",
-                        "stage": "/source/src",
-                    },
-                    {
-                        "local": BUNDLE_ROOT / "source" / "src" / "dir" / "dir_app.py",
+                        "local": Path("src") / "dir" / "dir_app.py",
                         "stage": "/source/src/dir",
-                    },
-                ],
-            ),
-            (
-                {"src": "src/*", "dest": "source/"},
-                [
-                    {"local": BUNDLE_ROOT / "source" / "app.py", "stage": "/source"},
-                    {
-                        "local": BUNDLE_ROOT / "source" / "dir" / "dir_app.py",
-                        "stage": "/source/dir",
                     },
                 ],
             ),
@@ -242,7 +161,7 @@ class TestArtifacts(StreamlitTestClass):
                 {"src": "src/dir/dir_app.py", "dest": "source/dir/apps/"},
                 [
                     {
-                        "local": BUNDLE_ROOT / "source" / "dir" / "apps" / "dir_app.py",
+                        "local": Path("src") / "dir" / "dir_app.py",
                         "stage": "/source/dir/apps",
                     }
                 ],
@@ -272,5 +191,5 @@ class TestArtifacts(StreamlitTestClass):
             assert result.exit_code == 0, result.output
 
             self._assert_that_exactly_those_files_were_put_to_stage(
-                streamlit_files + paths, tmp
+                put_files=streamlit_files + paths, project_root=tmp
             )
