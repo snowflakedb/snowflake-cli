@@ -901,6 +901,7 @@ def test_connection_details_are_resolved_using_environment_variables(
             "role": "role",
             "password": "dummy",
             "application_name": "snowcli",
+            "keep_alive": True,
         }
 
 
