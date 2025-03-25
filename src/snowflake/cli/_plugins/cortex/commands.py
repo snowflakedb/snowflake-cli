@@ -21,7 +21,11 @@ from typing import List, Optional
 import click
 import typer
 from click import UsageError
-from snowflake.cli._plugins.cortex.constants import DEFAULT_MODEL, DEFAULT_BACKEND, REST_COMPLETE_URL
+from snowflake.cli._plugins.cortex.constants import (
+    DEFAULT_MODEL,
+    DEFAULT_BACKEND,
+    REST_COMPLETE_URL,
+)
 from snowflake.cli._plugins.cortex.manager import CortexManager
 from snowflake.cli._plugins.cortex.types import (
     Language,
