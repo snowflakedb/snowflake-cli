@@ -22,6 +22,7 @@ from typing import List, Optional
 import typer
 import yaml
 from click import ClickException
+from snowflake.cli._plugins.helpers.snowsl_vars_reader import check_env_vars
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -151,117 +152,14 @@ def import_snowsql_connections(
 def check_snowsql_env_vars(**options):
     """Check if there are any SnowSQL environment variables set."""
 
-    known_snowsql_env_vars = {
-        "SNOWSQL_ACCOUNT": {
-            "Found": "SNOWSQL_ACCOUNT",
-            "Suggested": "SNOWFLAKE_ACCOUNT",
-            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
-        },
-        "SNOWSQL_PWD": {
-            "Found": "SNOWSQL_PASSWORD",
-            "Suggested": "SNOWFLAKE_PASSWORD",
-            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
-        },
-        "SNOWSQL_USER": {
-            "Found": "SNOWSQL_USER",
-            "Suggested": "SNOWFLAKE_USER",
-            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
-        },
-        "SNOWSQL_REGION": {
-            "Found": "SNOWSQL_REGION",
-            "Suggested": "SNOWFLAKE_REGION",
-            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
-        },
-        "SNOWSQL_ROLE": {
-            "Found": "SNOWSQL_ROLE",
-            "Suggested": "SNOWFLAKE_ROLE",
-            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
-        },
-        "SNOWSQL_WAREHOUSE": {
-            "Found": "SNOWSQL_WAREHOUSE",
-            "Suggested": "SNOWFLAKE_WAREHOUSE",
-            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
-        },
-        "SNOWSQL_DATABASE": {
-            "Found": "SNOWSQL_DATABASE",
-            "Suggested": "SNOWFLAKE_DATABASE",
-            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
-        },
-        "SNOWSQL_SCHEMA": {
-            "found": "SNOWSQL_SCHEMA",
-            "Suggested": "SNOWFLAKE_SCHEMA",
-            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
-        },
-        "SNOWSQL_HOST": {
-            "Found": "SNOWSQL_HOST",
-            "Suggested": "SNOWFLAKE_HOST",
-            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
-        },
-        "SNOWSQL_PORT": {
-            "Found": "SNOWSQL_PORT",
-            "Suggested": "SNOWFLAKE_PORT",
-            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
-        },
-        "SNOWSQL_PROTOCOL": {
-            "Found": "SNOWSQL_PROTOCOL",
-            "Suggested": "SNOWFLAKE_PROTOCOL",
-            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections#use-environment-variables-for-snowflake-credentials",
-        },
-        "SNOWSQL_PROXY_HOST": {
-            "Found": "SNOWSQL_PROXY_HOST",
-            "Suggested": "PROXY_HOST",
-            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-cli#use-a-proxy-server",
-        },
-        "SNOWSQL_PROXY_PORT": {
-            "Found": "SNOWSQL_PROXY_HOST",
-            "Suggested": "PROXY_HOST",
-            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-cli#use-a-proxy-server",
-        },
-        "SNOWSQL_PROXY_USER": {
-            "Found": "SNOWSQL_PROXY_PORT",
-            "Suggested": "PROXY_PORT",
-            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-cli#use-a-proxy-server",
-        },
-        "SNOWSQL_PROXY_PWD": {
-            "Found": "SNOWSQL_PROXY_PWD",
-            "Suggested": "PROXY_PWD",
-            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-cli#use-a-proxy-server",
-        },
-        "SNOWSQL_PRIVATE_KEY_PASSPHRASE": {
-            "Found": "SNOWSQL_PRIVATE_KEY_PASSPHRASE",
-            "Suggested": "PRIVATE_KEY_PASSPHRASE",
-            "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections",
-        },
-    }
-
-    discovered_env_vars = []
-    unused_vars = []
-    possible_vars = (e for e in os.environ if e.lower().startswith("snowsql"))
-
-    for ev in possible_vars:
-        if ev not in known_snowsql_env_vars:
-            unused_vars.append(
-                {
-                    "Found": ev,
-                    "Suggested": "n/a",
-                    "Additional": "Unused variable",
-                }
-            )
-        else:
-            discovered_env_vars.append(known_snowsql_env_vars[ev])
-
-    discovered_count = len(discovered_env_vars)
-    unused_count = len(unused_vars)
+    env_vars = os.environ.copy()
+    discovered, unused, summary = check_env_vars(env_vars)
 
     results = []
-    if discovered_count:
-        results.append(CollectionResult(discovered_env_vars))
-    if unused_count:
-        results.append(CollectionResult(unused_vars))
+    if discovered:
+        results.append(CollectionResult(discovered))
+    if unused:
+        results.append(CollectionResult(unused))
 
-    results.append(
-        MessageResult(
-            f"Found {discovered_count + unused_count} SnowSQL environment variables, {discovered_count} with replacements, {unused_count} unused.",
-        )
-    )
+    results.append(MessageResult(summary))
     return MultipleResults(results)
