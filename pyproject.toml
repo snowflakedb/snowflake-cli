@@ -62,6 +62,7 @@ development = [
   "pytest==8.3.5",
   "pytest-randomly==3.16.0",
   "pytest-httpserver==1.1.2",
+  "pytest-xdist==3.6.1",
   "syrupy==4.9.1",
   "factory-boy==3.3.3",
   "Faker==37.0.0",
@@ -92,7 +93,7 @@ python = "3.10"
 features = ["development"]
 
 [tool.hatch.envs.default.scripts]
-test = ["pytest tests/"]
+test = ["pytest tests/ -n auto"]
 test-cov = [
   "coverage run --source=snowflake.cli --module pytest tests/ ",
   "coverage run --source=snowflake.cli --module pytest -m loaded_modules tests/ ",
