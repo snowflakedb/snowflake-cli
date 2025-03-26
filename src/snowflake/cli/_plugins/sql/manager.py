@@ -26,6 +26,7 @@ from snowflake.cli._plugins.sql.source_reader import (
     files_reader,
     query_reader,
 )
+from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliArgumentError, CliSqlError
 from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
@@ -82,7 +83,12 @@ class SqlManager(SqlExecutionMixin):
             raise CliSqlError("SQL rendering error")
 
         is_single_statement = not (stmt_count > 1)
+
+        cursor_class = (
+            SnowflakeCursor if get_cli_context_manager().is_repl else VerboseCursor
+        )
+
         return is_single_statement, self.execute_string(
             "\n".join(compiled_statements),
-            cursor_class=VerboseCursor,
+            cursor_class=cursor_class,
         )
