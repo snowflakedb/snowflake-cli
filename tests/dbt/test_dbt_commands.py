@@ -177,7 +177,7 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
         )
 
         assert result.exit_code == 1, result.output
-        assert "dbt_project.yml does not exist in provided path." in result.output
+        assert f"dbt_project.yml does not exist in directory" in result.output
         assert mock_connect.mocked_ctx.get_query() == ""
 
     def test_raises_when_dbt_project_exists_and_is_not_force(

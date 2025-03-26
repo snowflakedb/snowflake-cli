@@ -44,7 +44,9 @@ class DBTManager(SqlExecutionMixin):
     ) -> SnowflakeCursor:
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
-            raise ClickException(f"dbt_project.yml does not exist in provided path.")
+            raise ClickException(
+                f"dbt_project.yml does not exist in directory {path.path.absolute()}."
+            )
 
         if self.exists(name=name) and force is not True:
             raise ClickException(
@@ -69,6 +71,6 @@ FROM {stage_name}"""
 
     def execute(self, dbt_command: str, name: str, run_async: bool, *dbt_cli_args):
         if dbt_cli_args:
-            dbt_command = dbt_command + " " + " ".join([arg for arg in dbt_cli_args])
-        query = f"EXECUTE DBT PROJECT {name} args='{dbt_command.strip()}'"
+            dbt_command = " ".join([dbt_command, *dbt_cli_args]).strip()
+        query = f"EXECUTE DBT PROJECT {name} args='{dbt_command}'"
         return self.execute_query(query, _exec_async=run_async)
