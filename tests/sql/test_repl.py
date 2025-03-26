@@ -29,7 +29,7 @@ def test_repl_input_handling(repl, capsys, snapshot):
         side_effect=user_inputs,
     ):
         repl.run()
-    snapshot.assert_match(capsys.readouterr())
+    snapshot.assert_match(capsys.readouterr().out)
 
 
 @pytest.mark.parametrize(
