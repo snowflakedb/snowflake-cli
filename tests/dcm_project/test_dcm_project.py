@@ -9,7 +9,7 @@ ProjectManager = "snowflake.cli._plugins.project.commands.ProjectManager"
 
 
 @mock.patch(ProjectManager)
-@mock.patch("snowflake.cli._plugins.project.commands.StageManager.create")
+@mock.patch("snowflake.cli.api.artifacts.upload.StageManager.create")
 @mock.patch("snowflake.cli.api.artifacts.upload.StageManager.put")
 @mock.patch("snowflake.cli.api.artifacts.upload.StageManager.list_files")
 def test_create_version(
