@@ -20,7 +20,7 @@ def make_repl(mock_cursor):
         yield repl
 
 
-def test_repl_input_handling(repl, capsys, snapshot):
+def test_repl_input_handling(repl, capsys, os_agnostic_snapshot):
     user_inputs = iter(("select 1;", "exit", "y"))
 
     with mock.patch.object(
@@ -29,7 +29,7 @@ def test_repl_input_handling(repl, capsys, snapshot):
         side_effect=user_inputs,
     ):
         repl.run()
-    snapshot.assert_match(capsys.readouterr().out)
+    assert os_agnostic_snapshot == capsys.readouterr().out
 
 
 @pytest.mark.parametrize(
