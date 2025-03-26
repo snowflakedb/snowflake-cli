@@ -375,13 +375,14 @@ def test_streamlit_execute_in_headless_mode(
     runner,
     snowflake_session,
     project_directory,
+        test_database
 ):
     streamlit_name = "test_streamlit_deploy_snowcli"
 
     # Deploy the Streamlit app
     with project_directory("streamlit_v2"):
         result = runner.invoke_with_connection_json(
-            ["streamlit", "deploy", "--replace"]
+            ["streamlit", "deploy", "--replace","--dbname",test_database, "--schema","public"]
         )
         assert result.exit_code == 0, f"Streamlit deploy failed: {result.output}"
 
