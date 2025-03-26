@@ -21,8 +21,8 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 @pytest.mark.parametrize(
     "command, expected_value",
     (
-        pytest.param(("sql",), False, id="silent is False"),
-        pytest.param(("sql", "--silent"), True, id="silent is True"),
+        pytest.param(("sql", "--help"), False, id="silent is False"),
+        pytest.param(("sql", "--help", "--silent"), True, id="silent is True"),
     ),
 )
 def test_silent_in_global_context(

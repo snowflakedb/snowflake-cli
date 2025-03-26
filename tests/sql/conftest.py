@@ -1,9 +1,11 @@
+import sys
 import typing as t
 from pathlib import Path
 from textwrap import dedent
 from unittest import mock
 
 import pytest
+from prompt_toolkit.output import DummyOutput
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.models import ProjectEnvironment
 
@@ -82,3 +84,12 @@ def make_single_select_1_file(tmp_path_factory) -> t.Generator[Path, None, None]
     fh = tmp_path_factory.mktemp("data") / "single_select_1.sql"
     fh.write_text("select 1;")
     yield fh
+
+
+@pytest.fixture(name="win32_dummy_console", autouse=True)
+def make_win32_dummy_console():
+    if sys.platform == "win32":
+        with mock.patch(
+            "snowflake.cli._plugins.sql.repl.PromptSession.output", new=DummyOutput()
+        ):
+            yield
