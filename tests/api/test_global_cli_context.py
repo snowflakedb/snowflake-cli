@@ -35,6 +35,7 @@ def test_reset_global_context_mgr():
     mgr.experimental = True
     mgr.silent = True
     mgr.output_format = OutputFormat.JSON
+    mgr.full_width_table = False
     mgr.connection_context.database = "blahblah"
     mgr.connection_context.password = "****"
     mgr.override_project_definition = "project definition"

@@ -29,6 +29,7 @@ from snowflake.cli.api.commands.flags import (
     DiagAllowlistPathOption,
     DiagLogPathOption,
     EnableDiagOption,
+    FullWidthTableOption,
     HostOption,
     MasterTokenOption,
     MfaPasscodeOption,
@@ -334,6 +335,12 @@ GLOBAL_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=OutputFormat,
         default=OutputFormatOption,
+    ),
+    inspect.Parameter(
+        "full_width_table",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[bool],
+        default=FullWidthTableOption,
     ),
     inspect.Parameter(
         "verbose",
