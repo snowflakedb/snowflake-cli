@@ -47,6 +47,7 @@ class _CliGlobalContextManager:
     verbose: bool = False
     experimental: bool = False
     enable_tracebacks: bool = True
+    is_repl: bool = False
 
     metrics: CLIMetrics = field(default_factory=CLIMetrics)
 
@@ -213,6 +214,8 @@ class _CliGlobalContextAccess:
     @property
     def enhanced_exit_codes(self) -> bool:
         return self._manager.enhanced_exit_codes
+    def is_repl(self) -> bool:
+        return self._manager.is_repl
 
 
 _CLI_CONTEXT_MANAGER: ContextVar[_CliGlobalContextManager | None] = ContextVar(
