@@ -34,20 +34,24 @@ def _(event):
     log.debug("original REPL buffer content: %r", buffer.text)
 
     if buffer.text.strip():
-        if not buffer.text.endswith("\n"):
-            log.debug("enter key pressed, inserting new line")
-            buffer.insert_text("\n")
-
         if buffer.text.strip().lower() in EXIT_KEYWORDS:
             log.debug("exit keyword detected")
             buffer.validate_and_handle()
+            return
 
         if buffer.text.strip().endswith(";"):
-            buffer.validate_and_handle()
             log.debug("Semicolon detected, executing query")
-    else:
-        buffer.validate_and_handle()
-        log.debug("Empty line, skipping")
+            buffer.validate_and_handle()
+            return
+
+    log.debug("Adding empty line")
+    buffer.insert_text("\n")
+
+
+@repl_key_bindings.add(Keys.ControlJ)
+def _(event):
+    """Control+J (and alias for Control + Enter) always inserts a new line."""
+    event.app.current_buffer.insert_text("\n")
 
 
 yn_key_bindings = KeyBindings()
