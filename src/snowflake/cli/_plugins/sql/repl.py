@@ -9,6 +9,7 @@ from prompt_toolkit.lexers import PygmentsLexer
 from snowflake.cli._app.printing import print_result
 from snowflake.cli._plugins.sql.lexer import CliLexer, cli_completer
 from snowflake.cli._plugins.sql.manager import SqlManager
+from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import MultipleResults, QueryResult
 from snowflake.cli.api.secure_path import SecurePath
@@ -94,6 +95,7 @@ class Repl:
         `retain_comments` how to handle comments in queries
         """
         super().__init__()
+        setattr(get_cli_context_manager(), "is_repl", True)
         self._sql_manager = sql_manager
         self._data = data or {}
         self._retain_comments = retain_comments
