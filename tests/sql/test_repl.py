@@ -1,4 +1,3 @@
-import sys
 from unittest import mock
 
 import pytest
@@ -21,7 +20,7 @@ def make_repl(mock_cursor):
         yield repl
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="")
+# @pytest.mark.skipif(sys.platform == "win32", reason="")
 def test_repl_input_handling(repl, capsys, snapshot):
     user_inputs = iter(("select 1;", "exit", "y"))
 
