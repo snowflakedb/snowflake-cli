@@ -1,4 +1,5 @@
 import sys
+from unittest import mock
 
 import pytest
 from prompt_toolkit.output import DummyOutput
