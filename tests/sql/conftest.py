@@ -93,3 +93,5 @@ def make_win32_dummy_console():
             "snowflake.cli._plugins.sql.repl.PromptSession.output", new=DummyOutput()
         ):
             yield
+    else:
+        yield
