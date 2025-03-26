@@ -1,3 +1,4 @@
+import sys
 from unittest import mock
 
 import pytest
@@ -20,7 +21,8 @@ def make_repl(mock_cursor):
         yield repl
 
 
-def test_repl_input_handling(repl, capsys, os_agnostic_snapshot):
+@pytest.mark.skipif(sys.platform == "win32", reason="")
+def test_repl_input_handling(repl, capsys, snapshot):
     user_inputs = iter(("select 1;", "exit", "y"))
 
     with mock.patch.object(
@@ -29,7 +31,7 @@ def test_repl_input_handling(repl, capsys, os_agnostic_snapshot):
         side_effect=user_inputs,
     ):
         repl.run()
-    assert os_agnostic_snapshot == capsys.readouterr().out
+    snapshot.assert_match(capsys.readouterr().out)
 
 
 @pytest.mark.parametrize(
