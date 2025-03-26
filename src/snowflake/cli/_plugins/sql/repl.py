@@ -33,20 +33,25 @@ def _(event):
     """
     buffer = event.app.current_buffer
     log.debug("original REPL buffer content: %r", buffer.text)
+    stripped_buffer = buffer.text.strip()
 
-    if buffer.text.strip():
-        if buffer.text.strip().lower() in EXIT_KEYWORDS:
+    if stripped_buffer:
+        cursor_position = buffer.cursor_position
+        ends_with_semicolon = buffer.text.rstrip().endswith(";")
+
+        if stripped_buffer.lower() in EXIT_KEYWORDS:
             log.debug("exit keyword detected")
             buffer.validate_and_handle()
-            return
 
-        if buffer.text.strip().endswith(";"):
+        elif ends_with_semicolon and cursor_position >= len(stripped_buffer):
             log.debug("Semicolon detected, executing query")
             buffer.validate_and_handle()
-            return
 
-    log.debug("Adding empty line")
-    buffer.insert_text("\n")
+        else:
+            log.debug("Adding empty line")
+            buffer.insert_text("\n")
+    else:
+        buffer.validate_and_handle()
 
 
 @repl_key_bindings.add(Keys.ControlJ)
