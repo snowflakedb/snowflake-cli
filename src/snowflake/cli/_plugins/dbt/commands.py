@@ -29,7 +29,12 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.types import CommandResult, MessageResult, QueryResult
+from snowflake.cli.api.output.types import (
+    CommandResult,
+    MessageResult,
+    QueryResult,
+    SingleQueryResult,
+)
 from snowflake.cli.api.secure_path import SecurePath
 
 app = SnowTyperFactory(
@@ -129,9 +134,10 @@ for cmd in DBT_COMMANDS:
         name = ctx.parent.params["name"]
         run_async = ctx.parent.params["run_async"]
         execute_args = (dbt_command, name, run_async, *dbt_cli_args)
+        dbt_manager = DBTManager()
 
         if run_async is True:
-            result = DBTManager().execute(*execute_args)
+            result = dbt_manager.execute(*execute_args)
             return MessageResult(
                 f"Command submitted. You can check the result with `snow sql -q \"select execution_status from table(information_schema.query_history_by_user()) where query_id in ('{result.sfqid}');\"`"
             )
@@ -141,5 +147,6 @@ for cmd in DBT_COMMANDS:
             TextColumn("[progress.description]{task.description}"),
             transient=True,
         ) as progress:
-            progress.add_task(description="Executing dbt command...", total=None)
-            return QueryResult(DBTManager().execute(*execute_args))
+            progress.add_task(description=f"Executing 'dbt {dbt_command}'", total=None)
+            result = dbt_manager.execute(*execute_args)
+            return SingleQueryResult(result)
