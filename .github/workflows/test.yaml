@@ -12,8 +12,7 @@ on:
       - features/*
 
 env:
-  TERM: unknown  # Disables colors in rich
-
+  TERM: unknown # Disables colors in rich
 
 jobs:
   define-matrix:
@@ -39,5 +38,14 @@ jobs:
           pip install -U hatch
           hatch env create default
       - name: Test with hatch
+        if: runner.os != 'Windows'
         run: hatch run test-cov
+      - name: Test with hatch (cmd)
+        if: runner.os == 'Windows'
+        run: hatch run test-cov
+        shell: cmd
+      - name: Test with hatch (pwsh)
+        if: runner.os == 'Windows'
+        run: hatch run test-cov
+        shell: pwsh
       - uses: codecov/codecov-action@0565863a31f2c772f9f0395002a31e3f06189574
