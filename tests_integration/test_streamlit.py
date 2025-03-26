@@ -24,6 +24,7 @@ from tests_integration.test_utils import (
 )
 from tests_integration.testing_utils import assert_that_result_is_successful
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
+from typing import List
 
 
 @pytest.mark.integration
@@ -105,6 +106,51 @@ def test_streamlit_deploy(
         f"show streamlits like '{streamlit_name}'"
     )
     assert row_from_snowflake_session(expect) == []
+
+
+@pytest.mark.integration
+def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
+    stage_name = "streamlit"
+
+    def _assert_file_names_on_stage(expected_files: List[str]) -> None:
+        result = runner.invoke_with_connection_json(["stage", "list-files", stage_name])
+        assert result.exit_code == 0, result.output
+        assert set(file["name"] for file in result.json) == set(expected_files)
+
+    with project_directory(f"streamlit_v2") as project_root:
+        # upload unexpected file on stage
+        unexpected_file = project_root / "unexpected.txt"
+        unexpected_file.write_text("This is unexpected")
+        result = runner.invoke_with_connection(["stage", "create", f"@{stage_name}"])
+        assert result.exit_code == 0, result.output
+        result = runner.invoke_with_connection(
+            [
+                "stage",
+                "copy",
+                str(unexpected_file),
+                f"@{stage_name}/test_streamlit_deploy_snowcli",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # deploy streamlit - file should remain on stage
+        result = runner.invoke_with_connection(["streamlit", "deploy", "--replace"])
+        assert result.exit_code == 0, result.output
+        _assert_file_names_on_stage(
+            [
+                "streamlit/test_streamlit_deploy_snowcli/unexpected.txt",
+                "streamlit/test_streamlit_deploy_snowcli/streamlit_app.py",
+            ]
+        )
+
+        # deploy with --prune flag - unexpected file should be removed
+        result = runner.invoke_with_connection(
+            ["streamlit", "deploy", "--replace", "--prune"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_file_names_on_stage(
+            ["streamlit/test_streamlit_deploy_snowcli/streamlit_app.py"]
+        )
 
 
 @pytest.mark.integration
@@ -374,6 +420,7 @@ def _new_streamlit_role(snowflake_session, test_database):
 def test_streamlit_execute_in_headless_mode(
     runner,
     snowflake_session,
+    test_database,
     project_directory,
 ):
     streamlit_name = "test_streamlit_deploy_snowcli"

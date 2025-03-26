@@ -19,6 +19,8 @@
 ## Deprecations
 
 ## New additions
+* Added `--prune` flag to `deploy` commands, which removes files that exist in the stage,
+  but not in the local filesystem.
 
 ## Fixes and improvements
 

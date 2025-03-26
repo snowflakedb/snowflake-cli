@@ -7,6 +7,7 @@ from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.connector.compat import IS_WINDOWS
 
 bundle_root = Path("output") / "bundle" / "streamlit"
+STAGE_MANAGER = "snowflake.cli._plugins.stage.manager.StageManager"
 
 
 @pytest.mark.parametrize(
@@ -116,7 +117,9 @@ bundle_root = Path("output") / "bundle" / "streamlit"
     "snowflake.cli._plugins.connection.util.get_ui_parameters",
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 def test_deploy_with_artifacts(
+    mock_list_files,
     mock_param,
     mock_sm_put,
     mock_conn,
@@ -282,7 +285,9 @@ def test_deploy_with_artifacts(
     "snowflake.cli._plugins.connection.util.get_ui_parameters",
     return_value={UIParameter.NA_ENABLE_REGIONLESS_REDIRECT: False},
 )
+@mock.patch(f"{STAGE_MANAGER}.list_files")
 def test_deploy_with_artifacts_from_other_directory(
+    mock_list_files,
     mock_param,
     mock_sm_put,
     mock_conn,

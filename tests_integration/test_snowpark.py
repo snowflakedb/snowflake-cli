@@ -1630,6 +1630,49 @@ def test_snowpark_with_glob_patterns(
         )
 
 
+@pytest.mark.integration
+def test_snowpark_deploy_prune_flag(
+    project_directory, test_database, runner, _test_steps
+):
+    with project_directory("snowpark_v2") as project_root:
+        # upload unexpected file to stage
+        unexpected_file = project_root / "unexpected.txt"
+        unexpected_file.write_text("This is unexpected.")
+        result = runner.invoke_with_connection(["stage", "create", STAGE_NAME])
+        assert result.exit_code == 0, result.output
+        runner.invoke_with_connection(
+            ["stage", "copy", str(unexpected_file), f"@{STAGE_NAME}"]
+        )
+        assert result.exit_code == 0, result.output
+
+        # build snowpark
+        result = runner.invoke_with_connection(["snowpark", "build"])
+        assert result.exit_code == 0, result.output
+
+        # deploy without "prune" should not remove file from stage
+        result = runner.invoke_with_connection(["snowpark", "deploy"])
+        assert result.exit_code == 0, result.output
+        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+            f"{STAGE_NAME}/app_2.zip",
+            f"{STAGE_NAME}/c.py",
+            f"{STAGE_NAME}/dependencies.zip",
+            f"{STAGE_NAME}/unexpected.txt",
+            stage_name=STAGE_NAME,
+        )
+
+        # deploy with "prune" should remove file from stage
+        result = runner.invoke_with_connection(
+            ["snowpark", "deploy", "--replace", "--prune"]
+        )
+        assert result.exit_code == 0, result.output
+        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+            f"{STAGE_NAME}/app_2.zip",
+            f"{STAGE_NAME}/c.py",
+            f"{STAGE_NAME}/dependencies.zip",
+            stage_name=STAGE_NAME,
+        )
+
+
 @pytest.fixture
 def _test_setup(
     runner,
