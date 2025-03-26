@@ -21,9 +21,15 @@ from typing import List, Optional
 import click
 import typer
 from click import UsageError
-from snowflake.cli._plugins.cortex.constants import DEFAULT_MODEL
+
+from snowflake.cli._plugins.cortex.constants import (
+    DEFAULT_BACKEND,
+    DEFAULT_MODEL,
+    REST_COMPLETE_URL,
+)
 from snowflake.cli._plugins.cortex.manager import CortexManager
 from snowflake.cli._plugins.cortex.types import (
+    Backend,
     Language,
     Model,
     Question,
@@ -133,6 +139,11 @@ def complete(
     file: Optional[Path] = ExclusiveReadableFileOption(
         help="JSON file containing conversation history to be used to generate a completion. Cannot be combined with TEXT argument.",
     ),
+    backend: Optional[str] = typer.Option(
+        DEFAULT_BACKEND,
+        "--backend",
+        help="String specifying whether to use SQL or REST backend. Default is REST.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -142,17 +153,36 @@ def complete(
     """
 
     manager = CortexManager()
+    backend = Backend(backend)
 
     if text:
-        result_text = manager.complete_for_prompt(
-            text=Text(text),
-            model=Model(model),
-        )
+        if backend.lower() == "sql":
+            result_text = manager.complete_for_prompt(
+                text=Text(text),
+                model=Model(model),
+            )
+        elif backend.lower() == "rest":
+            result_text = manager.rest_complete_for_prompt(
+                text=Text(text),
+                model=Model(model),
+                url=REST_COMPLETE_URL,
+            )
+        else:
+            raise UsageError("--backend option should be either REST or SQL.")
     elif file:
-        result_text = manager.complete_for_conversation(
-            conversation_json_file=SecurePath(file),
-            model=Model(model),
-        )
+        if backend.lower() == "sql":
+            result_text = manager.complete_for_conversation(
+                conversation_json_file=SecurePath(file),
+                model=Model(model),
+            )
+        elif backend.lower() == "rest":
+            result_text = manager.rest_complete_for_conversation(
+                conversation_json_file=SecurePath(file),
+                model=Model(model),
+                url=REST_COMPLETE_URL,
+            )
+        else:
+            raise UsageError("--backend option should be either REST or SQL.")
     else:
         raise UsageError("Either --file option or TEXT argument has to be provided.")
 
