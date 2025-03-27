@@ -95,8 +95,12 @@ python = "3.10"
 features = ["development"]
 
 [tool.hatch.envs.default.scripts]
-test = ["pytest tests/sql/"]
-test-cov = ["pytest tests/sql/ ", "pytest -m loaded_modules tests/sql/"]
+test = ["pytest tests/"]
+test-cov = [
+  "pytest tests/ ",
+  "pytest -m loaded_modules tests/ ",
+  "coverage report",
+]
 legacy-pypi-build = [".compat/build_snowflake-cli-labs.sh"]
 
 [tool.hatch.envs.packaging]
