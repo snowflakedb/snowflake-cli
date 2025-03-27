@@ -39,6 +39,7 @@ install_cargo() {
     export CARGO_HOME="$HOME/.cargo"
     export RUSTUP_HOME="$HOME/.rustup"
     bash -s rustup-init.sh -y
+    . $HOME/.cargo/env
     rustup default stable
   else
     echo "Unsupported machine: ${MACHINE}"
