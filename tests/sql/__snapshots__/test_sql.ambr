@@ -135,8 +135,6 @@
   │ Welcome to Snowflake-CLI REPL PoC                                            │
   │ Type 'exit' or 'quit' to leave                                               │
   ╰──────────────────────────────────────────────────────────────────────────────╯
-   >    >
-  Do you want to leave? (y/n):                             Do you want to leave? (y/n):
   
   Leaving REPL, bye ...
   

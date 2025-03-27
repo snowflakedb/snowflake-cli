@@ -86,18 +86,19 @@ def test_sql_execute_from_stdin(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with(query, cursor_class=VerboseCursor)
 
 
-@pytest.mark.skipif(
-    sys.platform == "win32",
-    reason="Skipping on Windows without console.",
-)
+@mock.patch("snowflake.cli._plugins.sql.repl.PromptSession")
 @mock.patch("snowflake.cli._plugins.sql.repl.Repl._execute")
 def test_sql_repl_if_no_query_file_or_stdin(
     mock_execute,
+    mock_prompt_session,
     runner,
     os_agnostic_snapshot,
     mock_cursor,
 ):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(2))
+    mock_prompt = mock.MagicMock()
+    mock_prompt.prompt.side_effect = iter(("exit", "y"))
+    mock_prompt_session.return_value = mock_prompt
 
     result = runner.invoke(["sql"])
     assert result.exit_code == 0, result.output
