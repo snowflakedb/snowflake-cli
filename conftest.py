@@ -22,6 +22,6 @@ def make_win32_dummy_console():
                     **kwargs,
                     safe_box=False,
                 )
-            yield
+                yield
     else:
         yield
