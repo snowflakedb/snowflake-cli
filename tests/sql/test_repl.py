@@ -34,7 +34,9 @@ def test_repl_input_handling(repl, capsys, snapshot):
         side_effect=user_inputs,
     ):
         repl.run()
-    snapshot.assert_match(capsys.readouterr().out)
+
+    output = capsys.readouterr().out
+    snapshot.assert_match(output)
 
 
 @pytest.mark.parametrize(
@@ -46,7 +48,7 @@ def test_repl_input_handling(repl, capsys, snapshot):
         pytest.param(("quit", "n", "quit", "y"), id="hesistate on quit"),
     ),
 )
-def test_exit_sequence(user_inputs, repl, capsys):
+def test_exit_sequence(user_inputs, repl, snapshot, capsys):
     user_inputs = iter(user_inputs)
 
     with mock.patch.object(
@@ -57,4 +59,4 @@ def test_exit_sequence(user_inputs, repl, capsys):
         repl.run()
 
     output = capsys.readouterr().out
-    assert "Leaving REPL, bye ..." in output, output
+    snapshot.assert_match(output)
