@@ -19,6 +19,7 @@ from snowflake.cli.api.project.project_paths import bundle_root
 from snowflake.cli.api.project.schemas.entities.common import Identifier, PathMapping
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.core import CreateMode
 from snowflake.core.stage import Stage, StageEncryption, StageResource
 
 log = logging.getLogger(__name__)
@@ -233,12 +234,11 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             .schemas[self.fqn.schema or self._conn.schema]
             .stages
         )
+        stage_object = Stage(
+            name=stage_name, encryption=StageEncryption(type="SNOWFLAKE_SSE")
+        )
+        stage_collection.create(stage_object,mode = CreateMode.if_not_exists)
 
-        if not (stage_name in stage_collection.keys()):
-            stage_object = Stage(
-                name=stage_name, encryption=StageEncryption(type="SNOWFLAKE_SSE")
-            )
-            stage_collection.create(stage_object)
 
         return stage_collection[stage_name]
 
