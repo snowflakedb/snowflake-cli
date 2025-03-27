@@ -96,11 +96,7 @@ features = ["development"]
 
 [tool.hatch.envs.default.scripts]
 test = ["pytest tests/sql/"]
-test-cov = [
-  "coverage run --source=snowflake.cli --module pytest tests/sql/ ",
-  "coverage run --source=snowflake.cli --module pytest -m loaded_modules tests/sql/ ",
-  "coverage report",
-]
+test-cov = ["pytest tests/sql/ ", "pytest -m loaded_modules tests/sql/"]
 legacy-pypi-build = [".compat/build_snowflake-cli-labs.sh"]
 
 [tool.hatch.envs.packaging]
