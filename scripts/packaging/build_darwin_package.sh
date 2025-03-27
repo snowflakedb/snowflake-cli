@@ -32,7 +32,9 @@ clean_build_workspace() {
 install_cargo() {
   curl https://sh.rustup.rs -sSf > rustup-init.sh
   bash rustup-init.sh --help
-  bash rustup-init.sh -y -v
+  export CARGO_HOME="$HOME/.cargo"
+  export RUSTUP_HOME="$HOME/.rustup"
+  bash -s rustup-init.sh -y -v
   echo ">>> DEBUG <<<"
   ls -a $HOME
   echo ">>> DEBUG <<<"
