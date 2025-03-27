@@ -215,7 +215,7 @@ MasterTokenOption = typer.Option(
 TokenFilePathOption = typer.Option(
     None,
     "--token-file-path",
-    help="Path to file with an OAuth token that should be used when connecting to Snowflake",
+    help="Path to file with an OAuth token to use when connecting to Snowflake.",
     callback=_connection_callback("token_file_path"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
@@ -325,7 +325,7 @@ def _diag_log_allowlist_path_callback(path: str):
 DiagAllowlistPathOption: Path = typer.Option(
     None,
     "--diag-allowlist-path",
-    help="Path to a JSON file containing allowlist parameters.",
+    help="Path to a JSON file that contains allowlist parameters.",
     callback=_diag_log_allowlist_path_callback,
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
