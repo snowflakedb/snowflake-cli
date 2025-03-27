@@ -23,6 +23,7 @@ from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
+    PruneOption,
     ReplaceOption,
     entity_argument,
     identifier_argument,
@@ -108,6 +109,7 @@ def deploy(
         help="Replace notebook object if it already exists. It only uploads new and overwrites existing files, "
         "but does not remove any files already on the stage.",
     ),
+    prune: bool = PruneOption(),
     **options,
 ) -> CommandResult:
     """Uploads a notebook and required files to a stage and creates a Snowflake notebook."""
@@ -132,6 +134,7 @@ def deploy(
         notebook.entity_id,
         EntityActions.DEPLOY,
         replace=replace,
+        prune=prune,
     )
     return MessageResult(
         f"Notebook successfully deployed and available under {notebook_url}"

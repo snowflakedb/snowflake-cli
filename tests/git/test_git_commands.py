@@ -588,6 +588,7 @@ def test_execute(
     expected_stage,
     expected_files,
     os_agnostic_snapshot,
+    caplog,
 ):
     mock_execute.return_value = mock_cursor(
         [
@@ -602,20 +603,18 @@ def test_execute(
 
     assert result.exit_code == 0, result.output
     create_call, copy_call, ls_call, *execute_calls = mock_execute.mock_calls
+    stage = "FOO.BAR.snowflake_cli_tmp_stage_123"
     assert create_call == mock.call(
-        "create temporary stage if not exists IDENTIFIER('FOO.BAR.snowflake_cli_tmp_stage_123')"
+        f"create temporary stage if not exists IDENTIFIER('{stage}')"
     )
-    assert copy_call == mock.call(
-        f"copy files into @FOO.BAR.snowflake_cli_tmp_stage_123/ from {expected_stage}/"
-    )
-    assert ls_call == mock.call(
-        f"ls @FOO.BAR.snowflake_cli_tmp_stage_123", cursor_class=DictCursor
-    )
+    assert copy_call == mock.call(f"copy files into @{stage}/ from {expected_stage}/")
+    assert ls_call == mock.call(f"ls @{stage}", cursor_class=DictCursor)
     assert execute_calls == [
-        mock.call(f"execute immediate from @FOO.BAR.snowflake_cli_tmp_stage_123{p}")
-        for p in expected_files
+        mock.call(f"execute immediate from @{stage}{p}") for p in expected_files
     ]
     assert result.output == os_agnostic_snapshot
+    for expected_file in expected_files:
+        assert f"Executing SQL file: @{stage}{expected_file}" in caplog.messages
 
 
 @pytest.mark.parametrize(
@@ -658,6 +657,7 @@ def test_execute_new_git_repository_list_files(
     expected_stage,
     expected_files,
     os_agnostic_snapshot,
+    caplog,
 ):
     mock_execute.return_value = mock_cursor(
         [
@@ -672,20 +672,18 @@ def test_execute_new_git_repository_list_files(
 
     assert result.exit_code == 0, result.output
     create_call, copy_call, ls_call, *execute_calls = mock_execute.mock_calls
+    stage = "FOO.BAR.snowflake_cli_tmp_stage_123"
     assert create_call == mock.call(
-        "create temporary stage if not exists IDENTIFIER('FOO.BAR.snowflake_cli_tmp_stage_123')"
+        f"create temporary stage if not exists IDENTIFIER('{stage}')"
     )
-    assert copy_call == mock.call(
-        f"copy files into @FOO.BAR.snowflake_cli_tmp_stage_123/ from {expected_stage}/"
-    )
-    assert ls_call == mock.call(
-        f"ls @FOO.BAR.snowflake_cli_tmp_stage_123", cursor_class=DictCursor
-    )
+    assert copy_call == mock.call(f"copy files into @{stage}/ from {expected_stage}/")
+    assert ls_call == mock.call(f"ls @{stage}", cursor_class=DictCursor)
     assert execute_calls == [
-        mock.call(f"execute immediate from @FOO.BAR.snowflake_cli_tmp_stage_123{p}")
-        for p in expected_files
+        mock.call(f"execute immediate from @{stage}{p}") for p in expected_files
     ]
     assert result.output == os_agnostic_snapshot
+    for expected_file in expected_files:
+        assert f"Executing SQL file: @{stage}{expected_file}" in caplog.messages
 
 
 @pytest.mark.parametrize(

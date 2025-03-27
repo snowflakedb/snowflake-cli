@@ -100,8 +100,6 @@ def setup(
 
 @app.command("rotate", requires_connection=True)
 def rotate(
-    new_connection: bool = _new_connection_option,
-    connection_name: str = _connection_name_option,
     key_length: int = _key_length_option,
     output_path: Path = _output_path_option,
     private_key_passphrase: SecretType = _private_key_passphrase_option,
@@ -111,7 +109,6 @@ def rotate(
     Rotates the key for the connection. Generates the key pair, sets the public key for the user in Snowflake and creates or updates the connection.
     """
     AuthManager().rotate(
-        connection_name=connection_name,
         key_length=key_length,
         output_path=SecurePath(output_path),
         private_key_passphrase=private_key_passphrase,

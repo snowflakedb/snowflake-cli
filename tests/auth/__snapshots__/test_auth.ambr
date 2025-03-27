@@ -42,22 +42,8 @@
   
   '''
 # ---
-# name: test_rotate_connection_already_exists
-  '''
-  Create a new connection? [Y/n]: 
-  Enter connection name: default
-  Enter key length [2048]: 
-  Enter private key passphrase []: 
-  +- Error ----------------------------------------------------------------------+
-  | Connection with name default already exists.                                 |
-  +------------------------------------------------------------------------------+
-  
-  '''
-# ---
 # name: test_rotate_create_output_directory_with_proper_privileges
   '''
-  Create a new connection? [Y/n]: Y
-  Enter connection name: keypairconnection
   Enter key length [2048]: 4096
   Enter private key passphrase []: 
   Rotate completed.
@@ -66,8 +52,6 @@
 # ---
 # name: test_rotate_no_prompts
   '''
-  Create a new connection? [Y/n]: 
-  Enter connection name: keypairconnection
   Set the `PRIVATE_KEY_PASSPHRASE` environment variable before using the connection.
   Rotate completed.
   
@@ -75,20 +59,16 @@
 # ---
 # name: test_rotate_no_public_key_set
   '''
-  Create a new connection? [Y/n]: 
-  Enter connection name: keypairconnection
   Enter key length [2048]: 
   Enter private key passphrase []: 
   +- Error ----------------------------------------------------------------------+
-  | Connection with name keypairconnection already exists.                       |
+  | No public key found. Use the setup command first.                            |
   +------------------------------------------------------------------------------+
   
   '''
 # ---
 # name: test_rotate_only_public_key_set
   '''
-  Create a new connection? [Y/n]: Y
-  Enter connection name: keypairconnection
   Enter key length [2048]: 4096
   Enter private key passphrase []: 
   Rotate completed.
@@ -97,8 +77,6 @@
 # ---
 # name: test_rotate_other_public_key_set_options[KEY-KEY]
   '''
-  Create a new connection? [Y/n]: Y
-  Enter connection name: keypairconnection
   Enter key length [2048]: 4096
   Enter private key passphrase []: 
   Rotate completed.
@@ -107,18 +85,7 @@
 # ---
 # name: test_rotate_other_public_key_set_options[None-KEY]
   '''
-  Create a new connection? [Y/n]: Y
-  Enter connection name: keypairconnection
   Enter key length [2048]: 4096
-  Enter private key passphrase []: 
-  Rotate completed.
-  
-  '''
-# ---
-# name: test_rotate_overwrite_connection
-  '''
-  Create a new connection? [Y/n]: n
-  Enter key length [2048]: 
   Enter private key passphrase []: 
   Rotate completed.
   
@@ -126,8 +93,6 @@
 # ---
 # name: test_rotate_with_password
   '''
-  Create a new connection? [Y/n]: Y
-  Enter connection name: keypairconnection
   Enter key length [2048]: 4096
   Enter private key passphrase []: 
   Set the `PRIVATE_KEY_PASSPHRASE` environment variable before using the connection.
