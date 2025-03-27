@@ -94,14 +94,14 @@ def test_sql_execute_from_stdin(mock_execute, runner, mock_cursor):
 def test_sql_repl_if_no_query_file_or_stdin(
     mock_execute,
     runner,
-    snapshot,
+    os_agnostic_snapshot,
     mock_cursor,
 ):
     mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(2))
 
     result = runner.invoke(["sql"])
     assert result.exit_code == 0, result.output
-    assert result.output == snapshot
+    os_agnostic_snapshot.assert_match(result.output)
 
 
 @pytest.mark.skipif(
