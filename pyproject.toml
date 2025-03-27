@@ -191,7 +191,7 @@ select = [
 ]
 
 [tool.pytest.ini_options]
-addopts = "-vv --maxfail=0 -m 'not integration and not performance and not e2e and not spcs and not loaded_modules and not integration_experimental'"
+addopts = "-vv --maxfail=10 -m 'not integration and not performance and not e2e and not spcs and not loaded_modules and not integration_experimental'"
 markers = [
   "integration: mark test as integration test",
   "performance: mark test as performance test",
