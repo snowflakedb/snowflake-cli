@@ -101,14 +101,35 @@ def dry_run(
     return SingleQueryResult(result)
 
 
+def _add_version_to_project(pm: ProjectManager, project: ProjectEntityModel):
+    cli_context = get_cli_context()
+
+    with cli_console.phase("Uploading artifacts"):
+        sync_artifacts_with_stage(
+            project_paths=ProjectPaths(project_root=cli_context.project_root),
+            stage_root=project.stage,
+            artifacts=project.artifacts,
+            prune=True,
+        )
+    with cli_console.phase(f"Creating project version from stage {project.stage}"):
+        return pm.create_version(
+            project_name=project.fqn, stage_name=FQN.from_stage(project.stage)
+        )
+
+
 @app.command(requires_connection=True)
 @with_project_definition()
-def create_version(
+def create(
     entity_id: str = entity_argument("project"),
+    no_version: bool = typer.Option(
+        False,
+        "--no-version",
+        help="Do not initialize project with a new version, only create the snowflake object.",
+    ),
     **options,
 ):
     """
-    Upload local files and create a new version of a project using those files. If the stage does not exist, it will be created.
+    Creates a project in snowflake and initializes it with a new version created from local files.
     """
     cli_context = get_cli_context()
     project: ProjectEntityModel = get_entity_for_operation(
@@ -117,36 +138,25 @@ def create_version(
         project_definition=cli_context.project_definition,
         entity_type="project",
     )
+    pm = ProjectManager()
+    with cli_console.phase("Creating project"):
+        pm.create(project.fqn)
 
-    # Sync state
-    with cli_console.phase("Syncing project state"):
-        sync_artifacts_with_stage(
-            project_paths=ProjectPaths(project_root=cli_context.project_root),
-            stage_root=project.stage,
-            artifacts=project.artifacts,
-        )
+    if no_version:
+        return MessageResult(f"Project {project.fqn} successfully created.")
 
-    # Create project and version
-    with cli_console.phase("Creating project and version"):
-        stage_name = FQN.from_stage(project.stage)
-
-        pm = ProjectManager()
-        cli_console.step(f"Creating project {project.fqn}")
-        pm.create(project_name=project.fqn)
-
-        cli_console.step(f"Creating version from stage {stage_name}")
-        pm.create_version(project_name=project.fqn, stage_name=stage_name)
-    return MessageResult(f"Project {project.fqn} deployed.")
+    return _add_version_to_project(pm, project=project)
 
 
 @app.command(requires_connection=True)
 @with_project_definition()
 def add_version(
     entity_id: str = entity_argument("project"),
-    _from: str = typer.Option(
-        ...,
+    _from: str
+    | None = typer.Option(
+        None,
         "--from",
-        help="Source stage to create the version from.",
+        help="Create a new version using given stage instead of local files.",
         show_default=False,
     ),
     _alias: str
@@ -159,7 +169,7 @@ def add_version(
     ),
     **options,
 ):
-    """Adds a new version to a project using existing sources from provided stage path."""
+    """Uploads local files to Snowflake and cerates a new project version."""
 
     pm = ProjectManager()
     pm.add_version(
@@ -168,6 +178,7 @@ def add_version(
         alias=_alias,
         comment=comment,
     )
+    # return _add_version_to_project()
     return MessageResult("Version added.")
 
 
