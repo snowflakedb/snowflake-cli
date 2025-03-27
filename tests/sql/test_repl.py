@@ -55,3 +55,26 @@ def test_exit_sequence(user_inputs, repl, os_agnostic_snapshot, capsys):
 
     output = capsys.readouterr().out
     os_agnostic_snapshot.assert_match(output)
+
+
+def test_repl_full_app(runner, os_agnostic_snapshot, mock_cursor):
+    user_inputs = iter(("exit", "y"))
+    mocked_cursor = [
+        mock_cursor(
+            rows=[("1",)],
+            columns=("1",),
+        ),
+    ]
+
+    repl_prompt = "snowflake.cli._plugins.sql.repl.PromptSession"
+    repl_execute = "snowflake.cli._plugins.sql.repl.Repl._execute"
+
+    with mock.patch(repl_prompt) as mock_prompt:
+        mock_instance = mock.MagicMock()
+        mock_instance.prompt.side_effect = user_inputs
+        mock_prompt.return_value = mock_instance
+
+        with mock.patch(repl_execute, return_value=mocked_cursor):
+            result = runner.invoke(("sql",))
+            assert result.exit_code == 0
+            os_agnostic_snapshot.assert_match(result.output)
