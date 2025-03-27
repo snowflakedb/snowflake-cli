@@ -32,9 +32,13 @@ clean_build_workspace() {
 install_cargo() {
   export CARGO_HOME="$HOME/.cargo"
   export RUSTUP_HOME="$HOME/.rustup"
-  curl https://sh.rustup.rs -sSf | bash -s -- -y
+
+  curl https://sh.rustup.rs -sSf > rustup-init.sh
+  bash -s rustup-init.sh -y
   . $HOME/.cargo/env
   rustup default stable
+
+  rm rustup-init.sh
 }
 
 create_app_template() {
