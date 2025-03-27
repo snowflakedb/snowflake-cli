@@ -1,4 +1,3 @@
-import sys
 from unittest import mock
 
 import pytest
@@ -21,11 +20,7 @@ def make_repl(mock_cursor):
         yield repl
 
 
-@pytest.mark.skipif(
-    sys.platform == "win32",
-    reason="Windows snpashot require different approach due to frame corners.",
-)
-def test_repl_input_handling(repl, capsys, snapshot):
+def test_repl_input_handling(repl, capsys, os_agnostic_snapshot):
     user_inputs = iter(("select 1;", "exit", "y"))
 
     with mock.patch.object(
@@ -36,7 +31,7 @@ def test_repl_input_handling(repl, capsys, snapshot):
         repl.run()
 
     output = capsys.readouterr().out
-    snapshot.assert_match(output)
+    os_agnostic_snapshot.assert_match(output)
 
 
 @pytest.mark.parametrize(
