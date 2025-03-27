@@ -48,7 +48,7 @@ def test_repl_input_handling(repl, capsys, snapshot):
         pytest.param(("quit", "n", "quit", "y"), id="hesistate on quit"),
     ),
 )
-def test_exit_sequence(user_inputs, repl, snapshot, capsys):
+def test_exit_sequence(user_inputs, repl, os_agnostic_snapshot, capsys):
     user_inputs = iter(user_inputs)
 
     with mock.patch.object(
@@ -59,4 +59,4 @@ def test_exit_sequence(user_inputs, repl, snapshot, capsys):
         repl.run()
 
     output = capsys.readouterr().out
-    snapshot.assert_match(output)
+    os_agnostic_snapshot.assert_match(output)
