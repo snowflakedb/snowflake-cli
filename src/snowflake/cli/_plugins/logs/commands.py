@@ -4,7 +4,7 @@ from typing import Generator, Iterable, Optional, cast
 
 import typer
 from click import ClickException
-from snowflake.cli._plugins.logs.manager import Logs_query_row, LogsManager
+from snowflake.cli._plugins.logs.manager import LogsManager, LogsQueryRow
 from snowflake.cli._plugins.object.commands import NameArgument, ObjectArgument
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.identifiers import FQN
@@ -50,7 +50,7 @@ def get_logs(
     to_time = get_datetime_from_string(to, "--to") if to else None
 
     if refresh_time:
-        logs_stream: Iterable[Logs_query_row] = LogsManager().stream_logs(
+        logs_stream: Iterable[LogsQueryRow] = LogsManager().stream_logs(
             object_type=object_type,
             object_name=object_name,
             from_time=from_time,
@@ -60,7 +60,7 @@ def get_logs(
             (MessageResult(log.log_message) for logs in logs_stream for log in logs)
         )
     else:
-        logs_iterable: Iterable[Logs_query_row] = LogsManager().get_logs(
+        logs_iterable: Iterable[LogsQueryRow] = LogsManager().get_logs(
             object_type=object_type,
             object_name=object_name,
             from_time=from_time,

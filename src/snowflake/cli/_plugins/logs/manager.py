@@ -11,8 +11,30 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
-DATETIME_FORMAT_IN_OUTPUT = "%d/%b/%Y %H:%M:%S"
-DATE_PATTERN = r"\[(\d{2}/\w{3}/\d{4} \d{2}:\d{2}:\d{2})\]"
+
+LogsTableQueryResult = NamedTuple(
+    "LogsTableQueryResult",
+    [
+        ("key", str),
+        ("table_name", str),
+        ("default", str),
+        ("level", str),
+        ("description", str),
+        ("type", str),
+    ],
+)
+
+LogsQueryRow = NamedTuple(
+    "LogsQueryRow",
+    [
+        ("timestamp", datetime),
+        ("database_name", str),
+        ("schema_name", str),
+        ("object_name", str),
+        ("log_level", str),
+        ("log_message", str),
+    ],
+)
 
 Logs_table_query_result = NamedTuple(
     "Logs_table_query_result",
@@ -46,7 +68,7 @@ class LogsManager(SqlExecutionMixin):
         object_type: str = ObjectArgument,
         object_name: FQN = NameArgument,
         from_time: Optional[datetime] = None,
-    ) -> Iterable[List[NamedTuple]]:
+    ) -> Iterable[List[LogsQueryRow]]:
         try:
             previous_end = from_time
 
@@ -59,7 +81,7 @@ class LogsManager(SqlExecutionMixin):
                     result = self.sanitize_logs(raw_logs)
                     yield result
                     if result:
-                        previous_end = result[-1].timestamp  # type: ignore
+                        previous_end = result[-1].timestamp
                 time.sleep(refresh_time)
 
         except KeyboardInterrupt:
@@ -71,7 +93,7 @@ class LogsManager(SqlExecutionMixin):
         object_name: FQN = NameArgument,
         from_time: Optional[datetime] = None,
         to_time: Optional[datetime] = None,
-    ) -> Iterable[NamedTuple]:
+    ) -> Iterable[LogsQueryRow]:
         """
         Basic function to get a single batch of logs from the server
         """
@@ -118,7 +140,7 @@ class LogsManager(SqlExecutionMixin):
         ).fetchone()
 
         try:
-            logs_table_query_result = Logs_table_query_result(*query_result)
+            logs_table_query_result = LogsTableQueryResult(*query_result)
         except TypeError:
             raise ClickException(
                 "Encountered error while querying for logs table. Please check if your account has an event_table"
@@ -136,19 +158,19 @@ class LogsManager(SqlExecutionMixin):
 
         if from_time is not None:
             query.append(
-                f"AND timestamp >= TO_TIMESTAMP_LTZ('{from_time.strftime(DATETIME_FORMAT)}')\n"
+                f"AND timestamp >= TO_TIMESTAMP_LTZ('{from_time.isoformat()}')\n"
             )
 
         if to_time is not None:
             query.append(
-                f"AND timestamp <= TO_TIMESTAMP_LTZ('{to_time.strftime(DATETIME_FORMAT)}')\n"
+                f"AND timestamp <= TO_TIMESTAMP_LTZ('{to_time.isoformat()}')\n"
             )
 
         return "".join(query)
 
-    def sanitize_logs(self, logs: SnowflakeCursor | List[Tuple]) -> List[NamedTuple]:
+    def sanitize_logs(self, logs: SnowflakeCursor | List[Tuple]) -> List[LogsQueryRow]:
         try:
-            return [Logs_query_row(*log) for log in logs]
+            return [LogsQueryRow(*log) for log in logs]
         except TypeError:
             raise ClickException(
                 "Logs table has incorrect format. Please check the logs_table in your database"

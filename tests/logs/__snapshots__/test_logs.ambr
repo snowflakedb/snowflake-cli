@@ -12,8 +12,8 @@
               WHERE record_type = 'LOG'
               AND (record:severity_text = 'INFO' or record:severity_text is NULL )
               AND object_name = 'bar'
-              AND timestamp >= TO_TIMESTAMP_LTZ('2022-02-02 02:02:02')
-  AND timestamp <= TO_TIMESTAMP_LTZ('2022-02-03 02:02:02')
+              AND timestamp >= TO_TIMESTAMP_LTZ('2022-02-02T02:02:02')
+  AND timestamp <= TO_TIMESTAMP_LTZ('2022-02-03T02:02:02')
   
               ORDER BY timestamp;
   '''
