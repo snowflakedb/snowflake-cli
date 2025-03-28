@@ -26,6 +26,8 @@ from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
+    OverrideableOption,
+    PruneOption,
     entity_argument,
     identifier_argument,
     like_option,
@@ -54,6 +56,17 @@ version_flag = typer.Option(
 )
 variables_flag = variables_option(
     'Variables for the execution context; for example: `-D "<key>=<value>"`.'
+)
+no_version_flag = OverrideableOption(
+    False,
+    "--no-version",
+    help="Do not initialize project with a new version, only create the snowflake object.",
+)
+from_option = OverrideableOption(
+    None,
+    "--from",
+    help="Create a new version using given stage instead of uploading local files.",
+    show_default=False,
 )
 
 
@@ -101,7 +114,9 @@ def dry_run(
     return SingleQueryResult(result)
 
 
-def _add_version_to_project(pm: ProjectManager, project: ProjectEntityModel):
+def _add_version_to_project(
+    pm: ProjectManager, project: ProjectEntityModel, prune: bool
+):
     cli_context = get_cli_context()
 
     with cli_console.phase("Uploading artifacts"):
@@ -109,7 +124,7 @@ def _add_version_to_project(pm: ProjectManager, project: ProjectEntityModel):
             project_paths=ProjectPaths(project_root=cli_context.project_root),
             stage_root=project.stage,
             artifacts=project.artifacts,
-            prune=True,
+            prune=prune,
         )
     with cli_console.phase(f"Creating project version from stage {project.stage}"):
         return pm.create_version(
@@ -121,11 +136,10 @@ def _add_version_to_project(pm: ProjectManager, project: ProjectEntityModel):
 @with_project_definition()
 def create(
     entity_id: str = entity_argument("project"),
-    no_version: bool = typer.Option(
-        False,
-        "--no-version",
-        help="Do not initialize project with a new version, only create the snowflake object.",
+    no_version: bool = no_version_flag(
+        mutually_exclusive=["prune"],
     ),
+    prune: bool = PruneOption(mutually_exclusive=["no_version"]),
     **options,
 ):
     """
@@ -145,28 +159,21 @@ def create(
     if no_version:
         return MessageResult(f"Project {project.fqn} successfully created.")
 
-    return _add_version_to_project(pm, project=project)
+    return _add_version_to_project(pm, project=project, prune=prune)
 
 
 @app.command(requires_connection=True)
 @with_project_definition()
 def add_version(
     entity_id: str = entity_argument("project"),
-    _from: str
-    | None = typer.Option(
-        None,
-        "--from",
-        help="Create a new version using given stage instead of local files.",
-        show_default=False,
-    ),
-    _alias: str
-    | None = typer.Option(
+    _from: Optional[str] = from_option(mutually_exclusive=["prune"]),
+    _alias: Optional[str] = typer.Option(
         None, "--alias", help="Alias for the version.", show_default=False
     ),
-    comment: str
-    | None = typer.Option(
+    comment: Optional[str] = typer.Option(
         None, "--comment", help="Version comment.", show_default=False
     ),
+    prune: bool = PruneOption(mutually_exclusive=["_from"]),
     **options,
 ):
     """Uploads local files to Snowflake and cerates a new project version."""
