@@ -47,6 +47,7 @@ class _CliGlobalContextManager:
     verbose: bool = False
     experimental: bool = False
     enable_tracebacks: bool = True
+    is_repl: bool = False
 
     metrics: CLIMetrics = field(default_factory=CLIMetrics)
 
@@ -208,6 +209,10 @@ class _CliGlobalContextAccess:
             return Root(self.connection)
         else:
             return None
+
+    @property
+    def is_repl(self) -> bool:
+        return self._manager.is_repl
 
 
 _CLI_CONTEXT_MANAGER: ContextVar[_CliGlobalContextManager | None] = ContextVar(
