@@ -115,20 +115,35 @@ def dry_run(
 
 
 def _add_version_to_project(
-    pm: ProjectManager, project: ProjectEntityModel, prune: bool
+    pm: ProjectManager,
+    project: ProjectEntityModel,
+    prune: bool = False,
+    from_stage: Optional[str] = None,
+    alias: Optional[str] = None,
+    comment: Optional[str] = None,
 ):
-    cli_context = get_cli_context()
+    """
+    Adds a version to project. If [from_stage] is not defined,
+    uploads local files to the stage defined in project definition.
+    """
 
-    with cli_console.phase("Uploading artifacts"):
-        sync_artifacts_with_stage(
-            project_paths=ProjectPaths(project_root=cli_context.project_root),
-            stage_root=project.stage,
-            artifacts=project.artifacts,
-            prune=prune,
-        )
-    with cli_console.phase(f"Creating project version from stage {project.stage}"):
-        return pm.create_version(
-            project_name=project.fqn, stage_name=FQN.from_stage(project.stage)
+    if not from_stage:
+        cli_context = get_cli_context()
+        from_stage = project.stage
+        with cli_console.phase("Uploading artifacts"):
+            sync_artifacts_with_stage(
+                project_paths=ProjectPaths(project_root=cli_context.project_root),
+                stage_root=from_stage,
+                artifacts=project.artifacts,
+                prune=prune,
+            )
+
+    with cli_console.phase(f"Creating project version from stage {from_stage}"):
+        return pm.add_version(
+            project_name=project.fqn,
+            from_stage=from_stage,
+            alias=alias,
+            comment=comment,
         )
 
 
@@ -177,16 +192,21 @@ def add_version(
     **options,
 ):
     """Uploads local files to Snowflake and cerates a new project version."""
-
-    pm = ProjectManager()
-    pm.add_version(
-        project_name=entity_id,
+    cli_context = get_cli_context()
+    project: ProjectEntityModel = get_entity_for_operation(
+        cli_context=cli_context,
+        entity_id=entity_id,
+        project_definition=cli_context.project_definition,
+        entity_type="project",
+    )
+    return _add_version_to_project(
+        ProjectManager(),
+        project=project,
+        prune=prune,
         from_stage=_from,
         alias=_alias,
         comment=comment,
     )
-    # return _add_version_to_project()
-    return MessageResult("Version added.")
 
 
 @app.command(requires_connection=True)
