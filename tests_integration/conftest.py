@@ -185,6 +185,19 @@ class SnowCLIRunner(CliRunner):
     ) -> CommandResult:
         return self.invoke_with_config([*args, "-c", connection], **kwargs)
 
+    def invoke_passthrough_with_connection(
+        self,
+        args,
+        connection: str = "integration",
+        passthrough_args: Optional[list[str]] = None,
+        **kwargs,
+    ) -> CommandResult:
+        if passthrough_args is None:
+            passthrough_args = list()
+        return self.invoke_with_config(
+            [*args, "-c", connection, *passthrough_args], **kwargs
+        )
+
 
 @pytest.fixture
 def runner(test_snowcli_config_provider, default_username, resource_suffix):
