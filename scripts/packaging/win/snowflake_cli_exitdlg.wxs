@@ -16,9 +16,9 @@
                 <Control Id="Description2" Type="Text" X="135" Y="70" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="2. Execute the command to test your connection:"/>
                 <Control Id="Description3" Type="Text" X="135" Y="90" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="{\DlgMonoFont}snow connection add"/>
                 <Control Id="Description4" Type="Text" X="135" Y="110" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="When prompted, supply the required connection, account, username parameters, and any desired optional parameters"/>
-                <Control Id="Description5" Type="Text" X="135" Y="190" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="3. Execute the command to connect to Snowflake:"/>
-                <Control Id="Description6" Type="Text" X="135" Y="210" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="{\DlgMonoFont}snow connection test"/>
-                <Control Id="Description7" Type="Text" X="135" Y="190" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="Explore all connection settings https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/connecting/connect"/>
+                <Control Id="Description5" Type="Text" X="135" Y="130" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="3. Execute the command to connect to Snowflake:"/>
+                <Control Id="Description6" Type="Text" X="135" Y="150" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="{\DlgMonoFont}snow connection test"/>
+                <Control Id="Description7" Type="Text" X="135" Y="170" Width="220" Height="20" Transparent="yes" NoPrefix="yes" Text="Explore all connection settings https://docs.snowflake.com/en/developer-guide/snowflake-cli-v2/connecting/connect"/>
                 <Control Id="Title" Type="Text" X="135" Y="20" Width="220" Height="60" Transparent="yes" NoPrefix="yes" Text="!(loc.ExitDialogTitle)" />
             </Dialog>
             <InstallUISequence>
