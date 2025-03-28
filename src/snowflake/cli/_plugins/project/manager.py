@@ -43,7 +43,7 @@ class ProjectManager(SqlExecutionMixin):
     def create(
         self,
         project_name: FQN,
-    ) -> str:
+    ):
         queries = dedent(f"CREATE PROJECT IF NOT EXISTS {project_name.sql_identifier}")
         return self.execute_query(query=queries)
 
