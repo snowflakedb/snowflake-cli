@@ -26,7 +26,7 @@ def test_add_version(mock_execute_query, runner, project_directory):
     )
 
     mock_execute_query.assert_called_once_with(
-        query="ALTER PROJECT my_project ADD VERSION IF NOT EXIST v1 FROM @stage_foo COMMENT = 'fancy'"
+        query="ALTER PROJECT my_project ADD VERSION IF NOT EXISTS v1 FROM @stage_foo COMMENT = 'fancy'"
     )
 
 
@@ -49,4 +49,14 @@ def test_validate_project(mock_execute_query, runner, project_directory):
 
     mock_execute_query.assert_called_once_with(
         query="EXECUTE PROJECT IDENTIFIER('my_project') WITH VERSION v42 DRY_RUN=TRUE"
+    )
+
+
+@mock.patch(execute_queries)
+def test_list_versions(mock_execute_query, runner):
+    mgr = ProjectManager()
+    mgr.list_versions(project_name=TEST_PROJECT)
+
+    mock_execute_query.assert_called_once_with(
+        query="SHOW VERSIONS IN PROJECT my_project"
     )
