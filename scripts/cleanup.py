@@ -45,7 +45,10 @@ def remove_resources(single: str, plural: str, known_instances: t.List[str], rol
     items = session.sql(f"show {plural}").collect()
 
     for item in items:
-        if item.name not in known_instances:
+        # services don't have an owner
+        if item.name not in known_instances and (
+            plural == "services" or item.owner == "INTEGRATION_TESTS"
+        ):
             remove_resource(resource_type=single, item=item, role=role)
 
 
@@ -80,6 +83,15 @@ if __name__ == "__main__":
         ("application", "applications"): [],
         ("warehouse", "warehouses"): ["XSMALL"],
         ("image repository", "image repositories"): ["SNOWCLI_REPOSITORY"],
+        ("role", "roles"): [
+            "ACCOUNTADMIN",
+            "PUBLIC",
+            "SECURITYADMIN",
+            "SYSADMIN",
+            "USERADMIN",
+            "INTEGRATION_TESTS",
+            "APP_PUBLIC",
+        ],
     }
 
     for (single, plural), known in known_objects.items():
