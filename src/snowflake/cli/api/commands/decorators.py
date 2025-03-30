@@ -29,6 +29,7 @@ from snowflake.cli.api.commands.flags import (
     DiagAllowlistPathOption,
     DiagLogPathOption,
     EnableDiagOption,
+    EnhancedExitCodesOption,
     HostOption,
     MasterTokenOption,
     MfaPasscodeOption,
@@ -78,7 +79,6 @@ def global_options_with_connection(func: Callable):
 
 def with_project_definition(is_optional: bool = False):
     def _decorator(func: Callable):
-
         return _options_decorator_factory(
             func,
             additional_options=[
@@ -159,7 +159,10 @@ def _options_decorator_factory(
             execute_before_command_using_new_options(**options)
         return func(**options)
 
-    wrapper.__signature__ = _extend_signature_with_additional_options(func, additional_options)  # type: ignore
+        wrapper.__signature__ = _extend_signature_with_additional_options(  # type: ignore
+            func, additional_options
+        )
+
     return wrapper
 
 
@@ -352,6 +355,12 @@ GLOBAL_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[bool],
         default=SilentOption,
+    ),
+    inspect.Parameter(
+        "enhanced_exit_codes",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[bool],
+        default=EnhancedExitCodesOption,
     ),
 ]
 

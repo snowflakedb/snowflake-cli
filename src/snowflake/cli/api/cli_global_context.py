@@ -61,6 +61,7 @@ class _CliGlobalContextManager:
     override_project_definition: ProjectDefinition | None = None
 
     _definition_manager: DefinitionManager | None = None
+    enhanced_exit_codes: bool = False
 
     # which properties invalidate our current DefinitionManager?
     DEFINITION_MANAGER_DEPENDENCIES = [
@@ -208,6 +209,10 @@ class _CliGlobalContextAccess:
             return Root(self.connection)
         else:
             return None
+
+    @property
+    def enhanced_exit_codes(self) -> bool:
+        return self._manager.enhanced_exit_codes
 
 
 _CLI_CONTEXT_MANAGER: ContextVar[_CliGlobalContextManager | None] = ContextVar(
