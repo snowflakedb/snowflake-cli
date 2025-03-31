@@ -25,7 +25,7 @@ import pytest
 import tomlkit
 from snowflake.cli._app import loggers
 from snowflake.cli.api.config import config_init
-from snowflake.cli.api.exceptions import InvalidLogsConfiguration
+from snowflake.cli.api.exceptions import InvalidLogsConfigurationError
 
 from tests.conftest import clean_logging_handlers
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
@@ -199,7 +199,7 @@ def test_incorrect_log_level_in_config(setup_config_and_logs):
     try:
         with setup_config_and_logs(save_logs=True, level="funny_level"):
             assert False, "Bug: below error should be thrown"
-    except InvalidLogsConfiguration as e:
+    except InvalidLogsConfigurationError as e:
         assert (
             e.message == "Invalid 'level' value set in [logs] section: funny_level."
             " 'level' should be one of: DEBUG / INFO / WARNING / ERROR / CRITICAL"

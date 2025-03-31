@@ -17,7 +17,7 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplate
+from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplateError
 from snowflake.cli.api.project.definition import load_project
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
@@ -171,7 +171,7 @@ def test_invalid_template_in_version_1_1():
         "definition_version": "1.1",
         "native_app": {"name": "test_source_<% ctx.env.A", "artifacts": []},
     }
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         render_definition_template(definition, {})
 
     assert err.value.message.startswith(
@@ -364,7 +364,7 @@ def test_resolve_variables_error_on_cycle(definition):
     ],
 )
 def test_resolve_variables_reference_non_scalar(definition, error_var):
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         render_definition_template(definition, {})
 
     assert (
@@ -448,7 +448,7 @@ def test_resolve_variables_fails_if_referencing_unknown_variable(env, msg):
         "native_app": {"name": "test_name", "artifacts": []},
         "env": env,
     }
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         render_definition_template(definition, {})
     assert msg == err.value.message
 
@@ -528,7 +528,7 @@ def test_invalid_templating_syntax(template_value):
             "test_env": template_value,
         },
     }
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         render_definition_template(definition, {})
 
     assert err.value.message == f"Unexpected template syntax in {template_value}"
@@ -855,7 +855,6 @@ def test_field_with_custom_validation_with_templates_and_invalid_value():
 def test_defaults_native_app_pkg_name(
     na_name, expected_app_name: str, expected_pkg_name: str
 ):
-
     definition = {
         "definition_version": "1.1",
         "native_app": {"name": na_name, "artifacts": []},

@@ -24,7 +24,7 @@ from snowflake.cli._plugins.nativeapp.entities.application import (
     ApplicationEntityModel,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import MissingScriptError
-from snowflake.cli.api.exceptions import InvalidTemplate
+from snowflake.cli.api.exceptions import InvalidTemplateError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.entities.common import PostDeployHook
@@ -248,7 +248,7 @@ def test_app_post_deploy_with_mixed_syntax_template(
     app_model: ApplicationEntityModel = dm.project_definition.entities["app"]
     app = ApplicationEntity(app_model, workspace_context)
 
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         app.execute_post_deploy_hooks()
 
     assert (
