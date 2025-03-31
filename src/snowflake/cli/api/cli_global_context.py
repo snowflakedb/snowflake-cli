@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Iterator, Optional
 
 from snowflake.cli.api.connections import ConnectionContext, OpenConnectionCache
-from snowflake.cli.api.exceptions import MissingConfiguration
+from snowflake.cli.api.exceptions import MissingConfigurationError
 from snowflake.cli.api.metrics import CLIMetrics
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
@@ -127,7 +127,7 @@ class _CliGlobalContextManager:
                 {CONTEXT_KEY: {"env": self.project_env_overrides_args}},
             )
             if not dm.has_definition_file and not self.project_is_optional:
-                raise MissingConfiguration(
+                raise MissingConfigurationError(
                     "Cannot find project definition (snowflake.yml). Please provide a path to the project or run this command in a valid project directory."
                 )
             self._definition_manager = dm
