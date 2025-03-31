@@ -69,8 +69,18 @@ class ProjectManager(SqlExecutionMixin):
         )
         query = f"ALTER PROJECT {project_name.identifier} ADD VERSION"
         if alias:
-            query += f" IF NOT EXIST {alias}"
+            query += f" IF NOT EXISTS {alias}"
         query += f" FROM {from_stage}"
         if comment:
             query += f" COMMENT = '{comment}'"
+        return self.execute_query(query=query)
+
+    def list_versions(self, project_name: str | FQN):
+        project_name = (
+            project_name
+            if isinstance(project_name, FQN)
+            else FQN.from_string(project_name)
+        )
+        query = f"SHOW VERSIONS IN PROJECT {project_name}"
+
         return self.execute_query(query=query)
