@@ -55,7 +55,7 @@ class CliConnectionError(BaseCliError):
     exit_code = 3
 
 
-class CliCommunicationError(CliError):
+class CliCommunicationError(BaseCliError):
     exit_code = 4
 
 
