@@ -159,9 +159,9 @@ def _options_decorator_factory(
             execute_before_command_using_new_options(**options)
         return func(**options)
 
-        wrapper.__signature__ = _extend_signature_with_additional_options(  # type: ignore
-            func, additional_options
-        )
+    wrapper.__signature__ = _extend_signature_with_additional_options(  # type: ignore
+        func, additional_options
+    )
 
     return wrapper
 
