@@ -89,12 +89,12 @@ def test_add_version(mock_pm, runner, project_directory):
 
 @mock.patch(ProjectManager)
 def test_execute_project(mock_pm, runner, project_directory):
-    result = runner.invoke(["project", "execute", "fooBar", "--version", "v1"])
+    result = runner.invoke(["project", "execute", "fooBar"])
     assert result.exit_code == 0, result.output
 
     mock_pm().execute.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
-        version="v1",
+        version=None,
         variables=None,
     )
 

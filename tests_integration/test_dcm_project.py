@@ -38,8 +38,6 @@ def test_project_deploy(
                 "project",
                 "execute",
                 "my_project",
-                "--version",
-                "last",
                 "-D",
                 f"table_name='{test_database}.PUBLIC.MyTable'",
             ]

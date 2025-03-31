@@ -43,6 +43,19 @@ def test_execute_project(mock_execute_query, runner, project_directory):
 
 
 @mock.patch(execute_queries)
+def test_execute_project_with_default_version(
+    mock_execute_query, runner, project_directory
+):
+    mgr = ProjectManager()
+
+    mgr.execute(project_name=TEST_PROJECT, version=None)
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE PROJECT IDENTIFIER('my_project')"
+    )
+
+
+@mock.patch(execute_queries)
 def test_validate_project(mock_execute_query, runner, project_directory):
     mgr = ProjectManager()
     mgr.execute(project_name=TEST_PROJECT, version="v42", dry_run=True)
