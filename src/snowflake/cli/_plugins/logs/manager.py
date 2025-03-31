@@ -10,8 +10,6 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
-DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
-
 LogsTableQueryResult = NamedTuple(
     "LogsTableQueryResult",
     [
@@ -26,30 +24,6 @@ LogsTableQueryResult = NamedTuple(
 
 LogsQueryRow = NamedTuple(
     "LogsQueryRow",
-    [
-        ("timestamp", datetime),
-        ("database_name", str),
-        ("schema_name", str),
-        ("object_name", str),
-        ("log_level", str),
-        ("log_message", str),
-    ],
-)
-
-Logs_table_query_result = NamedTuple(
-    "Logs_table_query_result",
-    [
-        ("key", str),
-        ("table_name", str),
-        ("default", str),
-        ("level", str),
-        ("description", str),
-        ("type", str),
-    ],
-)
-
-Logs_query_row = NamedTuple(
-    "Logs_query_row",
     [
         ("timestamp", datetime),
         ("database_name", str),
