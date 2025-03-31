@@ -47,7 +47,10 @@ app = SnowTyperFactory(
 
 project_identifier = identifier_argument(sf_object="project", example="MY_PROJECT")
 version_flag = typer.Option(
-    ..., "--version", help="Version of the project to use.", show_default=False
+    None,
+    "--version",
+    help="Version of the project to use. If not specified default version is used",
+    show_default=False,
 )
 variables_flag = variables_option(
     'Variables for the execution context; for example: `-D "<key>=<value>"`.'
@@ -69,7 +72,7 @@ add_object_command_aliases(
 @app.command(requires_connection=True)
 def execute(
     identifier: FQN = project_identifier,
-    version: str = version_flag,
+    version: Optional[str] = version_flag,
     variables: Optional[List[str]] = variables_flag,
     **options,
 ):
@@ -85,7 +88,7 @@ def execute(
 @app.command(requires_connection=True)
 def dry_run(
     identifier: FQN = project_identifier,
-    version: str = version_flag,
+    version: Optional[str] = version_flag,
     variables: Optional[List[str]] = variables_flag,
     **options,
 ):
