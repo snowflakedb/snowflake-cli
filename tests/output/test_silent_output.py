@@ -39,8 +39,6 @@ def test_silent_output_help(runner, snapshot):
     result = runner.invoke(["streamlit", "get-url", "--help"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
-    expected_message = "--silent"
-    assert expected_message in result.output
     snapshot.assert_match(result.output)
 
 
