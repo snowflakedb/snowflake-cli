@@ -18,6 +18,7 @@ import logging
 from typing import Optional
 
 import typer
+from click import ClickException
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from snowflake.cli._plugins.dbt.constants import DBT_COMMANDS
 from snowflake.cli._plugins.dbt.manager import DBTManager
@@ -33,7 +34,6 @@ from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
     QueryResult,
-    SingleQueryResult,
 )
 from snowflake.cli.api.secure_path import SecurePath
 
@@ -148,5 +148,16 @@ for cmd in DBT_COMMANDS:
             transient=True,
         ) as progress:
             progress.add_task(description=f"Executing 'dbt {dbt_command}'", total=None)
+
             result = dbt_manager.execute(*execute_args)
-            return SingleQueryResult(result)
+            columns = [column.name for column in result.description]
+            success_column_index = columns.index("SUCCESS")
+            stdout_column_index = columns.index("STDOUT")
+            is_success, output = [
+                (row[success_column_index], row[stdout_column_index]) for row in result
+            ][-1]
+
+            if is_success is True:
+                return MessageResult(output)
+            else:
+                raise ClickException(output)
