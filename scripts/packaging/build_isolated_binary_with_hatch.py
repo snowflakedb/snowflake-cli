@@ -113,10 +113,8 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     return not completed_proc.returncode
 
 
+@contextlib.contextmanager
 def override_is_installation_source_variable():
-    """
-    Returns cleanup function, as jenkins seems to misbehave with @contextmanager.
-    """
     about_file = PROJECT_ROOT / "src" / "snowflake" / "cli" / "__about__.py"
     contents = about_file.read_text()
     if INSTALLATION_SOURCE_VARIABLE not in contents:
@@ -129,11 +127,8 @@ def override_is_installation_source_variable():
             f"{INSTALLATION_SOURCE_VARIABLE} = CLIInstallationSource.BINARY",
         )
     )
-
-    def cleanup():
-        subprocess.run(["git", "checkout", str(about_file)])
-
-    return cleanup
+    yield
+    subprocess.run(["git", "checkout", str(about_file)])
 
 
 def pip_install_project(python_exe: str) -> bool:
@@ -169,9 +164,8 @@ def main():
     print("-> installed")
 
     print(f"Installing project into Python distribution...")
-    cleanup = override_is_installation_source_variable()
-    pip_install_project(str(settings.python_dist_exe))
-    cleanup()
+    with override_is_installation_source_variable():
+        pip_install_project(str(settings.python_dist_exe))
     print("-> installed")
 
     print("Making distribution archive...")
