@@ -69,7 +69,9 @@ FROM {stage_name}"""
 
             return self.execute_query(query)
 
-    def execute(self, dbt_command: str, name: str, run_async: bool, *dbt_cli_args):
+    def execute(
+        self, dbt_command: str, name: str, run_async: bool, *dbt_cli_args
+    ) -> SnowflakeCursor:
         if dbt_cli_args:
             dbt_command = " ".join([dbt_command, *dbt_cli_args]).strip()
         query = f"EXECUTE DBT PROJECT {name} args='{dbt_command}'"
