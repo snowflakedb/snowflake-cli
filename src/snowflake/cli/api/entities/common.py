@@ -1,8 +1,9 @@
 import functools
 from pathlib import Path
-from typing import Generic, Type, TypeVar, get_args
+from typing import Generic, Optional, Type, TypeVar, get_args
 
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.entities.resolver import DependencyResolver
 from snowflake.cli.api.entities.utils import EntityActions, get_sql_executor
@@ -10,6 +11,8 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutor
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.core import CreateMode
+from snowflake.core.stage import Stage, StageEncryption, StageResource
 
 T = TypeVar("T")
 
@@ -143,3 +146,55 @@ class EntityBase(Generic[T]):
 
     def get_drop_sql(self) -> str:
         return f"DROP {self.model.type.upper()} {self.identifier};"
+
+    def _create_stage_if_not_exists(
+        self, stage_name: Optional[str] = None
+    ) -> StageResource:
+        if stage_name is None:
+            stage_name = self.model.stage
+
+        stage_collection = (
+            self.snow_api_root.databases[self.fqn.database or self._conn.database]
+            .schemas[self.fqn.schema or self._conn.schema]
+            .stages
+        )
+        stage_object = Stage(
+            name=stage_name, encryption=StageEncryption(type="SNOWFLAKE_SSE")
+        )
+        stage_collection.create(stage_object, mode=CreateMode.if_not_exists)
+
+        return stage_collection[stage_name]
+
+    def _get_identifier(
+        self, schema: Optional[str] = None, database: Optional[str] = None
+    ) -> str:
+        schema_to_use = schema or self._entity_model.fqn.schema or self._conn.schema  # type: ignore
+        db_to_use = database or self._entity_model.fqn.database or self._conn.database  # type: ignore
+        return f"{self._entity_model.fqn.set_schema(schema_to_use).set_database(db_to_use).sql_identifier}"  # type: ignore
+
+    def _upload_files_to_stage(
+        self,
+        stage: StageResource,
+        bundle_map: BundleMap,
+        stage_root: Optional[str] = None,
+    ):
+        for src, dest in bundle_map.all_mappings(
+            absolute=False, expand_directories=True
+        ):
+            absolute_src = self._workspace_ctx.project_root / src
+            if absolute_src.is_file():
+                stage_dest = (
+                    f"{stage_root}/{dest}"
+                    if stage_root
+                    else f"/{self.fqn.name}{get_parent_path(dest)}"
+                )
+                stage.put(
+                    local_file_name=absolute_src,
+                    stage_location=stage_dest,
+                    overwrite=True,
+                    auto_compress=False,
+                )
+
+
+def get_parent_path(path: Path) -> str:
+    return "" if path.parent == Path(".") else str(path.parent)

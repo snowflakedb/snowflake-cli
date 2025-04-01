@@ -23,7 +23,6 @@ from tests_integration.test_utils import (
     rows_from_snowflake_session,
 )
 from tests_integration.testing_utils import assert_that_result_is_successful
-from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from typing import List
 
 
@@ -204,9 +203,9 @@ def test_streamlit_deploy_with_glob_patterns(
 
 
 @pytest.mark.integration
-# @pytest.mark.skip(
-#     reason="only works in accounts with experimental checkout behavior enabled"
-# )
+@pytest.mark.skip(
+    reason="only works in accounts with experimental checkout behavior enabled"
+)
 @pytest.mark.parametrize("pdf_version", ["1", "2"])
 def test_streamlit_deploy_experimental_twice(
     runner,
@@ -422,14 +421,21 @@ def test_streamlit_execute_in_headless_mode(
     snowflake_session,
     test_database,
     project_directory,
-        test_database
 ):
     streamlit_name = "test_streamlit_deploy_snowcli"
 
     # Deploy the Streamlit app
     with project_directory("streamlit_v2"):
         result = runner.invoke_with_connection_json(
-            ["streamlit", "deploy", "--replace","--dbname",test_database, "--schema","public"]
+            [
+                "streamlit",
+                "deploy",
+                "--replace",
+                "--dbname",
+                test_database,
+                "--schema",
+                "public",
+            ]
         )
         assert result.exit_code == 0, f"Streamlit deploy failed: {result.output}"
 

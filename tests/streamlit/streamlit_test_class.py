@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 from snowflake.cli._plugins.connection.util import UIParameter
+from snowflake.cli.api.utils.path_utils import path_resolver
 from snowflake.core.stage import StageResource
 
 GET_UI_PARAMETERS = "snowflake.cli._plugins.connection.util.get_ui_parameters"
@@ -70,6 +71,8 @@ class StreamlitTestClass:
         project_root: Path = Path("."),
     ):
         assert self.mock_put.call_count == len(put_files)
+
+        project_root = Path(path_resolver(str(project_root)))
 
         for file in put_files:  # This seems repeatable, extract it to a function
             if isinstance(file, dict):

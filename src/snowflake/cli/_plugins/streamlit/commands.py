@@ -174,6 +174,7 @@ def streamlit_deploy(
         _open=open_,
         replace=replace,
         experimental=options.get("experimental"),
+        prune=prune,
     )
 
     if open_:

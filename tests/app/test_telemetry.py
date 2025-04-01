@@ -146,7 +146,7 @@ def test_executing_command_sends_telemetry_result_data(
 
 
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli._plugins.streamlit.commands.StreamlitManager")
+@mock.patch("snowflake.cli._plugins.streamlit.commands.StreamlitEntity")
 def test_executing_command_sends_project_definition_in_telemetry_data(
     _, mock_conn, project_directory, runner
 ):

@@ -12,15 +12,13 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.entities.common import EntityBase
-from snowflake.cli.api.entities.utils import EntityActions
+from snowflake.cli.api.entities.utils import EntityActions, sync_deploy_root_with_stage
 from snowflake.cli.api.feature_flags import FeatureFlag as GlobalFeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import bundle_root
 from snowflake.cli.api.project.schemas.entities.common import Identifier, PathMapping
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import SnowflakeCursor
-from snowflake.core import CreateMode
-from snowflake.core.stage import Stage, StageEncryption, StageResource
 
 log = logging.getLogger(__name__)
 
@@ -83,6 +81,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         action_context: ActionContext,
         _open: bool,
         replace: bool,
+        prune: bool = False,
         bundle_map: Optional[BundleMap] = None,
         experimental: Optional[bool] = False,
         *args,
@@ -108,10 +107,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             or GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled()
             or GlobalFeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled()
         ):
-            """
-            1. Create streamlit object
-            2. Upload files to embedded stage
-            """
             self._deploy_experimental(bundle_map=bundle_map, replace=replace)
         else:
             console.step(f"Uploading artifacts to stage {self.model.stage}")
@@ -125,8 +120,18 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             stage_root = StageManager.get_standard_stage_prefix(
                 f"{FQN.from_string(self.model.stage).using_connection(self._conn)}/{name}"
             )
-
-            self._upload_files_to_stage(stage, bundle_map, stage_root)
+            if prune:
+                sync_deploy_root_with_stage(
+                    console=self._workspace_ctx.console,
+                    deploy_root=bundle_map.deploy_root(),
+                    bundle_map=bundle_map,
+                    prune=prune,
+                    recursive=True,
+                    stage_path=StageManager().stage_path_parts_from_str(stage_root),
+                    print_diff=True,
+                )
+            else:
+                self._upload_files_to_stage(stage, bundle_map, None)
 
             console.step(f"Creating Streamlit object {self.model.fqn.sql_identifier}")
 
@@ -223,25 +228,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             f"GRANT USAGE ON STREAMLIT {streamlit_name} TO APPLICATION ROLE {app_role};"
         )
 
-    def _create_stage_if_not_exists(
-        self, stage_name: Optional[str] = None
-    ) -> StageResource:  # Another candidate to be moved to parent class
-        if stage_name is None:
-            stage_name = self.model.stage
-
-        stage_collection = (
-            self.snow_api_root.databases[self.fqn.database or self._conn.database]
-            .schemas[self.fqn.schema or self._conn.schema]
-            .stages
-        )
-        stage_object = Stage(
-            name=stage_name, encryption=StageEncryption(type="SNOWFLAKE_SSE")
-        )
-        stage_collection.create(stage_object,mode = CreateMode.if_not_exists)
-
-
-        return stage_collection[stage_name]
-
     def _object_exists(self) -> bool:
         try:
             self.describe()
@@ -249,7 +235,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         except ProgrammingError:
             return False
 
-    def _deploy_experimental(self, bundle_map: BundleMap, replace: bool = False):
+    def _deploy_experimental(
+        self, bundle_map: BundleMap, replace: bool = False, prune: bool = False
+    ):
         self._execute_query(
             self.get_deploy_sql(
                 if_not_exists=True,
@@ -279,29 +267,16 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             stage_root = f"{embeded_stage_name}/default_checkout"
 
         stage_resource = self._create_stage_if_not_exists(embeded_stage_name)
-        self._upload_files_to_stage(stage_resource, bundle_map, stage_root)
 
-    def _get_identifier(
-        self, schema: Optional[str] = None, database: Optional[str] = None
-    ) -> str:
-        schema_to_use = schema or self._entity_model.fqn.schema or self._conn.schema
-        db_to_use = database or self._entity_model.fqn.database or self._conn.database
-        return f"{self._entity_model.fqn.set_schema(schema_to_use).set_database(db_to_use).sql_identifier}"
-
-    def _upload_files_to_stage(
-        self,
-        stage: StageResource,
-        bundle_map: BundleMap,
-        stage_root: Optional[str] = None,
-    ):
-        for src, dest in bundle_map.all_mappings(
-            absolute=False, expand_directories=True
-        ):
-            absolute_src = self._workspace_ctx.project_root / src
-            if absolute_src.is_file():
-                stage_dest = f"{stage_root}/{dest}" if stage_root else dest
-                stage.put(
-                    local_file_name=absolute_src,
-                    stage_location=stage_dest,
-                    overwrite=True,
-                )
+        if prune:
+            sync_deploy_root_with_stage(
+                console=self._workspace_ctx.console,
+                deploy_root=bundle_map.deploy_root(),
+                bundle_map=bundle_map,
+                prune=prune,
+                recursive=True,
+                stage_path=StageManager().stage_path_parts_from_str(stage_root),
+                print_diff=True,
+            )
+        else:
+            self._upload_files_to_stage(stage_resource, bundle_map, stage_root)
