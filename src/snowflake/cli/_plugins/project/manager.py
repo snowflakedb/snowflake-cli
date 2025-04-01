@@ -68,10 +68,11 @@ class ProjectManager(SqlExecutionMixin):
             if isinstance(project_name, FQN)
             else FQN.from_string(project_name)
         )
+        stage_path = StagePath.from_stage_str(from_stage)
         query = f"ALTER PROJECT {project_name.identifier} ADD VERSION"
         if alias:
             query += f" IF NOT EXISTS {alias}"
-        query += f" FROM {from_stage}"
+        query += f" FROM {stage_path.absolute_path(at_prefix=True)}"
         if comment:
             query += f" COMMENT = '{comment}'"
         return self.execute_query(query=query)
