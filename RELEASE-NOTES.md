@@ -31,13 +31,6 @@
 ## Deprecations
 
 ## New additions
-* Added new `snow auth keypair` commands:
-    * `setup` - generate key pair, set public key for the user in Snowflake and update/create connection.
-    * `rotate` - rotate keys for connection.
-    * `list` - list the public keys for the user.
-    * `remove` - remove the public key for the user.
-    * `status` - verifies the key pair configuration and tests the connection.
-* The `snow connection add` command has been enhanced to include key pair authentication when a password is provided.
 * Added support for `!source` command in SQL. This command allows to execute SQL from a local file.
 
 ## Fixes and improvements
