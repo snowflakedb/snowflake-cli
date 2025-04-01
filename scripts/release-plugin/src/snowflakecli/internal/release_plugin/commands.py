@@ -109,8 +109,9 @@ class ReleaseInfo:
             return 0
         return self.last_released_rc + 1
 
-    def charrypick_branch_name(self, number: int) -> str:
-        return f"test-cherrypicks-{self.rc_tag_name(number)}"
+    @staticmethod
+    def cherrypick_branch_name(tag_name: str) -> str:
+        return f"test-cherrypicks-{tag_name}"
 
     @cached_property
     def _existing_tags(self):
@@ -130,7 +131,10 @@ class ReleaseInfo:
             "last released rc": self.last_released_rc,
             "next rc": self.next_rc,
             "next rc cherrypick branch": _show_branch_if_exists(
-                self.charrypick_branch_name(self.next_rc)
+                self.cherrypick_branch_name(self.rc_tag_name(self.next_rc))
+            ),
+            "final cherrypicks branch": _show_branch_if_exists(
+                self.cherrypick_branch_name(self.final_tag_name)
             ),
         }
 
@@ -208,12 +212,19 @@ def create_pull_request(title, body, source_branch, target_branch="main"):
 
 
 @app.command()
-def init_rc(version: str = VersionArgument, **options):
+def cherrypick_branch(
+    version: str = VersionArgument, final: bool = FinalOption, **options
+):
     """
     Creates a cherry-pick branch with appropriate release candidate version.
     """
     release_info = ReleaseInfo(version)
-    branch_name = release_info.charrypick_branch_name(release_info.next_rc)
+    next_tag_name = (
+        release_info.final_tag_name
+        if final
+        else release_info.rc_tag_name(release_info.next_rc)
+    )
+    branch_name = release_info.cherrypick_branch_name(next_tag_name)
     if branch_exists(branch_name):
         return MessageResult(f"Branch {branch_name} already exists.")
     if not branch_exists(release_info.release_branch_name):
@@ -224,10 +235,12 @@ def init_rc(version: str = VersionArgument, **options):
     os.chdir(get_repo_home())
     with cli_console.phase("checking out to release branch"):
         subprocess_run(["git", "checkout", release_info.release_branch_name])
+        subprocess_run(["git", "pull"])
 
     # draft-bump version
     with cli_console.phase("bump version"):
-        version_info = subprocess_run(["hatch", "version", "rc"])
+        command = ["hatch", "version", version if final else "rc"]
+        version_info = subprocess_run(command)
         cli_console.step(version_info)
 
     changes = subprocess_run(["git", "diff"])
@@ -248,7 +261,7 @@ def init_rc(version: str = VersionArgument, **options):
                 "git",
                 "commit",
                 "-m",
-                f"Bump version to {release_info.rc_tag_name(release_info.next_rc)}",
+                f"Bump version to {next_tag_name}",
             ]
         )
         cli_console.step("Pushing changes")
