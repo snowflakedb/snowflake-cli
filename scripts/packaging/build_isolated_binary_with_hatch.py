@@ -115,8 +115,7 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
 
 def override_is_installation_source_variable():
     """
-    Split into two parts, as jenkins seems to misbehave with @contextmanager.
-    Returns cleanup function.
+    Returns cleanup function, as jenkins seems to misbehave with @contextmanager.
     """
     about_file = PROJECT_ROOT / "src" / "snowflake" / "cli" / "__about__.py"
     contents = about_file.read_text()
