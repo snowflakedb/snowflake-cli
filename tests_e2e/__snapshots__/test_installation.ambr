@@ -31,12 +31,12 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app                  Manages a Snowflake Native App                          |
-  | auth                 Manages authentication methods.                         |
   | connection           Manages connections to Snowflake.                       |
   | cortex               Provides access to Snowflake Cortex.                    |
   | git                  Manages git repositories in Snowflake.                  |
   | helpers              Helper commands.                                        |
   | init                 Creates project directory from template.                |
+  | logs                 Retrieves logs for a given object.                      |
   | notebook             Manages notebooks in Snowflake.                         |
   | object               Manages Snowflake objects like warehouses and stages    |
   | snowpark             Manages procedures and functions.                       |
@@ -94,12 +94,12 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app          Manages a Snowflake Native App                                  |
-  | auth         Manages authentication methods.                                 |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |
   | helpers      Helper commands.                                                |
   | init         Creates project directory from template.                        |
+  | logs         Retrieves logs for a given object.                              |
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
   | snowpark     Manages procedures and functions.                               |
@@ -138,12 +138,12 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app                  Manages a Snowflake Native App                          |
-  | auth                 Manages authentication methods.                         |
   | connection           Manages connections to Snowflake.                       |
   | cortex               Provides access to Snowflake Cortex.                    |
   | git                  Manages git repositories in Snowflake.                  |
   | helpers              Helper commands.                                        |
   | init                 Creates project directory from template.                |
+  | logs                 Retrieves logs for a given object.                      |
   | notebook             Manages notebooks in Snowflake.                         |
   | object               Manages Snowflake objects like warehouses and stages    |
   | snowpark             Manages procedures and functions.                       |
@@ -221,12 +221,12 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app          Manages a Snowflake Native App                                  |
-  | auth         Manages authentication methods.                                 |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |
   | helpers      Helper commands.                                                |
   | init         Creates project directory from template.                        |
+  | logs         Retrieves logs for a given object.                              |
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
   | snowpark     Manages procedures and functions.                               |

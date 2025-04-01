@@ -75,7 +75,7 @@
     Snowflake private key file path. Overrides the value specified for the connection.
   
   :samp:`--token-file-path {TEXT}`
-    Path to file with an OAuth token that should be used when connecting to Snowflake.
+    Path to file with an OAuth token to use when connecting to Snowflake.
   
   :samp:`--database, --dbname {TEXT}`
     Database to use. Overrides the value specified for the connection.
@@ -102,7 +102,7 @@
     Path for the generated report. Defaults to system temporary directory. Default: <system_temporary_directory>.
   
   :samp:`--diag-allowlist-path {TEXT}`
-    Path to a JSON file containing allowlist parameters.
+    Path to a JSON file that contains allowlist parameters.
   
   :samp:`--format [TABLE|JSON]`
     Specifies the output format. Default: TABLE.

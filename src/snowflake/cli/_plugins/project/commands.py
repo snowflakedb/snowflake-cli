@@ -36,7 +36,7 @@ from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.types import MessageResult, SingleQueryResult
+from snowflake.cli.api.output.types import MessageResult, QueryResult, SingleQueryResult
 from snowflake.cli.api.project.project_paths import ProjectPaths
 
 app = SnowTyperFactory(
@@ -47,7 +47,10 @@ app = SnowTyperFactory(
 
 project_identifier = identifier_argument(sf_object="project", example="MY_PROJECT")
 version_flag = typer.Option(
-    ..., "--version", help="Version of the project to use.", show_default=False
+    None,
+    "--version",
+    help="Version of the project to use. If not specified default version is used",
+    show_default=False,
 )
 variables_flag = variables_option(
     'Variables for the execution context; for example: `-D "<key>=<value>"`.'
@@ -69,7 +72,7 @@ add_object_command_aliases(
 @app.command(requires_connection=True)
 def execute(
     identifier: FQN = project_identifier,
-    version: str = version_flag,
+    version: Optional[str] = version_flag,
     variables: Optional[List[str]] = variables_flag,
     **options,
 ):
@@ -85,7 +88,7 @@ def execute(
 @app.command(requires_connection=True)
 def dry_run(
     identifier: FQN = project_identifier,
-    version: str = version_flag,
+    version: Optional[str] = version_flag,
     variables: Optional[List[str]] = variables_flag,
     **options,
 ):
@@ -146,7 +149,7 @@ def add_version(
         help="Source stage to create the version from.",
         show_default=False,
     ),
-    alias: str
+    _alias: str
     | None = typer.Option(
         None, "--alias", help="Alias for the version.", show_default=False
     ),
@@ -162,7 +165,17 @@ def add_version(
     pm.add_version(
         project_name=entity_id,
         from_stage=_from,
-        alias=alias,
+        alias=_alias,
         comment=comment,
     )
     return MessageResult("Version added.")
+
+
+@app.command(requires_connection=True)
+def list_versions(entity_id: str = entity_argument("project"), **options):
+    """
+    Lists versions of given project.
+    """
+    pm = ProjectManager()
+    results = pm.list_versions(project_name=entity_id)
+    return QueryResult(results)

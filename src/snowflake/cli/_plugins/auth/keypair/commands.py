@@ -87,7 +87,7 @@ def setup(
     **options,
 ):
     """
-    Generates the key pair, sets the public key for the user in Snowflake and creates or updates the connection.
+    Generates the key pair, sets the public key for the user in Snowflake, and creates or updates the connection.
     """
     AuthManager().setup(
         connection_name=connection_name,
@@ -106,7 +106,7 @@ def rotate(
     **options,
 ):
     """
-    Rotates the key for the connection. Generates the key pair, sets the public key for the user in Snowflake and creates or updates the connection.
+    Rotates the key for the connection. Generates the key pair, sets the public key for the user in Snowflake, and creates or updates the connection.
     """
     AuthManager().rotate(
         key_length=key_length,
@@ -129,7 +129,7 @@ def remove(
     public_key_property: PublicKeyProperty = typer.Option(
         ...,
         "--key-id",
-        help=f"local path to template directory or URL to git repository with templates.",
+        help=f"Local path to the template directory or a URL to Git repository with templates.",
         show_default=False,
     ),
     **options,

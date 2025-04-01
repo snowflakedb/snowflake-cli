@@ -14,6 +14,8 @@
 
 import pytest
 
+from snowflake.cli.api.secure_path import SecurePath
+
 
 @pytest.mark.integration
 @pytest.mark.qa_only
@@ -36,8 +38,6 @@ def test_project_deploy(
                 "project",
                 "execute",
                 "my_project",
-                "--version",
-                "last",
                 "-D",
                 f"table_name='{test_database}.PUBLIC.MyTable'",
             ]
@@ -56,3 +56,62 @@ def test_project_deploy(
         assert len(result.json) == 1
         project = result.json[0]
         assert project["name"].lower() == "my_project".lower()
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_project_add_version(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    with project_directory("dcm_project") as root:
+        # Create a new project
+        result = runner.invoke_with_connection_json(["project", "create-version"])
+        assert result.exit_code == 0, result.output
+        if (root / "output").exists():
+            SecurePath(root / "output").rmdir(recursive=True)
+
+        # Modify sql file and upload it to a new stage
+        with open(root / "file_a.sql", mode="w") as fp:
+            fp.write(
+                "define table identifier('{{ table_name }}') (fooBar string, baz string);"
+            )
+
+        stage_name = "dcm_project_stage"
+        result = runner.invoke_with_connection_json(["stage", "create", stage_name])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(
+            ["stage", "copy", ".", f"@{stage_name}"]
+        )
+        assert result.exit_code == 0, result.output
+
+        # create a new version of the project
+        result = runner.invoke_with_connection_json(
+            [
+                "project",
+                "add-version",
+                "my_project",
+                "--from",
+                f"@{stage_name}",
+                "--alias",
+                "v2",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # list project versions
+        result = runner.invoke_with_connection_json(
+            [
+                "project",
+                "list-versions",
+                "MY_PROJECT",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert len(result.json) == 2
+        assert result.json[0]["name"].lower() == "VERSION$2".lower()
+        assert result.json[0]["alias"].lower() == "v2".lower()
+        assert result.json[1]["name"].lower() == "VERSION$1".lower()

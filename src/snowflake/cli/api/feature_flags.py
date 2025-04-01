@@ -68,3 +68,4 @@ class FeatureFlag(FeatureFlagMixin):
     )
     ENABLE_SNOWPARK_GLOB_SUPPORT = BooleanFlag("ENABLE_SNOWPARK_GLOB_SUPPORT", False)
     ENABLE_SPCS_SERVICE_EVENTS = BooleanFlag("ENABLE_SPCS_SERVICE_EVENTS", False)
+    ENABLE_AUTH_KEYPAIR = BooleanFlag("ENABLE_AUTH_KEYPAIR", False)

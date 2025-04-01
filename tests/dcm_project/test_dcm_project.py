@@ -89,12 +89,12 @@ def test_add_version(mock_pm, runner, project_directory):
 
 @mock.patch(ProjectManager)
 def test_execute_project(mock_pm, runner, project_directory):
-    result = runner.invoke(["project", "execute", "fooBar", "--version", "v1"])
+    result = runner.invoke(["project", "execute", "fooBar"])
     assert result.exit_code == 0, result.output
 
     mock_pm().execute.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
-        version="v1",
+        version=None,
         variables=None,
     )
 
@@ -157,3 +157,12 @@ def test_list_command_alias(mock_connect, runner):
         == queries[1]
         == "show projects like '%PROJECT_NAME%' in database my_db"
     )
+
+
+@mock.patch(ProjectManager)
+def test_list_versions(mock_pm, runner):
+    result = runner.invoke(["project", "list-versions", "fooBar"])
+
+    assert result.exit_code == 0, result.output
+
+    mock_pm().list_versions.assert_called_once_with(project_name="fooBar")
