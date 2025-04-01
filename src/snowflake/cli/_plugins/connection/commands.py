@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import logging
 import os.path
+from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 import typer
 from click import (  # type: ignore
@@ -35,6 +36,7 @@ from snowflake.cli._plugins.connection.util import (
     strip_if_value_present,
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli.api import exceptions
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     PLAIN_PASSWORD_MSG,
@@ -288,7 +290,11 @@ def add(
         raise UsageError(f"Connection {connection_name} already exists")
 
     if not no_interactive:
-        _extend_add_with_key_pair(connection_name, connection_options)
+        connection_options, keypair_error = _extend_add_with_key_pair(
+            connection_name, connection_options
+        )
+    else:
+        keypair_error = ""
 
     connections_file = add_connection_to_proper_file(
         connection_name,
@@ -297,6 +303,12 @@ def add(
     if set_as_default:
         set_config_value(path=["default_connection_name"], value=connection_name)
 
+    if keypair_error:
+        return MessageResult(
+            f"Wrote new password-based connection {connection_name} to {connections_file}, "
+            f"however there were some issues during key pair setup. Review the following error and check 'snow auth keypair' "
+            f"commands to setup key pair authentication:\n * {keypair_error}"
+        )
     return MessageResult(
         f"Wrote new connection {connection_name} to {connections_file}"
     )
@@ -412,43 +424,57 @@ def generate_jwt(
         raise ClickException(str(err))
 
 
-def _extend_add_with_key_pair(connection_name: str, connection_options: Dict):
-    if (
+def _extend_add_with_key_pair(
+    connection_name: str, connection_options: Dict
+) -> Tuple[Dict, str]:
+    if not _should_extend_with_key_pair(connection_options):
+        return connection_options, ""
+
+    configure_key_pair = typer.confirm(
+        "Do you want to configure key pair authentication?",
+        default=False,
+    )
+    if not configure_key_pair:
+        return connection_options, ""
+
+    key_length = typer.prompt(
+        "Key length",
+        default=2048,
+        show_default=True,
+    )
+
+    output_path = typer.prompt(
+        "Output path",
+        default=KEY_PAIR_DEFAULT_PATH,
+        show_default=True,
+        value_proc=lambda value: SecurePath(value),
+    )
+    private_key_passphrase = typer.prompt(
+        "Private key passphrase",
+        default="",
+        hide_input=True,
+        show_default=False,
+        value_proc=lambda value: SecretType(value),
+    )
+    connection = connect_to_snowflake(temporary_connection=True, **connection_options)
+    try:
+        connection_options = AuthManager(connection=connection).extend_connection_add(
+            connection_name=connection_name,
+            connection_options=deepcopy(connection_options),
+            key_length=key_length,
+            output_path=output_path,
+            private_key_passphrase=private_key_passphrase,
+        )
+    except exceptions.CouldNotSetKeyPairError:
+        return connection_options, "The public key is set already."
+    except Exception as e:
+        return connection_options, str(e)
+    return connection_options, ""
+
+
+def _should_extend_with_key_pair(connection_options: Dict) -> bool:
+    return (
         connection_options.get("password") is not None
         and connection_options.get("private_key_file") is None
         and connection_options.get("private_key_path") is None
-    ):
-        configure_key_pair = typer.confirm(
-            "Do you want to configure key pair authentication?",
-            default=False,
-        )
-        if configure_key_pair:
-            key_length = typer.prompt(
-                "Key length",
-                default=2048,
-                show_default=True,
-            )
-
-            output_path = typer.prompt(
-                "Output path",
-                default=KEY_PAIR_DEFAULT_PATH,
-                show_default=True,
-                value_proc=lambda value: SecurePath(value),
-            )
-            private_key_passphrase = typer.prompt(
-                "Private key passphrase",
-                default="",
-                hide_input=True,
-                show_default=False,
-                value_proc=lambda value: SecretType(value),
-            )
-            connection = connect_to_snowflake(
-                temporary_connection=True, **connection_options
-            )
-            AuthManager(connection=connection).extend_connection_add(
-                connection_name=connection_name,
-                connection_options=connection_options,
-                key_length=key_length,
-                output_path=output_path,
-                private_key_passphrase=private_key_passphrase,
-            )
+    )

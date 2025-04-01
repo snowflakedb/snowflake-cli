@@ -9,9 +9,12 @@ ProjectManager = "snowflake.cli._plugins.project.commands.ProjectManager"
 
 
 @mock.patch(ProjectManager)
-@mock.patch("snowflake.cli._plugins.project.commands.StageManager.create")
+@mock.patch("snowflake.cli.api.artifacts.upload.StageManager.create")
 @mock.patch("snowflake.cli.api.artifacts.upload.StageManager.put")
-def test_create_version(mock_put, mock_create, mock_pm, runner, project_directory):
+@mock.patch("snowflake.cli.api.artifacts.upload.StageManager.list_files")
+def test_create_version(
+    mock_list_files, mock_put, mock_create, mock_pm, runner, project_directory
+):
     stage = FQN.from_stage("my_project_stage")
 
     with project_directory("dcm_project") as root:
@@ -28,7 +31,6 @@ def test_create_version(mock_put, mock_create, mock_pm, runner, project_director
         absolute_root = Path(root).absolute()
     else:
         absolute_root = Path(root).resolve()
-
     mock_put.assert_has_calls(
         [
             mock.call(
@@ -37,8 +39,9 @@ def test_create_version(mock_put, mock_create, mock_pm, runner, project_director
                 / "bundle"
                 / "definitions"
                 / "b.sql",
-                stage_path="my_project_stage/definitions",
-                overwrite=True,
+                stage_path="@my_project_stage/definitions",
+                role=None,
+                overwrite=False,
             ),
             mock.call(
                 local_path=absolute_root
@@ -46,13 +49,15 @@ def test_create_version(mock_put, mock_create, mock_pm, runner, project_director
                 / "bundle"
                 / "definitions"
                 / "a.sql",
-                stage_path="my_project_stage/definitions",
-                overwrite=True,
+                stage_path="@my_project_stage/definitions",
+                role=None,
+                overwrite=False,
             ),
             mock.call(
                 local_path=absolute_root / "output" / "bundle" / "manifest.yml",
-                stage_path="my_project_stage/.",
-                overwrite=True,
+                stage_path="@my_project_stage",
+                role=None,
+                overwrite=False,
             ),
         ],
         any_order=True,
@@ -84,12 +89,12 @@ def test_add_version(mock_pm, runner, project_directory):
 
 @mock.patch(ProjectManager)
 def test_execute_project(mock_pm, runner, project_directory):
-    result = runner.invoke(["project", "execute", "fooBar", "--version", "v1"])
+    result = runner.invoke(["project", "execute", "fooBar"])
     assert result.exit_code == 0, result.output
 
     mock_pm().execute.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
-        version="v1",
+        version=None,
         variables=None,
     )
 
@@ -152,3 +157,12 @@ def test_list_command_alias(mock_connect, runner):
         == queries[1]
         == "show projects like '%PROJECT_NAME%' in database my_db"
     )
+
+
+@mock.patch(ProjectManager)
+def test_list_versions(mock_pm, runner):
+    result = runner.invoke(["project", "list-versions", "fooBar"])
+
+    assert result.exit_code == 0, result.output
+
+    mock_pm().list_versions.assert_called_once_with(project_name="fooBar")

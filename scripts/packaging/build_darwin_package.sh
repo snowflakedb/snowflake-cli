@@ -36,7 +36,9 @@ install_cargo() {
     sudo bash rustup-init.sh -y
     . $HOME/.cargo/env
   elif [[ ${MACHINE} == "x86_64" ]]; then
-    bash -s rustup-init.sh -y --no-modify-path
+    export CARGO_HOME="$HOME/.cargo"
+    export RUSTUP_HOME="$HOME/.rustup"
+    bash -s rustup-init.sh -y
     . $HOME/.cargo/env
     rustup default stable
   else

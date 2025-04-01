@@ -89,7 +89,7 @@ class BaseSqlExecutor:
         """Executes a single SQL query and returns the results"""
         return self._execute_string(query, **kwargs)
 
-    def execute_query(self, query: str, **kwargs):
+    def execute_query(self, query: str, **kwargs) -> SnowflakeCursor:
         """Executes a single SQL query and returns the last result"""
         *_, last_result = list(self.execute_string(dedent(query), **kwargs))
         return last_result

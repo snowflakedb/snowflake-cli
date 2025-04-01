@@ -19,6 +19,9 @@
 ## Deprecations
 
 ## New additions
+* Added `--prune` flag to `deploy` commands, which removes files that exist in the stage,
+  but not in the local filesystem.
+* Added `snow logs` command for retrieving and streaming logs from the server.
 
 ## Fixes and improvements
 

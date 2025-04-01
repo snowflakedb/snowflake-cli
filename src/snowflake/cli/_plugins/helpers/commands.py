@@ -15,12 +15,14 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any, List, Optional
 
 import typer
 import yaml
 from click import ClickException
+from snowflake.cli._plugins.helpers.snowsl_vars_reader import check_env_vars
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.config import (
     ConnectionConfig,
@@ -29,7 +31,12 @@ from snowflake.cli.api.config import (
     set_config_value,
 )
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.output.types import CommandResult, MessageResult
+from snowflake.cli.api.output.types import (
+    CollectionResult,
+    CommandResult,
+    MessageResult,
+    MultipleResults,
+)
 from snowflake.cli.api.project.definition_conversion import (
     convert_project_definition_to_v2,
 )
@@ -293,3 +300,20 @@ def _validate_and_save_connections_imported_from_snowsql(
             path=["default_connection_name"],
             value=default_cli_connection_name,
         )
+
+
+@app.command(name="check-snowsql-env-vars", requires_connection=False)
+def check_snowsql_env_vars(**options):
+    """Check if there are any SnowSQL environment variables set."""
+
+    env_vars = os.environ.copy()
+    discovered, unused, summary = check_env_vars(env_vars)
+
+    results = []
+    if discovered:
+        results.append(CollectionResult(discovered))
+    if unused:
+        results.append(CollectionResult(unused))
+
+    results.append(MessageResult(summary))
+    return MultipleResults(results)

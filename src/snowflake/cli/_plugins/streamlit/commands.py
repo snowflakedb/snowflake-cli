@@ -33,6 +33,7 @@ from snowflake.cli.api.commands.decorators import (
     with_project_definition,
 )
 from snowflake.cli.api.commands.flags import (
+    PruneOption,
     ReplaceOption,
     entity_argument,
     identifier_argument,
@@ -134,6 +135,7 @@ def streamlit_deploy(
         help="Replaces the Streamlit app if it already exists. It only uploads new and overwrites existing files, "
         "but does not remove any files already on the stage."
     ),
+    prune: bool = PruneOption(),
     entity_id: str = entity_argument("streamlit"),
     open_: bool = OpenOption,
     **options,

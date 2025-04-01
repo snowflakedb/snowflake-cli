@@ -22,8 +22,7 @@ from snowflake.cli._plugins.project.manager import ProjectManager
 from snowflake.cli._plugins.project.project_entity_model import (
     ProjectEntityModel,
 )
-from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli.api.artifacts.upload import put_files
+from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
@@ -37,7 +36,7 @@ from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.types import MessageResult, SingleQueryResult
+from snowflake.cli.api.output.types import MessageResult, QueryResult, SingleQueryResult
 from snowflake.cli.api.project.project_paths import ProjectPaths
 
 app = SnowTyperFactory(
@@ -48,7 +47,10 @@ app = SnowTyperFactory(
 
 project_identifier = identifier_argument(sf_object="project", example="MY_PROJECT")
 version_flag = typer.Option(
-    ..., "--version", help="Version of the project to use.", show_default=False
+    None,
+    "--version",
+    help="Version of the project to use. If not specified default version is used",
+    show_default=False,
 )
 variables_flag = variables_option(
     'Variables for the execution context; for example: `-D "<key>=<value>"`.'
@@ -70,7 +72,7 @@ add_object_command_aliases(
 @app.command(requires_connection=True)
 def execute(
     identifier: FQN = project_identifier,
-    version: str = version_flag,
+    version: Optional[str] = version_flag,
     variables: Optional[List[str]] = variables_flag,
     **options,
 ):
@@ -86,7 +88,7 @@ def execute(
 @app.command(requires_connection=True)
 def dry_run(
     identifier: FQN = project_identifier,
-    version: str = version_flag,
+    version: Optional[str] = version_flag,
     variables: Optional[List[str]] = variables_flag,
     **options,
 ):
@@ -118,13 +120,7 @@ def create_version(
 
     # Sync state
     with cli_console.phase("Syncing project state"):
-        stage_name = FQN.from_stage(project.stage)
-        sm = StageManager()
-
-        cli_console.step(f"Creating stage {stage_name}")
-        sm.create(fqn=stage_name)
-
-        put_files(
+        sync_artifacts_with_stage(
             project_paths=ProjectPaths(project_root=cli_context.project_root),
             stage_root=project.stage,
             artifacts=project.artifacts,
@@ -132,6 +128,8 @@ def create_version(
 
     # Create project and version
     with cli_console.phase("Creating project and version"):
+        stage_name = FQN.from_stage(project.stage)
+
         pm = ProjectManager()
         cli_console.step(f"Creating project {project.fqn}")
         pm.create(project_name=project.fqn)
@@ -151,7 +149,7 @@ def add_version(
         help="Source stage to create the version from.",
         show_default=False,
     ),
-    alias: str
+    _alias: str
     | None = typer.Option(
         None, "--alias", help="Alias for the version.", show_default=False
     ),
@@ -167,7 +165,17 @@ def add_version(
     pm.add_version(
         project_name=entity_id,
         from_stage=_from,
-        alias=alias,
+        alias=_alias,
         comment=comment,
     )
     return MessageResult("Version added.")
+
+
+@app.command(requires_connection=True)
+def list_versions(entity_id: str = entity_argument("project"), **options):
+    """
+    Lists versions of given project.
+    """
+    pm = ProjectManager()
+    results = pm.list_versions(project_name=entity_id)
+    return QueryResult(results)
