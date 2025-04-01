@@ -111,7 +111,7 @@ class ReleaseInfo:
 
     @staticmethod
     def cherrypick_branch_name(tag_name: str) -> str:
-        return f"test-cherrypicks-{tag_name}"
+        return f"cherrypicks-{tag_name}"
 
     @cached_property
     def _existing_tags(self):
