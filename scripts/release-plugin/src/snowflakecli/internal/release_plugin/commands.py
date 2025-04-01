@@ -279,6 +279,7 @@ def tag(version: str = VersionArgument, final: bool = FinalOption, **options):
     os.chdir(get_repo_home())
     with cli_console.phase("checking out to release branch"):
         subprocess_run(["git", "checkout", release_info.release_branch_name])
+        subprocess_run(["git", "pull"])
 
     if final:
         tag_name = release_info.final_tag_name
@@ -287,7 +288,7 @@ def tag(version: str = VersionArgument, final: bool = FinalOption, **options):
 
     with cli_console.phase("validating version"):
         current_version = subprocess_run(["hatch", "version"]).strip()  # type: ignore
-        if current_version != tag_name.replace("-", ""):
+        if current_version != tag_name.replace("-", "").removeprefix("v"):
             raise ClickException(
                 f"Published version does not match version on release branch:\n"
                 f"expected version: {tag_name}\nversion on branch: {current_version}"
@@ -299,7 +300,7 @@ def tag(version: str = VersionArgument, final: bool = FinalOption, **options):
     )
     with cli_console.phase(f"Publishing tag `{tag_name}`"):
         subprocess_run(["git", "tag", tag_name])
-        subprocess_run(["git", "push", "--tags"])
+        subprocess_run(["git", "push", "origin", tag_name])
 
     return MessageResult(f"Tag `{tag_name}` successfully published.")
 
