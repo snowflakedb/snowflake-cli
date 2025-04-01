@@ -95,6 +95,13 @@ def _mask_password(connection_params: dict):
     return connection_params
 
 
+@app.command()
+def about(**options):
+    from snowflake.cli.__about__ import INSTALLATION_SOURCE, VERSION
+
+    return MessageResult(f"{VERSION}: {INSTALLATION_SOURCE.value}")
+
+
 @app.command(name="list")
 def list_connections(**options) -> CommandResult:
     """
