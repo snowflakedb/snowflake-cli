@@ -1,5 +1,6 @@
 import pytest
 from typing import List
+from tests_integration.test_utils import assert_stage_has_files
 
 
 @pytest.mark.integration
@@ -25,11 +26,6 @@ def test_deploy_by_id(runner, project_directory, test_database):
 
 @pytest.mark.integration
 def test_deploy_single_notebook(runner, project_directory, test_database):
-    def _assert_file_names_on_stage(stage: str, expected_files: List[str]) -> None:
-        result = runner.invoke_with_connection_json(["stage", "list-files", stage])
-        assert result.exit_code == 0, result.output
-        assert set(file["name"] for file in result.json) == set(expected_files)
-
     with project_directory("notebook_v2") as project_root:
         result = runner.invoke_with_connection(["notebook", "deploy"])
         assert result.exit_code == 0, result.output
@@ -39,8 +35,10 @@ def test_deploy_single_notebook(runner, project_directory, test_database):
         )
         assert "added:    notebook.ipynb -> notebook.ipynb" in result.output
         assert "Notebook successfully deployed and available under" in result.output
-        _assert_file_names_on_stage(
-            "custom_stage", ["custom_stage/particular_notebook_path/notebook.ipynb"]
+        assert_stage_has_files(
+            runner,
+            "custom_stage",
+            ["custom_stage/particular_notebook_path/notebook.ipynb"],
         )
 
         # upload file to stage to test --purge flag
@@ -54,7 +52,8 @@ def test_deploy_single_notebook(runner, project_directory, test_database):
                 "@custom_stage/particular_notebook_path",
             ]
         )
-        _assert_file_names_on_stage(
+        assert_stage_has_files(
+            runner,
             "custom_stage",
             [
                 "custom_stage/particular_notebook_path/notebook.ipynb",
@@ -76,7 +75,8 @@ def test_deploy_single_notebook(runner, project_directory, test_database):
         assert "modified: notebook.ipynb -> notebook.ipynb" in result.output
         assert "Use the --prune flag to delete them from the stage." in result.output
         assert "Notebook successfully deployed and available under" in result.output
-        _assert_file_names_on_stage(
+        assert_stage_has_files(
+            runner,
             "custom_stage",
             [
                 "custom_stage/particular_notebook_path/notebook.ipynb",
@@ -90,7 +90,8 @@ def test_deploy_single_notebook(runner, project_directory, test_database):
         )
         assert result.exit_code == 0, result.output
         assert "Notebook successfully deployed and available under" in result.output
-        _assert_file_names_on_stage(
+        assert_stage_has_files(
+            runner,
             "custom_stage",
             [
                 "custom_stage/particular_notebook_path/notebook.ipynb",
