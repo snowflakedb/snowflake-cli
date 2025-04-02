@@ -4019,8 +4019,8 @@
   |                                                 specified for the            |
   |                                                 connection.                  |
   | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token that should be used    |
-  |                                                 when connecting to Snowflake |
+  |                                                 token to use when connecting |
+  |                                                 to Snowflake.                |
   | --database,--dbname                    TEXT     Database to use. Overrides   |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
@@ -4047,8 +4047,8 @@
   | --diag-log-path                        TEXT     Path for the generated       |
   |                                                 report. Defaults to system   |
   |                                                 temporary directory.         |
-  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
-  |                                                 containing allowlist         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
+  |                                                 contains allowlist           |
   |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
@@ -4115,8 +4115,8 @@
   |                                                 specified for the            |
   |                                                 connection.                  |
   | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token that should be used    |
-  |                                                 when connecting to Snowflake |
+  |                                                 token to use when connecting |
+  |                                                 to Snowflake.                |
   | --database,--dbname                    TEXT     Database to use. Overrides   |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
@@ -4143,8 +4143,8 @@
   | --diag-log-path                        TEXT     Path for the generated       |
   |                                                 report. Defaults to system   |
   |                                                 temporary directory.         |
-  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
-  |                                                 containing allowlist         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
+  |                                                 contains allowlist           |
   |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
@@ -4223,8 +4223,8 @@
   |                                                 specified for the            |
   |                                                 connection.                  |
   | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token that should be used    |
-  |                                                 when connecting to Snowflake |
+  |                                                 token to use when connecting |
+  |                                                 to Snowflake.                |
   | --database,--dbname                    TEXT     Database to use. Overrides   |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
@@ -4251,8 +4251,8 @@
   | --diag-log-path                        TEXT     Path for the generated       |
   |                                                 report. Defaults to system   |
   |                                                 temporary directory.         |
-  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
-  |                                                 containing allowlist         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
+  |                                                 contains allowlist           |
   |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
@@ -4331,8 +4331,8 @@
   |                                                 specified for the            |
   |                                                 connection.                  |
   | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token that should be used    |
-  |                                                 when connecting to Snowflake |
+  |                                                 token to use when connecting |
+  |                                                 to Snowflake.                |
   | --database,--dbname                    TEXT     Database to use. Overrides   |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
@@ -4359,8 +4359,8 @@
   | --diag-log-path                        TEXT     Path for the generated       |
   |                                                 report. Defaults to system   |
   |                                                 temporary directory.         |
-  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
-  |                                                 containing allowlist         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
+  |                                                 contains allowlist           |
   |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
@@ -4439,8 +4439,8 @@
   |                                                 specified for the            |
   |                                                 connection.                  |
   | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token that should be used    |
-  |                                                 when connecting to Snowflake |
+  |                                                 token to use when connecting |
+  |                                                 to Snowflake.                |
   | --database,--dbname                    TEXT     Database to use. Overrides   |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
@@ -4467,8 +4467,8 @@
   | --diag-log-path                        TEXT     Path for the generated       |
   |                                                 report. Defaults to system   |
   |                                                 temporary directory.         |
-  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
-  |                                                 containing allowlist         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
+  |                                                 contains allowlist           |
   |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
@@ -4547,8 +4547,8 @@
   |                                                 specified for the            |
   |                                                 connection.                  |
   | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token that should be used    |
-  |                                                 when connecting to Snowflake |
+  |                                                 token to use when connecting |
+  |                                                 to Snowflake.                |
   | --database,--dbname                    TEXT     Database to use. Overrides   |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
@@ -4575,8 +4575,8 @@
   | --diag-log-path                        TEXT     Path for the generated       |
   |                                                 report. Defaults to system   |
   |                                                 temporary directory.         |
-  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
-  |                                                 containing allowlist         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
+  |                                                 contains allowlist           |
   |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
@@ -4655,8 +4655,8 @@
   |                                                 specified for the            |
   |                                                 connection.                  |
   | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token that should be used    |
-  |                                                 when connecting to Snowflake |
+  |                                                 token to use when connecting |
+  |                                                 to Snowflake.                |
   | --database,--dbname                    TEXT     Database to use. Overrides   |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
@@ -4683,8 +4683,8 @@
   | --diag-log-path                        TEXT     Path for the generated       |
   |                                                 report. Defaults to system   |
   |                                                 temporary directory.         |
-  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
-  |                                                 containing allowlist         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
+  |                                                 contains allowlist           |
   |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
@@ -4763,8 +4763,8 @@
   |                                                 specified for the            |
   |                                                 connection.                  |
   | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token that should be used    |
-  |                                                 when connecting to Snowflake |
+  |                                                 token to use when connecting |
+  |                                                 to Snowflake.                |
   | --database,--dbname                    TEXT     Database to use. Overrides   |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
@@ -4791,8 +4791,8 @@
   | --diag-log-path                        TEXT     Path for the generated       |
   |                                                 report. Defaults to system   |
   |                                                 temporary directory.         |
-  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
-  |                                                 containing allowlist         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
+  |                                                 contains allowlist           |
   |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
@@ -4871,8 +4871,8 @@
   |                                                 specified for the            |
   |                                                 connection.                  |
   | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token that should be used    |
-  |                                                 when connecting to Snowflake |
+  |                                                 token to use when connecting |
+  |                                                 to Snowflake.                |
   | --database,--dbname                    TEXT     Database to use. Overrides   |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
@@ -4899,8 +4899,8 @@
   | --diag-log-path                        TEXT     Path for the generated       |
   |                                                 report. Defaults to system   |
   |                                                 temporary directory.         |
-  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
-  |                                                 containing allowlist         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
+  |                                                 contains allowlist           |
   |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
@@ -4979,8 +4979,8 @@
   |                                                 specified for the            |
   |                                                 connection.                  |
   | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token that should be used    |
-  |                                                 when connecting to Snowflake |
+  |                                                 token to use when connecting |
+  |                                                 to Snowflake.                |
   | --database,--dbname                    TEXT     Database to use. Overrides   |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
@@ -5007,8 +5007,8 @@
   | --diag-log-path                        TEXT     Path for the generated       |
   |                                                 report. Defaults to system   |
   |                                                 temporary directory.         |
-  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
-  |                                                 containing allowlist         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
+  |                                                 contains allowlist           |
   |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
@@ -5087,8 +5087,8 @@
   |                                                 specified for the            |
   |                                                 connection.                  |
   | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token that should be used    |
-  |                                                 when connecting to Snowflake |
+  |                                                 token to use when connecting |
+  |                                                 to Snowflake.                |
   | --database,--dbname                    TEXT     Database to use. Overrides   |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
@@ -5115,8 +5115,8 @@
   | --diag-log-path                        TEXT     Path for the generated       |
   |                                                 report. Defaults to system   |
   |                                                 temporary directory.         |
-  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
-  |                                                 containing allowlist         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
+  |                                                 contains allowlist           |
   |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
@@ -5195,8 +5195,8 @@
   |                                                 specified for the            |
   |                                                 connection.                  |
   | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token that should be used    |
-  |                                                 when connecting to Snowflake |
+  |                                                 token to use when connecting |
+  |                                                 to Snowflake.                |
   | --database,--dbname                    TEXT     Database to use. Overrides   |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
@@ -5223,8 +5223,8 @@
   | --diag-log-path                        TEXT     Path for the generated       |
   |                                                 report. Defaults to system   |
   |                                                 temporary directory.         |
-  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
-  |                                                 containing allowlist         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
+  |                                                 contains allowlist           |
   |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
@@ -5306,8 +5306,8 @@
   |                                                 specified for the            |
   |                                                 connection.                  |
   | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token that should be used    |
-  |                                                 when connecting to Snowflake |
+  |                                                 token to use when connecting |
+  |                                                 to Snowflake.                |
   | --database,--dbname                    TEXT     Database to use. Overrides   |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
@@ -5334,8 +5334,8 @@
   | --diag-log-path                        TEXT     Path for the generated       |
   |                                                 report. Defaults to system   |
   |                                                 temporary directory.         |
-  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
-  |                                                 containing allowlist         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
+  |                                                 contains allowlist           |
   |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
@@ -15851,8 +15851,8 @@
   |                                                 specified for the            |
   |                                                 connection.                  |
   | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token that should be used    |
-  |                                                 when connecting to Snowflake |
+  |                                                 token to use when connecting |
+  |                                                 to Snowflake.                |
   | --database,--dbname                    TEXT     Database to use. Overrides   |
   |                                                 the value specified for the  |
   |                                                 connection.                  |
@@ -15879,8 +15879,8 @@
   | --diag-log-path                        TEXT     Path for the generated       |
   |                                                 report. Defaults to system   |
   |                                                 temporary directory.         |
-  | --diag-allowlist-path                  TEXT     Path to a JSON file          |
-  |                                                 containing allowlist         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
+  |                                                 contains allowlist           |
   |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+

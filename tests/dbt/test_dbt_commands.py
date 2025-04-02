@@ -17,6 +17,7 @@ from __future__ import annotations
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.dbt.constants import OUTPUT_COLUMN_NAME, RESULT_COLUMN_NAME
 from snowflake.cli.api.identifiers import FQN
 
 
@@ -262,7 +263,12 @@ class TestDBTExecute:
             ),
         ],
     )
-    def test_dbt_execute(self, mock_connect, runner, args, expected_query):
+    def test_dbt_execute(self, mock_connect, mock_cursor, runner, args, expected_query):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
 
         result = runner.invoke(args)
 
@@ -288,3 +294,64 @@ class TestDBTExecute:
             mock_connect.mocked_ctx.get_query()
             == "EXECUTE DBT PROJECT pipeline_name args='compile'"
         )
+
+    def test_dbt_execute_dbt_failure_returns_non_0_code(
+        self, mock_connect, mock_cursor, runner
+    ):
+        cursor = mock_cursor(
+            rows=[(False, "1 of 4 FAIL 1 not_null_my_first_dbt_model_id")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "pipeline_name",
+                "test",
+            ]
+        )
+
+        assert result.exit_code == 1, result.output
+        assert "1 of 4 FAIL 1 not_null_my_first_dbt_model_id" in result.output
+
+    def test_dbt_execute_malformed_server_response(
+        self, mock_connect, mock_cursor, runner
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "very detailed logs")],
+            columns=["foo", "bar"],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "pipeline_name",
+                "test",
+            ]
+        )
+
+        assert result.exit_code == 1, result.output
+        assert "Malformed server response" in result.output
+
+    def test_dbt_execute_no_rows_in_response(self, mock_connect, mock_cursor, runner):
+        cursor = mock_cursor(
+            rows=[],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "pipeline_name",
+                "test",
+            ]
+        )
+
+        assert result.exit_code == 1, result.output
+        assert "No data returned from server" in result.output
