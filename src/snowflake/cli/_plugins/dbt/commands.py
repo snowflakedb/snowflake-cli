@@ -20,7 +20,11 @@ from typing import Optional
 import typer
 from click import ClickException
 from rich.progress import Progress, SpinnerColumn, TextColumn
-from snowflake.cli._plugins.dbt.constants import DBT_COMMANDS
+from snowflake.cli._plugins.dbt.constants import (
+    DBT_COMMANDS,
+    OUTPUT_COLUMN_NAME,
+    RESULT_COLUMN_NAME,
+)
 from snowflake.cli._plugins.dbt.manager import DBTManager
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
@@ -150,12 +154,20 @@ for cmd in DBT_COMMANDS:
             progress.add_task(description=f"Executing 'dbt {dbt_command}'", total=None)
 
             result = dbt_manager.execute(*execute_args)
-            columns = [column.name for column in result.description]
-            success_column_index = columns.index("SUCCESS")
-            stdout_column_index = columns.index("STDOUT")
-            is_success, output = [
-                (row[success_column_index], row[stdout_column_index]) for row in result
-            ][-1]
+
+            try:
+                columns = [column.name for column in result.description]
+                success_column_index = columns.index(RESULT_COLUMN_NAME)
+                stdout_column_index = columns.index(OUTPUT_COLUMN_NAME)
+            except ValueError:
+                raise ClickException("Malformed server response")
+            try:
+                is_success, output = [
+                    (row[success_column_index], row[stdout_column_index])
+                    for row in result
+                ][-1]
+            except IndexError:
+                raise ClickException("No data returned from server")
 
             if is_success is True:
                 return MessageResult(output)
