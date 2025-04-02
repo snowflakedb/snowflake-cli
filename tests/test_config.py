@@ -27,7 +27,7 @@ from snowflake.cli.api.config import (
     get_env_variable_name,
     set_config_value,
 )
-from snowflake.cli.api.exceptions import MissingConfiguration
+from snowflake.cli.api.exceptions import MissingConfigurationError
 
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
 from tests_common import IS_WINDOWS
@@ -197,7 +197,7 @@ def test_default_connection_with_overwritten_values(test_snowcli_config):
 
 def test_not_found_default_connection(test_root_path):
     config_init(Path(test_root_path / "empty_config.toml"))
-    with pytest.raises(MissingConfiguration) as ex:
+    with pytest.raises(MissingConfigurationError) as ex:
         get_default_connection_dict()
 
     assert (
@@ -215,7 +215,7 @@ def test_not_found_default_connection(test_root_path):
 )
 def test_not_found_default_connection_from_evn_variable(test_root_path):
     config_init(Path(test_root_path / "empty_config.toml"))
-    with pytest.raises(MissingConfiguration) as ex:
+    with pytest.raises(MissingConfigurationError) as ex:
         get_default_connection_dict()
 
     assert (

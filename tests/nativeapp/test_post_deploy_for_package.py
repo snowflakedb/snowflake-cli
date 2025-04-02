@@ -27,7 +27,7 @@ from snowflake.cli._plugins.nativeapp.exceptions import MissingScriptError
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import UserScriptError
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.entities.utils import execute_post_deploy_hooks
-from snowflake.cli.api.exceptions import InvalidTemplate
+from snowflake.cli.api.exceptions import InvalidTemplateError
 from snowflake.cli.api.project.definition_manager import DefinitionManager
 from snowflake.cli.api.project.errors import SchemaValidationError
 
@@ -375,7 +375,7 @@ def test_package_post_deploy_scripts_with_mix_syntax_templates(
     pkg_model: ApplicationPackageEntityModel = dm.project_definition.entities["pkg"]
     mock_cli_ctx.return_value = dm.template_context
 
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         execute_post_deploy_hooks(
             console=cc,
             project_root=temporary_directory,
