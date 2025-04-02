@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+RESULT_COLUMN_NAME = "SUCCESS"
+OUTPUT_COLUMN_NAME = "STDOUT"
+
 DBT_COMMANDS = [
     "build",
     "compile",
