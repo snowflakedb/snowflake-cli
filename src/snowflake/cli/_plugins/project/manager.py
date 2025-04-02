@@ -50,16 +50,11 @@ class ProjectManager(SqlExecutionMixin):
 
     def add_version(
         self,
-        project_name: str | FQN,
+        project_name: FQN,
         from_stage: str,
         alias: str | None = None,
         comment: str | None = None,
     ):
-        project_name = (
-            project_name
-            if isinstance(project_name, FQN)
-            else FQN.from_string(project_name)
-        )
         stage_path = StagePath.from_stage_str(from_stage)
         query = f"ALTER PROJECT {project_name.identifier} ADD VERSION"
         if alias:

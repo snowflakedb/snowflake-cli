@@ -1,6 +1,7 @@
 from pathlib import Path
 from unittest import mock
 
+import pytest
 from snowflake.cli.api.identifiers import FQN
 
 from tests_common import IS_WINDOWS
@@ -12,19 +13,39 @@ ProjectManager = "snowflake.cli._plugins.project.commands.ProjectManager"
 @mock.patch("snowflake.cli.api.artifacts.upload.StageManager.create")
 @mock.patch("snowflake.cli.api.artifacts.upload.StageManager.put")
 @mock.patch("snowflake.cli.api.artifacts.upload.StageManager.list_files")
-def test_create_version(
-    mock_list_files, mock_put, mock_create, mock_pm, runner, project_directory
+@pytest.mark.parametrize("no_version", [True, False])
+def test_create(
+    mock_list_files,
+    mock_put,
+    mock_create,
+    mock_pm,
+    runner,
+    project_directory,
+    no_version,
 ):
     stage = FQN.from_stage("my_project_stage")
+    expected_project_fqn = FQN.from_string("my_project")
 
     with project_directory("dcm_project") as root:
-        result = runner.invoke(["project", "create-version"])
+        command = ["project", "create"]
+        if no_version:
+            command.append("--no-version")
+        result = runner.invoke(command)
         assert result.exit_code == 0, result.output
 
+    mock_pm().create.assert_called_once_with(expected_project_fqn)
+    if no_version:
+        mock_create.assert_not_called()
+        mock_pm().add_version.assert_not_called()
+        mock_create.assert_not_called()
+        return
+
     mock_create.assert_called_once_with(fqn=stage)
-    mock_pm().create_version.assert_called_once_with(
-        project_name=FQN.from_string("my_project"),
-        stage_name=stage,
+    mock_pm().add_version.assert_called_once_with(
+        project_name=expected_project_fqn,
+        from_stage=stage.name,
+        alias=None,
+        comment=None,
     )
 
     if IS_WINDOWS:
@@ -83,7 +104,10 @@ def test_add_version(mock_pm, runner, project_directory):
         assert result.exit_code == 0, result.output
 
     mock_pm().add_version.assert_called_once_with(
-        project_name="my_project", from_stage="@stage", alias="v1", comment="fancy"
+        project_name=FQN.from_string("my_project"),
+        from_stage="@stage",
+        alias="v1",
+        comment="fancy",
     )
 
 
