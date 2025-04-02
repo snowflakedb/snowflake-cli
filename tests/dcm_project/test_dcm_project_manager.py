@@ -9,16 +9,6 @@ TEST_PROJECT = FQN.from_string("my_project")
 
 
 @mock.patch(execute_queries)
-def test_create_version(mock_execute_query, runner, project_directory):
-    mgr = ProjectManager()
-    mgr.create_version(project_name=TEST_PROJECT, stage_name=TEST_STAGE)
-
-    mock_execute_query.assert_called_once_with(
-        query="ALTER PROJECT my_project ADD VERSION FROM @test_stage"
-    )
-
-
-@mock.patch(execute_queries)
 def test_add_version(mock_execute_query, runner, project_directory):
     mgr = ProjectManager()
     mgr.add_version(
@@ -27,6 +17,16 @@ def test_add_version(mock_execute_query, runner, project_directory):
 
     mock_execute_query.assert_called_once_with(
         query="ALTER PROJECT my_project ADD VERSION IF NOT EXISTS v1 FROM @stage_foo COMMENT = 'fancy'"
+    )
+
+
+@mock.patch(execute_queries)
+def test_add_version_no_alias(mock_execute_query, runner, project_directory):
+    mgr = ProjectManager()
+    mgr.add_version(project_name=TEST_PROJECT, from_stage="@stage_foo")
+
+    mock_execute_query.assert_called_once_with(
+        query="ALTER PROJECT my_project ADD VERSION FROM @stage_foo"
     )
 
 

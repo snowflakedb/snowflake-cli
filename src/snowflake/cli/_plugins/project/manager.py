@@ -48,14 +48,6 @@ class ProjectManager(SqlExecutionMixin):
         queries = dedent(f"CREATE PROJECT IF NOT EXISTS {project_name.sql_identifier}")
         return self.execute_query(query=queries)
 
-    def create_version(self, project_name: FQN, stage_name: FQN):
-        return self.add_version(
-            project_name=project_name,
-            from_stage=StagePath.from_stage_str(stage_name).absolute_path(
-                at_prefix=True
-            ),
-        )
-
     def add_version(
         self,
         project_name: str | FQN,

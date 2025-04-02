@@ -38,7 +38,7 @@ from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.types import QueryResult, SingleQueryResult
+from snowflake.cli.api.output.types import MessageResult, QueryResult, SingleQueryResult
 from snowflake.cli.api.project.project_paths import ProjectPaths
 
 app = SnowTyperFactory(
@@ -174,7 +174,10 @@ def create(
     if no_version:
         return QueryResult(result)
 
-    return _add_version_to_project(pm, project=project, prune=prune)
+    _add_version_to_project(pm, project=project, prune=prune)
+    return MessageResult(
+        f"Project {project.fqn} successfully created and initial version is added."
+    )
 
 
 @app.command(requires_connection=True)
@@ -207,7 +210,8 @@ def add_version(
         alias=_alias,
         comment=comment,
     )
-    return QueryResult(result)
+    alias_str = "" if _alias is None else _alias + " "
+    return MessageResult(f"Project version {alias_str}added to project {project.fqn}")
 
 
 @app.command(requires_connection=True)
