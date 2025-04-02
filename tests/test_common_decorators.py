@@ -19,6 +19,13 @@ from snowflake.cli.api.commands.decorators import (
     with_experimental_behaviour,
 )
 
+_KNOWN_SIG_GLOBAL_PARAMETERS = [
+    "format",
+    "verbose",
+    "debug",
+    "silent",
+    "enhanced_exit_codes",
+]
 _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "connection",
     "host",
@@ -40,13 +47,7 @@ _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "enable_diag",
     "diag_log_path",
     "diag_allowlist_path",
-    "format",
-    "verbose",
-    "debug",
-    "silent",
-]
-
-_KNOWN_SIG_GLOBAL_PARAMETERS = ["format", "verbose", "debug", "silent"]
+] + _KNOWN_SIG_GLOBAL_PARAMETERS
 
 
 def _extract_arguments(func):

@@ -24,7 +24,7 @@ from jinja2 import (
     UndefinedError,
     loaders,
 )
-from snowflake.cli.api.exceptions import InvalidTemplate
+from snowflake.cli.api.exceptions import InvalidTemplateError
 from snowflake.cli.api.rendering.jinja import IgnoreAttrEnvironment, env_bootstrap
 from snowflake.cli.api.secure_path import SecurePath
 
@@ -90,9 +90,9 @@ def render_template_files(
             full_path = template_root / path
             full_path.write_text(rendered_result)
         except TemplateSyntaxError as err:
-            raise InvalidTemplate(
+            raise InvalidTemplateError(
                 f"Invalid template syntax in line {err.lineno} of file {path}:\n"
                 f"{err.message}"
             )
         except UndefinedError as err:
-            raise InvalidTemplate(err.message)
+            raise InvalidTemplateError(err.message)

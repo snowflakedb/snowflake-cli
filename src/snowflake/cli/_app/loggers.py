@@ -20,7 +20,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List
 
 import typer
-from snowflake.cli.api.exceptions import InvalidLogsConfiguration
+from snowflake.cli.api.exceptions import InvalidLogsConfigurationError
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.errors import ConfigSourceError
 
@@ -129,7 +129,7 @@ class FileLogsConfig:
             logging.CRITICAL,
         ]
         if self.level not in possible_log_levels:
-            raise InvalidLogsConfiguration(
+            raise InvalidLogsConfigurationError(
                 f"Invalid 'level' value set in [logs] section: {config['level']}. "
                 f"'level' should be one of: {' / '.join(logging.getLevelName(lvl) for lvl in possible_log_levels)}"
             )

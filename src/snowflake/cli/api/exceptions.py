@@ -22,46 +22,87 @@ from snowflake.cli.api.constants import ObjectType
 from snowflake.connector.compat import IS_WINDOWS
 
 
-class EnvironmentVariableNotFoundError(ClickException):
+class BaseCliError(ClickException):
+    """Base Cli Exception.
+
+    0 Everything ran smoothly.
+    1 Something went wrong with the client.
+    2 Something went wrong with command line arguments.
+    3 Cli could not connect to server.
+    4 Cli could not communicate properly with server.
+    5 The enhanced_exit_codes parameter was set and Cli exited because of error.
+    """
+
+    def __init__(self, *args, **kwargs):
+        from snowflake.cli.api.cli_global_context import get_cli_context
+
+        if not get_cli_context().enhanced_exit_codes:
+            self.exit_code = kwargs.pop("exit_code", 1)
+        super().__init__(*args, **kwargs)
+
+
+class CliError(BaseCliError):
+    """Generic Cli Error - to be used in favour of ClickException."""
+
+    exit_code = 1
+
+
+class CliArgumentError(BaseCliError):
+    exit_code = 2
+
+
+class CliConnectionError(BaseCliError):
+    exit_code = 3
+
+
+class CliCommunicationError(BaseCliError):
+    exit_code = 4
+
+
+class CliSqlError(BaseCliError):
+    exit_code = 5
+
+
+class EnvironmentVariableNotFoundError(CliError):
     def __init__(self, env_variable_name: str):
         super().__init__(f"Environment variable {env_variable_name} not found")
 
 
-class MissingConfiguration(ClickException):
+class MissingConfigurationError(CliError):
     pass
 
 
-class CycleDetectedError(ClickException):
+class CycleDetectedError(CliError):
     pass
 
 
-class InvalidTemplate(ClickException):
+class InvalidTemplateError(CliError):
     pass
 
 
-class InvalidConnectionConfiguration(ClickException):
+class InvalidConnectionConfigurationError(CliError):
     def format_message(self):
         return f"Invalid connection configuration. {self.message}"
 
 
-class InvalidLogsConfiguration(ClickException):
+class InvalidLogsConfigurationError(CliError):
     def format_message(self):
         return f"Invalid logs configuration. {self.message}"
 
 
-class InvalidPluginConfiguration(ClickException):
+class InvalidPluginConfigurationError(CliError):
     def format_message(self):
         return f"Invalid plugin configuration. {self.message}"
 
 
-class PluginNotInstalledError(ClickException):
+class PluginNotInstalledError(CliError):
     def __init__(self, plugin_name, installed_plugins: List[str]):
         super().__init__(
             f"Plugin {plugin_name} is not installed. Available plugins: {', '.join(installed_plugins)}."
         )
 
 
-class SnowflakeConnectionError(ClickException):
+class SnowflakeConnectionError(CliError):
     def __init__(self, snowflake_err: Exception):
         super().__init__(f"Could not connect to Snowflake. Reason: {snowflake_err}")
 
@@ -71,17 +112,17 @@ class UnsupportedConfigSectionTypeError(Exception):
         super().__init__(f"Unsupported configuration section type {section_type}")
 
 
-class OutputDataTypeError(ClickException):
+class OutputDataTypeError(CliError):
     def __init__(self, got_type: type, expected_type: type):
         super().__init__(f"Got {got_type} type but expected {expected_type}")
 
 
-class CommandReturnTypeError(ClickException):
+class CommandReturnTypeError(CliError):
     def __init__(self, got_type: type):
         super().__init__(f"Commands have to return OutputData type, but got {got_type}")
 
 
-class SnowflakeSQLExecutionError(ClickException):
+class SnowflakeSQLExecutionError(CliError):
     """
     Could not successfully execute the Snowflake SQL statements.
     """
@@ -95,7 +136,7 @@ class SnowflakeSQLExecutionError(ClickException):
         )
 
 
-class ObjectAlreadyExistsError(ClickException):
+class ObjectAlreadyExistsError(CliError):
     def __init__(
         self,
         object_type: ObjectType,
@@ -108,45 +149,45 @@ class ObjectAlreadyExistsError(ClickException):
         super().__init__(msg)
 
 
-class NoProjectDefinitionError(ClickException):
+class NoProjectDefinitionError(CliError):
     def __init__(self, project_type: str, project_root: str | Path):
         super().__init__(
             f"No {project_type} project definition found in {project_root}"
         )
 
 
-class InvalidProjectDefinitionVersionError(ClickException):
+class InvalidProjectDefinitionVersionError(CliError):
     def __init__(self, expected_version: str, actual_version: str):
         super().__init__(
             f"This command only supports definition version {expected_version}, got {actual_version}."
         )
 
 
-class InvalidSchemaError(ClickException):
+class InvalidSchemaError(CliError):
     def __init__(self, schema: str):
         super().__init__(f"Invalid schema {schema}")
 
 
-class SecretsWithoutExternalAccessIntegrationError(ClickException):
+class SecretsWithoutExternalAccessIntegrationError(CliError):
     def __init__(self, object_name: str):
         super().__init__(
             f"{object_name} defined with secrets but without external integration."
         )
 
 
-class FileTooLargeError(ClickException):
+class FileTooLargeError(CliError):
     def __init__(self, path: Path, size_limit_in_kb: int):
         super().__init__(
             f"File {path} is too large (size limit: {size_limit_in_kb} KB)"
         )
 
 
-class DirectoryIsNotEmptyError(ClickException):
+class DirectoryIsNotEmptyError(CliError):
     def __init__(self, path: Path):
         super().__init__(f"Directory '{path}' is not empty")
 
 
-class ConfigFileTooWidePermissionsError(ClickException):
+class ConfigFileTooWidePermissionsError(CliError):
     def __init__(self, path: Path):
         change_permissons_command = (
             f'icacls "{path}" /deny <USER_ID>:F'
@@ -162,26 +203,26 @@ class ConfigFileTooWidePermissionsError(ClickException):
         super().__init__(msg)
 
 
-class DatabaseNotProvidedError(ClickException):
+class DatabaseNotProvidedError(CliError):
     def __init__(self):
         super().__init__(
             "Database not specified. Please update connection to add `database` parameter, or re-run command using `--database` option. Use `snow connection list` to list existing connections."
         )
 
 
-class SchemaNotProvidedError(ClickException):
+class SchemaNotProvidedError(CliError):
     def __init__(self):
         super().__init__(
             "Schema not specified. Please update connection to add `schema` parameter, or re-run command using `--schema` option. Use `snow connection list` to list existing connections."
         )
 
 
-class FQNNameError(ClickException):
+class FQNNameError(CliError):
     def __init__(self, name: str):
         super().__init__(f"Specified name '{name}' is not valid name.")
 
 
-class FQNInconsistencyError(ClickException):
+class FQNInconsistencyError(CliError):
     def __init__(self, part: str, name: str):
         super().__init__(
             f"{part.capitalize()} provided but name '{name}' is fully qualified name."
@@ -206,7 +247,7 @@ class UnmetParametersError(UsageError):
         )
 
 
-class NoWarehouseSelectedInSessionError(ClickException):
+class NoWarehouseSelectedInSessionError(CliError):
     def __init__(self, msg: str):
         super().__init__(
             "Received the following error message while executing SQL statement:\n"
@@ -215,7 +256,7 @@ class NoWarehouseSelectedInSessionError(ClickException):
         )
 
 
-class DoesNotExistOrUnauthorizedError(ClickException):
+class DoesNotExistOrUnauthorizedError(CliError):
     def __init__(self, msg: str):
         super().__init__(
             "Received the following error message while executing SQL statement:\n"
@@ -224,7 +265,7 @@ class DoesNotExistOrUnauthorizedError(ClickException):
         )
 
 
-class CouldNotUseObjectError(ClickException):
+class CouldNotUseObjectError(CliError):
     def __init__(self, object_type: ObjectType, name: str):
         super().__init__(
             f"Could not use {object_type} {name}. Object does not exist, or operation cannot be performed."
@@ -238,7 +279,7 @@ class ShowSpecificObjectMultipleRowsError(RuntimeError):
         )
 
 
-class CouldNotSetKeyPairError(ClickException):
+class CouldNotSetKeyPairError(CliError):
     def __init__(self):
         super().__init__(
             "The public key is set already. Use the rotate command instead."
