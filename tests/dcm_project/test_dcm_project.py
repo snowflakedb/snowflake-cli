@@ -189,4 +189,6 @@ def test_list_versions(mock_pm, runner):
 
     assert result.exit_code == 0, result.output
 
-    mock_pm().list_versions.assert_called_once_with(project_name="fooBar")
+    mock_pm().list_versions.assert_called_once_with(
+        project_name=FQN.from_string("fooBar")
+    )

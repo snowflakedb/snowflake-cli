@@ -9,19 +9,19 @@ TEST_PROJECT = FQN.from_string("my_project")
 
 
 @mock.patch(execute_queries)
-def test_add_version(mock_execute_query, runner, project_directory):
+def test_add_version(mock_execute_query, project_directory):
     mgr = ProjectManager()
     mgr.add_version(
         project_name=TEST_PROJECT, from_stage="@stage_foo", alias="v1", comment="fancy"
     )
 
     mock_execute_query.assert_called_once_with(
-        query="ALTER PROJECT my_project ADD VERSION IF NOT EXISTS v1 FROM @stage_foo COMMENT = 'fancy'"
+        query="ALTER PROJECT my_project ADD VERSION IF NOT EXISTS \"v1\" FROM @stage_foo COMMENT = 'fancy'"
     )
 
 
 @mock.patch(execute_queries)
-def test_add_version_no_alias(mock_execute_query, runner, project_directory):
+def test_add_version_no_alias(mock_execute_query, project_directory):
     mgr = ProjectManager()
     mgr.add_version(project_name=TEST_PROJECT, from_stage="@stage_foo")
 
@@ -31,7 +31,17 @@ def test_add_version_no_alias(mock_execute_query, runner, project_directory):
 
 
 @mock.patch(execute_queries)
-def test_execute_project(mock_execute_query, runner, project_directory):
+def test_create(mock_execute_query, project_directory):
+    mgr = ProjectManager()
+    mgr.create(project_name=TEST_PROJECT)
+
+    mock_execute_query.assert_called_once_with(
+        query="CREATE PROJECT IF NOT EXISTS IDENTIFIER('my_project')"
+    )
+
+
+@mock.patch(execute_queries)
+def test_execute_project(mock_execute_query, project_directory):
     mgr = ProjectManager()
     mgr.execute(
         project_name=TEST_PROJECT, version="v42", variables=["key=value", "aaa=bbb"]
@@ -43,9 +53,7 @@ def test_execute_project(mock_execute_query, runner, project_directory):
 
 
 @mock.patch(execute_queries)
-def test_execute_project_with_default_version(
-    mock_execute_query, runner, project_directory
-):
+def test_execute_project_with_default_version(mock_execute_query, project_directory):
     mgr = ProjectManager()
 
     mgr.execute(project_name=TEST_PROJECT, version=None)
@@ -56,7 +64,7 @@ def test_execute_project_with_default_version(
 
 
 @mock.patch(execute_queries)
-def test_validate_project(mock_execute_query, runner, project_directory):
+def test_validate_project(mock_execute_query, project_directory):
     mgr = ProjectManager()
     mgr.execute(project_name=TEST_PROJECT, version="v42", dry_run=True)
 
@@ -66,7 +74,7 @@ def test_validate_project(mock_execute_query, runner, project_directory):
 
 
 @mock.patch(execute_queries)
-def test_list_versions(mock_execute_query, runner):
+def test_list_versions(mock_execute_query):
     mgr = ProjectManager()
     mgr.list_versions(project_name=TEST_PROJECT)
 

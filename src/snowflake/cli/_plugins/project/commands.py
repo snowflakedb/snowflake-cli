@@ -222,5 +222,5 @@ def list_versions(
     Lists versions of given project.
     """
     pm = ProjectManager()
-    results = pm.list_versions(project_name=entity_id)
+    results = pm.list_versions(project_name=FQN.from_string(entity_id))
     return QueryResult(results)
