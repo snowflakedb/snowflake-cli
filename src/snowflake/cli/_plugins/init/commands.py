@@ -21,6 +21,11 @@ import typer
 import yaml
 from click import ClickException
 from snowflake.cli.__about__ import VERSION
+from snowflake.cli._plugins.cicd.manager import (
+    CIProvider,
+    CIProviderChoices,
+    CIProviderManager,
+)
 from snowflake.cli.api.commands.flags import (
     NoInteractiveOption,
     variables_option,
@@ -71,6 +76,17 @@ SourceOption = typer.Option(
     DEFAULT_SOURCE,
     "--template-source",
     help=f"local path to template directory or URL to git repository with templates.",
+)
+CIProviderOption = typer.Option(
+    None,
+    "--ci-provider",
+    help=f"CI provider to generate workflow for.",
+    case_sensitive=True,
+)
+CITemplateSourceOption = typer.Option(
+    None,
+    "--ci-template-source",
+    help=f"local path to template directory or URL to git repository with ci/cd templates.",
 )
 VariablesOption = variables_option(
     "String in `key=value` format. Provided variables will not be prompted for."
@@ -191,6 +207,8 @@ def init(
     path: str = PathArgument,
     template: Optional[str] = TemplateOption,
     template_source: Optional[str] = SourceOption,
+    ci_provider: Optional[CIProviderChoices] = CIProviderOption,
+    ci_template_source: Optional[str] = CITemplateSourceOption,
     variables: Optional[List[str]] = VariablesOption,
     no_interactive: bool = NoInteractiveOption,
     **options,
@@ -201,29 +219,29 @@ def init(
     variables_from_flags = {
         v.key: v.value for v in parse_key_value_variables(variables)
     }
-    is_remote = any(
-        template_source.startswith(prefix) for prefix in ["git@", "http://", "https://"]  # type: ignore
-    )
     args_error_msg = f"Check whether {TemplateOption.param_decls[0]} and {SourceOption.param_decls[0]} arguments are correct."
 
     # copy/download template into tmpdir, so it is going to be removed in case command ends with an error
     with SecurePath.temporary_directory() as tmpdir:
-        if is_remote:
-            template_root = _fetch_remote_template(
-                url=template_source, path=template, destination=tmpdir  # type: ignore
-            )
-        else:
-            template_root = _fetch_local_template(
-                template_source=SecurePath(template_source),
-                path=template,
-                destination=tmpdir,
-            )
+        assert isinstance(template_source, str)
+        template_root = _fetch_template(template_source, template, tmpdir)
 
         template_metadata = _read_template_metadata(
             template_root, args_error_msg=args_error_msg
         )
         if template_metadata.minimum_cli_version:
             _validate_cli_version(template_metadata.minimum_cli_version)
+
+        if ci_provider:
+            ci_provider_instance = CIProvider.from_choice(ci_provider)
+            clone(
+                ci_provider_instance,
+                ci_template_source,
+                template_metadata,
+                template_root,
+            )
+        else:
+            ci_provider_instance = None
 
         variable_values = _determine_variable_values(
             variables_metadata=template_metadata.variables,
@@ -242,7 +260,58 @@ def init(
             data=variable_values,
         )
         _remove_template_metadata_file(template_root)
+        post_generate(template_root, ci_provider_instance)
         SecurePath(path).parent.mkdir(exist_ok=True, parents=True)
         template_root.copy(path)
 
     return MessageResult(f"Initialized the new project in {path}")
+
+
+def clone(
+    ci_provider_instance: CIProvider,
+    ci_template_source: Optional[str],
+    template_metadata: Template,
+    template_root: SecurePath,
+):
+    if ci_template_source is not None:
+        with SecurePath.temporary_directory() as cicd_tmpdir:
+            cicd_template_root = _fetch_template(ci_template_source, None, cicd_tmpdir)
+            ci_provider_instance.copy(cicd_template_root, template_root)
+            ci_template_metadata = _read_template_metadata(
+                cicd_template_root,
+                args_error_msg="template.yml is required for --ci-template-source.",
+            )
+            template_metadata.merge(ci_template_metadata)
+
+    elif ci_provider_instance.has_template(template_root):
+        pass  # template has ci files
+    else:
+        raise ClickException(
+            f"Template for {ci_provider_instance.NAME} not provided and not configured on selected template."
+        )
+
+
+def _fetch_template(
+    template_source: str, template: Optional[str], tmpdir: SecurePath
+) -> SecurePath:
+    if _is_remote_source(template_source):
+        template_root = _fetch_remote_template(
+            url=template_source, path=template, destination=tmpdir  # type: ignore
+        )
+    else:
+        template_root = _fetch_local_template(
+            template_source=SecurePath(template_source),
+            path=template,
+            destination=tmpdir,
+        )
+    return template_root
+
+
+def _is_remote_source(template_source: str) -> bool:
+    return any(
+        template_source.startswith(prefix) for prefix in ["git@", "http://", "https://"]  # type: ignore
+    )
+
+
+def post_generate(template_root: SecurePath, ci_provider: Optional[CIProvider]):
+    CIProviderManager.project_post_gen_cleanup(ci_provider, template_root)
