@@ -420,8 +420,11 @@ PruneOption = OverrideableOption(
 )
 
 
-def entity_argument(entity_type: str) -> typer.Argument:
-    return typer.Argument(None, help=f"ID of {entity_type} entity.")
+def entity_argument(entity_type: str, required=False) -> typer.Argument:
+    _help = f"ID of {entity_type} entity."
+    if not required:
+        return typer.Argument(None, help=_help)
+    return typer.Argument(..., help=_help, show_default=False)
 
 
 def variables_option(description: str):

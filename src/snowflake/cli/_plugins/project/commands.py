@@ -215,7 +215,9 @@ def add_version(
 
 
 @app.command(requires_connection=True)
-def list_versions(entity_id: str = entity_argument("project"), **options):
+def list_versions(
+    entity_id: str = entity_argument("project", required=True), **options
+):
     """
     Lists versions of given project.
     """
