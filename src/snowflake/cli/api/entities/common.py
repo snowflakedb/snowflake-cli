@@ -186,7 +186,7 @@ class EntityBase(Generic[T]):
                 stage_dest = (
                     f"{stage_root}/{dest}"
                     if stage_root
-                    else f"/{self.fqn.name}{get_parent_path(dest)}"
+                    else f"/{self.fqn.name}/{get_parent_path(dest)}"
                 )
                 stage.put(
                     local_file_name=absolute_src,

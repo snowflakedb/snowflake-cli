@@ -64,8 +64,9 @@ class TestStreamlitCommands(StreamlitTestClass):
         self.mock_create_stage.assert_called_once
         self.mock_put.assert_called_once_with(
             local_file_name=(tmp_dir / "streamlit_app.py").resolve(),
-            stage_location="@MockDatabase.MockSchema.streamlit/test_streamlit/streamlit_app.py",
+            stage_location="/test_streamlit/",
             overwrite=True,
+            auto_compress=False,
         )
 
         mock_typer.launch.assert_not_called()
@@ -96,8 +97,9 @@ class TestStreamlitCommands(StreamlitTestClass):
         self.mock_create_stage.assert_called_once()
         self.mock_put.assert_called_once_with(
             local_file_name=(tmp_dir / "streamlit_app.py").resolve(),
-            stage_location="@MockDatabase.MockSchema.streamlit/test_streamlit/streamlit_app.py",
+            stage_location="/test_streamlit/",
             overwrite=True,
+            auto_compress=False,
         )
         mock_typer.launch.assert_not_called()
 
@@ -153,8 +155,9 @@ class TestStreamlitCommands(StreamlitTestClass):
         self.mock_create_stage.assert_called_once()
         self.mock_put.assert_called_once_with(
             local_file_name=(tmp_dir / "streamlit_app.py").resolve(),
-            stage_location="@MockDatabase.MockSchema.streamlit/test_streamlit/streamlit_app.py",
+            stage_location="/test_streamlit/",
             overwrite=True,
+            auto_compress=False,
         )
         mock_typer.launch.assert_not_called()
 
@@ -329,7 +332,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         self.mock_create_stage.assert_called_once()
         self._assert_that_exactly_those_files_were_put_to_stage(
             ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
-            f"@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}",
+            STREAMLIT_NAME,
         )
 
     @pytest.mark.parametrize(
@@ -363,7 +366,7 @@ class TestStreamlitCommands(StreamlitTestClass):
                 "streamlit_environment.yml",
                 "streamlit_pages/first_page.py",
             ],
-            f"@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}",
+            STREAMLIT_NAME,
         )
 
     @pytest.mark.parametrize(
@@ -431,7 +434,6 @@ class TestStreamlitCommands(StreamlitTestClass):
 
         self._assert_that_exactly_those_files_were_put_to_stage(
             ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
-            root_path,
         )
 
     @pytest.mark.skip(
@@ -494,7 +496,6 @@ class TestStreamlitCommands(StreamlitTestClass):
         ]
         self._assert_that_exactly_those_files_were_put_to_stage(
             ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
-            root_path,
         )
 
     @pytest.mark.parametrize(
@@ -535,7 +536,6 @@ class TestStreamlitCommands(StreamlitTestClass):
         ]
         self._assert_that_exactly_those_files_were_put_to_stage(
             ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
-            root_path,
         )
 
     @pytest.mark.parametrize(
@@ -574,7 +574,6 @@ class TestStreamlitCommands(StreamlitTestClass):
         root_path = f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
         self._assert_that_exactly_those_files_were_put_to_stage(
             ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
-            root_path,
         )
 
     def test_share_streamlit(self):
@@ -641,8 +640,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         ]
 
         self._assert_that_exactly_those_files_were_put_to_stage(
-            ["streamlit_app.py", f"{entity_id}.py"],
-            "@MockDatabase.MockSchema.streamlit/None",
+            ["streamlit_app.py", f"{entity_id}.py"], streamlit_name=entity_id
         )
 
     def test_multiple_streamlit_raise_error_if_multiple_entities(
@@ -676,7 +674,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         self.mock_create_stage.assert_called_once()
         self._assert_that_exactly_those_files_were_put_to_stage(
             ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
-            root_path,
+            streamlit_name="test_streamlit_deploy_snowcli",
         )
 
     def test_execute_streamlit(self):

@@ -67,23 +67,24 @@ class StreamlitTestClass:
     def _assert_that_exactly_those_files_were_put_to_stage(
         self,
         put_files: List[str],
-        stage_name: str = f"@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}",
+        streamlit_name: str = "test_streamlit",
         project_root: Path = Path("."),
     ):
         assert self.mock_put.call_count == len(put_files)
 
         project_root = Path(path_resolver(str(project_root)))
 
-        for file in put_files:  # This seems repeatable, extract it to a function
+        for file in put_files:
             if isinstance(file, dict):
                 local = file["local"]
-                stage = f"{stage_name}{file['stage']}/{local.name}"
+                stage = f"/{streamlit_name}{ file['stage']  if file['stage'] else ''}"
             else:
                 local = file
-                stage = f"{stage_name}/{file}"
+                stage = f"/{streamlit_name}/{str(Path(file).parent)  if Path(file).parent != Path('.') else ''}"
 
             self.mock_put.assert_any_call(
                 local_file_name=(project_root / local).absolute(),
                 stage_location=stage,
                 overwrite=True,
+                auto_compress=False,
             )

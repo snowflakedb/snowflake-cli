@@ -279,4 +279,4 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 print_diff=True,
             )
         else:
-            self._upload_files_to_stage(stage_resource, bundle_map, stage_root)
+            self._upload_files_to_stage(stage_resource, bundle_map)
