@@ -26,12 +26,21 @@ def test_project_deploy(
     project_directory,
 ):
     with project_directory("dcm_project"):
-        result = runner.invoke_with_connection_json(["project", "create-version"])
+        result = runner.invoke_with_connection_json(["project", "create"])
         assert result.exit_code == 0, result.output
 
-        # Unsupported command
-        # result = runner.invoke_with_connection(["project", "dry-run", "my_project", "--version", "last"])
-        # assert result.exit_code == 0
+        result = runner.invoke_with_connection(
+            [
+                "project",
+                "dry-run",
+                "my_project",
+                "--version",
+                "last",
+                "-D",
+                f"table_name='{test_database}.PUBLIC.MyTable'",
+            ]
+        )
+        assert result.exit_code == 0
 
         result = runner.invoke_with_connection(
             [
@@ -68,7 +77,7 @@ def test_project_add_version(
 ):
     with project_directory("dcm_project") as root:
         # Create a new project
-        result = runner.invoke_with_connection_json(["project", "create-version"])
+        result = runner.invoke_with_connection_json(["project", "create"])
         assert result.exit_code == 0, result.output
         if (root / "output").exists():
             SecurePath(root / "output").rmdir(recursive=True)
