@@ -58,7 +58,7 @@ class ProjectManager(SqlExecutionMixin):
         stage_path = StagePath.from_stage_str(from_stage)
         query = f"ALTER PROJECT {project_name.identifier} ADD VERSION"
         if alias:
-            query += f" IF NOT EXISTS {alias}"
+            query += f' IF NOT EXISTS "{alias}"'
         query += f" FROM {stage_path.absolute_path(at_prefix=True)}"
         if comment:
             query += f" COMMENT = '{comment}'"

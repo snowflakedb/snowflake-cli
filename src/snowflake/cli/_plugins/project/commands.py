@@ -202,7 +202,7 @@ def add_version(
         project_definition=cli_context.project_definition,
         entity_type="project",
     )
-    result = _add_version_to_project(
+    _add_version_to_project(
         ProjectManager(),
         project=project,
         prune=prune,
