@@ -8,6 +8,7 @@ import pytest
 from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli.api.utils.path_utils import path_resolver
 from snowflake.core.stage import StageResource
+
 from tests.testing_utils.files_and_dirs import resolve_path
 
 GET_UI_PARAMETERS = "snowflake.cli._plugins.connection.util.get_ui_parameters"
