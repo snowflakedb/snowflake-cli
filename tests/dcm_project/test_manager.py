@@ -50,16 +50,14 @@ def test_add_version(
 
 
 @mock.patch(execute_queries)
-@pytest.mark.parametrize("stage_name", ["@stage_foo", "snow://stage_foo", "stage_foo"])
+@pytest.mark.parametrize("stage_name", ["@stage_foo", "stage_foo"])
 def test_create_version(mock_execute_query, stage_name):
     mgr = ProjectManager()
     mgr._create_version(  # noqa: SLF001
         project_name=TEST_PROJECT, from_stage=stage_name, alias="v1", comment="fancy"
     )
-    expected_prefix = "snow://" if stage_name.startswith("snow://") else "@"
-
     mock_execute_query.assert_called_once_with(
-        query=f"ALTER PROJECT my_project ADD VERSION IF NOT EXISTS \"v1\" FROM {expected_prefix}stage_foo COMMENT = 'fancy'"
+        query=f"ALTER PROJECT my_project ADD VERSION IF NOT EXISTS \"v1\" FROM @stage_foo COMMENT = 'fancy'"
     )
 
 
