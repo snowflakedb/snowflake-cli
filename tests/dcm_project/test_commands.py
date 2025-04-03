@@ -1,114 +1,63 @@
-from pathlib import Path
 from unittest import mock
 
 import pytest
 from snowflake.cli.api.identifiers import FQN
 
-from tests_common import IS_WINDOWS
-
 ProjectManager = "snowflake.cli._plugins.project.commands.ProjectManager"
+get_entity_for_operation = (
+    "snowflake.cli._plugins.project.commands.get_entity_for_operation"
+)
 
 
 @mock.patch(ProjectManager)
-@mock.patch("snowflake.cli.api.artifacts.upload.StageManager.create")
-@mock.patch("snowflake.cli.api.artifacts.upload.StageManager.put")
-@mock.patch("snowflake.cli.api.artifacts.upload.StageManager.list_files")
-@pytest.mark.parametrize("no_version", [True, False])
-def test_create(
-    mock_list_files,
-    mock_put,
-    mock_create,
-    mock_pm,
-    runner,
-    project_directory,
-    no_version,
-):
-    stage = FQN.from_stage("my_project_stage")
-    expected_project_fqn = FQN.from_string("my_project")
-
-    with project_directory("dcm_project") as root:
+@pytest.mark.parametrize("no_version", [False, True])
+def test_create(mock_pm, runner, project_directory, no_version):
+    with project_directory("dcm_project"):
         command = ["project", "create"]
         if no_version:
             command.append("--no-version")
         result = runner.invoke(command)
         assert result.exit_code == 0, result.output
 
-    mock_pm().create.assert_called_once_with(expected_project_fqn)
-    if no_version:
-        mock_create.assert_not_called()
-        mock_pm().add_version.assert_not_called()
-        mock_put.assert_not_called()
-        return
+        mock_pm().create.assert_called_once_with(FQN.from_string("my_project"))
 
-    mock_create.assert_called_once_with(fqn=stage)
-    mock_pm().add_version.assert_called_once_with(
-        project_name=expected_project_fqn,
-        from_stage=stage.name,
-        alias=None,
-        comment=None,
-    )
-
-    if IS_WINDOWS:
-        absolute_root = Path(root).absolute()
-    else:
-        absolute_root = Path(root).resolve()
-    mock_put.assert_has_calls(
-        [
-            mock.call(
-                local_path=absolute_root
-                / "output"
-                / "bundle"
-                / "definitions"
-                / "b.sql",
-                stage_path="@my_project_stage/definitions",
-                role=None,
-                overwrite=False,
-            ),
-            mock.call(
-                local_path=absolute_root
-                / "output"
-                / "bundle"
-                / "definitions"
-                / "a.sql",
-                stage_path="@my_project_stage/definitions",
-                role=None,
-                overwrite=False,
-            ),
-            mock.call(
-                local_path=absolute_root / "output" / "bundle" / "manifest.yml",
-                stage_path="@my_project_stage",
-                role=None,
-                overwrite=False,
-            ),
-        ],
-        any_order=True,
-    )
+        if no_version:
+            mock_pm().add_version.assert_not_called()
+        else:
+            mock_pm().add_version.assert_called_once()
 
 
 @mock.patch(ProjectManager)
-def test_add_version(mock_pm, runner, project_directory):
+@pytest.mark.parametrize("prune", [True, False])
+def test_add_version(mock_pm, runner, project_directory, prune):
     with project_directory("dcm_project") as root:
-        result = runner.invoke(
-            [
-                "project",
-                "add-version",
-                "my_project",
-                "--from",
-                "@stage",
-                "--alias",
-                "v1",
-                "--comment",
-                "fancy",
-            ]
-        )
+        command = [
+            "project",
+            "add-version",
+            "my_project",
+            "--alias",
+            "v1",
+            "--comment",
+            "fancy",
+        ]
+        if prune:
+            command += ["--prune"]
+        else:
+            command += ["--from", "@stage"]
+        result = runner.invoke(command)
         assert result.exit_code == 0, result.output
 
-    mock_pm().add_version.assert_called_once_with(
-        project_name=FQN.from_string("my_project"),
-        from_stage="@stage",
-        alias="v1",
-        comment="fancy",
-    )
+    assert mock_pm().add_version.call_count == 1
+    kwargs = mock_pm().add_version.mock_calls[0].kwargs
+    expected_kwargs = {
+        "alias": "v1",
+        "comment": "fancy",
+        "project": kwargs["project"],
+        "prune": prune,
+        "from_stage": None if prune else "@stage",
+    }
+
+    assert expected_kwargs == kwargs
 
 
 @mock.patch(ProjectManager)

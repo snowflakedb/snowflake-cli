@@ -22,7 +22,6 @@ from snowflake.cli._plugins.project.manager import ProjectManager
 from snowflake.cli._plugins.project.project_entity_model import (
     ProjectEntityModel,
 )
-from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
@@ -39,7 +38,6 @@ from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import MessageResult, QueryResult, SingleQueryResult
-from snowflake.cli.api.project.project_paths import ProjectPaths
 
 app = SnowTyperFactory(
     name="project",
@@ -114,39 +112,6 @@ def dry_run(
     return SingleQueryResult(result)
 
 
-def _add_version_to_project(
-    pm: ProjectManager,
-    project: ProjectEntityModel,
-    prune: bool = False,
-    from_stage: Optional[str] = None,
-    alias: Optional[str] = None,
-    comment: Optional[str] = None,
-):
-    """
-    Adds a version to project. If [from_stage] is not defined,
-    uploads local files to the stage defined in project definition.
-    """
-
-    if not from_stage:
-        cli_context = get_cli_context()
-        from_stage = project.stage
-        with cli_console.phase("Uploading artifacts"):
-            sync_artifacts_with_stage(
-                project_paths=ProjectPaths(project_root=cli_context.project_root),
-                stage_root=from_stage,
-                artifacts=project.artifacts,
-                prune=prune,
-            )
-
-    with cli_console.phase(f"Creating project version from stage {from_stage}"):
-        return pm.add_version(
-            project_name=project.fqn,
-            from_stage=from_stage,
-            alias=alias,
-            comment=comment,
-        )
-
-
 @app.command(requires_connection=True)
 @with_project_definition()
 def create(
@@ -174,7 +139,7 @@ def create(
     if no_version:
         return QueryResult(result)
 
-    _add_version_to_project(pm, project=project, prune=prune)
+    pm.add_version(project=project, prune=prune)
     return MessageResult(
         f"Project {project.fqn} successfully created and initial version is added."
     )
@@ -202,8 +167,7 @@ def add_version(
         project_definition=cli_context.project_definition,
         entity_type="project",
     )
-    _add_version_to_project(
-        ProjectManager(),
+    ProjectManager().add_version(
         project=project,
         prune=prune,
         from_stage=_from,
