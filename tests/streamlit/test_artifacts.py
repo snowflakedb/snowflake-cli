@@ -5,8 +5,11 @@ import pytest
 
 from tests.streamlit.streamlit_test_class import StreamlitTestClass
 
-BUNDLE_ROOT = Path("output") / "bundle" / "streamlit"
-STREAMLIT_NAME = "test_streamlit"
+STREAMLIT_FILES = [
+    "streamlit_app.py",
+    "pages/my_page.py",
+    "environment.yml",
+]
 
 ALL_PATHS = [
     {"local": Path("src") / "app.py", "stage": "/src"},
@@ -16,7 +19,7 @@ ALL_PATHS = [
     },
 ]
 
-@pytest.mark.skip
+
 class TestArtifacts(StreamlitTestClass):
     @pytest.mark.parametrize(
         "artifacts, paths",
@@ -95,21 +98,27 @@ class TestArtifacts(StreamlitTestClass):
             ),
         ],
     )
-    def test_deploy_with_artifacts(self, artifacts, paths, setup):
-        streamlit_files = [
-            "streamlit_app.py",
-            "pages/my_page.py",
-            "environment.yml",
-        ]
+    def test_deploy_with_artifacts(
+        self,
+        artifacts,
+        paths,
+        project_directory,
+        alter_snowflake_yml,
+        runner,
+        mock_streamlit_ctx,
+    ):
 
-        with self.project_directory("glob_patterns") as tmp:
-            self.alter_snowflake_yml(
+        self.mock_connector.return_value = mock_streamlit_ctx
+        self.mock_conn.execute_string.return_value = mock_streamlit_ctx
+
+        with project_directory("glob_patterns") as tmp:
+            alter_snowflake_yml(
                 tmp / "snowflake.yml",
                 "entities.my_streamlit.artifacts",
-                streamlit_files + [artifacts],
+                STREAMLIT_FILES + [artifacts],
             )
 
-            result = self.runner.invoke(
+            result = runner.invoke(
                 [
                     "streamlit",
                     "deploy",
@@ -119,7 +128,7 @@ class TestArtifacts(StreamlitTestClass):
             assert result.exit_code == 0, result.output
 
             self._assert_that_exactly_those_files_were_put_to_stage(
-                streamlit_files + paths
+                STREAMLIT_FILES + paths, streamlit_name="test_streamlit_deploy_snowcli"
             )
 
     @pytest.mark.parametrize(
@@ -164,24 +173,30 @@ class TestArtifacts(StreamlitTestClass):
             ),
         ],
     )
-    def test_deploy_with_artifacts_from_other_directory(self, artifacts, paths, setup):
-        streamlit_files = [
-            "streamlit_app.py",
-            "pages/my_page.py",
-            "environment.yml",
-        ]
+    def test_deploy_with_artifacts_from_other_directory(
+        self,
+        artifacts,
+        paths,
+        runner,
+        project_directory,
+        alter_snowflake_yml,
+        mock_streamlit_ctx,
+    ):
+        self.mock_connector.return_value = mock_streamlit_ctx
+        self.mock_conn.execute_string.return_value = mock_streamlit_ctx
 
-        with self.project_directory("glob_patterns") as tmp:
+        with project_directory("glob_patterns") as tmp:
             os.chdir(Path(os.getcwd()).parent)
-            self.alter_snowflake_yml(
+            alter_snowflake_yml(
                 tmp / "snowflake.yml",
                 "entities.my_streamlit.artifacts",
-                streamlit_files + [artifacts],
+                STREAMLIT_FILES + [artifacts],
             )
 
-            result = self.runner.invoke(["streamlit", "deploy", "-p", tmp, "--replace"])
+            result = runner.invoke(["streamlit", "deploy", "-p", tmp, "--replace"])
             assert result.exit_code == 0, result.output
 
             self._assert_that_exactly_those_files_were_put_to_stage(
-                put_files=streamlit_files + paths, project_root=tmp
+                put_files=STREAMLIT_FILES + paths,
+                streamlit_name="test_streamlit_deploy_snowcli",
             )

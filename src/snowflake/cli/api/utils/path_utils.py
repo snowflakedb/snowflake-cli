@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 from snowflake.cli.api.secure_path import SecurePath
@@ -58,3 +59,13 @@ def resolve_without_follow(path: Path) -> Path:
     symlinks like Path.resolve() does.
     """
     return Path(os.path.abspath(path))
+
+
+@contextmanager
+def change_directory(new_directory):
+    original_directory = os.getcwd()
+    try:
+        os.chdir(new_directory)
+        yield
+    finally:
+        os.chdir(original_directory)

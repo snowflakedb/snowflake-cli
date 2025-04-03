@@ -99,16 +99,14 @@ def test_dependencies_basic(basic_workspace):
     assert result[2].entity_id == "test_procedure"
 
 
-@mock.patch(EXECUTE_QUERY)
 @pytest.mark.skip(
-    reason="Rewriting this test would require multiple mocks. Candidate for refactoring"
+    reason="With switch to entites, this test would require multiple mocks. Move to integration"
 )
+@mock.patch(EXECUTE_QUERY)
 def test_deploy_with_dependencies(mock_execute, basic_workspace):
     with mock_config_key("enable_native_app_children", True):
         entity, action_ctx = basic_workspace
-        entity.perform(
-            EntityActions.DEPLOY, action_ctx, _open=False, replace=False, prune=False
-        )
+        entity.perform(EntityActions.DEPLOY, action_ctx, _open=False, replace=False)
 
     assert mock_execute.call_count == 4
     assert "IDENTIFIER('test_function2')" in mock_execute.call_args_list[0][0][0]

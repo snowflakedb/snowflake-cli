@@ -148,7 +148,7 @@ def test_executing_command_sends_telemetry_result_data(
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.streamlit.commands.StreamlitEntity")
 def test_executing_command_sends_project_definition_in_telemetry_data(
-    _, mock_conn, project_directory, runner
+    mock_entity, mock_conn, project_directory, runner
 ):
     with project_directory("streamlit_full_definition"):
         result = runner.invoke(["streamlit", "deploy"])
@@ -159,6 +159,7 @@ def test_executing_command_sends_project_definition_in_telemetry_data(
         0
     ].to_dict()
     assert actual_call["message"]["project_definition_version"] == "1"
+    mock_entity.stop()
 
 
 @mock.patch("snowflake.connector.connect")

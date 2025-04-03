@@ -124,7 +124,7 @@ def test_valid_children():
     "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._get_identifier",
     return_value="IDENTIFIER('v_schema.my_streamlit')",
 )
-def test_children_bundle_with_custom_dir(mock_identifier, project_directory):
+def test_children_bundle_with_custom_dir(mock_id, project_directory):
     with mock_config_key("enable_native_app_children", True):
         app_pkg, action_ctx = _get_app_pkg_entity(project_directory)
         bundle_result = app_pkg.action_bundle(action_ctx)

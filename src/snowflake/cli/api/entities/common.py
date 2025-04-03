@@ -1,4 +1,5 @@
 import functools
+import logging
 from pathlib import Path
 from typing import Generic, Optional, Type, TypeVar, get_args
 
@@ -9,12 +10,15 @@ from snowflake.cli.api.entities.resolver import DependencyResolver
 from snowflake.cli.api.entities.utils import EntityActions, get_sql_executor
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutor
+from snowflake.cli.api.utils.path_utils import change_directory
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.core import CreateMode
 from snowflake.core.stage import Stage, StageEncryption, StageResource
 
 T = TypeVar("T")
+
+log = logging.getLogger(__name__)
 
 
 def attach_spans_to_entity_actions(entity_name: str):
@@ -178,23 +182,24 @@ class EntityBase(Generic[T]):
         bundle_map: BundleMap,
         stage_root: Optional[str] = None,
     ):
-        for src, dest in bundle_map.all_mappings(
-            absolute=False, expand_directories=True
-        ):
-            absolute_src = self._workspace_ctx.project_root / src
-            if absolute_src.is_file():
-                stage_dest = (
-                    f"{stage_root}/{dest}"
-                    if stage_root
-                    else f"/{self.fqn.name}/{get_parent_path(dest)}"
-                )
-                stage.put(
-                    local_file_name=absolute_src,
-                    stage_location=stage_dest,
-                    overwrite=True,
-                    auto_compress=False,
-                )
+        with change_directory(self.root):
+            for src, dest in bundle_map.all_mappings(
+                absolute=True, expand_directories=True
+            ):
+                if src.is_file():
+                    upload_dst = (
+                        f"{stage_root}/{dest.relative_to(self.root)}"
+                        if stage_root
+                        else f"/{self.fqn.name}/{get_parent_path(dest.relative_to(bundle_map.deploy_root()))}"
+                    )
+
+                    stage.put(
+                        local_file_name=src.relative_to(self.root),
+                        stage_location=upload_dst,
+                        overwrite=True,
+                        auto_compress=False,
+                    )
 
 
 def get_parent_path(path: Path) -> str:
-    return "" if path.parent == Path(".") else str(path.parent)
+    return "/".join(path.parent.parts) if path.parent != Path(".") else ""
