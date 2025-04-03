@@ -6333,8 +6333,8 @@
                                                                                   
    Usage: root project create [OPTIONS] [ENTITY_ID]                               
                                                                                   
-   Creates a project in snowflake and initializes it with a new version created   
-   from local files.                                                              
+   Creates a project in snowflake. By default, the project is initialised with a  
+   new version created from local files.                                          
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   entity_id      [ENTITY_ID]  ID of project entity.                          |
@@ -6343,8 +6343,6 @@
   +- Options --------------------------------------------------------------------+
   | --no-version                Do not initialize project with a new version,    |
   |                             only create the snowflake object.                |
-  | --prune                     Delete files that exist in the stage, but not in |
-  |                             the local filesystem.                            |
   | --project     -p      TEXT  Path where the Snowflake project is stored.      |
   |                             Defaults to the current working directory.       |
   | --env                 TEXT  String in the format key=value. Overrides        |
@@ -6852,8 +6850,8 @@
   +- Commands -------------------------------------------------------------------+
   | add-version     Uploads local files to Snowflake and cerates a new project   |
   |                 version.                                                     |
-  | create          Creates a project in snowflake and initializes it with a new |
-  |                 version created from local files.                            |
+  | create          Creates a project in snowflake. By default, the project is   |
+  |                 initialised with a new version created from local files.     |
   | dry-run         Validates a project.                                         |
   | execute         Executes a project.                                          |
   | list            Lists all available projects.                                |
@@ -14240,8 +14238,8 @@
   +- Commands -------------------------------------------------------------------+
   | add-version     Uploads local files to Snowflake and cerates a new project   |
   |                 version.                                                     |
-  | create          Creates a project in snowflake and initializes it with a new |
-  |                 version created from local files.                            |
+  | create          Creates a project in snowflake. By default, the project is   |
+  |                 initialised with a new version created from local files.     |
   | dry-run         Validates a project.                                         |
   | execute         Executes a project.                                          |
   | list            Lists all available projects.                                |

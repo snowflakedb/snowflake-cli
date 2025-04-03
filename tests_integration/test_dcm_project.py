@@ -36,14 +36,17 @@ def _assert_project_has_versions(
 @pytest.mark.qa_only
 def test_project_deploy(
     runner,
-    snowflake_session,
     test_database,
     project_directory,
 ):
     project_name = "my_project"
     with project_directory("dcm_project"):
-        result = runner.invoke_with_connection_json(["project", "create"])
+        result = runner.invoke_with_connection(["project", "create"])
         assert result.exit_code == 0, result.output
+        assert (
+            "Project 'my_project' successfully created and initial version is added."
+            in result.output
+        )
         # project should be initialized with a version
         _assert_project_has_versions(
             runner, project_name, expected_versions={("VERSION$1", None)}
@@ -91,7 +94,6 @@ def test_project_deploy(
 @pytest.mark.qa_only
 def test_create_corner_cases(
     runner,
-    snowflake_session,
     test_database,
     project_directory,
 ):
@@ -127,7 +129,6 @@ def test_create_corner_cases(
 @pytest.mark.qa_only
 def test_project_add_version(
     runner,
-    snowflake_session,
     test_database,
     project_directory,
 ):
@@ -141,12 +142,14 @@ def test_project_add_version(
             ["project", "create", "--no-version"]
         )
         assert result.exit_code == 0, result.output
+        assert f"Project '{project_name}' successfully created." in result.output
         # project should not be initialized with a new version due to --no-version flag
         _assert_project_has_versions(runner, project_name, expected_versions=set())
 
         # add version from local files
         result = runner.invoke_with_connection(["project", "add-version"])
         assert result.exit_code == 0, result.output
+        assert f"New project version added to project '{project_name}'" in result.output
         _assert_project_has_versions(
             runner, project_name, expected_versions={("VERSION$1", None)}
         )
@@ -170,11 +173,11 @@ def test_project_add_version(
         assert result.exit_code == 0, result.output
 
         # create a new version of the project
-        result = runner.invoke_with_connection_json(
+        result = runner.invoke_with_connection(
             [
                 "project",
                 "add-version",
-                "my_project",
+                project_name,
                 "--from",
                 f"@{other_stage_name}",
                 "--alias",
@@ -182,6 +185,10 @@ def test_project_add_version(
             ]
         )
         assert result.exit_code == 0, result.output
+        assert (
+            f"New project version 'v2' added to project '{project_name}'"
+            in result.output
+        )
         _assert_project_has_versions(
             runner, project_name, {("VERSION$1", None), ("VERSION$2", "v2")}
         )

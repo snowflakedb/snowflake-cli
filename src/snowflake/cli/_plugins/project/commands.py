@@ -121,7 +121,8 @@ def create(
     **options,
 ):
     """
-    Creates a project in snowflake and initializes it with a new version created from local files.
+    Creates a project in snowflake.
+    By default, the project is initialised with a new version created from local files.
     """
     cli_context = get_cli_context()
     project: ProjectEntityModel = get_entity_for_operation(
@@ -139,15 +140,14 @@ def create(
         raise ClickException(f"Stage '{project.stage}' already exists.")
 
     pm = ProjectManager()
-    with cli_console.phase("Creating project (if not exists)"):
-        result = pm.create(project.fqn)
-
+    with cli_console.phase(f"Creating project '{project.fqn}'"):
+        pm.create(project.fqn)
     if no_version:
-        return QueryResult(result)
+        return MessageResult(f"Project '{project.fqn}' successfully created.")
 
     pm.add_version(project=project)
     return MessageResult(
-        f"Project {project.fqn} successfully created and initial version is added."
+        f"Project '{project.fqn}' successfully created and initial version is added."
     )
 
 
@@ -180,9 +180,9 @@ def add_version(
         alias=_alias,
         comment=comment,
     )
-    alias_str = "" if _alias is None else f"{_alias} "
+    alias_str = "" if _alias is None else f"'{_alias}' "
     return MessageResult(
-        f"New project version {alias_str}added to project {project.fqn}"
+        f"New project version {alias_str}added to project '{project.fqn}'"
     )
 
 
