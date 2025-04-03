@@ -6333,7 +6333,7 @@
                                                                                   
    Usage: root project create [OPTIONS] [ENTITY_ID]                               
                                                                                   
-   Creates a project in snowflake. By default, the project is initialized with a  
+   Creates a project in Snowflake. By default, the project is initialized with a  
    new version created from local files.                                          
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -6850,7 +6850,7 @@
   +- Commands -------------------------------------------------------------------+
   | add-version     Uploads local files to Snowflake and cerates a new project   |
   |                 version.                                                     |
-  | create          Creates a project in snowflake. By default, the project is   |
+  | create          Creates a project in Snowflake. By default, the project is   |
   |                 initialized with a new version created from local files.     |
   | dry-run         Validates a project.                                         |
   | execute         Executes a project.                                          |
@@ -14238,7 +14238,7 @@
   +- Commands -------------------------------------------------------------------+
   | add-version     Uploads local files to Snowflake and cerates a new project   |
   |                 version.                                                     |
-  | create          Creates a project in snowflake. By default, the project is   |
+  | create          Creates a project in Snowflake. By default, the project is   |
   |                 initialized with a new version created from local files.     |
   | dry-run         Validates a project.                                         |
   | execute         Executes a project.                                          |
