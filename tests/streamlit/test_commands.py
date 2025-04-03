@@ -24,13 +24,13 @@ TEST_WAREHOUSE = "test_warehouse"
 
 
 class TestStreamlitCommands(StreamlitTestClass):
-    def test_list_streamlit(self):
+    def test_list_streamlit(self, setup):
         result = self.runner.invoke(["object", "list", "streamlit"])
 
         assert result.exit_code == 0, result.output
         assert self.ctx.get_query() == "show streamlits like '%%'"
 
-    def test_describe_streamlit(self):
+    def test_describe_streamlit(self, setup):
         result = self.runner.invoke(["object", "describe", "streamlit", STREAMLIT_NAME])
 
         assert result.exit_code == 0, result.output
@@ -39,10 +39,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         ]
 
     @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
-    def test_deploy_only_streamlit_file(
-        self,
-        mock_typer,
-    ):
+    def test_deploy_only_streamlit_file(self, mock_typer, setup):
         with self.project_directory("example_streamlit") as tmp_dir:
             (tmp_dir / "environment.yml").unlink()
             shutil.rmtree(tmp_dir / "pages")
@@ -72,10 +69,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         mock_typer.launch.assert_not_called()
 
     @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
-    def test_deploy_only_streamlit_file_no_stage(
-        self,
-        mock_typer,
-    ):
+    def test_deploy_only_streamlit_file_no_stage(self, mock_typer, setup):
         with self.project_directory("example_streamlit_no_stage") as tmp_dir:
             (tmp_dir / "environment.yml").unlink()
             shutil.rmtree(tmp_dir / "pages")
@@ -103,9 +97,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         )
         mock_typer.launch.assert_not_called()
 
-    def test_deploy_with_empty_pages(
-        self,
-    ):
+    def test_deploy_with_empty_pages(self, setup):
         with self.project_directory("streamlit_empty_pages") as tmp_dir:
             (tmp_dir / "pages").mkdir(parents=True, exist_ok=True)
             result = self.runner.invoke(["streamlit", "deploy"])
@@ -130,10 +122,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         )
 
     @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
-    def test_deploy_only_streamlit_file_replace(
-        self,
-        mock_typer,
-    ):
+    def test_deploy_only_streamlit_file_replace(self, mock_typer, setup):
         with self.project_directory("example_streamlit") as tmp_dir:
             (tmp_dir / "environment.yml").unlink()
             shutil.rmtree(tmp_dir / "pages")
@@ -165,11 +154,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         "project_name", ["example_streamlit_v2", "example_streamlit"]
     )
     @mock.patch("snowflake.cli._plugins.streamlit.commands.typer")
-    def test_deploy_launch_browser(
-        self,
-        mock_typer,
-        project_name,
-    ):
+    def test_deploy_launch_browser(self, mock_typer, project_name, setup):
         with self.project_directory(project_name):
             result = self.runner.invoke(["streamlit", "deploy", "--open"])
 
@@ -182,7 +167,7 @@ class TestStreamlitCommands(StreamlitTestClass):
     @pytest.mark.parametrize(
         "project_name", ["example_streamlit_v2", "example_streamlit"]
     )
-    def test_deploy_streamlit_and_environment_files(self, project_name):
+    def test_deploy_streamlit_and_environment_files(self, project_name, setup):
         with self.project_directory(project_name) as tmp_dir:
             shutil.rmtree(tmp_dir / "pages")
             if project_name == "example_streamlit_v2":
@@ -216,10 +201,7 @@ class TestStreamlitCommands(StreamlitTestClass):
     @pytest.mark.parametrize(
         "project_name", ["example_streamlit_v2", "example_streamlit"]
     )
-    def test_deploy_streamlit_and_pages_files(
-        self,
-        project_name,
-    ):
+    def test_deploy_streamlit_and_pages_files(self, project_name, setup):
         with self.project_directory(project_name) as tmp_dir:
             (tmp_dir / "environment.yml").unlink()
             if project_name == "example_streamlit_v2":
@@ -252,10 +234,7 @@ class TestStreamlitCommands(StreamlitTestClass):
     @pytest.mark.parametrize(
         "project_name", ["streamlit_full_definition_v2", "streamlit_full_definition"]
     )
-    def test_deploy_all_streamlit_files(
-        self,
-        project_name,
-    ):
+    def test_deploy_all_streamlit_files(self, project_name, setup):
         with self.project_directory(project_name) as tmp_dir:
             result = self.runner.invoke(["streamlit", "deploy"])
 
@@ -304,11 +283,7 @@ class TestStreamlitCommands(StreamlitTestClass):
             ("example_streamlit", {"streamlit": {"stage": "streamlit_stage"}}),
         ],
     )
-    def test_deploy_put_files_on_stage(
-        self,
-        project_name,
-        merge_definition,
-    ):
+    def test_deploy_put_files_on_stage(self, project_name, merge_definition, setup):
         with self.project_directory(
             project_name,
             merge_project_definition=merge_definition,
@@ -339,10 +314,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         "project_name",
         ["example_streamlit_no_defaults", "example_streamlit_no_defaults_v2"],
     )
-    def test_deploy_all_streamlit_files_not_defaults(
-        self,
-        project_name,
-    ):
+    def test_deploy_all_streamlit_files_not_defaults(self, project_name, setup):
         with self.project_directory(project_name) as tmp_dir:
             result = self.runner.invoke(["streamlit", "deploy"])
 
@@ -380,6 +352,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         enable_streamlit_versioned_stage,
         enable_streamlit_no_checkouts,
         project_name,
+        setup,
     ):
         with (
             mock.patch(
@@ -443,9 +416,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         "project_name", ["example_streamlit", "example_streamlit_v2"]
     )
     def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
-        self,
-        mock_cursor,
-        project_name,
+        self, mock_cursor, project_name, setup
     ):
         with self.project_directory(project_name) as pdir:
             if project_name == "example_streamlit_v2":
@@ -503,9 +474,7 @@ class TestStreamlitCommands(StreamlitTestClass):
     )
     @pytest.mark.parametrize("enable_streamlit_versioned_stage", [True, False])
     def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
-        self,
-        enable_streamlit_versioned_stage,
-        project_name,
+        self, enable_streamlit_versioned_stage, project_name, setup
     ):
         with mock.patch(
             "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled",
@@ -542,8 +511,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         "project_name", ["example_streamlit", "example_streamlit_v2"]
     )
     def test_deploy_streamlit_main_and_pages_files_experimental_replace(
-        self,
-        project_name,
+        self, project_name, setup
     ):
 
         with self.project_directory(project_name) as tmp_dir:
@@ -576,7 +544,7 @@ class TestStreamlitCommands(StreamlitTestClass):
             ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
         )
 
-    def test_share_streamlit(self):
+    def test_share_streamlit(self, setup):
         role = "other_role"
 
         result = self.runner.invoke(["streamlit", "share", STREAMLIT_NAME, role])
@@ -587,14 +555,14 @@ class TestStreamlitCommands(StreamlitTestClass):
             == f"grant usage on streamlit IDENTIFIER('{STREAMLIT_NAME}') to role {role}"
         )
 
-    def test_drop_streamlit(self):
+    def test_drop_streamlit(self, setup):
 
         result = self.runner.invoke(["object", "drop", "streamlit", STREAMLIT_NAME])
 
         assert result.exit_code == 0, result.output
         assert self.ctx.get_query() == f"drop streamlit IDENTIFIER('{STREAMLIT_NAME}')"
 
-    def test_get_streamlit_url(self):
+    def test_get_streamlit_url(self, setup):
         result = self.runner.invoke(["streamlit", "get-url", STREAMLIT_NAME])
 
         assert result.exit_code == 0, result.output
@@ -609,7 +577,7 @@ class TestStreamlitCommands(StreamlitTestClass):
             ("drop", ["NAME"]),
         ],
     )
-    def test_command_aliases(self, command, parameters):
+    def test_command_aliases(self, command, parameters, setup):
         result = self.runner.invoke(["object", command, "streamlit", *parameters])
         assert result.exit_code == 0, result.output
 
@@ -622,7 +590,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         assert queries[0] == queries[1]
 
     @pytest.mark.parametrize("entity_id", ["app_1", "app_2"])
-    def test_selecting_streamlit_from_pdf(self, entity_id):
+    def test_selecting_streamlit_from_pdf(self, entity_id, setup):
 
         with self.project_directory("example_streamlit_multiple_v2"):
             result = self.runner.invoke(["streamlit", "deploy", entity_id, "--replace"])
@@ -644,7 +612,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         )
 
     def test_multiple_streamlit_raise_error_if_multiple_entities(
-        self, os_agnostic_snapshot
+        self, os_agnostic_snapshot, setup
     ):
         with self.project_directory("example_streamlit_multiple_v2"):
             result = self.runner.invoke(["streamlit", "deploy"])
@@ -652,7 +620,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         assert result.exit_code == 2, result.output
         assert result.output.strip() == os_agnostic_snapshot
 
-    def test_deploy_streamlit_with_comment_v2(self):
+    def test_deploy_streamlit_with_comment_v2(self, setup):
         with self.project_directory("example_streamlit_with_comment_v2") as tmp_dir:
             result = self.runner.invoke(["streamlit", "deploy", "--replace"])
 
@@ -677,7 +645,7 @@ class TestStreamlitCommands(StreamlitTestClass):
             streamlit_name="test_streamlit_deploy_snowcli",
         )
 
-    def test_execute_streamlit(self):
+    def test_execute_streamlit(self, setup):
         result = self.runner.invoke(["streamlit", "execute", STREAMLIT_NAME])
 
         assert result.exit_code == 0, result.output

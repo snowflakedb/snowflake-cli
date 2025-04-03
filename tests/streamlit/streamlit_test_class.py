@@ -16,9 +16,15 @@ STREAMLIT_NAME = "test_streamlit"
 
 
 class StreamlitTestClass:
-    @pytest.fixture(autouse=True, scope="function")
+    @pytest.fixture(scope="function")
     def setup(
-        self, mock_ctx, mock_cursor, project_directory, alter_snowflake_yml, runner
+        self,
+        mock_ctx,
+        mock_cursor,
+        project_directory,
+        alter_snowflake_yml,
+        runner,
+        request,
     ):
         self.ctx = mock_ctx(
             mock_cursor(
@@ -66,9 +72,7 @@ class StreamlitTestClass:
         self.alter_snowflake_yml = alter_snowflake_yml
         self.runner = runner
 
-        yield
-
-        mock.patch.stopall()
+        request.addfinalizer(mock.patch.stopall)
 
     def _assert_that_exactly_those_files_were_put_to_stage(
         self,

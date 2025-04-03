@@ -95,11 +95,7 @@ class TestArtifacts(StreamlitTestClass):
             ),
         ],
     )
-    def test_deploy_with_artifacts(
-        self,
-        artifacts,
-        paths,
-    ):
+    def test_deploy_with_artifacts(self, artifacts, paths, setup):
         streamlit_files = [
             "streamlit_app.py",
             "pages/my_page.py",
@@ -168,11 +164,7 @@ class TestArtifacts(StreamlitTestClass):
             ),
         ],
     )
-    def test_deploy_with_artifacts_from_other_directory(
-        self,
-        artifacts,
-        paths,
-    ):
+    def test_deploy_with_artifacts_from_other_directory(self, artifacts, paths, setup):
         streamlit_files = [
             "streamlit_app.py",
             "pages/my_page.py",
