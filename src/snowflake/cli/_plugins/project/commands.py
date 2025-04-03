@@ -121,7 +121,7 @@ def create(
     **options,
 ):
     """
-    Creates a project in snowflake.
+    Creates a project in Snowflake.
     By default, the project is initialized with a new version created from local files.
     """
     cli_context = get_cli_context()
