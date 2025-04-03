@@ -6,7 +6,7 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import StreamlitEnt
 from snowflake.cli.api.identifiers import FQN
 
 mock_streamlit_exists = mock.patch(
-    "snowflake.cli._plugins.streamlit.manager.ObjectManager.object_exists",
+    "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists",
     lambda _, **kwargs: False,
 )
 
