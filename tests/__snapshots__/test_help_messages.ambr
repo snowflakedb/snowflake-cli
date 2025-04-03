@@ -6333,7 +6333,7 @@
                                                                                   
    Usage: root project create [OPTIONS] [ENTITY_ID]                               
                                                                                   
-   Creates a project in snowflake. By default, the project is initialised with a  
+   Creates a project in snowflake. By default, the project is initialized with a  
    new version created from local files.                                          
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -6851,7 +6851,7 @@
   | add-version     Uploads local files to Snowflake and cerates a new project   |
   |                 version.                                                     |
   | create          Creates a project in snowflake. By default, the project is   |
-  |                 initialised with a new version created from local files.     |
+  |                 initialized with a new version created from local files.     |
   | dry-run         Validates a project.                                         |
   | execute         Executes a project.                                          |
   | list            Lists all available projects.                                |
@@ -14239,7 +14239,7 @@
   | add-version     Uploads local files to Snowflake and cerates a new project   |
   |                 version.                                                     |
   | create          Creates a project in snowflake. By default, the project is   |
-  |                 initialised with a new version created from local files.     |
+  |                 initialized with a new version created from local files.     |
   | dry-run         Validates a project.                                         |
   | execute         Executes a project.                                          |
   | list            Lists all available projects.                                |

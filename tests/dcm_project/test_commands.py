@@ -4,14 +4,17 @@ import pytest
 from snowflake.cli.api.identifiers import FQN
 
 ProjectManager = "snowflake.cli._plugins.project.commands.ProjectManager"
+ObjectManager = "snowflake.cli._plugins.project.commands.ObjectManager"
 get_entity_for_operation = (
     "snowflake.cli._plugins.project.commands.get_entity_for_operation"
 )
 
 
 @mock.patch(ProjectManager)
+@mock.patch(ObjectManager)
 @pytest.mark.parametrize("no_version", [False, True])
-def test_create(mock_pm, runner, project_directory, no_version):
+def test_create(mock_om, mock_pm, runner, project_directory, no_version):
+    mock_om().object_exists.return_value = False
     with project_directory("dcm_project"):
         command = ["project", "create"]
         if no_version:
@@ -102,7 +105,6 @@ def test_validate_project(mock_pm, runner, project_directory):
 
 
 def test_list_command_alias(mock_connect, runner):
-
     result = runner.invoke(
         [
             "object",
