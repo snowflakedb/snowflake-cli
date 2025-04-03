@@ -11,8 +11,8 @@
 # ---
 # name: test_deploy_from_project_definition_multiple_compute_pools
   '''
-  Usage: default spcs compute-pool deploy [OPTIONS] [ENTITY_ID]
-  Try 'default spcs compute-pool deploy --help' for help.
+  Usage: root spcs compute-pool deploy [OPTIONS] [ENTITY_ID]
+  Try 'root spcs compute-pool deploy --help' for help.
   +- Error ----------------------------------------------------------------------+
   | Multiple compute pools found. Please provide entity id for the operation.    |
   +------------------------------------------------------------------------------+
@@ -20,16 +20,6 @@
   '''
 # ---
 # name: test_deploy_from_project_definition_multiple_compute_pools_with_entity_id
-  '''
-  +---------------------------------------------------------------+
-  | key    | value                                                |
-  |--------+------------------------------------------------------|
-  | status | Compute pool TEST_COMPUTE_POOL successfully created. |
-  +---------------------------------------------------------------+
-  
-  '''
-# ---
-# name: test_deploy_from_project_definition_replace
   '''
   +---------------------------------------------------------------+
   | key    | value                                                |
