@@ -20,7 +20,6 @@ from functools import partial
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
-from click import ClickException, UsageError
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli._plugins.sql.source_reader import (
     compile_statements,
@@ -28,6 +27,7 @@ from snowflake.cli._plugins.sql.source_reader import (
     query_reader,
 )
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.exceptions import CliArgumentError, CliSqlError
 from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin, VerboseCursor
@@ -69,17 +69,17 @@ class SqlManager(SqlExecutionMixin):
             secured_files = [SecurePath(f) for f in files]
             stmt_reader = files_reader(secured_files, stmt_operators, remove_comments)
         else:
-            raise UsageError("Use either query, filename or input option.")
+            raise CliArgumentError("Use either query, filename or input option.")
 
         errors, stmt_count, compiled_statements = compile_statements(stmt_reader)
         if not any((errors, stmt_count, compiled_statements)):
-            raise UsageError("Use either query, filename or input option.")
+            raise CliArgumentError("Use either query, filename or input option.")
 
         if errors:
             for error in errors:
                 logger.info("Statement compilation error: %s", error)
                 cli_console.warning(error)
-            raise ClickException("SQL rendering error")
+            raise CliSqlError("SQL rendering error")
 
         is_single_statement = not (stmt_count > 1)
         return is_single_statement, self.execute_string(

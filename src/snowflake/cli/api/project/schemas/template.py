@@ -19,7 +19,7 @@ from typing import Any, List, Literal, Optional, Union
 import typer
 from click import ClickException
 from pydantic import BaseModel, Field
-from snowflake.cli.api.exceptions import InvalidTemplate
+from snowflake.cli.api.exceptions import InvalidTemplateError
 from snowflake.cli.api.secure_path import SecurePath
 
 
@@ -68,10 +68,10 @@ class Template(BaseModel):
         for path_in_template in self.files_to_render:
             full_path = template_root / path_in_template
             if not full_path.exists():
-                raise InvalidTemplate(
+                raise InvalidTemplateError(
                     f"[files_to_render] contains not-existing file: {path_in_template}"
                 )
             if full_path.is_dir():
-                raise InvalidTemplate(
+                raise InvalidTemplateError(
                     f"[files_to_render] contains a dictionary: {path_in_template}"
                 )

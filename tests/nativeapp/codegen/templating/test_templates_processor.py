@@ -25,7 +25,7 @@ from snowflake.cli._plugins.nativeapp.codegen.templates.templates_processor impo
     TemplatesProcessor,
 )
 from snowflake.cli._plugins.nativeapp.exceptions import InvalidTemplateInFileError
-from snowflake.cli.api.exceptions import InvalidTemplate
+from snowflake.cli.api.exceptions import InvalidTemplateError
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 
 from tests.nativeapp.utils import (
@@ -177,7 +177,7 @@ def test_templates_with_sql_both_old_and_new_syntax():
         bundle_result = bundle_files(tmp_dir, file_names, file_contents)
         templates_processor = TemplatesProcessor(bundle_ctx=bundle_result.bundle_ctx)
 
-        with pytest.raises(InvalidTemplate) as e:
+        with pytest.raises(InvalidTemplateError) as e:
             templates_processor.process(bundle_result.artifact_to_process, None)
 
         assert "mixes &{ ... } syntax and <% ... %> syntax." in str(e.value)

@@ -25,7 +25,7 @@ from snowflake.cli.api.config import (
     get_config_value,
     get_plugins_config,
 )
-from snowflake.cli.api.exceptions import InvalidPluginConfiguration
+from snowflake.cli.api.exceptions import InvalidPluginConfigurationError
 
 
 @dataclass
@@ -66,6 +66,6 @@ class PluginConfigProvider:
 
 def _assert_value_is_bool(value, *, value_name: str, plugin_name: str) -> None:
     if type(value) is not bool:
-        raise InvalidPluginConfiguration(
+        raise InvalidPluginConfigurationError(
             f'[{plugin_name}]: "{value_name}" must be a boolean'
         )

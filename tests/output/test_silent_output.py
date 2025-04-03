@@ -35,12 +35,11 @@ def test_silent_in_global_context(
     assert get_cli_context().silent is expected_value
 
 
-def test_silent_output_help(runner):
+def test_silent_output_help(runner, snapshot):
     result = runner.invoke(["streamlit", "get-url", "--help"], catch_exceptions=False)
 
     assert result.exit_code == 0, result.output
-    expected_message = "Turns off intermediate output to console"
-    assert expected_message in result.output, result.output
+    snapshot.assert_match(result.output)
 
 
 def test_proper_context_values_for_silent(runner):

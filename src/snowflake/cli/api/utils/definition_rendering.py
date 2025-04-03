@@ -21,7 +21,7 @@ from jinja2 import Environment, TemplateSyntaxError, nodes
 from packaging.version import Version
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplate
+from snowflake.cli.api.exceptions import CycleDetectedError, InvalidTemplateError
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.project_definition import (
     ProjectProperties,
@@ -60,7 +60,7 @@ class TemplatedEnvironment:
         try:
             ast = self._jinja_env.parse(template_str)
         except TemplateSyntaxError as e:
-            raise InvalidTemplate(
+            raise InvalidTemplateError(
                 f"Error parsing template from project definition file. Value: '{template_str}'. Error: {e}"
             ) from e
 
@@ -98,7 +98,9 @@ class TemplatedEnvironment:
             )
             or current_attr_chain is not None
         ):
-            raise InvalidTemplate(f"Unexpected template syntax in {template_value}")
+            raise InvalidTemplateError(
+                f"Unexpected template syntax in {template_value}"
+            )
 
         for child_node in ast_node.iter_child_nodes():
             all_referenced_vars.update(
@@ -182,16 +184,20 @@ class TemplateVar:
                 not isinstance(current_dict_level, dict)
                 or key not in current_dict_level
             ):
-                raise InvalidTemplate(f"Could not find template variable {self.key}")
+                raise InvalidTemplateError(
+                    f"Could not find template variable {self.key}"
+                )
             current_dict_level = current_dict_level[key]
 
         value = current_dict_level
 
         if value is None:
-            raise InvalidTemplate(f"Template variable {self.key} does not have a value")
+            raise InvalidTemplateError(
+                f"Template variable {self.key} does not have a value"
+            )
 
         if isinstance(value, (dict, list)):
-            raise InvalidTemplate(
+            raise InvalidTemplateError(
                 f"Template variable {self.key} does not have a scalar value"
             )
 
@@ -245,12 +251,12 @@ def _render_graph_node(env: TemplatedEnvironment, node: Node[TemplateVar]) -> No
 
 def _validate_env_section(env_section: dict):
     if not isinstance(env_section, dict):
-        raise InvalidTemplate(
+        raise InvalidTemplateError(
             "env section in project definition file should be a mapping"
         )
     for variable, value in env_section.items():
         if value is None or isinstance(value, (dict, list)):
-            raise InvalidTemplate(
+            raise InvalidTemplateError(
                 f"Variable {variable} in env section of project definition file should be a scalar"
             )
 

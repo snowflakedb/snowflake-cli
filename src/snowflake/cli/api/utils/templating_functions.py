@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any, List, Optional
 
-from snowflake.cli.api.exceptions import InvalidTemplate
+from snowflake.cli.api.exceptions import InvalidTemplateError
 from snowflake.cli.api.project.util import (
     concat_identifiers,
     get_env_username,
@@ -41,18 +41,18 @@ class TemplatingFunctions:
         max_count: Optional[int] = None,
     ):
         if min_count is not None and len(args) < min_count:
-            raise InvalidTemplate(
+            raise InvalidTemplateError(
                 f"{func_name} requires at least {min_count} argument(s)"
             )
 
         if max_count is not None and len(args) > max_count:
-            raise InvalidTemplate(
+            raise InvalidTemplateError(
                 f"{func_name} supports at most {max_count} argument(s)"
             )
 
         for arg in args:
             if not isinstance(arg, str):
-                raise InvalidTemplate(f"{func_name} only accepts String values")
+                raise InvalidTemplateError(f"{func_name} only accepts String values")
 
     @staticmethod
     def concat_ids(*args):

@@ -94,14 +94,18 @@
   |                                                 parameters.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format           [TABLE|JSON]  Specifies the output format.                |
-  |                                  [default: TABLE]                            |
-  | --verbose  -v                    Displays log entries for log levels info    |
-  |                                  and higher.                                 |
-  | --debug                          Displays log entries for log levels debug   |
-  |                                  and higher; debug logs contain additional   |
-  |                                  information.                                |
-  | --silent                         Turns off intermediate output to console.   |
+  | --format                       [TABLE|JSON]  Specifies the output format.    |
+  |                                              [default: TABLE]                |
+  | --verbose              -v                    Displays log entries for log    |
+  |                                              levels info and higher.         |
+  | --debug                                      Displays log entries for log    |
+  |                                              levels debug and higher; debug  |
+  |                                              logs contain additional         |
+  |                                              information.                    |
+  | --silent                                     Turns off intermediate output   |
+  |                                              to console.                     |
+  | --enhanced-exit-codes                        Differentiate exit error codes  |
+  |                                              based on failure type.          |
   +------------------------------------------------------------------------------+
   
   

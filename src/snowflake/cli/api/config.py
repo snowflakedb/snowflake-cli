@@ -26,7 +26,7 @@ import tomlkit
 from click import ClickException
 from snowflake.cli.api.exceptions import (
     ConfigFileTooWidePermissionsError,
-    MissingConfiguration,
+    MissingConfigurationError,
     UnsupportedConfigSectionTypeError,
 )
 from snowflake.cli.api.secure_path import SecurePath
@@ -252,7 +252,9 @@ def get_connection_dict(connection_name: str) -> dict:
     try:
         return get_config_section(CONNECTIONS_SECTION, connection_name)
     except KeyError:
-        raise MissingConfiguration(f"Connection {connection_name} is not configured")
+        raise MissingConfigurationError(
+            f"Connection {connection_name} is not configured"
+        )
 
 
 def get_default_connection_name() -> str:
@@ -262,7 +264,7 @@ def get_default_connection_name() -> str:
 def get_default_connection_dict() -> dict:
     def_connection_name = get_default_connection_name()
     if not connection_exists(def_connection_name):
-        raise MissingConfiguration(
+        raise MissingConfigurationError(
             f"Couldn't find connection for default connection `{def_connection_name}`. "
             f"Specify connection name or configure default connection."
         )
