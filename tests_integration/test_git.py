@@ -21,16 +21,13 @@ import tempfile
 
 from tests_integration.test_utils import contains_row_with
 
-FILE_IN_REPO = "RELEASE-NOTES.md"
+FILE_IN_REPO = "README.md"
 
 
-@pytest.fixture
-def sf_git_repository(runner, test_database):
+def _sf_git_repository(runner, origin_url: str) -> str:
     repo_name = "SNOWCLI_TESTING_REPO"
     integration_name = "SNOWCLI_TESTING_REPO_API_INTEGRATION"
-    communication = "\n".join(
-        ["https://github.com/snowflakedb/snowflake-cli.git", "n", integration_name, ""]
-    )
+    communication = "\n".join([origin_url, "n", integration_name, ""])
     result = runner.invoke_with_connection(
         ["git", "setup", repo_name], input=communication
     )
@@ -39,24 +36,18 @@ def sf_git_repository(runner, test_database):
     return repo_name
 
 
-@pytest.mark.integration
-def test_new_git_repo(runner, test_database):
-    repo_name = "SNOWCLI_TESTING_REPO"
-    integration_name = "SNOWCLI_TESTING_REPO_API_INTEGRATION"
-    communication = "\n".join(
-        [
-            "https://github.com/snowflakedb/homebrew-snowflake-cli.git",
-            "n",
-            integration_name,
-            "",
-        ]
+@pytest.fixture
+def sf_git_repository(runner, test_database):
+    # small repository, used for most tests
+    yield _sf_git_repository(
+        runner, "https://github.com/snowflakedb/homebrew-snowflake-cli.git"
     )
-    result = runner.invoke_with_connection(
-        ["git", "setup", repo_name], input=communication
-    )
-    assert result.exit_code == 0
-    assert f"Git Repository {repo_name} was successfully created." in result.output
-    # return repo_name
+
+
+@pytest.fixture
+def sf_git_this_repository(runner, test_database):
+    # this repository, used for execute tests
+    yield _sf_git_repository(runner, "https://github.com/snowflakedb/snowflake-cli.git")
 
 
 @pytest.mark.integration
@@ -83,10 +74,13 @@ def test_object_commands(runner, sf_git_repository):
 
 @pytest.mark.integration
 def test_fetch(runner, sf_git_repository):
-    result = runner.invoke_with_connection(["git", "fetch", sf_git_repository])
-    # we check only command's exit code, as checking its output would be flaky
-    # (the repository state changes often enough)
+    result = runner.invoke_with_connection_json(["git", "fetch", sf_git_repository])
     assert result.exit_code == 0, result.output
+    assert result.json == [
+        {
+            "status": "Git Repository SNOWCLI_TESTING_REPO is up to date. No change was fetched."
+        }
+    ]
 
 
 @pytest.mark.integration
@@ -100,37 +94,16 @@ def test_list_branches_and_tags(runner, sf_git_repository):
 
     # list tags
     result = runner.invoke_with_connection_json(
-        ["git", "list-tags", sf_git_repository, "--like", "v2.1.0%"]
+        ["git", "list-tags", sf_git_repository, "--like", "v3.6.0%"]
     )
     assert result.exit_code == 0
     assert result.json == [
         {
             "author": None,
-            "commit_hash": "f0f7d4bd706b92e1c4556d25bf4015cff30588ed",
+            "commit_hash": "164f1f50b08faa74fd4e042f2766f0545adff5f0",
             "message": None,
-            "name": "v2.1.0",
-            "path": "/tags/v2.1.0",
-        },
-        {
-            "author": None,
-            "commit_hash": "829887b758b43b86959611dd6127638da75cf871",
-            "message": None,
-            "name": "v2.1.0-rc0",
-            "path": "/tags/v2.1.0-rc0",
-        },
-        {
-            "author": None,
-            "commit_hash": "b7efe1fe9c0925b95ba214e233b18924fa0404b3",
-            "message": None,
-            "name": "v2.1.0-rc1",
-            "path": "/tags/v2.1.0-rc1",
-        },
-        {
-            "author": None,
-            "commit_hash": "36919a3ec01eea0541a1e17a064f6880e612193a",
-            "message": None,
-            "name": "v2.1.0-rc2",
-            "path": "/tags/v2.1.0-rc2",
+            "name": "v3.6.0",
+            "path": "/tags/v3.6.0",
         },
     ]
 
@@ -151,24 +124,23 @@ def test_list_files(runner, sf_git_repository):
     assert "'no-such-tag' cannot be found" in result.output
 
     # list files with pattern
-    repository_path = f"@{sf_git_repository}/tags/v2.1.0-rc1/"
+    repository_path = f"@{sf_git_repository.upper()}/tags/v3.6.0/"
     prefix = repository_path[1:-1].lower()
     result = runner.invoke_with_connection_json(
-        ["git", "list-files", repository_path, "--pattern", "R.*\.md"]
+        ["git", "list-files", repository_path, "--pattern", "update.*"]
     )
     assert result.exit_code == 0
     assert _filter_key(result.json, key="name") == [
-        f"{prefix}/README.md",
-        f"{prefix}/RELEASE-NOTES.md",
+        f"{prefix}/update.py",
+        f"{prefix}/update.sh",
     ]
 
 
 @pytest.mark.integration
 def test_copy_to_stage(runner, sf_git_repository):
-    REPO_PATH_PREFIX = f"@{sf_git_repository}/tags/v2.1.0-rc0"
-    SUBDIR = "tests_integration/config"
-    SUBDIR_ON_STAGE = "config"
-    FILE_IN_SUBDIR = "connection_configs.toml"
+    REPO_PATH_PREFIX = f"@{sf_git_repository}/tags/v3.6.0"
+    SUBDIR = "Casks"
+    FILE_IN_SUBDIR = "snowflake-cli.rb"
     STAGE_NAME = "a_perfect_stage_for_testing"
 
     def _assert_file_on_stage(file_path):
@@ -186,7 +158,7 @@ def test_copy_to_stage(runner, sf_git_repository):
         ["git", "copy", repository_path, f"@{STAGE_NAME}"]
     )
     assert result.exit_code == 0, result.output
-    _assert_file_on_stage(f"{SUBDIR_ON_STAGE}/{FILE_IN_SUBDIR}")  # whole dir is copied
+    _assert_file_on_stage(f"{SUBDIR}/{FILE_IN_SUBDIR}")  # whole dir is copied
 
     # copy directory - copy contents
     repository_path = f"{REPO_PATH_PREFIX}/{SUBDIR}/"
@@ -223,8 +195,8 @@ def test_copy_to_stage(runner, sf_git_repository):
 @pytest.mark.integration
 def test_copy_directory_to_local_file_system(runner, sf_git_repository, test_root_path):
     # Project with files in root and subdirectory
-    REPO_PATH_PREFIX = f"@{sf_git_repository}/tags/v2.7.0"
-    SUBDIR = "tests_integration/test_data/projects/napp_create_db_v2"
+    REPO_PATH_PREFIX = f"@{sf_git_repository}/tags/v3.6.0"
+    SUBDIR = "Casks"
     with tempfile.TemporaryDirectory() as tmp_dir:
         LOCAL_DIR = Path(tmp_dir) / "a_dir"
         assert not LOCAL_DIR.exists()
@@ -238,16 +210,21 @@ def test_copy_directory_to_local_file_system(runner, sf_git_repository, test_roo
         assert LOCAL_DIR.exists()  # create directory if not exists
 
         def _relative_content_set(root: Path):
-            return set(x.relative_to(root) for x in root.rglob("*"))
+            return set(str(x.relative_to(root)) for x in root.rglob("*"))
 
         downloaded_files = _relative_content_set(LOCAL_DIR)
-        expected_files = _relative_content_set(test_root_path.parent / SUBDIR)
-        assert downloaded_files == expected_files  # contents are copied
+        # contents are copied
+        assert downloaded_files == {
+            "snowflake-cli.rb",
+            "snowflake-cli.tmpl.rb",
+            "snowcli.rb",
+            "snowcli.tmpl.rb",
+        }
 
 
 @pytest.mark.integration
 def test_copy_single_file_to_local_file_system(runner, sf_git_repository):
-    REPO_PATH_PREFIX = f"@{sf_git_repository}/tags/v2.1.0-rc0"
+    REPO_PATH_PREFIX = f"@{sf_git_repository}/tags/v3.6.0"
     with tempfile.TemporaryDirectory() as tmp_dir:
         LOCAL_DIR = Path(tmp_dir) / "a_dir"
         assert not LOCAL_DIR.exists()
@@ -276,13 +253,13 @@ def test_copy_error(runner, sf_git_repository):
 
 @pytest.mark.integration
 def test_execute_with_name_in_pascal_case(
-    runner, test_database, sf_git_repository, snapshot
+    runner, test_database, sf_git_this_repository, snapshot
 ):
     result = runner.invoke_with_connection_json(
         [
             "git",
             "execute",
-            f"@{sf_git_repository}/branches/main/tests_integration/test_data/projects/stage_execute/ScriptInPascalCase.sql",
+            f"@{sf_git_this_repository}/branches/main/tests_integration/test_data/projects/stage_execute/ScriptInPascalCase.sql",
         ]
     )
 
@@ -291,12 +268,12 @@ def test_execute_with_name_in_pascal_case(
 
 
 @pytest.mark.integration
-def test_execute(runner, test_database, sf_git_repository, snapshot):
+def test_execute(runner, test_database, sf_git_this_repository, snapshot):
     result = runner.invoke_with_connection_json(
         [
             "git",
             "execute",
-            f"@{sf_git_repository}/branches/main/tests_integration/test_data/projects/stage_execute/script_template.sql",
+            f"@{sf_git_this_repository}/branches/main/tests_integration/test_data/projects/stage_execute/script_template.sql",
             "-D",
             "text='string'",
             "-D",
@@ -313,12 +290,12 @@ def test_execute(runner, test_database, sf_git_repository, snapshot):
 
 
 @pytest.mark.integration
-def test_execute_python(runner, test_database, sf_git_repository, snapshot):
+def test_execute_python(runner, test_database, sf_git_this_repository, snapshot):
     result = runner.invoke_with_connection_json(
         [
             "git",
             "execute",
-            f"@{sf_git_repository.lower()}/branches/main/tests_integration/test_data/projects/stage_execute/script1.py",
+            f"@{sf_git_this_repository.lower()}/branches/main/tests_integration/test_data/projects/stage_execute/script1.py",
         ]
     )
 
@@ -336,14 +313,14 @@ def test_git_execute_python_without_requirements(
     test_database,
     test_root_path,
     snapshot,
-    sf_git_repository,
+    sf_git_this_repository,
 ):
     test_id = f"FOO{time.time_ns()}"
     result = runner.invoke_with_connection_json(
         [
             "git",
             "execute",
-            f"@{sf_git_repository.lower()}/branches/main/tests_integration/test_data/projects/stage_execute_without_requirements",
+            f"@{sf_git_this_repository.lower()}/branches/main/tests_integration/test_data/projects/stage_execute_without_requirements",
             "-D",
             f"test_database_name={test_database}",
             "-D",
@@ -361,12 +338,12 @@ def test_git_execute_python_without_requirements(
 
 
 @pytest.mark.integration
-def test_execute_fqn_repo(runner, test_database, sf_git_repository):
+def test_execute_fqn_repo(runner, test_database, sf_git_this_repository):
     result_fqn = runner.invoke_with_connection_json(
         [
             "git",
             "execute",
-            f"@{test_database}.public.{sf_git_repository}/branches/main/tests_integration/test_data/projects/stage_execute/script_template.sql",
+            f"@{test_database}.public.{sf_git_this_repository}/branches/main/tests_integration/test_data/projects/stage_execute/script_template.sql",
             "-D",
             "text='string'",
             "-D",
@@ -381,7 +358,7 @@ def test_execute_fqn_repo(runner, test_database, sf_git_repository):
     assert result_fqn.exit_code == 0
     assert result_fqn.json == [
         {
-            "File": f"@{test_database}.public.{sf_git_repository}/branches/main/tests_integration/test_data/projects/stage_execute/script_template.sql",
+            "File": f"@{test_database}.public.{sf_git_this_repository}/branches/main/tests_integration/test_data/projects/stage_execute/script_template.sql",
             "Status": "SUCCESS",
             "Error": None,
         }
