@@ -89,6 +89,42 @@ def test_project_deploy(
 
 @pytest.mark.integration
 @pytest.mark.qa_only
+def test_create_corner_cases(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    project_name = "my_project"
+    stage_name = "my_project_stage"
+    with project_directory("dcm_project"):
+        # case 1: stage already exists
+        result = runner.invoke_with_connection(["stage", "create", stage_name])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(["project", "create"])
+        assert result.exit_code == 1, result.output
+        assert f"Stage '{stage_name}' already exists." in result.output
+
+        result = runner.invoke_with_connection(["stage", "drop", stage_name])
+        assert result.exit_code == 0, result.output
+
+        # case 2: project already exists
+        result = runner.invoke_with_connection(["project", "create"])
+        assert result.exit_code == 0, result.output
+        _assert_project_has_versions(
+            runner, project_name, expected_versions={("VERSION$1", None)}
+        )
+        result = runner.invoke_with_connection(["project", "create"])
+        assert result.exit_code == 1, result.output
+        assert f"Project '{project_name}' already exists." in result.output
+        _assert_project_has_versions(
+            runner, project_name, expected_versions={("VERSION$1", None)}
+        )
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
 def test_project_add_version(
     runner,
     snowflake_session,

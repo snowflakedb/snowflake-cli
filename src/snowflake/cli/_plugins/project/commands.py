@@ -15,8 +15,10 @@
 from typing import List, Optional
 
 import typer
+from click import ClickException
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
+from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.project.feature_flags import FeatureFlag
 from snowflake.cli._plugins.project.manager import ProjectManager
 from snowflake.cli._plugins.project.project_entity_model import (
@@ -54,11 +56,6 @@ version_flag = typer.Option(
 )
 variables_flag = variables_option(
     'Variables for the execution context; for example: `-D "<key>=<value>"`.'
-)
-no_version_flag = OverrideableOption(
-    False,
-    "--no-version",
-    help="Do not initialize project with a new version, only create the snowflake object.",
 )
 from_option = OverrideableOption(
     None,
@@ -116,10 +113,11 @@ def dry_run(
 @with_project_definition()
 def create(
     entity_id: str = entity_argument("project"),
-    no_version: bool = no_version_flag(
-        mutually_exclusive=["prune"],
+    no_version: bool = typer.Option(
+        False,
+        "--no-version",
+        help="Do not initialize project with a new version, only create the snowflake object.",
     ),
-    prune: bool = PruneOption(mutually_exclusive=["no_version"]),
     **options,
 ):
     """
@@ -132,6 +130,14 @@ def create(
         project_definition=cli_context.project_definition,
         entity_type="project",
     )
+    om = ObjectManager()
+    if om.object_exists(object_type="project", fqn=project.fqn):
+        raise ClickException(f"Project '{project.fqn}' already exists.")
+    if not no_version and om.object_exists(
+        object_type="stage", fqn=FQN.from_stage(project.stage)
+    ):
+        raise ClickException(f"Stage '{project.stage}' already exists.")
+
     pm = ProjectManager()
     with cli_console.phase("Creating project (if not exists)"):
         result = pm.create(project.fqn)
@@ -139,7 +145,7 @@ def create(
     if no_version:
         return QueryResult(result)
 
-    pm.add_version(project=project, prune=prune)
+    pm.add_version(project=project)
     return MessageResult(
         f"Project {project.fqn} successfully created and initial version is added."
     )
