@@ -122,7 +122,7 @@ def create(
 ):
     """
     Creates a project in snowflake.
-    By default, the project is initialised with a new version created from local files.
+    By default, the project is initialized with a new version created from local files.
     """
     cli_context = get_cli_context()
     project: ProjectEntityModel = get_entity_for_operation(
@@ -141,11 +141,10 @@ def create(
 
     pm = ProjectManager()
     with cli_console.phase(f"Creating project '{project.fqn}'"):
-        pm.create(project.fqn)
+        pm.create(project=project, initialize_version_from_local_files=not no_version)
+
     if no_version:
         return MessageResult(f"Project '{project.fqn}' successfully created.")
-
-    pm.add_version(project=project)
     return MessageResult(
         f"Project '{project.fqn}' successfully created and initial version is added."
     )

@@ -67,20 +67,36 @@ def test_create_version_no_alias(mock_execute_query):
     mgr._create_version(  # noqa: SLF001
         project_name=TEST_PROJECT, from_stage="@stage_foo"
     )
-
     mock_execute_query.assert_called_once_with(
         query="ALTER PROJECT my_project ADD VERSION FROM @stage_foo"
     )
 
 
 @mock.patch(execute_queries)
-def test_create(mock_execute_query):
-    mgr = ProjectManager()
-    mgr.create(project_name=TEST_PROJECT)
-
-    mock_execute_query.assert_called_once_with(
-        query="CREATE PROJECT IDENTIFIER('my_project')"
+@mock.patch(sync_artifacts_with_stage)
+@pytest.mark.parametrize("initialize_version", [True, False])
+def test_create(mock_sync_artifacts, mock_execute_query, initialize_version):
+    project_mock = mock.MagicMock(
+        fqn=FQN.from_string("project_mock_fqn"), stage="mock_stage_name"
     )
+    mgr = ProjectManager()
+    mgr.create(
+        project=project_mock, initialize_version_from_local_files=initialize_version
+    )
+
+    if initialize_version:
+        mock_sync_artifacts.assert_called_once()
+        assert mock_execute_query.mock_calls == [
+            mock.call("CREATE PROJECT IDENTIFIER('project_mock_fqn')"),
+            mock.call(
+                query="ALTER PROJECT project_mock_fqn ADD VERSION FROM @mock_stage_name"
+            ),
+        ]
+    else:
+        mock_execute_query.assert_called_once_with(
+            "CREATE PROJECT IDENTIFIER('project_mock_fqn')"
+        )
+        mock_sync_artifacts.assert_not_called()
 
 
 @mock.patch(execute_queries)

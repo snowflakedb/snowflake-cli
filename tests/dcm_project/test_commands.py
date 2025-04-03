@@ -22,12 +22,10 @@ def test_create(mock_om, mock_pm, runner, project_directory, no_version):
         result = runner.invoke(command)
         assert result.exit_code == 0, result.output
 
-        mock_pm().create.assert_called_once_with(FQN.from_string("my_project"))
-
-        if no_version:
-            mock_pm().add_version.assert_not_called()
-        else:
-            mock_pm().add_version.assert_called_once()
+        mock_pm().create.assert_called_once()
+        create_kwargs = mock_pm().create.mock_calls[0].kwargs
+        assert create_kwargs["initialize_version_from_local_files"] == (not no_version)
+        assert create_kwargs["project"].fqn == FQN.from_string("my_project")
 
 
 @mock.patch(ProjectManager)

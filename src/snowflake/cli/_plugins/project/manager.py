@@ -46,9 +46,16 @@ class ProjectManager(SqlExecutionMixin):
             query += " DRY_RUN=TRUE"
         return self.execute_query(query=query)
 
-    def create(self, project_name: FQN) -> SnowflakeCursor:
-        queries = dedent(f"CREATE PROJECT {project_name.sql_identifier}")
-        return self.execute_query(query=queries)
+    def _create_object(self, project_name: FQN) -> SnowflakeCursor:
+        query = dedent(f"CREATE PROJECT {project_name.sql_identifier}")
+        return self.execute_query(query)
+
+    def create(
+        self, project: ProjectEntityModel, initialize_version_from_local_files: bool
+    ) -> None:
+        self._create_object(project.fqn)
+        if initialize_version_from_local_files:
+            self.add_version(project=project)
 
     def _create_version(
         self,
