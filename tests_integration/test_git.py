@@ -40,6 +40,26 @@ def sf_git_repository(runner, test_database):
 
 
 @pytest.mark.integration
+def test_new_git_repo(runner, test_database):
+    repo_name = "SNOWCLI_TESTING_REPO"
+    integration_name = "SNOWCLI_TESTING_REPO_API_INTEGRATION"
+    communication = "\n".join(
+        [
+            "https://github.com/snowflakedb/homebrew-snowflake-cli.git",
+            "n",
+            integration_name,
+            "",
+        ]
+    )
+    result = runner.invoke_with_connection(
+        ["git", "setup", repo_name], input=communication
+    )
+    assert result.exit_code == 0
+    assert f"Git Repository {repo_name} was successfully created." in result.output
+    # return repo_name
+
+
+@pytest.mark.integration
 def test_object_commands(runner, sf_git_repository):
     # object list
     result = runner.invoke_with_connection_json(["object", "list", "git-repository"])
