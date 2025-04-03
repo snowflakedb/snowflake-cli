@@ -8,13 +8,14 @@ import pytest
 from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli.api.utils.path_utils import path_resolver
 from snowflake.core.stage import StageResource
+from tests.testing_utils.files_and_dirs import resolve_path
 
 GET_UI_PARAMETERS = "snowflake.cli._plugins.connection.util.get_ui_parameters"
 STREAMLIT_NAME = "test_streamlit"
 
 
 class StreamlitTestClass:
-    @pytest.fixture(autouse=True)
+    @pytest.fixture(autouse=True, scope="function")
     def setup(
         self, mock_ctx, mock_cursor, project_directory, alter_snowflake_yml, runner
     ):
@@ -64,6 +65,10 @@ class StreamlitTestClass:
         self.alter_snowflake_yml = alter_snowflake_yml
         self.runner = runner
 
+        yield
+
+        mock.patch.stopall()
+
     def _assert_that_exactly_those_files_were_put_to_stage(
         self,
         put_files: List[str],
@@ -83,7 +88,7 @@ class StreamlitTestClass:
                 stage = f"/{streamlit_name}/{str(Path(file).parent)  if Path(file).parent != Path('.') else ''}"
 
             self.mock_put.assert_any_call(
-                local_file_name=(project_root / local).absolute(),
+                local_file_name=resolve_path(project_root / local).absolute(),
                 stage_location=stage,
                 overwrite=True,
                 auto_compress=False,

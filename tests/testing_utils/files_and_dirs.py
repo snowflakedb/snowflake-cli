@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Dict, Generator, List, Optional, Union
 
 from snowflake.cli.api.secure_utils import file_permissions_are_strict
+from snowflake.cli.api.utils.path_utils import path_resolver
 
 
 def create_temp_file(suffix: str, dir_name: str, contents: List[str]) -> str:
@@ -91,3 +92,7 @@ def merge_left(target: Dict, source: Dict) -> None:
             merge_left(target[k], v)
         else:
             target[k] = v
+
+
+def resolve_path(path: Path):
+    return Path(path_resolver(str(path)))
