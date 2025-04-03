@@ -37,7 +37,7 @@ def test_create(
     if no_version:
         mock_create.assert_not_called()
         mock_pm().add_version.assert_not_called()
-        mock_create.assert_not_called()
+        mock_put.assert_not_called()
         return
 
     mock_create.assert_called_once_with(fqn=stage)
