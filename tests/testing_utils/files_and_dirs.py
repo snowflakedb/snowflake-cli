@@ -95,5 +95,6 @@ def merge_left(target: Dict, source: Dict) -> None:
 
 
 def resolve_path(path: Path):
-    print(f"********** RESOLVING: {path} **********")
-    return Path(path_resolver(str(path)))
+    resolved = Path(path_resolver(str(path)))
+    print(f"********** RESOLVING: {path} ********** to: {resolved}")
+    return resolved

@@ -1,4 +1,5 @@
 import functools
+import logging
 from pathlib import Path
 from typing import Generic, Optional, Type, TypeVar, get_args
 
@@ -16,6 +17,7 @@ from snowflake.core.stage import Stage, StageEncryption, StageResource
 
 T = TypeVar("T")
 
+log = logging.getLogger(__name__)
 
 def attach_spans_to_entity_actions(entity_name: str):
     """
@@ -188,6 +190,7 @@ class EntityBase(Generic[T]):
                     if stage_root
                     else f"/{self.fqn.name}/{get_parent_path(dest)}"
                 )
+                log.info("Uploading %s to %s", absolute_src, stage_dest)
                 stage.put(
                     local_file_name=absolute_src,
                     stage_location=stage_dest,
