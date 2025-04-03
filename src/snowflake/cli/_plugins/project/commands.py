@@ -211,7 +211,7 @@ def add_version(
         comment=comment,
     )
     alias_str = "" if _alias is None else _alias + " "
-    return MessageResult(f"Project version {alias_str}added to project {project.fqn}")
+    return MessageResult(f"Project version '{alias_str}' added to project {project.fqn}")
 
 
 @app.command(requires_connection=True)
