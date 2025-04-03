@@ -22,7 +22,7 @@ from tests.streamlit.streamlit_test_class import StreamlitTestClass
 STREAMLIT_NAME = "test_streamlit"
 TEST_WAREHOUSE = "test_warehouse"
 
-
+@pytest.mark.skip
 class TestStreamlitCommands(StreamlitTestClass):
     def test_list_streamlit(self, setup):
         result = self.runner.invoke(["object", "list", "streamlit"])

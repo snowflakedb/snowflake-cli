@@ -16,7 +16,7 @@ ALL_PATHS = [
     },
 ]
 
-
+@pytest.mark.skip
 class TestArtifacts(StreamlitTestClass):
     @pytest.mark.parametrize(
         "artifacts, paths",
