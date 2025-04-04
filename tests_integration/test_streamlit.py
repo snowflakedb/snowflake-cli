@@ -23,7 +23,6 @@ from tests_integration.test_utils import (
     rows_from_snowflake_session,
 )
 from tests_integration.testing_utils import assert_that_result_is_successful
-from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from typing import List
 from tests_integration.test_utils import assert_stage_has_files
 
@@ -428,7 +427,15 @@ def test_streamlit_execute_in_headless_mode(
     # Deploy the Streamlit app
     with project_directory("streamlit_v2"):
         result = runner.invoke_with_connection_json(
-            ["streamlit", "deploy", "--replace"]
+            [
+                "streamlit",
+                "deploy",
+                "--replace",
+                "--dbname",
+                test_database,
+                "--schema",
+                "public",
+            ]
         )
         assert result.exit_code == 0, f"Streamlit deploy failed: {result.output}"
 

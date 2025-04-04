@@ -254,7 +254,9 @@ def correct_requirements_snowflake_txt(temporary_directory) -> Generator:
 
 @pytest.fixture()
 def mock_ctx(mock_cursor):
-    def _mock_connection_ctx_factory(cursor=mock_cursor(["row"], []), **kwargs):
+    def _mock_connection_ctx_factory(cursor=None, **kwargs):
+        if cursor is None:
+            cursor = mock_cursor(["row"], [])
         kwargs["cursor"] = cursor
         return MockConnectionCtx(**kwargs)
 

@@ -29,16 +29,6 @@
   
   '''
 # ---
-# name: test_deploy_from_project_definition_replace
-  '''
-  +---------------------------------------------------------------+
-  | key    | value                                                |
-  |--------+------------------------------------------------------|
-  | status | Compute pool TEST_COMPUTE_POOL successfully created. |
-  +---------------------------------------------------------------+
-  
-  '''
-# ---
 # name: test_deploy_from_project_definition_with_upgrade
   '''
   +-------------------------------------------+
