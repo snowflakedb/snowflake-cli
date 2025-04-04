@@ -16,7 +16,7 @@ import datetime
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Set
 from unittest.mock import MagicMock
 
 from snowflake.connector.cursor import SnowflakeCursor
@@ -82,3 +82,9 @@ def extract_first_telemetry_message_of_type(
         if args.args[0].to_dict().get("message").get(TelemetryField.KEY_TYPE.value)
         == message_type
     )
+
+
+def assert_stage_has_files(runner, stage: str, expected_files: Set[str]) -> None:
+    result = runner.invoke_with_connection_json(["stage", "list-files", stage])
+    assert result.exit_code == 0, result.output
+    assert set(file["name"] for file in result.json) == set(expected_files)

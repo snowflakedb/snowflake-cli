@@ -6226,24 +6226,24 @@
                                                                                   
    Usage: root project add-version [OPTIONS] [ENTITY_ID]                          
                                                                                   
-   Adds a new version to a project using existing sources from provided stage     
-   path.                                                                          
+   Uploads local files to Snowflake and cerates a new project version.            
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   entity_id      [ENTITY_ID]  ID of project entity.                          |
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | *  --from             TEXT  Source stage to create the version from.         |
-  |                             [required]                                       |
-  |    --alias            TEXT  Alias for the version.                           |
-  |    --comment          TEXT  Version comment.                                 |
-  |    --project  -p      TEXT  Path where the Snowflake project is stored.      |
-  |                             Defaults to the current working directory.       |
-  |    --env              TEXT  String in the format key=value. Overrides        |
-  |                             variables from the env section used for          |
-  |                             templates.                                       |
-  |    --help     -h            Show this message and exit.                      |
+  | --from             TEXT  Create a new version using given stage instead of   |
+  |                          uploading local files.                              |
+  | --alias            TEXT  Alias for the version.                              |
+  | --comment          TEXT  Version comment.                                    |
+  | --prune                  Delete files that exist in the stage, but not in    |
+  |                          the local filesystem.                               |
+  | --project  -p      TEXT  Path where the Snowflake project is stored.         |
+  |                          Defaults to the current working directory.          |
+  | --env              TEXT  String in the format key=value. Overrides variables |
+  |                          from the env section used for templates.            |
+  | --help     -h            Show this message and exit.                         |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
@@ -6328,24 +6328,27 @@
   
   '''
 # ---
-# name: test_help_messages[project.create-version]
+# name: test_help_messages[project.create]
   '''
                                                                                   
-   Usage: root project create-version [OPTIONS] [ENTITY_ID]                       
+   Usage: root project create [OPTIONS] [ENTITY_ID]                               
                                                                                   
-   Upload local files and create a new version of a project using those files. If 
-   the stage does not exist, it will be created.                                  
+   Creates a project in Snowflake. By default, the project is initialized with a  
+   new version created from local files.                                          
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   entity_id      [ENTITY_ID]  ID of project entity.                          |
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --project  -p      TEXT  Path where the Snowflake project is stored.         |
-  |                          Defaults to the current working directory.          |
-  | --env              TEXT  String in the format key=value. Overrides variables |
-  |                          from the env section used for templates.            |
-  | --help     -h            Show this message and exit.                         |
+  | --no-version                Do not initialize project with a new version,    |
+  |                             only create the snowflake object.                |
+  | --project     -p      TEXT  Path where the Snowflake project is stored.      |
+  |                             Defaults to the current working directory.       |
+  | --env                 TEXT  String in the format key=value. Overrides        |
+  |                             variables from the env section used for          |
+  |                             templates.                                       |
+  | --help        -h            Show this message and exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
@@ -6637,13 +6640,13 @@
 # name: test_help_messages[project.list-versions]
   '''
                                                                                   
-   Usage: root project list-versions [OPTIONS] [ENTITY_ID]                        
+   Usage: root project list-versions [OPTIONS] ENTITY_ID                          
                                                                                   
    Lists versions of given project.                                               
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  |   entity_id      [ENTITY_ID]  ID of project entity.                          |
-  |                               [default: None]                                |
+  | *    entity_id      TEXT  ID of project entity.                              |
+  |                           [required]                                         |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -6845,15 +6848,14 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | add-version      Adds a new version to a project using existing sources from |
-  |                  provided stage path.                                        |
-  | create-version   Upload local files and create a new version of a project    |
-  |                  using those files. If the stage does not exist, it will be  |
-  |                  created.                                                    |
-  | dry-run          Validates a project.                                        |
-  | execute          Executes a project.                                         |
-  | list             Lists all available projects.                               |
-  | list-versions    Lists versions of given project.                            |
+  | add-version     Uploads local files to Snowflake and cerates a new project   |
+  |                 version.                                                     |
+  | create          Creates a project in Snowflake. By default, the project is   |
+  |                 initialized with a new version created from local files.     |
+  | dry-run         Validates a project.                                         |
+  | execute         Executes a project.                                          |
+  | list            Lists all available projects.                                |
+  | list-versions   Lists versions of given project.                             |
   +------------------------------------------------------------------------------+
   
   
@@ -14234,15 +14236,14 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | add-version      Adds a new version to a project using existing sources from |
-  |                  provided stage path.                                        |
-  | create-version   Upload local files and create a new version of a project    |
-  |                  using those files. If the stage does not exist, it will be  |
-  |                  created.                                                    |
-  | dry-run          Validates a project.                                        |
-  | execute          Executes a project.                                         |
-  | list             Lists all available projects.                               |
-  | list-versions    Lists versions of given project.                            |
+  | add-version     Uploads local files to Snowflake and cerates a new project   |
+  |                 version.                                                     |
+  | create          Creates a project in Snowflake. By default, the project is   |
+  |                 initialized with a new version created from local files.     |
+  | dry-run         Validates a project.                                         |
+  | execute         Executes a project.                                          |
+  | list            Lists all available projects.                                |
+  | list-versions   Lists versions of given project.                             |
   +------------------------------------------------------------------------------+
   
   
