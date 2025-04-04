@@ -19,6 +19,7 @@ T = TypeVar("T")
 
 log = logging.getLogger(__name__)
 
+
 def attach_spans_to_entity_actions(entity_name: str):
     """
     Class decorator for EntityBase subclasses to automatically wrap
