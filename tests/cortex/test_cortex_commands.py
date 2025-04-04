@@ -44,6 +44,7 @@ def _mock_cortex_result(mock_ctx, mock_cursor):
             if expected_query:
                 actual_query = re.sub(r"\s+", " ", ctx.get_query()).strip()
                 assert expected_query == actual_query
+            ctx.reset_mock()
 
     return _mock
 

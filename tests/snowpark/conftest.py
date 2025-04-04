@@ -36,6 +36,7 @@ def mock_available_packages_sql_result(mock_ctx, mock_cursor):
         "snowflake.cli._app.snow_connector.connect_to_snowflake", return_value=ctx
     ):
         yield
+    ctx.reset_mock()
 
 
 @pytest.fixture

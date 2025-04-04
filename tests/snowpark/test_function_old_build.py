@@ -58,7 +58,8 @@ def test_deploy_function(
         )
 
     assert result.exit_code == 0, result.output
-    assert ctx.get_queries() == [
+    queries = ctx.get_queries()
+    assert queries == [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.dev_deployment') comment='deployments managed by Snowflake CLI'",
         f"put file://{Path(project_dir).resolve()}/app.py @MockDatabase.MockSchema.dev_deployment/my_snowpark_project/"
         f" auto_compress=false parallel=4 overwrite=True",
