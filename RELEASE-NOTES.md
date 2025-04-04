@@ -22,6 +22,7 @@
 * Added `--prune` flag to `deploy` commands, which removes files that exist in the stage,
   but not in the local filesystem.
 * Added `snow logs` command for retrieving and streaming logs from the server.
+* Added `snow helper check-snowsql-env-vars` which reports environment variables from SnowSQL with replacements in CLI.
 
 ## Fixes and improvements
 
