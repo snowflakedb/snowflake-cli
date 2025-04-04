@@ -35,7 +35,7 @@ dependencies = [
   "pydantic==2.11.3",
   "PyYAML==6.0.2",
   "prompt-toolkit==3.0.50",
-  "pydantic==2.10.6",
+  "pydantic==2.11.1",
   "requests==2.32.3",
   "requirements-parser==0.11.0",
   "rich==14.0.0",
@@ -48,7 +48,7 @@ dependencies = [
   "urllib3>=1.24.3,<2.5",
   "urllib3>=1.24.3,<2.4",
   'snowflake-snowpark-python>=1.15.0,<1.26.0;python_version < "3.12"',
-  'snowflake.core==1.1.0; python_version < "3.12"',
+  'snowflake.core==1.2.0; python_version < "3.12"',
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -64,7 +64,6 @@ classifiers = [
 
 [project.optional-dependencies]
 development = [
-  "coverage==7.8.0",
   "pre-commit>=3.5.0",
   "pytest==8.3.5",
   "pytest-randomly==3.16.0",
@@ -72,7 +71,7 @@ development = [
   "syrupy==4.9.1",
   "factory-boy==3.3.3",
   "Faker==37.0.0",
-  "coverage==7.7.1",
+  "coverage==7.8.0",
   "factory-boy==3.3.3",
   "pre-commit>=3.5.0",
   "pytest-httpserver==1.1.2",
