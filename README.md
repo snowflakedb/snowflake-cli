@@ -32,6 +32,9 @@ Quick start: <https://quickstarts.snowflake.com/guide/getting-started-with-snowf
 
 Cheatsheet: <https://github.com/Snowflake-Labs/sf-cheatsheets/blob/main/snowflake-cli.md>
 
+
+Feel free to file an issue or submit a PR here for general cases. For official support, contact Snowflake support at: https://community.snowflake.com/s/article/How-To-Submit-a-Support-Case-in-Snowflake-Lodge
+
 ## Install Snowflake CLI
 
 ### Install with pipx (PyPi)
