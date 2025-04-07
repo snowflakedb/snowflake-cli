@@ -66,6 +66,7 @@ from snowflake.cli.api.config import (
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -289,7 +290,7 @@ def add(
     if connection_exists(connection_name):
         raise UsageError(f"Connection {connection_name} already exists")
 
-    if not no_interactive:
+    if FeatureFlag.ENABLE_AUTH_KEYPAIR.is_enabled() and not no_interactive:
         connection_options, keypair_error = _extend_add_with_key_pair(
             connection_name, connection_options
         )
