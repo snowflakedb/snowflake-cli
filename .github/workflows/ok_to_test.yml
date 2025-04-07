@@ -14,7 +14,7 @@ jobs:
     # Only run for PRs, not issue comments
     if: ${{ github.event.issue.pull_request }}
     steps:
-      - uses: actions/create-github-app-token@v1
+      - uses: actions/create-github-app-token@v2
         id: app-token
         with:
           app-id: ${{ secrets.APP_ID }}
