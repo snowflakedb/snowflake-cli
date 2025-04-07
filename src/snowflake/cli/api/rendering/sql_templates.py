@@ -20,7 +20,7 @@ from click import ClickException
 from jinja2 import Environment, StrictUndefined, loaders, meta
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.console import cli_console
-from snowflake.cli.api.exceptions import InvalidTemplate
+from snowflake.cli.api.exceptions import InvalidTemplateError
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.rendering.jinja import (
     CONTEXT_KEY,
@@ -72,7 +72,7 @@ def choose_sql_jinja_env_based_on_template_syntax(
     has_new_syntax = _does_template_have_env_syntax(new_syntax_env, template_content)
     reference_name_str = f" in {reference_name}" if reference_name else ""
     if has_old_syntax and has_new_syntax:
-        raise InvalidTemplate(
+        raise InvalidTemplateError(
             f"The SQL query{reference_name_str} mixes {_OLD_SQL_TEMPLATE_START} ... {_OLD_SQL_TEMPLATE_END} syntax"
             f" and {_SQL_TEMPLATE_START} ... {_SQL_TEMPLATE_END} syntax."
         )

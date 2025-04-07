@@ -33,7 +33,7 @@ from snowflake.cli.api.config import (
 )
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import (
-    InvalidConnectionConfiguration,
+    InvalidConnectionConfigurationError,
     SnowflakeConnectionError,
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
@@ -169,7 +169,7 @@ def connect_to_snowflake(
     except ForbiddenError as err:
         raise SnowflakeConnectionError(err)
     except DatabaseError as err:
-        raise InvalidConnectionConfiguration(err.msg)
+        raise InvalidConnectionConfigurationError(err.msg)
 
 
 def _avoid_closing_the_connection_if_it_was_shared(

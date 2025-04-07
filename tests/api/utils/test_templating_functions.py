@@ -16,7 +16,7 @@ import os
 from unittest import mock
 
 import pytest
-from snowflake.cli.api.exceptions import InvalidTemplate
+from snowflake.cli.api.exceptions import InvalidTemplateError
 from snowflake.cli.api.utils.definition_rendering import render_definition_template
 from snowflake.cli.api.utils.templating_functions import get_templating_functions
 
@@ -29,7 +29,7 @@ def test_template_unknown_function():
         },
     }
 
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         render_definition_template(definition, {})
 
     assert "Could not find template variable fn.unknown_func" in err.value.message
@@ -89,7 +89,7 @@ def test_concat_ids_with_no_args():
         },
     }
 
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         render_definition_template(definition, {})
 
     assert "concat_ids requires at least 1 argument(s)" in err.value.message
@@ -103,7 +103,7 @@ def test_concat_ids_with_non_string_arg():
         },
     }
 
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         render_definition_template(definition, {})
 
     assert "concat_ids only accepts String values" in err.value.message
@@ -148,7 +148,7 @@ def test_id_to_str_with_no_args():
         },
     }
 
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         render_definition_template(definition, {})
 
     assert "id_to_str requires at least 1 argument(s)" in err.value.message
@@ -162,7 +162,7 @@ def test_id_to_str_with_two_args():
         },
     }
 
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         render_definition_template(definition, {})
 
     assert "id_to_str supports at most 1 argument(s)" in err.value.message
@@ -176,7 +176,7 @@ def test_id_to_str_with_non_string_arg():
         },
     }
 
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         render_definition_template(definition, {})
 
     assert "id_to_str only accepts String values" in err.value.message
@@ -221,7 +221,7 @@ def test_str_to_id_with_no_args():
         },
     }
 
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         render_definition_template(definition, {})
 
     assert "str_to_id requires at least 1 argument(s)" in err.value.message
@@ -235,7 +235,7 @@ def test_str_to_id_with_two_args():
         },
     }
 
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         render_definition_template(definition, {})
 
     assert "str_to_id supports at most 1 argument(s)" in err.value.message
@@ -249,7 +249,7 @@ def test_str_to_id_with_non_string_arg():
         },
     }
 
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         render_definition_template(definition, {})
 
     assert "str_to_id only accepts String values" in err.value.message
@@ -301,7 +301,7 @@ def test_get_username_with_two_args_should_fail():
         },
     }
 
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         render_definition_template(definition, {})
 
     assert "get_username supports at most 1 argument(s)" in err.value.message
@@ -311,7 +311,7 @@ def test_get_username_with_two_args_should_fail():
     "input_value, expected_output",
     [
         ("test_value", "test_value"),
-        (" T'EST_Va l.u-e" "", "TEST_Value"),
+        (" T'EST_Va l.u-e", "TEST_Value"),
         ("", "_"),
         ('""', "_"),
         ("_val.ue", "_value"),
@@ -343,7 +343,7 @@ def test_sanitize_id_with_no_args():
         },
     }
 
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         render_definition_template(definition, {})
 
     assert "sanitize_id requires at least 1 argument(s)" in err.value.message
@@ -357,7 +357,7 @@ def test_sanitize_id_with_two_args():
         },
     }
 
-    with pytest.raises(InvalidTemplate) as err:
+    with pytest.raises(InvalidTemplateError) as err:
         render_definition_template(definition, {})
 
     assert "sanitize_id supports at most 1 argument(s)" in err.value.message

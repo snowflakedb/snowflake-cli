@@ -16,22 +16,54 @@ import pytest
 
 from snowflake.cli.api.secure_path import SecurePath
 
+from typing import Set, Optional, Tuple
+from tests_integration.test_utils import assert_stage_has_files
+
+
+def _assert_project_has_versions(
+    runner, project_name: str, expected_versions: Set[Tuple[str, Optional[str]]]
+) -> None:
+    """Check whether the project versions (in [name,alias] format) are present in Snowflake."""
+    result = runner.invoke_with_connection_json(
+        ["project", "list-versions", project_name]
+    )
+    assert result.exit_code == 0, result.output
+    versions = {(version["name"], version["alias"]) for version in result.json}
+    assert versions == expected_versions
+
 
 @pytest.mark.integration
 @pytest.mark.qa_only
 def test_project_deploy(
     runner,
-    snowflake_session,
     test_database,
     project_directory,
 ):
+    project_name = "my_project"
     with project_directory("dcm_project"):
-        result = runner.invoke_with_connection_json(["project", "create-version"])
+        result = runner.invoke_with_connection(["project", "create"])
         assert result.exit_code == 0, result.output
+        assert (
+            "Project 'my_project' successfully created and initial version is added."
+            in result.output
+        )
+        # project should be initialized with a version
+        _assert_project_has_versions(
+            runner, project_name, expected_versions={("VERSION$1", None)}
+        )
 
-        # Unsupported command
-        # result = runner.invoke_with_connection(["project", "dry-run", "my_project", "--version", "last"])
-        # assert result.exit_code == 0
+        result = runner.invoke_with_connection(
+            [
+                "project",
+                "dry-run",
+                project_name,
+                "--version",
+                "last",
+                "-D",
+                f"table_name='{test_database}.PUBLIC.MyTable'",
+            ]
+        )
+        assert result.exit_code == 0
 
         result = runner.invoke_with_connection(
             [
@@ -60,58 +92,155 @@ def test_project_deploy(
 
 @pytest.mark.integration
 @pytest.mark.qa_only
-def test_project_add_version(
+def test_create_corner_cases(
     runner,
-    snowflake_session,
     test_database,
     project_directory,
 ):
+    project_name = "my_project"
+    stage_name = "my_project_stage"
+    with project_directory("dcm_project"):
+        # case 1: stage already exists
+        result = runner.invoke_with_connection(["stage", "create", stage_name])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(["project", "create"])
+        assert result.exit_code == 1, result.output
+        assert f"Stage '{stage_name}' already exists." in result.output
+
+        result = runner.invoke_with_connection(["stage", "drop", stage_name])
+        assert result.exit_code == 0, result.output
+
+        # case 2: project already exists
+        result = runner.invoke_with_connection(["project", "create"])
+        assert result.exit_code == 0, result.output
+        _assert_project_has_versions(
+            runner, project_name, expected_versions={("VERSION$1", None)}
+        )
+        result = runner.invoke_with_connection(["project", "create"])
+        assert result.exit_code == 1, result.output
+        assert f"Project '{project_name}' already exists." in result.output
+        _assert_project_has_versions(
+            runner, project_name, expected_versions={("VERSION$1", None)}
+        )
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_project_add_version(
+    runner,
+    test_database,
+    project_directory,
+):
+    project_name = "my_project"
+    default_stage_name = "my_project_stage"
+    other_stage_name = "other_project_stage"
+
     with project_directory("dcm_project") as root:
         # Create a new project
-        result = runner.invoke_with_connection_json(["project", "create-version"])
+        result = runner.invoke_with_connection_json(
+            ["project", "create", "--no-version"]
+        )
         assert result.exit_code == 0, result.output
+        assert f"Project '{project_name}' successfully created." in result.output
+        # project should not be initialized with a new version due to --no-version flag
+        _assert_project_has_versions(runner, project_name, expected_versions=set())
+
+        # add version from local files
+        result = runner.invoke_with_connection(["project", "add-version"])
+        assert result.exit_code == 0, result.output
+        assert f"New project version added to project '{project_name}'" in result.output
+        _assert_project_has_versions(
+            runner, project_name, expected_versions={("VERSION$1", None)}
+        )
+        assert_stage_has_files(
+            runner,
+            default_stage_name,
+            {
+                f"{default_stage_name}/manifest.yml",
+                f"{default_stage_name}/file_a.sql",
+            },
+        )
+
+        # upload files on another stage
         if (root / "output").exists():
             SecurePath(root / "output").rmdir(recursive=True)
-
-        # Modify sql file and upload it to a new stage
-        with open(root / "file_a.sql", mode="w") as fp:
-            fp.write(
-                "define table identifier('{{ table_name }}') (fooBar string, baz string);"
-            )
-
-        stage_name = "dcm_project_stage"
-        result = runner.invoke_with_connection_json(["stage", "create", stage_name])
+        result = runner.invoke_with_connection(["stage", "create", other_stage_name])
         assert result.exit_code == 0, result.output
-
-        result = runner.invoke_with_connection_json(
-            ["stage", "copy", ".", f"@{stage_name}"]
+        result = runner.invoke_with_connection(
+            ["stage", "copy", ".", f"@{other_stage_name}"]
         )
         assert result.exit_code == 0, result.output
 
         # create a new version of the project
-        result = runner.invoke_with_connection_json(
+        result = runner.invoke_with_connection(
             [
                 "project",
                 "add-version",
-                "my_project",
+                project_name,
                 "--from",
-                f"@{stage_name}",
+                f"@{other_stage_name}",
                 "--alias",
                 "v2",
             ]
         )
         assert result.exit_code == 0, result.output
+        assert (
+            f"New project version 'v2' added to project '{project_name}'"
+            in result.output
+        )
+        _assert_project_has_versions(
+            runner, project_name, {("VERSION$1", None), ("VERSION$2", "v2")}
+        )
 
-        # list project versions
-        result = runner.invoke_with_connection_json(
-            [
-                "project",
-                "list-versions",
-                "MY_PROJECT",
-            ]
+        # --prune flag should remove unexpected file from the default stage
+        unexpected_file = root / "unexpected.txt"
+        unexpected_file.write_text("This is unexpected.")
+        result = runner.invoke_with_connection(
+            ["stage", "copy", str(unexpected_file), f"@{default_stage_name}"]
         )
         assert result.exit_code == 0, result.output
-        assert len(result.json) == 2
-        assert result.json[0]["name"].lower() == "VERSION$2".lower()
-        assert result.json[0]["alias"].lower() == "v2".lower()
-        assert result.json[1]["name"].lower() == "VERSION$1".lower()
+
+        # no "prune" - unexpected file remains
+        result = runner.invoke_with_connection(
+            ["project", "add-version", "--alias", "v3.1"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_project_has_versions(
+            runner,
+            project_name,
+            {("VERSION$1", None), ("VERSION$2", "v2"), ("VERSION$3", "v3.1")},
+        )
+        assert_stage_has_files(
+            runner,
+            default_stage_name,
+            {
+                f"{default_stage_name}/manifest.yml",
+                f"{default_stage_name}/file_a.sql",
+                f"{default_stage_name}/unexpected.txt",
+            },
+        )
+
+        # prune flag - unexpected file should be removed
+        result = runner.invoke_with_connection(
+            ["project", "add-version", "--prune", "--alias", "v3.2"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_project_has_versions(
+            runner,
+            project_name,
+            {
+                ("VERSION$1", None),
+                ("VERSION$2", "v2"),
+                ("VERSION$3", "v3.1"),
+                ("VERSION$4", "v3.2"),
+            },
+        )
+        assert_stage_has_files(
+            runner,
+            default_stage_name,
+            {
+                f"{default_stage_name}/manifest.yml",
+                f"{default_stage_name}/file_a.sql",
+            },
+        )

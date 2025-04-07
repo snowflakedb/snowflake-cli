@@ -371,6 +371,16 @@ DebugOption = typer.Option(
     rich_help_panel=_CLI_BEHAVIOUR,
 )
 
+EnhancedExitCodesOption = typer.Option(
+    False,
+    "--enhanced-exit-codes",
+    help="Differentiate exit error codes based on failure type.",
+    callback=_context_callback("enhanced_exit_codes"),
+    is_flag=True,
+    rich_help_panel=_CLI_BEHAVIOUR,
+    is_eager=True,
+)
+
 
 # If IfExistsOption, IfNotExistsOption, or ReplaceOption are used with names other than those in CREATE_MODE_OPTION_NAMES,
 # you must also override mutually_exclusive if you want to retain the validation that at most one of these flags is
@@ -420,8 +430,11 @@ PruneOption = OverrideableOption(
 )
 
 
-def entity_argument(entity_type: str) -> typer.Argument:
-    return typer.Argument(None, help=f"ID of {entity_type} entity.")
+def entity_argument(entity_type: str, required=False) -> typer.Argument:
+    _help = f"ID of {entity_type} entity."
+    if not required:
+        return typer.Argument(None, help=_help)
+    return typer.Argument(..., help=_help, show_default=False)
 
 
 def variables_option(description: str):

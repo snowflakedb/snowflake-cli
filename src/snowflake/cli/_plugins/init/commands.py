@@ -28,7 +28,7 @@ from snowflake.cli.api.commands.flags import (
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
-from snowflake.cli.api.exceptions import InvalidTemplate
+from snowflake.cli.api.exceptions import InvalidTemplateError
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
@@ -138,7 +138,7 @@ def _read_template_metadata(template_root: SecurePath, args_error_msg: str) -> T
     template_metadata_path = template_root / TEMPLATE_METADATA_FILE_NAME
     log.debug("Reading template metadata from %s", template_metadata_path.path)
     if not template_metadata_path.exists():
-        raise InvalidTemplate(
+        raise InvalidTemplateError(
             f"File {TEMPLATE_METADATA_FILE_NAME} not found. {args_error_msg}"
         )
     with template_metadata_path.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
@@ -201,8 +201,9 @@ def init(
     variables_from_flags = {
         v.key: v.value for v in parse_key_value_variables(variables)
     }
-    is_remote = any(
-        template_source.startswith(prefix) for prefix in ["git@", "http://", "https://"]  # type: ignore
+    is_remote = template_source is not None and any(
+        template_source.startswith(prefix)
+        for prefix in ["git@", "http://", "https://"]  # type: ignore
     )
     args_error_msg = f"Check whether {TemplateOption.param_decls[0]} and {SourceOption.param_decls[0]} arguments are correct."
 
@@ -210,11 +211,13 @@ def init(
     with SecurePath.temporary_directory() as tmpdir:
         if is_remote:
             template_root = _fetch_remote_template(
-                url=template_source, path=template, destination=tmpdir  # type: ignore
+                url=template_source,  # type: ignore
+                path=template,
+                destination=tmpdir,  # type: ignore
             )
         else:
             template_root = _fetch_local_template(
-                template_source=SecurePath(template_source),
+                template_source=SecurePath(template_source),  # type: ignore
                 path=template,
                 destination=tmpdir,
             )

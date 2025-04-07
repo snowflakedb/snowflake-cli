@@ -1,13 +1,18 @@
 # serializer version: 1
-# name: test_command_with_connection_options
+# name: test_silent_output_help
   '''
                                                                                   
-   Usage: snow cmd_with_connection_options [OPTIONS] NAME                         
+   Usage: root streamlit get-url [OPTIONS] NAME                                   
+                                                                                  
+   Returns a URL to the specified Streamlit app                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  [default: None] [required]                              |
+  | *    name      TEXT  Identifier of the Streamlit app; for example:           |
+  |                      my_streamlit                                            |
+  |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
+  | --open            Whether to open the Streamlit app in a browser.            |
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -74,86 +79,6 @@
   | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
   |                                                 contains allowlist           |
   |                                                 parameters.                  |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON]  Specifies the output format.    |
-  |                                              [default: TABLE]                |
-  | --verbose              -v                    Displays log entries for log    |
-  |                                              levels info and higher.         |
-  | --debug                                      Displays log entries for log    |
-  |                                              levels debug and higher; debug  |
-  |                                              logs contain additional         |
-  |                                              information.                    |
-  | --silent                                     Turns off intermediate output   |
-  |                                              to console.                     |
-  | --enhanced-exit-codes                        Differentiate exit error codes  |
-  |                                              based on failure type.          |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_command_with_global_options
-  '''
-                                                                                  
-   Usage: snow cmd_with_global_options [OPTIONS] NAME                             
-                                                                                  
-  +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  [default: None] [required]                              |
-  +------------------------------------------------------------------------------+
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON]  Specifies the output format.    |
-  |                                              [default: TABLE]                |
-  | --verbose              -v                    Displays log entries for log    |
-  |                                              levels info and higher.         |
-  | --debug                                      Displays log entries for log    |
-  |                                              levels debug and higher; debug  |
-  |                                              logs contain additional         |
-  |                                              information.                    |
-  | --silent                                     Turns off intermediate output   |
-  |                                              to console.                     |
-  | --enhanced-exit-codes                        Differentiate exit error codes  |
-  |                                              based on failure type.          |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_command_without_any_options
-  '''
-                                                                                  
-   Usage: snow simple_cmd [OPTIONS] NAME                                          
-                                                                                  
-  +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  [default: None] [required]                              |
-  +------------------------------------------------------------------------------+
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_enabled_command_is_not_visible
-  '''
-  Usage: snow [OPTIONS] COMMAND [ARGS]...
-  Try 'snow --help' for help.
-  +- Error ----------------------------------------------------------------------+
-  | No such command 'switchable_cmd'.                                            |
-  +------------------------------------------------------------------------------+
-  
-  '''
-# ---
-# name: test_enabled_command_is_visible
-  '''
-                                                                                  
-   Usage: snow switchable_cmd [OPTIONS]                                           
-                                                                                  
-  +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
