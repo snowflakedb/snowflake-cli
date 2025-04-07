@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from snowflake.cli._plugins.cortex.types import Backend, Model
+from snowflake.cli._plugins.cortex.types import Model
 
 DEFAULT_MODEL: Model = Model("mistral-large2")
-DEFAULT_BACKEND: Backend = "REST"
+DEFAULT_BACKEND = "REST"
 REST_COMPLETE_URL = "/api/v2/cortex/inference:complete"
