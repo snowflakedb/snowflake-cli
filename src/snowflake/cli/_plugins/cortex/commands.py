@@ -26,7 +26,6 @@ from click import UsageError
 from snowflake.cli._plugins.cortex.constants import (
     DEFAULT_BACKEND,
     DEFAULT_MODEL,
-    REST_COMPLETE_URL,
 )
 from snowflake.cli._plugins.cortex.manager import CortexManager
 from snowflake.cli._plugins.cortex.types import (
@@ -194,7 +193,7 @@ def complete(
             result_text = manager.rest_complete_for_conversation(
                 conversation_json_file=SecurePath(file),
                 model=Model(model),
-                url=REST_COMPLETE_URL,
+                root=root,
             )
         else:
             raise UsageError("--backend option should be either REST or SQL.")

@@ -104,6 +104,27 @@ class CortexManager(SqlExecutionMixin):
             data = json.loads(event.data)['choices'][0]['delta']
             result += data.get('content', '')
         return result
+    
+    def rest_complete_for_conversation(
+        self,
+        conversation_json_file: SecurePath,
+        model: Model,
+        root: "Root",
+    ) -> str: 
+        json_content = conversation_json_file.read_text(
+            file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB
+        )
+        complete_request = self.make_rest_complete_request(model=model, prompt=json_content)
+        cortex_inference_service = CortexInferenceService(root=root)
+        try:
+            raw_resp = cortex_inference_service.complete(complete_request=complete_request)
+        except Exception as e:
+            raise
+        result = ""
+        for event in raw_resp.events():
+            data = json.loads(event.data)['choices'][0]['delta']
+            result += data.get('content', '')
+        return result
 
     def extract_answer_from_source_document(
         self,
