@@ -51,13 +51,15 @@ def _mock_cortex_result(mock_ctx, mock_cursor):
 def test_cortex_complete_for_prompt_with_default_model(_mock_cortex_result, runner):
     with _mock_cortex_result(
         raw_result="Yes",
-        expected_query="SELECT SNOWFLAKE.CORTEX.COMPLETE( 'snowflake-arctic', 'Is 5 more than 4? Please answer using one word without a period.' ) AS CORTEX_RESULT;",
+        expected_query="SELECT SNOWFLAKE.CORTEX.COMPLETE( 'mistral-large2', 'Is 5 more than 4? Please answer using one word without a period.' ) AS CORTEX_RESULT;",
     ):
         result = runner.invoke(
             [
                 "cortex",
                 "complete",
                 "Is 5 more than 4? Please answer using one word without a period.",
+                "--backend",
+                "sql",
             ]
         )
         assert_successful_result_message(result, expected_msg="Yes")
@@ -113,6 +115,8 @@ def test_cortex_complete_for_prompt_with_chosen_model(_mock_cortex_result, runne
                 "Is 5 more than 4? Please answer using one word without a period.",
                 "--model",
                 "reka-flash",
+                "--backend",
+                "sql",
             ]
         )
         assert_successful_result_message(result, expected_msg="Yes")
@@ -121,7 +125,7 @@ def test_cortex_complete_for_prompt_with_chosen_model(_mock_cortex_result, runne
 def test_cortex_complete_for_file(_mock_cortex_result, runner):
     with _mock_cortex_result(
         raw_result="""{"choices": [{"messages": "No, I'm not"}]}""",
-        expected_query="""SELECT SNOWFLAKE.CORTEX.COMPLETE( 'snowflake-arctic', PARSE_JSON('[ { "role": "user", "content": "how does a \\\\"snowflake\\\\" get its \\'unique\\' pattern?" }, { "role": "system", "content": "I don\\'t know" }, { "role": "user", "content": "I thought \\\\"you\\\\" are smarter" } ] '), {} ) AS CORTEX_RESULT;""",
+        expected_query="""SELECT SNOWFLAKE.CORTEX.COMPLETE( 'mistral-large2', PARSE_JSON('[ { "role": "user", "content": "how does a \\\\"snowflake\\\\" get its \\'unique\\' pattern?" }, { "role": "system", "content": "I don\\'t know" }, { "role": "user", "content": "I thought \\\\"you\\\\" are smarter" } ] '), {} ) AS CORTEX_RESULT;""",
     ):
         result = runner.invoke(
             [
@@ -129,6 +133,8 @@ def test_cortex_complete_for_file(_mock_cortex_result, runner):
                 "complete",
                 "--file",
                 str(TEST_DIR / "test_data/cortex/conversation.json"),
+                "--backend",
+                "sql",
             ]
         )
         assert_successful_result_message(result, expected_msg="No, I'm not")
@@ -287,7 +293,6 @@ def test_cortex_translate_file(_mock_cortex_result, runner):
 
 @mock.patch("snowflake.cli._plugins.cortex.commands.SEARCH_COMMAND_ENABLED", new=False)
 def test_if_search_raises_exception_for_312(runner, os_agnostic_snapshot):
-
     result = runner.invoke(
         [
             "cortex",
