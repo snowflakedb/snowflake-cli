@@ -110,7 +110,7 @@ def test_deploy_only_streamlit_file(
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
-            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
+            FROM '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             TITLE = 'My Fancy Streamlit'
@@ -169,7 +169,7 @@ def test_deploy_only_streamlit_file_no_stage(
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
-            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
+            FROM '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
@@ -231,7 +231,7 @@ def test_deploy_with_empty_pages(
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
-            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
+            FROM '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
@@ -288,7 +288,7 @@ def test_deploy_only_streamlit_file_replace(
         dedent(
             f"""
             CREATE OR REPLACE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
-            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
+            FROM '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             TITLE = 'My Fancy Streamlit'
@@ -389,7 +389,7 @@ def test_deploy_streamlit_and_environment_files(
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
-            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
+            FROM '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             TITLE = 'My Fancy Streamlit'
@@ -449,7 +449,7 @@ def test_deploy_streamlit_and_pages_files(
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
-            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
+            FROM '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             TITLE = 'My Fancy Streamlit'
@@ -506,7 +506,7 @@ def test_deploy_all_streamlit_files(
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
-            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
+            FROM '@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = test_warehouse
             """
@@ -579,7 +579,7 @@ def test_deploy_put_files_on_stage(
         dedent(
             f"""
                 CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
-                ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}'
+                FROM '@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}'
                 MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = test_warehouse
                 TITLE = 'My Fancy Streamlit'
@@ -637,7 +637,7 @@ def test_deploy_all_streamlit_files_not_defaults(
         dedent(
             f"""
             CREATE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.{STREAMLIT_NAME}')
-            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}'
+            FROM '@MockDatabase.MockSchema.streamlit_stage/{STREAMLIT_NAME}'
             MAIN_FILE = 'main.py'
             QUERY_WAREHOUSE = streamlit_warehouse
             """
@@ -1101,7 +1101,7 @@ def test_deploy_streamlit_with_comment_v2(
         dedent(
             f"""
             CREATE OR REPLACE STREAMLIT IDENTIFIER('MockDatabase.MockSchema.test_streamlit_deploy_snowcli')
-            ROOT_LOCATION = '@MockDatabase.MockSchema.streamlit/test_streamlit_deploy_snowcli'
+            FROM '@MockDatabase.MockSchema.streamlit/test_streamlit_deploy_snowcli'
             MAIN_FILE = 'streamlit_app.py'
             QUERY_WAREHOUSE = xsmall
             TITLE = 'My Streamlit App with Comment'

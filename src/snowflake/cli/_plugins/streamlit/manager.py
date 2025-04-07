@@ -95,7 +95,7 @@ class StreamlitManager(SqlExecutionMixin):
             query.append(f"CREATE STREAMLIT {streamlit_id.sql_identifier}")
 
         if from_stage_name:
-            query.append(f"ROOT_LOCATION = '{from_stage_name}'")
+            query.append(f"FROM '{from_stage_name}'")
 
         query.append(f"MAIN_FILE = '{streamlit.main_file}'")
         if streamlit.imports:

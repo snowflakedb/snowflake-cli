@@ -25,6 +25,7 @@
 * Added `snow helper check-snowsql-env-vars` which reports environment variables from SnowSQL with replacements in CLI.
 
 ## Fixes and improvements
+* Fixed creating Streamlit, which was broken due to recent server syntax changes.
 
 
 # v3.6.0

@@ -102,7 +102,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         query += f"STREAMLIT {self._entity_model.fqn.set_schema(schema_to_use).sql_identifier}"
 
         if from_stage_name:
-            query += f"\nROOT_LOCATION = '{from_stage_name}'"
+            query += f"\nFROM '{from_stage_name}'"
         elif artifacts_dir:
             query += f"\nFROM '{artifacts_dir}'"
 
