@@ -15,4 +15,4 @@
 from snowflake.cli._plugins.cortex.types import Model
 
 DEFAULT_MODEL: Model = Model("mistral-large2")
-DEFAULT_BACKEND = "REST"
+DEFAULT_BACKEND = "rest"
