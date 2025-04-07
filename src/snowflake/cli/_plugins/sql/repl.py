@@ -2,6 +2,7 @@ from logging import getLogger
 from typing import Iterable
 
 from prompt_toolkit import PromptSession
+from prompt_toolkit.filters import Condition, is_searching
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding.key_bindings import KeyBindings
 from prompt_toolkit.keys import Keys
@@ -22,67 +23,6 @@ EXIT_KEYWORDS = ("exit", "quit")
 
 log.debug("setting history file to: %s", HISTORY_FILE.as_posix())
 
-repl_key_bindings = KeyBindings()
-
-
-@repl_key_bindings.add(Keys.Enter)
-def _(event):
-    """Handle Enter key press in REPL.
-
-    Detects `;` in multiline mode.
-    """
-    buffer = event.app.current_buffer
-    log.debug("original REPL buffer content: %r", buffer.text)
-    stripped_buffer = buffer.text.strip()
-
-    if stripped_buffer:
-        cursor_position = buffer.cursor_position
-        ends_with_semicolon = buffer.text.rstrip().endswith(";")
-
-        if stripped_buffer.lower() in EXIT_KEYWORDS:
-            log.debug("exit keyword detected")
-            buffer.validate_and_handle()
-
-        elif ends_with_semicolon and cursor_position >= len(stripped_buffer):
-            log.debug("Semicolon detected, executing query")
-            buffer.validate_and_handle()
-
-        else:
-            log.debug("Adding empty line")
-            buffer.insert_text("\n")
-    else:
-        buffer.validate_and_handle()
-
-
-@repl_key_bindings.add(Keys.ControlJ)
-def _(event):
-    """Control+J (and alias for Control + Enter) always inserts a new line."""
-    event.app.current_buffer.insert_text("\n")
-
-
-yn_key_bindings = KeyBindings()
-
-
-@yn_key_bindings.add(Keys.Enter)
-def _(event):
-    """Handle Enter key press in Yes/No prompt."""
-    event.app.exit(result="y")
-
-
-@yn_key_bindings.add("c-c")
-def _(event):
-    raise KeyboardInterrupt
-
-
-@yn_key_bindings.add("y")
-def _(event):
-    event.app.exit(result="y")
-
-
-@yn_key_bindings.add("n")
-def _(event):
-    event.app.exit(result="n")
-
 
 class Repl:
     """Basic REPL implementation for the Snowflake CLI."""
@@ -101,40 +41,95 @@ class Repl:
         """
         super().__init__()
         setattr(get_cli_context_manager(), "is_repl", True)
-        self._sql_manager = sql_manager
         self._data = data or {}
         self._retain_comments = retain_comments
-        self._session = PromptSession(
-            history=FileHistory(HISTORY_FILE),
-            lexer=PygmentsLexer(CliLexer),
-            completer=cli_completer,
-            multiline=True,
-            wrap_lines=True,
-            key_bindings=repl_key_bindings,
-        )
+        self._history = FileHistory(HISTORY_FILE)
+        self._lexer = PygmentsLexer(CliLexer)
+        self._completer = cli_completer
+        self._repl_key_bindings = self._setup_key_bindings()
+        self._yes_no_keybindings = self._setup_yn_key_bindings()
+        self._sql_manager = sql_manager
+        self.session = PromptSession(history=self._history)
 
-    @property
-    def session(self) -> PromptSession:
-        return self._session
+    def _setup_key_bindings(self) -> KeyBindings:
+        """Key bindings for repl. Helps detecting ; at end of buffer."""
+        kb = KeyBindings()
+
+        @Condition
+        def not_searching():
+            return not is_searching()
+
+        @kb.add(Keys.Enter, filter=not_searching)
+        def _(event):
+            """Handle Enter key press."""
+            buffer = event.app.current_buffer
+            stripped_buffer = buffer.text.strip()
+
+            if stripped_buffer:
+                log.debug("got stripped buffer")
+                cursor_position = buffer.cursor_position
+                ends_with_semicolon = buffer.text.endswith(";")
+
+                if stripped_buffer.lower() in EXIT_KEYWORDS:
+                    log.debug("exit keyword detected %r", stripped_buffer)
+                    buffer.validate_and_handle()
+
+                elif ends_with_semicolon and cursor_position >= len(stripped_buffer):
+                    log.debug("semicolon detected, execiting query")
+                    buffer.validate_and_handle()
+
+                else:
+                    log.debug("adding new line")
+                    buffer.insert_text("\n")
+            else:
+                log.debug("no input, business as usual")
+
+        @kb.add(Keys.ControlJ)
+        def _(event):
+            """Control+J (and alias for Control + Enter) always inserts a new line."""
+            event.app.current_buffer.insert_text("\n")
+
+        return kb
+
+    def _setup_yn_key_bindings(self) -> KeyBindings:
+        """Key bindings for easy handling yes/no prompt."""
+        kb = KeyBindings()
+
+        @kb.add(Keys.Enter)
+        @kb.add("y")
+        def _(event):
+            event.app.exit(result="y")
+
+        @kb.add("n")
+        def _(event):
+            event.app.exit(result="n")
+
+        @kb.add("c-c")
+        def _(event):
+            raise KeyboardInterrupt
+
+        return kb
 
     def repl_propmpt(self, msg: str = " > ") -> str:
+        """Regular repl prompt."""
         return self.session.prompt(
             msg,
             lexer=PygmentsLexer(CliLexer),
             completer=cli_completer,
             multiline=True,
             wrap_lines=True,
-            key_bindings=repl_key_bindings,
+            key_bindings=self._repl_key_bindings,
         )
 
     def yn_prompt(self, msg: str) -> str:
+        """Yes/No prompt."""
         return self.session.prompt(
             msg,
             lexer=None,
             completer=None,
             multiline=False,
             wrap_lines=False,
-            key_bindings=yn_key_bindings,
+            key_bindings=self._yes_no_keybindings,
         )
 
     @property
@@ -142,13 +137,13 @@ class Repl:
         return f"Welcome to Snowflake-CLI REPL PoC\nType 'exit' or 'quit' to leave"
 
     def _initialize_connection(self):
+        """Early connection for possible fast fail."""
         cursor = self._execute("select current_version();")
         res = next(iter(cursor))
         log.debug("REPL: Snowflake version: %s", res.fetchall()[0][0])
 
     def _execute(self, user_input: str) -> Iterable[SnowflakeCursor]:
         """Executes a query and returns a list of cursors."""
-        # TODO: refactor SqlManager for different cursor types. VerboseCursor adds extre output to console
         _, cursors = self._sql_manager.execute(
             query=user_input,
             files=None,
@@ -174,8 +169,16 @@ class Repl:
         """
         while True:
             try:
-                user_input = self.repl_propmpt().strip()
-                # log.debug("REPL user input: %r", user_input)
+                # user_input = self.repl_propmpt().strip()
+                user_input = self.session.prompt(
+                    message=" > ",
+                    lexer=self._lexer,
+                    completer=self._completer,
+                    multiline=True,
+                    wrap_lines=True,
+                    key_bindings=self._repl_key_bindings,
+                )
+                log.debug("REPL user input: %r", user_input)
 
                 if not user_input:
                     continue

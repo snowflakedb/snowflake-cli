@@ -214,6 +214,7 @@ class _CliGlobalContextAccess:
     @property
     def enhanced_exit_codes(self) -> bool:
         return self._manager.enhanced_exit_codes
+
     def is_repl(self) -> bool:
         return self._manager.is_repl
 
