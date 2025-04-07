@@ -22,7 +22,6 @@ from typing import List, Optional
 import click
 import typer
 from click import UsageError
-
 from snowflake.cli._plugins.cortex.constants import (
     DEFAULT_BACKEND,
     DEFAULT_MODEL,
@@ -124,17 +123,6 @@ class Backend(Enum):
     SQL = "sql"
     REST = "rest"
 
-    @classmethod
-    def from_string(cls, value: str) -> Optional["Backend"]:
-        """
-        Convert a string to Backend enum value.
-        Returns None if the value doesn't match any enum member.
-        """
-        try:
-            return cls(value.lower())
-        except ValueError:
-            return None
-
 
 @app.command(
     name="complete",
@@ -151,7 +139,7 @@ def complete(
         "--model",
         help="String specifying the model to be used.",
     ),
-    backend: Optional[str] = typer.Option(
+    backend: Optional[Backend] = typer.Option(
         DEFAULT_BACKEND,
         "--backend",
         help="String specifying whether to use SQL or REST backend. Default is REST.",
@@ -168,7 +156,6 @@ def complete(
     """
 
     manager = CortexManager()
-    backend = Backend.from_string(backend)
     root = get_cli_context().snow_api_root
 
     if text:
@@ -184,7 +171,7 @@ def complete(
                 root=root,
             )
         else:
-            raise UsageError("--backend option should be either REST or SQL.")
+            raise UsageError("--backend option should be either rest or sql.")
     elif file:
         if backend == Backend.SQL:
             result_text = manager.complete_for_conversation(
@@ -198,7 +185,7 @@ def complete(
                 root=root,
             )
         else:
-            raise UsageError("--backend option should be either REST or SQL.")
+            raise UsageError("--backend option should be either rest or sql.")
     else:
         raise UsageError("Either --file option or TEXT argument has to be provided.")
 

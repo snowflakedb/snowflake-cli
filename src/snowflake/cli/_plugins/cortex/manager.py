@@ -19,7 +19,6 @@ import logging
 from typing import Callable, Optional
 
 from click import ClickException
-
 from snowflake.cli._plugins.cortex.types import (
     Language,
     Model,
