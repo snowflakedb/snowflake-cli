@@ -119,12 +119,13 @@ def search(
 
     return CollectionResult(response.results)
 
+
 class Backend(Enum):
     SQL = "sql"
     REST = "rest"
 
     @classmethod
-    def from_string(cls, value: str) -> Optional['Backend']:
+    def from_string(cls, value: str) -> Optional["Backend"]:
         """
         Convert a string to Backend enum value.
         Returns None if the value doesn't match any enum member.
@@ -133,6 +134,7 @@ class Backend(Enum):
             return cls(value.lower())
         except ValueError:
             return None
+
 
 @app.command(
     name="complete",
