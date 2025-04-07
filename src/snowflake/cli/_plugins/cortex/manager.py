@@ -75,16 +75,16 @@ class CortexManager(SqlExecutionMixin):
         return self._extract_text_result_from_json_result(
             lambda: json_result["choices"][0]["messages"]
         )
-    
+
     def make_rest_complete_request(
         self,
         model: Model,
-        prompt: Text,   
+        prompt: Text,
     ) -> CompleteRequest:
         return CompleteRequest(
-            model = str(model),
-            messages = [CompleteRequestMessagesInner(content=str(prompt))],
-            stream = True,
+            model=str(model),
+            messages=[CompleteRequestMessagesInner(content=str(prompt))],
+            stream=True,
         )
 
     def rest_complete_for_prompt(
@@ -96,34 +96,40 @@ class CortexManager(SqlExecutionMixin):
         complete_request = self.make_rest_complete_request(model=model, prompt=text)
         cortex_inference_service = CortexInferenceService(root=root)
         try:
-            raw_resp = cortex_inference_service.complete(complete_request=complete_request)
+            raw_resp = cortex_inference_service.complete(
+                complete_request=complete_request
+            )
         except Exception as e:
             raise
         result = ""
         for event in raw_resp.events():
-            data = json.loads(event.data)['choices'][0]['delta']
-            result += data.get('content', '')
+            data = json.loads(event.data)["choices"][0]["delta"]
+            result += data.get("content", "")
         return result
-    
+
     def rest_complete_for_conversation(
         self,
         conversation_json_file: SecurePath,
         model: Model,
         root: "Root",
-    ) -> str: 
+    ) -> str:
         json_content = conversation_json_file.read_text(
             file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB
         )
-        complete_request = self.make_rest_complete_request(model=model, prompt=json_content)
+        complete_request = self.make_rest_complete_request(
+            model=model, prompt=json_content
+        )
         cortex_inference_service = CortexInferenceService(root=root)
         try:
-            raw_resp = cortex_inference_service.complete(complete_request=complete_request)
+            raw_resp = cortex_inference_service.complete(
+                complete_request=complete_request
+            )
         except Exception as e:
             raise
         result = ""
         for event in raw_resp.events():
-            data = json.loads(event.data)['choices'][0]['delta']
-            result += data.get('content', '')
+            data = json.loads(event.data)["choices"][0]["delta"]
+            result += data.get("content", "")
         return result
 
     def extract_answer_from_source_document(
@@ -227,7 +233,7 @@ class CortexManager(SqlExecutionMixin):
 
     @staticmethod
     def _extract_text_result_from_json_result(
-        extract_function: Callable[[], str]
+        extract_function: Callable[[], str],
     ) -> str:
         try:
             return extract_function()
