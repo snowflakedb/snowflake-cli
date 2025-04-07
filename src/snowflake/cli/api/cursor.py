@@ -11,9 +11,9 @@ class ExtendedExitCodes:
             raise CliSqlError(pex.msg) from pex
 
 
-class CliSnowflakeCursor(SnowflakeCursor, ExtendedExitCodes):
+class CliSnowflakeCursor(ExtendedExitCodes, SnowflakeCursor):
     """Cli Cursor with override of execution for custom exception handling."""
 
 
-class CliDictCursor(DictCursor, ExtendedExitCodes):
+class CliDictCursor(ExtendedExitCodes, DictCursor):
     """Cli Dict Cursor with override of execution for custom exception handling."""
