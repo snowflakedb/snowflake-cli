@@ -156,7 +156,6 @@ def complete(
     """
 
     manager = CortexManager()
-    root = get_cli_context().snow_api_root
 
     if text:
         if backend == Backend.SQL:
@@ -165,6 +164,7 @@ def complete(
                 model=Model(model),
             )
         elif backend == Backend.REST:
+            root = get_cli_context().snow_api_root
             result_text = manager.rest_complete_for_prompt(
                 text=Text(text),
                 model=Model(model),
@@ -179,6 +179,7 @@ def complete(
                 model=Model(model),
             )
         elif backend == Backend.REST:
+            root = get_cli_context().snow_api_root
             result_text = manager.rest_complete_for_conversation(
                 conversation_json_file=SecurePath(file),
                 model=Model(model),
