@@ -142,7 +142,7 @@ def complete(
     backend: Optional[Backend] = typer.Option(
         DEFAULT_BACKEND,
         "--backend",
-        help="String specifying whether to use SQL or REST backend. Default is REST.",
+        help="String specifying whether to use sql or rest backend. Default is rest.",
     ),
     file: Optional[Path] = ExclusiveReadableFileOption(
         help="JSON file containing conversation history to be used to generate a completion. Cannot be combined with TEXT argument.",

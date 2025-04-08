@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+import typing
 from typing import Callable, Optional
 
 from click import ClickException
@@ -40,6 +41,26 @@ from snowflake.core.cortex.inference_service._generated.models.complete_request_
 )
 
 log = logging.getLogger(__name__)
+
+
+class ResponseParseError(Exception):
+    """This exception is raised when the server response cannot be parsed."""
+
+    pass
+
+
+class MidStreamError(Exception):
+    """The SSE (Server-sent Event) stream can contain error messages in the middle of the stream,
+    using the “error” event type. This exception is raised when there is such a mid-stream error."""
+
+    def __init__(
+        self,
+        reason: typing.Optional[str] = None,
+    ) -> None:
+        message = ""
+        if reason is not None:
+            message = reason
+        super().__init__(message)
 
 
 class CortexManager(SqlExecutionMixin):
@@ -102,8 +123,17 @@ class CortexManager(SqlExecutionMixin):
             raise
         result = ""
         for event in raw_resp.events():
-            data = json.loads(event.data)["choices"][0]["delta"]
-            result += data.get("content", "")
+            try:
+                parsed_resp = json.loads(event.data)
+            except json.JSONDecodeError:
+                raise ResponseParseError("Server response cannot be parsed")
+            try:
+                result += parsed_resp["choices"][0]["delta"]["content"]
+            except (json.JSONDecodeError, KeyError, IndexError):
+                if parsed_resp.get("error"):
+                    raise MidStreamError(reason=event.data)
+            else:
+                pass
         return result
 
     def rest_complete_for_conversation(
@@ -127,8 +157,18 @@ class CortexManager(SqlExecutionMixin):
             raise
         result = ""
         for event in raw_resp.events():
-            data = json.loads(event.data)["choices"][0]["delta"]
-            result += data.get("content", "")
+            try:
+                parsed_resp = json.loads(event.data)
+            except json.JSONDecodeError:
+                raise ResponseParseError("Server response cannot be parsed")
+            try:
+                result += parsed_resp["choices"][0]["delta"]["content"]
+            except (json.JSONDecodeError, KeyError, IndexError):
+                if parsed_resp.get("error"):
+                    raise MidStreamError(reason=event.data)
+            else:
+                pass
+
         return result
 
     def extract_answer_from_source_document(
