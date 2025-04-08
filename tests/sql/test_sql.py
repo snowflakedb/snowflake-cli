@@ -18,7 +18,6 @@ from unittest import mock
 import pytest
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.cursor import CliDictCursor
 from snowflake.cli.api.exceptions import (
     ShowSpecificObjectMultipleRowsError,
     SnowflakeSQLExecutionError,
@@ -26,6 +25,7 @@ from snowflake.cli.api.exceptions import (
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import identifier_to_show_like_pattern
 from snowflake.cli.api.sql_execution import SqlExecutionMixin, VerboseCursor
+from snowflake.connector.cursor import DictCursor
 
 from tests.testing_utils.result_assertions import assert_that_result_is_usage_error
 
@@ -175,7 +175,7 @@ def test_show_specific_object(mock_execute, mock_cursor):
         "objects", "example_id", name_col="id"
     )
     mock_execute.assert_called_once_with(
-        r"show objects like 'EXAMPLE\\_ID'", cursor_class=CliDictCursor
+        r"show objects like 'EXAMPLE\\_ID'", cursor_class=DictCursor
     )
     assert result == mock_row_dict
 
@@ -190,7 +190,7 @@ def test_show_specific_object_in_clause(mock_execute, mock_cursor):
         "objects", '"AbcDef"', in_clause="in database mydb"
     )
     mock_execute.assert_called_once_with(
-        r"show objects like 'AbcDef' in database mydb", cursor_class=CliDictCursor
+        r"show objects like 'AbcDef' in database mydb", cursor_class=DictCursor
     )
     assert result == mock_row_dict
 
@@ -205,20 +205,20 @@ def test_show_specific_object_no_match(mock_execute, mock_cursor):
         "objects", "example_id", name_col="id"
     )
     mock_execute.assert_called_once_with(
-        r"show objects like 'EXAMPLE\\_ID'", cursor_class=CliDictCursor
+        r"show objects like 'EXAMPLE\\_ID'", cursor_class=DictCursor
     )
     assert result is None
 
 
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin.execute_query")
 def test_show_specific_object_sql_execution_error(mock_execute):
-    cursor = mock.Mock(spec=CliDictCursor)
+    cursor = mock.Mock(spec=DictCursor)
     cursor.rowcount = None
     mock_execute.return_value = cursor
     with pytest.raises(SnowflakeSQLExecutionError):
         SqlExecutionMixin().show_specific_object("objects", "example_id", name_col="id")
     mock_execute.assert_called_once_with(
-        r"show objects like 'EXAMPLE\\_ID'", cursor_class=CliDictCursor
+        r"show objects like 'EXAMPLE\\_ID'", cursor_class=DictCursor
     )
 
 
@@ -260,7 +260,7 @@ def test_show_specific_object_qualified_name(
     SqlExecutionMixin().show_specific_object("objects", name)
     mock_execute_query.assert_called_once_with(
         f"show objects like {identifier_to_show_like_pattern(unqualified_name)} {name_in_clause}",
-        cursor_class=CliDictCursor,
+        cursor_class=DictCursor,
     )
 
 
@@ -283,14 +283,14 @@ def test_show_specific_object_qualified_name_and_in_clause_error(
 
 @mock.patch("snowflake.cli.api.sql_execution.SqlExecutionMixin.execute_query")
 def test_show_specific_object_multiple_rows(mock_execute_query):
-    cursor = mock.Mock(spec=CliDictCursor)
+    cursor = mock.Mock(spec=DictCursor)
     cursor.rowcount = 2
     mock_execute_query.return_value = cursor
     with pytest.raises(ShowSpecificObjectMultipleRowsError) as err:
         SqlExecutionMixin().show_specific_object("objects", "name", name_col="id")
     assert err.match("Received multiple rows")
     mock_execute_query.assert_called_once_with(
-        r"show objects like 'NAME'", cursor_class=CliDictCursor
+        r"show objects like 'NAME'", cursor_class=DictCursor
     )
 
 

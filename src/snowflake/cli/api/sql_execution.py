@@ -24,7 +24,6 @@ from typing import Iterable, Optional, Tuple
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.cursor import CliDictCursor, CliSnowflakeCursor
 from snowflake.cli.api.exceptions import (
     CouldNotUseObjectError,
     DatabaseNotProvidedError,
@@ -39,6 +38,7 @@ from snowflake.cli.api.project.util import (
 )
 from snowflake.cli.api.utils.cursor import find_first_row
 from snowflake.connector import SnowflakeConnection
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
 
 
@@ -70,9 +70,9 @@ class BaseSqlExecutor:
         sql_text: str,
         remove_comments: bool = False,
         return_cursors: bool = True,
-        cursor_class: CliSnowflakeCursor = CliSnowflakeCursor,
+        cursor_class: SnowflakeCursor = SnowflakeCursor,
         **kwargs,
-    ) -> Iterable[CliSnowflakeCursor]:
+    ) -> Iterable[SnowflakeCursor]:
         """
         This is a custom implementation of SnowflakeConnection.execute_string that returns generator
         instead of list. In case of executing multiple queries are executed one by one. This mean we can
@@ -80,29 +80,16 @@ class BaseSqlExecutor:
         """
         self._log.debug("Executing %s", sql_text)
         stream = StringIO(sql_text)
-        try:
-            stream_generator = self._conn.execute_stream(
-                stream,
-                remove_comments=remove_comments,
-                cursor_class=cursor_class,
-                **kwargs,
-            )
-            return stream_generator if return_cursors else list()
-        except BaseException as ex:
-            self._log.debug(
-                "query execution error: %s",
-                ex,
-                exc_info=True,
-            )
-            raise ex
-        finally:
-            self._log.debug("query: %r", stream)
+        stream_generator = self._conn.execute_stream(
+            stream, remove_comments=remove_comments, cursor_class=cursor_class, **kwargs
+        )
+        return stream_generator if return_cursors else list()
 
-    def execute_string(self, query: str, **kwargs) -> Iterable[CliSnowflakeCursor]:
+    def execute_string(self, query: str, **kwargs) -> Iterable[SnowflakeCursor]:
         """Executes a single SQL query and returns the results"""
         return self._execute_string(query, **kwargs)
 
-    def execute_query(self, query: str, **kwargs) -> CliSnowflakeCursor:
+    def execute_query(self, query: str, **kwargs) -> SnowflakeCursor:
         """Executes a single SQL query and returns the last result"""
         *_, last_result = list(self.execute_string(dedent(query), **kwargs))
         return last_result
@@ -186,7 +173,7 @@ class SqlExecutor(BaseSqlExecutor):
 
     def create_password_secret(
         self, name: FQN, username: str, password: str
-    ) -> CliSnowflakeCursor:
+    ) -> SnowflakeCursor:
         return self.execute_query(
             f"""
             create secret {name.sql_identifier}
@@ -198,7 +185,7 @@ class SqlExecutor(BaseSqlExecutor):
 
     def create_api_integration(
         self, name: FQN, api_provider: str, allowed_prefix: str, secret: Optional[str]
-    ) -> CliSnowflakeCursor:
+    ) -> SnowflakeCursor:
         return self.execute_query(
             f"""
             create api integration {name.sql_identifier}
@@ -271,11 +258,11 @@ class SqlExecutor(BaseSqlExecutor):
 
         if check_schema:
             show_obj_cursor = self._execute_schema_query(  # type: ignore
-                show_obj_query, name=name, cursor_class=CliDictCursor
+                show_obj_query, name=name, cursor_class=DictCursor
             )
         else:
             show_obj_cursor = self.execute_query(  # type: ignore
-                show_obj_query, cursor_class=CliDictCursor
+                show_obj_query, cursor_class=DictCursor
             )
 
         if show_obj_cursor.rowcount is None:
@@ -306,7 +293,7 @@ class SqlExecutionMixin(SqlExecutor):
         return self._snowpark_session
 
 
-class VerboseCursor(CliSnowflakeCursor):
+class VerboseCursor(SnowflakeCursor):
     def execute(self, command: str, *args, **kwargs):
         cli_console.message(command)
         super().execute(command, *args, **kwargs)

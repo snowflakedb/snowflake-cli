@@ -34,7 +34,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
 from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.cursor import CliDictCursor
+from snowflake.connector.cursor import DictCursor
 
 from tests.nativeapp.factories import (
     ApplicationEntityModelFactory,
@@ -170,7 +170,7 @@ def test_deploy(
                 ),
                 mock.call(
                     r"show application packages like 'PKG'",
-                    cursor_class=CliDictCursor,
+                    cursor_class=DictCursor,
                 ),
             ),
             (None, mock.call("use role old_role")),
@@ -270,7 +270,7 @@ def test_deploy_w_stage_subdir(
                 ),
                 mock.call(
                     r"show application packages like 'PKG'",
-                    cursor_class=CliDictCursor,
+                    cursor_class=DictCursor,
                 ),
             ),
             (None, mock.call("use role old_role")),

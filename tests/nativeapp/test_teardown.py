@@ -36,7 +36,6 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.console.abc import AbstractConsole
-from snowflake.cli.api.cursor import CliDictCursor
 from snowflake.cli.api.entities.utils import drop_generic_object
 from snowflake.cli.api.errno import (
     APPLICATION_NO_LONGER_AVAILABLE,
@@ -854,7 +853,7 @@ def test_drop_package_variable_mistmatch_w_special_comment_quoted_name_auto_drop
                 ),
                 mock.call(
                     "show application packages like 'My Package'",
-                    cursor_class=CliDictCursor,
+                    cursor_class=DictCursor,
                 ),
             ),
             (None, mock.call("use role old_role")),
