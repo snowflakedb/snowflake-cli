@@ -219,6 +219,7 @@ def test_sql_with_variables_from_project(runner, project_directory, template):
         assert result.json == [{"VAR": "Knights of Nii"}]
 
 
+@pytest.mark.integration
 def test_sql_ec(runner):
     result = runner.invoke_with_connection(
         [

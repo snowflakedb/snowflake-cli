@@ -41,7 +41,7 @@ from snowflake.cli.api.exceptions import (
 from snowflake.cli.api.output.types import CommandResult
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
-from snowflake.connector import DatabaseError
+from snowflake.connector import DatabaseError, ProgrammingError
 from typer.core import TyperGroup
 
 log = logging.getLogger(__name__)
@@ -171,9 +171,11 @@ class SnowTyper(typer.Typer):
         Callback executed on command execution error.
         """
         from snowflake.cli._app.telemetry import log_command_execution_error
+        from snowflake.cli.api.cli_global_context import get_cli_context
 
         log.debug("Executing command exception callback")
         log_command_execution_error(exception, execution)
+        # todo: add temporary e handler until
         if isinstance(
             exception,
             (
@@ -184,6 +186,10 @@ class SnowTyper(typer.Typer):
             ),
         ):
             return exception
+        if isinstance(exception, ProgrammingError):
+            if get_cli_context().enhanced_exit_codes:
+                return CliSqlError(exception.msg)
+            return CliError(exception.msg)
         if isinstance(exception, DatabaseError):
             return ClickException(exception.msg)
         return exception
