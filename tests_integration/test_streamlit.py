@@ -166,6 +166,11 @@ def test_streamlit_deploy_with_imports(
     # This work because uploading the imports artifact because
     # deploying streamlit does not start the app.
     with project_directory(f"streamlit_v2"):
+        result = runner.invoke_with_connection(
+            ["sql", "-q", "SELECT SYSTEM$BEHAVIOR_CHANGE_BUNDLE_STATUS('2025_01');"]
+        )
+        assert result.output == "123", result.output
+
         alter_snowflake_yml(
             "snowflake.yml",
             "entities.my_streamlit.imports",
