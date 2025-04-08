@@ -21,9 +21,8 @@ from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterator, Optional
 
-from click import ClickException
 from snowflake.cli.api.connections import ConnectionContext, OpenConnectionCache
-from snowflake.cli.api.exceptions import BaseCliError, MissingConfigurationError
+from snowflake.cli.api.exceptions import MissingConfigurationError
 from snowflake.cli.api.metrics import CLIMetrics
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
@@ -177,10 +176,7 @@ class _CliGlobalContextAccess:
 
     @property
     def project_definition(self) -> ProjectDefinition | None:
-        try:
-            return self._manager.project_definition
-        except BaseCliError as exc:
-            raise ClickException(exc.message)
+        return self._manager.project_definition
 
     @property
     def project_root(self) -> Path | None:
