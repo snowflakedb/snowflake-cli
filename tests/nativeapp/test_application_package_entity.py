@@ -34,7 +34,7 @@ from snowflake.cli._plugins.nativeapp.entities.application_package import (
 from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.console import cli_console
-from snowflake.connector.cursor import DictCursor
+from snowflake.cli.api.cursor import CliDictCursor
 
 from tests.nativeapp.factories import (
     ApplicationEntityModelFactory,
@@ -170,7 +170,7 @@ def test_deploy(
                 ),
                 mock.call(
                     r"show application packages like 'PKG'",
-                    cursor_class=DictCursor,
+                    cursor_class=CliDictCursor,
                 ),
             ),
             (None, mock.call("use role old_role")),
@@ -270,7 +270,7 @@ def test_deploy_w_stage_subdir(
                 ),
                 mock.call(
                     r"show application packages like 'PKG'",
-                    cursor_class=DictCursor,
+                    cursor_class=CliDictCursor,
                 ),
             ),
             (None, mock.call("use role old_role")),
@@ -383,7 +383,6 @@ def test_given_channels_disabled_and_no_directives_when_release_directive_list_t
     application_package_entity,
     action_context,
 ):
-
     pkg_model = application_package_entity._entity_model  # noqa SLF001
     pkg_model.meta.role = "package_role"
 
@@ -408,7 +407,6 @@ def test_given_channels_disabled_and_directives_present_when_release_directive_l
     application_package_entity,
     action_context,
 ):
-
     pkg_model = application_package_entity._entity_model  # noqa SLF001
     pkg_model.meta.role = "package_role"
 
@@ -436,7 +434,6 @@ def test_given_multiple_directives_and_like_pattern_when_release_directive_list_
     application_package_entity,
     action_context,
 ):
-
     pkg_model = application_package_entity._entity_model  # noqa SLF001
     pkg_model.meta.role = "package_role"
 
@@ -461,7 +458,6 @@ def test_given_channels_enabled_and_no_channel_specified_when_release_directive_
     application_package_entity,
     action_context,
 ):
-
     pkg_model = application_package_entity._entity_model  # noqa SLF001
     pkg_model.meta.role = "package_role"
 
@@ -486,7 +482,6 @@ def test_given_channels_disabled_and_default_channel_selected_when_release_direc
     application_package_entity,
     action_context,
 ):
-
     pkg_model = application_package_entity._entity_model  # noqa SLF001
     pkg_model.meta.role = "package_role"
 
@@ -515,7 +510,6 @@ def test_given_channels_disabled_and_non_default_channel_selected_when_release_d
     application_package_entity,
     action_context,
 ):
-
     pkg_model = application_package_entity._entity_model  # noqa SLF001
     pkg_model.meta.role = "package_role"
 
@@ -543,7 +537,6 @@ def test_given_channels_enabled_and_invalid_channel_selected_when_release_direct
     application_package_entity,
     action_context,
 ):
-
     pkg_model = application_package_entity._entity_model  # noqa SLF001
     pkg_model.meta.role = "package_role"
 
@@ -571,7 +564,6 @@ def test_given_channels_enabled_and_valid_channel_selected_when_release_directiv
     application_package_entity,
     action_context,
 ):
-
     pkg_model = application_package_entity._entity_model  # noqa SLF001
     pkg_model.meta.role = "package_role"
 

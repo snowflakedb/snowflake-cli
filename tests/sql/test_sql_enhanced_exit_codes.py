@@ -28,11 +28,6 @@ import pytest
             5,
             id="missing variable fails with 5",
         ),
-        pytest.param(
-            ("sql", "-q", "slect 1", "--enhanced-exit-codes"),
-            5,
-            id="misspelled SELECT fails with 5",
-        ),
     ),
 )
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")

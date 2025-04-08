@@ -54,6 +54,7 @@ from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.cursor import CliDictCursor
 from snowflake.cli.api.entities.utils import (
     EntityActions,
     _get_stage_paths_to_sync,
@@ -655,7 +656,7 @@ def test_get_existing_app_pkg_info_app_pkg_exists(
                 ),
                 mock.call(
                     r"show application packages like 'APP\\_PKG'",
-                    cursor_class=DictCursor,
+                    cursor_class=CliDictCursor,
                 ),
             ),
             (None, mock.call("use role old_role")),
@@ -694,7 +695,7 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
                 mock_cursor([], []),
                 mock.call(
                     r"show application packages like 'APP\\_PKG'",
-                    cursor_class=DictCursor,
+                    cursor_class=CliDictCursor,
                 ),
             ),
             (None, mock.call("use role old_role")),
