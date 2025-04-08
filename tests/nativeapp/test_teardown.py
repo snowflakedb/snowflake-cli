@@ -337,8 +337,7 @@ def test_drop_application_has_special_comment_and_quoted_name(
                     [],
                 ),
                 mock.call(
-                    "show applications like 'My Application'",
-                    cursor_class=DictCursor,
+                    "show applications like 'My Application'", cursor_class=DictCursor
                 ),
             ),
             (None, mock.call("use role old_role")),

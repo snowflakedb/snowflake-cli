@@ -191,7 +191,7 @@ class SqlExecutor(BaseSqlExecutor):
             create api integration {name.sql_identifier}
             api_provider = {api_provider}
             api_allowed_prefixes = ('{allowed_prefix}')
-            allowed_authentication_secrets = ({secret if secret else ""})
+            allowed_authentication_secrets = ({secret if secret else ''})
             enabled = true
             """
         )
