@@ -1,3 +1,4 @@
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.exceptions import CliSqlError
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
@@ -8,7 +9,9 @@ class ExtendedExitCodes:
         try:
             super().execute(command, *args, **kwargs)
         except ProgrammingError as pex:
-            raise CliSqlError(pex.msg) from pex
+            if get_cli_context().enhanced_exit_codes:
+                raise CliSqlError(pex.msg) from pex
+            raise pex
 
 
 class CliSnowflakeCursor(ExtendedExitCodes, SnowflakeCursor):
