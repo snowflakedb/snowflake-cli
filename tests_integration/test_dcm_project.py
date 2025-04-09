@@ -39,12 +39,13 @@ def test_project_deploy(
     test_database,
     project_directory,
 ):
-    project_name = "my_project"
+    project_name = "project_descriptive_name"
+    entity_id = "my_project"
     with project_directory("dcm_project"):
-        result = runner.invoke_with_connection(["project", "create"])
+        result = runner.invoke_with_connection(["project", "create", entity_id])
         assert result.exit_code == 0, result.output
         assert (
-            "Project 'my_project' successfully created and initial version is added."
+            f"Project '{project_name}' successfully created and initial version is added."
             in result.output
         )
         # project should be initialized with a version
@@ -69,7 +70,7 @@ def test_project_deploy(
             [
                 "project",
                 "execute",
-                "my_project",
+                project_name,
                 "-D",
                 f"table_name='{test_database}.PUBLIC.MyTable'",
             ]
@@ -81,13 +82,13 @@ def test_project_deploy(
                 "project",
                 "list",
                 "--like",
-                "MY_PROJECT",
+                project_name,
             ]
         )
         assert result.exit_code == 0, result.output
         assert len(result.json) == 1
         project = result.json[0]
-        assert project["name"].lower() == "my_project".lower()
+        assert project["name"].lower() == project_name.lower()
 
 
 @pytest.mark.integration
@@ -97,7 +98,7 @@ def test_create_corner_cases(
     test_database,
     project_directory,
 ):
-    project_name = "my_project"
+    project_name = "project_descriptive_name"
     stage_name = "my_project_stage"
     with project_directory("dcm_project"):
         # case 1: stage already exists
@@ -132,7 +133,8 @@ def test_project_add_version(
     test_database,
     project_directory,
 ):
-    project_name = "my_project"
+    project_name = "project_descriptive_name"
+    entity_id = "my_project"
     default_stage_name = "my_project_stage"
     other_stage_name = "other_project_stage"
 
@@ -177,7 +179,7 @@ def test_project_add_version(
             [
                 "project",
                 "add-version",
-                project_name,
+                entity_id,
                 "--from",
                 f"@{other_stage_name}",
                 "--alias",

@@ -6762,13 +6762,14 @@
 # name: test_help_messages[project.list-versions]
   '''
                                                                                   
-   Usage: root project list-versions [OPTIONS] ENTITY_ID                          
+   Usage: root project list-versions [OPTIONS] IDENTIFIER                         
                                                                                   
    Lists versions of given project.                                               
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    entity_id      TEXT  ID of project entity.                              |
-  |                           [required]                                         |
+  | *    identifier      TEXT  Identifier of the project; for example:           |
+  |                            MY_PROJECT                                        |
+  |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
