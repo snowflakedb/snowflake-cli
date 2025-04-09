@@ -31,7 +31,13 @@ from snowflake.cli.api.commands.execution_metadata import (
     ExecutionStatus,
 )
 from snowflake.cli.api.commands.flags import DEFAULT_CONTEXT_SETTINGS
-from snowflake.cli.api.exceptions import CommandReturnTypeError
+from snowflake.cli.api.exceptions import (
+    BaseCliError,
+    CliArgumentError,
+    CliError,
+    CliSqlError,
+    CommandReturnTypeError,
+)
 from snowflake.cli.api.output.types import CommandResult
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -168,8 +174,20 @@ class SnowTyper(typer.Typer):
 
         log.debug("Executing command exception callback")
         log_command_execution_error(exception, execution)
+        exception = SnowTyper._cli_base_exception_migration_dispatcher(exception)
+        return exception
+
+    @staticmethod
+    def _cli_base_exception_migration_dispatcher(exception):
+        """Handler used for dispatching exception until migration completed."""
+        if isinstance(
+            exception, (BaseCliError, CliError, CliArgumentError, CliSqlError)
+        ):
+            return exception
+
         if isinstance(exception, DatabaseError):
-            return ClickException(exception.msg)
+            return CliSqlError(exception.msg)
+
         return exception
 
     @staticmethod

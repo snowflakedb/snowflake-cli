@@ -379,6 +379,7 @@ EnhancedExitCodesOption = typer.Option(
     is_flag=True,
     rich_help_panel=_CLI_BEHAVIOUR,
     is_eager=True,
+    envvar="SNOWFLAKE_ENHANCED_EXIT_CODES",
 )
 
 
