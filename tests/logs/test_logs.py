@@ -1,5 +1,3 @@
-from unittest import mock
-
 import pytest
 
 
@@ -20,9 +18,7 @@ def test_providing_to_time_and_refresh_causes_error(runner):
     assert "You cannot set both --refresh and --to parameters" in result.output
 
 
-@mock.patch("snowflake.cli._plugins.logs.manager.LogsManager.logs_table")
-def test_providing_to_time_earlier_than_from_time_causes_error(mock_table, runner):
-    mock_table.return_value = "test_table"
+def test_providing_to_time_earlier_than_from_time_causes_error(runner):
 
     result = runner.invoke(
         [
@@ -58,28 +54,25 @@ def test_providing_time_in_incorrect_format_causes_error(
     assert result.output == snapshot
 
 
-@mock.patch(
-    "snowflake.cli._plugins.logs.manager.LogsManager.logs_table",
-    new_callable=mock.PropertyMock,
-)
-def test_correct_query_is_constructed(
-    mock_table, mock_connect, mock_ctx, runner, snapshot
-):
-    mock_table.return_value = "foo"
+@pytest.mark.parametrize("table", ["foo", "bar", None])
+def test_correct_query_is_constructed(mock_connect, mock_ctx, runner, snapshot, table):
     ctx = mock_ctx()
     mock_connect.return_value = ctx
 
-    _ = runner.invoke(
-        [
-            "logs",
-            "compute_pool",
-            "bar",
-            "--from",
-            "2022-02-02 02:02:02",
-            "--to",
-            "2022-02-03 02:02:02",
-        ]
-    )
+    args = [
+        "logs",
+        "compute_pool",
+        "bar",
+        "--from",
+        "2022-02-02 02:02:02",
+        "--to",
+        "2022-02-03 02:02:02",
+    ]
+
+    if table:
+        args.extend(["--table", table])
+
+    _ = runner.invoke(args)
 
     queries = ctx.get_queries()
     assert len(queries) == 1

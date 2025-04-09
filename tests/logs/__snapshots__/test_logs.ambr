@@ -1,5 +1,43 @@
 # serializer version: 1
-# name: test_correct_query_is_constructed
+# name: test_correct_query_is_constructed[None]
+  '''
+  SELECT
+                  timestamp,
+                  resource_attributes:"snow.database.name"::string as database_name,
+                  resource_attributes:"snow.schema.name"::string as schema_name,
+                  resource_attributes:"snow.compute_pool.name"::string as object_name,
+                  record:severity_text::string as log_level,
+                  value::string as log_message
+              FROM SNOWFLAKE.TELEMETRY.EVENTS
+              WHERE record_type = 'LOG'
+              AND (record:severity_text = 'INFO' or record:severity_text is NULL )
+              AND object_name = 'bar'
+              AND timestamp >= TO_TIMESTAMP_LTZ('2022-02-02T02:02:02')
+  AND timestamp <= TO_TIMESTAMP_LTZ('2022-02-03T02:02:02')
+  
+              ORDER BY timestamp;
+  '''
+# ---
+# name: test_correct_query_is_constructed[bar]
+  '''
+  SELECT
+                  timestamp,
+                  resource_attributes:"snow.database.name"::string as database_name,
+                  resource_attributes:"snow.schema.name"::string as schema_name,
+                  resource_attributes:"snow.compute_pool.name"::string as object_name,
+                  record:severity_text::string as log_level,
+                  value::string as log_message
+              FROM bar
+              WHERE record_type = 'LOG'
+              AND (record:severity_text = 'INFO' or record:severity_text is NULL )
+              AND object_name = 'bar'
+              AND timestamp >= TO_TIMESTAMP_LTZ('2022-02-02T02:02:02')
+  AND timestamp <= TO_TIMESTAMP_LTZ('2022-02-03T02:02:02')
+  
+              ORDER BY timestamp;
+  '''
+# ---
+# name: test_correct_query_is_constructed[foo]
   '''
   SELECT
                   timestamp,
