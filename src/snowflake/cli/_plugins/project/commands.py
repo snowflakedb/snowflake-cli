@@ -187,11 +187,12 @@ def add_version(
 
 @app.command(requires_connection=True)
 def list_versions(
-    entity_id: str = entity_argument("project", required=True), **options
+    identifier: FQN = project_identifier,
+    **options,
 ):
     """
     Lists versions of given project.
     """
     pm = ProjectManager()
-    results = pm.list_versions(project_name=FQN.from_string(entity_id))
+    results = pm.list_versions(project_name=identifier)
     return QueryResult(results)
