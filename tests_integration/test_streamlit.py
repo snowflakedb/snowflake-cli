@@ -11,9 +11,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import os
 import uuid
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -154,6 +155,7 @@ def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
 
 
 @pytest.mark.integration
+@mock.patch.dict(os.environ, {"ENABLE_STREAMLIT_VERSIONED_STAGE": True}, clear=True)
 def test_streamlit_deploy_with_imports(
     runner,
     snowflake_session,
@@ -162,15 +164,9 @@ def test_streamlit_deploy_with_imports(
     project_directory,
     alter_snowflake_yml,
 ):
-
     # This work because uploading the imports artifact because
     # deploying streamlit does not start the app.
     with project_directory(f"streamlit_v2"):
-        result = runner.invoke_with_connection(
-            ["sql", "-q", "SELECT SYSTEM$BEHAVIOR_CHANGE_BUNDLE_STATUS('2025_01');"]
-        )
-        assert result.output == "123", result.output
-
         alter_snowflake_yml(
             "snowflake.yml",
             "entities.my_streamlit.imports",
