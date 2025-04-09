@@ -155,7 +155,6 @@ def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
 
 
 @pytest.mark.integration
-@mock.patch.dict(os.environ, {"ENABLE_STREAMLIT_VERSIONED_STAGE": "True"}, clear=True)
 def test_streamlit_deploy_with_imports(
     runner,
     snowflake_session,
