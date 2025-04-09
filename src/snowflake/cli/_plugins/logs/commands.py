@@ -36,7 +36,7 @@ def get_logs(
         "--refresh",
         help="If set, the logs will be streamed with the given refresh time in seconds",
     ),
-    event_table: str = typer.Option(
+    event_table: Optional[str] = typer.Option(
         None,
         "--table",
         help="The table to query for logs. If not provided, the default table will be used",
