@@ -38,6 +38,9 @@ def test_console_base_class(capsys):
         def message(self, message: str):
             print(message)
 
+        def panel(self, message: str):
+            print(message)
+
     console = TConsole()
     assert not console.is_silent
 

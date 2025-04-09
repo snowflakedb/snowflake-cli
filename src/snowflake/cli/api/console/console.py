@@ -17,14 +17,23 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import Optional
 
+from rich import get_console
+from rich.panel import Panel
 from rich.style import Style
 from rich.text import Text
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.console.enum import Output
 
+# ensure we do not break URLs that wrap lines
+get_console().soft_wrap = True
+
+# Disable markup to avoid escaping errors
+get_console()._markup = False  # noqa: SLF001
+
 PHASE_STYLE: Style = Style(bold=True)
 STEP_STYLE: Style = Style(italic=True)
 INFO_STYLE: Style = Style()
+PANEL_STYLE: Style = Style()
 IMPORTANT_STYLE: Style = Style(bold=True, italic=True)
 INDENTATION_LEVEL: int = 2
 
@@ -47,6 +56,7 @@ class CliConsole(AbstractConsole):
         Output.STEP: STEP_STYLE,
         Output.INFO: None,
         Output.IMPORTANT: IMPORTANT_STYLE,
+        Output.PANEL: PANEL_STYLE,
     }
 
     def _format_message(self, message: str, output: Output) -> Text:
@@ -109,6 +119,12 @@ class CliConsole(AbstractConsole):
         This should be used to display important messages to the console."""
         text = self._format_message(message, Output.IMPORTANT)
         self._print(text)
+
+    def panel(self, message: str):
+        """Displays a message in a panel."""
+        style = self._styles.get(Output.PANEL, Style())
+        panel = Panel(message, style=style)
+        self._print(panel)
 
 
 def get_cli_console() -> AbstractConsole:
