@@ -5127,6 +5127,9 @@
   | --refresh          INTEGER  If set, the logs will be streamed with the given |
   |                             refresh time in seconds                          |
   |                             [default: None]                                  |
+  | --table            TEXT     The table to query for logs. If not provided,    |
+  |                             the default table will be used                   |
+  |                             [default: None]                                  |
   | --help     -h               Show this message and exit.                      |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
