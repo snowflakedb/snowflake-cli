@@ -14,4 +14,5 @@
 
 from snowflake.cli._plugins.cortex.types import Model
 
-DEFAULT_MODEL: Model = Model("snowflake-arctic")
+DEFAULT_MODEL: Model = Model("mistral-large2")
+DEFAULT_BACKEND = "rest"
