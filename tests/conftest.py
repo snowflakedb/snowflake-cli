@@ -261,6 +261,19 @@ def mock_ctx(mock_cursor):
     yield _mock_connection_ctx_factory
 
 
+@pytest.fixture()
+def mock_streamlit_ctx(mock_cursor, mock_ctx):
+    yield mock_ctx(
+        mock_cursor(
+            rows=[
+                {"SYSTEM$GET_SNOWSIGHT_HOST()": "https://snowsight.domain"},
+                {"CURRENT_ACCOUNT_NAME()": "https://snowsight.domain"},
+            ],
+            columns=["SYSTEM$GET_SNOWSIGHT_HOST()"],
+        )
+    )
+
+
 class MockConnectionCtx(mock.MagicMock):
     def __init__(
         self,

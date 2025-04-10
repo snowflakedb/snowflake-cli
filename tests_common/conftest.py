@@ -22,7 +22,10 @@ from typing import Generator, List
 from unittest import mock
 
 import pytest
+import yaml
 
+from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
+from snowflake.cli._plugins.streamlit.streamlit_entity_model import StreamlitEntityModel
 from snowflake.cli._plugins.workspace.context import WorkspaceContext, ActionContext
 from snowflake.cli.api.console.abc import AbstractConsole
 
@@ -67,6 +70,19 @@ def workspace_context():
 @pytest.fixture()
 def action_context():
     return ActionContext(get_entity=lambda *args: None)
+
+
+@pytest.fixture
+def example_entity(project_directory, workspace_context):
+    with project_directory("example_streamlit_v2") as pdir:
+        with Path(pdir / "snowflake.yml").open() as definition_file:
+            definition = yaml.safe_load(definition_file)
+            model = StreamlitEntityModel(
+                **definition.get("entities", {}).get("test_streamlit")
+            )
+            model.set_entity_id("test_streamlit")
+
+            yield StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
 
 @pytest.fixture

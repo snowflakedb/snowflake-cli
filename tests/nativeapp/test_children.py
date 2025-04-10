@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from textwrap import dedent
+from unittest import mock
 
 import pytest
 import yaml
@@ -119,7 +120,11 @@ def test_valid_children():
         assert child_entity.__class__ == StreamlitEntity
 
 
-def test_children_bundle_with_custom_dir(project_directory):
+@mock.patch(
+    "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._get_identifier",
+    return_value="IDENTIFIER('v_schema.my_streamlit')",
+)
+def test_children_bundle_with_custom_dir(mock_id, project_directory):
     with mock_config_key("enable_native_app_children", True):
         app_pkg, action_ctx = _get_app_pkg_entity(project_directory)
         bundle_result = app_pkg.action_bundle(action_ctx)
@@ -145,7 +150,8 @@ def test_children_bundle_with_custom_dir(project_directory):
                     -- AUTO GENERATED CHILDREN SECTION
                     CREATE OR REPLACE STREAMLIT IDENTIFIER('v_schema.my_streamlit')
                     FROM '{custom_dir_path}'
-                    MAIN_FILE = 'streamlit_app.py';
+                    MAIN_FILE = 'streamlit_app.py'
+                    QUERY_WAREHOUSE = 'streamlit';
                     CREATE APPLICATION ROLE IF NOT EXISTS my_app_role;
                     GRANT USAGE ON SCHEMA v_schema TO APPLICATION ROLE my_app_role;
                     GRANT USAGE ON STREAMLIT v_schema.my_streamlit TO APPLICATION ROLE my_app_role;

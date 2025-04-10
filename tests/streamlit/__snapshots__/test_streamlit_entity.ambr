@@ -1,52 +1,57 @@
 # serializer version: 1
-# name: test_get_deploy_sql[kwargs0]
-  '''
-  CREATE OR REPLACE STREAMLIT IDENTIFIER('test_streamlit')
-  MAIN_FILE = 'streamlit_app.py'
-  QUERY_WAREHOUSE = 'test_warehouse'
-  TITLE = 'My Fancy Streamlit';
-  '''
-# ---
-# name: test_get_deploy_sql[kwargs1]
-  '''
-  CREATE IF NOT EXISTS STREAMLIT IDENTIFIER('test_streamlit')
-  MAIN_FILE = 'streamlit_app.py'
-  QUERY_WAREHOUSE = 'test_warehouse'
-  TITLE = 'My Fancy Streamlit';
-  '''
-# ---
-# name: test_get_deploy_sql[kwargs2]
-  '''
-  CREATE STREAMLIT IDENTIFIER('test_streamlit')
-  ROOT_LOCATION = 'test_stage'
-  MAIN_FILE = 'streamlit_app.py'
-  QUERY_WAREHOUSE = 'test_warehouse'
-  TITLE = 'My Fancy Streamlit';
-  '''
-# ---
-# name: test_get_deploy_sql[kwargs3]
-  '''
-  CREATE OR REPLACE STREAMLIT IDENTIFIER('test_streamlit')
-  ROOT_LOCATION = 'test_stage'
-  MAIN_FILE = 'streamlit_app.py'
-  QUERY_WAREHOUSE = 'test_warehouse'
-  TITLE = 'My Fancy Streamlit';
-  '''
-# ---
-# name: test_get_deploy_sql[kwargs4]
-  '''
-  CREATE IF NOT EXISTS STREAMLIT IDENTIFIER('test_streamlit')
-  ROOT_LOCATION = 'test_stage'
-  MAIN_FILE = 'streamlit_app.py'
-  QUERY_WAREHOUSE = 'test_warehouse'
-  TITLE = 'My Fancy Streamlit';
-  '''
-# ---
-# name: test_nativeapp_children_interface
+# name: TestStreamlitEntity.test_get_deploy_sql[kwargs0]
   '''
   CREATE STREAMLIT IDENTIFIER('test_streamlit')
   MAIN_FILE = 'streamlit_app.py'
-  QUERY_WAREHOUSE = 'test_warehouse'
+  QUERY_WAREHOUSE = test_warehouse
+  TITLE = 'My Fancy Streamlit';
+  '''
+# ---
+# name: TestStreamlitEntity.test_get_deploy_sql[kwargs1]
+  '''
+  CREATE STREAMLIT IDENTIFIER('test_streamlit')
+  MAIN_FILE = 'streamlit_app.py'
+  QUERY_WAREHOUSE = test_warehouse
+  TITLE = 'My Fancy Streamlit';
+  '''
+# ---
+# name: TestStreamlitEntity.test_get_deploy_sql[kwargs2]
+  '''
+  CREATE STREAMLIT IDENTIFIER('test_streamlit')
+  MAIN_FILE = 'streamlit_app.py'
+  QUERY_WAREHOUSE = test_warehouse
+  TITLE = 'My Fancy Streamlit';
+  '''
+# ---
+# name: TestStreamlitEntity.test_get_deploy_sql[kwargs3]
+  '''
+  CREATE STREAMLIT IDENTIFIER('test_streamlit')
+  MAIN_FILE = 'streamlit_app.py'
+  QUERY_WAREHOUSE = test_warehouse
+  TITLE = 'My Fancy Streamlit';
+  '''
+# ---
+# name: TestStreamlitEntity.test_get_deploy_sql[kwargs4]
+  '''
+  CREATE STREAMLIT IDENTIFIER('test_streamlit')
+  MAIN_FILE = 'streamlit_app.py'
+  QUERY_WAREHOUSE = test_warehouse
+  TITLE = 'My Fancy Streamlit';
+  '''
+# ---
+# name: TestStreamlitEntity.test_if_schema_and_database_are_passed_from_connection
+  '''
+  CREATE STREAMLIT IDENTIFIER('test_database.test_schema.test_streamlit')
+  MAIN_FILE = 'streamlit_app.py'
+  QUERY_WAREHOUSE = test_warehouse
+  TITLE = 'My Fancy Streamlit';
+  '''
+# ---
+# name: TestStreamlitEntity.test_nativeapp_children_interface
+  '''
+  CREATE STREAMLIT IDENTIFIER('test_streamlit')
+  MAIN_FILE = 'streamlit_app.py'
+  QUERY_WAREHOUSE = test_warehouse
   TITLE = 'My Fancy Streamlit';
   '''
 # ---
