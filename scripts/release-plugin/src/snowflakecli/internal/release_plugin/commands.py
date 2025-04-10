@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import contextlib
 import logging
 import os
 import re
@@ -21,9 +22,9 @@ from pathlib import Path
 from typing import Optional
 
 import click
+import git
 import typer
 from click.exceptions import ClickException
-from git import Repo
 from github import Auth, Github
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console.console import cli_console
@@ -55,33 +56,55 @@ VersionArgument = typer.Argument(
 )
 
 
-def subprocess_run(
-    command, *args, capture_output=True, text=True, allow_fail=False, **kwargs
-) -> Optional[str]:
+def subprocess_run(command, *args, capture_output=True, text=True, **kwargs) -> str:
     result = subprocess.run(
         command, *args, capture_output=capture_output, text=text, **kwargs
     )
     if result.returncode != 0:
-        if allow_fail:
-            return None
         raise ClickException(
             f"""Command '{command}' finished with non-zero exit code: {result.returncode}
-            stdout:
+            ----- stdout -----
             {result.stdout}
-            stderr:
+            ===== stderr =====
             {result.stderr}
             """
         )
     return result.stdout
 
 
-def branch_exists(branch_name: str) -> bool:
-    return subprocess_run(["git", "show-ref", branch_name], allow_fail=True) is not None
+class Repo(git.Repo):
+    """Repository manager."""
+
+    def __init__(self):
+        self.home_path = Path(
+            subprocess_run(["git", "rev-parse", "--show-toplevel"]).strip()
+        )
+        super().__init__(self.home_path)
+        self.remotes.origin.fetch()
+
+    def exists(self, ref: str) -> bool:
+        return any(ref == r.name for r in self.references)
+
+    @contextlib.contextmanager
+    def tmp_checkout(self, ref: str):
+        """Contextmanager returning to current branch after execution."""
+        current_ref = self.head.reference
+        try:
+            with cli_console.phase(f"checking out to {ref}"):
+                self.git.checkout(ref)
+                self.git.pull()
+            yield
+        finally:
+            with cli_console.phase(f"checking out back to {current_ref.name}"):
+                self.git.checkout(current_ref.name)
 
 
 class ReleaseInfo:
-    def __init__(self, version):
+    """Class providing information about release."""
+
+    def __init__(self, version, repo: Repo):
         subprocess_run(["git", "fetch", "--all"])
+        self.repo = repo
         self.version = version
 
     @property
@@ -123,10 +146,11 @@ class ReleaseInfo:
 
     def check_status(self):
         def _show_branch_if_exists(branch_name: str) -> Optional[str]:
-            return branch_name if branch_exists(branch_name) else None
+            return branch_name if self.repo.exists(branch_name) else None
 
         return {
             "version": self.version,
+            "version released": self.repo.exists(self.final_tag_name),
             "branch": _show_branch_if_exists(self.release_branch_name),
             "last released rc": self.last_released_rc,
             "next rc": self.next_rc,
@@ -139,11 +163,7 @@ class ReleaseInfo:
         }
 
 
-@cache
-def get_origin_url() -> str:
-    return subprocess_run(["git", "ls-remote", "--get-url", "origin"]).strip()  # type: ignore
-
-
+# ===== not yet used stuff automatically creating PRs =====
 @cache
 def get_github_token() -> str:
     token = os.environ.get(GITHUB_TOKEN_ENV)
@@ -154,46 +174,6 @@ def get_github_token() -> str:
         )
 
     return token
-
-
-@cache
-def get_repo_home() -> Path:
-    result = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True
-    )
-    return Path(result.stdout.strip())
-
-
-@app.command(name="init")
-def init_release(version: str = VersionArgument, **options):
-    """Update release notes and version on branch `main`, create branch release-vX.Y.Z."""
-    release_info = ReleaseInfo(version)
-    branch_name = release_info.release_branch_name
-    message = f"Update release notes for {version}"
-    repo = Repo(get_repo_home())
-    origin = repo.remotes.origin
-    origin.fetch()
-
-    repo.git.checkout("main")
-    repo.git.pull("origin", "main")
-    repo.git.checkout("-b", branch_name)
-
-    subprocess_run(
-        [
-            sys.executable,
-            str(get_repo_home() / UPDATE_RELEASE_NOTES_SCRIPT),
-            "update-release-notes",
-            version,
-        ]
-    )
-
-    repo.git.add(A=True)
-    repo.index.commit(message)
-    origin.push(branch_name)
-
-    pr = create_pull_request(message, message, branch_name)
-
-    return MessageResult(f"PR created at {pr.html_url}")
 
 
 def create_pull_request(title, body, source_branch, target_branch="main"):
@@ -208,6 +188,52 @@ def create_pull_request(title, body, source_branch, target_branch="main"):
 
     return pr
 
+
+# ===== not yet used stuff automatically creating PRs =====
+
+
+def get_pr_url(source_branch: str) -> str:
+    return f"https://github.com/snowflakedb/snowflake-cli/pull/new/{source_branch}"
+
+
+def _commit_update_release_notes(repo: Repo, version: str) -> None:
+    subprocess_run(
+        [
+            sys.executable,
+            str(repo.home_path / UPDATE_RELEASE_NOTES_SCRIPT),
+            "update-release-notes",
+            version,
+        ]
+    )
+    repo.git.add(A=True)
+    repo.git.commit(m=f"Update release notes for {version}")
+
+
+def _commit_bump_dev_version(repo: Repo, version: str) -> None:
+    major, minor, patch = version.split(".")
+    new_version = f"{major}.{int(minor)+1}.{patch}"
+    subprocess_run(["hatch", "version", f"{new_version}.dev0"])
+    repo.git.add(A=True)
+    repo.git.commit(m=f"Bump dev version to {new_version}")
+
+
+@app.command(name="init")
+def init_release(version: str = VersionArgument, **options):
+    """Update release notes and version on branch `main`, create branch release-vX.Y.Z and release tag rc0."""
+    repo = Repo()
+    release_info = ReleaseInfo(version, repo)
+    branch_name = release_info.release_branch_name
+    if repo.exists(branch_name):
+        raise ClickException(f'Branch "{branch_name}" already exists')
+
+    repo.git.checkout("main")
+    repo.git.pull("origin", "main")
+    repo.git.checkout("-b", branch_name)
+
+    # pr = create_pull_request(message, message, branch_name)
+
+    # return MessageResult(f"PR created at {pr.html_url}")
+
     # can we open PR from python?
 
 
@@ -218,21 +244,22 @@ def cherrypick_branch(
     """
     Creates a cherry-pick branch with appropriate release candidate version.
     """
-    release_info = ReleaseInfo(version)
+    repo = Repo()
+    release_info = ReleaseInfo(version, repo)
     next_tag_name = (
         release_info.final_tag_name
         if final
         else release_info.rc_tag_name(release_info.next_rc)
     )
     branch_name = release_info.cherrypick_branch_name(next_tag_name)
-    if branch_exists(branch_name):
+    if repo.exists(branch_name):
         return MessageResult(f"Branch {branch_name} already exists.")
-    if not branch_exists(release_info.release_branch_name):
+    if not repo.exists(release_info.release_branch_name):
         raise ClickException(
             f"Branch `{release_info.release_branch_name}` does not exist. Did you call 'snow release init'?"
         )
 
-    os.chdir(get_repo_home())
+    os.chdir(str(repo.working_dir))
     with cli_console.phase("checking out to release branch"):
         subprocess_run(["git", "checkout", release_info.release_branch_name])
         subprocess_run(["git", "pull"])
@@ -274,33 +301,39 @@ def cherrypick_branch(
 @app.command()
 def tag(version: str = VersionArgument, final: bool = FinalOption, **options):
     """Publish release tag."""
-    release_info = ReleaseInfo(version)
+    repo = Repo()
+    release_info = ReleaseInfo(version, repo)
+    if not repo.exists(release_info.release_branch_name):
+        raise ClickException(
+            f"Branch `{release_info.release_branch_name}` does not exist. Did you call 'snow release init'?"
+        )
 
-    os.chdir(get_repo_home())
-    with cli_console.phase("checking out to release branch"):
-        subprocess_run(["git", "checkout", release_info.release_branch_name])
-        subprocess_run(["git", "pull"])
+    os.chdir(str(repo.home_path))
+    with repo.tmp_checkout(release_info.release_branch_name):
+        with cli_console.phase("checking out to release branch"):
+            subprocess_run(["git", "checkout", release_info.release_branch_name])
+            subprocess_run(["git", "pull"])
 
-    if final:
-        tag_name = release_info.final_tag_name
-    else:
-        tag_name = release_info.rc_tag_name(release_info.next_rc)
+        if final:
+            tag_name = release_info.final_tag_name
+        else:
+            tag_name = release_info.rc_tag_name(release_info.next_rc)
 
-    with cli_console.phase("validating version"):
-        current_version = subprocess_run(["hatch", "version"]).strip()  # type: ignore
-        if current_version != tag_name.replace("-", "").removeprefix("v"):
-            raise ClickException(
-                f"Published version does not match version on release branch:\n"
-                f"expected version: {tag_name}\nversion on branch: {current_version}"
-            )
+        with cli_console.phase("validating version"):
+            current_version = subprocess_run(["hatch", "version"]).strip()  # type: ignore
+            if current_version != tag_name.replace("-", "").removeprefix("v"):
+                raise ClickException(
+                    f"Published version does not match version on release branch:\n"
+                    f"expected version: {tag_name}\nversion on branch: {current_version}"
+                )
 
-    typer.confirm(
-        f"This command is going to publish tag `{tag_name}`. This cannot be undone. Do you want to continue?",
-        abort=True,
-    )
-    with cli_console.phase(f"Publishing tag `{tag_name}`"):
-        subprocess_run(["git", "tag", tag_name])
-        subprocess_run(["git", "push", "origin", tag_name])
+        typer.confirm(
+            f"This command is going to publish tag `{tag_name}`. This cannot be undone. Do you want to continue?",
+            abort=True,
+        )
+        with cli_console.phase(f"Publishing tag `{tag_name}`"):
+            subprocess_run(["git", "tag", tag_name])
+            subprocess_run(["git", "push", "origin", tag_name])
 
     return MessageResult(f"Tag `{tag_name}` successfully published.")
 
@@ -308,7 +341,7 @@ def tag(version: str = VersionArgument, final: bool = FinalOption, **options):
 @app.command()
 def status(version: str = VersionArgument, **options):
     """Check current release status."""
-    release_info = ReleaseInfo(version)
+    release_info = ReleaseInfo(version, repo=Repo())
 
     def _row(key, value):
         return {"check": key, "status": value}
