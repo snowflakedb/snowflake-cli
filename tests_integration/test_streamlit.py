@@ -432,6 +432,17 @@ def test_streamlit_execute_in_headless_mode(
         )
         assert result.exit_code == 0, f"Streamlit deploy failed: {result.output}"
 
+        result = runner.invoke_with_connection_json(
+            [
+                "sql",
+                "-q",
+                f"ALTER STREAMLIT {streamlit_name} ADD LIVE VERSION FROM LAST",
+            ]
+        )
+        assert (
+            result.exit_code == 0
+        ), f"Could not create streamlit live version: {result.output}"
+
         # Execute the Streamlit app in headless mode
         result = runner.invoke_with_connection_json(
             ["streamlit", "execute", streamlit_name]
