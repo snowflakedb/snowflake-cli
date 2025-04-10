@@ -11,23 +11,24 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import contextlib
+
 import logging
 import os
 import re
-import subprocess
 import sys
-from functools import cache, cached_property
-from pathlib import Path
-from typing import Optional
+from functools import cache
 
-import git
 import typer
 from click.exceptions import ClickException
 from github import Auth, Github
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.output.types import CollectionResult, MessageResult
+from snowflakecli.internal.release_plugin.repo_manager import (
+    ReleaseInfo,
+    RepositoryManager,
+)
+from snowflakecli.internal.release_plugin.utils import subprocess_run
 
 app = SnowTyperFactory(
     name="release",
@@ -53,119 +54,6 @@ VersionArgument = typer.Argument(
     help="version in format X.Y.Z",
     callback=_check_version_format_callback,
 )
-
-
-def subprocess_run(command, *args, capture_output=True, text=True, **kwargs) -> str:
-    result = subprocess.run(
-        command, *args, capture_output=capture_output, text=text, **kwargs
-    )
-    if result.returncode != 0:
-        raise ClickException(
-            f"""Command '{command}' finished with non-zero exit code: {result.returncode}
-            ----- stdout -----
-            {result.stdout}
-            ===== stderr =====
-            {result.stderr}
-            """
-        )
-    return result.stdout
-
-
-class Repo(git.Repo):
-    """Repository manager."""
-
-    def __init__(self):
-        self.home_path = Path(
-            subprocess_run(["git", "rev-parse", "--show-toplevel"]).strip()
-        )
-        super().__init__(self.home_path)
-        self.remotes.origin.fetch()
-
-    def exists(self, ref: str) -> bool:
-        return any(ref == r.name for r in self.references)
-
-    @contextlib.contextmanager
-    def tmp_checkout(self, ref: str):
-        """Contextmanager returning to current branch after execution."""
-        current_ref = self.head.reference
-        try:
-            with cli_console.phase(f"checking out to {ref}"):
-                self.git.checkout(ref)
-                self.git.pull()
-            yield
-        finally:
-            with cli_console.phase(f"checking out back to {current_ref.name}"):
-                self.git.checkout(current_ref.name)
-
-
-class ReleaseInfo:
-    """Class providing information about release."""
-
-    def __init__(self, version, repo: Repo):
-        subprocess_run(["git", "fetch", "--all"])
-        self.repo = repo
-        self.version = version
-
-    @property
-    def release_branch_name(self) -> str:
-        return f"release-v{self.version}"
-
-    @property
-    def final_tag_name(self) -> str:
-        return f"v{self.version}"
-
-    def rc_tag_name(self, number: int) -> str:
-        return f"{self.final_tag_name}-rc{number}"
-
-    @cached_property
-    def _existing_tags(self):
-        return [tag.name for tag in self.repo.tags if self.version in tag.name]
-
-    @cached_property
-    def last_released_rc(self) -> Optional[int]:
-        last_tag = max(self._existing_tags, default=None)
-        if last_tag is None or last_tag == self.final_tag_name:
-            return None
-        rc_number = last_tag.removeprefix(f"{self.final_tag_name}-rc")
-        return int(rc_number)
-
-    @property
-    def next_rc(self) -> int:
-        if self.last_released_rc is None:
-            return 0
-        return self.last_released_rc + 1
-
-    @staticmethod
-    def cherrypick_branch_name(tag_name: str) -> str:
-        return f"cherrypicks-{tag_name}"
-
-    def check_status(self):
-        def _show_branch_if_exists(branch_name: str) -> Optional[str]:
-            return branch_name if self.repo.exists(branch_name) else None
-
-        return {
-            "version": self.version,
-            "version released": self.repo.exists(self.final_tag_name),
-            "branch": _show_branch_if_exists(self.release_branch_name),
-            "last released rc": self.last_released_rc,
-            "next rc": self.next_rc,
-            "next rc cherrypick branch": _show_branch_if_exists(
-                self.cherrypick_branch_name(self.rc_tag_name(self.next_rc))
-            ),
-            "final cherrypicks branch": _show_branch_if_exists(
-                self.cherrypick_branch_name(self.final_tag_name)
-            ),
-        }
-
-    def assert_release_branch_exists(self):
-        if not self.repo.exists(self.release_branch_name):
-            raise ClickException(
-                f"Branch `{self.release_branch_name}` does not exist. Did you call 'snow release init'?"
-            )
-
-    def assert_release_branch_not_exists(self):
-        if self.repo.exists(self.release_branch_name):
-            raise ClickException(f"Branch `{self.release_branch_name}` already exists.")
 
 
 # ===== not yet used stuff automatically creating PRs =====
@@ -201,7 +89,7 @@ def get_pr_url(source_branch: str) -> str:
     return f"https://github.com/snowflakedb/snowflake-cli/pull/new/{source_branch}"
 
 
-def _commit_update_release_notes(repo: Repo, version: str) -> None:
+def _commit_update_release_notes(repo: RepositoryManager, version: str) -> None:
     cli_console.step(f"Creating release notes for {version}")
     subprocess_run(
         [
@@ -215,7 +103,7 @@ def _commit_update_release_notes(repo: Repo, version: str) -> None:
     repo.git.commit(m=f"Update release notes for {version}")
 
 
-def _commit_bump_dev_version(repo: Repo, version: str) -> None:
+def _commit_bump_dev_version(repo: RepositoryManager, version: str) -> None:
     cli_console.step(f"Bumping version on main")
     major, minor, patch = version.split(".")
     new_version = f"{major}.{int(minor)+1}.{patch}"
@@ -224,7 +112,9 @@ def _commit_bump_dev_version(repo: Repo, version: str) -> None:
     repo.git.commit(m=f"Bump dev version to {new_version}")
 
 
-def _commit_bump_version(repo: Repo, hatch_version: str, tag_name: str) -> None:
+def _commit_bump_version(
+    repo: RepositoryManager, hatch_version: str, tag_name: str
+) -> None:
     cli_console.step(f"Bumping version to {tag_name}")
     subprocess_run(["hatch", "version", hatch_version])
     repo.git.add(A=True)
@@ -234,7 +124,7 @@ def _commit_bump_version(repo: Repo, hatch_version: str, tag_name: str) -> None:
 @app.command(name="init")
 def init_release(version: str = VersionArgument, **options):
     """Update release notes and version on branch `main`, create branch release-vX.Y.Z and release tag rc0."""
-    repo = Repo()
+    repo = RepositoryManager()
     release_info = ReleaseInfo(version, repo)
     if repo.exists(release_info.release_branch_name):
         raise ClickException(
@@ -287,7 +177,7 @@ def cherrypick_branch(
     """
     Creates a cherry-pick branch with appropriate release candidate version.
     """
-    repo = Repo()
+    repo = RepositoryManager()
     release_info = ReleaseInfo(version, repo)
     release_info.assert_release_branch_exists()
 
@@ -318,7 +208,7 @@ def cherrypick_branch(
 @app.command()
 def tag(version: str = VersionArgument, final: bool = FinalOption, **options):
     """Publish release tag."""
-    repo = Repo()
+    repo = RepositoryManager()
     release_info = ReleaseInfo(version, repo)
     release_info.assert_release_branch_exists()
 
@@ -354,7 +244,7 @@ def tag(version: str = VersionArgument, final: bool = FinalOption, **options):
 @app.command()
 def status(version: str = VersionArgument, **options):
     """Check current release status."""
-    release_info = ReleaseInfo(version, repo=Repo())
+    release_info = ReleaseInfo(version, repo=RepositoryManager())
 
     def _row(key, value):
         return {"check": key, "status": value}
