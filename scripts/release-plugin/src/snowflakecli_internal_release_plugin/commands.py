@@ -11,12 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import contextlib
 import logging
 import os
 import re
 import sys
+import tempfile
 from functools import cache
+from pathlib import Path
+from typing import List
 
 import typer
 from click.exceptions import ClickException
@@ -242,13 +245,57 @@ def tag(version: str = VersionArgument, final: bool = FinalOption, **options):
     return MessageResult(f"Tag `{tag_name}` successfully published.")
 
 
-#
-# @app.command()
-# def validate_pip_installation(version: str = VersionArgument, **options):
-#     """Validate pip installation from latest tag."""
-#     release_info = ReleaseInfo(version, repo=RepositoryManager())
-#     with snow_executable(release_info.latest_):
-#         pass
+@contextlib.contextmanager
+def snow_executable(tag: str):
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with cli_console.phase(f"Installing snowflake-cli from tag `{tag}`"):
+            cli_console.step(f"creating virtualenv")
+            subprocess_run(["python", "-m", "venv", tmpdir])
+            python = Path(tmpdir) / "bin" / "python"
+
+            cli_console.step(f"installing snowflake-cli")
+            subprocess_run(
+                [
+                    python,
+                    "-m",
+                    "pip",
+                    "install",
+                    f"git+https://github.com/snowflakedb/snowflake-cli.git@{tag}",
+                ]
+            )
+
+        yield Path(tmpdir) / "bin" / "snow"
+
+
+@app.command()
+def validate_pip_installation(version: str = VersionArgument, **options):
+    """Validate pip installation from latest tag."""
+    from subprocess import run
+
+    commands: List[List[str]] = [
+        ["--version"],
+        [],
+        ["connection", "test"],
+        ["sql", "-q", "select 42"],
+    ]
+
+    release_info = ReleaseInfo(version, repo=RepositoryManager())
+    if release_info.latest_released_tag is None:
+        raise ClickException(f"There is no tag released for version {version} yet.")
+
+    with snow_executable(release_info.latest_released_tag) as snow_cmd:
+        results = []
+        for command in commands:
+            cli_console.step(f"$> running `snow {' '.join(command)}`")
+            completed = run([str(snow_cmd)] + command)
+            results.append(
+                {
+                    "command": " ".join(["snow"] + command),
+                    "status": "OK" if completed.returncode == 0 else "ERROR",
+                }
+            )
+
+    return CollectionResult(results)
 
 
 @app.command()
