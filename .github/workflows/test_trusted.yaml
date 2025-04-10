@@ -29,7 +29,8 @@ jobs:
           python-version: ${{ inputs.python-version }}
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip hatch
+          python -m pip install --upgrade pip hatch uv
+          export HATCH_ENV_TYPE_VIRTUAL_UV_PATH=$(which uv)
           python -m hatch env create ${{ inputs.python-env }}
       - name: Run integration tests
         env:
