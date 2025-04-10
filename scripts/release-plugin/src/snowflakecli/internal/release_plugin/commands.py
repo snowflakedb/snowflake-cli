@@ -21,7 +21,6 @@ from functools import cache, cached_property
 from pathlib import Path
 from typing import Optional
 
-import click
 import git
 import typer
 from click.exceptions import ClickException
@@ -290,56 +289,30 @@ def cherrypick_branch(
     """
     repo = Repo()
     release_info = ReleaseInfo(version, repo)
-    next_tag_name = (
-        release_info.final_tag_name
-        if final
-        else release_info.rc_tag_name(release_info.next_rc)
+    release_info.assert_release_branch_exists()
+
+    if final:
+        next_tag_name = release_info.final_tag_name
+    else:
+        next_tag_name = release_info.rc_tag_name(release_info.next_rc)
+    cherrypick_branch_name = release_info.cherrypick_branch_name(next_tag_name)
+    if repo.exists(cherrypick_branch_name):
+        return MessageResult(f"Branch {cherrypick_branch_name} already exists.")
+
+    with (
+        repo.tmp_checkout(release_info.release_branch_name),
+        cli_console.phase(f"Creating branch `{cherrypick_branch_name}`"),
+    ):
+        repo.git.checkout(cherrypick_branch_name, b=True)
+        _commit_bump_version(repo, version if final else "rc", next_tag_name)
+        cli_console.step(f"Publishing branch `{cherrypick_branch_name}`")
+        repo.git.push("origin", cherrypick_branch_name, set_upstream=True)
+        pr_url = get_pr_url(cherrypick_branch_name)
+
+    return MessageResult(
+        f"""Branch `{cherrypick_branch_name}` successfully created.
+    create PR to `{release_info.release_branch_name}`: {pr_url}"""
     )
-    branch_name = release_info.cherrypick_branch_name(next_tag_name)
-    if repo.exists(branch_name):
-        return MessageResult(f"Branch {branch_name} already exists.")
-    if not repo.exists(release_info.release_branch_name):
-        raise ClickException(
-            f"Branch `{release_info.release_branch_name}` does not exist. Did you call 'snow release init'?"
-        )
-
-    os.chdir(str(repo.working_dir))
-    with cli_console.phase("checking out to release branch"):
-        subprocess_run(["git", "checkout", release_info.release_branch_name])
-        subprocess_run(["git", "pull"])
-
-    # draft-bump version
-    with cli_console.phase("bump version"):
-        command = ["hatch", "version", version if final else "rc"]
-        version_info = subprocess_run(command)
-        cli_console.step(version_info)
-
-    changes = subprocess_run(["git", "diff"])
-    commit = click.confirm(
-        f"This will create the branch `{branch_name}` with the following changes:\n{changes}\nDo you want to continue?"
-    )
-    if not commit:
-        subprocess_run(["git", "checkout", "."])
-        return MessageResult("Aborted. Changes reverted.")
-
-    with cli_console.phase("Creating cherrypick branch:"):
-        cli_console.step(f"Creating {branch_name}")
-        subprocess_run(["git", "checkout", "-b", branch_name])
-        cli_console.step("Committing changes to git")
-        subprocess_run(["git", "add", "."])
-        subprocess_run(
-            [
-                "git",
-                "commit",
-                "-m",
-                f"Bump version to {next_tag_name}",
-            ]
-        )
-        cli_console.step("Pushing changes")
-        subprocess_run(["git", "push", "--set-upstream", "origin", branch_name])
-
-    # TODO: create pull request
-    return MessageResult(f"Branch {branch_name} successfully created.")
 
 
 @app.command()
