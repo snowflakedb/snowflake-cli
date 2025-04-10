@@ -51,7 +51,7 @@ def test_deploy_streamlit(mock_execute_query, _, mock_stage_manager, __, ___):
         dedent(
             f"""\
         CREATE STREAMLIT IDENTIFIER('DB.SH.my_streamlit_app')
-        ROOT_LOCATION = 'stage_root'
+        FROM 'stage_root'
         MAIN_FILE = '{main_file}'
         IMPORTS = ('@stage/foo.py', '@stage/bar.py')
         QUERY_WAREHOUSE = My_WH
@@ -96,7 +96,7 @@ def test_deploy_streamlit_with_api_integrations(
         dedent(
             f"""\
         CREATE STREAMLIT IDENTIFIER('DB.SH.my_streamlit_app')
-        ROOT_LOCATION = 'stage_root'
+        FROM 'stage_root'
         MAIN_FILE = '{main_file}'
         QUERY_WAREHOUSE = My_WH
         TITLE = 'MyStreamlit'
@@ -140,7 +140,7 @@ def test_deploy_streamlit_with_comment(
         dedent(
             f"""\
             CREATE STREAMLIT IDENTIFIER('DB.SH.my_streamlit_app')
-            ROOT_LOCATION = 'stage_root'
+            FROM 'stage_root'
             MAIN_FILE = '{main_file}'
             QUERY_WAREHOUSE = My_WH
             TITLE = 'MyStreamlit'
@@ -182,7 +182,7 @@ def test_deploy_streamlit_with_default_warehouse(
         dedent(
             f"""\
             CREATE STREAMLIT IDENTIFIER('DB.SH.my_streamlit_app')
-            ROOT_LOCATION = 'stage_root'
+            FROM 'stage_root'
             MAIN_FILE = '{main_file}'
             QUERY_WAREHOUSE = 'streamlit'
             TITLE = 'MyStreamlit'
