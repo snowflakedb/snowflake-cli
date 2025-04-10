@@ -158,6 +158,16 @@ class ReleaseInfo:
             ),
         }
 
+    def assert_release_branch_exists(self):
+        if not self.repo.exists(self.release_branch_name):
+            raise ClickException(
+                f"Branch `{self.release_branch_name}` does not exist. Did you call 'snow release init'?"
+            )
+
+    def assert_release_branch_not_exists(self):
+        if self.repo.exists(self.release_branch_name):
+            raise ClickException(f"Branch `{self.release_branch_name}` already exists.")
+
 
 # ===== not yet used stuff automatically creating PRs =====
 @cache
@@ -337,37 +347,33 @@ def tag(version: str = VersionArgument, final: bool = FinalOption, **options):
     """Publish release tag."""
     repo = Repo()
     release_info = ReleaseInfo(version, repo)
-    if not repo.exists(release_info.release_branch_name):
-        raise ClickException(
-            f"Branch `{release_info.release_branch_name}` does not exist. Did you call 'snow release init'?"
-        )
+    release_info.assert_release_branch_exists()
 
-    os.chdir(str(repo.home_path))
     with repo.tmp_checkout(release_info.release_branch_name):
-        with cli_console.phase("checking out to release branch"):
-            subprocess_run(["git", "checkout", release_info.release_branch_name])
-            subprocess_run(["git", "pull"])
-
         if final:
             tag_name = release_info.final_tag_name
         else:
             tag_name = release_info.rc_tag_name(release_info.next_rc)
 
         with cli_console.phase("validating version"):
-            current_version = subprocess_run(["hatch", "version"]).strip()  # type: ignore
-            if current_version != tag_name.replace("-", "").removeprefix("v"):
+            current_version = subprocess_run(["hatch", "version"]).strip()
+            expected_version = tag_name.replace("-", "").removeprefix("v")
+            if current_version != expected_version:
                 raise ClickException(
                     f"Published version does not match version on release branch:\n"
-                    f"expected version: {tag_name}\nversion on branch: {current_version}"
+                    f"expected version: {expected_version}\nversion on branch: {current_version}"
                 )
+            cli_console.step(
+                f"OK - Version on release branch ({current_version}) matches the tag."
+            )
 
         typer.confirm(
             f"This command is going to publish tag `{tag_name}`. This cannot be undone. Do you want to continue?",
             abort=True,
         )
         with cli_console.phase(f"Publishing tag `{tag_name}`"):
-            subprocess_run(["git", "tag", tag_name])
-            subprocess_run(["git", "push", "origin", tag_name])
+            repo.git.tag(tag_name)
+            repo.git.push("origin", tag_name)
 
     return MessageResult(f"Tag `{tag_name}` successfully published.")
 
