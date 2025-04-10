@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Snowflake Inc.
+# Copyright (c) 2025 Snowflake Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,18 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import annotations
-
-from enum import Enum, unique
-
-VERSION = "3.7.0.dev+dbt0"
-
-
-@unique
-class CLIInstallationSource(Enum):
-    BINARY = "binary"
-    PYPI = "pypi"
+from snowflake.cli._plugins.dbt import commands
+from snowflake.cli.api.plugins.command import (
+    SNOWCLI_ROOT_COMMAND_PATH,
+    CommandSpec,
+    CommandType,
+    plugin_hook_impl,
+)
 
 
-# This variable is changed in binary release script
-INSTALLATION_SOURCE = CLIInstallationSource.PYPI
+@plugin_hook_impl
+def command_spec():
+    return CommandSpec(
+        parent_command_path=SNOWCLI_ROOT_COMMAND_PATH,
+        command_type=CommandType.COMMAND_GROUP,
+        typer_instance=commands.app.create_instance(),
+    )
