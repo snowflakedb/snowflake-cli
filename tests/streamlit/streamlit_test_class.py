@@ -53,6 +53,9 @@ class StreamlitTestClass:
             lambda _, **kwargs: False,
         ).start()
 
+    def teardown_method(self):
+        mock.patch.stopall()
+
     def _assert_that_exactly_those_files_were_put_to_stage(
         self,
         put_files: List[str],
