@@ -24,11 +24,12 @@ from github import Auth, Github
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.output.types import CollectionResult, MessageResult
-from snowflakecli.internal.release_plugin.repo_manager import (
+
+from snowflakecli_internal_release_plugin.repo_manager import (
     ReleaseInfo,
     RepositoryManager,
 )
-from snowflakecli.internal.release_plugin.utils import subprocess_run
+from snowflakecli_internal_release_plugin.utils import subprocess_run
 
 app = SnowTyperFactory(
     name="release",

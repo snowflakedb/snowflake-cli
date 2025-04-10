@@ -20,7 +20,8 @@ from typing import Optional
 from click import ClickException
 from git import Repo
 from snowflake.cli.api.console.console import cli_console
-from snowflakecli.internal.release_plugin.utils import subprocess_run
+
+from snowflakecli_internal_release_plugin.utils import subprocess_run
 
 
 class RepositoryManager(Repo):

@@ -26,4 +26,4 @@ dependencies = [
 version = "0.0.1"
 
 [project.entry-points."snowflake.cli.plugin.command"]
-release-plugin = "snowflakecli.internal.release_plugin.plugin_spec"
+release-plugin = "snowflakecli_internal_release_plugin.plugin_spec"

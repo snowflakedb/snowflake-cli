@@ -18,7 +18,8 @@ from snowflake.cli.api.plugins.command import (
     CommandType,
     plugin_hook_impl,
 )
-from snowflakecli.internal.release_plugin import commands
+
+from snowflakecli_internal_release_plugin import commands
 
 
 @plugin_hook_impl
