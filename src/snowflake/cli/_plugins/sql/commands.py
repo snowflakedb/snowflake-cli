@@ -82,6 +82,10 @@ def execute_sql(
     The command supports variable substitution that happens on client-side.
     """
 
+    #TODO DELETE THIS
+    import os
+    print(os.environ.keys())
+
     data = {}
     if data_override:
         data = {v.key: v.value for v in parse_key_value_variables(data_override)}
@@ -91,4 +95,5 @@ def execute_sql(
     )
     if single_statement:
         return QueryResult(next(cursors))
+
     return MultipleResults((QueryResult(c) for c in cursors))

@@ -159,6 +159,7 @@ def test_returns_nice_error_in_case_of_connectivity_error(runner):
        [connections.foo]
         """
     )
+
     result = runner.invoke(
         ["--config-file", "non-existent.toml", "sql", "-q", "select 1"]
     )
