@@ -242,6 +242,15 @@ def tag(version: str = VersionArgument, final: bool = FinalOption, **options):
     return MessageResult(f"Tag `{tag_name}` successfully published.")
 
 
+#
+# @app.command()
+# def validate_pip_installation(version: str = VersionArgument, **options):
+#     """Validate pip installation from latest tag."""
+#     release_info = ReleaseInfo(version, repo=RepositoryManager())
+#     with snow_executable(release_info.latest_):
+#         pass
+
+
 @app.command()
 def status(version: str = VersionArgument, **options):
     """Check current release status."""

@@ -82,6 +82,14 @@ class ReleaseInfo:
         rc_number = last_tag.removeprefix(f"{self.final_tag_name}-rc")
         return int(rc_number)
 
+    @cached_property
+    def latest_released_tag(self) -> Optional[str]:
+        if self.repo.exists(self.final_tag_name):
+            return self.final_tag_name
+        if self.last_released_rc is None:
+            return None
+        return self.rc_tag_name(self.last_released_rc)
+
     @property
     def next_rc(self) -> int:
         if self.last_released_rc is None:
@@ -100,7 +108,7 @@ class ReleaseInfo:
             "version": self.version,
             "version released": self.repo.exists(self.final_tag_name),
             "branch": _show_branch_if_exists(self.release_branch_name),
-            "last released rc": self.last_released_rc,
+            "last released tag": self.latest_released_tag,
             "next rc": self.next_rc,
             "next rc cherrypick branch": _show_branch_if_exists(
                 self.cherrypick_branch_name(self.rc_tag_name(self.next_rc))
