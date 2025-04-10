@@ -119,6 +119,10 @@ class ReleaseInfo:
         return f"{self.final_tag_name}-rc{number}"
 
     @cached_property
+    def _existing_tags(self):
+        return [tag.name for tag in self.repo.tags if self.version in tag.name]
+
+    @cached_property
     def last_released_rc(self) -> Optional[int]:
         last_tag = max(self._existing_tags, default=None)
         if last_tag is None or last_tag == self.final_tag_name:
@@ -135,14 +139,6 @@ class ReleaseInfo:
     @staticmethod
     def cherrypick_branch_name(tag_name: str) -> str:
         return f"cherrypicks-{tag_name}"
-
-    @cached_property
-    def _existing_tags(self):
-        all_tags = subprocess_run(["git", "tag"]).split()
-        return [tag for tag in all_tags if self.version in tag]
-
-    def tag_exists(self, tag_name: str) -> bool:
-        return tag_name in self._existing_tags
 
     def check_status(self):
         def _show_branch_if_exists(branch_name: str) -> Optional[str]:
@@ -197,6 +193,7 @@ def get_pr_url(source_branch: str) -> str:
 
 
 def _commit_update_release_notes(repo: Repo, version: str) -> None:
+    cli_console.step(f"Creating release notes for {version}")
     subprocess_run(
         [
             sys.executable,
@@ -210,6 +207,7 @@ def _commit_update_release_notes(repo: Repo, version: str) -> None:
 
 
 def _commit_bump_dev_version(repo: Repo, version: str) -> None:
+    cli_console.step(f"Bumping version on main")
     major, minor, patch = version.split(".")
     new_version = f"{major}.{int(minor)+1}.{patch}"
     subprocess_run(["hatch", "version", f"{new_version}.dev0"])
@@ -217,18 +215,54 @@ def _commit_bump_dev_version(repo: Repo, version: str) -> None:
     repo.git.commit(m=f"Bump dev version to {new_version}")
 
 
+def _commit_bump_version(repo: Repo, hatch_version: str, tag_name: str) -> None:
+    cli_console.step(f"Bumping version to {tag_name}")
+    subprocess_run(["hatch", "version", hatch_version])
+    repo.git.add(A=True)
+    repo.git.commit(m=f"Bump version to {tag_name}")
+
+
 @app.command(name="init")
 def init_release(version: str = VersionArgument, **options):
     """Update release notes and version on branch `main`, create branch release-vX.Y.Z and release tag rc0."""
     repo = Repo()
     release_info = ReleaseInfo(version, repo)
-    branch_name = release_info.release_branch_name
-    if repo.exists(branch_name):
-        raise ClickException(f'Branch "{branch_name}" already exists')
+    if repo.exists(release_info.release_branch_name):
+        raise ClickException(
+            f'Branch "{release_info.release_branch_name}" already exists'
+        )
 
-    repo.git.checkout("main")
-    repo.git.pull("origin", "main")
-    repo.git.checkout("-b", branch_name)
+    with repo.tmp_checkout("main"):
+        # create release branch and update release notes
+        repo.git.checkout(release_info.release_branch_name, b=True)
+        _commit_update_release_notes(repo, version)
+        repo.git.push("origin", release_info.release_branch_name, set_upstream=True)
+
+        # create separate brunch bumping main version
+        bump_release_notes_main_branch = f"bump-release-notes-{version}"
+        repo.git.checkout(bump_release_notes_main_branch, b=True)
+        _commit_bump_dev_version(repo, version)
+        repo.git.push("origin", bump_release_notes_main_branch, set_upstream=True)
+
+        # create rc0 branch
+        rc0_branch = release_info.cherrypick_branch_name(
+            release_info.rc_tag_name(
+                release_info.next_rc,
+            )
+        )
+        repo.git.checkout(release_info.release_branch_name)
+        repo.git.checkout(rc0_branch, b=True)
+        _commit_bump_version(repo, "rc", release_info.rc_tag_name(0))
+        repo.git.push("origin", rc0_branch, set_upstream=True)
+
+    main_pr_url = get_pr_url(bump_release_notes_main_branch)
+    rc0_pr_url = get_pr_url(rc0_branch)
+
+    return MessageResult(
+        f"""Release branch successfully initialized.
+    create PR to 'main': {main_pr_url}
+    create PR to '{release_info.release_branch_name}': {rc0_pr_url}"""
+    )
 
     # pr = create_pull_request(message, message, branch_name)
 
