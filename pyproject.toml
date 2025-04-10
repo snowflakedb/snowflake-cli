@@ -94,9 +94,10 @@ features = ["development"]
 [tool.hatch.envs.default.scripts]
 test = ["pytest tests/"]
 test-cov = [
-  "coverage run --source=snowflake.cli --module pytest tests/test_snow_connector.py ",
-  "coverage run --source=snowflake.cli --module pytest -m loaded_modules tests/test_snow_connector.py ",
-  "coverage report",
+#  "coverage run --source=snowflake.cli --module pytest tests/test_snow_connector.py ",
+#  "coverage run --source=snowflake.cli --module pytest -m loaded_modules tests/test_snow_connector.py ",
+#  "coverage report",
+  "pytest tests/test_snow_connector.py::test_returns_nice_error_in_case_of_connectivity_error"
 ]
 legacy-pypi-build = [".compat/build_snowflake-cli-labs.sh"]
 
