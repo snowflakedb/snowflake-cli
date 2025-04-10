@@ -83,10 +83,6 @@ class BaseSqlExecutor:
         stream_generator = self._conn.execute_stream(
             stream, remove_comments=remove_comments, cursor_class=cursor_class, **kwargs
         )
-        print("****************SELF CONN*********")
-        print(self._conn)
-        print("****************STREAM GENERATOR*********")
-        print(stream_generator)
         return stream_generator if return_cursors else list()
 
     def execute_string(self, query: str, **kwargs) -> Iterable[SnowflakeCursor]:
