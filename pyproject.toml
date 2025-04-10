@@ -95,7 +95,7 @@ features = ["development"]
 test = ["pytest tests/"]
 test-cov = [
   "coverage run --source=snowflake.cli --module pytest tests/test_snow_connector.py ",
-  "coverage run --source=snowflake.cli --module pytest -m loaded_modules tests/test_snow_connector.py ",
+  "coverage run --source=snowflake.cli --module pytest -m loaded_modules tests",
   "coverage report",
 ]
 
