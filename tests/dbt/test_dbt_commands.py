@@ -57,11 +57,10 @@ class TestDBTDeploy:
     @pytest.fixture
     def dbt_project_path(self, tmp_path_factory):
         source_path = tmp_path_factory.mktemp("dbt_project")
-        (source_path / "dbt_project.yml").touch()
-        with open((source_path / "dbt_project.yml"), "w") as f:
-            yaml.dump({"profile": "dev"}, f)
-        (source_path / "profiles.yml").touch()
-        with open((source_path / "profiles.yml"), "w") as f:
+        dbt_project_file = source_path / "dbt_project.yml"
+        dbt_project_file.write_text(yaml.dump({"profile": "dev"}))
+        dbt_profiles_file = source_path / "profiles.yml"
+        dbt_profiles_file.write_text(
             yaml.dump(
                 {
                     "dev": {
@@ -70,8 +69,8 @@ class TestDBTDeploy:
                         }
                     }
                 },
-                f,
             )
+        )
         yield source_path
 
     @pytest.fixture

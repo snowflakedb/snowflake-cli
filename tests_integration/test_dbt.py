@@ -79,5 +79,4 @@ def _setup_dbt_profile(root_dir, snowflake_session):
     dev_profile["role"] = snowflake_session.role
     dev_profile["warehouse"] = snowflake_session.warehouse
     dev_profile["schema"] = snowflake_session.schema
-    with open((root_dir / "profiles.yml"), "w") as f:
-        yaml.safe_dump(profiles, f)
+    (root_dir / "profiles.yml").write_text(yaml.dump(profiles))
