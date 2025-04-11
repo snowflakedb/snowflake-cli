@@ -14,11 +14,12 @@
 
 from __future__ import annotations
 
-from click import ClickException
+import yaml
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -44,12 +45,30 @@ class DBTManager(SqlExecutionMixin):
     ) -> SnowflakeCursor:
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
-            raise ClickException(
+            raise CliError(
                 f"dbt_project.yml does not exist in directory {path.path.absolute()}."
             )
 
+        with dbt_project_path.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
+            dbt_project = yaml.safe_load(fd)
+            try:
+                profile = dbt_project["profile"]
+            except KeyError:
+                raise CliError("`profile` is not defined in dbt_project.yml")
+
+        dbt_profiles_path = path / "profiles.yml"
+        if not dbt_profiles_path.exists():
+            raise CliError(
+                f"profiles.yml does not exist in directory {path.path.absolute()}."
+            )
+
+        with dbt_profiles_path.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
+            profiles = yaml.safe_load(fd)
+            if profile not in profiles:
+                raise CliError(f"profile {profile} is not defined in profiles.yml")
+
         if self.exists(name=name) and force is not True:
-            raise ClickException(
+            raise CliError(
                 f"DBT project {name} already exists. Use --force flag to overwrite"
             )
 

@@ -14,20 +14,22 @@
 import datetime
 
 import pytest
+import yaml
 
 
 @pytest.mark.integration
 @pytest.mark.qa_only
-def test_dbt_deploy(
+def test_dbt(
     runner,
     snowflake_session,
     test_database,
     project_directory,
 ):
-    with project_directory("dbt_project"):
+    with project_directory("dbt_project") as root_dir:
         # Given a local dbt project
         ts = int(datetime.datetime.now().timestamp())
         name = f"dbt_project_{ts}"
+        _setup_dbt_profile(root_dir, snowflake_session)
 
         # When it's deployed
         result = runner.invoke_with_connection_json(["dbt", "deploy", name])
@@ -65,3 +67,16 @@ def test_dbt_deploy(
         )
         assert len(result.json) == 1, result.json
         assert result.json[0]["COUNT"] == 1, result.json[0]
+
+
+def _setup_dbt_profile(root_dir, snowflake_session):
+    with open((root_dir / "profiles.yml"), "r") as f:
+        profiles = yaml.safe_load(f)
+    dev_profile = profiles["dbt_integration_project"]["outputs"]["dev"]
+    dev_profile["database"] = snowflake_session.database
+    dev_profile["account"] = snowflake_session.account
+    dev_profile["user"] = snowflake_session.user
+    dev_profile["role"] = snowflake_session.role
+    dev_profile["warehouse"] = snowflake_session.warehouse
+    dev_profile["schema"] = snowflake_session.schema
+    (root_dir / "profiles.yml").write_text(yaml.dump(profiles))

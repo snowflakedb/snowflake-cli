@@ -17,6 +17,7 @@ from __future__ import annotations
 from unittest import mock
 
 import pytest
+import yaml
 from snowflake.cli._plugins.dbt.constants import OUTPUT_COLUMN_NAME, RESULT_COLUMN_NAME
 from snowflake.cli.api.identifiers import FQN
 
@@ -56,8 +57,20 @@ class TestDBTDeploy:
     @pytest.fixture
     def dbt_project_path(self, tmp_path_factory):
         source_path = tmp_path_factory.mktemp("dbt_project")
-        dbt_file = source_path / "dbt_project.yml"
-        dbt_file.touch()
+        dbt_project_file = source_path / "dbt_project.yml"
+        dbt_project_file.write_text(yaml.dump({"profile": "dev"}))
+        dbt_profiles_file = source_path / "profiles.yml"
+        dbt_profiles_file.write_text(
+            yaml.dump(
+                {
+                    "dev": {
+                        "outputs": {
+                            "local": {"account": "test_account", "database": "testdb"}
+                        }
+                    }
+                },
+            )
+        )
         yield source_path
 
     @pytest.fixture
@@ -105,33 +118,6 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
             dbt_project_path, "@MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"
         )
 
-    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
-    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
-    def test_dbt_version_from_option_has_precedence_over_file(
-        self,
-        _mock_create,
-        _mock_put_recursive,
-        mock_connect,
-        runner,
-        dbt_project_path,
-        mock_exists,
-    ):
-        result = runner.invoke(
-            [
-                "dbt",
-                "deploy",
-                "TEST_PIPELINE",
-                f"--source={dbt_project_path}",
-            ]
-        )
-
-        assert result.exit_code == 0, result.output
-        assert (
-            mock_connect.mocked_ctx.get_query()
-            == """CREATE DBT PROJECT TEST_PIPELINE
-FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
-        )
-
     @pytest.mark.parametrize("exists", (True, False))
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
@@ -162,7 +148,7 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
             "CREATE OR REPLACE DBT PROJECT"
         )
 
-    def test_raises_when_dbt_project_is_not_available(
+    def test_raises_when_dbt_project_yml_is_not_available(
         self, dbt_project_path, mock_connect, runner
     ):
         dbt_file = dbt_project_path / "dbt_project.yml"
@@ -181,7 +167,63 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
         assert f"dbt_project.yml does not exist in directory" in result.output
         assert mock_connect.mocked_ctx.get_query() == ""
 
-    def test_raises_when_dbt_project_exists_and_is_not_force(
+    def test_raises_when_dbt_project_yml_does_not_specify_profile(
+        self, dbt_project_path, mock_connect, runner
+    ):
+        with open((dbt_project_path / "dbt_project.yml"), "w") as f:
+            yaml.dump({}, f)
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+            ],
+        )
+
+        assert result.exit_code == 1, result.output
+        assert "`profile` is not defined in dbt_project.yml" in result.output
+        assert mock_connect.mocked_ctx.get_query() == ""
+
+    def test_raises_when_profiles_yml_is_not_available(
+        self, dbt_project_path, mock_connect, runner
+    ):
+        (dbt_project_path / "profiles.yml").unlink()
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+            ],
+        )
+
+        assert result.exit_code == 1, result.output
+        assert f"profiles.yml does not exist in directory" in result.output
+        assert mock_connect.mocked_ctx.get_query() == ""
+
+    def test_raises_when_profiles_yml_does_not_contain_selected_profile(
+        self, dbt_project_path, mock_connect, runner
+    ):
+        with open((dbt_project_path / "profiles.yml"), "w") as f:
+            yaml.dump({}, f)
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+            ],
+        )
+
+        assert result.exit_code == 1, result.output
+        assert "profile dev is not defined in profiles.yml" in result.output
+        assert mock_connect.mocked_ctx.get_query() == ""
+
+    def test_raises_when_dbt_object_exists_and_is_not_force(
         self, dbt_project_path, mock_connect, runner, mock_exists
     ):
         mock_exists.return_value = True
