@@ -48,7 +48,7 @@ Creates three branches:
   bumping the version to `X.Y+1.Z.dev0`. It's meant to be merged into `main`
 
 ```
-* (bump-release-notes-X.Y.Z) bump version to X.Y+1.Z-rc1
+* (bump-release-notes-X.Y.Z) bump version to X.Y+1.Z.dev0
 | * (cherrypicks-vX.Y.Z-rc0) bump version to X.Y.Z-rc0
 |/
 * (release-vX.Y.Z) adjust release notes
