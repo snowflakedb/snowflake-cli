@@ -165,6 +165,7 @@ class EntityBase(Generic[T]):
         stage_object = Stage(
             name=stage_name, encryption=StageEncryption(type="SNOWFLAKE_SSE")
         )
+        # TODO wrap this in try except block and raise something meaningful
         stage_collection.create(stage_object, mode=CreateMode.if_not_exists)
 
         return stage_collection[stage_name]
