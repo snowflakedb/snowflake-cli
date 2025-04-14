@@ -30,6 +30,13 @@
       --enable-diag
       --diag-log-path <diag_log_path>
       --diag-allowlist-path <diag_allowlist_path>
+      --oauth-client-id <oauth_client_id>
+      --oauth-client-secret <oauth_client_secret>
+      --oauth-authorization-url <oauth_authorization_url>
+      --oauth-redirect-uri <oauth_redirect_uri>
+      --oauth-scope <oauth_scope>
+      --oauth-security-features <oauth_security_features>
+      --client-store-temporary-credential
       --format <format>
       --verbose
       --debug
@@ -104,6 +111,27 @@
   
   :samp:`--diag-allowlist-path {TEXT}`
     Path to a JSON file that contains allowlist parameters.
+  
+  :samp:`--oauth-client-id {TEXT}`
+    OAuth client ID to use when connecting to Snowflake.
+  
+  :samp:`--oauth-client-secret {TEXT}`
+    OAuth client secret to use when connecting to Snowflake.
+  
+  :samp:`--oauth-authorization-url {TEXT}`
+    OAuth authorization URL to use when connecting to Snowflake.
+  
+  :samp:`--oauth-redirect-uri {TEXT}`
+    OAuth redirect URI to use when connecting to Snowflake.
+  
+  :samp:`--oauth-scope {TEXT}`
+    OAuth scope to use when connecting to Snowflake.
+  
+  :samp:`--oauth-security-features {TEXT}`
+    OAuth security features to use when connecting to Snowflake. Expects a comma-separated list of values.
+  
+  :samp:`--client-store-temporary-credential`
+    Store the temporary credential.
   
   :samp:`--format [TABLE|JSON]`
     Specifies the output format. Default: TABLE.

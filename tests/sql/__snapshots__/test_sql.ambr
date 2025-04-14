@@ -92,6 +92,26 @@
   | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
   |                                                 contains allowlist           |
   |                                                 parameters.                  |
+  | --oauth-client-id                      TEXT     OAuth client ID to use when  |
+  |                                                 connecting to Snowflake.     |
+  | --oauth-client-secret                  TEXT     OAuth client secret to use   |
+  |                                                 when connecting to           |
+  |                                                 Snowflake.                   |
+  | --oauth-authorization-url              TEXT     OAuth authorization URL to   |
+  |                                                 use when connecting to       |
+  |                                                 Snowflake.                   |
+  | --oauth-redirect-uri                   TEXT     OAuth redirect URI to use    |
+  |                                                 when connecting to           |
+  |                                                 Snowflake.                   |
+  | --oauth-scope                          TEXT     OAuth scope to use when      |
+  |                                                 connecting to Snowflake.     |
+  | --oauth-security-features              TEXT     OAuth security features to   |
+  |                                                 use when connecting to       |
+  |                                                 Snowflake. Expects a         |
+  |                                                 comma-separated list of      |
+  |                                                 values.                      |
+  | --client-store-temporary-cre…                   Store the temporary          |
+  |                                                 credential.                  |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |

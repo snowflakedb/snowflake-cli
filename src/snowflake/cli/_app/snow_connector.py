@@ -64,6 +64,14 @@ SUPPORTED_ENV_OVERRIDES = [
     "session_token",
     "master_token",
     "token_file_path",
+    "oauth_client_id",
+    "oauth_client_secret",
+    "oauth_authorization_url",
+    "oauth_token_request_url",
+    "oauth_redirect_uri",
+    "oauth_scope",
+    "oauth_security_features",
+    "client_store_temporary_credential",
 ]
 
 # mapping of found key -> key to set
@@ -155,6 +163,12 @@ def connect_to_snowflake(
     _update_connection_application_name(connection_parameters)
 
     _update_internal_application_info(connection_parameters)
+
+    oauth_security_features = connection_parameters.get("oauth_security_features")
+    if oauth_security_features:
+        connection_parameters["oauth_security_features"] = [
+            f.strip() for f in oauth_security_features.split(",")
+        ]
 
     try:
         # Whatever output is generated when creating connection,
