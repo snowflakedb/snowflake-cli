@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import platform
 import sys
@@ -38,6 +39,8 @@ from snowflake.connector.telemetry import (
     TelemetryField,
 )
 from snowflake.connector.time_util import get_time_millis
+
+log = logging.getLogger(__name__)
 
 
 @unique
@@ -75,6 +78,7 @@ class CLITelemetryField(Enum):
     IS_CLI_EXCEPTION = "is_cli_exception"
     # Project context
     PROJECT_DEFINITION_VERSION = "project_definition_version"
+    MODE = "mode"
 
 
 class TelemetryEvent(Enum):
@@ -151,7 +155,17 @@ def _find_command_info() -> TelemetryDict:
             "format", OutputFormat.TABLE
         ).value,
         CLITelemetryField.PROJECT_DEFINITION_VERSION: str(_get_definition_version()),
+        CLITelemetryField.MODE: _get_cli_running_mode(ctx),
     }
+
+
+def _get_cli_running_mode(ctx) -> str:
+    try:
+        if ctx.params.get("is_repl", False):
+            return "repl"
+    except Exception:
+        pass
+    return "cmd"
 
 
 def _get_definition_version() -> str | None:
@@ -226,6 +240,7 @@ class CLITelemetryClient:
             telemetry_data = TelemetryData.from_telemetry_data_dict(
                 from_dict=message, timestamp=get_time_millis()
             )
+            log.debug("%s, %s", message, telemetry_data)
             self._telemetry.try_add_log_to_batch(telemetry_data)
 
     def flush(self):

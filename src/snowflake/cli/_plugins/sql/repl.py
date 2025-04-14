@@ -8,22 +8,9 @@ from prompt_toolkit.key_binding.key_bindings import KeyBindings
 from prompt_toolkit.keys import Keys
 from prompt_toolkit.lexers import PygmentsLexer
 from snowflake.cli._app.printing import print_result
-from snowflake.cli._app.telemetry import (
-    log_command_execution_error,
-    log_command_result,
-    log_command_usage,
-)
 from snowflake.cli._plugins.sql.lexer import CliLexer, cli_completer
 from snowflake.cli._plugins.sql.manager import SqlManager
-from snowflake.cli.api.cli_global_context import (
-    get_cli_context,
-    get_cli_context_manager,
-    span,
-)
-from snowflake.cli.api.commands.execution_metadata import (
-    ExecutionMetadata,
-    ExecutionStatus,
-)
+from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import MultipleResults, QueryResult
 from snowflake.cli.api.secure_path import SecurePath
@@ -167,30 +154,13 @@ class Repl:
         return cursors
 
     def run(self):
-        """What we want to measure:
-        - sessions number for user
-        - session time?
-        - session interactions
-        - session command types (future this may be done in manager with relation to session)
-        """
-        execution = ExecutionMetadata()
         try:
             cli_console.panel(self._welcome_banner)
-            log.debug("REPL start")
-            log_command_usage(execution)
             self._initialize_connection()
             self._repl_loop()
         except (KeyboardInterrupt, EOFError):
-            execution.complete(ExecutionStatus.FAILURE)
-            log_command_result(execution)
-            log.debug("REPL closing %s", execution)
             cli_console.message("\n[bold orange_red1]Leaving REPL, bye ...")
-        except Exception as exc:
-            execution.complete(ExecutionStatus.FAILURE)
-            log_command_execution_error(exc, execution)
-            log.debug("REPL error %s, %s", execution, exc)
 
-    @span("repl_loop")
     def _repl_loop(self):
         """Main REPL loopl. Handles input and query execution.
 
@@ -198,55 +168,48 @@ class Repl:
         Honors Ctrl-C and Ctrl-D in REPL loop.
         """
         while True:
-            with get_cli_context().metrics.span("repl_segment"):
-                get_cli_context().metrics.increment_counter("repl_cmd_count")
+            try:
+                # user_input = self.repl_propmpt().strip()
+                user_input = self.session.prompt(
+                    message=" > ",
+                    lexer=self._lexer,
+                    completer=self._completer,
+                    multiline=True,
+                    wrap_lines=True,
+                    key_bindings=self._repl_key_bindings,
+                )
+                log.debug("REPL user input: %r", user_input)
 
-                execution = ExecutionMetadata()
-                log.debug("REPL inner loop %s", execution)
+                if not user_input:
+                    continue
+
+                if user_input.lower() in EXIT_KEYWORDS:
+                    log.debug("REPL exit keyword detected")
+                    raise EOFError
+
                 try:
-                    user_input = self.repl_propmpt().strip()
-                    log.debug("REPL user input: %r", user_input)
-                    log.debug("REPL log command type")
-                    if not user_input:
-                        continue
-
-                    if user_input.lower() in EXIT_KEYWORDS:
-                        log.debug("REPL exit keyword detected")
-                        raise EOFError
-
-                    try:
-                        log.debug("REPL: executing query")
-                        cursors = self._execute(user_input)
-                        print_result(MultipleResults(QueryResult(c) for c in cursors))
-                        execution.complete(ExecutionStatus.SUCCESS)
-                        log_command_result(execution)
-                    except Exception as e:
-                        execution.complete(ExecutionStatus.FAILURE)
-                        log_command_execution_error(e, execution)
-                        log.debug("REPL: error occurred: %s", e)
-                        cli_console.warning(f"\nError occurred: {e}")
-
-                except KeyboardInterrupt:  # a.k.a Ctrl-C
-                    log.debug("REPL: user interrupted with Ctrl-C")
-                    continue
-
-                except EOFError:  # a.k.a Ctrl-D
-                    log.debug("REPL user interrupted with Ctrl-D")
-                    should_exit = self.ask_yn("Do you want to leave?")
-                    log.debug("REPL User answered: %r", should_exit)
-                    if should_exit:
-                        execution.complete(ExecutionStatus.SUCCESS)
-                        log_command_result(execution)
-                        log.debug("REPL end confirmed %s", execution)
-                        raise EOFError
-                    log.debug("REPL end canceled")
-                    continue
+                    log.debug("REPL: executing query")
+                    cursors = self._execute(user_input)
+                    print_result(MultipleResults(QueryResult(c) for c in cursors))
 
                 except Exception as e:
-                    execution.complete(ExecutionStatus.FAILURE)
-                    log_command_execution_error(e, execution)
-                    log.debug("REPL prompt error %s", execution)
+                    log.debug("REPL: error occurred: %s", e)
                     cli_console.warning(f"\nError occurred: {e}")
+
+            except KeyboardInterrupt:  # a.k.a Ctrl-C
+                log.debug("REPL: user interrupted with Ctrl-C")
+                continue
+
+            except EOFError:  # a.k.a Ctrl-D
+                log.debug("REPL: user interrupted with Ctrl-D")
+                should_exit = self.ask_yn("Do you want to leave?")
+                log.debug("User answered: %r", should_exit)
+                if should_exit:
+                    raise EOFError
+                continue
+
+            except Exception as e:
+                cli_console.warning(f"\nError occurred: {e}")
 
     def ask_yn(self, question: str) -> bool:
         """Asks user a Yes/No question."""
