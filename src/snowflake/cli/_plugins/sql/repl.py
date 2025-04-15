@@ -36,7 +36,7 @@ class Repl:
         """Requires a `SqlManager` instance to execute queries.
 
         'pass through' variables for SqlManager.execute method:
-        `data` should contain the variablees used for template processing,
+        `data` should contain the variables used for template processing,
         `retain_comments` how to handle comments in queries
         """
         super().__init__()
@@ -66,7 +66,7 @@ class Repl:
             stripped_buffer = buffer.text.strip()
 
             if stripped_buffer:
-                log.debug("got stripped buffer")
+                log.debug("evaluating repl input")
                 cursor_position = buffer.cursor_position
                 ends_with_semicolon = buffer.text.endswith(";")
 
@@ -75,14 +75,14 @@ class Repl:
                     buffer.validate_and_handle()
 
                 elif ends_with_semicolon and cursor_position >= len(stripped_buffer):
-                    log.debug("semicolon detected, executing query")
+                    log.debug("semicolon detected, submitting input")
                     buffer.validate_and_handle()
 
                 else:
                     log.debug("adding new line")
                     buffer.insert_text("\n")
             else:
-                log.debug("no input, business as usual")
+                log.debug("empty input")
 
         @kb.add(Keys.ControlJ)
         def _(event):
@@ -114,8 +114,8 @@ class Repl:
         """Regular repl prompt."""
         return self.session.prompt(
             msg,
-            lexer=PygmentsLexer(CliLexer),
-            completer=cli_completer,
+            lexer=self._lexer,
+            completer=self._completer,
             multiline=True,
             wrap_lines=True,
             key_bindings=self._repl_key_bindings,
@@ -134,7 +134,7 @@ class Repl:
 
     @property
     def _welcome_banner(self) -> str:
-        return f"Welcome to Snowflake-CLI REPL PoC\nType 'exit' or 'quit' to leave"
+        return f"Welcome to Snowflake-CLI REPL\nType 'exit' or 'quit' to leave"
 
     def _initialize_connection(self):
         """Early connection for possible fast fail."""
@@ -162,48 +162,46 @@ class Repl:
             cli_console.message("\n[bold orange_red1]Leaving REPL, bye ...")
 
     def _repl_loop(self):
-        """Main REPL loopl. Handles input and query execution.
+        """Main REPL loop. Handles input and query execution.
 
         Sets up prompt session with history and key bindings.
         Honors Ctrl-C and Ctrl-D in REPL loop.
         """
         while True:
             try:
-                # user_input = self.repl_propmpt().strip()
-                user_input = self.session.prompt(
-                    message=" > ",
-                    lexer=self._lexer,
-                    completer=self._completer,
-                    multiline=True,
-                    wrap_lines=True,
-                    key_bindings=self._repl_key_bindings,
-                )
-                log.debug("REPL user input: %r", user_input)
+                user_input = self.repl_propmpt().strip()
+                # user_input = self.session.prompt(
+                #     message=" > ",
+                #     lexer=self._lexer,
+                #     completer=self._completer,
+                #     multiline=True,
+                #     wrap_lines=True,
+                #     key_bindings=self._repl_key_bindings,
+                # )
 
                 if not user_input:
                     continue
 
                 if user_input.lower() in EXIT_KEYWORDS:
-                    log.debug("REPL exit keyword detected")
                     raise EOFError
 
                 try:
-                    log.debug("REPL: executing query")
+                    log.debug("executing query")
                     cursors = self._execute(user_input)
                     print_result(MultipleResults(QueryResult(c) for c in cursors))
 
                 except Exception as e:
-                    log.debug("REPL: error occurred: %s", e)
+                    log.debug("error occurred: %s", e)
                     cli_console.warning(f"\nError occurred: {e}")
 
             except KeyboardInterrupt:  # a.k.a Ctrl-C
-                log.debug("REPL: user interrupted with Ctrl-C")
+                log.debug("user interrupted with Ctrl-C")
                 continue
 
             except EOFError:  # a.k.a Ctrl-D
-                log.debug("REPL: user interrupted with Ctrl-D")
+                log.debug("user interrupted with Ctrl-D")
                 should_exit = self.ask_yn("Do you want to leave?")
-                log.debug("User answered: %r", should_exit)
+                log.debug("user answered: %r", should_exit)
                 if should_exit:
                     raise EOFError
                 continue
@@ -215,12 +213,12 @@ class Repl:
         """Asks user a Yes/No question."""
         try:
             while True:
-                log.debug("Asking user: %s", question)
+                log.debug("asking user: %s", question)
                 answer = self.yn_prompt(f"{question} (y/n): ")
-                log.debug("User answered: %s", answer)
+                log.debug("user answered: %s", answer)
 
                 return answer == "y"
 
         except KeyboardInterrupt:
-            log.debug("User interrupted with Ctrl-C. Returning to REPL")
+            log.debug("user interrupted with Ctrl-C returning to REPL")
             return False

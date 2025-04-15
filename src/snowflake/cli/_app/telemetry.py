@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import logging
 import os
 import platform
 import sys
@@ -39,8 +38,6 @@ from snowflake.connector.telemetry import (
     TelemetryField,
 )
 from snowflake.connector.time_util import get_time_millis
-
-log = logging.getLogger(__name__)
 
 
 @unique
@@ -240,7 +237,6 @@ class CLITelemetryClient:
             telemetry_data = TelemetryData.from_telemetry_data_dict(
                 from_dict=message, timestamp=get_time_millis()
             )
-            log.debug("%s, %s", message, telemetry_data)
             self._telemetry.try_add_log_to_batch(telemetry_data)
 
     def flush(self):
