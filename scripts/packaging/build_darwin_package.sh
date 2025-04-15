@@ -16,7 +16,7 @@ mkdir "$HOME/rustup"
 export CARGO_HOME="$HOME/rustup/.cargo"
 export RUSTUP_HOME="$HOME/rustup/.rustup"
 bash -s rustup-init.sh -y
-. $HOME/.cargo/env
+. $CARGO_HOME/env
 rustup default stable
 rm rustup-init.sh
 
