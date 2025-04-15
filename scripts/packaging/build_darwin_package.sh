@@ -33,10 +33,17 @@ export RUSTUP_HOME="$HOME/rustup/.rustup"
 mkdir -p $CARGO_HOME
 mkdir -p $RUSTUP_HOME
 curl https://sh.rustup.rs -sSf > rustup-init.sh
+
+echo "===================================================================================="
+cat rustup-init.sh
+echo "===================================================================================="
+
 bash -s rustup-init.sh -y
 
 ls -a $HOME/rustup
 ls -a $HOME/rustup/.cargo
+ls -a $HOME
+ls -a .
 ls -a $HOME/.cargo
 
 if [[ ${MACHINE} == "arm64" ]]; then
