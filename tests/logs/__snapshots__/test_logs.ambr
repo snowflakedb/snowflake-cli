@@ -10,7 +10,7 @@
                   value::string as log_message
               FROM SNOWFLAKE.TELEMETRY.EVENTS
               WHERE record_type = 'LOG'
-              AND (record:severity_text = 'INFO' or record:severity_text is NULL )
+              AND (record:severity_text IN ('INFO', 'WARN', 'ERROR', 'FATAL') or record:severity_text is NULL )
               AND object_name = 'bar'
               AND timestamp >= TO_TIMESTAMP_LTZ('2022-02-02T02:02:02')
   AND timestamp <= TO_TIMESTAMP_LTZ('2022-02-03T02:02:02')
@@ -29,7 +29,7 @@
                   value::string as log_message
               FROM bar
               WHERE record_type = 'LOG'
-              AND (record:severity_text = 'INFO' or record:severity_text is NULL )
+              AND (record:severity_text IN ('INFO', 'WARN', 'ERROR', 'FATAL') or record:severity_text is NULL )
               AND object_name = 'bar'
               AND timestamp >= TO_TIMESTAMP_LTZ('2022-02-02T02:02:02')
   AND timestamp <= TO_TIMESTAMP_LTZ('2022-02-03T02:02:02')
@@ -48,7 +48,7 @@
                   value::string as log_message
               FROM foo
               WHERE record_type = 'LOG'
-              AND (record:severity_text = 'INFO' or record:severity_text is NULL )
+              AND (record:severity_text IN ('INFO', 'WARN', 'ERROR', 'FATAL') or record:severity_text is NULL )
               AND object_name = 'bar'
               AND timestamp >= TO_TIMESTAMP_LTZ('2022-02-02T02:02:02')
   AND timestamp <= TO_TIMESTAMP_LTZ('2022-02-03T02:02:02')
