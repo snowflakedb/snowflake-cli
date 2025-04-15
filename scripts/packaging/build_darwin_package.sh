@@ -27,6 +27,7 @@ echo "--- installing dependencies ---"
 #   exit 1
 #fi
 
+find . | grep cargo
 
 
 if [[ ${MACHINE} == "arm64" ]]; then
