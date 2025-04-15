@@ -56,6 +56,14 @@
               ORDER BY timestamp;
   '''
 # ---
+# name: test_if_incorrect_log_level_causes_error
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Invalid log level. Please choose from TRACE, DEBUG, INFO, WARN, ERROR, FATAL |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
 # name: test_providing_time_in_incorrect_format_causes_error[2024-11-03 12:00:00 UTC---from]
   '''
   +- Error ----------------------------------------------------------------------+
