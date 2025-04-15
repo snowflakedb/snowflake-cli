@@ -4,9 +4,11 @@ from typing import Generator, Iterable, Optional, cast
 
 import typer
 from click import ClickException
-from snowflake.cli._plugins.logs.manager import LogsManager, LogsQueryRow
+from snowflake.cli._plugins.logs.manager import LogsManager
+from snowflake.cli._plugins.logs.utils import LOG_LEVELS, LogsQueryRow
 from snowflake.cli._plugins.object.commands import NameArgument, ObjectArgument
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.exceptions import CliArgumentError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -41,11 +43,22 @@ def get_logs(
         "--table",
         help="The table to query for logs. If not provided, the default table will be used",
     ),
+    log_level: Optional[str] = typer.Option(
+        "INFO",
+        "--log-level",
+        help="The log level to filter by. If not provided, INFO will be used",
+    ),
     **options,
 ):
     """
     Retrieves logs for a given object.
     """
+
+    if log_level and not log_level.upper() in LOG_LEVELS:
+        raise CliArgumentError(
+            f"Invalid log level. Please choose from {', '.join(LOG_LEVELS)}"
+        )
+
     if refresh_time and to:
         raise ClickException(
             "You cannot set both --refresh and --to parameters. Please check the values"
@@ -61,6 +74,7 @@ def get_logs(
             from_time=from_time,
             refresh_time=refresh_time,
             event_table=event_table,
+            log_level=log_level,
         )
         logs = itertools.chain(
             (MessageResult(log.log_message) for logs in logs_stream for log in logs)
@@ -72,6 +86,7 @@ def get_logs(
             from_time=from_time,
             to_time=to_time,
             event_table=event_table,
+            log_level=log_level,
         )
         logs = (MessageResult(log.log_message) for log in logs_iterable)  # type: ignore
 

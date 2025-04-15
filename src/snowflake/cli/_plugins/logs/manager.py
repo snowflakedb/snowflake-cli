@@ -1,25 +1,18 @@
 import time
 from datetime import datetime
 from textwrap import dedent
-from typing import Iterable, List, NamedTuple, Optional, Tuple
+from typing import Iterable, List, Optional
 
-from click import ClickException
+from snowflake.cli._plugins.logs.utils import (
+    LogsQueryRow,
+    get_timestamp_query,
+    parse_log_levels_for_query,
+    sanitize_logs,
+)
 from snowflake.cli._plugins.object.commands import NameArgument, ObjectArgument
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
-
-LogsQueryRow = NamedTuple(
-    "LogsQueryRow",
-    [
-        ("timestamp", datetime),
-        ("database_name", str),
-        ("schema_name", str),
-        ("object_name", str),
-        ("log_level", str),
-        ("log_message", str),
-    ],
-)
 
 
 class LogsManager(SqlExecutionMixin):
@@ -30,6 +23,7 @@ class LogsManager(SqlExecutionMixin):
         object_name: FQN = NameArgument,
         from_time: Optional[datetime] = None,
         event_table: Optional[str] = None,
+        log_level: Optional[str] = "INFO",
     ) -> Iterable[List[LogsQueryRow]]:
         try:
             previous_end = from_time
@@ -41,6 +35,7 @@ class LogsManager(SqlExecutionMixin):
                     from_time=previous_end,
                     to_time=None,
                     event_table=event_table,
+                    log_level=log_level,
                 ).fetchall()
 
                 if raw_logs:
@@ -60,6 +55,7 @@ class LogsManager(SqlExecutionMixin):
         from_time: Optional[datetime] = None,
         to_time: Optional[datetime] = None,
         event_table: Optional[str] = None,
+        log_level: Optional[str] = "INFO",
     ) -> Iterable[LogsQueryRow]:
         """
         Basic function to get a single batch of logs from the server
@@ -71,9 +67,10 @@ class LogsManager(SqlExecutionMixin):
             from_time=from_time,
             to_time=to_time,
             event_table=event_table,
+            log_level=log_level,
         )
 
-        return self.sanitize_logs(logs)
+        return sanitize_logs(logs)
 
     def get_raw_logs(
         self,
@@ -82,6 +79,7 @@ class LogsManager(SqlExecutionMixin):
         from_time: Optional[datetime] = None,
         to_time: Optional[datetime] = None,
         event_table: Optional[str] = None,
+        log_level: Optional[str] = "INFO",
     ) -> SnowflakeCursor:
 
         table = event_table if event_table else "SNOWFLAKE.TELEMETRY.EVENTS"
@@ -97,9 +95,9 @@ class LogsManager(SqlExecutionMixin):
                 value::string as log_message
             FROM {table}
             WHERE record_type = 'LOG'
-            AND (record:severity_text = 'INFO' or record:severity_text is NULL )
+            AND (record:severity_text IN ({parse_log_levels_for_query((log_level))}) or record:severity_text is NULL )
             AND object_name = '{object_name}'
-            {self._get_timestamp_query(from_time, to_time)}
+            {get_timestamp_query(from_time, to_time)}
             ORDER BY timestamp;
 """
         ).strip()
@@ -107,32 +105,3 @@ class LogsManager(SqlExecutionMixin):
         result = self.execute_query(query)
 
         return result
-
-    def _get_timestamp_query(
-        self, from_time: Optional[datetime], to_time: Optional[datetime]
-    ):
-        if from_time and to_time and from_time > to_time:
-            raise ClickException(
-                "From_time cannot be later than to_time. Please check the values"
-            )
-        query = []
-
-        if from_time is not None:
-            query.append(
-                f"AND timestamp >= TO_TIMESTAMP_LTZ('{from_time.isoformat()}')\n"
-            )
-
-        if to_time is not None:
-            query.append(
-                f"AND timestamp <= TO_TIMESTAMP_LTZ('{to_time.isoformat()}')\n"
-            )
-
-        return "".join(query)
-
-    def sanitize_logs(self, logs: SnowflakeCursor | List[Tuple]) -> List[LogsQueryRow]:
-        try:
-            return [LogsQueryRow(*log) for log in logs]
-        except TypeError:
-            raise ClickException(
-                "Logs table has incorrect format. Please check the logs_table in your database"
-            )
