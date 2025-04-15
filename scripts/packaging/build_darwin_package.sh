@@ -28,8 +28,6 @@ echo "--- installing dependencies ---"
 #fi
 
 #find -r / . | grep cargo
-sudo rm -rf $HOME/.rustup
-sudo rm -rf $HOME/.cargo
 CARGO_WORKSPACE="$HOME/cargo_workspace"
 CARGO_HOME="$CARGO_WORKSPACE/.cargo"
 RUSTUP_HOME="$CARGO_WORKSPACE/.rustup"
@@ -45,6 +43,12 @@ else
   echo "Unsupported machine: ${MACHINE}"
   exit 1
 fi
+
+ls -a $HOME
+ls -a $CARGO_WORKSPACE
+ls -a $CARGO_HOME
+ls -a $RUSTUP_HOME
+
 . $HOME/.cargo/env
 rustup default stable
 rm rustup-init.sh
