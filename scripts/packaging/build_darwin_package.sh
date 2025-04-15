@@ -36,11 +36,13 @@ curl https://sh.rustup.rs -sSf > rustup-init.sh
 bash -s rustup-init.sh -y
 
 ls -a $HOME/rustup
-ls -a $HOME
+ls -a $HOME/rustup/.cargo
+ls -a $HOME/.cargo
 
 if [[ ${MACHINE} == "arm64" ]]; then
 . $HOME/.cargo/env
 fi
+
 rustup default stable
 rm rustup-init.sh
 
