@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Updated MacOS postinstall script to update PATH if snow not exist.
 
 
 # v3.7.0
