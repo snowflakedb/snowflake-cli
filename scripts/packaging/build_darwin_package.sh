@@ -28,7 +28,8 @@ echo "--- installing dependencies ---"
 #fi
 
 #find -r / . | grep cargo
-
+sudo rm -rf $HOME/.rustup
+sudo rm -rf $HOME/.cargo
 CARGO_WORKSPACE="$HOME/cargo_workspace"
 CARGO_HOME="$CARGO_WORKSPACE/.cargo"
 RUSTUP_HOME="$CARGO_WORKSPACE/.rustup"
@@ -37,7 +38,7 @@ mkdir $CARGO_WORKSPACE
 curl https://sh.rustup.rs -sSf > rustup-init.sh
 if [[ ${MACHINE} == "arm64" ]]; then
   echo "SKIP"
-  sudo bash -s rustup-init.sh -y
+  bash -s rustup-init.sh -y --no-modify-path
 elif [[ ${MACHINE} == "x86_64" ]]; then
   bash -s rustup-init.sh -y --no-modify-path
 else
