@@ -7,7 +7,7 @@ python3.11 -m venv venv
 python --version
 
 echo "--- installing dependencies ---"
-pip install hatch
+#pip install hatch
 
 # install cargo
 #if [[ ${MACHINE} == "arm64" ]]; then
@@ -23,13 +23,17 @@ pip install hatch
 #   exit 1
 #fi
 
-rm -rf "$HOME/rustup"
+rm -rf $HOME/rustup
 export CARGO_HOME="$HOME/rustup/.cargo"
 export RUSTUP_HOME="$HOME/rustup/.rustup"
 mkdir -p $CARGO_HOME
 mkdir -p $RUSTUP_HOME
 curl https://sh.rustup.rs -sSf > rustup-init.sh
 bash -s rustup-init.sh -y
+
+ls -a $HOME/rustup
+ls -a $HOME
+
 . $CARGO_HOME/env
 rustup default stable
 rm rustup-init.sh
