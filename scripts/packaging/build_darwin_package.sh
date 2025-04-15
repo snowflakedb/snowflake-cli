@@ -44,10 +44,10 @@ else
   exit 1
 fi
 
-ls -a $HOME
-ls -a $CARGO_WORKSPACE
-ls -a $CARGO_HOME
-ls -a $RUSTUP_HOME
+#ls -a $HOME
+#ls -a $CARGO_WORKSPACE
+#ls -a $CARGO_HOME
+#ls -a $RUSTUP_HOME
 
 rustup default stable
 rm rustup-init.sh
