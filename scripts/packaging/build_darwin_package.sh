@@ -2,12 +2,22 @@
 set -xeuo pipefail
 
 echo "--- creating virtualenv ---"
-python -m venv venv
+python3.11 -m venv venv
 . venv/bin/activate
 python --version
 
 echo "--- installing dependencies ---"
 pip install hatch
+
+# install cargo
+curl https://sh.rustup.rs -sSf > rustup-init.sh
+mkdir $HOME/"rustup"
+CARGO_HOME="$HOME/rustup/.cargo"
+RUSTUP_HOME="$HOME/rustup/.rustup"
+bash -s rustup-init.sh -y
+. $HOME/.cargo/env
+rustup default stable
+rm rustup-init.sh
 
 
 SYSTEM=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -32,38 +42,12 @@ CODESIGN_IDENTITY="Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7
 PRODUCTSIGN_IDENTITY="Developer ID Installer: Snowflake Computing INC. (W4NT6CRQ7U)"
 
 
-
-
 loginfo() {
   logger -s -p INFO -- $1
 }
 
 clean_build_workspace() {
   rm -rf $DIST_DIR || true
-}
-
-install_cargo() {
-  curl https://sh.rustup.rs -sSf > rustup-init.sh
-
-  if [[ ${MACHINE} == "arm64" ]]; then
-    mkdir $HOME/"rustup"
-    export CARGO_HOME="$HOME/rustup/.cargo"
-    export RUSTUP_HOME="$HOME/rustup/.rustup"
-    bash -s rustup-init.sh -y
-    . $HOME/.cargo/env
-    rustup default stable
-  elif [[ ${MACHINE} == "x86_64" ]]; then
-    export CARGO_HOME="$HOME/.cargo"
-    export RUSTUP_HOME="$HOME/.rustup"
-    bash -s rustup-init.sh -y
-    . $HOME/.cargo/env
-    rustup default stable
-  else
-    echo "Unsupported machine: ${MACHINE}"
-    exit 1
-  fi
-
-  rm rustup-init.sh
 }
 
 create_app_template() {
@@ -79,7 +63,6 @@ security find-identity -v -p codesigning
 loginfo "---------------------------------"
 
 clean_build_workspace
-install_cargo
 
 hatch -e packaging run build-isolated-binary
 create_app_template
