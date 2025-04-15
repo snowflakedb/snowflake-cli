@@ -5118,19 +5118,22 @@
   |                             [required]                                       |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --from             TEXT     The start time of the logs to retrieve. Accepts  |
-  |                             all ISO8061 formats                              |
-  |                             [default: None]                                  |
-  | --to               TEXT     The end time of the logs to retrieve. Accepts    |
-  |                             all ISO8061 formats                              |
-  |                             [default: None]                                  |
-  | --refresh          INTEGER  If set, the logs will be streamed with the given |
-  |                             refresh time in seconds                          |
-  |                             [default: None]                                  |
-  | --table            TEXT     The table to query for logs. If not provided,    |
-  |                             the default table will be used                   |
-  |                             [default: None]                                  |
-  | --help     -h               Show this message and exit.                      |
+  | --from               TEXT     The start time of the logs to retrieve.        |
+  |                               Accepts all ISO8061 formats                    |
+  |                               [default: None]                                |
+  | --to                 TEXT     The end time of the logs to retrieve. Accepts  |
+  |                               all ISO8061 formats                            |
+  |                               [default: None]                                |
+  | --refresh            INTEGER  If set, the logs will be streamed with the     |
+  |                               given refresh time in seconds                  |
+  |                               [default: None]                                |
+  | --table              TEXT     The table to query for logs. If not provided,  |
+  |                               the default table will be used                 |
+  |                               [default: None]                                |
+  | --log-level          TEXT     The log level to filter by. If not provided,   |
+  |                               INFO will be used                              |
+  |                               [default: INFO]                                |
+  | --help       -h               Show this message and exit.                    |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
