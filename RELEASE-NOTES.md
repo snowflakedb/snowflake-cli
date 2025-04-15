@@ -24,6 +24,8 @@
 ## Fixes and improvements
 * Fix certificate connection issues.
 * Fix `snow spcs image-registry login` slow query problem.
+* Added interactive mode for `snow sql`
+
 
 # v3.7.0
 
