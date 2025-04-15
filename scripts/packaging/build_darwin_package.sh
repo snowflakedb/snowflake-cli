@@ -41,6 +41,7 @@ if [[ ${MACHINE} == "arm64" ]]; then
 elif [[ ${MACHINE} == "x86_64" ]]; then
   echo "installing cargo on x86_64"
   curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path
+  source $HOME/.cargo/env
 else
   echo "Unsupported machine: ${MACHINE}"
   exit 1
