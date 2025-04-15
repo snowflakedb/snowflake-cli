@@ -28,15 +28,16 @@ echo "--- installing dependencies ---"
 #fi
 
 #find -r / . | grep cargo
-CARGO_WORKSPACE="$HOME/cargo_workspace"
+#CARGO_WORKSPACE="$HOME/cargo_workspace"
 #CARGO_HOME="$CARGO_WORKSPACE/.cargo"
 #RUSTUP_HOME="$CARGO_WORKSPACE/.rustup"
-rm -rf $CARGO_WORKSPACE
+#rm -rf $CARGO_WORKSPACE
 #mkdir $CARGO_WORKSPACE
+rm -rf $HOME/rustup
 curl https://sh.rustup.rs -sSf > rustup-init.sh
 if [[ ${MACHINE} == "arm64" ]]; then
-  echo "SKIP"
-  bash -s rustup-init.sh -y
+  echo "armx64"
+  curl https://sh.rustup.rs -sSf | bash -s -- -y
 #  ls $HOME
 #  ls $HOME/.cargo
 #  . $HOME/.cargo/env
