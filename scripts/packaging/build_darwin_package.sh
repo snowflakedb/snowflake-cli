@@ -43,7 +43,7 @@ elif [[ ${MACHINE} == "x86_64" ]]; then
    export RUSTUP_HOME="$HOME/.rustup"
    mkdir -p $CARGO_HOME
    mkdir -p $RUSTUP_HOME
-   curl https://sh.rustup.rs -sSf | bash -s -- -y
+   curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path
    . $HOME/.cargo/env
    rustup default stable
 fi
