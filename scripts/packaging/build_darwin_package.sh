@@ -49,7 +49,6 @@ ls -a $CARGO_WORKSPACE
 ls -a $CARGO_HOME
 ls -a $RUSTUP_HOME
 
-. $HOME/.cargo/env
 rustup default stable
 rm rustup-init.sh
 
