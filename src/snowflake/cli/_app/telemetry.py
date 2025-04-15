@@ -155,13 +155,13 @@ def _find_command_info() -> TelemetryDict:
             "format", OutputFormat.TABLE
         ).value,
         CLITelemetryField.PROJECT_DEFINITION_VERSION: str(_get_definition_version()),
-        CLITelemetryField.MODE: _get_cli_running_mode(ctx),
+        CLITelemetryField.MODE: _get_cli_running_mode(),
     }
 
 
-def _get_cli_running_mode(ctx) -> str:
+def _get_cli_running_mode() -> str:
     try:
-        if ctx.params.get("is_repl", False):
+        if get_cli_context().is_repl:
             return "repl"
     except Exception:
         pass

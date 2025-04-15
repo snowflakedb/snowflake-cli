@@ -75,7 +75,7 @@ class Repl:
                     buffer.validate_and_handle()
 
                 elif ends_with_semicolon and cursor_position >= len(stripped_buffer):
-                    log.debug("semicolon detected, execiting query")
+                    log.debug("semicolon detected, executing query")
                     buffer.validate_and_handle()
 
                 else:
