@@ -40,6 +40,8 @@ curl https://sh.rustup.rs -sSf > rustup-init.sh
 elif [[ ${MACHINE} == "x86_64" ]]; then
    export CARGO_HOME="$HOME/.cargo"
    export RUSTUP_HOME="$HOME/.rustup"
+   mkdir -p $CARGO_HOME
+   mkdir -p $RUSTUP_HOME
    bash -s rustup-init.sh -y
    . $HOME/.cargo/env
    rustup default stable
