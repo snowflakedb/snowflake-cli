@@ -36,10 +36,10 @@ rm -rf $CARGO_WORKSPACE
 curl https://sh.rustup.rs -sSf > rustup-init.sh
 if [[ ${MACHINE} == "arm64" ]]; then
   echo "SKIP"
-  bash -s rustup-init.sh -y --no-modify-path
-  ls $HOME
-  ls $HOME/.cargo
-  . $HOME/.cargo/env
+  bash -s rustup-init.sh -y
+#  ls $HOME
+#  ls $HOME/.cargo
+#  . $HOME/.cargo/env
 elif [[ ${MACHINE} == "x86_64" ]]; then
   bash -s rustup-init.sh -y --no-modify-path
 else
