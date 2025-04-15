@@ -46,8 +46,11 @@ install_cargo() {
   curl https://sh.rustup.rs -sSf > rustup-init.sh
 
   if [[ ${MACHINE} == "arm64" ]]; then
-    bash rustup-init.sh -y
+    export CARGO_HOME="$HOME/.cargo"
+    export RUSTUP_HOME="$HOME/.rustup"
+    bash -s rustup-init.sh -y
     . $HOME/.cargo/env
+    rustup default stable
   elif [[ ${MACHINE} == "x86_64" ]]; then
     export CARGO_HOME="$HOME/.cargo"
     export RUSTUP_HOME="$HOME/.rustup"
