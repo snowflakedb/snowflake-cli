@@ -34,7 +34,9 @@ bash -s rustup-init.sh -y
 ls -a $HOME/rustup
 ls -a $HOME
 
+if [[ ${MACHINE} == "arm64" ]]; then
 . $HOME/.cargo/env
+fi
 rustup default stable
 rm rustup-init.sh
 
