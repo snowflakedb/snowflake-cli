@@ -11,30 +11,9 @@ python3.11 -m venv venv
 python --version
 
 echo "--- installing dependencies ---"
-#pip install hatch
+pip install hatch
 
 # install cargo
-#if [[ ${MACHINE} == "arm64" ]]; then
-#  rm -rf "$HOME/rustup"
-#  mkdir "$HOME/rustup"
-#  export CARGO_HOME="$HOME/rustup/.cargo"
-#  export RUSTUP_HOME="$HOME/rustup/.rustup"
-#elif [[ ${MACHINE} == "x86_64" ]]; then
-#   export CARGO_HOME="$HOME/.cargo"
-#   export RUSTUP_HOME="$HOME/.rustup"
-#else
-#   echo "Unsupported machine: ${MACHINE}"
-#   exit 1
-#fi
-
-#find -r / . | grep cargo
-#CARGO_WORKSPACE="$HOME/cargo_workspace"
-#CARGO_HOME="$CARGO_WORKSPACE/.cargo"
-#RUSTUP_HOME="$CARGO_WORKSPACE/.rustup"
-rm -rf $HOME/.cargo
-#mkdir $CARGO_WORKSPACE
-rm -rf $HOME/rustup
-curl https://sh.rustup.rs -sSf > rustup-init.sh
 if [[ ${MACHINE} == "arm64" ]]; then
   echo "installing cargo on arm64"
   curl https://sh.rustup.rs -sSf | bash -s -- -y
@@ -46,32 +25,10 @@ else
   echo "Unsupported machine: ${MACHINE}"
   exit 1
 fi
-ls -a $HOME
 rustup default stable
 
 
-#
-#if [[ ${MACHINE} == "arm64" ]]; then
-#rm -rf $CARGO_WORKSPACE
-#export CARGO_HOME="$CARGO_WORKSPACE/.cargo"
-#export RUSTUP_HOME="$CARGO_WORKSPACE/.rustup"
-#mkdir -p $CARGO_HOME
-#mkdir -p $RUSTUP_HOME
-#curl https://sh.rustup.rs -sSf > rustup-init.sh
-#. $HOME/.cargo/env
-#elif [[ ${MACHINE} == "x86_64" ]]; then
-#   export CARGO_HOME="$HOME/.cargo"
-#   export RUSTUP_HOME="$HOME/.rustup"
-#   mkdir -p $CARGO_HOME
-#   mkdir -p $RUSTUP_HOME
-#   curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path
-#   . $HOME/.cargo/env
-#   rustup default stable
-#fi
-#
-#rustup default stable
-
-
+echo "--- setup variables ---"
 BRANCH=${branch}
 REVISION=$(git rev-parse ${svnRevision})
 CLI_VERSION=$(hatch version)
@@ -110,8 +67,9 @@ loginfo "---------------------------------"
 security find-identity -v -p codesigning
 loginfo "---------------------------------"
 
-clean_build_workspace
+echo "--- build binary ---"
 
+clean_build_workspace
 hatch -e packaging run build-isolated-binary
 create_app_template
 mv $DIST_DIR/binary/${BINARY_NAME} ${APP_DIR}/${APP_NAME}/Contents/MacOS/snow
@@ -257,7 +215,7 @@ validate_installation() {
 
 validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
 
-
+echo "--- Upload artifacts to AWS ---"
 ls -la ./dist/
 echo "${STAGE_URL}"
 command -v aws
