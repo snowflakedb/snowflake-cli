@@ -21,7 +21,6 @@
 ## New additions
 
 ## Fixes and improvements
-* Updated MacOS postinstall script to update PATH if snow not exist.
 
 
 # v3.7.0
@@ -35,6 +34,7 @@
 * Added `snow helper check-snowsql-env-vars` which reports environment variables from SnowSQL with replacements in CLI.
 
 ## Fixes and improvements
+* Updated MacOS postinstall script to update PATH if snow not exist.
 
 
 # v3.6.0
