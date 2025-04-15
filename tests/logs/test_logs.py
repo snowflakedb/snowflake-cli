@@ -77,3 +77,17 @@ def test_correct_query_is_constructed(mock_connect, mock_ctx, runner, snapshot, 
     queries = ctx.get_queries()
     assert len(queries) == 1
     assert queries[0] == snapshot
+
+
+def test_if_incorrect_log_level_causes_error(runner, snapshot):
+    result = runner.invoke(
+        [
+            "logs",
+            "table",
+            "test_table",
+            "--log-level",
+            "NOTALEVEL",
+        ]
+    )
+    assert result.exit_code == 1
+    assert result.output == snapshot

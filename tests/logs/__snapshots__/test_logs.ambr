@@ -10,7 +10,7 @@
                   value::string as log_message
               FROM SNOWFLAKE.TELEMETRY.EVENTS
               WHERE record_type = 'LOG'
-              AND (record:severity_text = 'INFO' or record:severity_text is NULL )
+              AND (record:severity_text IN ('INFO', 'WARN', 'ERROR', 'FATAL') or record:severity_text is NULL )
               AND object_name = 'bar'
               AND timestamp >= TO_TIMESTAMP_LTZ('2022-02-02T02:02:02')
   AND timestamp <= TO_TIMESTAMP_LTZ('2022-02-03T02:02:02')
@@ -29,7 +29,7 @@
                   value::string as log_message
               FROM bar
               WHERE record_type = 'LOG'
-              AND (record:severity_text = 'INFO' or record:severity_text is NULL )
+              AND (record:severity_text IN ('INFO', 'WARN', 'ERROR', 'FATAL') or record:severity_text is NULL )
               AND object_name = 'bar'
               AND timestamp >= TO_TIMESTAMP_LTZ('2022-02-02T02:02:02')
   AND timestamp <= TO_TIMESTAMP_LTZ('2022-02-03T02:02:02')
@@ -48,12 +48,20 @@
                   value::string as log_message
               FROM foo
               WHERE record_type = 'LOG'
-              AND (record:severity_text = 'INFO' or record:severity_text is NULL )
+              AND (record:severity_text IN ('INFO', 'WARN', 'ERROR', 'FATAL') or record:severity_text is NULL )
               AND object_name = 'bar'
               AND timestamp >= TO_TIMESTAMP_LTZ('2022-02-02T02:02:02')
   AND timestamp <= TO_TIMESTAMP_LTZ('2022-02-03T02:02:02')
   
               ORDER BY timestamp;
+  '''
+# ---
+# name: test_if_incorrect_log_level_causes_error
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Invalid log level. Please choose from TRACE, DEBUG, INFO, WARN, ERROR, FATAL |
+  +------------------------------------------------------------------------------+
+  
   '''
 # ---
 # name: test_providing_time_in_incorrect_format_causes_error[2024-11-03 12:00:00 UTC---from]
