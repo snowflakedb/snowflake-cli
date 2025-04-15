@@ -12,8 +12,8 @@ pip install hatch
 # install cargo
 curl https://sh.rustup.rs -sSf > rustup-init.sh
 mkdir $HOME/"rustup"
-CARGO_HOME="$HOME/rustup/.cargo"
-RUSTUP_HOME="$HOME/rustup/.rustup"
+export CARGO_HOME="$HOME/rustup/.cargo"
+export RUSTUP_HOME="$HOME/rustup/.rustup"
 bash -s rustup-init.sh -y
 . $HOME/.cargo/env
 rustup default stable
