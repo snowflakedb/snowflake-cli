@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -xeuo pipefail
 
+echo "--- creating virtualenv ---"
+python -m venv venv
+. venv/bin/activate
+python --version
+
+echo "--- installing dependencies ---"
+pip install hatch
+
+
 SYSTEM=$(uname -s | tr '[:upper:]' '[:lower:]')
 MACHINE=$(uname -m | tr '[:upper:]' '[:lower:]')
 PLATFORM="${SYSTEM}-${MACHINE}"
@@ -21,6 +30,9 @@ APP_DIR=$DIST_DIR/app
 APP_SCRIPTS=$APP_DIR/scripts
 CODESIGN_IDENTITY="Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)"
 PRODUCTSIGN_IDENTITY="Developer ID Installer: Snowflake Computing INC. (W4NT6CRQ7U)"
+
+
+
 
 loginfo() {
   logger -s -p INFO -- $1
