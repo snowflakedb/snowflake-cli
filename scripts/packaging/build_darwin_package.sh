@@ -31,7 +31,7 @@ echo "--- installing dependencies ---"
 #CARGO_WORKSPACE="$HOME/cargo_workspace"
 #CARGO_HOME="$CARGO_WORKSPACE/.cargo"
 #RUSTUP_HOME="$CARGO_WORKSPACE/.rustup"
-#rm -rf $CARGO_WORKSPACE
+rm -rf $HOME/.cargo
 #mkdir $CARGO_WORKSPACE
 rm -rf $HOME/rustup
 curl https://sh.rustup.rs -sSf > rustup-init.sh
