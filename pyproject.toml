@@ -42,7 +42,7 @@ dependencies = [
   'snowflake.core==1.2.0; python_version < "3.12"',
   "tomlkit==0.13.2",
   "typer==0.15.2",
-  "urllib3>=1.24.3,<2.4",
+  "urllib3>=1.24.3,<2.5",
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
