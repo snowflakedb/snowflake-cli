@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 set -xeuo pipefail
 
+export SYSTEM=$(uname -s | tr '[:upper:]' '[:lower:]')
+export MACHINE=$(uname -m | tr '[:upper:]' '[:lower:]')
+export BRANCH=${branch}
+export REVISION=$(git rev-parse ${svnRevision})
+export CLI_VERSION=$(hatch version)
+export STAGE_URL="s3://sfc-eng-jenkins/repository/snowflake-cli/${releaseType}/${SYSTEM}_${MACHINE}/${REVISION}/"
+
+
+python --version
+echo "$(python --version)"
+
 git config --global --add safe.directory /snowflake-cli
-brew install -q tree
 
 ROOT_DIR=$(git rev-parse --show-toplevel)
 PACKAGING_DIR=$ROOT_DIR/scripts/packaging
@@ -33,7 +43,7 @@ install_cargo() {
   curl https://sh.rustup.rs -sSf > rustup-init.sh
 
   if [[ ${MACHINE} == "arm64" ]]; then
-    bash rustup-init.sh -y
+    sudo bash rustup-init.sh -y
     . $HOME/.cargo/env
   elif [[ ${MACHINE} == "x86_64" ]]; then
     export CARGO_HOME="$HOME/.cargo"
@@ -118,7 +128,6 @@ prepare_postinstall_script() {
 prepare_postinstall_script
 
 ls -l $DIST_DIR
-tree -d $DIST_DIR
 
 chmod +x $APP_SCRIPTS/postinstall
 
@@ -209,3 +218,9 @@ validate_installation() {
 }
 
 validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
+
+
+ls -la ./dist/
+echo "${STAGE_URL}"
+command -v aws
+aws s3 cp ./dist/ ${STAGE_URL} --recursive --exclude "*" --include="snowflake-cli-${CLI_VERSION}*.pkg"
