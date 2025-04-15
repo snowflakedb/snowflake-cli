@@ -36,7 +36,7 @@ rm -rf $CARGO_WORKSPACE
 mkdir $CARGO_WORKSPACE
 curl https://sh.rustup.rs -sSf > rustup-init.sh
 if [[ ${MACHINE} == "arm64" ]]; then
-  bash -s rustup-init.sh -y
+#  bash -s rustup-init.sh -y
 elif [[ ${MACHINE} == "x86_64" ]]; then
   bash -s rustup-init.sh -y --no-modify-path
 else
