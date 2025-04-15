@@ -1,29 +1,20 @@
 #!/usr/bin/env bash
 set -xeuo pipefail
 
-export SYSTEM=$(uname -s | tr '[:upper:]' '[:lower:]')
-export MACHINE=$(uname -m | tr '[:upper:]' '[:lower:]')
-export BRANCH=${branch}
-export REVISION=$(git rev-parse ${svnRevision})
-export CLI_VERSION=$(hatch version)
-export STAGE_URL="s3://sfc-eng-jenkins/repository/snowflake-cli/${releaseType}/${SYSTEM}_${MACHINE}/${REVISION}/"
-
-
-python --version
-echo "$(python --version)"
-
-git config --global --add safe.directory /snowflake-cli
-
-ROOT_DIR=$(git rev-parse --show-toplevel)
-PACKAGING_DIR=$ROOT_DIR/scripts/packaging
-
 SYSTEM=$(uname -s | tr '[:upper:]' '[:lower:]')
 MACHINE=$(uname -m | tr '[:upper:]' '[:lower:]')
 PLATFORM="${SYSTEM}-${MACHINE}"
 
+BRANCH=${branch}
+REVISION=$(git rev-parse ${svnRevision})
 CLI_VERSION=$(hatch version)
 
+STAGE_URL="s3://sfc-eng-jenkins/repository/snowflake-cli/${releaseType}/${SYSTEM}_${MACHINE}/${REVISION}/"
+
+ROOT_DIR=$(git rev-parse --show-toplevel)
+PACKAGING_DIR=$ROOT_DIR/scripts/packaging
 DIST_DIR=$ROOT_DIR/dist
+
 BINARY_NAME="snow-${CLI_VERSION}"
 APP_NAME="SnowflakeCLI.app"
 APP_DIR=$DIST_DIR/app
