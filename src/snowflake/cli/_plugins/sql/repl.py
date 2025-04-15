@@ -14,11 +14,14 @@ from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import MultipleResults, QueryResult
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.connector.config_manager import CONFIG_MANAGER
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = getLogger(__name__)
 
-HISTORY_FILE = SecurePath("~/.snowflake/repl_history").path.expanduser()
+HISTORY_FILE = SecurePath(
+    CONFIG_MANAGER.file_path.parent / "repl_history"
+).path.expanduser()
 EXIT_KEYWORDS = ("exit", "quit")
 
 log.debug("setting history file to: %s", HISTORY_FILE.as_posix())
@@ -170,14 +173,6 @@ class Repl:
         while True:
             try:
                 user_input = self.repl_propmpt().strip()
-                # user_input = self.session.prompt(
-                #     message=" > ",
-                #     lexer=self._lexer,
-                #     completer=self._completer,
-                #     multiline=True,
-                #     wrap_lines=True,
-                #     key_bindings=self._repl_key_bindings,
-                # )
 
                 if not user_input:
                     continue
