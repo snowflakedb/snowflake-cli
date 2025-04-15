@@ -35,7 +35,14 @@ RUSTUP_HOME="$CARGO_WORKSPACE/.rustup"
 rm -rf $CARGO_WORKSPACE
 mkdir $CARGO_WORKSPACE
 curl https://sh.rustup.rs -sSf > rustup-init.sh
-bash -s rustup-init.sh -y --no-modify-path
+if [[ ${MACHINE} == "arm64" ]]; then
+  bash -s rustup-init.sh -y
+elif [[ ${MACHINE} == "x86_64" ]]; then
+  bash -s rustup-init.sh -y --no-modify-path
+else
+  echo "Unsupported machine: ${MACHINE}"
+  exit 1
+fi
 . $HOME/.cargo/env
 rustup default stable
 rm rustup-init.sh
