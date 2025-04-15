@@ -29,27 +29,38 @@ echo "--- installing dependencies ---"
 
 #find -r / . | grep cargo
 
-
-if [[ ${MACHINE} == "arm64" ]]; then
-rm -rf $HOME/rustup
-export CARGO_HOME="$HOME/rustup/.cargo"
-export RUSTUP_HOME="$HOME/rustup/.rustup"
-mkdir -p $CARGO_HOME
-mkdir -p $RUSTUP_HOME
+CARGO_WORKSPACE="$HOME/cargo_workspace"
+CARGO_HOME="$CARGO_WORKSPACE/.cargo"
+RUSTUP_HOME="$CARGO_WORKSPACE/.rustup"
+rm -rf $CARGO_WORKSPACE
+mkdir $CARGO_WORKSPACE
 curl https://sh.rustup.rs -sSf > rustup-init.sh
+bash -s rustup-init.sh -y --no-modify-path
 . $HOME/.cargo/env
-elif [[ ${MACHINE} == "x86_64" ]]; then
-   export CARGO_HOME="$HOME/.cargo"
-   export RUSTUP_HOME="$HOME/.rustup"
-   mkdir -p $CARGO_HOME
-   mkdir -p $RUSTUP_HOME
-   curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path
-   . $HOME/.cargo/env
-   rustup default stable
-fi
-
 rustup default stable
 rm rustup-init.sh
+
+
+#
+#if [[ ${MACHINE} == "arm64" ]]; then
+#rm -rf $CARGO_WORKSPACE
+#export CARGO_HOME="$CARGO_WORKSPACE/.cargo"
+#export RUSTUP_HOME="$CARGO_WORKSPACE/.rustup"
+#mkdir -p $CARGO_HOME
+#mkdir -p $RUSTUP_HOME
+#curl https://sh.rustup.rs -sSf > rustup-init.sh
+#. $HOME/.cargo/env
+#elif [[ ${MACHINE} == "x86_64" ]]; then
+#   export CARGO_HOME="$HOME/.cargo"
+#   export RUSTUP_HOME="$HOME/.rustup"
+#   mkdir -p $CARGO_HOME
+#   mkdir -p $RUSTUP_HOME
+#   curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path
+#   . $HOME/.cargo/env
+#   rustup default stable
+#fi
+#
+#rustup default stable
 
 
 BRANCH=${branch}
