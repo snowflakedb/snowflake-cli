@@ -34,7 +34,7 @@ bash -s rustup-init.sh -y
 ls -a $HOME/rustup
 ls -a $HOME
 
-. $CARGO_HOME/env
+. $HOME/.cargo/env
 rustup default stable
 rm rustup-init.sh
 
