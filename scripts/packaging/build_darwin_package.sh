@@ -30,24 +30,23 @@ clean_build_workspace() {
 }
 
 install_cargo() {
-#  curl https://sh.rustup.rs -sSf > rustup-init.sh
-#
-#  if [[ ${MACHINE} == "arm64" ]]; then
-#    sudo bash rustup-init.sh -y
-#    . $HOME/.cargo/env
-#  elif [[ ${MACHINE} == "x86_64" ]]; then
-#    export CARGO_HOME="$HOME/.cargo"
-#    export RUSTUP_HOME="$HOME/.rustup"
-#    bash -s rustup-init.sh -y
-#    . $HOME/.cargo/env
-#    rustup default stable
-#  else
-#    echo "Unsupported machine: ${MACHINE}"
-#    exit 1
-#  fi
-#
-#  rm rustup-init.sh
-  echo "SKIPPED"
+  curl https://sh.rustup.rs -sSf > rustup-init.sh
+
+  if [[ ${MACHINE} == "arm64" ]]; then
+    bash rustup-init.sh -y
+    . $HOME/.cargo/env
+  elif [[ ${MACHINE} == "x86_64" ]]; then
+    export CARGO_HOME="$HOME/.cargo"
+    export RUSTUP_HOME="$HOME/.rustup"
+    bash -s rustup-init.sh -y
+    . $HOME/.cargo/env
+    rustup default stable
+  else
+    echo "Unsupported machine: ${MACHINE}"
+    exit 1
+  fi
+
+  rm rustup-init.sh
 }
 
 create_app_template() {
