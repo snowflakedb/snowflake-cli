@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -xeuo pipefail
 
+SYSTEM=$(uname -s | tr '[:upper:]' '[:lower:]')
+MACHINE=$(uname -m | tr '[:upper:]' '[:lower:]')
+PLATFORM="${SYSTEM}-${MACHINE}"
+
 echo "--- creating virtualenv ---"
 python3.11 -m venv venv
 . venv/bin/activate
@@ -40,10 +44,6 @@ fi
 rustup default stable
 rm rustup-init.sh
 
-
-SYSTEM=$(uname -s | tr '[:upper:]' '[:lower:]')
-MACHINE=$(uname -m | tr '[:upper:]' '[:lower:]')
-PLATFORM="${SYSTEM}-${MACHINE}"
 
 BRANCH=${branch}
 REVISION=$(git rev-parse ${svnRevision})
