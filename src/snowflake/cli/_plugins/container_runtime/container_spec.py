@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from snowflake import snowpark
 from snowflake.cli._plugins.container_runtime import constants, utils
+from snowflake.cli.api.console import cli_console as cc
 
 # Constants for Container Service
 DEFAULT_SERVER_PORT = 12020
@@ -42,9 +43,13 @@ def _get_node_resources(
 
     instance_family: str = rows[0]["instance_family"]
 
+    cc.step(f"get instance family {instance_family} resources")
+
     # Get the cloud we're using (AWS, Azure, etc)
     region = utils.get_regions(session)[utils.get_current_region_id(session)]
     cloud = region["cloud"]
+
+    cc.step(f"get cloud {cloud} instance family {instance_family} resources")
 
     return (
         constants.COMMON_INSTANCE_FAMILIES.get(instance_family)
@@ -212,20 +217,19 @@ def generate_service_spec(
         volumes.append({"name": "data-volume", "source": "local"})
 
     # Mount stage as volume if provided
-    if "stage_path" in payload:
-        stage_mount = PurePath(constants.STAGE_VOLUME_MOUNT_PATH)
-        volume_mounts.append(
-            {
-                "name": constants.STAGE_VOLUME_NAME,
-                "mountPath": stage_mount.as_posix(),
-            }
-        )
-        volumes.append(
-            {
-                "name": constants.STAGE_VOLUME_NAME,
-                "source": payload.stage_path.as_posix(),
-            }
-        )
+    stage_mount = PurePath(constants.STAGE_VOLUME_MOUNT_PATH)
+    volume_mounts.append(
+        {
+            "name": constants.STAGE_VOLUME_NAME,
+            "mountPath": stage_mount.as_posix(),
+        }
+    )
+    volumes.append(
+        {
+            "name": constants.STAGE_VOLUME_NAME,
+            "source": payload.stage_path.as_posix(),
+        }
+    )
 
     # Setup environment variables
     env_vars = {
@@ -234,6 +238,8 @@ def generate_service_spec(
     }
     if environment_vars:
         env_vars.update(environment_vars)
+
+    cc.step(f"env vars: {env_vars}")
 
     # Setup Ray configuration if enabled
     endpoints = []

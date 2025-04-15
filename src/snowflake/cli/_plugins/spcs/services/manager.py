@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import json
 import time
 from datetime import datetime
 from pathlib import Path
@@ -226,36 +225,39 @@ class ServiceManager(SqlExecutionMixin):
         query = f"""\
                 EXECUTE JOB SERVICE
                 IN COMPUTE POOL {compute_pool}
-                FROM SPECIFICATION $$
+                FROM SPECIFICATION $$---
                 {spec}
                 $$
                 NAME = {job_service_name}
-                """.splitlines()
+                """
 
         if external_access_integrations:
             external_access_integration_list = ",".join(
                 f"{e}" for e in external_access_integrations
             )
-            query.append(
-                f"EXTERNAL_ACCESS_INTEGRATIONS = ({external_access_integration_list})"
+            query += (
+                f" EXTERNAL_ACCESS_INTEGRATIONS = ({external_access_integration_list})"
             )
 
         if query_warehouse:
-            query.append(f"QUERY_WAREHOUSE = {query_warehouse}")
+            query += f" QUERY_WAREHOUSE = {query_warehouse}"
 
         if comment:
-            query.append(f"COMMENT = {comment}")
+            query += f" COMMENT = {comment}"
 
         try:
-            return self.execute_query(strip_empty_lines(query))
+            return self.execute_query(query)
         except ProgrammingError as e:
             handle_object_already_exists(e, ObjectType.SERVICE, job_service_name)
 
     def _read_yaml(self, path: Path) -> str:
         # TODO(aivanou): Add validation towards schema
         with SecurePath(path).open("r", read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fh:
-            data = yaml.safe_load(fh)
-        return json.dumps(data)
+            content = fh.read()
+            # Validate the YAML by parsing it
+            yaml.safe_load(content)
+            # Return the original content
+            return content
 
     def status(self, service_name: str) -> SnowflakeCursor:
         return self.execute_query(f"CALL SYSTEM$GET_SERVICE_STATUS('{service_name}')")

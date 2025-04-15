@@ -100,36 +100,34 @@ def create(
     """
     cc.step("Creating container runtime environment...")
 
+    try:
+        # Split extensions if provided as comma-separated string
+        ext_list = None
+        if extensions:
+            if isinstance(extensions, str):
+                ext_list = [ext.strip() for ext in extensions.split(",")]
+            else:
+                ext_list = extensions
 
-#     try:
-#         # Split extensions if provided as comma-separated string
-#         ext_list = None
-#         if extensions:
-#             if isinstance(extensions, str):
-#                 ext_list = [ext.strip() for ext in extensions.split(",")]
-#             else:
-#                 ext_list = extensions
+        manager = ContainerRuntimeManager()
+        url = manager.create(
+            name=name,
+            compute_pool=compute_pool,
+            persistent_storage=persistent_storage,
+            storage_size=storage_size,
+            external_access=external_access,
+            timeout=timeout,
+            extensions=ext_list,
+        )
 
-#         manager = ContainerRuntimeManager()
-#         url = manager.create(
-#             name=name,
-#             compute_pool=compute_pool,
-#             warehouse=warehouse,
-#             persistent_storage=persistent_storage,
-#             storage_size=storage_size,
-#             external_access=external_access,
-#             timeout=timeout,
-#             extensions=ext_list,
-#         )
-
-#         # Display success message with the endpoint URL
-#         cc.step("✓ Container Runtime Environment created successfully!")
-#         cc.step(f"Access your VS Code Server at: {url}")
-#         cc.step(f"Default password: password")
-#         cc.step(f"Session timeout: {timeout} minutes")
-#     except Exception as e:
-#         cc.step(f"Error: {str(e)}")
-#         raise typer.Exit(code=1)
+        # Display success message with the endpoint URL
+        cc.step("✓ Container Runtime Environment created successfully!")
+        cc.step(f"Access your VS Code Server at: {url}")
+        cc.step(f"Default password: password")
+        cc.step(f"Session timeout: {timeout} minutes")
+    except Exception as e:
+        cc.step(f"Error: {str(e)}")
+        raise typer.Exit(code=1)
 
 
 @app.command("list", requires_connection=True)

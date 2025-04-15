@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import tempfile
 import time
-import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
@@ -28,11 +28,12 @@ from snowflake.cli._plugins.container_runtime.container_spec import (
 )
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
 
 class ContainerRuntimeManager(SqlExecutionMixin):
-    DEFAULT_COMPUTE_POOL = "SYSTEM_COMPUTE_POOL_CPU"
+    DEFAULT_COMPUTE_POOL = "ML_RUNTIME_CPU_TEST_POOL_M"
     DEFAULT_TIMEOUT_MIN = 60
     DEFAULT_STORAGE_SIZE_GB = 10
     DEFAULT_SERVICE_PREFIX = "SNOW_CR"
@@ -54,7 +55,7 @@ class ContainerRuntimeManager(SqlExecutionMixin):
         """
         # Generate service name if not provided
         if not name:
-            username = get_cli_context().connection.username.lower()
+            username = get_cli_context().connection.user.lower()
             timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
             name = f"{self.DEFAULT_SERVICE_PREFIX}_{username}_{timestamp}"
         else:
@@ -77,31 +78,44 @@ class ContainerRuntimeManager(SqlExecutionMixin):
             extensions=extensions,
         )
 
-        with tempfile.NamedTemporaryFile(suffix=".yaml", delete=False) as tmp:
+        with tempfile.NamedTemporaryFile(
+            suffix=".yaml", mode="w+", delete=False
+        ) as tmp:
             # Write spec to a temporary file
+            cc.step(f"Writing service spec to {tmp.name}")
             yaml.dump(spec, tmp)
             temp_spec_file = Path(tmp.name)
+            cc.step(f"Created service spec file: {temp_spec_file}")
 
             service_manager = ServiceManager()
 
             external_access_integrations = (
-                ["EXTERNAL_ACCESS_INTEGRATION"] if external_access else self.DEFAULT_EAI
+                ["EXTERNAL_ACCESS_INTEGRATION"]
+                if external_access
+                else [self.DEFAULT_EAI]
             )
 
-            # Create the service
-            service_manager.create(
-                service_name=name,
-                compute_pool=compute_pool,
-                spec_path=temp_spec_file,
-                min_instances=1,
-                max_instances=1,
-                auto_resume=True,
-                external_access_integrations=external_access_integrations,
-                query_warehouse=warehouse,
-                tags=None,
-                comment="VS Code Server Container Runtime",
-                if_not_exists=True,
-            )
+            spec_content = temp_spec_file.read_text()
+            query = f"""\
+                CREATE SERVICE IF NOT EXISTS {name}
+IN COMPUTE POOL {compute_pool}
+FROM SPECIFICATION $$---
+{spec_content}
+$$
+MIN_INSTANCES = 1
+MAX_INSTANCES = 1
+AUTO_RESUME = TRUE
+QUERY_WAREHOUSE = {warehouse}
+                """
+
+            if external_access_integrations:
+                external_access_integration_list = ",".join(
+                    f"{e}" for e in external_access_integrations
+                )
+                query += f" EXTERNAL_ACCESS_INTEGRATIONS = ({external_access_integration_list})"
+
+            res = self.snowpark_session.sql(query).collect()
+            cc.step(f"Created service {name}: {res}")
 
             # Wait for service to be ready
             self.wait_for_service_ready(name)
@@ -120,7 +134,7 @@ class ContainerRuntimeManager(SqlExecutionMixin):
     ) -> dict:
         """Generate a service specification for VS Code Server using the helper modules."""
         # Create a session for spec generation
-        session = get_cli_context().get_snowpark_session()
+        session = self.snowpark_session
 
         # Create environment variables
         environment_vars = {
@@ -139,9 +153,7 @@ class ContainerRuntimeManager(SqlExecutionMixin):
         container_payload = create_container_payload(extensions=extensions)
 
         # Upload payload to stage
-        stage_path = (
-            f"@~/{uuid.uuid4().hex}_container"  # Use user's stage with unique name
-        )
+        stage_path = f"@zzhu_container"  # Use user's stage with unique name
         uploaded_payload = container_payload.upload(session, stage_path)
 
         # Generate service spec
@@ -152,7 +164,6 @@ class ContainerRuntimeManager(SqlExecutionMixin):
             persistent_storage=persistent_storage,
             storage_size=storage_size,
             environment_vars=environment_vars,
-            enable_ray=True,  # Enable Ray support
             enable_metrics=True,  # Enable platform metrics
         )
 
@@ -166,12 +177,13 @@ class ContainerRuntimeManager(SqlExecutionMixin):
         while time.time() - start_time < timeout_sec:
             status_cursor = service_manager.status(service_name)
             status_row = status_cursor.fetchone()
-
+            cc.step(f"Service status for {service_name}: {status_row}")
             if status_row:
-                status = status_row[0]
+                status_dict = json.loads(status_row[0])
+                status = status_dict[0]["status"]
                 if status == "READY":
                     return True
-                elif status in ["FAILED", "ERROR"]:
+                elif status in ["FAILED", "UNKNOWN"]:
                     raise RuntimeError(
                         f"Service {service_name} failed to start with status: {status}"
                     )
@@ -187,8 +199,8 @@ class ContainerRuntimeManager(SqlExecutionMixin):
         endpoints_cursor = service_manager.list_endpoints(service_name)
 
         for endpoint in endpoints_cursor:
-            if endpoint[0] == "vscode-ui":  # Endpoint name
-                return endpoint[2]  # URL column
+            if endpoint[0] == "server-ui":  # Endpoint name
+                return endpoint[5]  # URL column
 
         raise RuntimeError(f"No VS Code endpoint found for service {service_name}")
 

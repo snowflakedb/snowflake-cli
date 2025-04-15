@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from snowflake.cli._plugins.container_runtime import commands
-from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.plugins.command import (
     SNOWCLI_ROOT_COMMAND_PATH,
     CommandSpec,
@@ -24,7 +23,6 @@ from snowflake.cli.api.plugins.command import (
 
 @plugin_hook_impl
 def command_spec():
-    cc.step("zzhu test")
     return CommandSpec(
         parent_command_path=SNOWCLI_ROOT_COMMAND_PATH,
         command_type=CommandType.COMMAND_GROUP,

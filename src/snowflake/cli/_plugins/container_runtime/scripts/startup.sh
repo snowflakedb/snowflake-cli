@@ -1,6 +1,7 @@
 #!/bin/bash
 
 ##### Perform common set up steps #####
+set -x
 set -e # exit if a command fails
 
 echo "Creating log directories..."
@@ -62,17 +63,17 @@ common_params=(
 # Install VS Code extensions
 echo "Installing VS Code extensions..."
 # Handle installed extensions if provided via environment variables
-if [ ! -z "${VSCODE_EXTENSIONS}" ]; then
-    IFS=',' read -ra EXTENSION_LIST <<< "${VSCODE_EXTENSIONS}"
-    for ext in "${EXTENSION_LIST[@]}"; do
-        echo "Installing extension: $ext"
-        (sleep 10; code-server --user-data-dir /mnt/data/code-server-user-dir --extensions-dir /mnt/data/app_dev/.code-server-extensions --install-extension $ext) &
-    done
-else
-    # Install default extensions
-    (sleep 10; code-server --user-data-dir /mnt/data/code-server-user-dir --extensions-dir /mnt/data/app_dev/.code-server-extensions --install-extension ms-python.python) &
-    (sleep 20; code-server --user-data-dir /mnt/data/code-server-user-dir --extensions-dir /mnt/data/app_dev/.code-server-extensions --install-extension ms-toolsai.jupyter) &
-fi
+# if [ ! -z "${VSCODE_EXTENSIONS}" ]; then
+#     IFS=',' read -ra EXTENSION_LIST <<< "${VSCODE_EXTENSIONS}"
+#     for ext in "${EXTENSION_LIST[@]}"; do
+#         echo "Installing extension: $ext"
+#         (sleep 10; code-server --user-data-dir /mnt/data/code-server-user-dir --extensions-dir /mnt/data/app_dev/.code-server-extensions --install-extension $ext) &
+#     done
+# else
+#     # Install default extensions
+#     (sleep 10; code-server --user-data-dir /mnt/data/code-server-user-dir --extensions-dir /mnt/data/app_dev/.code-server-extensions --install-extension ms-python.python) &
+#     (sleep 20; code-server --user-data-dir /mnt/data/code-server-user-dir --extensions-dir /mnt/data/app_dev/.code-server-extensions --install-extension ms-toolsai.jupyter) &
+# fi
 
 # Specific parameters for head and worker nodes
 if [ "$NODE_TYPE" = "worker" ]; then
@@ -111,5 +112,6 @@ else
 
     # Launch code-server
     echo 'Starting code-server...'
-    code-server --bind-addr 0.0.0.0:${VSCODE_PORT:-12020} --auth none --user-data-dir /mnt/data/code-server-user-dir --extensions-dir /mnt/data/app_dev/.code-server-extensions --app-name "VSCODE App" --workspace /mnt/data/workspace >/mnt/data/code_server.log 2>&1
+    # code-server --bind-addr 0.0.0.0:${VSCODE_PORT:-12020} --auth none --user-data-dir /mnt/data/code-server-user-dir --extensions-dir /mnt/data/app_dev/.code-server-extensions --app-name "VSCODE App" --workspace /mnt/data/workspace >/mnt/data/code_server.log 2>&1
+    code-server --bind-addr 0.0.0.0:${VSCODE_PORT:-12020} --auth none --app-name "VSCODE App"
 fi

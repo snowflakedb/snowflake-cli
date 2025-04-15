@@ -1,10 +1,19 @@
 import enum
 from dataclasses import dataclass
 from pathlib import PurePath
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import (
+    Dict,
+    List,
+    Optional,
+    TypedDict,
+    Union,
+    cast,
+)
 
 from packaging import version
+from snowflake.cli.api.console import cli_console as cc
 from snowflake.snowpark import session
+from typing_extensions import NotRequired, Required
 
 
 class SnowflakeCloudType(enum.Enum):
@@ -56,15 +65,50 @@ class ImageSpec:
         return f"{self.repo}/{self.image_name}:{self.image_tag}"
 
 
+class SnowflakeRegion(TypedDict):
+    region_group: NotRequired[str]
+    snowflake_region: Required[str]
+    cloud: Required[SnowflakeCloudType]
+    region: Required[str]
+    display_name: Required[str]
+
+
+def get_regions(
+    sess: session.Session,
+) -> Dict[str, SnowflakeRegion]:
+
+    res = sess.sql("SHOW REGIONS").collect()
+    cc.step(f"Getting regions: {res}")
+    res_dict = {}
+    for r in res:
+        if hasattr(r, "region_group") and r.region_group:
+            key = f"{r.region_group}.{r.snowflake_region}"
+            res_dict[key] = SnowflakeRegion(
+                region_group=r.region_group,
+                snowflake_region=r.snowflake_region,
+                cloud=SnowflakeCloudType.from_value(r.cloud),
+                region=r.region,
+                display_name=r.display_name,
+            )
+        else:
+            key = r.snowflake_region
+            res_dict[key] = SnowflakeRegion(
+                snowflake_region=r.snowflake_region,
+                cloud=SnowflakeCloudType.from_value(r.cloud),
+                region=r.region,
+                display_name=r.display_name,
+            )
+
+    return res_dict
+
+
 def get_current_region_id(sess: session.Session) -> str:
-    res = session.sql(sess, "SELECT CURRENT_REGION() AS CURRENT_REGION").collect()[0]
+    res = sess.sql("SELECT CURRENT_REGION() AS CURRENT_REGION").collect()[0]
 
     return cast(str, res.CURRENT_REGION)
 
 
-def get_current_snowflake_version(
-    sess: session.Session, *, statement_params: Optional[Dict[str, Any]] = None
-) -> version.Version:
+def get_current_snowflake_version(sess: session.Session) -> version.Version:
     """Get Snowflake Version as a version.Version object follow PEP way of versioning, that is to say:
         "7.44.2 b202312132139364eb71238" to <Version('7.44.2+b202312132139364eb71238')>
 
@@ -75,11 +119,7 @@ def get_current_snowflake_version(
     Returns:
         The version of Snowflake Version.
     """
-    res = session.sql(
-        sess,
-        "SELECT CURRENT_VERSION() AS CURRENT_VERSION",
-        statement_params=statement_params,
-    ).collect()[0]
+    res = sess.sql("SELECT CURRENT_VERSION() AS CURRENT_VERSION").collect()[0]
 
     version_str = res.CURRENT_VERSION
     assert isinstance(version_str, str)

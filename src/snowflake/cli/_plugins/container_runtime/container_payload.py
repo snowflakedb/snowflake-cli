@@ -16,6 +16,8 @@ from pathlib import Path, PurePath
 from typing import Dict, List, Optional, Union
 
 from snowflake import snowpark
+from snowflake.cli._plugins.container_runtime import utils
+from snowflake.cli.api.console import cli_console as cc
 
 # Constants for Container Service
 DEFAULT_SERVER_PORT = 12020
@@ -63,6 +65,8 @@ class ContainerPayload:
                 " comment = 'Created by snowflake.cli for Container Service'"
             ).collect()
 
+        cc.step(f"Uploading startup script to stage {stage_name}")
+
         # Upload startup script directly from file
         session.file.put(
             str(self.script_path),
@@ -72,10 +76,13 @@ class ContainerPayload:
         )
 
         # Return the uploaded payload information
-        return {
-            "stage_path": stage_path,
-            "entrypoint": ["bash", STARTUP_SCRIPT_PATH],
-        }
+        return utils.UploadedPayload(
+            stage_path=stage_path,
+            entrypoint=[
+                "bash",
+                STARTUP_SCRIPT_PATH,
+            ],
+        )
 
 
 def create_container_payload(
