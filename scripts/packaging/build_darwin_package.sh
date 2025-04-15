@@ -10,11 +10,25 @@ echo "--- installing dependencies ---"
 pip install hatch
 
 # install cargo
-curl https://sh.rustup.rs -sSf > rustup-init.sh
+#if [[ ${MACHINE} == "arm64" ]]; then
+#  rm -rf "$HOME/rustup"
+#  mkdir "$HOME/rustup"
+#  export CARGO_HOME="$HOME/rustup/.cargo"
+#  export RUSTUP_HOME="$HOME/rustup/.rustup"
+#elif [[ ${MACHINE} == "x86_64" ]]; then
+#   export CARGO_HOME="$HOME/.cargo"
+#   export RUSTUP_HOME="$HOME/.rustup"
+#else
+#   echo "Unsupported machine: ${MACHINE}"
+#   exit 1
+#fi
+
 rm -rf "$HOME/rustup"
-mkdir "$HOME/rustup"
 export CARGO_HOME="$HOME/rustup/.cargo"
 export RUSTUP_HOME="$HOME/rustup/.rustup"
+mkdir -p $CARGO_HOME
+mkdir -p $RUSTUP_HOME
+curl https://sh.rustup.rs -sSf > rustup-init.sh
 bash -s rustup-init.sh -y
 . $CARGO_HOME/env
 rustup default stable
