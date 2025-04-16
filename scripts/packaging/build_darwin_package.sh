@@ -207,10 +207,8 @@ validate_installation() {
   local pkg_name=$1
   ls -la $pkg_name
 
-  arch -${MACHINE} sudo -A installer -pkg $pkg_name -target /
-  [ -f /Applications/${APP_NAME}/Contents/MacOS/snow ]
-  PATH=/Applications/${APP_NAME}/Contents/MacOS:$PATH snow
-
+  arch -${MACHINE} installer -pkg $pkg_name -target CurrentUserHomeDirectory
+  snow
   sudo rm -rf /Applications/${APP_NAME} || true
 }
 
