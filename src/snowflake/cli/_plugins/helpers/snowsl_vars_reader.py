@@ -89,6 +89,11 @@ KNOWN_SNOWSQL_ENV_VARS = {
         "Suggested": "PRIVATE_KEY_PASSPHRASE",
         "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/connecting/configure-connections",
     },
+    "EXIT_ON_ERROR": {
+        "Found": "EXIT_ON_ERROR",
+        "Suggested": "SNOWFLAKE_ENHANCED_EXIT_CODES",
+        "Additional info": "https://docs.snowflake.com/en/developer-guide/snowflake-cli/sql/execute-sql",
+    },
 }
 
 

@@ -19,11 +19,22 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v3.7.0
+
+## Deprecations
+
+## New additions
 * Added `--prune` flag to `deploy` commands, which removes files that exist in the stage,
   but not in the local filesystem.
 * Added `snow logs` command for retrieving and streaming logs from the server.
+* Added `snow helper check-snowsql-env-vars` which reports environment variables from SnowSQL with replacements in CLI.
 
 ## Fixes and improvements
+* Updated MacOS postinstall script to update PATH if snow not exist.
 
 
 # v3.6.0

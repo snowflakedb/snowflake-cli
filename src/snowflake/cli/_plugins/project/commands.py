@@ -15,17 +15,20 @@
 from typing import List, Optional
 
 import typer
+from click import ClickException
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
+from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.project.feature_flags import FeatureFlag
 from snowflake.cli._plugins.project.manager import ProjectManager
 from snowflake.cli._plugins.project.project_entity_model import (
     ProjectEntityModel,
 )
-from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
+    OverrideableOption,
+    PruneOption,
     entity_argument,
     identifier_argument,
     like_option,
@@ -37,7 +40,6 @@ from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import MessageResult, QueryResult, SingleQueryResult
-from snowflake.cli.api.project.project_paths import ProjectPaths
 
 app = SnowTyperFactory(
     name="project",
@@ -54,6 +56,12 @@ version_flag = typer.Option(
 )
 variables_flag = variables_option(
     'Variables for the execution context; for example: `-D "<key>=<value>"`.'
+)
+from_option = OverrideableOption(
+    None,
+    "--from",
+    help="Create a new version using given stage instead of uploading local files.",
+    show_default=False,
 )
 
 
@@ -103,12 +111,18 @@ def dry_run(
 
 @app.command(requires_connection=True)
 @with_project_definition()
-def create_version(
+def create(
     entity_id: str = entity_argument("project"),
+    no_version: bool = typer.Option(
+        False,
+        "--no-version",
+        help="Do not initialize project with a new version, only create the snowflake object.",
+    ),
     **options,
 ):
     """
-    Upload local files and create a new version of a project using those files. If the stage does not exist, it will be created.
+    Creates a project in Snowflake.
+    By default, the project is initialized with a new version created from local files.
     """
     cli_context = get_cli_context()
     project: ProjectEntityModel = get_entity_for_operation(
@@ -117,65 +131,68 @@ def create_version(
         project_definition=cli_context.project_definition,
         entity_type="project",
     )
+    om = ObjectManager()
+    if om.object_exists(object_type="project", fqn=project.fqn):
+        raise ClickException(f"Project '{project.fqn}' already exists.")
+    if not no_version and om.object_exists(
+        object_type="stage", fqn=FQN.from_stage(project.stage)
+    ):
+        raise ClickException(f"Stage '{project.stage}' already exists.")
 
-    # Sync state
-    with cli_console.phase("Syncing project state"):
-        sync_artifacts_with_stage(
-            project_paths=ProjectPaths(project_root=cli_context.project_root),
-            stage_root=project.stage,
-            artifacts=project.artifacts,
-        )
+    pm = ProjectManager()
+    with cli_console.phase(f"Creating project '{project.fqn}'"):
+        pm.create(project=project, initialize_version_from_local_files=not no_version)
 
-    # Create project and version
-    with cli_console.phase("Creating project and version"):
-        stage_name = FQN.from_stage(project.stage)
-
-        pm = ProjectManager()
-        cli_console.step(f"Creating project {project.fqn}")
-        pm.create(project_name=project.fqn)
-
-        cli_console.step(f"Creating version from stage {stage_name}")
-        pm.create_version(project_name=project.fqn, stage_name=stage_name)
-    return MessageResult(f"Project {project.fqn} deployed.")
+    if no_version:
+        return MessageResult(f"Project '{project.fqn}' successfully created.")
+    return MessageResult(
+        f"Project '{project.fqn}' successfully created and initial version is added."
+    )
 
 
 @app.command(requires_connection=True)
 @with_project_definition()
 def add_version(
     entity_id: str = entity_argument("project"),
-    _from: str = typer.Option(
-        ...,
-        "--from",
-        help="Source stage to create the version from.",
-        show_default=False,
-    ),
-    _alias: str
-    | None = typer.Option(
+    _from: Optional[str] = from_option(mutually_exclusive=["prune"]),
+    _alias: Optional[str] = typer.Option(
         None, "--alias", help="Alias for the version.", show_default=False
     ),
-    comment: str
-    | None = typer.Option(
+    comment: Optional[str] = typer.Option(
         None, "--comment", help="Version comment.", show_default=False
     ),
+    prune: bool = PruneOption(mutually_exclusive=["_from"]),
     **options,
 ):
-    """Adds a new version to a project using existing sources from provided stage path."""
-
-    pm = ProjectManager()
-    pm.add_version(
-        project_name=entity_id,
+    """Uploads local files to Snowflake and cerates a new project version."""
+    cli_context = get_cli_context()
+    project: ProjectEntityModel = get_entity_for_operation(
+        cli_context=cli_context,
+        entity_id=entity_id,
+        project_definition=cli_context.project_definition,
+        entity_type="project",
+    )
+    ProjectManager().add_version(
+        project=project,
+        prune=prune,
         from_stage=_from,
         alias=_alias,
         comment=comment,
     )
-    return MessageResult("Version added.")
+    alias_str = "" if _alias is None else f"'{_alias}' "
+    return MessageResult(
+        f"New project version {alias_str}added to project '{project.fqn}'"
+    )
 
 
 @app.command(requires_connection=True)
-def list_versions(entity_id: str = entity_argument("project"), **options):
+def list_versions(
+    identifier: FQN = project_identifier,
+    **options,
+):
     """
     Lists versions of given project.
     """
     pm = ProjectManager()
-    results = pm.list_versions(project_name=entity_id)
+    results = pm.list_versions(project_name=identifier)
     return QueryResult(results)

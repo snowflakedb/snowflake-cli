@@ -217,3 +217,16 @@ def test_sql_with_variables_from_project(runner, project_directory, template):
         )
         assert result.exit_code == 0, result.output
         assert result.json == [{"VAR": "Knights of Nii"}]
+
+
+@pytest.mark.integration
+def test_sql_ec(runner):
+    result = runner.invoke_with_connection(
+        [
+            "sql",
+            "--enhanced-exit-codes",
+            "-q",
+            "select a",
+        ],
+    )
+    assert result.exit_code == 5, result

@@ -1409,6 +1409,7 @@ def test_connection_add_with_key_pair(
     tmp_path,
     mock_cursor,
     test_snowcli_config,
+    enable_auth_keypair_feature_flag,
 ):
     mock_connect.return_value.user = "user"
     mock_object_execute_query.return_value = mock_cursor(
@@ -1559,6 +1560,7 @@ def test_connection_add_with_key_pair_saves_password_if_keypair_is_set(
     tmp_path,
     mock_cursor,
     test_snowcli_config,
+    enable_auth_keypair_feature_flag,
 ):
     mock_connect.return_value.user = "user"
     mock_object_execute_query.return_value = mock_cursor(
@@ -1626,3 +1628,12 @@ def test_connection_add_with_key_pair_saves_password_if_keypair_is_set(
     with open(test_snowcli_config, "r") as f:
         connections = tomlkit.load(f)
         assert connections["connections"]["conn"]["password"] == "123"
+
+
+@pytest.fixture
+def enable_auth_keypair_feature_flag():
+    with mock.patch(
+        f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_AUTH_KEYPAIR.is_enabled",
+        return_value=True,
+    ):
+        yield

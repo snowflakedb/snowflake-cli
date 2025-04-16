@@ -76,6 +76,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -245,6 +247,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -350,6 +354,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -509,6 +515,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -615,6 +623,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -808,6 +818,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -921,6 +933,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -1033,6 +1047,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -1142,6 +1158,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -1255,6 +1273,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -1367,6 +1387,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -1474,6 +1496,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -1612,6 +1636,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -1731,6 +1757,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -1846,6 +1874,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -1969,6 +1999,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -2080,6 +2112,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -2306,6 +2340,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -2438,6 +2474,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -2543,6 +2581,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -2724,6 +2764,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -2863,6 +2905,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -2968,6 +3012,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -3124,6 +3170,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -3221,6 +3269,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -3321,6 +3371,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -3421,6 +3473,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -3514,6 +3568,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -3626,6 +3682,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -3719,6 +3777,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -3747,6 +3807,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -3780,6 +3842,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -3873,6 +3937,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -4005,6 +4071,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -4102,6 +4170,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -4199,6 +4269,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -4318,6 +4390,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -4416,6 +4490,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -4518,6 +4594,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -4621,6 +4699,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -4723,6 +4803,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -4827,6 +4909,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -4936,6 +5020,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -5010,6 +5096,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -5030,16 +5118,22 @@
   |                             [required]                                       |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --from             TEXT     The start time of the logs to retrieve. Accepts  |
-  |                             all ISO8061 formats                              |
-  |                             [default: None]                                  |
-  | --to               TEXT     The end time of the logs to retrieve. Accepts    |
-  |                             all ISO8061 formats                              |
-  |                             [default: None]                                  |
-  | --refresh          INTEGER  If set, the logs will be streamed with the given |
-  |                             refresh time in seconds                          |
-  |                             [default: None]                                  |
-  | --help     -h               Show this message and exit.                      |
+  | --from               TEXT     The start time of the logs to retrieve.        |
+  |                               Accepts all ISO8061 formats                    |
+  |                               [default: None]                                |
+  | --to                 TEXT     The end time of the logs to retrieve. Accepts  |
+  |                               all ISO8061 formats                            |
+  |                               [default: None]                                |
+  | --refresh            INTEGER  If set, the logs will be streamed with the     |
+  |                               given refresh time in seconds                  |
+  |                               [default: None]                                |
+  | --table              TEXT     The table to query for logs. If not provided,  |
+  |                               the default table will be used                 |
+  |                               [default: None]                                |
+  | --log-level          TEXT     The log level to filter by. If not provided,   |
+  |                               INFO will be used                              |
+  |                               [default: INFO]                                |
+  | --help       -h               Show this message and exit.                    |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
@@ -5119,6 +5213,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -5220,6 +5316,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -5327,6 +5425,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -5425,6 +5525,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -5523,6 +5625,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -5621,6 +5725,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -5761,6 +5867,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -5865,6 +5973,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -5969,6 +6079,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -6084,6 +6196,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -6137,6 +6251,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -6169,6 +6285,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -6197,6 +6315,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -6226,121 +6346,19 @@
                                                                                   
    Usage: root project add-version [OPTIONS] [ENTITY_ID]                          
                                                                                   
-   Adds a new version to a project using existing sources from provided stage     
-   path.                                                                          
+   Uploads local files to Snowflake and cerates a new project version.            
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   entity_id      [ENTITY_ID]  ID of project entity.                          |
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | *  --from             TEXT  Source stage to create the version from.         |
-  |                             [required]                                       |
-  |    --alias            TEXT  Alias for the version.                           |
-  |    --comment          TEXT  Version comment.                                 |
-  |    --project  -p      TEXT  Path where the Snowflake project is stored.      |
-  |                             Defaults to the current working directory.       |
-  |    --env              TEXT  String in the format key=value. Overrides        |
-  |                             variables from the env section used for          |
-  |                             templates.                                       |
-  |    --help     -h            Show this message and exit.                      |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --connection,--environment     -c      TEXT     Name of the connection, as   |
-  |                                                 defined in your config.toml  |
-  |                                                 file. Default: default.      |
-  | --host                                 TEXT     Host address for the         |
-  |                                                 connection. Overrides the    |
-  |                                                 value specified for the      |
-  |                                                 connection.                  |
-  | --port                                 INTEGER  Port for the connection.     |
-  |                                                 Overrides the value          |
-  |                                                 specified for the            |
-  |                                                 connection.                  |
-  | --account,--accountname                TEXT     Name assigned to your        |
-  |                                                 Snowflake account. Overrides |
-  |                                                 the value specified for the  |
-  |                                                 connection.                  |
-  | --user,--username                      TEXT     Username to connect to       |
-  |                                                 Snowflake. Overrides the     |
-  |                                                 value specified for the      |
-  |                                                 connection.                  |
-  | --password                             TEXT     Snowflake password.          |
-  |                                                 Overrides the value          |
-  |                                                 specified for the            |
-  |                                                 connection.                  |
-  | --authenticator                        TEXT     Snowflake authenticator.     |
-  |                                                 Overrides the value          |
-  |                                                 specified for the            |
-  |                                                 connection.                  |
-  | --private-key-file,--private…          TEXT     Snowflake private key file   |
-  |                                                 path. Overrides the value    |
-  |                                                 specified for the            |
-  |                                                 connection.                  |
-  | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token to use when connecting |
-  |                                                 to Snowflake.                |
-  | --database,--dbname                    TEXT     Database to use. Overrides   |
-  |                                                 the value specified for the  |
-  |                                                 connection.                  |
-  | --schema,--schemaname                  TEXT     Database schema to use.      |
-  |                                                 Overrides the value          |
-  |                                                 specified for the            |
-  |                                                 connection.                  |
-  | --role,--rolename                      TEXT     Role to use. Overrides the   |
-  |                                                 value specified for the      |
-  |                                                 connection.                  |
-  | --warehouse                            TEXT     Warehouse to use. Overrides  |
-  |                                                 the value specified for the  |
-  |                                                 connection.                  |
-  | --temporary-connection         -x               Uses a connection defined    |
-  |                                                 with command line            |
-  |                                                 parameters, instead of one   |
-  |                                                 defined in config            |
-  | --mfa-passcode                         TEXT     Token to use for             |
-  |                                                 multi-factor authentication  |
-  |                                                 (MFA)                        |
-  | --enable-diag                                   Whether to generate a        |
-  |                                                 connection diagnostic        |
-  |                                                 report.                      |
-  | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to system   |
-  |                                                 temporary directory.         |
-  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
-  |                                                 contains allowlist           |
-  |                                                 parameters.                  |
-  +------------------------------------------------------------------------------+
-  +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON]  Specifies the output format.    |
-  |                                              [default: TABLE]                |
-  | --verbose              -v                    Displays log entries for log    |
-  |                                              levels info and higher.         |
-  | --debug                                      Displays log entries for log    |
-  |                                              levels debug and higher; debug  |
-  |                                              logs contain additional         |
-  |                                              information.                    |
-  | --silent                                     Turns off intermediate output   |
-  |                                              to console.                     |
-  | --enhanced-exit-codes                        Differentiate exit error codes  |
-  |                                              based on failure type.          |
-  +------------------------------------------------------------------------------+
-  
-  
-  '''
-# ---
-# name: test_help_messages[project.create-version]
-  '''
-                                                                                  
-   Usage: root project create-version [OPTIONS] [ENTITY_ID]                       
-                                                                                  
-   Upload local files and create a new version of a project using those files. If 
-   the stage does not exist, it will be created.                                  
-                                                                                  
-  +- Arguments ------------------------------------------------------------------+
-  |   entity_id      [ENTITY_ID]  ID of project entity.                          |
-  |                               [default: None]                                |
-  +------------------------------------------------------------------------------+
-  +- Options --------------------------------------------------------------------+
+  | --from             TEXT  Create a new version using given stage instead of   |
+  |                          uploading local files.                              |
+  | --alias            TEXT  Alias for the version.                              |
+  | --comment          TEXT  Version comment.                                    |
+  | --prune                  Delete files that exist in the stage, but not in    |
+  |                          the local filesystem.                               |
   | --project  -p      TEXT  Path where the Snowflake project is stored.         |
   |                          Defaults to the current working directory.          |
   | --env              TEXT  String in the format key=value. Overrides variables |
@@ -6425,6 +6443,115 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[project.create]
+  '''
+                                                                                  
+   Usage: root project create [OPTIONS] [ENTITY_ID]                               
+                                                                                  
+   Creates a project in Snowflake. By default, the project is initialized with a  
+   new version created from local files.                                          
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  |   entity_id      [ENTITY_ID]  ID of project entity.                          |
+  |                               [default: None]                                |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --no-version                Do not initialize project with a new version,    |
+  |                             only create the snowflake object.                |
+  | --project     -p      TEXT  Path where the Snowflake project is stored.      |
+  |                             Defaults to the current working directory.       |
+  | --env                 TEXT  String in the format key=value. Overrides        |
+  |                             variables from the env section used for          |
+  |                             templates.                                       |
+  | --help        -h            Show this message and exit.                      |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment     -c      TEXT     Name of the connection, as   |
+  |                                                 defined in your config.toml  |
+  |                                                 file. Default: default.      |
+  | --host                                 TEXT     Host address for the         |
+  |                                                 connection. Overrides the    |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --port                                 INTEGER  Port for the connection.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --account,--accountname                TEXT     Name assigned to your        |
+  |                                                 Snowflake account. Overrides |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --user,--username                      TEXT     Username to connect to       |
+  |                                                 Snowflake. Overrides the     |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --password                             TEXT     Snowflake password.          |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --authenticator                        TEXT     Snowflake authenticator.     |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --private-key-file,--private…          TEXT     Snowflake private key file   |
+  |                                                 path. Overrides the value    |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --token-file-path                      TEXT     Path to file with an OAuth   |
+  |                                                 token to use when connecting |
+  |                                                 to Snowflake.                |
+  | --database,--dbname                    TEXT     Database to use. Overrides   |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --schema,--schemaname                  TEXT     Database schema to use.      |
+  |                                                 Overrides the value          |
+  |                                                 specified for the            |
+  |                                                 connection.                  |
+  | --role,--rolename                      TEXT     Role to use. Overrides the   |
+  |                                                 value specified for the      |
+  |                                                 connection.                  |
+  | --warehouse                            TEXT     Warehouse to use. Overrides  |
+  |                                                 the value specified for the  |
+  |                                                 connection.                  |
+  | --temporary-connection         -x               Uses a connection defined    |
+  |                                                 with command line            |
+  |                                                 parameters, instead of one   |
+  |                                                 defined in config            |
+  | --mfa-passcode                         TEXT     Token to use for             |
+  |                                                 multi-factor authentication  |
+  |                                                 (MFA)                        |
+  | --enable-diag                                   Whether to generate a        |
+  |                                                 connection diagnostic        |
+  |                                                 report.                      |
+  | --diag-log-path                        TEXT     Path for the generated       |
+  |                                                 report. Defaults to system   |
+  |                                                 temporary directory.         |
+  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
+  |                                                 contains allowlist           |
+  |                                                 parameters.                  |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON]  Specifies the output format.    |
+  |                                              [default: TABLE]                |
+  | --verbose              -v                    Displays log entries for log    |
+  |                                              levels info and higher.         |
+  | --debug                                      Displays log entries for log    |
+  |                                              levels debug and higher; debug  |
+  |                                              logs contain additional         |
+  |                                              information.                    |
+  | --silent                                     Turns off intermediate output   |
+  |                                              to console.                     |
+  | --enhanced-exit-codes                        Differentiate exit error codes  |
+  |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -6527,6 +6654,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -6629,6 +6758,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -6637,13 +6768,14 @@
 # name: test_help_messages[project.list-versions]
   '''
                                                                                   
-   Usage: root project list-versions [OPTIONS] [ENTITY_ID]                        
+   Usage: root project list-versions [OPTIONS] IDENTIFIER                         
                                                                                   
    Lists versions of given project.                                               
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  |   entity_id      [ENTITY_ID]  ID of project entity.                          |
-  |                               [default: None]                                |
+  | *    identifier      TEXT  Identifier of the project; for example:           |
+  |                            MY_PROJECT                                        |
+  |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -6726,6 +6858,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -6829,6 +6963,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -6845,15 +6981,14 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | add-version      Adds a new version to a project using existing sources from |
-  |                  provided stage path.                                        |
-  | create-version   Upload local files and create a new version of a project    |
-  |                  using those files. If the stage does not exist, it will be  |
-  |                  created.                                                    |
-  | dry-run          Validates a project.                                        |
-  | execute          Executes a project.                                         |
-  | list             Lists all available projects.                               |
-  | list-versions    Lists versions of given project.                            |
+  | add-version     Uploads local files to Snowflake and cerates a new project   |
+  |                 version.                                                     |
+  | create          Creates a project in Snowflake. By default, the project is   |
+  |                 initialized with a new version created from local files.     |
+  | dry-run         Validates a project.                                         |
+  | execute         Executes a project.                                          |
+  | list            Lists all available projects.                                |
+  | list-versions   Lists versions of given project.                             |
   +------------------------------------------------------------------------------+
   
   
@@ -6969,6 +7104,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -7079,6 +7216,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -7182,6 +7321,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -7285,6 +7426,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -7390,6 +7533,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -7498,6 +7643,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -7610,6 +7757,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -7707,6 +7856,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -7807,6 +7958,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -8017,6 +8170,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -8121,6 +8276,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -8219,6 +8376,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -8317,6 +8476,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -8414,6 +8575,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -8512,6 +8675,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -8630,6 +8795,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -8729,6 +8896,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -8827,6 +8996,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -8926,6 +9097,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -9033,6 +9206,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -9159,6 +9334,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -9254,6 +9431,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
                                                                                   
    Usage Example: snow spcs image-registry token --format JSON | docker login     
@@ -9356,6 +9535,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -9478,6 +9659,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -9580,6 +9763,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -9678,6 +9863,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -9776,6 +9963,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -9880,6 +10069,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -9984,6 +10175,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -10082,6 +10275,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -10269,6 +10464,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -10374,6 +10571,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -10471,6 +10670,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -10568,6 +10769,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -10681,6 +10884,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -10778,6 +10983,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -10875,6 +11082,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -10972,6 +11181,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -11069,6 +11280,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -11172,6 +11385,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -11281,6 +11496,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -11388,6 +11605,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -11485,6 +11704,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -11623,6 +11844,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -11724,6 +11947,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -11821,6 +12046,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -11931,6 +12158,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -12030,6 +12259,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -12212,6 +12443,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -12337,6 +12570,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -12434,6 +12669,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -12531,6 +12768,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -12630,6 +12869,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -12727,6 +12968,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -12843,6 +13086,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -12944,6 +13189,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -13047,6 +13294,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -13146,6 +13395,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -13286,6 +13537,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -13384,6 +13637,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -13482,6 +13737,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -13580,6 +13837,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -13679,6 +13938,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -13782,6 +14043,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -13882,6 +14145,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -14234,15 +14499,14 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | add-version      Adds a new version to a project using existing sources from |
-  |                  provided stage path.                                        |
-  | create-version   Upload local files and create a new version of a project    |
-  |                  using those files. If the stage does not exist, it will be  |
-  |                  created.                                                    |
-  | dry-run          Validates a project.                                        |
-  | execute          Executes a project.                                         |
-  | list             Lists all available projects.                               |
-  | list-versions    Lists versions of given project.                            |
+  | add-version     Uploads local files to Snowflake and cerates a new project   |
+  |                 version.                                                     |
+  | create          Creates a project in Snowflake. By default, the project is   |
+  |                 initialized with a new version created from local files.     |
+  | dry-run         Validates a project.                                         |
+  | execute         Executes a project.                                          |
+  | list            Lists all available projects.                                |
+  | list-versions   Lists versions of given project.                             |
   +------------------------------------------------------------------------------+
   
   
