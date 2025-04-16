@@ -206,9 +206,9 @@ validate_installation() {
   local pkg_name=$1
   ls -la $pkg_name
 
-  arch -${MACHINE} installer -pkg $pkg_name -target CurrentUserHomeDirectory
+  installer -pkg $pkg_name -target CurrentUserHomeDirectory
   snow
-  sudo rm -rf /Applications/${APP_NAME} || true
+  rm -rf $HOME/Applications/${APP_NAME} || true
 }
 
 validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
