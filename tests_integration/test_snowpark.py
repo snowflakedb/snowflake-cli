@@ -369,11 +369,13 @@ def test_snowpark_flow(
 
 @pytest.mark.integration
 def test_snowpark_flow_old_build(
-        _snowpark_test_steps, project_directory, alter_snowflake_yml, test_database
+    _snowpark_test_steps, project_directory, alter_snowflake_yml, test_database
 ):
     database = test_database.upper()
     with project_directory("snowpark") as tmp_dir:
-        _snowpark_test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
+        _snowpark_test_steps.snowpark_build_should_zip_files(
+            additional_files=[Path("app.zip")]
+        )
 
         _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
@@ -669,7 +671,11 @@ def test_snowpark_flow_old_build(
     "project_name", ["snowpark_with_import_v1", "snowpark_with_import_v2"]
 )
 def test_snowpark_with_separately_created_package(
-        _snowpark_test_steps, project_directory, alter_snowflake_yml, test_database, project_name
+    _snowpark_test_steps,
+    project_directory,
+    alter_snowflake_yml,
+    test_database,
+    project_name,
 ):
     _snowpark_test_steps.package_should_build_proper_artifact(
         "dummy_pkg_for_tests", "dummy_pkg_for_tests/shrubbery.py"
@@ -714,7 +720,7 @@ def test_snowpark_with_separately_created_package(
 )
 def test_snowpark_with_single_dependency_having_no_other_deps(
     runner,
-        _snowpark_test_steps,
+    _snowpark_test_steps,
     project_directory,
     alter_snowflake_yml,
     test_database,
@@ -755,7 +761,7 @@ def test_snowpark_with_single_dependency_having_no_other_deps(
 )
 def test_snowpark_with_single_requirement_having_transient_deps(
     runner,
-        _snowpark_test_steps,
+    _snowpark_test_steps,
     project_directory,
     alter_snowflake_yml,
     test_database,
@@ -796,7 +802,7 @@ def test_snowpark_with_single_requirement_having_transient_deps(
 )
 def test_snowpark_commands_executed_outside_project_dir(
     runner,
-        _snowpark_test_steps,
+    _snowpark_test_steps,
     project_directory,
     alter_snowflake_yml,
     test_database,
@@ -840,7 +846,11 @@ def test_snowpark_commands_executed_outside_project_dir(
     ["snowpark_with_default_values_v1", "snowpark_with_default_values_v2"],
 )
 def test_snowpark_default_arguments(
-        _snowpark_test_steps, project_directory, alter_snowflake_yml, test_database, project_name
+    _snowpark_test_steps,
+    project_directory,
+    alter_snowflake_yml,
+    test_database,
+    project_name,
 ):
     database = test_database.upper()
     with project_directory(project_name):
@@ -939,7 +949,7 @@ def test_snowpark_default_arguments(
 
 @pytest.mark.integration
 def test_snowpark_fully_qualified_name_v1(
-        _snowpark_test_steps,
+    _snowpark_test_steps,
     runner,
     test_database,
     project_directory,
@@ -953,7 +963,9 @@ def test_snowpark_fully_qualified_name_v1(
         ["sql", "-q", f"create schema {database}.{different_schema}"]
     )
     with project_directory("snowpark_fully_qualified_name_v1") as tmp_dir:
-        _snowpark_test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
+        _snowpark_test_steps.snowpark_build_should_zip_files(
+            additional_files=[Path("app.zip")]
+        )
 
         # "default" database and schema provided by fully qualified name
         alter_snowflake_yml(
@@ -1059,7 +1071,7 @@ def test_snowpark_fully_qualified_name_v1(
 
 @pytest.mark.integration
 def test_snowpark_fully_qualified_name_v2(
-        _snowpark_test_steps,
+    _snowpark_test_steps,
     runner,
     test_database,
     project_directory,
@@ -1073,7 +1085,9 @@ def test_snowpark_fully_qualified_name_v2(
         ["sql", "-q", f"create schema {database}.{different_schema}"]
     )
     with project_directory("snowpark_fully_qualified_name_v2") as tmp_dir:
-        _snowpark_test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
+        _snowpark_test_steps.snowpark_build_should_zip_files(
+            additional_files=[Path("app.zip")]
+        )
 
         # "default" database and schema provided by fully qualified name
         alter_snowflake_yml(
@@ -1182,7 +1196,7 @@ def test_snowpark_fully_qualified_name_v2(
     "project_name", ["snowpark_vectorized_v1", "snowpark_vectorized_v2"]
 )
 def test_snowpark_vector_function(
-        _snowpark_test_steps,
+    _snowpark_test_steps,
     project_directory,
     alter_snowflake_yml,
     test_database,
@@ -1191,7 +1205,9 @@ def test_snowpark_vector_function(
 ):
     database = test_database.upper()
     with project_directory(project_name):
-        _snowpark_test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
+        _snowpark_test_steps.snowpark_build_should_zip_files(
+            additional_files=[Path("app.zip")]
+        )
 
         _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
@@ -1396,7 +1412,9 @@ def test_incorrect_requirements(project_directory, runner, alter_requirements_tx
 
 
 @pytest.mark.integration
-def test_snowpark_aliases(project_directory, runner, _snowpark_test_steps, test_database):
+def test_snowpark_aliases(
+    project_directory, runner, _snowpark_test_steps, test_database
+):
     with project_directory("snowpark"):
         for command in ["build", "deploy"]:
             result = runner.invoke_with_connection_json(["snowpark", command])
@@ -1437,7 +1455,7 @@ def test_snowpark_aliases(project_directory, runner, _snowpark_test_steps, test_
 
 @pytest.mark.integration
 def test_snowpark_flow_v2(
-        _snowpark_test_steps,
+    _snowpark_test_steps,
     project_directory,
     alter_snowflake_yml,
     test_database,
@@ -1517,7 +1535,7 @@ def test_snowpark_flow_v2(
 
 @pytest.mark.integration
 def test_snowpark_flow_v2_old_build(
-        _snowpark_test_steps, project_directory, alter_snowflake_yml, test_database
+    _snowpark_test_steps, project_directory, alter_snowflake_yml, test_database
 ):
     database = test_database.upper()
     with project_directory("snowpark_v2") as tmp_dir:
@@ -1586,7 +1604,7 @@ def test_snowpark_flow_v2_old_build(
 
 @pytest.mark.integration
 def test_snowpark_with_glob_patterns(
-        _snowpark_test_steps,
+    _snowpark_test_steps,
     project_directory,
     alter_snowflake_yml,
     test_database,
