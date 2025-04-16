@@ -206,7 +206,7 @@ validate_installation() {
   local pkg_name=$1
   ls -la $pkg_name
 
-  installer -pkg $pkg_name -target CurrentUserHomeDirectory -verbose
+  installer -pkg $pkg_name -target CurrentUserHomeDirectory -verbose -dumplog
   snow
   rm -rf $HOME/Applications/${APP_NAME} || true
 }
