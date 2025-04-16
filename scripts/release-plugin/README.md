@@ -79,6 +79,11 @@ Installs CLI in isolated virtualenv and runs a few basic commands.
 CLI is installed from the latest published github tag for the current release.
 
 
+### `snow release release-notes`
+
+Extracts release notes for current release from `RELEASE-NOTES.md` file.
+
+
 ### `snow release status`
 
 Shows basic info about the current release.
