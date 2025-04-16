@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from snowflake.cli.api.output.types import CommandResult
+from testing_utils.result_assertions import assert_successful_result_message
 from tests_integration.testing_utils import (
     assert_that_result_failed_with_message_containing,
     assert_that_result_is_successful_and_output_json_equals,
@@ -73,6 +74,57 @@ class StreamlitTestSteps:
 
         self.assert_proper_url_is_returned(result, entity_id, database)
 
+    def streamlit_describe_should_show_proper_streamlit(self, entity_id: str, database):
+        result = self.setup.runner.invoke_with_connection_json(
+            [
+                "streamlit",
+                "describe",
+                entity_id,
+            ]
+        )
+
+        assert len(result.json) == 1
+        assert result.json[0]["name"] == entity_id.upper()
+
+    def get_url_should_give_proper_url(self, entity_id: str, database: str):
+        result = self.setup.runner.invoke_with_connection_json(
+            [
+                "streamlit",
+                "get-url",
+                entity_id,
+            ]
+        )
+
+        assert_that_result_is_successful_and_output_json_equals(
+            result, {"message": create_expected_url(entity_id, database)}
+        )
+
+    def execute_should_run_streamlit(self, entity_id: str, database: str):
+        result = self.setup.runner.invoke_with_connection_json(
+            [
+                "streamlit",
+                "execute",
+                entity_id,
+            ]
+        )
+
+        assert_that_result_is_successful_and_output_json_equals(
+            result, {"message": f"Streamlit {entity_id} executed."}
+        )
+
+    def drop_should_succeed(self, entity_id: str, database: str):
+        result = self.setup.runner.invoke_with_connection_json(
+            [
+                "streamlit",
+                "drop",
+                entity_id,
+            ]
+        )
+
+        assert_that_result_is_successful_and_output_json_equals(
+            result, [{"status": f"{entity_id.upper()} successfully dropped."}]
+        )
+
     def assert_that_only_those_files_were_uploaded(
         self, uploaded_files: List[str], stage_name: str
     ):
@@ -99,10 +151,16 @@ class StreamlitTestSteps:
             for s in self.setup.sql_test_helper.execute_single_sql(query)
         ]
 
-    def assert_proper_url_is_returned(self, result: CommandResult, entity_id: str, database: str):
+    def assert_proper_url_is_returned(
+        self, result: CommandResult, entity_id: str, database: str
+    ):
         assert_that_result_is_successful_and_output_json_equals(
             result,
             {
-                "message": f"Streamlit successfully deployed and available under https://app.snowflake.com/SFENGINEERING/snowcli_it/#/streamlit-apps/{database}.PUBLIC.{entity_id.upper()}"
+                "message": f"Streamlit successfully deployed and available under {create_expected_url(entity_id, database)}",
             },
         )
+
+
+def create_expected_url(entity_id: str, database: str):
+    return f"https://app.snowflake.com/SFENGINEERING/snowcli_it/#/streamlit-apps/{database}.PUBLIC.{entity_id.upper()}"

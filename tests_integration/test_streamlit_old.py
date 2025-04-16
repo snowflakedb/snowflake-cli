@@ -39,16 +39,20 @@ def test_streamlit_deploy(
     streamlit_name = "test_streamlit_deploy_snowcli"
 
     with project_directory(f"streamlit_v{pdf_version}"):
-        result = runner.invoke_with_connection_json(["streamlit", "deploy"])
+        args = ["streamlit", "deploy"]
+
+        if pdf_version == "2":
+            args += ["my_streamlit"]
+
+        result = runner.invoke_with_connection_json(args)
         assert result.exit_code == 0
 
-        result = runner.invoke_with_connection(["streamlit", "deploy"])
+        result = runner.invoke_with_connection(args)
         assert result.exit_code == 1
         assert "already exist" in result.output
 
-        result = runner.invoke_with_connection_json(
-            ["streamlit", "deploy", "--replace"]
-        )
+        args += ["--replace"]
+        result = runner.invoke_with_connection_json(args)
         assert result.exit_code == 0
 
         result = runner.invoke_with_connection_json(["streamlit", "list"])
@@ -133,7 +137,9 @@ def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
         assert result.exit_code == 0, result.output
 
         # deploy streamlit - file should remain on stage
-        result = runner.invoke_with_connection(["streamlit", "deploy", "--replace"])
+        result = runner.invoke_with_connection(
+            ["streamlit", "deploy", "my_streamlit", "--replace"]
+        )
         assert result.exit_code == 0, result.output
         _assert_file_names_on_stage(
             [
@@ -144,7 +150,7 @@ def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
 
         # deploy with --prune flag - unexpected file should be removed
         result = runner.invoke_with_connection(
-            ["streamlit", "deploy", "--replace", "--prune"]
+            ["streamlit", "deploy", "my_streamlit", "--replace", "--prune"]
         )
         assert result.exit_code == 0, result.output
         _assert_file_names_on_stage(
@@ -171,7 +177,7 @@ def test_streamlit_deploy_with_imports(
             ["@stage/foo.py", "@stage/bar.py"],
         )
         result = runner.invoke_with_connection_json(
-            ["streamlit", "deploy", "--replace"]
+            ["streamlit", "deploy", "my_streamlit", "--replace"]
         )
         assert result.exit_code == 0
 
@@ -197,7 +203,7 @@ def test_streamlit_deploy_with_glob_patterns(
             "snowflake.yml", "entities.my_streamlit.artifacts", [pattern]
         )
         result = runner.invoke_with_connection_json(
-            ["streamlit", "deploy", "--replace"]
+            ["streamlit", "deploy", "my_streamlit", "--replace"]
         )
         assert result.exit_code == 0
 
@@ -218,9 +224,12 @@ def test_streamlit_deploy_experimental_twice(
     streamlit_name = "test_streamlit_deploy_snowcli"
 
     with project_directory(f"streamlit_v{pdf_version}"):
-        result = runner.invoke_with_connection_json(
-            ["streamlit", "deploy", "--experimental"]
-        )
+        if pdf_version == "1":
+            args = ["streamlit", "deploy", "--experimental"]
+        else:
+            args = ["streamlit", "deploy", "my_streamlit", "--experimental"]
+
+        result = runner.invoke_with_connection_json(args)
         assert result.exit_code == 0
 
         # Test that second deploy does not fail
@@ -316,8 +325,10 @@ def test_fully_qualified_name(
             parameter_path=f"{param_path}.name",
             value=f"{database}.{default_schema}.{streamlit_name}",
         )
-
-        result = runner.invoke_with_connection_json(["streamlit", "deploy"])
+        args = ["streamlit", "deploy"]
+        if pdf_version == "2":
+            args += ["my_streamlit"]
+        result = runner.invoke_with_connection_json(args)
         assert result.exit_code == 0
         assert result.json["message"].startswith(
             "Streamlit successfully deployed and available under"
@@ -332,7 +343,7 @@ def test_fully_qualified_name(
             parameter_path=f"{param_path}.name",
             value=f"{database}.{different_schema}.{streamlit_name}",
         )
-        result = runner.invoke_with_connection_json(["streamlit", "deploy"])
+        result = runner.invoke_with_connection_json(args)
         assert result.exit_code == 0
         assert result.json["message"].startswith(
             "Streamlit successfully deployed and available under"
@@ -347,9 +358,7 @@ def test_fully_qualified_name(
             parameter_path=f"{param_path}.name",
             value=f"{different_schema}.{streamlit_name}",
         )
-        result = runner.invoke_with_connection(
-            ["streamlit", "deploy"], catch_exceptions=True
-        )
+        result = runner.invoke_with_connection(args, catch_exceptions=True)
         assert result.exit_code == 1
         # Same if name is not fqn but schema is specified
         alter_snowflake_yml(
@@ -362,14 +371,12 @@ def test_fully_qualified_name(
             parameter_path=f"{param_path}.schema",
             value=different_schema,
         )
-        result = runner.invoke_with_connection(
-            ["streamlit", "deploy"], catch_exceptions=True
-        )
+        result = runner.invoke_with_connection(args, catch_exceptions=True)
         assert result.exit_code == 1
 
         # Should succeed with --replace flag
         result = runner.invoke_with_connection_json(
-            ["streamlit", "deploy", "--replace"]
+            args + ["--replace"], catch_exceptions=True
         )
         assert result.exit_code == 0
         assert result.json["message"].startswith(
@@ -430,6 +437,7 @@ def test_streamlit_execute_in_headless_mode(
             [
                 "streamlit",
                 "deploy",
+                "my_streamlit",
                 "--replace",
                 "--dbname",
                 test_database,
