@@ -307,3 +307,37 @@ def status(version: str = VersionArgument, **options):
         return {"check": key, "status": value}
 
     return CollectionResult(_row(*info) for info in release_info.check_status().items())
+
+
+def _extract_release_notes_from_file(file: Path, version: str) -> str:
+    result: List[str] = []
+
+    def _is_a_version_title(line: str) -> bool:
+        return line.startswith(f"# ")
+
+    def _is_current_version_title(line: str) -> bool:
+        return _is_a_version_title(line) and version in line
+
+    with file.open("r") as contents:
+        extract_lines = False
+        for line in contents:
+            should_stop = extract_lines and _is_a_version_title(line)
+            if should_stop:
+                break
+            if _is_current_version_title(line):
+                extract_lines = True
+            if extract_lines:
+                result.append(line.rstrip())
+
+    return "\n".join(result)
+
+
+@app.command()
+def release_notes(version: str = VersionArgument, **options):
+    """Extract release notes for the chosen version."""
+    repo = RepositoryManager()
+    release_info = ReleaseInfo(version, repo=repo)
+    release_info.assert_release_branch_exists()
+    with repo.tmp_checkout(release_info.release_branch_name):
+        release_notes = repo.home_path / "RELEASE-NOTES.md"
+        return MessageResult(_extract_release_notes_from_file(release_notes, version))
