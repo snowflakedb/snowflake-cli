@@ -19,7 +19,7 @@ from snowflake.cli._plugins.sql.lexer.types import TYPES
 
 class CliLexer(RegexLexer):
     name = "Snowflake-CLI"
-    alises = ("cli", "snowflake-cli")
+    aliases = ("cli", "snowflake-cli")
     mimetype = ("text/x-snowflake-cli",)
     flags = re.IGNORECASE
     tokens = {
