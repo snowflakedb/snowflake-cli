@@ -46,6 +46,11 @@ class SecurePath:
     def __truediv__(self, key):
         return SecurePath(self._path / key)
 
+    def __eq__(self, other):
+        if isinstance(other, Path):
+            return self.path == other
+        return self.path == other.path
+
     @property
     def path(self) -> Path:
         """

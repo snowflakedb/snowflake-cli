@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
+
 import yaml
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
@@ -39,8 +41,9 @@ class DBTManager(SqlExecutionMixin):
 
     def deploy(
         self,
-        path: SecurePath,
         name: FQN,
+        path: SecurePath,
+        profiles_path: SecurePath,
         force: bool,
     ) -> SnowflakeCursor:
         dbt_project_path = path / "dbt_project.yml"
@@ -56,16 +59,7 @@ class DBTManager(SqlExecutionMixin):
             except KeyError:
                 raise CliError("`profile` is not defined in dbt_project.yml")
 
-        dbt_profiles_path = path / "profiles.yml"
-        if not dbt_profiles_path.exists():
-            raise CliError(
-                f"profiles.yml does not exist in directory {path.path.absolute()}."
-            )
-
-        with dbt_profiles_path.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
-            profiles = yaml.safe_load(fd)
-            if profile not in profiles:
-                raise CliError(f"profile {profile} is not defined in profiles.yml")
+        self._validate_profiles(profiles_path, profile)
 
         if self.exists(name=name) and force is not True:
             raise CliError(
@@ -79,14 +73,75 @@ class DBTManager(SqlExecutionMixin):
             stage_manager.create(stage_fqn, temporary=True)
 
         with cli_console.phase("Copying project files to stage"):
-            results = list(stage_manager.put_recursive(path.path, stage_name))
-            cli_console.step(f"Copied {len(results)} files")
+            result_count = len(list(stage_manager.put_recursive(path.path, stage_name)))
+            if profiles_path != path:
+                stage_manager.put(
+                    str((profiles_path.path / "profiles.yml").absolute()), stage_name
+                )
+                result_count += 1
+            cli_console.step(f"Copied {result_count} files")
 
         with cli_console.phase("Creating DBT project"):
             query = f"""{'CREATE OR REPLACE' if force is True else 'CREATE'} DBT PROJECT {name}
 FROM {stage_name}"""
 
             return self.execute_query(query)
+
+    @staticmethod
+    def _validate_profiles(profiles_path: SecurePath, target_profile: str) -> None:
+        """
+        Validates that:
+         * profiles.yml exists
+         * contain profile specified in dbt_project.yml
+         * no other profiles are defined there
+         * does not contain any confidential data like passwords
+        """
+        profiles_file = profiles_path / "profiles.yml"
+        if not profiles_file.exists():
+            raise CliError(
+                f"profiles.yml does not exist in directory {profiles_path.path.absolute()}."
+            )
+        with profiles_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
+            profiles = yaml.safe_load(fd)
+
+        if target_profile not in profiles:
+            raise CliError(f"profile {target_profile} is not defined in profiles.yml")
+
+        errors = defaultdict(list)
+        if len(profiles.keys()) > 1:
+            for profile_name in profiles.keys():
+                if profile_name.lower() != target_profile.lower():
+                    errors[profile_name].append("Remove unnecessary profiles")
+
+        supported_keys = {
+            "database",
+            "account",
+            "type",
+            "user",
+            "role",
+            "warehouse",
+            "schema",
+        }
+        for target_name, target in profiles[target_profile]["outputs"].items():
+            if missing_keys := supported_keys - set(target.keys()):
+                errors[target_profile].append(
+                    f"Missing required fields: {', '.join(sorted(missing_keys))} in target {target_name}"
+                )
+            if unsupported_keys := set(target.keys()) - supported_keys:
+                errors[target_profile].append(
+                    f"Unsupported fields found: {', '.join(sorted(unsupported_keys))} in target {target_name}"
+                )
+            if "type" in target and target["type"].lower() != "snowflake":
+                errors[target_profile].append(
+                    f"Value for type field is invalid. Should be set to `snowflake` in target {target_name}"
+                )
+
+        if errors:
+            message = "Found following errors in profiles.yml. Please fix them before proceeding:"
+            for target, issues in errors.items():
+                message += f"\n{target}"
+                message += "\n * " + "\n * ".join(issues)
+            raise CliError(message)
 
     def execute(
         self, dbt_command: str, name: str, run_async: bool, *dbt_cli_args

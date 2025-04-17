@@ -242,7 +242,7 @@ class SnowparkEntity(EntityBase[Generic[T]]):
                     )
 
                 zip_dir(
-                    source=tmp_dir,
+                    source=tmp_dir.path,
                     dest_zip=bundle_dir / archive_name,
                 )
 

@@ -75,6 +75,11 @@ def deploy_dbt(
         show_default=False,
         default=None,
     ),
+    profiles_dir: Optional[str] = typer.Option(
+        help="Path to directory containing profiles.yml. Defaults to directory provided in --source or current working directory",
+        show_default=False,
+        default=None,
+    ),
     force: Optional[bool] = typer.Option(
         False,
         help="Overwrites conflicting files in the project, if any.",
@@ -84,14 +89,13 @@ def deploy_dbt(
     """
     Copy dbt files and create or update dbt on Snowflake project.
     """
-    if source is None:
-        path = SecurePath.cwd()
-    else:
-        path = SecurePath(source)
+    project_path = SecurePath(source) if source is not None else SecurePath.cwd()
+    profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
     return QueryResult(
         DBTManager().deploy(
-            path.resolve(),
             name,
+            project_path.resolve(),
+            profiles_dir_path.resolve(),
             force=force,
         )
     )
