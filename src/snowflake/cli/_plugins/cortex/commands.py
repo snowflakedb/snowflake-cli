@@ -40,7 +40,7 @@ from snowflake.cli.api.commands.overrideable_parameter import (
     OverrideableOption,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.constants import PYTHON_3_12
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, PYTHON_3_12
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -157,38 +157,30 @@ def complete(
 
     manager = CortexManager()
 
+    is_file_input: bool = False
     if text:
-        if backend == Backend.SQL:
-            result_text = manager.complete_for_prompt(
-                text=Text(text),
-                model=Model(model),
-            )
-        elif backend == Backend.REST:
-            root = get_cli_context().snow_api_root
-            result_text = manager.rest_complete_for_prompt(
-                text=Text(text),
-                model=Model(model),
-                root=root,
-            )
-        else:
-            raise UsageError("--backend option should be either rest or sql.")
+        prompt = text
     elif file:
-        if backend == Backend.SQL:
-            result_text = manager.complete_for_conversation(
-                conversation_json_file=SecurePath(file),
-                model=Model(model),
-            )
-        elif backend == Backend.REST:
-            root = get_cli_context().snow_api_root
-            result_text = manager.rest_complete_for_conversation(
-                conversation_json_file=SecurePath(file),
-                model=Model(model),
-                root=root,
-            )
-        else:
-            raise UsageError("--backend option should be either rest or sql.")
+        prompt = SecurePath(file).read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB)
+        is_file_input = True
     else:
         raise UsageError("Either --file option or TEXT argument has to be provided.")
+
+    if backend == Backend.SQL:
+        result_text = manager.complete(
+            text=Text(prompt),
+            model=Model(model),
+            is_file_input=is_file_input,
+        )
+    elif backend == Backend.REST:
+        root = get_cli_context().snow_api_root
+        result_text = manager.rest_complete(
+            text=Text(prompt),
+            model=Model(model),
+            root=root,
+        )
+    else:
+        raise UsageError("--backend option should be either rest or sql.")
 
     return MessageResult(result_text.strip())
 

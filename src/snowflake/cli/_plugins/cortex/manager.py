@@ -64,37 +64,31 @@ class MidStreamError(Exception):
 
 
 class CortexManager(SqlExecutionMixin):
-    def complete_for_prompt(
+    def complete(
         self,
         text: Text,
         model: Model,
+        is_file_input: bool = False,
     ) -> str:
-        query = f"""\
+        if not is_file_input:
+            query = f"""\
+                SELECT SNOWFLAKE.CORTEX.COMPLETE(
+                    '{model}',
+                    '{self._escape_input(text)}'
+                ) AS CORTEX_RESULT;"""
+            return self._query_cortex_result_str(query)
+        else:
+            query = f"""\
             SELECT SNOWFLAKE.CORTEX.COMPLETE(
                 '{model}',
-                '{self._escape_input(text)}'
-            ) AS CORTEX_RESULT;"""
-        return self._query_cortex_result_str(query)
-
-    def complete_for_conversation(
-        self,
-        conversation_json_file: SecurePath,
-        model: Model,
-    ) -> str:
-        json_content = conversation_json_file.read_text(
-            file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB
-        )
-        query = f"""\
-            SELECT SNOWFLAKE.CORTEX.COMPLETE(
-                '{model}',
-                PARSE_JSON('{self._escape_input(json_content)}'),
+                PARSE_JSON('{self._escape_input(text)}'),
                 {{}}
             ) AS CORTEX_RESULT;"""
-        raw_result = self._query_cortex_result_str(query)
-        json_result = json.loads(raw_result)
-        return self._extract_text_result_from_json_result(
-            lambda: json_result["choices"][0]["messages"]
-        )
+            raw_result = self._query_cortex_result_str(query)
+            json_result = json.loads(raw_result)
+            return self._extract_text_result_from_json_result(
+                lambda: json_result["choices"][0]["messages"]
+            )
 
     def make_rest_complete_request(
         self,
@@ -107,7 +101,7 @@ class CortexManager(SqlExecutionMixin):
             stream=True,
         )
 
-    def rest_complete_for_prompt(
+    def rest_complete(
         self,
         text: Text,
         model: Model,
@@ -134,41 +128,6 @@ class CortexManager(SqlExecutionMixin):
                     raise MidStreamError(reason=event.data)
             else:
                 pass
-        return result
-
-    def rest_complete_for_conversation(
-        self,
-        conversation_json_file: SecurePath,
-        model: Model,
-        root: "Root",
-    ) -> str:
-        json_content = conversation_json_file.read_text(
-            file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB
-        )
-        complete_request = self.make_rest_complete_request(
-            model=model, prompt=json_content
-        )
-        cortex_inference_service = CortexInferenceService(root=root)
-        try:
-            raw_resp = cortex_inference_service.complete(
-                complete_request=complete_request
-            )
-        except Exception as e:
-            raise
-        result = ""
-        for event in raw_resp.events():
-            try:
-                parsed_resp = json.loads(event.data)
-            except json.JSONDecodeError:
-                raise ResponseParseError("Server response cannot be parsed")
-            try:
-                result += parsed_resp["choices"][0]["delta"]["content"]
-            except (json.JSONDecodeError, KeyError, IndexError):
-                if parsed_resp.get("error"):
-                    raise MidStreamError(reason=event.data)
-            else:
-                pass
-
         return result
 
     def extract_answer_from_source_document(
