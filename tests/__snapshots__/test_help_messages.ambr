@@ -3978,13 +3978,17 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --source                    TEXT  Path to directory containing dbt files to  |
-  |                                   deploy. Defaults to current working        |
-  |                                   directory.                                 |
-  | --force       --no-force          Overwrites conflicting files in the        |
-  |                                   project, if any.                           |
-  |                                   [default: no-force]                        |
-  | --help    -h                      Show this message and exit.                |
+  | --source                          TEXT  Path to directory containing dbt     |
+  |                                         files to deploy. Defaults to current |
+  |                                         working directory.                   |
+  | --profiles-dir                    TEXT  Path to directory containing         |
+  |                                         profiles.yml. Defaults to directory  |
+  |                                         provided in --source or current      |
+  |                                         working directory                    |
+  | --force             --no-force          Overwrites conflicting files in the  |
+  |                                         project, if any.                     |
+  |                                         [default: no-force]                  |
+  | --help          -h                      Show this message and exit.          |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment     -c      TEXT     Name of the connection, as   |
@@ -4064,6 +4068,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -4164,6 +4170,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build      Execute build command on Snowflake.                               |
@@ -4276,6 +4284,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build      Execute build command on Snowflake.                               |
@@ -4388,6 +4398,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build      Execute build command on Snowflake.                               |
@@ -4500,6 +4512,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build      Execute build command on Snowflake.                               |
@@ -4612,6 +4626,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build      Execute build command on Snowflake.                               |
@@ -4724,6 +4740,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build      Execute build command on Snowflake.                               |
@@ -4836,6 +4854,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build      Execute build command on Snowflake.                               |
@@ -4948,6 +4968,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build      Execute build command on Snowflake.                               |
@@ -5060,6 +5082,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build      Execute build command on Snowflake.                               |
@@ -5172,6 +5196,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build      Execute build command on Snowflake.                               |
@@ -5284,6 +5310,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build      Execute build command on Snowflake.                               |
@@ -5399,6 +5427,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   
   
@@ -15948,6 +15978,8 @@
   |                                              to console.                     |
   | --enhanced-exit-codes                        Differentiate exit error codes  |
   |                                              based on failure type.          |
+  |                                              [env var:                       |
+  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build      Execute build command on Snowflake.                               |

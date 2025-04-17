@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import datetime
+from pathlib import Path
 
 import pytest
 import yaml
@@ -24,18 +25,43 @@ def test_dbt(
     snowflake_session,
     test_database,
     project_directory,
+    snapshot,
 ):
     with project_directory("dbt_project") as root_dir:
         # Given a local dbt project
         ts = int(datetime.datetime.now().timestamp())
         name = f"dbt_project_{ts}"
-        _setup_dbt_profile(root_dir, snowflake_session)
 
-        # When it's deployed
+        # try to deploy, but fail since profiles.yml contains a password
+        _setup_dbt_profile(root_dir, snowflake_session, include_password=True)
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 1, result.output
+        assert result.output == snapshot
+
+        # deploy for the first time
+        _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
         result = runner.invoke_with_connection_json(["dbt", "deploy", name])
         assert result.exit_code == 0, result.output
 
-        # Then it can be listed
+        # change location of profiles.yml and redeploy
+        new_profiles_directory = Path(root_dir) / "dbt_profiles"
+        new_profiles_directory.mkdir(parents=True, exist_ok=True)
+        profiles_file = root_dir / "profiles.yml"
+        profiles_file.rename(new_profiles_directory / "profiles.yml")
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dbt",
+                "deploy",
+                name,
+                "--force",
+                "--profiles-dir",
+                str(new_profiles_directory.resolve()),
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # list all dbt objects
         result = runner.invoke_with_connection_json(
             [
                 "dbt",
@@ -49,7 +75,7 @@ def test_dbt(
         dbt_object = result.json[0]
         assert dbt_object["name"].lower() == name.lower()
 
-        # And when dbt run gets called on it
+        # call `run` on dbt object
         result = runner.invoke_passthrough_with_connection(
             args=[
                 "dbt",
@@ -58,7 +84,7 @@ def test_dbt(
             passthrough_args=[name, "run"],
         )
 
-        # Then is succeeds and models get populated according to expectations
+        # a successful execution should produce data in my_second_dbt_model and
         assert result.exit_code == 0, result.output
         assert "Done. PASS=2 WARN=0 ERROR=0 SKIP=0 TOTAL=2" in result.output
 
@@ -69,7 +95,7 @@ def test_dbt(
         assert result.json[0]["COUNT"] == 1, result.json[0]
 
 
-def _setup_dbt_profile(root_dir, snowflake_session):
+def _setup_dbt_profile(root_dir: Path, snowflake_session, include_password: bool):
     with open((root_dir / "profiles.yml"), "r") as f:
         profiles = yaml.safe_load(f)
     dev_profile = profiles["dbt_integration_project"]["outputs"]["dev"]
@@ -79,4 +105,8 @@ def _setup_dbt_profile(root_dir, snowflake_session):
     dev_profile["role"] = snowflake_session.role
     dev_profile["warehouse"] = snowflake_session.warehouse
     dev_profile["schema"] = snowflake_session.schema
+    if include_password:
+        dev_profile["password"] = "secret_phrase"
+    else:
+        dev_profile.pop("password", None)
     (root_dir / "profiles.yml").write_text(yaml.dump(profiles))
