@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -65,7 +66,15 @@ class TestDBTDeploy:
                 {
                     "dev": {
                         "outputs": {
-                            "local": {"account": "test_account", "database": "testdb"}
+                            "local": {
+                                "account": "test_account",
+                                "database": "testdb",
+                                "role": "test_role",
+                                "schema": "test_schema",
+                                "type": "snowflake",
+                                "user": "test_user",
+                                "warehouse": "test_warehouse",
+                            }
                         }
                     }
                 },
@@ -146,6 +155,40 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
         assert result.exit_code == 0, result.output
         assert mock_connect.mocked_ctx.get_query().startswith(
             "CREATE OR REPLACE DBT PROJECT"
+        )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_dbt_deploy_with_custom_profiles_dir(
+        self,
+        _mock_create,
+        mock_put,
+        _mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_exists,
+    ):
+        new_profiles_directory = Path(dbt_project_path) / "dbt_profiles"
+        new_profiles_directory.mkdir(parents=True, exist_ok=True)
+        profiles_file = dbt_project_path / "profiles.yml"
+        profiles_file.rename(new_profiles_directory / "profiles.yml")
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                f"--profiles-dir={new_profiles_directory}",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_put.assert_called_once_with(
+            str(new_profiles_directory / "profiles.yml"),
+            "@MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage",
         )
 
     def test_raises_when_dbt_project_yml_is_not_available(
