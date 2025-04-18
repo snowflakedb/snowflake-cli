@@ -2,7 +2,7 @@ from logging import getLogger
 from typing import Iterable
 
 from prompt_toolkit import PromptSession
-from prompt_toolkit.filters import Condition, is_searching
+from prompt_toolkit.filters import Condition, is_done, is_searching
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.key_binding.key_bindings import KeyBindings
 from prompt_toolkit.keys import Keys
@@ -98,18 +98,20 @@ class Repl:
         """Key bindings for easy handling yes/no prompt."""
         kb = KeyBindings()
 
-        @kb.add(Keys.Enter)
-        @kb.add("y")
+        @kb.add(Keys.Enter, filter=~is_done)
+        @kb.add("c-d", filter=~is_done)
+        @kb.add("y", filter=~is_done)
         def _(event):
             event.app.exit(result="y")
 
-        @kb.add("n")
+        @kb.add("n", filter=~is_done)
+        @kb.add("c-c", filter=~is_done)
         def _(event):
             event.app.exit(result="n")
 
-        @kb.add("c-c")
+        @kb.add(Keys.Any)
         def _(event):
-            raise KeyboardInterrupt
+            pass
 
         return kb
 
