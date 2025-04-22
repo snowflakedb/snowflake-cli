@@ -1,7 +1,7 @@
 # serializer version: 1
 # name: test_source_with_variables_and_templating_substitution
   '''
-  Warning: &{ ... } syntax is deprecated. Use <% ... %> syntax instead.
+  Warning: &{ ... } syntax is deprecated and will no longer be supported. Use <% ... %> syntax instead.
   select 1;
   +---+
   | 1 |

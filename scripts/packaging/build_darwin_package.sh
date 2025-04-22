@@ -1,19 +1,44 @@
 #!/usr/bin/env bash
 set -xeuo pipefail
 
-git config --global --add safe.directory /snowflake-cli
-brew install -q tree
-
-ROOT_DIR=$(git rev-parse --show-toplevel)
-PACKAGING_DIR=$ROOT_DIR/scripts/packaging
-
 SYSTEM=$(uname -s | tr '[:upper:]' '[:lower:]')
 MACHINE=$(uname -m | tr '[:upper:]' '[:lower:]')
 PLATFORM="${SYSTEM}-${MACHINE}"
 
+echo "--- creating virtualenv ---"
+python3.11 -m venv venv
+. venv/bin/activate
+python --version
+
+echo "--- installing dependencies ---"
+pip install hatch
+
+# install cargo
+if [[ ${MACHINE} == "arm64" ]]; then
+  echo "installing cargo on arm64"
+  curl https://sh.rustup.rs -sSf | bash -s -- -y
+elif [[ ${MACHINE} == "x86_64" ]]; then
+  echo "installing cargo on x86_64"
+  curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path
+  source $HOME/.cargo/env
+else
+  echo "Unsupported machine: ${MACHINE}"
+  exit 1
+fi
+rustup default stable
+
+
+echo "--- setup variables ---"
+BRANCH=${branch}
+REVISION=$(git rev-parse ${svnRevision})
 CLI_VERSION=$(hatch version)
 
+STAGE_URL="s3://sfc-eng-jenkins/repository/snowflake-cli/${releaseType}/${SYSTEM}_${MACHINE}/${REVISION}/"
+
+ROOT_DIR=$(git rev-parse --show-toplevel)
+PACKAGING_DIR=$ROOT_DIR/scripts/packaging
 DIST_DIR=$ROOT_DIR/dist
+
 BINARY_NAME="snow-${CLI_VERSION}"
 APP_NAME="SnowflakeCLI.app"
 APP_DIR=$DIST_DIR/app
@@ -21,32 +46,13 @@ APP_SCRIPTS=$APP_DIR/scripts
 CODESIGN_IDENTITY="Developer ID Application: Snowflake Computing INC. (W4NT6CRQ7U)"
 PRODUCTSIGN_IDENTITY="Developer ID Installer: Snowflake Computing INC. (W4NT6CRQ7U)"
 
+
 loginfo() {
   logger -s -p INFO -- $1
 }
 
 clean_build_workspace() {
   rm -rf $DIST_DIR || true
-}
-
-install_cargo() {
-  curl https://sh.rustup.rs -sSf > rustup-init.sh
-
-  if [[ ${MACHINE} == "arm64" ]]; then
-    sudo bash rustup-init.sh -y
-    . $HOME/.cargo/env
-  elif [[ ${MACHINE} == "x86_64" ]]; then
-    export CARGO_HOME="$HOME/.cargo"
-    export RUSTUP_HOME="$HOME/.rustup"
-    bash -s rustup-init.sh -y
-    . $HOME/.cargo/env
-    rustup default stable
-  else
-    echo "Unsupported machine: ${MACHINE}"
-    exit 1
-  fi
-
-  rm rustup-init.sh
 }
 
 create_app_template() {
@@ -61,9 +67,9 @@ loginfo "---------------------------------"
 security find-identity -v -p codesigning
 loginfo "---------------------------------"
 
-clean_build_workspace
-install_cargo
+echo "--- build binary ---"
 
+clean_build_workspace
 hatch -e packaging run build-isolated-binary
 create_app_template
 mv $DIST_DIR/binary/${BINARY_NAME} ${APP_DIR}/${APP_NAME}/Contents/MacOS/snow
@@ -118,7 +124,6 @@ prepare_postinstall_script() {
 prepare_postinstall_script
 
 ls -l $DIST_DIR
-tree -d $DIST_DIR
 
 chmod +x $APP_SCRIPTS/postinstall
 
@@ -209,3 +214,9 @@ validate_installation() {
 }
 
 validate_installation $DIST_DIR/snowflake-cli-${CLI_VERSION}-${SYSTEM}-${MACHINE}.pkg
+
+echo "--- Upload artifacts to AWS ---"
+ls -la ./dist/
+echo "${STAGE_URL}"
+command -v aws
+aws s3 cp ./dist/ ${STAGE_URL} --recursive --exclude "*" --include="snowflake-cli-${CLI_VERSION}*.pkg"

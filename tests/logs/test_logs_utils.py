@@ -5,7 +5,11 @@ from click import ClickException
 from snowflake.cli._plugins.logs.commands import (
     get_datetime_from_string,
 )
-from snowflake.cli._plugins.logs.manager import LogsManager
+from snowflake.cli._plugins.logs.utils import (
+    get_log_levels,
+    get_timestamp_query,
+    parse_log_levels_for_query,
+)
 
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
@@ -74,10 +78,45 @@ def test_if_passing_to_time_earlier_than_from_time_raiser_error():
     to_time = from_time - timedelta(hours=1)
 
     with pytest.raises(ClickException) as e:
-        LogsManager()._get_timestamp_query(from_time=from_time, to_time=to_time)  # noqa
+        get_timestamp_query(from_time=from_time, to_time=to_time)  # noqa
 
     assert (
         str(e.value)
         == "From_time cannot be later than to_time. Please check the values"
     )
     assert e.value.exit_code == 1
+
+
+@pytest.mark.parametrize(
+    "log_level,expected",
+    [
+        ("", ["INFO", "WARN", "ERROR", "FATAL"]),
+        ("TRACE", ["TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"]),
+        ("DEBUG", ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"]),
+        ("INFO", ["INFO", "WARN", "ERROR", "FATAL"]),
+        ("WARN", ["WARN", "ERROR", "FATAL"]),
+        ("ERROR", ["ERROR", "FATAL"]),
+        ("FATAL", ["FATAL"]),
+        ("fatal", ["FATAL"]),
+        ("eRrOr", ["ERROR", "FATAL"]),
+    ],
+)
+def test_if_log_levels_list_is_correctly_filtered(log_level, expected):
+    result = get_log_levels(log_level)
+
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    "level,expected",
+    [
+        ("", "'INFO', 'WARN', 'ERROR', 'FATAL'"),
+        ("INFO", "'INFO', 'WARN', 'ERROR', 'FATAL'"),
+        ("DEBUG", "'DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL'"),
+        ("wArN", "'WARN', 'ERROR', 'FATAL'"),
+    ],
+)
+def test_if_log_level_gives_correct_query(level, expected):
+    result = parse_log_levels_for_query(level)
+
+    assert result == expected

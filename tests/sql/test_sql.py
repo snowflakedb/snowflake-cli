@@ -331,7 +331,7 @@ def test_old_template_syntax_causes_warning(mock_execute_query, runner):
     result = runner.invoke(["sql", "-q", "select &{ aaa }", "-D", "aaa=foo"])
     assert result.exit_code == 0
     assert (
-        "Warning: &{ ... } syntax is deprecated. Use <% ... %> syntax instead."
+        "Warning: &{ ... } syntax is deprecated and will no longer be supported. Use <% ... %> syntax instead."
         in result.output
     )
     mock_execute_query.assert_called_once_with("select foo", cursor_class=VerboseCursor)
