@@ -25,7 +25,7 @@ The branch itself is protected, so all changes (version bumps, cherrypicks)
 must be added via PRs from helper branches (`cherrypicks-vX.Y.ZrcN`)
 (it also enforces all github checks are passing before release).
 
-The process is explained in more derail on the [confluence page](https://snowflakecomputing.atlassian.net/wiki/spaces/EN/pages/2940602126/Release+process).
+The process is explained in more detail on the [confluence page](https://snowflakecomputing.atlassian.net/wiki/spaces/EN/pages/2940602126/Release+process).
 
 ## Installation
 
@@ -70,7 +70,7 @@ and publishes the tag.
 The tag is chosen based on previously published tags:
 * if `--final` flag is passed, the tag is `vX.Y.Z`
 * if no tags were released, the tag is `vX.Y.Zrc0`
-* if latest tag is `vX.Y.ZrcN`, the tah is `vX.Y.ZrcN+1`
+* if latest tag is `vX.Y.ZrcN`, the tag is `vX.Y.ZrcN+1`
 
 
 ### `snow release validate-pip-installation`
