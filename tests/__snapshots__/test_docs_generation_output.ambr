@@ -11,6 +11,7 @@
     snow cortex complete
       <text>
       --model <model>
+      --backend <backend>
       --file <file>
       --connection <connection>
       --host <host>
@@ -55,7 +56,10 @@
   ===============================================================================
   
   :samp:`--model {TEXT}`
-    String specifying the model to be used. Default: snowflake-arctic.
+    String specifying the model to be used. Default: llama3.1-70b.
+  
+  :samp:`--backend [sql|rest]`
+    String specifying whether to use sql or rest backend. Default is rest. Default: rest.
   
   :samp:`--file {FILE}`
     JSON file containing conversation history to be used to generate a completion. Cannot be combined with TEXT argument.
