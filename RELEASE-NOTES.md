@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added support for OAuth tokens.
 
 ## Fixes and improvements
 

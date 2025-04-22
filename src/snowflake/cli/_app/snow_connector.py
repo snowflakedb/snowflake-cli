@@ -64,6 +64,14 @@ SUPPORTED_ENV_OVERRIDES = [
     "session_token",
     "master_token",
     "token_file_path",
+    "oauth_client_id",
+    "oauth_client_secret",
+    "oauth_authorization_url",
+    "oauth_token_request_url",
+    "oauth_redirect_uri",
+    "oauth_scope",
+    "oauth_security_features",
+    "client_store_temporary_credential",
 ]
 
 # mapping of found key -> key to set

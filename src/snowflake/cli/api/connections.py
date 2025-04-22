@@ -55,6 +55,14 @@ class ConnectionContext:
     session_token: Optional[str] = None
     master_token: Optional[str] = None
     token_file_path: Optional[Path] = None
+    oauth_client_id: Optional[str] = None
+    oauth_client_secret: Optional[str] = None
+    oauth_authorization_url: Optional[str] = None
+    oauth_token_request_url: Optional[str] = None
+    oauth_redirect_uri: Optional[str] = None
+    oauth_scope: Optional[str] = None
+    oauth_security_features: Optional[str] = None
+    client_store_temporary_credential: Optional[bool] = None
 
     VALIDATED_FIELD_NAMES = ["schema"]
 

@@ -284,6 +284,70 @@ EnableDiagOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+OauthClientIdOption = typer.Option(
+    None,
+    "--oauth-client-id",
+    help="OAuth client ID to use when connecting to Snowflake.",
+    callback=_connection_callback("oauth_client_id"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+OauthClientSecretOption = typer.Option(
+    None,
+    help="OAuth client secret to use when connecting to Snowflake.",
+    callback=_connection_callback("oauth_client_secret"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+OauthAuthorizationUrlOption = typer.Option(
+    None,
+    "--oauth-authorization-url",
+    help="OAuth authorization URL to use when connecting to Snowflake.",
+    callback=_connection_callback("oauth_authorization_url"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+# TODO This probably should be constant.
+OauthRedirectUriOption = typer.Option(
+    None,
+    "--oauth-redirect-uri",
+    help="OAuth redirect URI to use when connecting to Snowflake.",
+    callback=_connection_callback("oauth_redirect_uri"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+OauthScopeOption = typer.Option(
+    None,
+    "--oauth-scope",
+    help="OAuth scope to use when connecting to Snowflake.",
+    callback=_connection_callback("oauth_scope"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+OauthSecurityFeaturesOption = typer.Option(
+    None,
+    "--oauth-security-features",
+    help="OAuth security features to use when connecting to Snowflake. Expects a comma-separated list of values.",
+    callback=_connection_callback("oauth_security_features"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+ClientStoreTemporaryCredentialOption = typer.Option(
+    None,
+    "--client-store-temporary-credential",
+    help="Store the temporary credential.",
+    callback=_connection_callback("client_store_temporary_credential"),
+    is_flag=True,
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
 # Set default via callback to avoid including tempdir path in generated docs (snow --docs).
 # Use constant instead of None, as None is removed from telemetry data.
 _DIAG_LOG_DEFAULT_VALUE = "<system_temporary_directory>"
