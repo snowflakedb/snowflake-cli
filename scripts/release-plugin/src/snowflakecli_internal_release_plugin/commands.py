@@ -13,17 +13,14 @@
 # limitations under the License.
 import contextlib
 import logging
-import os
 import re
 import sys
 import tempfile
-from functools import cache
 from pathlib import Path
 from typing import List
 
 import typer
 from click.exceptions import ClickException
-from github import Auth, Github
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.output.types import CollectionResult, MessageResult
@@ -58,35 +55,6 @@ VersionArgument = typer.Argument(
     help="version in format X.Y.Z",
     callback=_check_version_format_callback,
 )
-
-
-# ===== not yet used stuff automatically creating PRs =====
-@cache
-def get_github_token() -> str:
-    token = os.environ.get(GITHUB_TOKEN_ENV)
-
-    if not token:
-        raise ClickException(
-            "No github token set. Please set SNOWCLI_GITHUB_TOKEN environment variable."
-        )
-
-    return token
-
-
-def create_pull_request(title, body, source_branch, target_branch="main"):
-    token = get_github_token()
-    auth = Auth.Token(token)
-    github = Github(auth)
-
-    repo = github.get_repo(SNOWFLAKE_CLI_REPO)
-    pr = repo.create_pull(
-        title=title, body=body, head=source_branch, base=target_branch
-    )
-
-    return pr
-
-
-# ===== not yet used stuff automatically creating PRs =====
 
 
 def get_pr_url(source_branch: str) -> str:
@@ -166,12 +134,6 @@ def init_release(version: str = VersionArgument, **options):
     create PR to 'main': {main_pr_url}
     create PR to '{release_info.release_branch_name}': {rc0_pr_url}"""
     )
-
-    # pr = create_pull_request(message, message, branch_name)
-
-    # return MessageResult(f"PR created at {pr.html_url}")
-
-    # can we open PR from python?
 
 
 @app.command()
