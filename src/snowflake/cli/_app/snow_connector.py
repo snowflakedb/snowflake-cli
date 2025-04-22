@@ -164,12 +164,6 @@ def connect_to_snowflake(
 
     _update_internal_application_info(connection_parameters)
 
-    oauth_security_features = connection_parameters.get("oauth_security_features")
-    if oauth_security_features:
-        connection_parameters["oauth_security_features"] = [
-            f.strip() for f in oauth_security_features.split(",")
-        ]
-
     try:
         # Whatever output is generated when creating connection,
         # we don't want it in our output. This is particularly important
