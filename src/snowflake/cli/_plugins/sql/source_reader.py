@@ -2,7 +2,7 @@ import enum
 import io
 import re
 import urllib.error
-from typing import Any, Callable, Generator, Literal, Sequence
+from typing import Any, Callable, Generator, List, Literal, Sequence
 from urllib.request import urlopen
 
 from jinja2 import UndefinedError
@@ -10,7 +10,7 @@ from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector.util_text import split_statements
 
 SOURCE_PATTERN = re.compile(
-    r"^!(source|load)\s+[\"']?(.*?)[\"']?\s*(?:;|$)",
+    r"^!(source|load|queries)\s+[\"']?(.*?)[\"']?\s*(?:;|$)",
     flags=re.IGNORECASE,
 )
 
@@ -31,9 +31,10 @@ class SourceType(enum.Enum):
     QUERY = "query"
     UNKNOWN = "unknown"
     URL = "url"
+    COMMAND = "command"
 
 
-class ParsedSource:
+class ParsedStatement:
     """Container for parsed statement.
 
     Holds:
@@ -81,7 +82,7 @@ class ParsedSource:
         return f"{self.__class__.__name__}(source_type={self.source_type}, source_path={self.source_path}, error={self.error})"
 
     @classmethod
-    def from_url(cls, path_part: str, raw_source: str) -> "ParsedSource":
+    def from_url(cls, path_part: str, raw_source: str) -> "ParsedStatement":
         """Constructor for loading from URL."""
         try:
             payload = urlopen(path_part, timeout=10.0).read().decode()
@@ -92,7 +93,7 @@ class ParsedSource:
             return cls(path_part, SourceType.URL, raw_source, error)
 
     @classmethod
-    def from_file(cls, path_part: str, raw_source: str) -> "ParsedSource":
+    def from_file(cls, path_part: str, raw_source: str) -> "ParsedStatement":
         """Constructor for loading from file."""
         path = SecurePath(path_part)
 
@@ -104,10 +105,10 @@ class ParsedSource:
         return cls(path_part, SourceType.FILE, raw_source, error_msg)
 
 
-RecursiveStatementReader = Generator[ParsedSource, Any, Any]
+RecursiveStatementReader = Generator[ParsedStatement, Any, Any]
 
 
-def parse_source(source: str, operators: OperatorFunctions) -> ParsedSource:
+def parse_statement(source: str, operators: OperatorFunctions) -> ParsedStatement:
     """Evaluates templating and source commands.
 
     Returns parsed source according to origin."""
@@ -117,13 +118,13 @@ def parse_source(source: str, operators: OperatorFunctions) -> ParsedSource:
             statement = operator(statement)
     except UndefinedError as e:
         error_msg = f"SQL template rendering error: {e}"
-        return ParsedSource(source, SourceType.UNKNOWN, source, error_msg)
+        return ParsedStatement(source, SourceType.UNKNOWN, source, error_msg)
 
     split_result = SOURCE_PATTERN.split(statement, maxsplit=1)
     split_result = [p.strip() for p in split_result]
 
     if len(split_result) == 1:
-        return ParsedSource(statement, SourceType.QUERY, None)
+        return ParsedStatement(statement, SourceType.QUERY, None)
 
     _, command, source_path, *_ = split_result
     _path_match = URL_PATTERN.split(source_path.lower())
@@ -131,16 +132,19 @@ def parse_source(source: str, operators: OperatorFunctions) -> ParsedSource:
     match command.lower(), _path_match:
         # load content from an URL
         case "source" | "load", ("", "http" | "https", *_):
-            return ParsedSource.from_url(source_path, statement)
+            return ParsedStatement.from_url(source_path, statement)
 
         # load content from a local file
         case "source" | "load", (str(),):
-            return ParsedSource.from_file(source_path, statement)
+            return ParsedStatement.from_file(source_path, statement)
+
+        case "queries", (str(),):
+            return ParsedStatement(statement, SourceType.COMMAND, None)
 
         case _:
             error_msg = f"Unknown source: {source_path}"
 
-    return ParsedSource(source_path, SourceType.UNKNOWN, source, error_msg)
+    return ParsedStatement(source_path, SourceType.UNKNOWN, source, error_msg)
 
 
 def recursive_source_reader(
@@ -153,10 +157,10 @@ def recursive_source_reader(
     for stmt, _ in source:
         if not stmt:
             continue
-        parsed_source = parse_source(stmt, operators)
+        parsed_source = parse_statement(stmt, operators)
 
         match parsed_source:
-            case ParsedSource(SourceType.FILE | SourceType.URL, None):
+            case ParsedStatement(SourceType.FILE | SourceType.URL, None):
                 if parsed_source.source_path in seen_files:
                     error = f"Recursion detected: {' -> '.join(seen_files)}"
                     parsed_source.error = error
@@ -174,7 +178,7 @@ def recursive_source_reader(
 
                 seen_files.pop()
 
-            case ParsedSource(SourceType.URL, error) if error:
+            case ParsedStatement(SourceType.URL, error) if error:
                 yield parsed_source
 
             case _:
@@ -213,6 +217,19 @@ def query_reader(
     yield from recursive_source_reader(stmts, [], operators, remove_comments)
 
 
+class QueryOrCommand:
+    def __init__(
+        self,
+        query: str | None = None,
+        command: List[str] | None = None,
+    ):
+        if (not query and not command) or (query and command):
+            raise ValueError("Only one of 'query' or 'command' must be specified")
+
+        self.query = query
+        self.command = command
+
+
 def compile_statements(source: RecursiveStatementReader):
     """Tracks statements evaluation and collects errors."""
     errors = []
@@ -223,7 +240,10 @@ def compile_statements(source: RecursiveStatementReader):
         if stmt.source_type == SourceType.QUERY:
             cnt += 1
             if not stmt.error:
-                compiled.append(stmt.source.read())
+                compiled.append(QueryOrCommand(query=stmt.source.read()))
+        if stmt.source_type == SourceType.COMMAND:
+            cnt += 1
+            compiled.append(QueryOrCommand(command=stmt.source.read().split()))
         if stmt.error:
             errors.append(stmt.error)
 

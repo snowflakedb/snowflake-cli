@@ -22,6 +22,7 @@ from typing import Dict, Iterable, List, Tuple
 
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli._plugins.sql.source_reader import (
+    QueryOrCommand,
     compile_statements,
     files_reader,
     query_reader,
@@ -82,7 +83,17 @@ class SqlManager(SqlExecutionMixin):
             raise CliSqlError("SQL rendering error")
 
         is_single_statement = not (stmt_count > 1)
-        return is_single_statement, self.execute_string(
-            "\n".join(compiled_statements),
+        return is_single_statement, self._execute_compiled_statements(
+            compiled_statements,
             cursor_class=VerboseCursor,
         )
+
+    def _execute_compiled_statements(
+        self, compiled_statements: Iterable[QueryOrCommand], cursor_class
+    ):
+        for stmt in compiled_statements:
+            if stmt.query:
+                yield from self._execute_string(stmt.query)
+            if stmt.command:
+                # prin("Detected command: ", stmt.command)
+                pass
