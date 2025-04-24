@@ -5,7 +5,7 @@ from jinja2 import UndefinedError
 from pytest_httpserver import HTTPServer
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli._plugins.sql.source_reader import (
-    ParsedSource,
+    ParsedStatement,
     SourceType,
     compile_statements,
     files_reader,
@@ -179,7 +179,7 @@ def test_read_files(tmp_path_factory: pytest.TempPathFactory):
 def test_parsed_source_repr():
     query = "select 1;"
 
-    source = ParsedSource(query, SourceType.QUERY, None)
+    source = ParsedStatement(query, SourceType.QUERY, None)
     assert (
         str(source)
         == "ParsedSource(source_type=SourceType.QUERY, source_path=None, error=None)"
@@ -216,7 +216,7 @@ def test_parse_source_invalid_url(httpserver: HTTPServer):
 
 def test_parse_source_just_query():
     source = parse_source("select 1;", WORKING_OPERATOR_FUNCS)
-    expected = ParsedSource("select 1;", SourceType.QUERY, None, None)
+    expected = ParsedStatement("select 1;", SourceType.QUERY, None, None)
     assert source == expected
 
 
@@ -225,7 +225,7 @@ def test_parse_source_just_query():
     (
         pytest.param(
             "!source {path};",
-            ParsedSource(
+            ParsedStatement(
                 "select 73;",
                 SourceType.FILE,
                 "path",
@@ -233,7 +233,7 @@ def test_parse_source_just_query():
         ),
         pytest.param(
             "!SoUrCe {path};",
-            ParsedSource(
+            ParsedStatement(
                 "select 73;",
                 SourceType.FILE,
                 "path",
@@ -241,7 +241,7 @@ def test_parse_source_just_query():
         ),
         pytest.param(
             "!SOURCE {path};",
-            ParsedSource(
+            ParsedStatement(
                 "select 73;",
                 SourceType.FILE,
                 "path",
@@ -249,7 +249,7 @@ def test_parse_source_just_query():
         ),
         pytest.param(
             "!load {path};",
-            ParsedSource(
+            ParsedStatement(
                 "select 73;",
                 SourceType.FILE,
                 "path",
@@ -257,7 +257,7 @@ def test_parse_source_just_query():
         ),
         pytest.param(
             "!LoaD {path};",
-            ParsedSource(
+            ParsedStatement(
                 "select 73;",
                 SourceType.FILE,
                 "path",
@@ -265,7 +265,7 @@ def test_parse_source_just_query():
         ),
         pytest.param(
             "!LOAD {path};",
-            ParsedSource(
+            ParsedStatement(
                 "select 73;",
                 SourceType.FILE,
                 "path",
