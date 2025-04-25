@@ -34,7 +34,7 @@ from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin, VerboseCursor
 from snowflake.connector.cursor import SnowflakeCursor
 
-IsSingleStatement = bool
+ExpectedResultsCount = int
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ class SqlManager(SqlExecutionMixin):
         std_in: bool,
         data: Dict | None = None,
         retain_comments: bool = False,
-    ) -> Tuple[IsSingleStatement, Iterable[SnowflakeCursor]]:
+    ) -> Tuple[ExpectedResultsCount, Iterable[SnowflakeCursor]]:
         """Reads, transforms and execute statements from input.
 
         Only one input can be consumed at a time.
@@ -72,8 +72,10 @@ class SqlManager(SqlExecutionMixin):
         else:
             raise CliArgumentError("Use either query, filename or input option.")
 
-        errors, stmt_count, compiled_statements = compile_statements(stmt_reader)
-        if not any((errors, stmt_count, compiled_statements)):
+        errors, expected_results_cnt, compiled_statements = compile_statements(
+            stmt_reader
+        )
+        if not any((errors, expected_results_cnt, compiled_statements)):
             raise CliArgumentError("Use either query, filename or input option.")
 
         if errors:
@@ -82,8 +84,7 @@ class SqlManager(SqlExecutionMixin):
                 cli_console.warning(error)
             raise CliSqlError("SQL rendering error")
 
-        is_single_statement = not (stmt_count > 1)
-        return is_single_statement, self._execute_compiled_statements(
+        return expected_results_cnt, self._execute_compiled_statements(
             compiled_statements,
             cursor_class=VerboseCursor,
         )
@@ -95,6 +96,7 @@ class SqlManager(SqlExecutionMixin):
             if stmt.execute_async:
                 cursor = self._conn.cursor(cursor_class=cursor_class)
                 cursor.execute(stmt.statement, _no_results=True)
+                # only log query ID for consistency with SnowSQL
                 logger.info("Async execution id: %s", cursor.sfqid)
             else:
                 yield from self.execute_string(

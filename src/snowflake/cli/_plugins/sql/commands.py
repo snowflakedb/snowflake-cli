@@ -26,7 +26,12 @@ from snowflake.cli.api.commands.flags import (
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import parse_key_value_variables
-from snowflake.cli.api.output.types import CommandResult, MultipleResults, QueryResult
+from snowflake.cli.api.output.types import (
+    CommandResult,
+    MessageResult,
+    MultipleResults,
+    QueryResult,
+)
 
 # simple Typer with defaults because it won't become a command group as it contains only one command
 app = SnowTyperFactory()
@@ -86,9 +91,13 @@ def execute_sql(
     if data_override:
         data = {v.key: v.value for v in parse_key_value_variables(data_override)}
 
-    single_statement, cursors = SqlManager().execute(
+    expected_results_cnt, cursors = SqlManager().execute(
         query, files, std_in, data=data, retain_comments=retain_comments
     )
-    if single_statement:
+    if expected_results_cnt == 0:
+        # case expected if input only scheduled async queries
+        # ends gracefully with no message for consistency with snowsql.
+        return MessageResult("")
+    if expected_results_cnt == 1:
         return QueryResult(next(cursors))
     return MultipleResults((QueryResult(c) for c in cursors))

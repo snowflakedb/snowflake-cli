@@ -225,21 +225,24 @@ class CompiledStatement:
 def compile_statements(source: RecursiveStatementReader):
     """Tracks statements evaluation and collects errors."""
     errors = []
-    cnt = 0
+    expected_results_cnt = 0
     compiled = []
 
     for stmt in source:
         if stmt.source_type == SourceType.QUERY:
-            cnt += 1
             if not stmt.error:
                 statement = stmt.source.read()
+                is_async = statement.endswith(ASYNC_SUFFIX)
                 compiled.append(
                     CompiledStatement(
                         statement=statement.rstrip(ASYNC_SUFFIX),
-                        execute_async=statement.endswith(ASYNC_SUFFIX),
+                        execute_async=is_async,
                     )
                 )
+                if not is_async:
+                    expected_results_cnt += 1
+
         if stmt.error:
             errors.append(stmt.error)
 
-    return errors, cnt, compiled
+    return errors, expected_results_cnt, compiled
