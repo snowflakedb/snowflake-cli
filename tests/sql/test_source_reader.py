@@ -9,7 +9,7 @@ from snowflake.cli._plugins.sql.source_reader import (
     SourceType,
     compile_statements,
     files_reader,
-    parse_source,
+    parse_statement,
     query_reader,
 )
 from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
@@ -190,7 +190,7 @@ def test_parse_source_url(httpserver: HTTPServer):
     httpserver.expect_request("/f1.sql").respond_with_data("select 1;")
 
     query = f"!source {httpserver.url_for('f1.sql')};"
-    source = parse_source(query, WORKING_OPERATOR_FUNCS)
+    source = parse_statement(query, WORKING_OPERATOR_FUNCS)
 
     assert source.source_type == SourceType.URL
     assert source.source_path and source.source_path == httpserver.url_for("f1.sql")
@@ -206,7 +206,7 @@ def test_parse_source_invalid_url(httpserver: HTTPServer):
     invalid_url = httpserver.url_for("invalid.sql")
     invalid_source = f"!source {invalid_url};"
 
-    source = parse_source(invalid_source, WORKING_OPERATOR_FUNCS)
+    source = parse_statement(invalid_source, WORKING_OPERATOR_FUNCS)
 
     assert source.source_type == SourceType.URL
     assert source.source_path == invalid_source
@@ -215,7 +215,7 @@ def test_parse_source_invalid_url(httpserver: HTTPServer):
 
 
 def test_parse_source_just_query():
-    source = parse_source("select 1;", WORKING_OPERATOR_FUNCS)
+    source = parse_statement("select 1;", WORKING_OPERATOR_FUNCS)
     expected = ParsedStatement("select 1;", SourceType.QUERY, None, None)
     assert source == expected
 
@@ -280,7 +280,7 @@ def test_parse_source_command_detection(
     path.write_text("select 73;")
     expected.source_path = path.as_posix()
 
-    source = parse_source(statement.format(path=path), WORKING_OPERATOR_FUNCS)
+    source = parse_statement(statement.format(path=path), WORKING_OPERATOR_FUNCS)
     assert source == expected
 
 
@@ -289,7 +289,7 @@ def test_parse_source_file(tmp_path_factory: pytest.TempPathFactory):
     f1.write_text("select 1;")
 
     query = f"!source {f1.as_posix()};"
-    source = parse_source(query, WORKING_OPERATOR_FUNCS)
+    source = parse_statement(query, WORKING_OPERATOR_FUNCS)
 
     assert source.source_type == SourceType.FILE
     assert source.source_path
@@ -303,7 +303,7 @@ def test_parse_source_invalid_file(tmp_path_factory: pytest.TempPathFactory):
 
     invalid_path = f"{f1.as_posix()}_suffix"
     invalid_source = f"!source {invalid_path};"
-    source = parse_source(invalid_source, WORKING_OPERATOR_FUNCS)
+    source = parse_statement(invalid_source, WORKING_OPERATOR_FUNCS)
 
     assert source.source_type == SourceType.FILE
     assert source.source_path == invalid_source
@@ -315,7 +315,7 @@ def test_parse_source_default_fallback():
     path = "s3://bucket/path/file.sql"
     unknown_source = f"!load {path};"
 
-    source = parse_source(unknown_source, WORKING_OPERATOR_FUNCS)
+    source = parse_statement(unknown_source, WORKING_OPERATOR_FUNCS)
 
     assert not source
     assert source.source_type == SourceType.UNKNOWN
@@ -339,7 +339,7 @@ def test_rendering_of_sql_with_commands(query):
         transpile_snowsql_templates,
         partial(snowflake_sql_jinja_render, data={"aaa": "foo", "bbb": "bar"}),
     )
-    parsed_source = parse_source(query, stmt_operators)
+    parsed_source = parse_statement(query, stmt_operators)
     assert parsed_source.source_type == SourceType.FILE
     assert parsed_source.source_path == "!source foo.bar"
     assert parsed_source.source.read() == "foo.bar"
