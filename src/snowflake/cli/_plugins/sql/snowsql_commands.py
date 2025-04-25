@@ -1,5 +1,8 @@
 import enum
+import time
 from dataclasses import dataclass
+from typing import Any, Dict
+from urllib.parse import urlencode
 
 from snowflake.connector import SnowflakeConnection
 
@@ -28,152 +31,103 @@ class CompileCommandResult:
 
 
 class QueriesCommand(SnowSQLCommand):
-    def __init__(self, filters, help_mode):
+    def __init__(
+        self,
+        parameters: Dict[str, Any],
+        filter_session: bool = False,
+        help_mode: bool = False,
+    ) -> None:
         self.help_mode = help_mode
+        self.parameters = parameters
+        self.filter_session = filter_session
         pass
 
     def run(self, connection: SnowflakeConnection):
-        connection.cursor()
+        url_parameters = {
+            "_dc": "{time}".format(time=time.time()),
+            "includeDDL": "false",
+        }
+        url_parameters.update(**self.parameters)
+        if self.filter_session:
+            url_parameters["session_id"] = connection.session_id
+        url = "/monitoring/queries?" + urlencode(url_parameters)
+        ret = connection.rest.request(url=url, method="get", client="rest")
+        if ret.get("data") and ret["data"].get("queries"):
+            for query in ret["data"]["queries"]:
+                yield [
+                    query["id"],
+                    query["sqlText"],
+                    query["state"],
+                    query["totalDuration"],
+                ]
 
     @classmethod
     def from_args(cls, args, kwargs) -> CompileCommandResult:
         if "help" in args:
-            return CompileCommandResult(command=cls(None, help_mode=True))
-        return CompileCommandResult(error_message="Not implemented")
+            return CompileCommandResult(command=cls({}, help_mode=True))
 
-
-def _parse_command_queries(args, passed_kwargs):
-    expected_kwargs = {
-        "amount": "25",
-        "status": None,
-        "warehouse": None,
-        "user": None,
-        "start": None,
-        "end": None,
-        "type": None,
-        "duration": None,
-    }
-
-    # validate args
-    for key in passed_kwargs:
-        if key not in expected_kwargs:
-            return ParseCommandResult(
-                error_message=f"Unrecognized argument for command 'query': '{key}'"
+        amount = kwargs.pop("amount", "25")
+        if not amount.isdigit():
+            return CompileCommandResult(
+                error_message=f"Non-integer argument passed to 'amount' parameter."
             )
-    for arg in args:
-        if arg not in ["session", "help"]:
-            return ParseCommandResult(
-                error_message=f"Unrecognized argument for command 'query': '{arg}'"
-            )
-    expected_kwargs.update(**passed_kwargs)
-    kwargs = expected_kwargs
+        parameters = {"max": int(amount)}
+        filter_session = "session" in args or not kwargs
+        if user := kwargs.pop("user", None):
+            parameters["user"] = user
+        if warehouse := kwargs.pop("warehouse", None):
+            parameters["wh"] = warehouse
+        if start_time := kwargs.pop("start", None):
+            parameters["start"] = start_time
+        if end_time := kwargs.pop("end", None):
+            parameters["end"] = end_time
+        if min_duration := kwargs.pop("duration", None):
+            parameters["min_duration"] = min_duration
 
-    # parse query
-    if "help" in args:
-        raise NotImplementedError
+        if stmt_type := kwargs.pop("type", None):
+            accepted = [
+                "ANY",
+                "SELECT",
+                "INSERT",
+                "UPDATE",
+                "DELETE",
+                "MERGE",
+                "MULTI_TABLE_INSERT",
+                "COPY",
+                "COMMIT",
+                "ROLLBACK",
+                "BEGIN_TRANSACTION",
+                "SHOW",
+                "GRANT",
+                "CREATE",
+                "ALTER",
+            ]
+            if stmt_type.upper() not in accepted:
+                return CompileCommandResult(
+                    error_message=f"Invalid argument passed to 'type' filter: {stmt_type}"
+                )
+            parameters["stmt_type"] = stmt_type.upper()
 
-    conditions = ["true"]
-    if "session" in args or len(passed_kwargs) == 0:
-        conditions.append("session_id = CURRENT_SESSION()")
-    if kwargs["status"]:
-        status = kwargs["status"].upper()
-        if status not in [
-            "RUNNING",
-            "SUCCEEDED",
-            "FAILED",
-            "BLOCKED",
-            "QUEUED",
-            "ABORTED",
-        ]:
-            return ParseCommandResult(
-                error_message=f"Invalid argument passed to status filter: {status}"
-            )
-        conditions.append(f"execution_status = '{status}'")
-        #
-        # while arg != "":
-        #     x = arg.split(" ", 1)
-        #     s = x[0]
-        #     arg = x[1] if arg != x[0] else arg
-        #     if s == "session":  # all options that dont need an arg are below here
-        #         session = cli.sqlexecute.session_id
-        #     else:
-        #         s = s.split("=", 1)
-        #         if len(s) == 1:
-        #             cli.output(
-        #                 "Invalid argument passed to queries command: {s}".format(
-        #                     s=s[0]
-        #                 ),
-        #                 err=True,
-        #                 fg="red",
-        #             )
-        #             return []
-        #         if (
-        #             s[1].startswith('"')
-        #             and s[1].endswith('"')
-        #             and not s[1].endswith('\\"')
-        #         ):
-        #             s[1] = s[1][1:-1]
-        #         elif s[1].startswith('"') and (
-        #             (not s[1].endswith('"')) or s[1].endswith('\\"')
-        #         ):
-        #             s[1] = s[1][1:]
-        #             x = arg.split('"', 1)
-        #             if len(x) <= 1:
-        #                 cli.output("Invalid quoting", err=True, fg="red")
-        #                 return []
-        #             s[1] += " " + x[0]
-        #             arg = x[1]
-        #
-        #         elif s[0] == "warehouse":
-        #             warehouse = s[1]
-        #         elif s[0] == "user":
-        #             user = s[1].upper()
-        #         elif s[0] == "start":
-        #             start_time = s[1]
-        #         elif s[0] == "end":
-        #             end_time = s[1]
-        #         elif s[0] == "type":
-        #             accepted = [
-        #                 "ANY",
-        #                 "SELECT",
-        #                 "INSERT",
-        #                 "UPDATE",
-        #                 "DELETE",
-        #                 "MERGE",
-        #                 "MULTI_TABLE_INSERT",
-        #                 "COPY",
-        #                 "COMMIT",
-        #                 "ROLLBACK",
-        #                 "BEGIN_TRANSACTION",
-        #                 "SHOW",
-        #                 "GRANT",
-        #                 "CREATE",
-        #                 "ALTER",
-        #             ]
-        #             stmt_type = s[1].replace(" ", "_").upper()
-        #             if stmt_type not in accepted:
-        #                 cli.output(
-        #                     "Invalid argument passed to type filter: {stmt_type}".format(
-        #                         stmt_type=stmt_type
-        #                     ),
-        #                     err=True,
-        #                     fg="red",
-        #                 )
-        #                 return []
-        #         elif s[0] == "duration":
-        #             min_duration = s[1]
-        #         else:
-        #
-        #             cli.output(
-        #                 "Invalid argument passed to queries command: {s}".format(
-        #                     s=s[0]
-        #                 ),
-        #                 err=True,
-        #                 fg="red",
-        #             )
-        #             return []
-        #     if arg == x[0]:
-        #         break
+        if status := kwargs.pop("status", None):
+            accepted = [
+                "RUNNING",
+                "SUCCEEDED",
+                "FAILED",
+                "BLOCKED",
+                "QUEUED",
+                "ABORTED",
+            ]
+            if stmt_type.upper() not in accepted:
+                return CompileCommandResult(
+                    error_message=f"Invalid argument passed to 'status' filter: {status}"
+                )
+            parameters["subset"] = status.upper()
+
+        # todo: incorrect args/kwargs error
+
+        return CompileCommandResult(
+            command=cls(parameters, filter_session=filter_session, help_mode=False)
+        )
 
 
 def compile_snowsql_command(statement: str):
