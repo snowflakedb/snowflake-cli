@@ -7,6 +7,10 @@ from typing import Any, Callable, Generator, Literal, Sequence
 from urllib.request import urlopen
 
 from jinja2 import UndefinedError
+from snowflake.cli._plugins.sql.snowsql_commands import (
+    SnowSQLCommand,
+    compile_snowsql_command,
+)
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector.util_text import split_statements
 
@@ -34,6 +38,7 @@ class SourceType(enum.Enum):
     QUERY = "query"
     UNKNOWN = "unknown"
     URL = "url"
+    SNOWSQL_COMMAND = "snowsql_command"
 
 
 class ParsedStatement:
@@ -110,180 +115,6 @@ class ParsedStatement:
 RecursiveStatementReader = Generator[ParsedStatement, Any, Any]
 
 
-@dataclass
-class ParseCommandResult:
-    query: str = ""
-    error_message: str | None = None
-
-
-def _parse_command_queries(args, passed_kwargs):
-    expected_kwargs = {
-        "amount": "25",
-        "status": None,
-        "warehouse": None,
-        "user": None,
-        "start": None,
-        "end": None,
-        "type": None,
-        "duration": None,
-    }
-
-    # validate args
-    for key in passed_kwargs:
-        if key not in expected_kwargs:
-            return ParseCommandResult(
-                error_message=f"Unrecognized argument for command 'query': '{key}'"
-            )
-    for arg in args:
-        if arg not in ["session", "help"]:
-            return ParseCommandResult(
-                error_message=f"Unrecognized argument for command 'query': '{arg}'"
-            )
-    expected_kwargs.update(**passed_kwargs)
-    kwargs = expected_kwargs
-
-    # parse query
-    if "help" in args:
-        raise NotImplementedError
-
-    conditions = ["true"]
-    if "session" in args or len(passed_kwargs) == 0:
-        conditions.append("session_id = CURRENT_SESSION()")
-    if kwargs["status"]:
-        status = kwargs["status"].upper()
-        if status not in [
-            "RUNNING",
-            "SUCCEEDED",
-            "FAILED",
-            "BLOCKED",
-            "QUEUED",
-            "ABORTED",
-        ]:
-            return ParseCommandResult(
-                error_message=f"Invalid argument passed to status filter: {status}"
-            )
-        conditions.append(f"execution_status = '{status}'")
-        #
-        # while arg != "":
-        #     x = arg.split(" ", 1)
-        #     s = x[0]
-        #     arg = x[1] if arg != x[0] else arg
-        #     if s == "session":  # all options that dont need an arg are below here
-        #         session = cli.sqlexecute.session_id
-        #     else:
-        #         s = s.split("=", 1)
-        #         if len(s) == 1:
-        #             cli.output(
-        #                 "Invalid argument passed to queries command: {s}".format(
-        #                     s=s[0]
-        #                 ),
-        #                 err=True,
-        #                 fg="red",
-        #             )
-        #             return []
-        #         if (
-        #             s[1].startswith('"')
-        #             and s[1].endswith('"')
-        #             and not s[1].endswith('\\"')
-        #         ):
-        #             s[1] = s[1][1:-1]
-        #         elif s[1].startswith('"') and (
-        #             (not s[1].endswith('"')) or s[1].endswith('\\"')
-        #         ):
-        #             s[1] = s[1][1:]
-        #             x = arg.split('"', 1)
-        #             if len(x) <= 1:
-        #                 cli.output("Invalid quoting", err=True, fg="red")
-        #                 return []
-        #             s[1] += " " + x[0]
-        #             arg = x[1]
-        #
-        #         elif s[0] == "warehouse":
-        #             warehouse = s[1]
-        #         elif s[0] == "user":
-        #             user = s[1].upper()
-        #         elif s[0] == "start":
-        #             start_time = s[1]
-        #         elif s[0] == "end":
-        #             end_time = s[1]
-        #         elif s[0] == "type":
-        #             accepted = [
-        #                 "ANY",
-        #                 "SELECT",
-        #                 "INSERT",
-        #                 "UPDATE",
-        #                 "DELETE",
-        #                 "MERGE",
-        #                 "MULTI_TABLE_INSERT",
-        #                 "COPY",
-        #                 "COMMIT",
-        #                 "ROLLBACK",
-        #                 "BEGIN_TRANSACTION",
-        #                 "SHOW",
-        #                 "GRANT",
-        #                 "CREATE",
-        #                 "ALTER",
-        #             ]
-        #             stmt_type = s[1].replace(" ", "_").upper()
-        #             if stmt_type not in accepted:
-        #                 cli.output(
-        #                     "Invalid argument passed to type filter: {stmt_type}".format(
-        #                         stmt_type=stmt_type
-        #                     ),
-        #                     err=True,
-        #                     fg="red",
-        #                 )
-        #                 return []
-        #         elif s[0] == "duration":
-        #             min_duration = s[1]
-        #         else:
-        #
-        #             cli.output(
-        #                 "Invalid argument passed to queries command: {s}".format(
-        #                     s=s[0]
-        #                 ),
-        #                 err=True,
-        #                 fg="red",
-        #             )
-        #             return []
-        #     if arg == x[0]:
-        #         break
-
-    query = f"""SELECT
-      query_id as "QUERY ID",
-      query_text as "SQL TEXT",
-      execution_status as STATUS,
-      total_elapsed_time as DURATION_MS
-    FROM SNOWFLAKE.ACCOUNT_USAGE.QUERY_HISTORY
-    WHERE {" AND ".join(conditions)}
-    ORDER BY start_time
-    LIMIT {kwargs['amount']}"""
-
-    return ParseCommandResult(query=query)
-
-
-def _parse_command(command: str, cmd_args: str):
-    """Parses command into SQL query"""
-    args = []
-    kwargs = {}
-    for cmd_arg in cmd_args.split():
-        if "=" not in cmd_arg:
-            args.append(cmd_arg)
-        else:
-            key, val = cmd_arg.split("=", maxsplit=1)
-            if key in kwargs:
-                return ParseCommandResult(
-                    error_message=f"duplicated argument '{key}' for command '{command}'",
-                )
-            kwargs[key] = val
-
-    match command.lower():
-        case "queries":
-            return _parse_command_queries(args, kwargs)
-        case _:
-            return ParseCommandResult(error_message=f"Unknown command '{command}'")
-
-
 def parse_statement(source: str, operators: OperatorFunctions) -> ParsedStatement:
     """Evaluates templating and source commands.
 
@@ -302,7 +133,7 @@ def parse_statement(source: str, operators: OperatorFunctions) -> ParsedStatemen
     if len(split_result) == 1:
         return ParsedStatement(statement, SourceType.QUERY, None)
 
-    _, command, command_args, suffix = split_result
+    _, command, command_args, *_ = split_result
     _path_match = URL_PATTERN.split(command_args.lower())
 
     match command.lower(), _path_match:
@@ -314,15 +145,8 @@ def parse_statement(source: str, operators: OperatorFunctions) -> ParsedStatemen
         case "source" | "load", (str(),):
             return ParsedStatement.from_file(command_args, statement)
 
-        # translate command into SQL query
         case "queries", (str(),):
-            translation = _parse_command(command=command, cmd_args=command_args)
-            return ParsedStatement(
-                translation.query + f";{suffix}",
-                SourceType.QUERY,
-                None,
-                translation.error_message,
-            )
+            return ParsedStatement(statement, SourceType.SNOWSQL_COMMAND, None)
 
         case _:
             error_msg = f"Unknown command: {source}"
@@ -402,8 +226,9 @@ def query_reader(
 
 @dataclass
 class CompiledStatement:
-    statement: str
-    execute_async: bool
+    statement: str | None = None
+    execute_async: bool = False
+    command: SnowSQLCommand | None = None
 
 
 def compile_statements(source: RecursiveStatementReader):
@@ -425,6 +250,14 @@ def compile_statements(source: RecursiveStatementReader):
                 )
                 if not is_async:
                     expected_results_cnt += 1
+
+        if stmt.source_type == SourceType.SNOWSQL_COMMAND:
+            if not stmt.error:
+                parsed_command = compile_snowsql_command(stmt.source.read())
+                if parsed_command.error_message:
+                    errors.append(parsed_command.error_message)
+                else:
+                    compiled.append(CompiledStatement(command=parsed_command.command))
 
         if stmt.error:
             errors.append(stmt.error)
