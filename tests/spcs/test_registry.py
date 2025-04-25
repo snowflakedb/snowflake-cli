@@ -15,6 +15,7 @@
 import json
 from subprocess import PIPE, CalledProcessError
 from unittest import mock
+from unittest.mock import call
 
 import pytest
 from click import ClickException
