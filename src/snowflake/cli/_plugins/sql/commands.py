@@ -100,4 +100,6 @@ def execute_sql(
         return MessageResult("")
     if expected_results_cnt == 1:
         return QueryResult(next(cursors))
+    # TODO: generator not executed if cnt < 2
+    # TODO: ckeck format json
     return MultipleResults((QueryResult(c) for c in cursors))

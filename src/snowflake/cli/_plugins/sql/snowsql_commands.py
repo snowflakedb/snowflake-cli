@@ -1,9 +1,11 @@
 import enum
 import time
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Generator, Iterable, Tuple
 from urllib.parse import urlencode
 
+from snowflake.cli._app.printing import print_result
+from snowflake.cli.api.output.types import CollectionResult
 from snowflake.connector import SnowflakeConnection
 
 
@@ -24,6 +26,13 @@ class SnowSQLCommand:
         raise NotImplementedError
 
 
+def _print_result_to_stdout(headers: Iterable[str], rows: Iterable[Iterable[Any]]):
+    formatted_rows: Generator[Dict[str, Any], None, None] = (
+        {key: value for key, value in zip(headers, row)} for row in rows
+    )
+    print_result(CollectionResult(formatted_rows))
+
+
 @dataclass
 class CompileCommandResult:
     command: SnowSQLCommand | None = None
@@ -42,7 +51,7 @@ class QueriesCommand(SnowSQLCommand):
         self.filter_session = filter_session
         pass
 
-    def run(self, connection: SnowflakeConnection):
+    def execute(self, connection: SnowflakeConnection):
         url_parameters = {
             "_dc": "{time}".format(time=time.time()),
             "includeDDL": "false",
@@ -53,13 +62,18 @@ class QueriesCommand(SnowSQLCommand):
         url = "/monitoring/queries?" + urlencode(url_parameters)
         ret = connection.rest.request(url=url, method="get", client="rest")
         if ret.get("data") and ret["data"].get("queries"):
-            for query in ret["data"]["queries"]:
-                yield [
+            _result: Generator[Tuple[str, str, str, str], None, None] = (
+                (
                     query["id"],
                     query["sqlText"],
                     query["state"],
                     query["totalDuration"],
-                ]
+                )
+                for query in ret["data"]["queries"]
+            )
+            _print_result_to_stdout(
+                ["QUERY ID", "SQL TEXT", "STATUS", "DURATION_MS"], _result
+            )
 
     @classmethod
     def from_args(cls, args, kwargs) -> CompileCommandResult:
@@ -72,7 +86,7 @@ class QueriesCommand(SnowSQLCommand):
                 error_message=f"Non-integer argument passed to 'amount' parameter."
             )
         parameters = {"max": int(amount)}
-        filter_session = "session" in args or not kwargs
+        filter_session = "session" in args or len(kwargs) > 0
         if user := kwargs.pop("user", None):
             parameters["user"] = user
         if warehouse := kwargs.pop("warehouse", None):

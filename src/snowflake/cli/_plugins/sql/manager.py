@@ -103,4 +103,4 @@ class SqlManager(SqlExecutionMixin):
                     stmt.statement, cursor_class=cursor_class
                 )
             if stmt.command:
-                stmt.command.execute(self._connection)
+                stmt.command.execute(self._conn)
