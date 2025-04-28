@@ -23,7 +23,7 @@
 
 ## Fixes and improvements
 * Fix certificate connection issues.
-* Fix `snow spcs image-registry login` slow query problem
+* Fix `snow spcs image-registry login` slow query problem.
 
 # v3.7.0
 
