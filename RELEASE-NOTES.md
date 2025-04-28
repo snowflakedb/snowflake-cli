@@ -22,7 +22,7 @@
 * Added support for OAuth tokens.
 
 ## Fixes and improvements
-
+* Fix certificate connection issues.
 
 # v3.7.0
 
