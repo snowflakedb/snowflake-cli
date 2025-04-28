@@ -75,19 +75,20 @@ class RegistryManager(SqlExecutionMixin):
 
     def get_registry_url(self) -> str:
         images_query = "show image repositories in schema snowflake.images;"
-
         images_result = self.execute_query(images_query, cursor_class=DictCursor)
 
-        images = images_result.fetchone()
-        if images:
-            sample_repository_url = images["repository_url"]
-        else:
+        results = images_result.fetchone()
+
+        if not results:
+            # fallback to account level query - slower one, so we try to avoid it if possible
             repositories_query = "show image repositories in account"
             result_set = self.execute_query(repositories_query, cursor_class=DictCursor)
             results = result_set.fetchone()
+
             if not results:
                 raise NoImageRepositoriesFoundError()
-            sample_repository_url = results["repository_url"]
+
+        sample_repository_url = results["repository_url"]
         if not self._has_url_scheme(sample_repository_url):
             sample_repository_url = f"//{sample_repository_url}"
         return urlparse(sample_repository_url).netloc
