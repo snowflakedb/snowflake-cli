@@ -197,6 +197,8 @@ class ServiceManager(SqlExecutionMixin):
         if not artifacts:
             raise ValueError("Service needs to have artifacts to deploy")
 
+        service_project_paths.remove_up_bundle_root()
+        SecurePath(service_project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
         bundle_map = bundle_artifacts(service_project_paths, artifacts)
         for absolute_src, absolute_dest in bundle_map.all_mappings(
             absolute=True, expand_directories=True
@@ -208,6 +210,7 @@ class ServiceManager(SqlExecutionMixin):
             stage_manager.put(
                 local_path=absolute_dest, stage_path=stage_path, overwrite=True
             )
+        service_project_paths.clean_up_output()
 
     def execute_job(
         self,
