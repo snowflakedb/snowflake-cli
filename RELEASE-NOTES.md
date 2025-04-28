@@ -23,6 +23,16 @@
 ## Fixes and improvements
 
 
+# v3.7.1
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+* Fix certificate connection issues.
+* Fix `snow spcs image-registry login` slow query problem.
+
 # v3.7.0
 
 ## Deprecations
