@@ -176,6 +176,7 @@ def test_deploy_with_artifacts(
                 "stage_path": "@MockDatabase.MockSchema.streamlit/test_streamlit_deploy_snowcli"
                 + path["stage"],
             } in put_calls
+        assert not (tmp / "output").exists()
 
 
 @pytest.mark.parametrize(
@@ -335,6 +336,7 @@ def test_deploy_with_artifacts_from_other_directory(
                 "stage_path": "@MockDatabase.MockSchema.streamlit/test_streamlit_deploy_snowcli"
                 + path["stage"],
             } in put_calls
+        assert not (tmp / "output").exists()
 
 
 def _extract_put_calls(mock_sm_put):

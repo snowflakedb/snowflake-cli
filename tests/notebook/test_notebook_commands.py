@@ -130,6 +130,7 @@ def test_deploy_default_stage_paths(
             line for line in ctx.get_query().split("\n") if not line.startswith("put")
         )
         assert query == snapshot(name="query")
+        assert not (project_path / "output").exists()
 
 
 @mock.patch("snowflake.connector.connect")
@@ -161,6 +162,7 @@ def test_deploy_single_notebook(
             line for line in ctx.get_query().split("\n") if not line.startswith("put")
         )
         assert query == snapshot(name="query")
+        assert not (project_root / "output").exists()
 
 
 @mock.patch("snowflake.connector.connect")

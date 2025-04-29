@@ -6,6 +6,7 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.entities.utils import sync_deploy_root_with_stage
 from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
+from snowflake.cli.api.secure_path import SecurePath
 
 
 def sync_artifacts_with_stage(
@@ -16,6 +17,9 @@ def sync_artifacts_with_stage(
 ):
     if artifacts is None:
         artifacts = []
+
+    project_paths.remove_up_bundle_root()
+    SecurePath(project_paths.bundle_root).mkdir(parents=True, exist_ok=True)
 
     bundle_map = bundle_artifacts(project_paths, artifacts)
     stage_path_parts = StageManager().stage_path_parts_from_str(stage_root)
@@ -29,6 +33,7 @@ def sync_artifacts_with_stage(
         stage_path=stage_path_parts,
         print_diff=True,
     )
+    project_paths.clean_up_output()
 
 
 def put_files(

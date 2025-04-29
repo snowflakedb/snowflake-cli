@@ -3,7 +3,7 @@ import io
 import re
 import urllib.error
 from dataclasses import dataclass
-from typing import Any, Callable, Generator, Literal, Sequence
+from typing import Any, Callable, Generator, List, Literal, Sequence, Tuple
 from urllib.request import urlopen
 
 from jinja2 import UndefinedError
@@ -235,7 +235,9 @@ class CompiledStatement:
     command: SnowSQLCommand | None = None
 
 
-def compile_statements(source: RecursiveStatementReader):
+def compile_statements(
+    source: RecursiveStatementReader,
+) -> Tuple[List[str], int, List[CompiledStatement]]:
     """Tracks statements evaluation and collects errors."""
     errors = []
     expected_results_cnt = 0

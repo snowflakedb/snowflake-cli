@@ -90,9 +90,11 @@ class EmptyInput:
         return "optional"
 
 
-def _mask_password(connection_params: dict):
+def _mask_sensitive_parameters(connection_params: dict):
     if "password" in connection_params:
         connection_params["password"] = "****"
+    if "oauth_client_secret" in connection_params:
+        connection_params["oauth_client_secret"] = "****"
     return connection_params
 
 
@@ -106,7 +108,7 @@ def list_connections(**options) -> CommandResult:
     result = (
         {
             "connection_name": connection_name,
-            "parameters": _mask_password(
+            "parameters": _mask_sensitive_parameters(
                 connection_config.to_dict_of_known_non_empty_values()
             ),
             "is_default": connection_name == default_connection,

@@ -19,8 +19,13 @@
 ## Deprecations
 
 ## New additions
+* Added support for OAuth tokens.
+* Cleaning up the output directory after coping files to the stage for Streamlit, Notebook, SPCS Service and project.
 
 ## Fixes and improvements
+* Fix certificate connection issues.
+* Fix `snow spcs image-registry login` slow query problem.
+* Added interactive mode for `snow sql`
 
 
 # v3.7.0

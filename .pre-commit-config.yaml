@@ -1,9 +1,9 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.1.0
+    rev: v5.0.0
     hooks:
       - id: trailing-whitespace
-        exclude: '(^tests/|^tests_integration/|^tests_e2e)'
+        exclude: "(^tests/|^tests_integration/|^tests_e2e)"
       - id: end-of-file-fixer
         exclude: license_header.txt
       - id: check-yaml
@@ -48,6 +48,7 @@ repos:
           ^src/snowflake/cli/api/utils/rendering.py$|
           ^src/snowflake/cli/_plugins/spcs/common.py$|
           ^src/snowflake/cli/_plugins/snowpark/venv.py$|
+          ^src/snowflake/cli/_plugins/sql/repl.py$|
           ^src/snowflake/cli/_app/cli_app.py$
       - id: check-app-imports-in-api
         language: pygrep
