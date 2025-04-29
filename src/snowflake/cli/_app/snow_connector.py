@@ -121,7 +121,7 @@ def connect_to_snowflake(
     elif temporary_connection:
         connection_parameters = {}  # we will apply overrides in next step
 
-    connection_parameters["keep_alive"] = True
+    connection_parameters["using_session_keep_alive"] = True
 
     # Apply overrides to connection details
     # (1) Command line override case
