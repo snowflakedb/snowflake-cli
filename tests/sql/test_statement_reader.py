@@ -365,9 +365,9 @@ def test_detect_async_queries():
     assert errors == []
     assert expected_results == 2
     assert list(compiled_statements) == [
-        CompiledStatement(statement="select 1", execute_async=True),
-        CompiledStatement(statement="select -1;", execute_async=False),
-        CompiledStatement(statement="select 2", execute_async=True),
-        CompiledStatement(statement="select -2;", execute_async=False),
-        CompiledStatement(statement="select 3", execute_async=True),
+        CompiledStatement(statement="select 1", execute_async=True, command=None),
+        CompiledStatement(statement="select -1;", execute_async=False, command=None),
+        CompiledStatement(statement="select 2", execute_async=True, command=None),
+        CompiledStatement(statement="select -2;", execute_async=False, command=None),
+        CompiledStatement(statement="select 3", execute_async=True, command=None),
     ]

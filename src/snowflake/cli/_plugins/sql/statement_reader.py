@@ -7,6 +7,10 @@ from typing import Any, Callable, Generator, List, Literal, Sequence, Tuple
 from urllib.request import urlopen
 
 from jinja2 import UndefinedError
+from snowflake.cli._plugins.sql.snowsql_commands import (
+    SnowSQLCommand,
+    compile_snowsql_command,
+)
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector.util_text import split_statements
 
@@ -34,6 +38,7 @@ class SourceType(enum.Enum):
     QUERY = "query"
     UNKNOWN = "unknown"
     URL = "url"
+    SNOWSQL_COMMAND = "snowsql_command"
 
 
 class ParsedStatement:
@@ -148,6 +153,9 @@ def parse_statement(source: str, operators: OperatorFunctions) -> ParsedStatemen
                 f"Unknown source: {command_args}",
             )
 
+        case "queries", (str(),):
+            return ParsedStatement(statement, SourceType.SNOWSQL_COMMAND, None)
+
         case _:
             error_msg = f"Unknown command: {source}"
 
@@ -232,6 +240,7 @@ def query_reader(
 class CompiledStatement:
     statement: str | None = None
     execute_async: bool = False
+    command: SnowSQLCommand | None = None
 
 
 def _is_empty_statement(statement: str) -> bool:
@@ -264,6 +273,22 @@ def compile_statements(
                 )
                 if not is_async:
                     expected_results_cnt += 1
+
+        if stmt.source_type == SourceType.SNOWSQL_COMMAND:
+            if not stmt.error:
+                cmd = (
+                    stmt.source.read()
+                    .removesuffix(ASYNC_SUFFIX)
+                    .removesuffix(";")
+                    .split()
+                )
+                parsed_command = compile_snowsql_command(
+                    command=cmd[0], cmd_args=cmd[1:]
+                )
+                if parsed_command.error_message:
+                    errors.append(parsed_command.error_message)
+                else:
+                    compiled.append(CompiledStatement(command=parsed_command.command))
 
         if stmt.error:
             errors.append(stmt.error)
