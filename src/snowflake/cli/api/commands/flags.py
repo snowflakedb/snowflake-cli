@@ -489,9 +489,9 @@ NoInteractiveOption = typer.Option(False, "--no-interactive", help="Disable prom
 
 PruneOption = OverrideableOption(
     False,
-    "--prune",
+    "--prune/--no-prune",
     help=f"Delete files that exist in the stage, but not in the local filesystem.",
-    show_default=False,
+    show_default=True,
 )
 
 
