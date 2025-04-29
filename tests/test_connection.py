@@ -557,7 +557,7 @@ def test_temporary_connection(mock_connector, mock_ctx, option, runner):
         schema="PUBLIC",
         warehouse="xsmall",
         application_name="snowcli",
-        client_session_keep_alive=True,
+        using_session_keep_alive=True,
     )
 
 
@@ -720,7 +720,7 @@ def test_token_file_path_tokens(mock_connector, mock_ctx, runner, temporary_dire
         application="SNOWCLI.OBJECT.LIST",
         token_file_path=str(token_file),
         application_name="snowcli",
-        client_session_keep_alive=True,
+        using_session_keep_alive=True,
     )
 
 
