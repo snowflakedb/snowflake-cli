@@ -1,7 +1,7 @@
 import enum
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Generator, Iterable, Tuple
+from typing import Any, Dict, Generator, Iterable, List, Tuple
 from urllib.parse import urlencode
 
 from snowflake.cli._app.printing import print_result
@@ -39,26 +39,62 @@ class CompileCommandResult:
     error_message: str | None = None
 
 
+@dataclass
 class QueriesCommand(SnowSQLCommand):
-    def __init__(
-        self,
-        parameters: Dict[str, Any],
-        filter_session: bool = False,
-        help_mode: bool = False,
-    ) -> None:
-        self.help_mode = help_mode
-        self.parameters = parameters
-        self.filter_session = filter_session
-        pass
+    help_mode: bool = False
+    from_current_session: bool = False
+    amount: int = 25
+    user: str | None = None
+    warehouse: str | None = None
+    start_time: str | None = None
+    end_time: str | None = None
+    duration: str | None = None
+    stmt_type: str | None = None
+    status: str | None = None
 
-    def execute(self, connection: SnowflakeConnection):
+    def execute(self, connection: SnowflakeConnection) -> None:
+        if self.help_mode:
+            self._execute_help()
+        else:
+            self._execute_queries(connection)
+
+    def _execute_help(self):
+        filters = []
+        headers = ["FILTER", "ARGUMENT", "DEFAULT"]
+        filters.append(["amount", "integer", "25"])
+        filters.append(["status", "string", "any"])
+        filters.append(["warehouse", "string", "any"])
+        filters.append(["user", "string", "any"])
+        filters.append(["start", "date in milliseconds", "any"])
+        filters.append(["end", "date in milliseconds", "any"])
+        filters.append(["type", "string", "any"])
+        filters.append(["duration", "time in milliseconds", "any"])
+        filters.append(["session", "No arguments", "any"])
+        _print_result_to_stdout(headers, filters)
+
+    def _execute_queries(self, connection: SnowflakeConnection) -> None:
         url_parameters = {
             "_dc": "{time}".format(time=time.time()),
             "includeDDL": "false",
+            "max": self.amount,
         }
-        url_parameters.update(**self.parameters)
-        if self.filter_session:
+        if self.user:
+            url_parameters["user"] = self.user
+        if self.warehouse:
+            url_parameters["wh"] = self.warehouse
+        if self.start_time:
+            url_parameters["start"] = self.start_time
+        if self.end_time:
+            url_parameters["end"] = self.end_time
+        if self.duration:
+            url_parameters["min_duration"] = self.duration
+        if self.from_current_session:
             url_parameters["session_id"] = connection.session_id
+        if self.status:
+            url_parameters["subset"] = self.status
+        if self.stmt_type:
+            url_parameters["stmt_type"] = self.stmt_type
+
         url = "/monitoring/queries?" + urlencode(url_parameters)
         ret = connection.rest.request(url=url, method="get", client="rest")
         if ret.get("data") and ret["data"].get("queries"):
@@ -78,28 +114,24 @@ class QueriesCommand(SnowSQLCommand):
     @classmethod
     def from_args(cls, args, kwargs) -> CompileCommandResult:
         if "help" in args:
-            return CompileCommandResult(command=cls({}, help_mode=True))
+            return CompileCommandResult(command=cls(help_mode=True))
 
+        # "session" is set by default if no other arguments are provided
+        from_current_session = "session" in args or not kwargs
         amount = kwargs.pop("amount", "25")
         if not amount.isdigit():
             return CompileCommandResult(
-                error_message=f"Non-integer argument passed to 'amount' parameter."
+                error_message=f"Invalid argument passed to 'amount' filter: {amount}"
             )
-        parameters = {"max": int(amount)}
-        filter_session = "session" in args or len(kwargs) > 0
-        if user := kwargs.pop("user", None):
-            parameters["user"] = user
-        if warehouse := kwargs.pop("warehouse", None):
-            parameters["wh"] = warehouse
-        if start_time := kwargs.pop("start", None):
-            parameters["start"] = start_time
-        if end_time := kwargs.pop("end", None):
-            parameters["end"] = end_time
-        if min_duration := kwargs.pop("duration", None):
-            parameters["min_duration"] = min_duration
-
-        if stmt_type := kwargs.pop("type", None):
-            accepted = [
+        user = kwargs.pop("user", None)
+        warehouse = kwargs.pop("warehouse", None)
+        start_time = kwargs.pop("start", None)
+        end_time = kwargs.pop("end", None)
+        duration = kwargs.pop("duration", None)
+        stmt_type = kwargs.pop("stmtType", None)
+        if stmt_type:
+            stmt_type = stmt_type.upper()
+            if stmt_type not in [
                 "ANY",
                 "SELECT",
                 "INSERT",
@@ -115,42 +147,58 @@ class QueriesCommand(SnowSQLCommand):
                 "GRANT",
                 "CREATE",
                 "ALTER",
-            ]
-            if stmt_type.upper() not in accepted:
+            ]:
                 return CompileCommandResult(
                     error_message=f"Invalid argument passed to 'type' filter: {stmt_type}"
                 )
-            parameters["stmt_type"] = stmt_type.upper()
 
-        if status := kwargs.pop("status", None):
-            accepted = [
+        status = kwargs.pop("status", None)
+        if status:
+            status = status.upper()
+            if status not in [
                 "RUNNING",
                 "SUCCEEDED",
                 "FAILED",
                 "BLOCKED",
                 "QUEUED",
                 "ABORTED",
-            ]
-            if stmt_type.upper() not in accepted:
+            ]:
                 return CompileCommandResult(
                     error_message=f"Invalid argument passed to 'status' filter: {status}"
                 )
-            parameters["subset"] = status.upper()
 
-        # todo: incorrect args/kwargs error
+        for arg in args:
+            if arg.lower() not in ["session", "help"]:
+                return CompileCommandResult(
+                    error_message=f"Invalid argument passed to 'queries' command: {arg}"
+                )
+        if kwargs:
+            key, value = next(kwargs.items())
+            return CompileCommandResult(
+                error_message=f"Invalid argument passed to 'queries' command: {key}={value}"
+            )
 
         return CompileCommandResult(
-            command=cls(parameters, filter_session=filter_session, help_mode=False)
+            command=cls(
+                help_mode=False,
+                from_current_session=from_current_session,
+                amount=int(amount),
+                user=user,
+                warehouse=warehouse,
+                start_time=start_time,
+                end_time=end_time,
+                duration=duration,
+                stmt_type=stmt_type,
+                status=status,
+            )
         )
 
 
-def compile_snowsql_command(statement: str):
+def compile_snowsql_command(command: str, cmd_args: List[str]):
     """Parses command into SQL query"""
     args = []
     kwargs = {}
-    cmd = statement.split()
-    command = cmd[0]
-    for cmd_arg in cmd[1:]:
+    for cmd_arg in cmd_args:
         if "=" not in cmd_arg:
             args.append(cmd_arg)
         else:

@@ -220,6 +220,10 @@ def query_reader(
     """Entry point for reading statements from query.
 
     Returns a generator with statements."""
+    # known issue of split_statements (doesn't work in SnowSQL either):
+    # when the line starts with a command:
+    # '!queries amount=3; select 3;'
+    # it is treated as a single statement
     stmts = split_statements(io.StringIO(source), remove_comments)
     yield from recursive_statement_reader(stmts, [], operators, remove_comments)
 
@@ -253,7 +257,15 @@ def compile_statements(source: RecursiveStatementReader):
 
         if stmt.source_type == SourceType.SNOWSQL_COMMAND:
             if not stmt.error:
-                parsed_command = compile_snowsql_command(stmt.source.read())
+                cmd = (
+                    stmt.source.read()
+                    .removesuffix(ASYNC_SUFFIX)
+                    .removesuffix(";")
+                    .split()
+                )
+                parsed_command = compile_snowsql_command(
+                    command=cmd[0], cmd_args=cmd[1:]
+                )
                 if parsed_command.error_message:
                     errors.append(parsed_command.error_message)
                 else:

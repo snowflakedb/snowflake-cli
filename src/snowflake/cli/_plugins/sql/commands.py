@@ -28,7 +28,6 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.output.types import (
     CommandResult,
-    MessageResult,
     MultipleResults,
     QueryResult,
 )
@@ -97,9 +96,14 @@ def execute_sql(
     if expected_results_cnt == 0:
         # case expected if input only scheduled async queries
         # ends gracefully with no message for consistency with snowsql.
-        return MessageResult("")
+        import sys
+
+        list(cursors)  # evaluate the result to schedule potential async queries
+        sys.exit(0)
+
     if expected_results_cnt == 1:
-        return QueryResult(next(cursors))
-    # TODO: generator not executed if cnt < 2
+        # evaluate the result to schedule async queries
+        return QueryResult(list(cursors)[0])
+
     # TODO: ckeck format json
     return MultipleResults((QueryResult(c) for c in cursors))
