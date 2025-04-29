@@ -237,7 +237,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -356,7 +358,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -529,7 +533,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -649,7 +655,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -856,7 +864,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -983,7 +993,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -1109,7 +1121,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -1232,7 +1246,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -1359,7 +1375,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -1485,7 +1503,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -1606,7 +1626,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -1758,7 +1780,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -1891,7 +1915,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -2020,7 +2046,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -2157,7 +2185,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -2282,7 +2312,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -2522,7 +2554,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -2668,7 +2702,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -2787,7 +2823,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -2982,7 +3020,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -3135,7 +3175,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -3254,7 +3296,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -3424,7 +3468,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -3535,7 +3581,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -3649,7 +3697,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -3763,7 +3813,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -3870,7 +3922,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -4091,7 +4145,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -4263,7 +4319,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -4409,7 +4467,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -4520,7 +4580,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -4631,7 +4693,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -4764,7 +4828,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -4876,7 +4942,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -4992,7 +5060,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -5109,7 +5179,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -5225,7 +5297,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -5343,7 +5417,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -5466,7 +5542,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -5671,7 +5749,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -5786,7 +5866,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -5911,7 +5993,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -6023,7 +6107,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -6135,7 +6221,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -6247,7 +6335,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -6401,7 +6491,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -6519,7 +6611,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -6637,7 +6731,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -6766,7 +6862,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -7028,7 +7126,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -7147,7 +7247,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -7191,89 +7293,83 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
-  | --connection,--environment     -c      TEXT     Name of the connection, as   |
-  |                                                 defined in your config.toml  |
-  |                                                 file. Default: default.      |
-  | --host                                 TEXT     Host address for the         |
-  |                                                 connection. Overrides the    |
-  |                                                 value specified for the      |
-  |                                                 connection.                  |
-  | --port                                 INTEGER  Port for the connection.     |
-  |                                                 Overrides the value          |
-  |                                                 specified for the            |
-  |                                                 connection.                  |
-  | --account,--accountname                TEXT     Name assigned to your        |
-  |                                                 Snowflake account. Overrides |
-  |                                                 the value specified for the  |
-  |                                                 connection.                  |
-  | --user,--username                      TEXT     Username to connect to       |
-  |                                                 Snowflake. Overrides the     |
-  |                                                 value specified for the      |
-  |                                                 connection.                  |
-  | --password                             TEXT     Snowflake password.          |
-  |                                                 Overrides the value          |
-  |                                                 specified for the            |
-  |                                                 connection.                  |
-  | --authenticator                        TEXT     Snowflake authenticator.     |
-  |                                                 Overrides the value          |
-  |                                                 specified for the            |
-  |                                                 connection.                  |
-  | --private-key-file,--private…          TEXT     Snowflake private key file   |
-  |                                                 path. Overrides the value    |
-  |                                                 specified for the            |
-  |                                                 connection.                  |
-  | --token-file-path                      TEXT     Path to file with an OAuth   |
-  |                                                 token to use when connecting |
-  |                                                 to Snowflake.                |
-  | --database,--dbname                    TEXT     Database to use. Overrides   |
-  |                                                 the value specified for the  |
-  |                                                 connection.                  |
-  | --schema,--schemaname                  TEXT     Database schema to use.      |
-  |                                                 Overrides the value          |
-  |                                                 specified for the            |
-  |                                                 connection.                  |
-  | --role,--rolename                      TEXT     Role to use. Overrides the   |
-  |                                                 value specified for the      |
-  |                                                 connection.                  |
-  | --warehouse                            TEXT     Warehouse to use. Overrides  |
-  |                                                 the value specified for the  |
-  |                                                 connection.                  |
-  | --temporary-connection         -x               Uses a connection defined    |
-  |                                                 with command line            |
-  |                                                 parameters, instead of one   |
-  |                                                 defined in config            |
-  | --mfa-passcode                         TEXT     Token to use for             |
-  |                                                 multi-factor authentication  |
-  |                                                 (MFA)                        |
-  | --enable-diag                                   Whether to generate a        |
-  |                                                 connection diagnostic        |
-  |                                                 report.                      |
-  | --diag-log-path                        TEXT     Path for the generated       |
-  |                                                 report. Defaults to system   |
-  |                                                 temporary directory.         |
-  | --diag-allowlist-path                  TEXT     Path to a JSON file that     |
-  |                                                 contains allowlist           |
-  |                                                 parameters.                  |
-  | --oauth-client-id                      TEXT     OAuth client ID to use when  |
-  |                                                 connecting to Snowflake.     |
-  | --oauth-client-secret                  TEXT     OAuth client secret to use   |
-  |                                                 when connecting to           |
-  |                                                 Snowflake.                   |
-  | --oauth-authorization-url              TEXT     OAuth authorization URL to   |
-  |                                                 use when connecting to       |
-  |                                                 Snowflake.                   |
-  | --oauth-redirect-uri                   TEXT     OAuth redirect URI to use    |
-  |                                                 when connecting to           |
-  |                                                 Snowflake.                   |
-  | --oauth-scope                          TEXT     OAuth scope to use when      |
-  |                                                 connecting to Snowflake.     |
-  | --oauth-security-features              TEXT     OAuth security features to   |
-  |                                                 use when connecting to       |
-  |                                                 Snowflake. Expects a         |
-  |                                                 comma-separated list of      |
-  |                                                 values.                      |
-  | --client-store-temporary-cre…                   Store the temporary          |
-  |                                                 credential.                  |
+  | --connection,--environment    -c      TEXT     Name of the connection, as    |
+  |                                                defined in your config.toml   |
+  |                                                file. Default: default.       |
+  | --host                                TEXT     Host address for the          |
+  |                                                connection. Overrides the     |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --port                                INTEGER  Port for the connection.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --account,--accountname               TEXT     Name assigned to your         |
+  |                                                Snowflake account. Overrides  |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --user,--username                     TEXT     Username to connect to        |
+  |                                                Snowflake. Overrides the      |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --password                            TEXT     Snowflake password. Overrides |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --authenticator                       TEXT     Snowflake authenticator.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --private-key-file,--privat…          TEXT     Snowflake private key file    |
+  |                                                path. Overrides the value     |
+  |                                                specified for the connection. |
+  | --token-file-path                     TEXT     Path to file with an OAuth    |
+  |                                                token to use when connecting  |
+  |                                                to Snowflake.                 |
+  | --database,--dbname                   TEXT     Database to use. Overrides    |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --schema,--schemaname                 TEXT     Database schema to use.       |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --role,--rolename                     TEXT     Role to use. Overrides the    |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --warehouse                           TEXT     Warehouse to use. Overrides   |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --temporary-connection        -x               Uses a connection defined     |
+  |                                                with command line parameters, |
+  |                                                instead of one defined in     |
+  |                                                config                        |
+  | --mfa-passcode                        TEXT     Token to use for multi-factor |
+  |                                                authentication (MFA)          |
+  | --enable-diag                                  Whether to generate a         |
+  |                                                connection diagnostic report. |
+  | --diag-log-path                       TEXT     Path for the generated        |
+  |                                                report. Defaults to system    |
+  |                                                temporary directory.          |
+  | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
+  |                                                contains allowlist            |
+  |                                                parameters.                   |
+  | --oauth-client-id                     TEXT     OAuth client ID to use when   |
+  |                                                connecting to Snowflake.      |
+  | --oauth-client-secret                 TEXT     OAuth client secret to use    |
+  |                                                when connecting to Snowflake. |
+  | --oauth-authorization-url             TEXT     OAuth authorization URL to    |
+  |                                                use when connecting to        |
+  |                                                Snowflake.                    |
+  | --oauth-redirect-uri                  TEXT     OAuth redirect URI to use     |
+  |                                                when connecting to Snowflake. |
+  | --oauth-scope                         TEXT     OAuth scope to use when       |
+  |                                                connecting to Snowflake.      |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
+  | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
+  |                                                Default: False.               |
+  | --oauth-enable-single-use-r…                   Client-side opt-in to         |
+  |                                                single-use refresh tokens.    |
+  |                                                Default: False.               |
+  | --client-store-temporary-cr…                   Store the temporary           |
+  |                                                credential.                   |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -7382,7 +7478,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -7498,7 +7596,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -7610,7 +7710,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -7727,7 +7829,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -7881,7 +7985,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -8009,7 +8115,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -8126,7 +8234,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -8243,7 +8353,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -8362,7 +8474,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -8484,7 +8598,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -8610,7 +8726,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -8721,7 +8839,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -8835,7 +8955,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -9059,7 +9181,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -9177,7 +9301,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -9289,7 +9415,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -9401,7 +9529,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -9512,7 +9642,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -9624,7 +9756,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -9756,7 +9890,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -9869,7 +10005,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -9981,7 +10119,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -10094,7 +10234,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -10215,7 +10357,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -10355,7 +10499,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -10464,7 +10610,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -10580,7 +10728,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -10716,7 +10866,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -10832,7 +10984,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -10944,7 +11098,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -11056,7 +11212,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -11174,7 +11332,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -11292,7 +11452,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -11404,7 +11566,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -11605,7 +11769,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -11724,7 +11890,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -11835,7 +12003,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -11946,7 +12116,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -12073,7 +12245,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -12184,7 +12358,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -12295,7 +12471,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -12406,7 +12584,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -12517,7 +12697,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -12634,7 +12816,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -12757,7 +12941,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -12878,7 +13064,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -12989,7 +13177,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -13141,7 +13331,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -13256,7 +13448,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -13367,7 +13561,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -13491,7 +13687,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -13604,7 +13802,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -13800,7 +14000,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -13939,7 +14141,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -14050,7 +14254,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -14161,7 +14367,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -14274,7 +14482,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -14385,7 +14595,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -14515,7 +14727,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -14630,7 +14844,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -14747,7 +14963,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -14860,7 +15078,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -15019,7 +15239,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -15131,7 +15353,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -15243,7 +15467,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -15355,7 +15581,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -15468,7 +15696,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -15585,7 +15815,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |
@@ -15699,7 +15931,9 @@
   |                                                when connecting to Snowflake. |
   | --oauth-scope                         TEXT     OAuth scope to use when       |
   |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable PKCE. Default: False. |
+  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
   | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
   |                                                Default: False.               |
   | --oauth-enable-single-use-r…                   Client-side opt-in to         |

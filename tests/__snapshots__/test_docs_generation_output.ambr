@@ -130,7 +130,7 @@
     OAuth scope to use when connecting to Snowflake.
   
   :samp:`--oauth-disable-pkce`
-    Disable PKCE. Default: `False`.
+    Disable Proof Key for Code Exchange (PKCE). Default: `False`.
   
   :samp:`--oauth-enable-refresh-tokens`
     Enable refresh tokens. Default: `False`.

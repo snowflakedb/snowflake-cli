@@ -331,7 +331,7 @@ OauthScopeOption = typer.Option(
 OauthDisablePkceOption = typer.Option(
     None,
     "--oauth-disable-pkce",
-    help="Disable PKCE. Default: `False`.",
+    help="Disable Proof Key for Code Exchange (PKCE). Default: `False`.",
     callback=_connection_callback("oauth_disable_pkce"),
     show_default=False,
     is_flag=True,
