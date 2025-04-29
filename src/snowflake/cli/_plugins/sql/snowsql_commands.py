@@ -1,12 +1,17 @@
 import enum
+import re
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, Generator, Iterable, List, Tuple
 from urllib.parse import urlencode
 
 from snowflake.cli._app.printing import print_result
-from snowflake.cli.api.output.types import CollectionResult
+from snowflake.cli.api.output.types import CollectionResult, QueryResult
 from snowflake.connector import SnowflakeConnection
+
+VALID_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+)
 
 
 class CommandType(enum.Enum):
@@ -194,6 +199,37 @@ class QueriesCommand(SnowSQLCommand):
         )
 
 
+@dataclass
+class ResultCommand(SnowSQLCommand):
+    query_id: str
+
+    def execute(self, connection: SnowflakeConnection):
+        cursor = connection.cursor()
+        cursor.query_result(self.query_id)
+        print_result(QueryResult(cursor=cursor))
+
+    @classmethod
+    def from_args(cls, args, kwargs) -> CompileCommandResult:
+        if kwargs:
+            key, value = next(kwargs.items())
+            return CompileCommandResult(
+                error_message=f"Invalid argument passed to 'result' command: {key}={value}"
+            )
+        if len(args) != 1:
+            amount = "Too many" if args else "No"
+            return CompileCommandResult(
+                error_message=f"{amount} arguments passed to 'result' command. Usage: `!result <query id>`"
+            )
+
+        qid = args[0]
+        if not VALID_UUID_RE.match(qid):
+            return CompileCommandResult(
+                error_message=f"Invalid query if passed to 'result' command: {qid}"
+            )
+
+        return CompileCommandResult(command=cls(qid))
+
+
 def compile_snowsql_command(command: str, cmd_args: List[str]):
     """Parses command into SQL query"""
     args = []
@@ -212,5 +248,7 @@ def compile_snowsql_command(command: str, cmd_args: List[str]):
     match command.lower():
         case "!queries":
             return QueriesCommand.from_args(args, kwargs)
+        case "!result":
+            return ResultCommand.from_args(args, kwargs)
         case _:
             return CompileCommandResult(error_message=f"Unknown command '{command}'")
