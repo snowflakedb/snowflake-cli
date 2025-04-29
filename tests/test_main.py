@@ -62,7 +62,7 @@ def test_custom_config_path(mock_conn, runner, mock_cursor):
         warehouse="xs",
         password="dummy_password",
         application_name="snowcli",
-        client_session_keep_alive=True,
+        using_session_keep_alive=True,
     )
 
 
