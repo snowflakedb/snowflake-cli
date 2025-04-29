@@ -40,12 +40,12 @@ def test_oauth_from_parameters(mock_connect, runner):
         oauth_scope="session:role:PUBLIC",
         oauth_security_features="Feature1 Feature2",
         client_store_temporary_credential=True,
+        using_session_keep_alive=True,
     )
 
 
 @mock.patch("snowflake.connector.connect")
 def test_oauth_from_config(mock_connect, runner, config_file):
-
     config = dedent(
         """\
     default_connection_name = "test"
@@ -76,6 +76,7 @@ def test_oauth_from_config(mock_connect, runner, config_file):
         oauth_scope="session:role:PUBLIC",
         oauth_security_features="Feature1 Feature2",
         client_store_temporary_credential=True,
+        using_session_keep_alive=True,
     )
 
 
@@ -95,7 +96,6 @@ def test_oauth_from_config(mock_connect, runner, config_file):
 )
 @mock.patch("snowflake.connector.connect")
 def test_oauth_from_env_variables(mock_connect, runner, config_file):
-
     config = dedent(
         """\
     default_connection_name = "test"
@@ -119,6 +119,7 @@ def test_oauth_from_env_variables(mock_connect, runner, config_file):
         oauth_scope="session:role:PUBLIC",
         oauth_security_features="Feature1 Feature2",
         client_store_temporary_credential="True",
+        using_session_keep_alive=True,
     )
 
 
@@ -151,4 +152,5 @@ def test_oauth_from_env_variables_and_temporary_connection(mock_connect, runner)
         oauth_scope="session:role:PUBLIC",
         oauth_security_features="Feature1 Feature2",
         client_store_temporary_credential="True",
+        using_session_keep_alive=True,
     )
