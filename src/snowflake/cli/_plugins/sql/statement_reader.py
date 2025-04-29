@@ -243,6 +243,15 @@ class CompiledStatement:
     command: SnowSQLCommand | None = None
 
 
+def _is_empty_statement(statement: str) -> bool:
+    # checks whether all lines from the statement are empty or start with comment
+    for line in statement.splitlines():
+        if line.strip() and not line.lstrip().startswith("--"):
+            # nonempty uncommented line
+            return False
+    return True
+
+
 def compile_statements(
     source: RecursiveStatementReader,
 ) -> Tuple[List[str], int, List[CompiledStatement]]:
@@ -253,8 +262,8 @@ def compile_statements(
 
     for stmt in source:
         if stmt.source_type == SourceType.QUERY:
-            if not stmt.error:
-                statement = stmt.source.read()
+            statement = stmt.source.read()
+            if not stmt.error and not _is_empty_statement(statement):
                 is_async = statement.endswith(ASYNC_SUFFIX)
                 compiled.append(
                     CompiledStatement(

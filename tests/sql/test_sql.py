@@ -69,9 +69,7 @@ def test_sql_execute_multiple_file(mock_execute, runner, mock_cursor):
 
     assert result.exit_code == 0
     mock_execute.assert_has_calls(
-        [
-            mock.call(f"{query}\n{query}", cursor_class=VerboseCursor),
-        ]
+        [mock.call(f"{query}", cursor_class=VerboseCursor)] * 2
     )
 
 
@@ -456,8 +454,8 @@ def test_uses_variables_from_cli_are_added_outside_context(
 @pytest.mark.parametrize(
     "option,expected",
     [
-        ("--retain-comments", "SELECT 42;\n-- Commented line\n    SELECT 1;"),
-        ("", "SELECT 42;\nSELECT 1;"),
+        ("--retain-comments", ["SELECT 42;", "-- Commented line\n    SELECT 1;"]),
+        ("", ["SELECT 42;", "SELECT 1;"]),
     ],
 )
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
@@ -484,7 +482,11 @@ def test_comments_are_handled_correctly_from_file(
         result = runner.invoke(arguments)
 
     assert result.exit_code == 0
-    mock_execute.assert_called_once_with(expected, cursor_class=VerboseCursor)
+
+    expected_calls = [
+        mock.call(query, cursor_class=VerboseCursor) for query in expected
+    ]
+    assert mock_execute.mock_calls == expected_calls
 
 
 @pytest.mark.parametrize(
@@ -492,9 +494,9 @@ def test_comments_are_handled_correctly_from_file(
     [
         (
             "--retain-comments",
-            "SELECT 42;\n-- Commented line\n    SELECT 1;\n--another comment;",
+            ["SELECT 42;", "-- Commented line\n    SELECT 1;"],
         ),
-        ("", "SELECT 42;\nSELECT 1;"),
+        ("", ["SELECT 42;", "SELECT 1;"]),
     ],
 )
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
@@ -507,6 +509,7 @@ def test_comments_are_handled_correctly_from_query(
     -- Commented line
     SELECT 1;
     --another comment;
+    --with two lines;
     """
 
     arguments = ["sql", "-q", query]
@@ -516,4 +519,7 @@ def test_comments_are_handled_correctly_from_query(
     result = runner.invoke(arguments)
 
     assert result.exit_code == 0
-    mock_execute.assert_called_once_with(expected, cursor_class=VerboseCursor)
+    expected_calls = [
+        mock.call(exp_query, cursor_class=VerboseCursor) for exp_query in expected
+    ]
+    assert mock_execute.mock_calls == expected_calls

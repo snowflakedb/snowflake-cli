@@ -115,10 +115,13 @@ def execute_sql(
         # case expected if input only scheduled async queries
         list(cursors)  # evaluate the result to schedule potential async queries
         # ends gracefully with no message for consistency with snowsql.
-        sys.exit(0)
+        return MessageResult("")
 
     if expected_results_cnt == 1:
         # evaluate the result to schedule async queries
-        return QueryResult(list(cursors)[0])
+        results = list(cursors)
+        if not results:
+            return MessageResult("")
+        return QueryResult(results[0])
 
     return MultipleResults((QueryResult(c) for c in cursors))
