@@ -12,6 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import Enum
+from subprocess import run
 
-Output = Enum("Output", ("PHASE", "STEP", "INFO", "IMPORTANT", "PANEL"))
+from click import ClickException
+
+
+def subprocess_run(command, *args, capture_output=True, text=True, **kwargs) -> str:
+    result = run(command, *args, capture_output=capture_output, text=text, **kwargs)
+    if result.returncode != 0:
+        raise ClickException(
+            f"""Command '{command}' finished with non-zero exit code: {result.returncode}
+            ----- stdout -----
+            {result.stdout}
+            ===== stderr =====
+            {result.stderr}
+            """
+        )
+    return result.stdout

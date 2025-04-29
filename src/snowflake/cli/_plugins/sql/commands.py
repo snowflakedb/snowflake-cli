@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import List, Optional
 
@@ -26,7 +27,12 @@ from snowflake.cli.api.commands.flags import (
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import parse_key_value_variables
-from snowflake.cli.api.output.types import CommandResult, MultipleResults, QueryResult
+from snowflake.cli.api.output.types import (
+    CommandResult,
+    MessageResult,
+    MultipleResults,
+    QueryResult,
+)
 
 # simple Typer with defaults because it won't become a command group as it contains only one command
 app = SnowTyperFactory()
@@ -38,7 +44,7 @@ SourceOption = OverrideableOption(
 )
 
 
-@app.command(name="sql", requires_connection=True, no_args_is_help=True)
+@app.command(name="sql", requires_connection=True, no_args_is_help=False)
 @with_project_definition(is_optional=True)
 def execute_sql(
     query: Optional[str] = SourceOption(
@@ -84,6 +90,22 @@ def execute_sql(
     data = {}
     if data_override:
         data = {v.key: v.value for v in parse_key_value_variables(data_override)}
+
+    retain_comments = bool(retain_comments)
+    std_in = bool(std_in)
+
+    no_source_provided = not any([query, files, std_in])
+    if no_source_provided and not sys.stdin.isatty():
+        maybe_pipe = sys.stdin.read().strip()
+        if maybe_pipe:
+            query = maybe_pipe
+            std_in = True
+
+    if no_source_provided:
+        from snowflake.cli._plugins.sql.repl import Repl
+
+        Repl(SqlManager(), data=data, retain_comments=retain_comments).run()
+        return MessageResult("")
 
     single_statement, cursors = SqlManager().execute(
         query, files, std_in, data=data, retain_comments=retain_comments

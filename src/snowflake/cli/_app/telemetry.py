@@ -75,6 +75,7 @@ class CLITelemetryField(Enum):
     IS_CLI_EXCEPTION = "is_cli_exception"
     # Project context
     PROJECT_DEFINITION_VERSION = "project_definition_version"
+    MODE = "mode"
 
 
 class TelemetryEvent(Enum):
@@ -151,7 +152,17 @@ def _find_command_info() -> TelemetryDict:
             "format", OutputFormat.TABLE
         ).value,
         CLITelemetryField.PROJECT_DEFINITION_VERSION: str(_get_definition_version()),
+        CLITelemetryField.MODE: _get_cli_running_mode(),
     }
+
+
+def _get_cli_running_mode() -> str:
+    try:
+        if get_cli_context().is_repl:
+            return "repl"
+    except Exception:
+        pass
+    return "cmd"
 
 
 def _get_definition_version() -> str | None:

@@ -78,7 +78,8 @@ def choose_sql_jinja_env_based_on_template_syntax(
         )
     if has_old_syntax:
         cli_console.warning(
-            f"Warning: {_OLD_SQL_TEMPLATE_START} ... {_OLD_SQL_TEMPLATE_END} syntax{reference_name_str} is deprecated."
+            f"Warning: {_OLD_SQL_TEMPLATE_START} ... {_OLD_SQL_TEMPLATE_END} syntax{reference_name_str}"
+            " is deprecated and will no longer be supported."
             f" Use {_SQL_TEMPLATE_START} ... {_SQL_TEMPLATE_END} syntax instead."
         )
         return old_syntax_env

@@ -47,6 +47,7 @@ def test_add_version(mock_pm, runner, project_directory, prune):
             command += ["--from", "@stage"]
         result = runner.invoke(command)
         assert result.exit_code == 0, result.output
+        assert not (root / "output").exists()
 
     assert mock_pm().add_version.call_count == 1
     kwargs = mock_pm().add_version.mock_calls[0].kwargs

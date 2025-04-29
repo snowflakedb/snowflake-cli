@@ -12,6 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import Enum
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
 
-Output = Enum("Output", ("PHASE", "STEP", "INFO", "IMPORTANT", "PANEL"))
+[project]
+name = "snowflakecli-internal-release-plugin"
+requires-python = ">=3.8"
+dependencies = [
+    "snowflake-cli>=1.1.0",
+    "PyGithub"
+]
+version = "0.0.1"
+
+[project.entry-points."snowflake.cli.plugin.command"]
+release-plugin = "snowflakecli_internal_release_plugin.plugin_spec"
