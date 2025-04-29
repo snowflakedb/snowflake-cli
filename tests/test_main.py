@@ -113,9 +113,13 @@ def test_all_commands_have_proper_documentation(runner, get_click_context):
 
                 long_options = [opt for opt in param.opts if opt.startswith("--")]
                 if not is_argument and len(long_options) == 0:
-                    errors.append(
-                        f"Command `snow {' '.join(path)}` is missing --long option for `{param.name}` option"
-                    )
+                    long_options = [
+                        opt for opt in param.secondary_opts if opt.startswith("--")
+                    ]
+                    if not is_argument and len(long_options) == 0:
+                        errors.append(
+                            f"Command `snow {' '.join(path)}` is missing --long option for `{param.name}` option"
+                        )
 
                 if not param.help:  # type: ignore
                     if is_argument:
