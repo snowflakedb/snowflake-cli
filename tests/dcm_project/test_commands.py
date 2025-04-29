@@ -142,3 +142,26 @@ def test_list_versions(mock_pm, runner):
     mock_pm().list_versions.assert_called_once_with(
         project_name=FQN.from_string("fooBar")
     )
+
+
+def test_drop_project(mock_connect, runner):
+    result = runner.invoke(
+        [
+            "object",
+            "drop",
+            "project",
+            "my_project",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+
+    result = runner.invoke(
+        ["project", "drop", "my_project"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+
+    queries = mock_connect.mocked_ctx.get_queries()
+    assert len(queries) == 2
+    assert queries[0] == queries[1] == "drop project IDENTIFIER('my_project')"
