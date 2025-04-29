@@ -349,3 +349,25 @@ def test_rendering_of_sql_with_commands(query):
     assert parsed_source.source_path == "!source foo.bar"
     assert parsed_source.source.read() == "foo.bar"
     assert parsed_source.error == "Could not read: foo.bar"
+
+
+def test_detect_async_queries():
+    queries = """select 1;>
+    select -1;
+    select 2;>
+    select -2;
+    select 3;>
+    """
+    parsed_statements = query_reader(queries, [])
+    errors, expected_results, compiled_statements = compile_statements(
+        query_reader(queries, [])
+    )
+    assert errors == []
+    assert expected_results == 2
+    assert list(compiled_statements) == [
+        CompiledStatement(statement="select 1", execute_async=True, command=None),
+        CompiledStatement(statement="select -1;", execute_async=False, command=None),
+        CompiledStatement(statement="select 2", execute_async=True, command=None),
+        CompiledStatement(statement="select -2;", execute_async=False, command=None),
+        CompiledStatement(statement="select 3", execute_async=True, command=None),
+    ]
