@@ -1,7 +1,6 @@
 from typing import List, Optional
 
 from snowflake.cli.api.output.types import CommandResult
-from testing_utils.result_assertions import assert_successful_result_message
 from tests_integration.testing_utils import (
     assert_that_result_failed_with_message_containing,
     assert_that_result_is_successful_and_output_json_equals,
