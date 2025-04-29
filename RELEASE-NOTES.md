@@ -20,6 +20,7 @@
 
 ## New additions
 * Added support for OAuth tokens.
+* Cleaning up the output directory after coping files to the stage for Streamlit, Notebook, SPCS Service and project.
 
 ## Fixes and improvements
 * Fix certificate connection issues.

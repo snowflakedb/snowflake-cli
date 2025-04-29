@@ -357,6 +357,7 @@ def test_deploy_service(
                 ),
             ]
         )
+        assert not (tmp_dir / "output").exists()
 
 
 @patch("snowflake.cli._plugins.stage.manager.StageManager.execute_query")
