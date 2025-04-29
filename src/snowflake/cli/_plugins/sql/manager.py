@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
-from snowflake.cli._plugins.sql.source_reader import (
+from snowflake.cli._plugins.sql.statement_reader import (
     CompiledStatement,
     compile_statements,
     files_reader,

@@ -4,7 +4,7 @@ import pytest
 from jinja2 import UndefinedError
 from pytest_httpserver import HTTPServer
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
-from snowflake.cli._plugins.sql.source_reader import (
+from snowflake.cli._plugins.sql.statement_reader import (
     ParsedStatement,
     SourceType,
     compile_statements,
