@@ -250,7 +250,7 @@ def compile_statements(
                 is_async = statement.endswith(ASYNC_SUFFIX)
                 compiled.append(
                     CompiledStatement(
-                        statement=statement.rstrip(ASYNC_SUFFIX),
+                        statement=statement.removesuffix(ASYNC_SUFFIX),
                         execute_async=is_async,
                     )
                 )
