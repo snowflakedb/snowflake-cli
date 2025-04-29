@@ -145,13 +145,21 @@ def parse_statement(source: str, operators: OperatorFunctions) -> ParsedStatemen
         case "source" | "load", (str(),):
             return ParsedStatement.from_file(command_args, statement)
 
+        case "source" | "load", _:
+            return ParsedStatement(
+                statement,
+                SourceType.UNKNOWN,
+                command_args,
+                f"Unknown source: {command_args}",
+            )
+
         case "queries", (str(),):
             return ParsedStatement(statement, SourceType.SNOWSQL_COMMAND, None)
 
         case _:
             error_msg = f"Unknown command: {source}"
 
-    return ParsedStatement(statement, SourceType.UNKNOWN, source, error_msg)
+    return ParsedStatement(statement, SourceType.UNKNOWN, None, error_msg)
 
 
 def recursive_statement_reader(

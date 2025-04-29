@@ -5,6 +5,7 @@ from jinja2 import UndefinedError
 from pytest_httpserver import HTTPServer
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli._plugins.sql.statement_reader import (
+    CompiledStatement,
     ParsedStatement,
     SourceType,
     compile_statements,
@@ -51,12 +52,12 @@ def test_mixed_recursion(
     assert errors[0].startswith("Recursion detected:")
     assert cnt == 6
     assert compiled == [
-        "select 0;",
-        "select 1;",
-        "select 2;",
-        "select 2a;",
-        "select 1a;",
-        "select 0a;",
+        CompiledStatement(statement="select 0;"),
+        CompiledStatement(statement="select 1;"),
+        CompiledStatement(statement="select 2;"),
+        CompiledStatement(statement="select 2a;"),
+        CompiledStatement(statement="select 1a;"),
+        CompiledStatement(statement="select 0a;"),
     ]
 
 
@@ -76,12 +77,12 @@ def test_recursion_from_url(httpserver: HTTPServer):
     assert errors[0].startswith("Recursion detected:")
     assert cnt == 6
     assert compiled == [
-        "select 0;",
-        "select 1;",
-        "select 2;",
-        "select 2a;",
-        "select 1a;",
-        "select 0a;",
+        CompiledStatement(statement="select 0;"),
+        CompiledStatement(statement="select 1;"),
+        CompiledStatement(statement="select 2;"),
+        CompiledStatement(statement="select 2a;"),
+        CompiledStatement(statement="select 1a;"),
+        CompiledStatement(statement="select 0a;"),
     ]
 
 
@@ -109,13 +110,13 @@ def test_recursion_multiple_files(tmp_path_factory: pytest.TempPathFactory):
 
     assert cnt == 7
     assert compiled == [
-        "select 1;",
-        "select 2;",
-        "select 2a;",
-        "select 1a;",
-        "select 3;",
-        "select 3a;",
-        "select 1b;",
+        CompiledStatement(statement="select 1;"),
+        CompiledStatement(statement="select 2;"),
+        CompiledStatement(statement="select 2a;"),
+        CompiledStatement(statement="select 1a;"),
+        CompiledStatement(statement="select 3;"),
+        CompiledStatement(statement="select 3a;"),
+        CompiledStatement(statement="select 1b;"),
     ]
 
 
@@ -130,7 +131,10 @@ def test_recusion_detection_from_files(tmp_path_factory: pytest.TempPathFactory)
     errors, cnt, compiled = compile_statements(source)
     assert errors[0].startswith("Recursion detected:")
     assert cnt == 2
-    assert compiled == ["select 1;", "select 2;"]
+    assert compiled == [
+        CompiledStatement(statement="select 1;"),
+        CompiledStatement(statement="select 2;"),
+    ]
 
 
 def test_source_missing_url(httpserver: HTTPServer):
@@ -153,7 +157,7 @@ def test_read_query():
     assert not errors, errors
     assert cnt == 1
     assert compiled == [
-        "select 1;",
+        CompiledStatement(statement="select 1;"),
     ]
 
 
@@ -171,8 +175,8 @@ def test_read_files(tmp_path_factory: pytest.TempPathFactory):
     assert not errors, errors
     assert cnt == 2
     assert compiled == [
-        "select 1;",
-        "select 2;",
+        CompiledStatement(statement="select 1;"),
+        CompiledStatement(statement="select 2;"),
     ]
 
 
@@ -182,7 +186,7 @@ def test_parsed_source_repr():
     source = ParsedStatement(query, SourceType.QUERY, None)
     assert (
         str(source)
-        == "ParsedSource(source_type=SourceType.QUERY, source_path=None, error=None)"
+        == "ParsedStatement(source_type=SourceType.QUERY, source_path=None, error=None)"
     )
 
 
@@ -311,16 +315,17 @@ def test_parse_source_invalid_file(tmp_path_factory: pytest.TempPathFactory):
     assert source.error and source.error.startswith("Could not read")
 
 
-def test_parse_source_default_fallback():
+@pytest.mark.parametrize("command", ["source", "load"])
+def test_parse_source_default_fallback(command):
     path = "s3://bucket/path/file.sql"
-    unknown_source = f"!load {path};"
+    unknown_source = f"!{command} {path};"
 
     source = parse_statement(unknown_source, WORKING_OPERATOR_FUNCS)
 
     assert not source
     assert source.source_type == SourceType.UNKNOWN
-    assert source.source_path == unknown_source
-    assert source.source.read() == path
+    assert source.source_path == path
+    assert source.source.read() == unknown_source
     assert source.error and source.error.startswith("Unknown source")
 
 
