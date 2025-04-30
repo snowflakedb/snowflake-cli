@@ -344,9 +344,10 @@ def test_list_images_cli_with_like(
 )
 def test_list_images(mock_execute_query):
     repo_name = "test_repo"
+    like_option = None
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
-    result = ImageRepositoryManager().list_images(repo_name, None)
+    result = ImageRepositoryManager().list_images(repo_name, like_option)
     expected_query = f"show images in image repository test_repo"
     mock_execute_query.assert_called_once_with(expected_query)
     assert result == cursor
