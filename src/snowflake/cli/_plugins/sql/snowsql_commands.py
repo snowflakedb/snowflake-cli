@@ -117,7 +117,7 @@ class QueriesCommand(SnowSQLCommand):
             )
 
     @classmethod
-    def from_args(cls, args, kwargs) -> CompileCommandResult:
+    def from_args(cls, args: List[str], kwargs: Dict[str, Any]) -> CompileCommandResult:
         if "help" in args:
             return CompileCommandResult(command=cls(help_mode=True))
 
@@ -178,7 +178,7 @@ class QueriesCommand(SnowSQLCommand):
                     error_message=f"Invalid argument passed to 'queries' command: {arg}"
                 )
         if kwargs:
-            key, value = next(kwargs.items())
+            key, value = kwargs.popitem()
             return CompileCommandResult(
                 error_message=f"Invalid argument passed to 'queries' command: {key}={value}"
             )
@@ -199,6 +199,23 @@ class QueriesCommand(SnowSQLCommand):
         )
 
 
+def _validate_only_arg_is_query_id(
+    command_name: str, args: List[str], kwargs: Dict[str, Any]
+) -> str | None:
+    if kwargs:
+        key, value = kwargs.popitem()
+        return f"Invalid argument passed to '{command_name}' command: {key}={value}"
+    if len(args) != 1:
+        amount = "Too many" if args else "No"
+        return f"{amount} arguments passed to '{command_name}' command. Usage: `!{command_name} <query id>`"
+
+    qid = args[0]
+    if not VALID_UUID_RE.match(qid):
+        return f"Invalid query ID passed to '{command_name}' command: {qid}"
+
+    return None
+
+
 @dataclass
 class ResultCommand(SnowSQLCommand):
     query_id: str
@@ -210,24 +227,27 @@ class ResultCommand(SnowSQLCommand):
 
     @classmethod
     def from_args(cls, args, kwargs) -> CompileCommandResult:
-        if kwargs:
-            key, value = next(kwargs.items())
-            return CompileCommandResult(
-                error_message=f"Invalid argument passed to 'result' command: {key}={value}"
-            )
-        if len(args) != 1:
-            amount = "Too many" if args else "No"
-            return CompileCommandResult(
-                error_message=f"{amount} arguments passed to 'result' command. Usage: `!result <query id>`"
-            )
+        error_msg = _validate_only_arg_is_query_id("result", args, kwargs)
+        if error_msg:
+            return CompileCommandResult(error_message=error_msg)
+        return CompileCommandResult(command=cls(args[0]))
 
-        qid = args[0]
-        if not VALID_UUID_RE.match(qid):
-            return CompileCommandResult(
-                error_message=f"Invalid query if passed to 'result' command: {qid}"
-            )
 
-        return CompileCommandResult(command=cls(qid))
+@dataclass
+class AbortCommand(SnowSQLCommand):
+    query_id: str
+
+    def execute(self, connection: SnowflakeConnection):
+        cursor = connection.cursor()
+        cursor.execute(f"SELECT SYSTEM$CANCEL_QUERY('{self.query_id}')")
+        print_result(QueryResult(cursor=cursor))
+
+    @classmethod
+    def from_args(cls, args, kwargs) -> CompileCommandResult:
+        error_msg = _validate_only_arg_is_query_id("abort", args, kwargs)
+        if error_msg:
+            return CompileCommandResult(error_message=error_msg)
+        return CompileCommandResult(command=cls(args[0]))
 
 
 def compile_snowsql_command(command: str, cmd_args: List[str]):
@@ -250,5 +270,7 @@ def compile_snowsql_command(command: str, cmd_args: List[str]):
             return QueriesCommand.from_args(args, kwargs)
         case "!result":
             return ResultCommand.from_args(args, kwargs)
+        case "!abort":
+            return AbortCommand.from_args(args, kwargs)
         case _:
             return CompileCommandResult(error_message=f"Unknown command '{command}'")
