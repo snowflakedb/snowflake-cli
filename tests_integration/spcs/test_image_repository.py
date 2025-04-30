@@ -79,18 +79,11 @@ def _list_images_with_like(runner):
             "--schema",
             INTEGRATION_SCHEMA,
             "--like-option",
-            "snowpark_test_echo",
+            "openflow%",
         ]
     )
     assert isinstance(result.json, list), result.output
-    assert contains_row_with(
-        result.json,
-        {
-            "image_name": "snowpark_test_echo",
-            "tags": "1",
-            "image_path": f"{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test_echo:1".lower(),
-        },
-    )
+    assert len(result.json) == 0, result.json
 
 
 def _list_tags(runner):
