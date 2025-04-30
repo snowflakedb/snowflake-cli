@@ -79,7 +79,7 @@ class QueriesCommand(SnowSQLCommand):
 
     def _execute_queries(self, connection: SnowflakeConnection) -> None:
         url_parameters = {
-            "_dc": "{time}".format(time=time.time()),
+            "_dc": f"{time.time()}",
             "includeDDL": "false",
             "max": self.amount,
         }
@@ -133,7 +133,7 @@ class QueriesCommand(SnowSQLCommand):
         start_time = kwargs.pop("start", None)
         end_time = kwargs.pop("end", None)
         duration = kwargs.pop("duration", None)
-        stmt_type = kwargs.pop("stmtType", None)
+        stmt_type = kwargs.pop("type", None)
         if stmt_type:
             stmt_type = stmt_type.upper()
             if stmt_type not in [
