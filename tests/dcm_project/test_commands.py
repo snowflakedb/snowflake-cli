@@ -29,8 +29,20 @@ def test_create(mock_om, mock_pm, runner, project_directory, no_version):
 
 
 @mock.patch(ProjectManager)
-@pytest.mark.parametrize("prune", [True, False])
-def test_add_version(mock_pm, runner, project_directory, prune):
+@pytest.mark.parametrize(
+    "prune,_from,expected_prune_value",
+    [
+        (True, True, False),
+        (True, False, True),
+        (False, True, False),
+        (False, False, False),
+        (None, True, False),
+        (None, False, True),
+    ],
+)
+def test_add_version(
+    mock_pm, runner, project_directory, prune, _from, expected_prune_value
+):
     with project_directory("dcm_project") as root:
         command = [
             "project",
@@ -43,7 +55,10 @@ def test_add_version(mock_pm, runner, project_directory, prune):
         ]
         if prune:
             command += ["--prune"]
-        else:
+        elif prune is False:
+            command += ["--no-prune"]
+
+        if _from:
             command += ["--from", "@stage"]
         result = runner.invoke(command)
         assert result.exit_code == 0, result.output
@@ -55,8 +70,8 @@ def test_add_version(mock_pm, runner, project_directory, prune):
         "alias": "v1",
         "comment": "fancy",
         "project": kwargs["project"],
-        "prune": prune,
-        "from_stage": None if prune else "@stage",
+        "prune": expected_prune_value,
+        "from_stage": "@stage" if _from else None,
     }
 
     assert expected_kwargs == kwargs

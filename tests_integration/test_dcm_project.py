@@ -203,9 +203,9 @@ def test_project_add_version(
         )
         assert result.exit_code == 0, result.output
 
-        # no "prune" - unexpected file remains
+        # --no-prune - unexpected file remains
         result = runner.invoke_with_connection(
-            ["project", "add-version", "--alias", "v3.1"]
+            ["project", "add-version", "--alias", "v3.1", "--no-prune"]
         )
         assert result.exit_code == 0, result.output
         _assert_project_has_versions(
@@ -225,7 +225,7 @@ def test_project_add_version(
 
         # prune flag - unexpected file should be removed
         result = runner.invoke_with_connection(
-            ["project", "add-version", "--prune", "--alias", "v3.2"]
+            ["project", "add-version", "--alias", "v3.2"]
         )
         assert result.exit_code == 0, result.output
         _assert_project_has_versions(
