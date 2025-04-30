@@ -20,6 +20,7 @@ from functools import partial
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
+from snowflake.cli._app.printing import print_result
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli._plugins.sql.statement_reader import (
     CompiledStatement,
@@ -30,6 +31,7 @@ from snowflake.cli._plugins.sql.statement_reader import (
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliArgumentError, CliSqlError
+from snowflake.cli.api.output.types import CollectionResult
 from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin, VerboseCursor
@@ -100,6 +102,7 @@ class SqlManager(SqlExecutionMixin):
                 cursor.execute(stmt.statement, _no_results=True)
                 # only log query ID for consistency with SnowSQL
                 logger.info("Async execution id: %s", cursor.sfqid)
+                print_result(CollectionResult([{"scheduled query ID": cursor.sfqid}]))
             else:
                 yield from self.execute_string(
                     stmt.statement, cursor_class=cursor_class
