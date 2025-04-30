@@ -35,7 +35,9 @@
       --oauth-authorization-url <oauth_authorization_url>
       --oauth-redirect-uri <oauth_redirect_uri>
       --oauth-scope <oauth_scope>
-      --oauth-security-features <oauth_security_features>
+      --oauth-disable-pkce
+      --oauth-enable-refresh-tokens
+      --oauth-enable-single-use-refresh-tokens
       --client-store-temporary-credential
       --format <format>
       --verbose
@@ -127,8 +129,14 @@
   :samp:`--oauth-scope {TEXT}`
     OAuth scope to use when connecting to Snowflake.
   
-  :samp:`--oauth-security-features {TEXT}`
-    OAuth security features to use when connecting to Snowflake. Expects a comma-separated list of values.
+  :samp:`--oauth-disable-pkce`
+    Disable Proof Key for Code Exchange (PKCE). Default: `False`.
+  
+  :samp:`--oauth-enable-refresh-tokens`
+    Enable refresh tokens. Default: `False`.
+  
+  :samp:`--oauth-enable-single-use-refresh-tokens`
+    Client-side opt-in to single-use refresh tokens. Default: `False`.
   
   :samp:`--client-store-temporary-credential`
     Store the temporary credential.

@@ -310,7 +310,6 @@ OauthAuthorizationUrlOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
-# TODO This probably should be constant.
 OauthRedirectUriOption = typer.Option(
     None,
     "--oauth-redirect-uri",
@@ -329,12 +328,33 @@ OauthScopeOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
-OauthSecurityFeaturesOption = typer.Option(
+OauthDisablePkceOption = typer.Option(
     None,
-    "--oauth-security-features",
-    help="OAuth security features to use when connecting to Snowflake. Expects a comma-separated list of values.",
-    callback=_connection_callback("oauth_security_features"),
+    "--oauth-disable-pkce",
+    help="Disable Proof Key for Code Exchange (PKCE). Default: `False`.",
+    callback=_connection_callback("oauth_disable_pkce"),
     show_default=False,
+    is_flag=True,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+OauthEnableRefreshTokensOption = typer.Option(
+    None,
+    "--oauth-enable-refresh-tokens",
+    help="Enable refresh tokens. Default: `False`.",
+    callback=_connection_callback("oauth_enable_refresh_tokens"),
+    show_default=False,
+    is_flag=True,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+OauthEnableSingleUseRefreshTokensOption = typer.Option(
+    None,
+    "--oauth-enable-single-use-refresh-tokens",
+    help="Client-side opt-in to single-use refresh tokens. Default: `False`.",
+    callback=_connection_callback("oauth_enable_single_use_refresh_tokens"),
+    show_default=False,
+    is_flag=True,
     rich_help_panel=_CONNECTION_SECTION,
 )
 
