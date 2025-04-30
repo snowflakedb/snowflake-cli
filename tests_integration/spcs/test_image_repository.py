@@ -39,6 +39,7 @@ INTEGRATION_REPOSITORY = "snowcli_repository"
 def test_list_images_tags(runner):
     # test assumes the testing environment has been set up with /<DATABASE>/PUBLIC/snowcli_repository/snowpark_test_echo:1
     _list_images(runner)
+    _list_images_with_like(runner)
     _list_tags(runner)
 
 
@@ -64,7 +65,31 @@ def _list_images(runner):
             "image_path": f"{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test_echo:1".lower(),
         },
     )
-
+    
+def _list_images_with_like(runner):
+    result = runner.invoke_with_connection_json(
+        [
+            "spcs",
+            "image-repository",
+            "list-images",
+            INTEGRATION_REPOSITORY,
+            "--database",
+            INTEGRATION_DATABASE,
+            "--schema",
+            INTEGRATION_SCHEMA,
+            "--like-option",
+            "snowpark_test_echo",
+        ]
+    )
+    assert isinstance(result.json, list), result.output
+    assert contains_row_with(
+        result.json,
+        {
+            "image_name": "snowpark_test_echo",
+            "tags": "1",
+            "image_path": f"{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test_echo:1".lower(),
+        },
+    )
 
 def _list_tags(runner):
     result = runner.invoke_with_connection_json(
