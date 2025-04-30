@@ -134,11 +134,9 @@ def list_images(
     **options,
 ) -> CollectionResult:
     """Lists images in the given repository."""
-    if like_option is not None:
-        like_option = f"like '{like_option}'"
-    else :
-        like_option = ""
-    return QueryResult(ImageRepositoryManager().list_images(name.identifier, like_option))
+    return QueryResult(
+        ImageRepositoryManager().list_images(name.identifier, like_option)
+    )
 
 
 @app.command("list-tags", requires_connection=True, deprecated=True)

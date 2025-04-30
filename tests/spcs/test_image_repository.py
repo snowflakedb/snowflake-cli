@@ -344,7 +344,7 @@ def test_list_images_cli_with_like(
 )
 def test_list_images(mock_execute_query):
     repo_name = "test_repo"
-    like_option = None
+    like_option = ""
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
     result = ImageRepositoryManager().list_images(repo_name, like_option)
@@ -358,7 +358,7 @@ def test_list_images(mock_execute_query):
 )
 def test_list_images_with_like(mock_execute_query):
     repo_name = "test_repo"
-    like = "like 'echo_service'"
+    like = "echo_service"
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
     result = ImageRepositoryManager().list_images(repo_name, like)

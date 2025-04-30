@@ -11880,7 +11880,11 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --like          TEXT  Filters the list of images to those that match the     |
+  |                       specified pattern. For example, --like "my%" lists all |
+  |                       images that begin with “my”.                           |
+  |                       [default: None]                                        |
+  | --help  -h            Show this message and exit.                            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
