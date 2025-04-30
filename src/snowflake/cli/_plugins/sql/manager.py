@@ -103,7 +103,9 @@ class SqlManager(SqlExecutionMixin):
                 # only log query ID for consistency with SnowSQL
                 logger.info("Async execution id: %s", cursor.sfqid)
                 print_result(CollectionResult([{"scheduled query ID": cursor.sfqid}]))
-            else:
+            elif stmt.statement:
                 yield from self.execute_string(
                     stmt.statement, cursor_class=cursor_class
                 )
+            if stmt.command:
+                stmt.command.execute(self._conn)

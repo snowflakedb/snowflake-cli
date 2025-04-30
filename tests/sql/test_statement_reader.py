@@ -7,7 +7,7 @@ from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_temp
 from snowflake.cli._plugins.sql.statement_reader import (
     CompiledStatement,
     ParsedStatement,
-    SourceType,
+    StatementType,
     compile_statements,
     files_reader,
     parse_statement,
@@ -183,10 +183,10 @@ def test_read_files(tmp_path_factory: pytest.TempPathFactory):
 def test_parsed_source_repr():
     query = "select 1;"
 
-    source = ParsedStatement(query, SourceType.QUERY, None)
+    source = ParsedStatement(query, StatementType.QUERY, None)
     assert (
         str(source)
-        == "ParsedStatement(source_type=SourceType.QUERY, source_path=None, error=None)"
+        == "ParsedStatement(statement_type=StatementType.QUERY, source_path=None, error=None)"
     )
 
 
@@ -196,11 +196,11 @@ def test_parse_source_url(httpserver: HTTPServer):
     query = f"!source {httpserver.url_for('f1.sql')};"
     source = parse_statement(query, WORKING_OPERATOR_FUNCS)
 
-    assert source.source_type == SourceType.URL
+    assert source.statement_type == StatementType.URL
     assert source.source_path and source.source_path == httpserver.url_for("f1.sql")
     assert source.source_path.startswith("http://localhost:")
     assert source.source_path.endswith("/f1.sql")
-    assert source.source.read() == "select 1;"
+    assert source.statement.read() == "select 1;"
     assert source.error is None
 
 
@@ -212,15 +212,15 @@ def test_parse_source_invalid_url(httpserver: HTTPServer):
 
     source = parse_statement(invalid_source, WORKING_OPERATOR_FUNCS)
 
-    assert source.source_type == SourceType.URL
+    assert source.statement_type == StatementType.URL
     assert source.source_path == invalid_source
-    assert source.source.read() == invalid_url
+    assert source.statement.read() == invalid_url
     assert source.error and source.error.startswith("Could not fetch")
 
 
 def test_parse_source_just_query():
     source = parse_statement("select 1;", WORKING_OPERATOR_FUNCS)
-    expected = ParsedStatement("select 1;", SourceType.QUERY, None, None)
+    expected = ParsedStatement("select 1;", StatementType.QUERY, None, None)
     assert source == expected
 
 
@@ -231,7 +231,7 @@ def test_parse_source_just_query():
             "!source {path};",
             ParsedStatement(
                 "select 73;",
-                SourceType.FILE,
+                StatementType.FILE,
                 "path",
             ),
         ),
@@ -239,7 +239,7 @@ def test_parse_source_just_query():
             "!SoUrCe {path};",
             ParsedStatement(
                 "select 73;",
-                SourceType.FILE,
+                StatementType.FILE,
                 "path",
             ),
         ),
@@ -247,7 +247,7 @@ def test_parse_source_just_query():
             "!SOURCE {path};",
             ParsedStatement(
                 "select 73;",
-                SourceType.FILE,
+                StatementType.FILE,
                 "path",
             ),
         ),
@@ -255,7 +255,7 @@ def test_parse_source_just_query():
             "!load {path};",
             ParsedStatement(
                 "select 73;",
-                SourceType.FILE,
+                StatementType.FILE,
                 "path",
             ),
         ),
@@ -263,7 +263,7 @@ def test_parse_source_just_query():
             "!LoaD {path};",
             ParsedStatement(
                 "select 73;",
-                SourceType.FILE,
+                StatementType.FILE,
                 "path",
             ),
         ),
@@ -271,7 +271,7 @@ def test_parse_source_just_query():
             "!LOAD {path};",
             ParsedStatement(
                 "select 73;",
-                SourceType.FILE,
+                StatementType.FILE,
                 "path",
             ),
         ),
@@ -295,10 +295,10 @@ def test_parse_source_file(tmp_path_factory: pytest.TempPathFactory):
     query = f"!source {f1.as_posix()};"
     source = parse_statement(query, WORKING_OPERATOR_FUNCS)
 
-    assert source.source_type == SourceType.FILE
+    assert source.statement_type == StatementType.FILE
     assert source.source_path
     assert source.source_path == f1.as_posix()
-    assert source.source.read() == "select 1;"
+    assert source.statement.read() == "select 1;"
     assert source.error is None
 
 
@@ -309,9 +309,9 @@ def test_parse_source_invalid_file(tmp_path_factory: pytest.TempPathFactory):
     invalid_source = f"!source {invalid_path};"
     source = parse_statement(invalid_source, WORKING_OPERATOR_FUNCS)
 
-    assert source.source_type == SourceType.FILE
+    assert source.statement_type == StatementType.FILE
     assert source.source_path == invalid_source
-    assert source.source.read() == invalid_path
+    assert source.statement.read() == invalid_path
     assert source.error and source.error.startswith("Could not read")
 
 
@@ -323,9 +323,9 @@ def test_parse_source_default_fallback(command):
     source = parse_statement(unknown_source, WORKING_OPERATOR_FUNCS)
 
     assert not source
-    assert source.source_type == SourceType.UNKNOWN
+    assert source.statement_type == StatementType.UNKNOWN
     assert source.source_path == path
-    assert source.source.read() == unknown_source
+    assert source.statement.read() == unknown_source
     assert source.error and source.error.startswith("Unknown source")
 
 
@@ -345,9 +345,9 @@ def test_rendering_of_sql_with_commands(query):
         partial(snowflake_sql_jinja_render, data={"aaa": "foo", "bbb": "bar"}),
     )
     parsed_source = parse_statement(query, stmt_operators)
-    assert parsed_source.source_type == SourceType.FILE
+    assert parsed_source.statement_type == StatementType.FILE
     assert parsed_source.source_path == "!source foo.bar"
-    assert parsed_source.source.read() == "foo.bar"
+    assert parsed_source.statement.read() == "foo.bar"
     assert parsed_source.error == "Could not read: foo.bar"
 
 
@@ -365,9 +365,28 @@ def test_detect_async_queries():
     assert errors == []
     assert expected_results == 2
     assert list(compiled_statements) == [
-        CompiledStatement(statement="select 1", execute_async=True),
-        CompiledStatement(statement="select -1;", execute_async=False),
-        CompiledStatement(statement="select 2", execute_async=True),
-        CompiledStatement(statement="select -2;", execute_async=False),
-        CompiledStatement(statement="select 3", execute_async=True),
+        CompiledStatement(statement="select 1", execute_async=True, command=None),
+        CompiledStatement(statement="select -1;", execute_async=False, command=None),
+        CompiledStatement(statement="select 2", execute_async=True, command=None),
+        CompiledStatement(statement="select -2;", execute_async=False, command=None),
+        CompiledStatement(statement="select 3", execute_async=True, command=None),
     ]
+
+
+@pytest.mark.parametrize("command", ["queries", "abort", "result", "AbOrT"])
+def test_parse_command(command):
+    query = f"!{command} args k1=v1 k2=v2;"
+    parsed_statement = parse_statement(query, [])
+    assert parsed_statement.statement_type == StatementType.SNOWSQL_COMMAND
+    assert parsed_statement.statement.read() == query
+    assert parsed_statement.source_path is None
+    assert parsed_statement.error is None
+
+
+def test_parse_unknown_command():
+    query = f"!unknown_cmd a=b c d"
+    parsed_statement = parse_statement(query, [])
+    assert parsed_statement.statement_type == StatementType.UNKNOWN
+    assert parsed_statement.statement.read() == query
+    assert parsed_statement.source_path is None
+    assert parsed_statement.error == "Unknown command: unknown_cmd"

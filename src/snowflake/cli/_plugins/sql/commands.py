@@ -29,7 +29,6 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.output.types import (
     CommandResult,
-    MessageResult,
     MultipleResults,
     QueryResult,
 )
@@ -106,7 +105,7 @@ def execute_sql(
         from snowflake.cli._plugins.sql.repl import Repl
 
         Repl(SqlManager(), data=data, retain_comments=retain_comments).run()
-        return MessageResult("")
+        sys.exit(0)
 
     expected_results_cnt, cursors = SqlManager().execute(
         query, files, std_in, data=data, retain_comments=retain_comments
@@ -115,13 +114,13 @@ def execute_sql(
         # case expected if input only scheduled async queries
         list(cursors)  # evaluate the result to schedule potential async queries
         # ends gracefully with no message for consistency with snowsql.
-        return MessageResult("")
+        sys.exit(0)
 
     if expected_results_cnt == 1:
         # evaluate the result to schedule async queries
         results = list(cursors)
         if not results:
-            return MessageResult("")
+            return sys.exit(0)
         return QueryResult(results[0])
 
     return MultipleResults((QueryResult(c) for c in cursors))
