@@ -108,9 +108,20 @@ def execute_sql(
         Repl(SqlManager(), data=data, retain_comments=retain_comments).run()
         return MessageResult("")
 
-    single_statement, cursors = SqlManager().execute(
+    expected_results_cnt, cursors = SqlManager().execute(
         query, files, std_in, data=data, retain_comments=retain_comments
     )
-    if single_statement:
-        return QueryResult(next(cursors))
+    if expected_results_cnt == 0:
+        # case expected if input only scheduled async queries
+        list(cursors)  # evaluate the result to schedule potential async queries
+        # ends gracefully with no message for consistency with snowsql.
+        return MessageResult("")
+
+    if expected_results_cnt == 1:
+        # evaluate the result to schedule async queries
+        results = list(cursors)
+        if not results:
+            return MessageResult("")
+        return QueryResult(results[0])
+
     return MultipleResults((QueryResult(c) for c in cursors))

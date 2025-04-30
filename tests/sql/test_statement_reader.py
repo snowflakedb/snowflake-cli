@@ -4,12 +4,13 @@ import pytest
 from jinja2 import UndefinedError
 from pytest_httpserver import HTTPServer
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
-from snowflake.cli._plugins.sql.source_reader import (
-    ParsedSource,
+from snowflake.cli._plugins.sql.statement_reader import (
+    CompiledStatement,
+    ParsedStatement,
     SourceType,
     compile_statements,
     files_reader,
-    parse_source,
+    parse_statement,
     query_reader,
 )
 from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
@@ -51,12 +52,12 @@ def test_mixed_recursion(
     assert errors[0].startswith("Recursion detected:")
     assert cnt == 6
     assert compiled == [
-        "select 0;",
-        "select 1;",
-        "select 2;",
-        "select 2a;",
-        "select 1a;",
-        "select 0a;",
+        CompiledStatement(statement="select 0;"),
+        CompiledStatement(statement="select 1;"),
+        CompiledStatement(statement="select 2;"),
+        CompiledStatement(statement="select 2a;"),
+        CompiledStatement(statement="select 1a;"),
+        CompiledStatement(statement="select 0a;"),
     ]
 
 
@@ -76,12 +77,12 @@ def test_recursion_from_url(httpserver: HTTPServer):
     assert errors[0].startswith("Recursion detected:")
     assert cnt == 6
     assert compiled == [
-        "select 0;",
-        "select 1;",
-        "select 2;",
-        "select 2a;",
-        "select 1a;",
-        "select 0a;",
+        CompiledStatement(statement="select 0;"),
+        CompiledStatement(statement="select 1;"),
+        CompiledStatement(statement="select 2;"),
+        CompiledStatement(statement="select 2a;"),
+        CompiledStatement(statement="select 1a;"),
+        CompiledStatement(statement="select 0a;"),
     ]
 
 
@@ -109,13 +110,13 @@ def test_recursion_multiple_files(tmp_path_factory: pytest.TempPathFactory):
 
     assert cnt == 7
     assert compiled == [
-        "select 1;",
-        "select 2;",
-        "select 2a;",
-        "select 1a;",
-        "select 3;",
-        "select 3a;",
-        "select 1b;",
+        CompiledStatement(statement="select 1;"),
+        CompiledStatement(statement="select 2;"),
+        CompiledStatement(statement="select 2a;"),
+        CompiledStatement(statement="select 1a;"),
+        CompiledStatement(statement="select 3;"),
+        CompiledStatement(statement="select 3a;"),
+        CompiledStatement(statement="select 1b;"),
     ]
 
 
@@ -130,7 +131,10 @@ def test_recusion_detection_from_files(tmp_path_factory: pytest.TempPathFactory)
     errors, cnt, compiled = compile_statements(source)
     assert errors[0].startswith("Recursion detected:")
     assert cnt == 2
-    assert compiled == ["select 1;", "select 2;"]
+    assert compiled == [
+        CompiledStatement(statement="select 1;"),
+        CompiledStatement(statement="select 2;"),
+    ]
 
 
 def test_source_missing_url(httpserver: HTTPServer):
@@ -153,7 +157,7 @@ def test_read_query():
     assert not errors, errors
     assert cnt == 1
     assert compiled == [
-        "select 1;",
+        CompiledStatement(statement="select 1;"),
     ]
 
 
@@ -171,18 +175,18 @@ def test_read_files(tmp_path_factory: pytest.TempPathFactory):
     assert not errors, errors
     assert cnt == 2
     assert compiled == [
-        "select 1;",
-        "select 2;",
+        CompiledStatement(statement="select 1;"),
+        CompiledStatement(statement="select 2;"),
     ]
 
 
 def test_parsed_source_repr():
     query = "select 1;"
 
-    source = ParsedSource(query, SourceType.QUERY, None)
+    source = ParsedStatement(query, SourceType.QUERY, None)
     assert (
         str(source)
-        == "ParsedSource(source_type=SourceType.QUERY, source_path=None, error=None)"
+        == "ParsedStatement(source_type=SourceType.QUERY, source_path=None, error=None)"
     )
 
 
@@ -190,7 +194,7 @@ def test_parse_source_url(httpserver: HTTPServer):
     httpserver.expect_request("/f1.sql").respond_with_data("select 1;")
 
     query = f"!source {httpserver.url_for('f1.sql')};"
-    source = parse_source(query, WORKING_OPERATOR_FUNCS)
+    source = parse_statement(query, WORKING_OPERATOR_FUNCS)
 
     assert source.source_type == SourceType.URL
     assert source.source_path and source.source_path == httpserver.url_for("f1.sql")
@@ -206,7 +210,7 @@ def test_parse_source_invalid_url(httpserver: HTTPServer):
     invalid_url = httpserver.url_for("invalid.sql")
     invalid_source = f"!source {invalid_url};"
 
-    source = parse_source(invalid_source, WORKING_OPERATOR_FUNCS)
+    source = parse_statement(invalid_source, WORKING_OPERATOR_FUNCS)
 
     assert source.source_type == SourceType.URL
     assert source.source_path == invalid_source
@@ -215,8 +219,8 @@ def test_parse_source_invalid_url(httpserver: HTTPServer):
 
 
 def test_parse_source_just_query():
-    source = parse_source("select 1;", WORKING_OPERATOR_FUNCS)
-    expected = ParsedSource("select 1;", SourceType.QUERY, None, None)
+    source = parse_statement("select 1;", WORKING_OPERATOR_FUNCS)
+    expected = ParsedStatement("select 1;", SourceType.QUERY, None, None)
     assert source == expected
 
 
@@ -225,7 +229,7 @@ def test_parse_source_just_query():
     (
         pytest.param(
             "!source {path};",
-            ParsedSource(
+            ParsedStatement(
                 "select 73;",
                 SourceType.FILE,
                 "path",
@@ -233,7 +237,7 @@ def test_parse_source_just_query():
         ),
         pytest.param(
             "!SoUrCe {path};",
-            ParsedSource(
+            ParsedStatement(
                 "select 73;",
                 SourceType.FILE,
                 "path",
@@ -241,7 +245,7 @@ def test_parse_source_just_query():
         ),
         pytest.param(
             "!SOURCE {path};",
-            ParsedSource(
+            ParsedStatement(
                 "select 73;",
                 SourceType.FILE,
                 "path",
@@ -249,7 +253,7 @@ def test_parse_source_just_query():
         ),
         pytest.param(
             "!load {path};",
-            ParsedSource(
+            ParsedStatement(
                 "select 73;",
                 SourceType.FILE,
                 "path",
@@ -257,7 +261,7 @@ def test_parse_source_just_query():
         ),
         pytest.param(
             "!LoaD {path};",
-            ParsedSource(
+            ParsedStatement(
                 "select 73;",
                 SourceType.FILE,
                 "path",
@@ -265,7 +269,7 @@ def test_parse_source_just_query():
         ),
         pytest.param(
             "!LOAD {path};",
-            ParsedSource(
+            ParsedStatement(
                 "select 73;",
                 SourceType.FILE,
                 "path",
@@ -280,7 +284,7 @@ def test_parse_source_command_detection(
     path.write_text("select 73;")
     expected.source_path = path.as_posix()
 
-    source = parse_source(statement.format(path=path), WORKING_OPERATOR_FUNCS)
+    source = parse_statement(statement.format(path=path), WORKING_OPERATOR_FUNCS)
     assert source == expected
 
 
@@ -289,7 +293,7 @@ def test_parse_source_file(tmp_path_factory: pytest.TempPathFactory):
     f1.write_text("select 1;")
 
     query = f"!source {f1.as_posix()};"
-    source = parse_source(query, WORKING_OPERATOR_FUNCS)
+    source = parse_statement(query, WORKING_OPERATOR_FUNCS)
 
     assert source.source_type == SourceType.FILE
     assert source.source_path
@@ -303,7 +307,7 @@ def test_parse_source_invalid_file(tmp_path_factory: pytest.TempPathFactory):
 
     invalid_path = f"{f1.as_posix()}_suffix"
     invalid_source = f"!source {invalid_path};"
-    source = parse_source(invalid_source, WORKING_OPERATOR_FUNCS)
+    source = parse_statement(invalid_source, WORKING_OPERATOR_FUNCS)
 
     assert source.source_type == SourceType.FILE
     assert source.source_path == invalid_source
@@ -311,16 +315,17 @@ def test_parse_source_invalid_file(tmp_path_factory: pytest.TempPathFactory):
     assert source.error and source.error.startswith("Could not read")
 
 
-def test_parse_source_default_fallback():
+@pytest.mark.parametrize("command", ["source", "load"])
+def test_parse_source_default_fallback(command):
     path = "s3://bucket/path/file.sql"
-    unknown_source = f"!load {path};"
+    unknown_source = f"!{command} {path};"
 
-    source = parse_source(unknown_source, WORKING_OPERATOR_FUNCS)
+    source = parse_statement(unknown_source, WORKING_OPERATOR_FUNCS)
 
     assert not source
     assert source.source_type == SourceType.UNKNOWN
-    assert source.source_path == unknown_source
-    assert source.source.read() == path
+    assert source.source_path == path
+    assert source.source.read() == unknown_source
     assert source.error and source.error.startswith("Unknown source")
 
 
@@ -339,8 +344,30 @@ def test_rendering_of_sql_with_commands(query):
         transpile_snowsql_templates,
         partial(snowflake_sql_jinja_render, data={"aaa": "foo", "bbb": "bar"}),
     )
-    parsed_source = parse_source(query, stmt_operators)
+    parsed_source = parse_statement(query, stmt_operators)
     assert parsed_source.source_type == SourceType.FILE
     assert parsed_source.source_path == "!source foo.bar"
     assert parsed_source.source.read() == "foo.bar"
     assert parsed_source.error == "Could not read: foo.bar"
+
+
+def test_detect_async_queries():
+    queries = """select 1;>
+    select -1;
+    select 2;>
+    select -2;
+    select 3;>
+    """
+    parsed_statements = query_reader(queries, [])
+    errors, expected_results, compiled_statements = compile_statements(
+        query_reader(queries, [])
+    )
+    assert errors == []
+    assert expected_results == 2
+    assert list(compiled_statements) == [
+        CompiledStatement(statement="select 1", execute_async=True),
+        CompiledStatement(statement="select -1;", execute_async=False),
+        CompiledStatement(statement="select 2", execute_async=True),
+        CompiledStatement(statement="select -2;", execute_async=False),
+        CompiledStatement(statement="select 3", execute_async=True),
+    ]
