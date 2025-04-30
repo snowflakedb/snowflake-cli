@@ -371,3 +371,22 @@ def test_detect_async_queries():
         CompiledStatement(statement="select -2;", execute_async=False, command=None),
         CompiledStatement(statement="select 3", execute_async=True, command=None),
     ]
+
+
+@pytest.mark.parametrize("command", ["queries", "abort", "result", "AbOrT"])
+def test_parse_command(command):
+    query = f"!{command} args k1=v1 k2=v2;"
+    parsed_statement = parse_statement(query, [])
+    assert parsed_statement.source_type == SourceType.SNOWSQL_COMMAND
+    assert parsed_statement.source.read() == query
+    assert parsed_statement.source_path is None
+    assert parsed_statement.error is None
+
+
+def test_parse_unknown_command():
+    query = f"!unknown_cmd a=b c d"
+    parsed_statement = parse_statement(query, [])
+    assert parsed_statement.source_type == SourceType.UNKNOWN
+    assert parsed_statement.source.read() == query
+    assert parsed_statement.source_path is None
+    assert parsed_statement.error == "Unknown command: unknown_cmd"

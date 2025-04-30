@@ -15,7 +15,7 @@ from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector.util_text import split_statements
 
 COMMAND_PATTERN = re.compile(
-    r"^!(source|load|queries|result|abort)\s*[\"']?(.*?)[\"']?\s*(?:;|$)",
+    r"^!(\w+)\s*[\"']?(.*?)[\"']?\s*(?:;|$)",
     flags=re.IGNORECASE,
 )
 URL_PATTERN = re.compile(r"^(\w+?):\/(\/.*)", flags=re.IGNORECASE)
@@ -157,7 +157,7 @@ def parse_statement(source: str, operators: OperatorFunctions) -> ParsedStatemen
             return ParsedStatement(statement, SourceType.SNOWSQL_COMMAND, None)
 
         case _:
-            error_msg = f"Unknown command: {source}"
+            error_msg = f"Unknown command: {command}"
 
     return ParsedStatement(statement, SourceType.UNKNOWN, None, error_msg)
 
