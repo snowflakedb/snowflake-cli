@@ -65,4 +65,5 @@ jobs:
       python-version: ${{ matrix.python-version }}
       python-env: e2e
       hatch-run: e2e:test
+      job-name: e2e-fork
     secrets: inherit

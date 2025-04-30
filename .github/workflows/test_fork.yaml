@@ -15,6 +15,9 @@ on:
       hatch-run:
         required: true
         type: string
+      job-name:
+        required: true
+        type: string
 
 jobs:
   test-fork:
@@ -59,16 +62,13 @@ jobs:
               pull_number: process.env.number
             });
             const ref = pull.head.sha;
-            console.log("Ref (head SHA):", ref);
 
             const { data: checks } = await github.rest.checks.listForRef({
               ...context.repo,
               ref
             });
-            console.log("Check runs for ref:", checks.check_runs);
 
-            const check = checks.check_runs.filter(c => c.name === process.env.job);
-            console.log("Filtered check:", check);
+            const check = checks.check_runs.filter(c => c.name === ${{ inputs.job-name }});
 
             const { data: result } = await github.rest.checks.update({
               ...context.repo,
