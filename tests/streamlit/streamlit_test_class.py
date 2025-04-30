@@ -48,7 +48,7 @@ class StreamlitTestClass:
             return_value="https://foo.bar",
         ).start()
 
-        self.mock_streamlit_exists = mock_streamlit_exists = mock.patch(
+        self.mock_streamlit_exists = mock.patch(
             "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists",
             lambda _, **kwargs: False,
         ).start()

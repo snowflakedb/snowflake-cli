@@ -104,3 +104,11 @@ class TestStreamlitEntity(StreamlitTestClass):
         result = example_entity.get_deploy_sql()
 
         assert result == snapshot
+
+    @pytest.mark.parametrize("attribute", ["schema", "database"])
+    def test_if_attribute_is_not_set_correct_error_is_raised(
+        self, example_entity, attribute
+    ):
+        with pytest.raises(ValueError) as e:
+            result = getattr(example_entity, attribute)
+        assert str(e.value) == f"Could not determine {attribute} for {STREAMLIT_NAME}"

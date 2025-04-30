@@ -151,7 +151,7 @@ def test_executing_command_sends_telemetry_result_data(
 def test_executing_command_sends_project_definition_in_telemetry_data(
     mock_entity, mock_conn, project_directory, runner
 ):
-    with project_directory("streamlit_full_definition"):
+    with project_directory("streamlit_full_definition_v2"):
         result = runner.invoke(["streamlit", "deploy"])
     assert result.exit_code == 0, result.output
 
@@ -159,8 +159,7 @@ def test_executing_command_sends_project_definition_in_telemetry_data(
     actual_call = mock_conn.return_value._telemetry.try_add_log_to_batch.call_args.args[  # noqa: SLF001
         0
     ].to_dict()
-    assert actual_call["message"]["project_definition_version"] == "1"
-    mock_entity.stop()
+    assert actual_call["message"]["project_definition_version"] == "2"
 
 
 @mock.patch("snowflake.connector.connect")

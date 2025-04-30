@@ -161,7 +161,7 @@ def streamlit_deploy(
             cli_context=cli_context,
             entity_id=entity_id,
             project_definition=pd,
-            entity_type="streamlit",
+            entity_type=ObjectType.STREAMLIT.value.cli_name,
         ),
         workspace_ctx=_get_current_workspace_context(),
     )
