@@ -26,6 +26,13 @@ def test_queries(runner):
 
 
 @pytest.mark.integration
+def test_queries_help(runner, snapshot):
+    result = runner.invoke_with_connection(["sql", "-q", "!queries help;"])
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot
+
+
+@pytest.mark.integration
 def test_result(runner, existing_query_id):
     result = runner.invoke_with_connection_json(
         ["sql", "-q", f"!result {existing_query_id}"]
