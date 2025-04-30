@@ -33,7 +33,7 @@ SqlTransformFunc = Callable[[str], str]
 OperatorFunctions = Sequence[SqlTransformFunc]
 
 
-class SourceType(enum.Enum):
+class StatementType(enum.Enum):
     FILE = "file"
     QUERY = "query"
     UNKNOWN = "unknown"
@@ -51,23 +51,23 @@ class ParsedStatement:
       - error: optional message
     """
 
-    __slots__ = ("source", "source_type", "source_path", "error")
-    __match_args__ = ("source_type", "error")
+    __slots__ = ("statement", "statement_type", "source_path", "error")
+    __match_args__ = ("statement_type", "error")
 
-    source: io.StringIO
-    source_type: SourceType | None
+    statement: io.StringIO
+    statement_type: StatementType | None
     source_path: str | None
     error: str | None
 
     def __init__(
         self,
-        source: str,
-        source_type: SourceType,
+        statement: str,
+        source_type: StatementType,
         source_path: str | None,
         error: str | None = None,
     ):
-        self.source = io.StringIO(source)
-        self.source_type = source_type
+        self.statement = io.StringIO(statement)
+        self.statement_type = source_type
         self.source_path = source_path
         self.error = error
 
@@ -76,28 +76,28 @@ class ParsedStatement:
 
     def __eq__(self, other):
         result = (
-            self.source_type == other.source_type,
+            self.statement_type == other.statement_type,
             self.source_path == other.source_path,
             self.error == other.error,
-            self.source.read() == other.source.read(),
+            self.statement.read() == other.statement.read(),
         )
-        self.source.seek(0)
-        other.source.seek(0)
+        self.statement.seek(0)
+        other.statement.seek(0)
         return all(result)
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(source_type={self.source_type}, source_path={self.source_path}, error={self.error})"
+        return f"{self.__class__.__name__}(statement_type={self.statement_type}, source_path={self.source_path}, error={self.error})"
 
     @classmethod
     def from_url(cls, path_part: str, raw_source: str) -> "ParsedStatement":
         """Constructor for loading from URL."""
         try:
             payload = urlopen(path_part, timeout=10.0).read().decode()
-            return cls(payload, SourceType.URL, path_part)
+            return cls(payload, StatementType.URL, path_part)
 
         except urllib.error.HTTPError as err:
             error = f"Could not fetch {path_part}: {err}"
-            return cls(path_part, SourceType.URL, raw_source, error)
+            return cls(path_part, StatementType.URL, raw_source, error)
 
     @classmethod
     def from_file(cls, path_part: str, raw_source: str) -> "ParsedStatement":
@@ -106,10 +106,10 @@ class ParsedStatement:
 
         if path.is_file():
             payload = path.read_text(file_size_limit_mb=UNLIMITED)
-            return cls(payload, SourceType.FILE, path.as_posix())
+            return cls(payload, StatementType.FILE, path.as_posix())
 
         error_msg = f"Could not read: {path_part}"
-        return cls(path_part, SourceType.FILE, raw_source, error_msg)
+        return cls(path_part, StatementType.FILE, raw_source, error_msg)
 
 
 RecursiveStatementReader = Generator[ParsedStatement, Any, Any]
@@ -125,13 +125,13 @@ def parse_statement(source: str, operators: OperatorFunctions) -> ParsedStatemen
             statement = operator(statement)
     except UndefinedError as e:
         error_msg = f"SQL template rendering error: {e}"
-        return ParsedStatement(source, SourceType.UNKNOWN, source, error_msg)
+        return ParsedStatement(source, StatementType.UNKNOWN, source, error_msg)
 
     split_result = COMMAND_PATTERN.split(statement, maxsplit=1)
     split_result = [p.strip() for p in split_result]
 
     if len(split_result) == 1:
-        return ParsedStatement(statement, SourceType.QUERY, None)
+        return ParsedStatement(statement, StatementType.QUERY, None)
 
     _, command, command_args, *_ = split_result
     _path_match = URL_PATTERN.split(command_args.lower())
@@ -148,18 +148,18 @@ def parse_statement(source: str, operators: OperatorFunctions) -> ParsedStatemen
         case "source" | "load", _:
             return ParsedStatement(
                 statement,
-                SourceType.UNKNOWN,
+                StatementType.UNKNOWN,
                 command_args,
                 f"Unknown source: {command_args}",
             )
 
         case "queries" | "result" | "abort", (str(),):
-            return ParsedStatement(statement, SourceType.SNOWSQL_COMMAND, None)
+            return ParsedStatement(statement, StatementType.SNOWSQL_COMMAND, None)
 
         case _:
             error_msg = f"Unknown command: {command}"
 
-    return ParsedStatement(statement, SourceType.UNKNOWN, None, error_msg)
+    return ParsedStatement(statement, StatementType.UNKNOWN, None, error_msg)
 
 
 def recursive_statement_reader(
@@ -175,7 +175,7 @@ def recursive_statement_reader(
         parsed_source = parse_statement(stmt, operators)
 
         match parsed_source:
-            case ParsedStatement(SourceType.FILE | SourceType.URL, None):
+            case ParsedStatement(StatementType.FILE | StatementType.URL, None):
                 if parsed_source.source_path in seen_files:
                     error = f"Recursion detected: {' -> '.join(seen_files)}"
                     parsed_source.error = error
@@ -185,7 +185,7 @@ def recursive_statement_reader(
                 seen_files.append(parsed_source.source_path)
 
                 yield from recursive_statement_reader(
-                    split_statements(parsed_source.source, remove_comments),
+                    split_statements(parsed_source.statement, remove_comments),
                     seen_files,
                     operators,
                     remove_comments,
@@ -193,7 +193,7 @@ def recursive_statement_reader(
 
                 seen_files.pop()
 
-            case ParsedStatement(SourceType.URL, error) if error:
+            case ParsedStatement(StatementType.URL, error) if error:
                 yield parsed_source
 
             case _:
@@ -261,8 +261,8 @@ def compile_statements(
     compiled = []
 
     for stmt in source:
-        if stmt.source_type == SourceType.QUERY:
-            statement = stmt.source.read()
+        if stmt.statement_type == StatementType.QUERY:
+            statement = stmt.statement.read()
             if not stmt.error and not _is_empty_statement(statement):
                 is_async = statement.endswith(ASYNC_SUFFIX)
                 compiled.append(
@@ -274,10 +274,10 @@ def compile_statements(
                 if not is_async:
                     expected_results_cnt += 1
 
-        if stmt.source_type == SourceType.SNOWSQL_COMMAND:
+        if stmt.statement_type == StatementType.SNOWSQL_COMMAND:
             if not stmt.error:
                 cmd = (
-                    stmt.source.read()
+                    stmt.statement.read()
                     .removesuffix(ASYNC_SUFFIX)
                     .removesuffix(";")
                     .split()
