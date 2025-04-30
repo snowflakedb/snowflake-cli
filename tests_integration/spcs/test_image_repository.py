@@ -65,7 +65,8 @@ def _list_images(runner):
             "image_path": f"{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test_echo:1".lower(),
         },
     )
-    
+
+
 def _list_images_with_like(runner):
     result = runner.invoke_with_connection_json(
         [
@@ -90,6 +91,7 @@ def _list_images_with_like(runner):
             "image_path": f"{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test_echo:1".lower(),
         },
     )
+
 
 def _list_tags(runner):
     result = runner.invoke_with_connection_json(
