@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import json
 import logging
-import typing
 from typing import Callable, Optional
 
 from click import ClickException
@@ -55,7 +54,7 @@ class MidStreamError(Exception):
 
     def __init__(
         self,
-        reason: typing.Optional[str] = None,
+        reason: Optional[str] = None,
     ) -> None:
         message = ""
         if reason is not None:
