@@ -126,10 +126,19 @@ def deploy(
 @app.command("list-images", requires_connection=True)
 def list_images(
     name: FQN = REPO_NAME_ARGUMENT,
+    like_option: Optional[str] = typer.Option(
+        None,
+        "--like",
+        help='Filters the list of images to those that match the specified pattern. For example, `--like "my%"` lists all images that begin with “my”.',
+    ),
     **options,
 ) -> CollectionResult:
     """Lists images in the given repository."""
-    return QueryResult(ImageRepositoryManager().list_images(name.identifier))
+    if like_option is not None:
+        like_option = f"like '{like_option}'"
+    else :
+        like_option = ""
+    return QueryResult(ImageRepositoryManager().list_images(name.identifier, like_option))
 
 
 @app.command("list-tags", requires_connection=True, deprecated=True)
