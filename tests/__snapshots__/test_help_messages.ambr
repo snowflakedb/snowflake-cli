@@ -11880,10 +11880,10 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --like          TEXT  Filters the list of images to those that match the     |
-  |                       specified pattern. For example, --like "my%" lists all |
-  |                       images that begin with “my”.                           |
-  |                       [default: None]                                        |
+  | --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    |
+  |                       example, --like "my%" lists all image repositories     |
+  |                       that begin with “my”..                                 |
+  |                       [default: %%]                                          |
   | --help  -h            Show this message and exit.                            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -12132,9 +12132,8 @@
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list --like "my%" lists   |
-  |                                 all image repositories that begin with       |
-  |                                 “my”..                                       |
+  |                                 name. For example, --like "my%" lists all    |
+  |                                 image repositories that begin with “my”..    |
   |                                 [default: %%]                                |
   | --in            <TEXT TEXT>...                                               |
   |                                                                              |
