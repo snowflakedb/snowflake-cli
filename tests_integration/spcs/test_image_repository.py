@@ -86,6 +86,7 @@ def _list_images_with_like_empty_list(runner):
     assert isinstance(result.json, list), result.output
     assert len(result.json) == 0, result.json
 
+
 def _list_images_with_like_positive_case(runner):
     result = runner.invoke_with_connection_json(
         [
@@ -111,6 +112,7 @@ def _list_images_with_like_positive_case(runner):
             "image_path": f"{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/test_counter:latest".lower(),
         },
     )
+
 
 def _list_tags(runner):
     result = runner.invoke_with_connection_json(
