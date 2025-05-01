@@ -39,7 +39,8 @@ INTEGRATION_REPOSITORY = "snowcli_repository"
 def test_list_images_tags(runner):
     # test assumes the testing environment has been set up with /<DATABASE>/PUBLIC/snowcli_repository/snowpark_test_echo:1
     _list_images(runner)
-    _list_images_with_like(runner)
+    _list_images_with_like_positive_case(runner)
+    _list_images_with_like_empty_list(runner)
     _list_tags(runner)
 
 
@@ -67,7 +68,7 @@ def _list_images(runner):
     )
 
 
-def _list_images_with_like(runner):
+def _list_images_with_like_empty_list(runner):
     result = runner.invoke_with_connection_json(
         [
             "spcs",
@@ -85,6 +86,31 @@ def _list_images_with_like(runner):
     assert isinstance(result.json, list), result.output
     assert len(result.json) == 0, result.json
 
+def _list_images_with_like_positive_case(runner):
+    result = runner.invoke_with_connection_json(
+        [
+            "spcs",
+            "image-repository",
+            "list-images",
+            INTEGRATION_REPOSITORY,
+            "--database",
+            INTEGRATION_DATABASE,
+            "--schema",
+            INTEGRATION_SCHEMA,
+            "--like-option",
+            "test_counter%",
+        ]
+    )
+    assert isinstance(result.json, list), result.output
+    assert len(result.json) == 1, result.json
+    assert contains_row_with(
+        result.json,
+        {
+            "image_name": "test_counter",
+            "tags": "latest",
+            "image_path": f"{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/test_counter:latest".lower(),
+        },
+    )
 
 def _list_tags(runner):
     result = runner.invoke_with_connection_json(
