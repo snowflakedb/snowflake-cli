@@ -21,11 +21,22 @@
 ## New additions
 * Added support for OAuth tokens.
 * Cleaning up the output directory after coping files to the stage for Streamlit, Notebook, SPCS Service and project.
+* Added interactive mode for `snow sql`.
+* Added support for async SQL queries (`;>` syntax).
+* Added support for `!queries`, `!result` and `!abort` commands from SnowSQL.
+
+## Fixes and improvements
+
+
+# v3.7.1
+
+## Deprecations
+
+## New additions
 
 ## Fixes and improvements
 * Fix certificate connection issues.
 * Fix `snow spcs image-registry login` slow query problem.
-* Added interactive mode for `snow sql`
 
 
 # v3.7.0

@@ -20,8 +20,10 @@ from functools import partial
 from pathlib import Path
 from typing import Dict, Iterable, List, Tuple
 
+from snowflake.cli._app.printing import print_result
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
-from snowflake.cli._plugins.sql.source_reader import (
+from snowflake.cli._plugins.sql.statement_reader import (
+    CompiledStatement,
     compile_statements,
     files_reader,
     query_reader,
@@ -29,12 +31,13 @@ from snowflake.cli._plugins.sql.source_reader import (
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliArgumentError, CliSqlError
+from snowflake.cli.api.output.types import CollectionResult
 from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin, VerboseCursor
 from snowflake.connector.cursor import SnowflakeCursor
 
-IsSingleStatement = bool
+ExpectedResultsCount = int
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +50,7 @@ class SqlManager(SqlExecutionMixin):
         std_in: bool,
         data: Dict | None = None,
         retain_comments: bool = False,
-    ) -> Tuple[IsSingleStatement, Iterable[SnowflakeCursor]]:
+    ) -> Tuple[ExpectedResultsCount, Iterable[SnowflakeCursor]]:
         """Reads, transforms and execute statements from input.
 
         Only one input can be consumed at a time.
@@ -72,8 +75,10 @@ class SqlManager(SqlExecutionMixin):
         else:
             raise CliArgumentError("Use either query, filename or input option.")
 
-        errors, stmt_count, compiled_statements = compile_statements(stmt_reader)
-        if not any((errors, stmt_count, compiled_statements)):
+        errors, expected_results_cnt, compiled_statements = compile_statements(
+            stmt_reader
+        )
+        if not any((errors, expected_results_cnt, compiled_statements)):
             raise CliArgumentError("Use either query, filename or input option.")
 
         if errors:
@@ -82,11 +87,25 @@ class SqlManager(SqlExecutionMixin):
                 cli_console.warning(error)
             raise CliSqlError("SQL rendering error")
 
-        is_single_statement = not (stmt_count > 1)
-
         cursor_class = SnowflakeCursor if get_cli_context().is_repl else VerboseCursor
-
-        return is_single_statement, self.execute_string(
-            "\n".join(compiled_statements),
+        return expected_results_cnt, self._execute_compiled_statements(
+            compiled_statements,
             cursor_class=cursor_class,
         )
+
+    def _execute_compiled_statements(
+        self, compiled_statements: List[CompiledStatement], cursor_class
+    ) -> Iterable[SnowflakeCursor]:
+        for stmt in compiled_statements:
+            if stmt.execute_async:
+                cursor = self._conn.cursor(cursor_class=cursor_class)
+                cursor.execute(stmt.statement, _no_results=True)
+                # only log query ID for consistency with SnowSQL
+                logger.info("Async execution id: %s", cursor.sfqid)
+                print_result(CollectionResult([{"scheduled query ID": cursor.sfqid}]))
+            elif stmt.statement:
+                yield from self.execute_string(
+                    stmt.statement, cursor_class=cursor_class
+                )
+            if stmt.command:
+                stmt.command.execute(self._conn)

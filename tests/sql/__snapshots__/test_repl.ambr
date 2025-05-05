@@ -52,7 +52,6 @@
   
   Leaving REPL, bye ...
   
-  
   '''
 # ---
 # name: test_repl_input_handling

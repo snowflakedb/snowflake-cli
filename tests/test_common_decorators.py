@@ -52,7 +52,9 @@ _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "oauth_authorization_url",
     "oauth_redirect_uri",
     "oauth_scope",
-    "oauth_security_features",
+    "oauth_disable_pkce",
+    "oauth_enable_refresh_tokens",
+    "oauth_enable_single_use_refresh_tokens",
     "client_store_temporary_credential",
 ] + _KNOWN_SIG_GLOBAL_PARAMETERS
 

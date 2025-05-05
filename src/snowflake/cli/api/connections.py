@@ -61,7 +61,9 @@ class ConnectionContext:
     oauth_token_request_url: Optional[str] = None
     oauth_redirect_uri: Optional[str] = None
     oauth_scope: Optional[str] = None
-    oauth_security_features: Optional[str] = None
+    oauth_disable_pkce: Optional[bool] = None
+    oauth_enable_refresh_tokens: Optional[bool] = None
+    oauth_enable_single_use_refresh_tokens: Optional[bool] = None
     client_store_temporary_credential: Optional[bool] = None
 
     VALIDATED_FIELD_NAMES = ["schema"]
