@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import sys
 from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest import mock
@@ -68,9 +69,7 @@ def test_sql_execute_multiple_file(mock_execute, runner, mock_cursor):
 
     assert result.exit_code == 0
     mock_execute.assert_has_calls(
-        [
-            mock.call(f"{query}\n{query}", cursor_class=VerboseCursor),
-        ]
+        [mock.call(f"{query}", cursor_class=VerboseCursor)] * 2
     )
 
 
@@ -85,12 +84,29 @@ def test_sql_execute_from_stdin(mock_execute, runner, mock_cursor):
     mock_execute.assert_called_once_with(query, cursor_class=VerboseCursor)
 
 
-def test_sql_help_if_no_query_file_or_stdin(runner, os_agnostic_snapshot):
+@mock.patch("snowflake.cli._plugins.sql.repl.PromptSession")
+@mock.patch("snowflake.cli._plugins.sql.repl.Repl._execute")
+def test_sql_repl_if_no_query_file_or_stdin(
+    mock_execute,
+    mock_prompt_session,
+    runner,
+    os_agnostic_snapshot,
+    mock_cursor,
+):
+    mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(2))
+    mock_prompt = mock.MagicMock()
+    mock_prompt.prompt.side_effect = iter(("exit", "y"))
+    mock_prompt_session.return_value = mock_prompt
+
     result = runner.invoke(["sql"])
     assert result.exit_code == 0, result.output
-    assert result.output == os_agnostic_snapshot
+    os_agnostic_snapshot.assert_match(result.output)
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Skipping on Windows without console.",
+)
 def test_sql_fails_if_query_and_stdin_and_file_provided(runner):
     with NamedTemporaryFile("r") as tmp_file:
         result = runner.invoke(["sql", "-i", "-q", "foo", "-f", tmp_file.name])
@@ -438,8 +454,8 @@ def test_uses_variables_from_cli_are_added_outside_context(
 @pytest.mark.parametrize(
     "option,expected",
     [
-        ("--retain-comments", "SELECT 42;\n-- Commented line\n    SELECT 1;"),
-        ("", "SELECT 42;\nSELECT 1;"),
+        ("--retain-comments", ["SELECT 42;", "-- Commented line\n    SELECT 1;"]),
+        ("", ["SELECT 42;", "SELECT 1;"]),
     ],
 )
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
@@ -466,7 +482,11 @@ def test_comments_are_handled_correctly_from_file(
         result = runner.invoke(arguments)
 
     assert result.exit_code == 0
-    mock_execute.assert_called_once_with(expected, cursor_class=VerboseCursor)
+
+    expected_calls = [
+        mock.call(query, cursor_class=VerboseCursor) for query in expected
+    ]
+    assert mock_execute.mock_calls == expected_calls
 
 
 @pytest.mark.parametrize(
@@ -474,9 +494,9 @@ def test_comments_are_handled_correctly_from_file(
     [
         (
             "--retain-comments",
-            "SELECT 42;\n-- Commented line\n    SELECT 1;\n--another comment;",
+            ["SELECT 42;", "-- Commented line\n    SELECT 1;"],
         ),
-        ("", "SELECT 42;\nSELECT 1;"),
+        ("", ["SELECT 42;", "SELECT 1;"]),
     ],
 )
 @mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
@@ -489,6 +509,7 @@ def test_comments_are_handled_correctly_from_query(
     -- Commented line
     SELECT 1;
     --another comment;
+    --with two lines;
     """
 
     arguments = ["sql", "-q", query]
@@ -498,4 +519,7 @@ def test_comments_are_handled_correctly_from_query(
     result = runner.invoke(arguments)
 
     assert result.exit_code == 0
-    mock_execute.assert_called_once_with(expected, cursor_class=VerboseCursor)
+    expected_calls = [
+        mock.call(exp_query, cursor_class=VerboseCursor) for exp_query in expected
+    ]
+    assert mock_execute.mock_calls == expected_calls

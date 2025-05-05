@@ -15,6 +15,9 @@ on:
       hatch-run:
         required: true
         type: string
+      job-name:
+        required: true
+        type: string
 
 jobs:
   test-fork:
@@ -65,7 +68,7 @@ jobs:
               ref
             });
 
-            const check = checks.check_runs.filter(c => c.name === process.env.job);
+            const check = checks.check_runs.filter(c => c.name === ${{ inputs.job-name }});
 
             const { data: result } = await github.rest.checks.update({
               ...context.repo,

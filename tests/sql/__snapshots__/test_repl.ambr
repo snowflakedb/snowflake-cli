@@ -1,0 +1,72 @@
+# serializer version: 1
+# name: test_exit_sequence[exit]
+  '''
+  ╭──────────────────────────────────────────────────────────────────────────────╮
+  │ Welcome to Snowflake-CLI REPL                                                │
+  │ Type 'exit' or 'quit' to leave                                               │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  Leaving REPL, bye ...
+  
+  '''
+# ---
+# name: test_exit_sequence[hesistate on exit]
+  '''
+  ╭──────────────────────────────────────────────────────────────────────────────╮
+  │ Welcome to Snowflake-CLI REPL                                                │
+  │ Type 'exit' or 'quit' to leave                                               │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  Leaving REPL, bye ...
+  
+  '''
+# ---
+# name: test_exit_sequence[hesistate on quit]
+  '''
+  ╭──────────────────────────────────────────────────────────────────────────────╮
+  │ Welcome to Snowflake-CLI REPL                                                │
+  │ Type 'exit' or 'quit' to leave                                               │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  Leaving REPL, bye ...
+  
+  '''
+# ---
+# name: test_exit_sequence[quit]
+  '''
+  ╭──────────────────────────────────────────────────────────────────────────────╮
+  │ Welcome to Snowflake-CLI REPL                                                │
+  │ Type 'exit' or 'quit' to leave                                               │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  Leaving REPL, bye ...
+  
+  '''
+# ---
+# name: test_repl_full_app
+  '''
+  ╭──────────────────────────────────────────────────────────────────────────────╮
+  │ Welcome to Snowflake-CLI REPL                                                │
+  │ Type 'exit' or 'quit' to leave                                               │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  Leaving REPL, bye ...
+  
+  '''
+# ---
+# name: test_repl_input_handling
+  '''
+  ╭──────────────────────────────────────────────────────────────────────────────╮
+  │ Welcome to Snowflake-CLI REPL                                                │
+  │ Type 'exit' or 'quit' to leave                                               │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  +---+
+  | 1 |
+  |---|
+  | 1 |
+  +---+
+  
+  Leaving REPL, bye ...
+  
+  '''
+# ---

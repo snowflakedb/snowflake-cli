@@ -67,4 +67,5 @@ jobs:
       python-version: ${{ matrix.python-version }}
       python-env: integration
       hatch-run: integration:test
+      job-name: integration-fork
     secrets: inherit

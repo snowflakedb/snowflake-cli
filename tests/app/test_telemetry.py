@@ -76,6 +76,7 @@ def test_executing_command_sends_telemetry_usage_data(
                 "foo": "False",
                 "wrong_type_flag": "UNKNOWN",
             },
+            "mode": "cmd",
         },
         "timestamp": "123",
     }

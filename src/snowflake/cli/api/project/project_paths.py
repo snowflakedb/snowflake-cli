@@ -21,6 +21,11 @@ class ProjectPaths:
         if self.bundle_root.exists():
             SecurePath(self.bundle_root).rmdir(recursive=True)
 
+    def clean_up_output(self):
+        output = SecurePath(self.project_root / "output")
+        if output.exists():
+            output.rmdir(recursive=True)
+
 
 def bundle_root(root: Path, app_type: str | None = None) -> Path:
     if app_type:
