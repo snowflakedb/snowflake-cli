@@ -67,8 +67,12 @@ jobs:
               ...context.repo,
               ref
             });
+            console.log("Check runs for ref:", checks.check_runs);
+            console.log("Job name:", ${{ inputs.job-name }});
+            console.log("Check run names for ref:", checks.check_runs.map(c => c.name));
 
             const check = checks.check_runs.filter(c => c.name === ${{ inputs.job-name }});
+            console.log("Filtered check:", check.check_runs);
 
             const { data: result } = await github.rest.checks.update({
               ...context.repo,
