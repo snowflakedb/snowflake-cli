@@ -165,10 +165,8 @@ class EntityBase(Generic[T]):
             name=stage_name,
             encryption=StageEncryption(type=StageEncryptionType.SNOWFLAKE_SSE.value),
         )
-        # TODO wrap this in try except block and raise something meaningful
-        stage_collection.create(stage_object, mode=CreateMode.if_not_exists)
 
-        return stage_collection[stage_name]
+        return stage_collection.create(stage_object, mode=CreateMode.if_not_exists)
 
     def _get_identifier(
         self, schema: Optional[str] = None, database: Optional[str] = None

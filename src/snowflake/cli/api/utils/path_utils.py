@@ -18,6 +18,7 @@ import os
 import sys
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Generator
 
 from snowflake.cli.api.secure_path import SecurePath
 
@@ -62,7 +63,10 @@ def resolve_without_follow(path: Path) -> Path:
 
 
 @contextmanager
-def change_directory(new_directory):
+def change_directory(new_directory: Path | SecurePath) -> Generator[None, None, None]:
+    if isinstance(new_directory, SecurePath):
+        new_directory = new_directory.path
+
     original_directory = os.getcwd()
     try:
         os.chdir(new_directory)
