@@ -112,6 +112,7 @@ def _list_images_with_like_positive_case(runner):
             "image_path": f"{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/test_counter:latest".lower(),
         },
     )
+    # get all the images this time to verify the like filter is not applied
     result2 = runner.invoke_with_connection_json(
         [
             "spcs",
@@ -127,7 +128,7 @@ def _list_images_with_like_positive_case(runner):
         ]
     )
     assert isinstance(result2.json, list), result2.output
-    assert len(result2.json) == 2, result2.json
+    assert len(result2.json) == 3, result2.json
     assert contains_row_with(
         result.json,
         {
