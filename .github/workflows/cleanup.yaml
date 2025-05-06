@@ -10,27 +10,10 @@ permissions:
 
 jobs:
   tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip hatch
-          python -m hatch env create e2e
-      - name: Run integration tests
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TERM: unknown
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_AUTHENTICATOR: SNOWFLAKE_JWT
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
-          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_RAW }}
-        run: python -m hatch run e2e:cleanup
+    uses: ./.github/workflows/test_trusted.yaml
+    with:
+      runs-on: ubuntu-latest
+      python-version: "3.11"
+      python-env: e2e
+      hatch-run: e2e:cleanup
+    secrets: inherit
