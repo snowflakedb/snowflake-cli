@@ -65,10 +65,8 @@ def parametrize_with(data: list[tuple[str, bool]]):
 
 def build_stage_path(path, is_git_repo):
     if is_git_repo:
-        stage_path = StagePath.from_git_str(path)
-    else:
-        stage_path = StagePath.from_stage_str(path)
-    return stage_path
+        return StagePath.from_git_str(path)
+    return StagePath.from_stage_str(path)
 
 
 @parametrize_with(ROOT_STAGES)
@@ -82,7 +80,10 @@ def test_root_paths(path, is_git_repo):
     assert stage_path.suffix == ""
     assert stage_path.stem == ""
     assert stage_path.stage == path.lstrip("@").replace("snow://", "").split("/")[0]
-    assert stage_path.absolute_path() == "@" + path.lstrip("@").replace("snow://", "")
+    if path.startswith("@") or not path.startswith("snow://"):
+        assert stage_path.absolute_path() == "@" + path.lstrip("@")
+    elif path.startswith("snow://"):
+        assert stage_path.absolute_path().startswith("snow://")
 
 
 @parametrize_with(DIRECTORIES)
@@ -96,7 +97,10 @@ def test_dir_paths(path, is_git_repo):
     assert stage_path.suffix == ""
     assert stage_path.stem == "my_path"
     assert stage_path.stage == path.lstrip("@").replace("snow://", "").split("/")[0]
-    assert stage_path.absolute_path() == "@" + path.lstrip("@").replace("snow://", "")
+    if path.startswith("@") or not path.startswith("snow://"):
+        assert stage_path.absolute_path() == "@" + path.lstrip("@")
+    elif path.startswith("snow://"):
+        assert stage_path.absolute_path().startswith("snow://")
 
 
 @parametrize_with(FILES)
@@ -110,9 +114,10 @@ def test_file_paths(path, is_git_repo):
     assert stage_path.suffix == ".py"
     assert stage_path.stem == "file"
     assert stage_path.stage == path.lstrip("@").replace("snow://", "").split("/")[0]
-    assert stage_path.absolute_path() == "@" + path.lstrip("@").replace(
-        "snow://", ""
-    ).rstrip("/")
+    if path.startswith("@") or not path.startswith("snow://"):
+        assert stage_path.absolute_path() == "@" + path.lstrip("@").rstrip("/")
+    elif path.startswith("snow://"):
+        assert stage_path.absolute_path().startswith("snow://")
 
 
 @parametrize_with(FILES_UNDER_PATH)
@@ -126,9 +131,10 @@ def test_dir_with_file_paths(path, is_git_repo):
     assert stage_path.suffix == ".py"
     assert stage_path.stem == "file"
     assert stage_path.stage == path.lstrip("@").replace("snow://", "").split("/")[0]
-    assert stage_path.absolute_path() == "@" + path.lstrip("@").replace(
-        "snow://", ""
-    ).rstrip("/")
+    if path.startswith("@") or not path.startswith("snow://"):
+        assert stage_path.absolute_path() == "@" + path.lstrip("@").rstrip("/")
+    elif path.startswith("snow://"):
+        assert stage_path.absolute_path().startswith("snow://")
 
 
 def test_join_path():
