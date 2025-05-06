@@ -26,7 +26,7 @@
 * Added support for `!queries`, `!result` and `!abort` commands from SnowSQL.
 
 ## Fixes and improvements
-
+* Fix for deploying Snowpark project using `!=` operator in `requirements.txt`
 
 # v3.7.1
 
