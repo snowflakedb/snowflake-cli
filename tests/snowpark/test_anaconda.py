@@ -92,7 +92,7 @@ def test_versions():
         ("Shrubbery<=1.3", True),
         ("shrubbery==1.2.*", True),
         ("shrubbery!=1.2.*", False),
-        ("dummy-pkg!=1.0.*", True),
+        ("dummy-pkg!=1.0.*", False),
         ("shrubbery>1,!=1.2.*", False),
         ("shrubbery>1,<4", True),
         # safe-fail for non-pep508 version formats
