@@ -4,7 +4,7 @@ jinja2==3.1.6
 packaging
 pip
 pluggy==1.5.0
-prompt-toolkit==3.0.50
+prompt-toolkit==3.0.51
 pydantic==2.11.4
 requests==2.32.3
 requirements-parser==0.11.0
