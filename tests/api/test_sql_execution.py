@@ -15,6 +15,7 @@
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.sql_execution import SqlExecutor
 
 EXECUTE_QUERY = f"snowflake.cli.api.sql_execution.BaseSqlExecutor.execute_query"
@@ -109,3 +110,9 @@ def test_use_warehouse_same_id(
     with SqlExecutor().use_warehouse(new_warehouse):
         pass
     assert mock_execute_query.mock_calls == [mock.call("select current_warehouse()")]
+
+
+@mock.patch(EXECUTE_QUERY)
+def test_use_schema_fqn(mock_execute_query):
+    SqlExecutor().use(ObjectType.SCHEMA, "db.schema")
+    assert mock_execute_query.mock_calls == [mock.call("use schema db.schema")]
