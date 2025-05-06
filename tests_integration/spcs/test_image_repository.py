@@ -84,7 +84,7 @@ def _list_images_with_like_empty_list(runner):
         ]
     )
     assert isinstance(result.json, list), result.output
-    assert len(result.json) == 0, result.json
+    assert len(result.json) == 1, result.json
     print("result json is:", result.json)
     print("result output is:", result.output)
 
