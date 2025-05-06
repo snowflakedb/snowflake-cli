@@ -79,7 +79,7 @@ def _list_images_with_like_empty_list(runner):
             INTEGRATION_DATABASE,
             "--schema",
             INTEGRATION_SCHEMA,
-            "--like-option",
+            "--like",
             "openflow%",
         ]
     )
@@ -98,7 +98,7 @@ def _list_images_with_like_positive_case(runner):
             INTEGRATION_DATABASE,
             "--schema",
             INTEGRATION_SCHEMA,
-            "--like-option",
+            "--like",
             "test_counter%",
         ]
     )
