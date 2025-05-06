@@ -743,16 +743,22 @@ def test_use_object_catches_other_sql_error(mock_execute_query):
     assert "Failed to use role test_err_role." in str(err)
 
 
-def test_use_warehouse_single_quoted_id(mock_execute_query, mock_cursor):
+@pytest.mark.parametrize(
+    "old_warehouse, expected_old_warehouse",
+    [("old_wh", "old_wh"), ("old wh", '"old wh"')],
+)
+def test_use_warehouse_single_quoted_id(
+    mock_execute_query, mock_cursor, old_warehouse, expected_old_warehouse
+):
     single_quoted_name = "test warehouse"
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([("old_wh",)], []),
+                mock_cursor([(old_warehouse,)], []),
                 mock.call("select current_warehouse()"),
             ),
             (None, mock.call('use warehouse "test warehouse"')),
-            (None, mock.call(f"use warehouse old_wh")),
+            (None, mock.call(f"use warehouse {expected_old_warehouse}")),
         ]
     )
     mock_execute_query.side_effect = side_effects
@@ -763,34 +769,43 @@ def test_use_warehouse_single_quoted_id(mock_execute_query, mock_cursor):
     assert mock_execute_query.mock_calls == expected
 
 
-def test_use_warehouse_same_id_single_quotes(mock_execute_query, mock_cursor):
-    single_quoted_name = "test warehouse"
+@pytest.mark.parametrize(
+    "new_wh, current_wh",
+    [("test_wh", "test_wh"), ("test wh", '"test wh"'), ("test wh", "test wh")],
+)
+def test_use_warehouse_same_id(mock_execute_query, mock_cursor, new_wh, current_wh):
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([('"test warehouse"',)], []),
+                mock_cursor([(current_wh,)], []),
                 mock.call("select current_warehouse()"),
             )
         ]
     )
     mock_execute_query.side_effect = side_effects
 
-    with sql_facade._use_warehouse_optional(single_quoted_name):  # noqa: SLF001
+    with sql_facade._use_warehouse_optional(new_wh):  # noqa: SLF001
         pass
 
     assert mock_execute_query.mock_calls == expected
 
 
-def test_use_role_single_quoted_id(mock_execute_query, mock_cursor):
+@pytest.mark.parametrize(
+    "old_role, expected_old_role",
+    [("old_role", "old_role"), ("old role", '"old role"')],
+)
+def test_use_role_single_quoted_id(
+    mock_execute_query, mock_cursor, old_role, expected_old_role
+):
     single_quoted_name = "test role"
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([("old_role",)], []),
+                mock_cursor([(old_role,)], []),
                 mock.call("select current_role()"),
             ),
             (None, mock.call('use role "test role"')),
-            (None, mock.call(f"use role old_role")),
+            (None, mock.call(f"use role {expected_old_role}")),
         ]
     )
     mock_execute_query.side_effect = side_effects
@@ -801,34 +816,47 @@ def test_use_role_single_quoted_id(mock_execute_query, mock_cursor):
     assert mock_execute_query.mock_calls == expected
 
 
-def test_use_role_same_id_single_quotes(mock_execute_query, mock_cursor):
-    single_quoted_name = "test role"
+@pytest.mark.parametrize(
+    "new_role, current_role",
+    [
+        ("test_role", "test_role"),
+        ("test role", '"test role"'),
+        ("test role", "test role"),
+    ],
+)
+def test_use_role_same_id(mock_execute_query, mock_cursor, new_role, current_role):
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([('"test role"',)], []),
+                mock_cursor([(current_role,)], []),
                 mock.call("select current_role()"),
             )
         ]
     )
     mock_execute_query.side_effect = side_effects
 
-    with sql_facade._use_role_optional(single_quoted_name):  # noqa: SLF001
+    with sql_facade._use_role_optional(new_role):  # noqa: SLF001
         pass
 
     assert mock_execute_query.mock_calls == expected
 
 
-def test_use_db_single_quoted_id(mock_execute_query, mock_cursor):
+@pytest.mark.parametrize(
+    "old_db, expected_old_db",
+    [("old_db", "old_db"), ("old db", '"old db"')],
+)
+def test_use_db_single_quoted_id(
+    mock_execute_query, mock_cursor, old_db, expected_old_db
+):
     single_quoted_name = "test db"
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([("old_db",)], []),
+                mock_cursor([(old_db,)], []),
                 mock.call("select current_database()"),
             ),
             (None, mock.call('use database "test db"')),
-            (None, mock.call(f"use database old_db")),
+            (None, mock.call(f"use database {expected_old_db}")),
         ]
     )
     mock_execute_query.side_effect = side_effects
@@ -839,19 +867,75 @@ def test_use_db_single_quoted_id(mock_execute_query, mock_cursor):
     assert mock_execute_query.mock_calls == expected
 
 
-def test_use_db_same_id_single_quotes(mock_execute_query, mock_cursor):
-    single_quoted_name = "test db"
+@pytest.mark.parametrize(
+    "new_db, current_db",
+    [("test_db", "test_db"), ("test db", '"test db"'), ("test db", "test db")],
+)
+def test_use_db_same_id(mock_execute_query, mock_cursor, new_db, current_db):
     side_effects, expected = mock_execute_helper(
         [
             (
-                mock_cursor([('"test db"',)], []),
+                mock_cursor([(current_db,)], []),
                 mock.call("select current_database()"),
             ),
         ]
     )
     mock_execute_query.side_effect = side_effects
 
-    with sql_facade._use_database_optional(single_quoted_name):  # noqa: SLF001
+    with sql_facade._use_database_optional(new_db):  # noqa: SLF001
+        pass
+
+    assert mock_execute_query.mock_calls == expected
+
+
+@pytest.mark.parametrize(
+    "old_schema, expected_old_schema",
+    [("old_schema", "old_schema"), ("old schema", '"old schema"')],
+)
+def test_use_schema_single_quoted_id(
+    mock_execute_query, mock_cursor, old_schema, expected_old_schema
+):
+    single_quoted_name = "test schema"
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([(old_schema,)], []),
+                mock.call("select current_schema()"),
+            ),
+            (None, mock.call('use schema "test schema"')),
+            (None, mock.call(f"use schema {expected_old_schema}")),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    with sql_facade._use_schema_optional(single_quoted_name):  # noqa: SLF001
+        pass
+
+    assert mock_execute_query.mock_calls == expected
+
+
+@pytest.mark.parametrize(
+    "new_schema, current_schema",
+    [
+        ("test_schema", "test_schema"),
+        ("test schema", '"test schema"'),
+        ("test schema", "test schema"),
+    ],
+)
+def test_use_schema_same_id(
+    mock_execute_query, mock_cursor, new_schema, current_schema
+):
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([(current_schema,)], []),
+                mock.call("select current_schema()"),
+            )
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    with sql_facade._use_schema_optional(new_schema):  # noqa: SLF001
         pass
 
     assert mock_execute_query.mock_calls == expected
