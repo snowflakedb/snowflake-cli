@@ -84,9 +84,7 @@ def _list_images_with_like_empty_list(runner):
         ]
     )
     assert isinstance(result.json, list), result.output
-    assert len(result.json) == 1, result.json
-    print("result json is:", result.json)
-    print("result output is:", result.output)
+    assert len(result.json) == 0, result.json
 
 
 def _list_images_with_like_positive_case(runner):
@@ -106,6 +104,30 @@ def _list_images_with_like_positive_case(runner):
     )
     assert isinstance(result.json, list), result.output
     assert len(result.json) == 1, result.json
+    assert contains_row_with(
+        result.json,
+        {
+            "image_name": "test_counter",
+            "tags": "latest",
+            "image_path": f"{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/test_counter:latest".lower(),
+        },
+    )
+    result2 = runner.invoke_with_connection_json(
+        [
+            "spcs",
+            "image-repository",
+            "list-images",
+            INTEGRATION_REPOSITORY,
+            "--database",
+            INTEGRATION_DATABASE,
+            "--schema",
+            INTEGRATION_SCHEMA,
+            "--like",
+            "%",
+        ]
+    )
+    assert isinstance(result2.json, list), result2.output
+    assert len(result2.json) == 2, result2.json
     assert contains_row_with(
         result.json,
         {
