@@ -20,6 +20,7 @@ import pytest
 from snowflake.cli._plugins.connection.util import UIParameter
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.stage_path import StagePath
 
 STREAMLIT_NAME = "test_streamlit"
 TEST_WAREHOUSE = "test_warehouse"
@@ -57,6 +58,7 @@ def test_describe_streamlit(mock_connector, runner, mock_ctx):
 
 
 def _put_query(project_root: Path, source: str, dest: str):
+    dest = StagePath(dest).path_for_sql()
     return dedent(
         f"put file://{project_root.resolve() / 'output' / 'bundle' / 'streamlit' / source} {dest} auto_compress=false parallel=4 overwrite=False"
     )
@@ -441,8 +443,7 @@ def test_deploy_streamlit_and_pages_files(
         result = runner.invoke(["streamlit", "deploy"])
 
     root_path = f"@MockDatabase.MockSchema.streamlit/{STREAMLIT_NAME}"
-    assert result.exit_code == 0, result.output
-    assert ctx.get_queries() == [
+    expected = [
         "create stage if not exists IDENTIFIER('MockDatabase.MockSchema.streamlit')",
         _put_query(tmp_dir, "pages/my_page.py", f"{root_path}/pages"),
         _put_query(tmp_dir, "streamlit_app.py", root_path),
@@ -458,6 +459,8 @@ def test_deploy_streamlit_and_pages_files(
         f"select system$get_snowsight_host()",
         f"select current_account_name()",
     ]
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == expected
 
 
 @pytest.mark.parametrize(
@@ -702,12 +705,12 @@ def test_deploy_streamlit_main_and_pages_files_experimental(
             result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
     if enable_streamlit_versioned_stage:
-        root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/versions/live"
+        root_path = (
+            f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/versions/live"
+        )
         post_create_command = f"ALTER STREAMLIT MockDatabase.MockSchema.{STREAMLIT_NAME} ADD LIVE VERSION FROM LAST"
     else:
-        root_path = (
-            f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
-        )
+        root_path = f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
         if enable_streamlit_no_checkouts:
             post_create_command = None
         else:
@@ -800,7 +803,9 @@ def test_deploy_streamlit_main_and_pages_files_experimental_double_deploy(
             )
         result2 = runner.invoke(["streamlit", "deploy", "--experimental"])
 
-    root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+    root_path = (
+        f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+    )
     assert result2.exit_code == 0, result2.output
     # Same as normal, except no ALTER query
     assert ctx.get_queries() == [
@@ -864,12 +869,12 @@ def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
             result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
     if enable_streamlit_versioned_stage:
-        root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/versions/live"
+        root_path = (
+            f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/versions/live"
+        )
         post_create_command = f"ALTER STREAMLIT MockDatabase.MockSchema.{STREAMLIT_NAME} ADD LIVE VERSION FROM LAST"
     else:
-        root_path = (
-            f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
-        )
+        root_path = f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
         post_create_command = (
             f"ALTER streamlit MockDatabase.MockSchema.{STREAMLIT_NAME} CHECKOUT"
         )
@@ -932,7 +937,9 @@ def test_deploy_streamlit_main_and_pages_files_experimental_replace(
             )
         result = runner.invoke(["streamlit", "deploy", "--experimental", "--replace"])
 
-    root_path = f"@streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+    root_path = (
+        f"snow://streamlit/MockDatabase.MockSchema.{STREAMLIT_NAME}/default_checkout"
+    )
     assert result.exit_code == 0, result.output
     assert ctx.get_queries() == [
         dedent(

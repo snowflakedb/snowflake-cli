@@ -241,8 +241,9 @@ class StageManager(SqlExecutionMixin):
         super().__init__()
         self._python_exe_procedure = None
 
-    @staticmethod
-    def build_path(stage_path: str) -> StagePath:
+    def build_path(self, stage_path: Union[str, StagePath]) -> StagePath:
+        if isinstance(stage_path, StagePath):
+            return stage_path
         return StagePath.from_stage_str(stage_path)
 
     @staticmethod
