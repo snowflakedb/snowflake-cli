@@ -14,6 +14,8 @@ on:
 env:
   TERM: unknown  # Disables colors in rich
 
+permissions:
+  contents: read
 
 jobs:
   define-matrix:
