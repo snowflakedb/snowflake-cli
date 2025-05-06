@@ -27,6 +27,7 @@
 
 ## Fixes and improvements
 * Fix for deploying Snowpark project using `!=` operator in `requirements.txt`
+* Fix escaping identifiers for `use` commands.
 
 # v3.7.1
 
