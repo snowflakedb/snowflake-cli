@@ -16,6 +16,8 @@ on:
         required: true
         default: '20'
 
+permissions:
+  contents: read
 
 jobs:
   analysis:

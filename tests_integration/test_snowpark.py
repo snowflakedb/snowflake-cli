@@ -1673,6 +1673,29 @@ def test_snowpark_deploy_prune_flag(
         )
 
 
+@pytest.mark.integration
+def test_if_excluding_version_of_anaconda_package_moves_it_to_other_requirements(
+    runner, project_directory, alter_requirements_txt
+):
+    """
+    This test checks if specifying version of package, aviailable in Anaconda, using '!=' results in resolving it as a
+    non-anaconda package.
+    This is  a workaround for an issue with missing operator in Snowpark.
+    Package 'about-time' is used in tests for two reasons: it is available in Anaconda and it is relatively small (13kb for a wheel).
+    """
+    with project_directory("snowpark_v2") as tmp_dir:
+        alter_requirements_txt(tmp_dir / "requirements.txt", ["about-time!=3.1.1"])
+        result = runner.invoke_with_connection_json(["snowpark", "build"])
+        assert result.exit_code == 0, result.output
+        assert Path(tmp_dir / "dependencies.zip").is_file()
+
+        with open("requirements.snowflake.txt") as f:
+            assert "about-time!=3.1.1" not in f.read()
+
+        with ZipFile("dependencies.zip") as zf:
+            assert any("about_time" in name for name in zf.namelist())
+
+
 @pytest.fixture
 def _test_setup(
     runner,
