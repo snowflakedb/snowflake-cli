@@ -215,7 +215,15 @@ QUERY_WAREHOUSE = {warehouse}
         SHOW SERVICES EXCLUDE JOBS
         LIKE '{self.DEFAULT_SERVICE_PREFIX}%'
         """
-        return self.execute_query(query)
+        cur = self.execute_query(query)
+        qid = cur.sfqid
+        return cur.execute(
+            f"""
+            select "name", "status", "database_name", "schema_name", "compute_pool", "external_access_integrations", "created_on", "updated_on", "resumed_on", "suspended_on", "comment"
+            FROM TABLE(RESULT_SCAN('{qid}'))
+        """
+        )
+        # return cur.execute(f"desc result '{qid}'")
 
     def stop(self, name: str):
         """Stop a container runtime service."""

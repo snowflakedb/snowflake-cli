@@ -22,7 +22,7 @@ from snowflake.cli._plugins.container_runtime.manager import ContainerRuntimeMan
 from snowflake.cli.api.commands.flags import identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console as cc
-from snowflake.cli.api.output.types import CommandResult, SingleQueryResult
+from snowflake.cli.api.output.types import CommandResult, QueryResult, SingleQueryResult
 
 app = SnowTyperFactory(
     name="container-runtime",
@@ -136,7 +136,7 @@ def list_runtimes(**options) -> CommandResult:
     Lists all container runtime environments.
     """
     cursor = ContainerRuntimeManager().list_services()
-    return SingleQueryResult(cursor)
+    return QueryResult(cursor)
 
 
 @app.command("stop", requires_connection=True)
