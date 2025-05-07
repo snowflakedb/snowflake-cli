@@ -11880,7 +11880,11 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    |
+  |                       example, --like "my%" lists all image repositories     |
+  |                       that begin with “my”..                                 |
+  |                       [default: %%]                                          |
+  | --help  -h            Show this message and exit.                            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -12128,9 +12132,8 @@
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list --like "my%" lists   |
-  |                                 all image repositories that begin with       |
-  |                                 “my”..                                       |
+  |                                 name. For example, --like "my%" lists all    |
+  |                                 image repositories that begin with “my”..    |
   |                                 [default: %%]                                |
   | --in            <TEXT TEXT>...                                               |
   |                                                                              |
