@@ -33,6 +33,7 @@
       --oauth-client-id <oauth_client_id>
       --oauth-client-secret <oauth_client_secret>
       --oauth-authorization-url <oauth_authorization_url>
+      --oauth-token-request-url <oauth_token_request_url>
       --oauth-redirect-uri <oauth_redirect_uri>
       --oauth-scope <oauth_scope>
       --oauth-disable-pkce
@@ -115,28 +116,31 @@
     Path to a JSON file that contains allowlist parameters.
   
   :samp:`--oauth-client-id {TEXT}`
-    OAuth client ID to use when connecting to Snowflake.
+    Value of client id provided by the Identity Provider for Snowflake integration.
   
   :samp:`--oauth-client-secret {TEXT}`
-    OAuth client secret to use when connecting to Snowflake.
+    Value of the client secret provided by the Identity Provider for Snowflake integration.
   
   :samp:`--oauth-authorization-url {TEXT}`
-    OAuth authorization URL to use when connecting to Snowflake.
+    Identity Provider endpoint supplying the authorization code to the driver.
+  
+  :samp:`--oauth-token-request-url {TEXT}`
+    Identity Provider endpoint supplying the access tokens to the driver.
   
   :samp:`--oauth-redirect-uri {TEXT}`
-    OAuth redirect URI to use when connecting to Snowflake.
+    URI to use for authorization code redirection.
   
   :samp:`--oauth-scope {TEXT}`
-    OAuth scope to use when connecting to Snowflake.
+    Scope requested in the Identity Provider authorization request.
   
   :samp:`--oauth-disable-pkce`
-    Disable Proof Key for Code Exchange (PKCE). Default: `False`.
+    Disables Proof Key for Code Exchange (PKCE). Default: `False`.
   
   :samp:`--oauth-enable-refresh-tokens`
-    Enable refresh tokens. Default: `False`.
+    Enables a silent re-authentication when the actual access token becomes outdated. Default: `False`.
   
   :samp:`--oauth-enable-single-use-refresh-tokens`
-    Client-side opt-in to single-use refresh tokens. Default: `False`.
+    Whether to opt-in to single-use refresh token semantics. Default: `False`.
   
   :samp:`--client-store-temporary-credential`
     Store the temporary credential.
