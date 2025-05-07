@@ -176,6 +176,15 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         if self.model.type == "procedure" and self.model.execute_as_caller:
             query.append("EXECUTE AS CALLER")
 
+        if self.model.artifact_repository and self.model.artifact_repository_packages:
+            packages = [f"'{item}'" for item in self.model.artifact_repository_packages]
+            query.extend(
+                [
+                    f"ARTIFACT_REPOSITORY= {self.model.artifact_repository} ",
+                    f"ARTIFACT_REPOSITORY_PACKAGES=({','.join(packages)})",
+                ]
+            )
+
         return "\n".join(query)
 
     def get_execute_sql(self, execution_arguments: List[str] | None = None):

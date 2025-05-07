@@ -50,6 +50,19 @@
   HANDLER='app.func1_handler'
   '''
 # ---
+# name: test_get_deploy_sql_with_repository_packages
+  '''
+  CREATE FUNCTION IDENTIFIER('func1')
+  COPY GRANTS
+  RETURNS string
+  LANGUAGE PYTHON
+  RUNTIME_VERSION '3.10'
+  IMPORTS=
+  HANDLER='app.func1_handler'
+  ARTIFACT_REPOSITORY= snowflake.snowpark.pypi_shared_repository 
+  ARTIFACT_REPOSITORY_PACKAGES=('package1','package2')
+  '''
+# ---
 # name: test_nativeapp_children_interface
   '''
   CREATE FUNCTION IDENTIFIER('func1')

@@ -24,6 +24,7 @@
 * Added interactive mode for `snow sql`.
 * Added support for async SQL queries (`;>` syntax).
 * Added support for `!queries`, `!result` and `!abort` commands from SnowSQL.
+* Added `artifact_repository` and `artifact_repository_packages` fields to the Snowpark Entity Model to support direct usage of non-anaconda packages
 
 ## Fixes and improvements
 * Fix for deploying Snowpark project using `!=` operator in `requirements.txt`

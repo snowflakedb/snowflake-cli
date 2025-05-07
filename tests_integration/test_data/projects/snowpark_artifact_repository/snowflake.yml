@@ -1,0 +1,30 @@
+definition_version: 2
+mixins:
+  snowpark_shared:
+    stage: "dev_deployment"
+    signature: ""
+    returns: string
+    artifact_repository: snowflake.snowpark.pypi_shared_repository
+    artifact_repository_packages:
+      - 'dummy-pkg-for-tests'
+    artifacts:
+      - "app.py"
+
+entities:
+  test_procedure:
+    type: "procedure"
+    identifier:
+      name: "test_procedure"
+    handler: "app.test_procedure"
+    meta:
+      use_mixins:
+        - "snowpark_shared"
+
+  test_function:
+    type: "function"
+    handler: "app.test_function"
+    identifier:
+      name: "test_function"
+    meta:
+      use_mixins:
+        - "snowpark_shared"
