@@ -301,14 +301,68 @@ def test_list_images_cli(
 
 
 @patch(
+    "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager.list_images"
+)
+def test_list_images_cli_with_like(
+    mock_list_images,
+    runner,
+    mock_cursor,
+):
+    cursor = mock_cursor(
+        rows=[
+            [
+                "2024-10-11 14:23:49-07:00",
+                "echo_service",
+                "latest",
+                "sha256:a8a001fef406fdb3125ce8e8bf9970c35af7084",
+                "/db/schema/repo/echo_service",
+            ]
+        ],
+        columns=["created_on", "image_name", "tags", "digest", "image_path"],
+    )
+    mock_list_images.return_value = cursor
+
+    result = runner.invoke(
+        [
+            "spcs",
+            "image-repository",
+            "list-images",
+            "IMAGES",
+            "--format",
+            "JSON",
+            "--like",
+            "%echo_service%",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "/db/schema/repo/echo_service" in result.output
+
+
+@patch(
     "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager.execute_query"
 )
 def test_list_images(mock_execute_query):
     repo_name = "test_repo"
+    like_option = ""
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
-    result = ImageRepositoryManager().list_images(repo_name)
+    result = ImageRepositoryManager().list_images(repo_name, like_option)
     expected_query = f"show images in image repository test_repo"
+    mock_execute_query.assert_called_once_with(expected_query)
+    assert result == cursor
+
+
+@patch(
+    "snowflake.cli._plugins.spcs.image_repository.commands.ImageRepositoryManager.execute_query"
+)
+def test_list_images_with_like(mock_execute_query):
+    repo_name = "test_repo"
+    like = "echo_service"
+    cursor = Mock(spec=SnowflakeCursor)
+    mock_execute_query.return_value = cursor
+    result = ImageRepositoryManager().list_images(repo_name, like)
+    expected_query = f"show images like 'echo_service' in image repository test_repo"
     mock_execute_query.assert_called_once_with(expected_query)
     assert result == cursor
 

@@ -39,6 +39,8 @@ INTEGRATION_REPOSITORY = "snowcli_repository"
 def test_list_images_tags(runner):
     # test assumes the testing environment has been set up with /<DATABASE>/PUBLIC/snowcli_repository/snowpark_test_echo:1
     _list_images(runner)
+    _list_images_with_like_positive_case(runner)
+    _list_images_with_like_empty_list(runner)
     _list_tags(runner)
 
 
@@ -62,6 +64,77 @@ def _list_images(runner):
             "image_name": "snowpark_test_echo",
             "tags": "1",
             "image_path": f"{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/snowpark_test_echo:1".lower(),
+        },
+    )
+
+
+def _list_images_with_like_empty_list(runner):
+    result = runner.invoke_with_connection_json(
+        [
+            "spcs",
+            "image-repository",
+            "list-images",
+            INTEGRATION_REPOSITORY,
+            "--database",
+            INTEGRATION_DATABASE,
+            "--schema",
+            INTEGRATION_SCHEMA,
+            "--like",
+            "openflow%",
+        ]
+    )
+    assert isinstance(result.json, list), result.output
+    assert len(result.json) == 0, result.json
+
+
+def _list_images_with_like_positive_case(runner):
+    result = runner.invoke_with_connection_json(
+        [
+            "spcs",
+            "image-repository",
+            "list-images",
+            INTEGRATION_REPOSITORY,
+            "--database",
+            INTEGRATION_DATABASE,
+            "--schema",
+            INTEGRATION_SCHEMA,
+            "--like",
+            "test_counter%",
+        ]
+    )
+    assert isinstance(result.json, list), result.output
+    assert len(result.json) == 1, result.json
+    assert contains_row_with(
+        result.json,
+        {
+            "image_name": "test_counter",
+            "tags": "latest",
+            "image_path": f"{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/test_counter:latest".lower(),
+        },
+    )
+    # get all the images this time to verify the like filter is not applied
+    result2 = runner.invoke_with_connection_json(
+        [
+            "spcs",
+            "image-repository",
+            "list-images",
+            INTEGRATION_REPOSITORY,
+            "--database",
+            INTEGRATION_DATABASE,
+            "--schema",
+            INTEGRATION_SCHEMA,
+            "--like",
+            "%",
+        ]
+    )
+    assert isinstance(result2.json, list), result2.output
+    assert len(result2.json) == 3, result2.json
+    assert contains_row_with(
+        result.json,
+        {
+            "image_name": "test_counter",
+            "tags": "latest",
+            "image_path": f"{INTEGRATION_DATABASE}/{INTEGRATION_SCHEMA}/{INTEGRATION_REPOSITORY}/test_counter:latest".lower(),
         },
     )
 
