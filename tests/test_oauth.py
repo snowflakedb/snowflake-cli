@@ -19,6 +19,8 @@ def test_oauth_from_parameters(mock_connect, runner):
             "secret",
             "--oauth-authorization-url",
             "https://localhost:8000/authorize",
+            "--oauth-token-request-url",
+            "https://localhost:8000/token",
             "--oauth-redirect-uri",
             "http://localhost:8001/snowflake/oauth-redirect",
             "--oauth-scope",
@@ -37,6 +39,7 @@ def test_oauth_from_parameters(mock_connect, runner):
         oauth_client_id="client_id",
         oauth_client_secret="secret",
         oauth_authorization_url="https://localhost:8000/authorize",
+        oauth_token_request_url="https://localhost:8000/token",
         oauth_redirect_uri="http://localhost:8001/snowflake/oauth-redirect",
         oauth_scope="session:role:PUBLIC",
         oauth_disable_pkce=True,
@@ -58,6 +61,7 @@ def test_oauth_from_config(mock_connect, runner, config_file):
     oauth_client_id = "client_id"
     oauth_client_secret = "secret"
     oauth_authorization_url = "https://localhost:8000/authorize"
+    oauth_token_request_url = "https://localhost:8000/token"
     oauth_redirect_uri = "http://localhost:8001/snowflake/oauth-redirect"
     oauth_scope = "session:role:PUBLIC"
     oauth_disable_pkce = true
@@ -77,6 +81,7 @@ def test_oauth_from_config(mock_connect, runner, config_file):
         oauth_client_id="client_id",
         oauth_client_secret="secret",
         oauth_authorization_url="https://localhost:8000/authorize",
+        oauth_token_request_url="https://localhost:8000/token",
         oauth_redirect_uri="http://localhost:8001/snowflake/oauth-redirect",
         oauth_scope="session:role:PUBLIC",
         oauth_disable_pkce=True,
@@ -94,6 +99,7 @@ def test_oauth_from_config(mock_connect, runner, config_file):
         "SNOWFLAKE_CONNECTIONS_TEST_OAUTH_CLIENT_ID": "client_id",
         "SNOWFLAKE_CONNECTIONS_TEST_OAUTH_CLIENT_SECRET": "secret",
         "SNOWFLAKE_CONNECTIONS_TEST_OAUTH_AUTHORIZATION_URL": "https://localhost:8000/authorize",
+        "SNOWFLAKE_CONNECTIONS_TEST_OAUTH_TOKEN_REQUEST_URL": "https://localhost:8000/token",
         "SNOWFLAKE_CONNECTIONS_TEST_OAUTH_REDIRECT_URI": "http://localhost:8001/snowflake/oauth-redirect",
         "SNOWFLAKE_CONNECTIONS_TEST_OAUTH_SCOPE": "session:role:PUBLIC",
         "SNOWFLAKE_CONNECTIONS_TEST_OAUTH_DISABLE_PKCE": "True",
@@ -124,6 +130,7 @@ def test_oauth_from_env_variables(mock_connect, runner, config_file):
         oauth_client_id="client_id",
         oauth_client_secret="secret",
         oauth_authorization_url="https://localhost:8000/authorize",
+        oauth_token_request_url="https://localhost:8000/token",
         oauth_redirect_uri="http://localhost:8001/snowflake/oauth-redirect",
         oauth_scope="session:role:PUBLIC",
         oauth_disable_pkce="True",
@@ -141,6 +148,7 @@ def test_oauth_from_env_variables(mock_connect, runner, config_file):
         "SNOWFLAKE_OAUTH_CLIENT_ID": "client_id",
         "SNOWFLAKE_OAUTH_CLIENT_SECRET": "secret",
         "SNOWFLAKE_OAUTH_AUTHORIZATION_URL": "https://localhost:8000/authorize",
+        "SNOWFLAKE_OAUTH_TOKEN_REQUEST_URL": "https://localhost:8000/token",
         "SNOWFLAKE_OAUTH_REDIRECT_URI": "http://localhost:8001/snowflake/oauth-redirect",
         "SNOWFLAKE_OAUTH_SCOPE": "session:role:PUBLIC",
         "SNOWFLAKE_OAUTH_DISABLE_PKCE": "True",
@@ -161,6 +169,7 @@ def test_oauth_from_env_variables_and_temporary_connection(mock_connect, runner)
         oauth_client_id="client_id",
         oauth_client_secret="secret",
         oauth_authorization_url="https://localhost:8000/authorize",
+        oauth_token_request_url="https://localhost:8000/token",
         oauth_redirect_uri="http://localhost:8001/snowflake/oauth-redirect",
         oauth_scope="session:role:PUBLIC",
         oauth_disable_pkce="True",
