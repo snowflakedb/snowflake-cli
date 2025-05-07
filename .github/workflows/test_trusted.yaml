@@ -1,0 +1,47 @@
+name: Test trusted
+
+on:
+  workflow_call:
+    inputs:
+      runs-on:
+        required: true
+        type: string
+      python-version:
+        required: true
+        type: string
+      python-env:
+        required: true
+        type: string
+      hatch-run:
+        required: true
+        type: string
+
+permissions:
+  contents: none
+
+jobs:
+  tests-trusted:
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip hatch
+          python -m hatch env create ${{ inputs.python-env }}
+      - name: Run integration tests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TERM: unknown
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_AUTHENTICATOR: SNOWFLAKE_JWT
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_RAW }}
+        run: python -m hatch run ${{ inputs.hatch-run }}
