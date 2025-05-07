@@ -77,6 +77,10 @@ class SnowparkServicesTestSteps:
             result, {"status": f"Service {service_name.upper()} successfully created."}
         )
 
+    def create_second_service(self, service_name: str) -> None:
+        # create another database and schema
+        pass
+
     def deploy_service(self, service_name: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
             [
@@ -88,6 +92,21 @@ class SnowparkServicesTestSteps:
         assert_that_result_is_successful_and_output_json_equals(
             result, {"status": f"Service {service_name.upper()} successfully created."}
         )
+
+    def get_service_metrics(self, service_name: str, container_name: str) -> None:
+        result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "service",
+                "metrics",
+                service_name,
+                "--container-name",
+                container_name,
+                "--instance-id",
+                0
+            ])
+
+        assert result.exit_code == 0
 
     def upgrade_service(self) -> None:
         result = self._setup.runner.invoke_with_connection_json(

@@ -23,7 +23,7 @@ from tests_integration.spcs.testing_utils.spcs_services_utils import (
 
 
 @pytest.mark.integration
-@pytest.mark.skip("Skipped temporarily")
+# @pytest.mark.skip("Skipped temporarily")
 def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
 
     test_steps, service_name = _test_steps
@@ -49,6 +49,7 @@ def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
     test_steps.list_containers_should_show_containers(service_name)
     test_steps.list_roles_should_show_roles(service_name)
     test_steps.upgrade_service_should_change_spec(service_name)
+    test_steps.get_service_metrics(service_name, "hello-world")
     test_steps.set_unset_service_property(service_name)
     test_steps.drop_service(service_name)
     test_steps.list_should_not_return_service(service_name)
