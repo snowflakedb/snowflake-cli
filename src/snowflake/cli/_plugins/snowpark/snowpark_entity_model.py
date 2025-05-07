@@ -17,7 +17,7 @@ from __future__ import annotations
 import glob
 from typing import List, Literal, Optional, Union
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.entities.common import (
@@ -50,6 +50,13 @@ class SnowparkEntityModel(
     )
     stage: str = Field(title="Stage in which artifacts will be stored")
 
+    artifact_repository: Optional[str] = Field(
+        default=None, title="Artifact repository to be used"
+    )
+    artifact_repository_packages: Optional[List[str]] = Field(
+        default=None, title="Packages to be installed from artifact repository"
+    )
+
     @field_validator("artifacts")
     @classmethod
     def _convert_artifacts(cls, artifacts: Union[dict, str]):
@@ -74,6 +81,17 @@ class SnowparkEntityModel(
         if isinstance(runtime_input, float):
             return str(runtime_input)
         return runtime_input
+
+    @model_validator(mode="before")
+    @classmethod
+    def check_artifact_repository(cls, values: dict) -> dict:
+        artifact_repository = values.get("artifact_repository")
+        artifact_repository_packages = values.get("artifact_repository_packages")
+        if artifact_repository_packages and not artifact_repository:
+            raise ValueError(
+                "You specified Artifact_repository_packages without setting Artifact_repository.",
+            )
+        return values
 
     @property
     def udf_sproc_identifier(self) -> UdfSprocIdentifier:

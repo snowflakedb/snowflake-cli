@@ -100,3 +100,19 @@ def test_raise_error_when_artifact_contains_asterix(
 
         assert result.exit_code == 1
         assert result.output == os_agnostic_snapshot
+
+
+def test_error_is_raised_when_packages_are_specified_with_no_repository(
+    runner, project_directory, alter_snowflake_yml, os_agnostic_snapshot
+):
+    with project_directory("snowpark_functions_v2") as tmp_dir:
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            "entities.func1.artifact_repository_packages",
+            ["package"],
+        )
+
+        result = runner.invoke(["snowpark", "build"])
+
+        assert result.exit_code == 1
+        assert result.output == os_agnostic_snapshot

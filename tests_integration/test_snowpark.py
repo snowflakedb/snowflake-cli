@@ -1714,6 +1714,54 @@ def test_if_excluding_version_of_anaconda_package_moves_it_to_other_requirements
             assert any("about_time" in name for name in zf.namelist())
 
 
+def test_using_external_packages_from_package_repository(
+    test_database, runner, project_directory
+):
+
+    with project_directory("snowpark_artifact_repository") as tmp_dir:
+        result = runner.invoke_with_connection(
+            [
+                "snowpark",
+                "build",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Build done." in result.output
+
+        result = runner.invoke_with_connection(
+            [
+                "snowpark",
+                "deploy",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(
+            [
+                "snowpark",
+                "execute",
+                "function",
+                "test_function()",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "We want... a shrubbery!" in result.output
+
+        result = runner.invoke_with_connection(
+            [
+                "snowpark",
+                "execute",
+                "procedure",
+                "test_procedure()",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "We want... a shrubbery!" in result.output
+
+
 @pytest.fixture
 def _test_setup(
     runner,
