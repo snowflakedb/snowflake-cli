@@ -1,4 +1,4 @@
-# Copyright (c) 2024 Snowflake Inc.
+# Copyright (c) 2025 Snowflake Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,18 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import annotations
+RESULT_COLUMN_NAME = "SUCCESS"
+OUTPUT_COLUMN_NAME = "STDOUT"
 
-from enum import Enum, unique
+DBT_COMMANDS = [
+    "build",
+    "compile",
+    "deps",
+    "list",
+    "parse",
+    "run",
+    "seed",
+    "show",
+    "snapshot",
+    "test",
+]
 
-VERSION = "3.8.0.dev+dbt0"
-
-
-@unique
-class CLIInstallationSource(Enum):
-    BINARY = "binary"
-    PYPI = "pypi"
-
-
-# This variable is changed in binary release script
-INSTALLATION_SOURCE = CLIInstallationSource.PYPI
+UNSUPPORTED_COMMANDS = [
+    "clean",
+    "clone",
+    "debug",
+    "docs",
+    "init",
+    "retry",
+    "source",
+]
