@@ -48,7 +48,7 @@ class TestType(Enum):
     __test__ = False
 
 
-class SnowparkTestSetup:
+class FlowTestSetup:
     def __init__(
         self,
         runner: SnowCLIRunner,
@@ -67,7 +67,7 @@ class SnowparkTestSetup:
 
 
 class SnowparkTestSteps:
-    def __init__(self, setup: SnowparkTestSetup):
+    def __init__(self, setup: FlowTestSetup):
         self._setup = setup
 
     def object_show_should_return_no_data(

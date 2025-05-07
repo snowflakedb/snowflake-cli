@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_multiple_streamlit_raise_error_if_multiple_entities
+# name: TestStreamlitCommands.test_multiple_streamlit_raise_error_if_multiple_entities
   '''
   Usage: root streamlit deploy [OPTIONS] [ENTITY_ID]
   Try 'root streamlit deploy --help' for help.
@@ -7,6 +7,5 @@
   | Multiple entities of type streamlit found. Please provide entity id for the  |
   | operation.                                                                   |
   +------------------------------------------------------------------------------+
-  
   '''
 # ---
