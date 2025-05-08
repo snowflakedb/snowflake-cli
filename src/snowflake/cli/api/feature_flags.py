@@ -73,4 +73,5 @@ class FeatureFlag(FeatureFlagMixin):
         "ENABLE_NATIVE_APP_PYTHON_SETUP", False
     )
     ENABLE_NATIVE_APP_CHILDREN = BooleanFlag("ENABLE_NATIVE_APP_CHILDREN", False)
+    # TODO 4.0: remove ENABLE_RELEASE_CHANNELS
     ENABLE_RELEASE_CHANNELS = BooleanFlag("ENABLE_RELEASE_CHANNELS", None)
