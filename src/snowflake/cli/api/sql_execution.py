@@ -82,9 +82,6 @@ class BaseSqlExecutor:
         self._log.debug("Executing %s", sql_text)
         stream = StringIO(sql_text)
 
-        if not get_cli_context().connection_context.autocommit:
-            self._conn.execute_stream(StringIO("BEGIN;"))
-
         stream_generator = self._conn.execute_stream(
             stream,
             remove_comments=remove_comments,
@@ -286,6 +283,9 @@ class SqlExecutor(BaseSqlExecutor):
             lambda row: row[name_col] == unquote_identifier(unqualified_name),
         )
         return show_obj_row
+
+    def autocommit(self, value: bool):
+        return self._conn.autocommit(value)
 
 
 class SqlExecutionMixin(SqlExecutor):

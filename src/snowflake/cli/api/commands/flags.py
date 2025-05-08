@@ -377,17 +377,6 @@ ClientStoreTemporaryCredentialOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
-SingleTransactionOption = typer.Option(
-    True,
-    "--single-transaction",
-    help="Connects with autocommit disabled. Wraps BEGIN/COMMIT around statements to execute them as a single transaction, ensuring all commands complete successfully or no change is applied.",
-    callback=_connection_callback("autocommit"),
-    is_flag=True,
-    flag_value=False,
-    show_default=False,
-    rich_help_panel=_CONNECTION_SECTION,
-)
-
 # Set default via callback to avoid including tempdir path in generated docs (snow --docs).
 # Use constant instead of None, as None is removed from telemetry data.
 _DIAG_LOG_DEFAULT_VALUE = "<system_temporary_directory>"

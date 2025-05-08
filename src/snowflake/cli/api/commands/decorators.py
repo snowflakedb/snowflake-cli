@@ -51,7 +51,6 @@ from snowflake.cli.api.commands.flags import (
     SchemaOption,
     SessionTokenOption,
     SilentOption,
-    SingleTransactionOption,
     TemporaryConnectionOption,
     TokenFilePathOption,
     UserOption,
@@ -432,12 +431,6 @@ GLOBAL_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[bool],
         default=EnhancedExitCodesOption,
-    ),
-    inspect.Parameter(
-        "single_transaction",
-        inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[bool],
-        default=SingleTransactionOption,
     ),
 ]
 

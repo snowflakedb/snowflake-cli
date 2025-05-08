@@ -29,9 +29,9 @@ def test_autocommit_off(runner):
         ]
     )
     assert result.exit_code == 0, result.output
-    assert result.json[0]["key"] == "AUTOCOMMIT"
-    assert result.json[0]["default"] == "true"
-    assert result.json[0]["value"] == "false"
+    assert result.json[1][0]["key"] == "AUTOCOMMIT", result.json
+    assert result.json[1][0]["default"] == "true"
+    assert result.json[1][0]["value"] == "false"
 
 
 @pytest.mark.integration
@@ -92,10 +92,10 @@ def test_autocommit_off_commit_on_success(runner):
     )
     assert result.exit_code == 0, result.output
     assert (
-        result.json[0][0]["status"] == f"Table {tbl_name} successfully created."
-    ), result.json[0]
-    assert result.json[1][0]["COUNT(*)"] == 0, result.json[1]
-    assert result.json[4][0]["COUNT(*)"] == 2, result.json[1]
+        result.json[1][0]["status"] == f"Table {tbl_name} successfully created."
+    ), result.json[1]
+    assert result.json[2][0]["COUNT(*)"] == 0, result.json[1]
+    assert result.json[5][0]["COUNT(*)"] == 2, result.json[1]
 
     result = runner.invoke_with_connection_json(
         [
