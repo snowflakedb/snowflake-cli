@@ -74,7 +74,6 @@ SUPPORTED_ENV_OVERRIDES = [
     "oauth_enable_refresh_tokens",
     "oauth_enable_single_use_refresh_tokens",
     "client_store_temporary_credential",
-    "single-transaction",
 ]
 
 # mapping of found key -> key to set
