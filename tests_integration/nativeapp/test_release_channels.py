@@ -20,7 +20,7 @@ from tests_integration.nativeapp.native_apps_utils import get_org_and_account_na
 
 
 @mock.patch(
-    "snowflake.cli._plugins.nativeapp.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
     return_value=True,
 )
 @pytest.mark.integration
@@ -42,7 +42,7 @@ def test_release_channels_list_when_enabled(
 
 
 @mock.patch(
-    "snowflake.cli._plugins.nativeapp.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value"
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value"
 )
 @pytest.mark.integration
 def test_release_channels_disabled_to_enabled_switch(
@@ -76,7 +76,7 @@ def test_release_channels_disabled_to_enabled_switch(
 
 
 @mock.patch(
-    "snowflake.cli._plugins.nativeapp.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
     return_value=True,
 )
 @pytest.mark.integration
@@ -166,7 +166,7 @@ def test_add_accounts_and_remove_accounts_and_set_accounts_from_release_channels
 
 
 @mock.patch(
-    "snowflake.cli._plugins.nativeapp.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
     return_value=True,
 )
 @pytest.mark.integration
