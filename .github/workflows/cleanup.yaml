@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: "0 10 * * *"
 
+permissions:
+  contents: read
+
 jobs:
   tests:
     uses: ./.github/workflows/test_trusted.yaml

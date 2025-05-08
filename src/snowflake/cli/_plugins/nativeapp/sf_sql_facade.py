@@ -148,6 +148,7 @@ class SnowflakeSQLFacade:
             yield
             return
 
+        name = to_identifier(name)
         try:
             current_obj_result_row = self._sql_executor.execute_query(
                 f"select current_{object_type}()"
@@ -158,7 +159,7 @@ class SnowflakeSQLFacade:
             )
 
         try:
-            prev_obj = current_obj_result_row[0]
+            prev_obj = to_identifier(current_obj_result_row[0])
         except IndexError:
             prev_obj = None
 
@@ -230,12 +231,13 @@ class SnowflakeSQLFacade:
         with self._use_role_optional(role_to_use):
             try:
                 self._sql_executor.execute_query(
-                    f"grant {comma_separated_privileges} on {object_type_and_name} to role {role_to_grant}"
+                    f"grant {comma_separated_privileges} on {object_type_and_name} to role {to_identifier(role_to_grant)}"
                 )
             except Exception as err:
                 handle_unclassified_error(
                     err,
-                    f"Failed to grant {comma_separated_privileges} on {object_type_and_name} to role {role_to_grant}.",
+                    f"Failed to grant {comma_separated_privileges} on {object_type_and_name}"
+                    f" to role {to_identifier(role_to_grant)}.",
                 )
 
     def execute_user_script(

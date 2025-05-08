@@ -88,6 +88,9 @@ class AnacondaPackages:
             return False
         if skip_version_check or not package.specs:
             return True
+        if any(spec[0] == "!=" for spec in package.specs):
+            # Snowflake doesn't support '!=' so we need to resolve this requirement externally
+            return False
         return self._packages[package.name].is_required_version_available(package)
 
     def package_latest_version(self, package: Requirement) -> str | None:

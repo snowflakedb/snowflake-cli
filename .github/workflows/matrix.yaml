@@ -8,6 +8,9 @@ on:
       python:
         value: ${{ jobs.define-matrix.outputs.python }}
 
+permissions:
+  contents: none
+
 jobs:
   define-matrix:
     runs-on: ubuntu-latest

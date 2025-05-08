@@ -50,6 +50,7 @@ _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "oauth_client_id",
     "oauth_client_secret",
     "oauth_authorization_url",
+    "oauth_token_request_url",
     "oauth_redirect_uri",
     "oauth_scope",
     "oauth_disable_pkce",

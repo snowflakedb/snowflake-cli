@@ -75,7 +75,7 @@ add_object_command_aliases(
     object_type=ObjectType.IMAGE_REPOSITORY,
     name_argument=REPO_NAME_ARGUMENT,
     like_option=like_option(
-        help_example='`list --like "my%"` lists all image repositories that begin with “my”.'
+        help_example='`--like "my%"` lists all image repositories that begin with “my”.'
     ),
     scope_option=scope_option(help_example="`list --in database my_db`"),
     ommit_commands=["describe"],
@@ -126,10 +126,15 @@ def deploy(
 @app.command("list-images", requires_connection=True)
 def list_images(
     name: FQN = REPO_NAME_ARGUMENT,
+    like_option: Optional[str] = like_option(
+        help_example='`--like "my%"` lists all image repositories that begin with “my”.'
+    ),
     **options,
 ) -> CollectionResult:
     """Lists images in the given repository."""
-    return QueryResult(ImageRepositoryManager().list_images(name.identifier))
+    return QueryResult(
+        ImageRepositoryManager().list_images(name.identifier, like_option)
+    )
 
 
 @app.command("list-tags", requires_connection=True, deprecated=True)

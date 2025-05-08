@@ -83,5 +83,9 @@ class ImageRepositoryManager(SqlExecutionMixin):
                 e, ObjectType.IMAGE_REPOSITORY, name, replace_available=True
             )
 
-    def list_images(self, repo_name: str) -> SnowflakeCursor:
-        return self.execute_query(f"show images in image repository {repo_name}")
+    def list_images(self, repo_name: str, like_option: str) -> SnowflakeCursor:
+        if like_option:
+            query = f"show images like '{like_option}' in image repository {repo_name}"
+        else:
+            query = f"show images in image repository {repo_name}"
+        return self.execute_query(query)

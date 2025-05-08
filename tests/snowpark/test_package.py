@@ -175,11 +175,3 @@ class TestPackage:
     ):
         result = runner.invoke(["snowpark", "package", "create", "foo"])
         assert "is deprecated" not in result.output
-
-    @staticmethod
-    def mocked_anaconda_response(response: dict):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = response
-
-        return mock_response

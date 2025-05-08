@@ -15,14 +15,11 @@ from pathlib import Path
 
 import pytest
 
-from tests_integration.testing_utils import SnowparkTestSetup, SnowparkTestSteps
+from tests_integration.testing_utils import FlowTestSetup, SnowparkTestSteps
 
 STAGE_NAME = "dev_deployment"
 
 
-@pytest.mark.skip(
-    reason="temporarily skip the test due to external issue (SNOW-1955010)"
-)
 @pytest.mark.integration
 @pytest.mark.parametrize(
     "project_name", ["snowpark_external_access_v1", "snowpark_external_access_v2"]
@@ -192,7 +189,7 @@ def _test_setup(
     sql_test_helper,
     test_database,
 ):
-    snowpark_test_setup = SnowparkTestSetup(
+    snowpark_test_setup = FlowTestSetup(
         runner=runner,
         sql_test_helper=sql_test_helper,
         test_database=test_database,

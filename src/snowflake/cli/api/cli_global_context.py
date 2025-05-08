@@ -31,6 +31,7 @@ from snowflake.connector import SnowflakeConnection
 if TYPE_CHECKING:
     from snowflake.cli.api.project.definition_manager import DefinitionManager
     from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
+    from snowflake.core import Root
 
 _CONNECTION_CACHE = OpenConnectionCache()
 
@@ -201,9 +202,7 @@ class _CliGlobalContextAccess:
     @property
     def snow_api_root(
         self,
-    ) -> Optional[
-        object
-    ]:  # Should be Optional[Root], but we need local import for performance reasons
+    ) -> Optional[Root]:
         from snowflake.core import Root
 
         if self.connection:

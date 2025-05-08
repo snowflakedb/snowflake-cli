@@ -103,6 +103,15 @@ class SnowparkObjectManager(SqlExecutionMixin):
         if isinstance(entity, ProcedureEntityModel) and entity.execute_as_caller:
             query.append("execute as caller")
 
+        if entity.artifact_repository and entity.artifact_repository_packages:
+            packages = [f"'{item}'" for item in entity.artifact_repository_packages]
+            query.extend(
+                [
+                    f"ARTIFACT_REPOSITORY= {entity.artifact_repository}",
+                    f"ARTIFACT_REPOSITORY_PACKAGES=({','.join(packages)})",
+                ]
+            )
+
         return self.execute_query("\n".join(query))
 
     def deploy_entity(

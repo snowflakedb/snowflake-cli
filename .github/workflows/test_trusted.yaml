@@ -16,6 +16,9 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: none
+
 jobs:
   tests-trusted:
     runs-on: ${{ inputs.runs-on }}
