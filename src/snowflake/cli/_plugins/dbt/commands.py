@@ -18,7 +18,7 @@ import logging
 from typing import Optional
 
 import typer
-from click import ClickException
+from click import ClickException, types
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from snowflake.cli._plugins.dbt.constants import (
     DBT_COMMANDS,
@@ -51,6 +51,11 @@ log = logging.getLogger(__name__)
 
 DBTNameArgument = identifier_argument(sf_object="DBT Project", example="my_pipeline")
 
+# in passthrough commands we need to support that user would either provide the name of dbt object or name of dbt
+# command, in which case FQN validation could fail
+DBTNameOrCommandArgument = identifier_argument(
+    sf_object="DBT Project", example="my_pipeline", click_type=types.StringParamType()
+)
 
 add_object_command_aliases(
     app=app,
@@ -114,7 +119,7 @@ app.add_typer(dbt_execute_app)
 @dbt_execute_app.callback()
 @global_options_with_connection
 def before_callback(
-    name: FQN = DBTNameArgument,
+    name: str = DBTNameOrCommandArgument,
     run_async: Optional[bool] = typer.Option(
         False, help="Run dbt command asynchronously and check it's result later."
     ),
@@ -139,7 +144,7 @@ for cmd in DBT_COMMANDS:
     ) -> CommandResult:
         dbt_cli_args = ctx.args
         dbt_command = ctx.command.name
-        name = ctx.parent.params["name"]
+        name = FQN.from_string(ctx.parent.params["name"])
         run_async = ctx.parent.params["run_async"]
         execute_args = (dbt_command, name, run_async, *dbt_cli_args)
         dbt_manager = DBTManager()
