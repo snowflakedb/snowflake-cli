@@ -97,13 +97,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -151,12 +144,6 @@
   |                                              based on failure type.          |
   |                                              [env var:                       |
   |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --single-transaction          Connects with autocommit disabled. Wraps       |
-  |                               BEGIN/COMMIT around statements to execute them |
-  |                               as a single transaction, ensuring all commands |
-  |                               complete successfully or no change is applied. |
   +------------------------------------------------------------------------------+
   
   
@@ -210,12 +197,6 @@
   |                                              based on failure type.          |
   |                                              [env var:                       |
   |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --single-transaction          Connects with autocommit disabled. Wraps       |
-  |                               BEGIN/COMMIT around statements to execute them |
-  |                               as a single transaction, ensuring all commands |
-  |                               complete successfully or no change is applied. |
   +------------------------------------------------------------------------------+
   
   

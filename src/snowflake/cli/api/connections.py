@@ -65,7 +65,6 @@ class ConnectionContext:
     oauth_enable_refresh_tokens: Optional[bool] = None
     oauth_enable_single_use_refresh_tokens: Optional[bool] = None
     client_store_temporary_credential: Optional[bool] = None
-    autocommit: bool = True
 
     VALIDATED_FIELD_NAMES = ["schema"]
 

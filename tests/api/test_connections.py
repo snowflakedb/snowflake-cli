@@ -41,20 +41,6 @@ def test_stable_connection_context_repr(args: dict, snapshot):
     assert repr(ctx) == snapshot
 
 
-@pytest.mark.parametrize(
-    "opts, expected",
-    (
-        pytest.param({"autocommit": False}, False),
-        pytest.param({"autocommit": True}, True),
-    ),
-)
-def test_conn_context_autocommit(opts, expected):
-    ctx = ConnectionContext()
-    ctx.update(**opts)
-    ctx.validate_and_complete()
-    assert ctx.autocommit is expected, repr(ctx)
-
-
 def test_clone_connection_context():
     """
     Tests that the clone() method is working properly.
@@ -112,5 +98,4 @@ def test_connection_cache_caches(
         password="dummy_password",
         application_name="snowcli",
         using_session_keep_alive=True,
-        single_transaction=False,
     )
