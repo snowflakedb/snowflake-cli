@@ -19,6 +19,15 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v3.8.0
+
+## Deprecations
+
+## New additions
 * Added support for OAuth tokens.
 * Cleaning up the output directory after coping files to the stage for Streamlit, Notebook, SPCS Service and project.
 * Added interactive mode for `snow sql`.
