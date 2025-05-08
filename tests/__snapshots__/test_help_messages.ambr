@@ -79,12 +79,6 @@
   |                                              [env var:                       |
   |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --single-transaction          Connects with autocommit disabled. Wraps       |
-  |                               BEGIN/COMMIT around statements to execute them |
-  |                               as a single transaction, ensuring all commands |
-  |                               complete successfully or no change is applied. |
-  +------------------------------------------------------------------------------+
   
   
   '''
@@ -262,13 +256,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -399,13 +386,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -590,13 +570,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -728,13 +701,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -953,13 +919,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -1098,13 +1057,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -1242,13 +1194,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -1383,13 +1328,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -1528,13 +1466,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -1672,13 +1603,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -1811,13 +1735,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -1981,13 +1898,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -2132,13 +2042,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -2279,13 +2182,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -2434,13 +2330,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -2577,13 +2466,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -2835,13 +2717,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -2999,13 +2874,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -3136,13 +3004,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -3349,13 +3210,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -3520,13 +3374,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -3657,13 +3504,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -3845,13 +3685,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -3974,13 +3807,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -4106,13 +3932,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -4238,13 +4057,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -4363,13 +4175,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -4501,12 +4306,6 @@
   |                                              [env var:                       |
   |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --single-transaction          Connects with autocommit disabled. Wraps       |
-  |                               BEGIN/COMMIT around statements to execute them |
-  |                               as a single transaction, ensuring all commands |
-  |                               complete successfully or no change is applied. |
-  +------------------------------------------------------------------------------+
   
   
   '''
@@ -4608,13 +4407,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -4662,12 +4454,6 @@
   |                                              [env var:                       |
   |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --single-transaction          Connects with autocommit disabled. Wraps       |
-  |                               BEGIN/COMMIT around statements to execute them |
-  |                               as a single transaction, ensuring all commands |
-  |                               complete successfully or no change is applied. |
-  +------------------------------------------------------------------------------+
   
   
   '''
@@ -4702,12 +4488,6 @@
   |                                              based on failure type.          |
   |                                              [env var:                       |
   |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --single-transaction          Connects with autocommit disabled. Wraps       |
-  |                               BEGIN/COMMIT around statements to execute them |
-  |                               as a single transaction, ensuring all commands |
-  |                               complete successfully or no change is applied. |
   +------------------------------------------------------------------------------+
   
   
@@ -4810,13 +4590,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -4974,13 +4747,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -5103,13 +4869,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -5232,13 +4991,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -5383,13 +5135,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -5513,13 +5258,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -5647,13 +5385,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -5782,13 +5513,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -5916,13 +5640,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -6052,13 +5769,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -6193,13 +5903,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -6292,12 +5995,6 @@
   |                                              based on failure type.          |
   |                                              [env var:                       |
   |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --single-transaction          Connects with autocommit disabled. Wraps       |
-  |                               BEGIN/COMMIT around statements to execute them |
-  |                               as a single transaction, ensuring all commands |
-  |                               complete successfully or no change is applied. |
   +------------------------------------------------------------------------------+
   
   
@@ -6422,13 +6119,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -6555,13 +6245,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -6698,13 +6381,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -6828,13 +6504,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -6958,13 +6627,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -7088,13 +6750,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -7260,13 +6915,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -7396,13 +7044,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -7532,13 +7173,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -7679,13 +7313,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -7758,12 +7385,6 @@
   |                                              [env var:                       |
   |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --single-transaction          Connects with autocommit disabled. Wraps       |
-  |                               BEGIN/COMMIT around statements to execute them |
-  |                               as a single transaction, ensuring all commands |
-  |                               complete successfully or no change is applied. |
-  +------------------------------------------------------------------------------+
   
   
   '''
@@ -7798,12 +7419,6 @@
   |                                              [env var:                       |
   |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
   +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --single-transaction          Connects with autocommit disabled. Wraps       |
-  |                               BEGIN/COMMIT around statements to execute them |
-  |                               as a single transaction, ensuring all commands |
-  |                               complete successfully or no change is applied. |
-  +------------------------------------------------------------------------------+
   
   
   '''
@@ -7833,12 +7448,6 @@
   |                                              based on failure type.          |
   |                                              [env var:                       |
   |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
-  +------------------------------------------------------------------------------+
-  +- Connection configuration ---------------------------------------------------+
-  | --single-transaction          Connects with autocommit disabled. Wraps       |
-  |                               BEGIN/COMMIT around statements to execute them |
-  |                               as a single transaction, ensuring all commands |
-  |                               complete successfully or no change is applied. |
   +------------------------------------------------------------------------------+
   
   
@@ -7977,13 +7586,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -8114,13 +7716,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -8243,13 +7838,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -8377,13 +7965,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -8511,13 +8092,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -8641,13 +8215,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -8776,13 +8343,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -8948,13 +8508,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -9094,13 +8647,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -9229,13 +8775,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -9364,13 +8903,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -9501,13 +9033,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -9641,13 +9166,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -9785,13 +9303,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -9914,13 +9425,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -10046,13 +9550,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -10288,13 +9785,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -10424,13 +9914,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -10554,13 +10037,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -10684,13 +10160,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -10813,13 +10282,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -10943,13 +10405,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -11093,13 +10548,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -11224,13 +10672,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -11354,13 +10795,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -11485,13 +10919,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -11624,13 +11051,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -11782,13 +11202,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -11909,13 +11322,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -12043,13 +11449,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -12197,13 +11596,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -12331,13 +11723,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -12461,13 +11846,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -12595,13 +11973,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -12731,13 +12102,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -12866,13 +12230,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -12996,13 +12353,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -13215,13 +12565,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -13352,13 +12695,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -13481,13 +12817,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -13610,13 +12939,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -13755,13 +13077,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -13884,13 +13199,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -14013,13 +13321,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -14142,13 +13443,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -14271,13 +13565,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -14406,13 +13693,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -14547,13 +13827,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -14686,13 +13959,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -14815,13 +14081,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -14985,13 +14244,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -15118,13 +14370,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -15247,13 +14492,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -15389,13 +14627,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -15520,13 +14751,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -15631,21 +14855,46 @@
    client-side.                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --query            -q      TEXT  Query to execute.                           |
-  | --filename         -f      FILE  File to execute.                            |
-  | --stdin            -i            Read the query from standard input. Use it  |
-  |                                  when piping input to this command.          |
-  | --variable         -D      TEXT  String in format of key=value. If provided  |
-  |                                  the SQL content will be treated as template |
-  |                                  and rendered using provided data.           |
-  | --retain-comments                Retains comments in queries passed to       |
-  |                                  Snowflake                                   |
-  | --project          -p      TEXT  Path where the Snowflake project is stored. |
-  |                                  Defaults to the current working directory.  |
-  | --env                      TEXT  String in the format key=value. Overrides   |
-  |                                  variables from the env section used for     |
-  |                                  templates.                                  |
-  | --help             -h            Show this message and exit.                 |
+  | --query               -q                         TEXT  Query to execute.     |
+  | --filename            -f                         FILE  File to execute.      |
+  | --stdin               -i                               Read the query from   |
+  |                                                        standard input. Use   |
+  |                                                        it when piping input  |
+  |                                                        to this command.      |
+  | --variable            -D                         TEXT  String in format of   |
+  |                                                        key=value. If         |
+  |                                                        provided the SQL      |
+  |                                                        content will be       |
+  |                                                        treated as template   |
+  |                                                        and rendered using    |
+  |                                                        provided data.        |
+  | --retain-comments                                      Retains comments in   |
+  |                                                        queries passed to     |
+  |                                                        Snowflake             |
+  | --single-transaction      --no-single-transa…          Connects with         |
+  |                                                        autocommit disabled.  |
+  |                                                        Wraps BEGIN/COMMIT    |
+  |                                                        around statements to  |
+  |                                                        execute them as a     |
+  |                                                        single transaction,   |
+  |                                                        ensuring all commands |
+  |                                                        complete successfully |
+  |                                                        or no change is       |
+  |                                                        applied.              |
+  |                                                        [default:             |
+  |                                                        no-single-transactio… |
+  | --project             -p                         TEXT  Path where the        |
+  |                                                        Snowflake project is  |
+  |                                                        stored. Defaults to   |
+  |                                                        the current working   |
+  |                                                        directory.            |
+  | --env                                            TEXT  String in the format  |
+  |                                                        key=value. Overrides  |
+  |                                                        variables from the    |
+  |                                                        env section used for  |
+  |                                                        templates.            |
+  | --help                -h                               Show this message and |
+  |                                                        exit.                 |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -15734,13 +14983,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -15891,13 +15133,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -16020,13 +15255,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -16149,13 +15377,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -16280,13 +15501,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -16409,13 +15623,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -16557,13 +15764,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -16690,13 +15890,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -16825,13 +16018,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -16956,13 +16142,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -17133,13 +16312,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -17263,13 +16435,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -17393,13 +16558,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -17523,13 +16681,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -17654,13 +16805,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -17789,13 +16933,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
@@ -17921,13 +17058,6 @@
   |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
-  | --single-transaction                           Connects with autocommit      |
-  |                                                disabled. Wraps BEGIN/COMMIT  |
-  |                                                around statements to execute  |
-  |                                                them as a single transaction, |
-  |                                                ensuring all commands         |
-  |                                                complete successfully or no   |
-  |                                                change is applied.            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON]  Specifies the output format.    |
