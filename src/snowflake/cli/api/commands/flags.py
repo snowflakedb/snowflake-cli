@@ -377,6 +377,17 @@ ClientStoreTemporaryCredentialOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
+SingleTransactionOption = typer.Option(
+    True,
+    "--single-transaction",
+    help="Connects with autocommit disabled. Wraps BEGIN/COMMIT around statements to execute them as a single transaction, ensuring all commands complete successfully or no change is applied.",
+    callback=_connection_callback("autocommit"),
+    is_flag=True,
+    flag_value=False,
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
 # Set default via callback to avoid including tempdir path in generated docs (snow --docs).
 # Use constant instead of None, as None is removed from telemetry data.
 _DIAG_LOG_DEFAULT_VALUE = "<system_temporary_directory>"
@@ -474,7 +485,6 @@ EnhancedExitCodesOption = typer.Option(
     is_eager=True,
     envvar="SNOWFLAKE_ENHANCED_EXIT_CODES",
 )
-
 
 # If IfExistsOption, IfNotExistsOption, or ReplaceOption are used with names other than those in CREATE_MODE_OPTION_NAMES,
 # you must also override mutually_exclusive if you want to retain the validation that at most one of these flags is
