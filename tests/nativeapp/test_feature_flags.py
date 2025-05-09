@@ -15,7 +15,7 @@
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
+from snowflake.cli.api.feature_flags import FeatureFlag
 
 
 @mock.patch("snowflake.cli.api.config.get_config_value")
