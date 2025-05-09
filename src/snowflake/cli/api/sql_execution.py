@@ -284,8 +284,9 @@ class SqlExecutor(BaseSqlExecutor):
         )
         return show_obj_row
 
-    def autocommit(self, value: bool):
-        return self._conn.autocommit(value)
+    def disable_autocommit(self):
+        """Disable autocommit in current context."""
+        return self._conn.autocommit(False)
 
 
 class SqlExecutionMixin(SqlExecutor):

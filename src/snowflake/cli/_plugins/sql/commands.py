@@ -123,7 +123,7 @@ def execute_sql(
 
     if single_transaction:
         logger.debug("disabling AUTOCOMMIT")
-        manager.autocommit(False)
+        manager.disable_autocommit()
         query = f"BEGIN; {query.rstrip().rstrip(';')}; COMMIT"  # type: ignore
 
     expected_results_cnt, cursors = manager.execute(
