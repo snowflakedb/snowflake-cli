@@ -124,11 +124,7 @@ def execute_sql(
     if single_transaction:
         logger.debug("disabling AUTOCOMMIT")
         manager.autocommit(False)
-        query = f"BEGIN; {query}"
-        if query.rstrip().endswith(";"):
-            query = f"{query} COMMIT;"
-        else:
-            query = f"{query}; COMMIT;"
+        query = f"BEGIN; {query.rstrip().rstrip(';')}; COMMIT"  # type: ignore
 
     expected_results_cnt, cursors = manager.execute(
         query,
