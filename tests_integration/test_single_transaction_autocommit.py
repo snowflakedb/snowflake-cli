@@ -94,8 +94,8 @@ def test_autocommit_off_commit_on_success(runner):
     assert (
         result.json[1][0]["status"] == f"Table {tbl_name} successfully created."
     ), result.json[1]
-    assert result.json[2][0]["COUNT(*)"] == 0, result.json[1]
-    assert result.json[5][0]["COUNT(*)"] == 2, result.json[1]
+    assert result.json[2][0]["COUNT(*)"] == 0, result.json[2]
+    assert result.json[5][0]["COUNT(*)"] == 2, result.json[5]
 
     result = runner.invoke_with_connection_json(
         [
