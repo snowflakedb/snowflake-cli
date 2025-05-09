@@ -21,7 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
-
+* Move `enable_release_channels` from global feature flag to project level.
 
 # v3.8.0
 

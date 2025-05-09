@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Generic, List, Optional, TypeVar
 
 from click import ClickException
-from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli._plugins.snowpark import package_utils
 from snowflake.cli._plugins.snowpark.common import (
     DEFAULT_RUNTIME,
@@ -25,6 +24,7 @@ from snowflake.cli._plugins.snowpark.snowpark_project_paths import SnowparkProje
 from snowflake.cli._plugins.snowpark.zipper import zip_dir
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.entities.common import EntityBase
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import ProgrammingError
 
