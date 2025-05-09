@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import sys
+from logging import getLogger
 from pathlib import Path
 from typing import List, Optional
 
@@ -27,12 +28,14 @@ from snowflake.cli.api.commands.flags import (
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import parse_key_value_variables
+from snowflake.cli.api.exceptions import CliArgumentError
 from snowflake.cli.api.output.types import (
     CommandResult,
     MultipleResults,
     QueryResult,
 )
 
+logger = getLogger(__name__)
 # simple Typer with defaults because it won't become a command group as it contains only one command
 app = SnowTyperFactory()
 
@@ -74,6 +77,12 @@ def execute_sql(
         "--retain-comments",
         help="Retains comments in queries passed to Snowflake",
     ),
+    single_transaction: Optional[bool] = typer.Option(
+        False,
+        help="Connects with autocommit disabled. Wraps BEGIN/COMMIT around statements to execute them as a single transaction, ensuring all commands complete successfully or no change is applied.",
+        flag_value=False,
+        is_flag=True,
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -92,6 +101,7 @@ def execute_sql(
         data = {v.key: v.value for v in parse_key_value_variables(data_override)}
 
     retain_comments = bool(retain_comments)
+    single_transaction = bool(single_transaction)
     std_in = bool(std_in)
 
     no_source_provided = not any([query, files, std_in])
@@ -102,13 +112,26 @@ def execute_sql(
             std_in = True
 
     if no_source_provided:
+        if single_transaction:
+            raise CliArgumentError("single transaction cannot be used with REPL")
         from snowflake.cli._plugins.sql.repl import Repl
 
         Repl(SqlManager(), data=data, retain_comments=retain_comments).run()
         sys.exit(0)
 
-    expected_results_cnt, cursors = SqlManager().execute(
-        query, files, std_in, data=data, retain_comments=retain_comments
+    manager = SqlManager()
+
+    if single_transaction:
+        logger.debug("disabling AUTOCOMMIT")
+        manager.disable_autocommit()
+        query = f"BEGIN; {query.rstrip().rstrip(';')}; COMMIT"  # type: ignore
+
+    expected_results_cnt, cursors = manager.execute(
+        query,
+        files,
+        std_in,
+        data=data,
+        retain_comments=retain_comments,
     )
     if expected_results_cnt == 0:
         # case expected if input only scheduled async queries
