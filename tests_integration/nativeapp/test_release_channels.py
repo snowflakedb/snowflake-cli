@@ -69,8 +69,6 @@ def test_release_channels_disabled_to_enabled_switch(
         assert result.exit_code == 0
         assert result.json == []
 
-        # enable release channels
-
         # setting ENABLE_RELEASE_CHANNELS feature flag should issue a warning
         get_value_mock.return_value = True
         result = runner.invoke_with_connection(["app", "deploy"])
