@@ -29,6 +29,7 @@ from tests_integration.testing_utils.assertions.test_result_assertions import (
     sys.version_info >= (3, 12),
     reason="Snowflake Python API currently does not support Python 3.12 and greater",
 )
+@pytest.mark.no_qa
 def test_cortex_search(runner):
     result = runner.invoke_with_connection_json(
         [
@@ -111,6 +112,7 @@ def test_cortex_sentiment(runner):
 
 
 @pytest.mark.integration
+@pytest.mark.no_qa
 def test_cortex_summarize(runner):
     result = runner.invoke_with_connection(
         [
