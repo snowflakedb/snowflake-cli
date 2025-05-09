@@ -19,16 +19,24 @@ import pytest
 from tests_integration.nativeapp.native_apps_utils import get_org_and_account_name
 
 
-@mock.patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
-    return_value=True,
-)
+@pytest.fixture
+def set_pdf_release_channels(nativeapp_basic_pdf, alter_snowflake_yml):
+    def _set_pdf_release_channels(value: bool) -> None:
+        alter_snowflake_yml(
+            "snowflake.yml", "entities.pkg.enable_release_channels", value
+        )
+
+    _set_pdf_release_channels(True)
+    yield _set_pdf_release_channels
+
+
 @pytest.mark.integration
 def test_release_channels_list_when_enabled(
-    get_value_mock, runner, nativeapp_teardown, nativeapp_basic_pdf
+    runner, nativeapp_teardown, set_pdf_release_channels
 ):
 
     with nativeapp_teardown():
+
         result = runner.invoke_with_connection(["app", "deploy"])
         assert result.exit_code == 0
 
@@ -46,12 +54,13 @@ def test_release_channels_list_when_enabled(
 )
 @pytest.mark.integration
 def test_release_channels_disabled_to_enabled_switch(
-    get_value_mock, runner, nativeapp_teardown, nativeapp_basic_pdf
+    get_value_mock, runner, nativeapp_teardown, set_pdf_release_channels
 ):
 
     with nativeapp_teardown():
         # disable release channels
         get_value_mock.return_value = False
+        set_pdf_release_channels(False)
 
         result = runner.invoke_with_connection(["app", "deploy"])
         assert result.exit_code == 0
@@ -61,11 +70,25 @@ def test_release_channels_disabled_to_enabled_switch(
         assert result.json == []
 
         # enable release channels
+
+        # setting ENABLE_RELEASE_CHANNELS feature flag should issue a warning
         get_value_mock.return_value = True
-
-        result = runner.invoke_with_connection_json(["app", "deploy"])
+        result = runner.invoke_with_connection(["app", "deploy"])
         assert result.exit_code == 0
+        assert (
+            "ENABLE_RELEASE_CHANNELS value in config.yml is deprecated. "
+            "Set [enable_release_channels] for the application package in snowflake.yml instead."
+        ) in result.output
 
+        # setting enable_release_channels in pdf should silence the warning
+        set_pdf_release_channels(True)
+        result = runner.invoke_with_connection(["app", "deploy"])
+        assert result.exit_code == 0
+        assert (
+            "ENABLE_RELEASE_CHANNELS value in config.yml is deprecated."
+        ) not in result.output
+
+        # release channels should be listed
         result = runner.invoke_with_connection_json(["app", "release-channel", "list"])
         assert result.exit_code == 0
         assert len(result.json) >= 3
@@ -75,13 +98,9 @@ def test_release_channels_disabled_to_enabled_switch(
         assert "QA" in channel_names
 
 
-@mock.patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
-    return_value=True,
-)
 @pytest.mark.integration
 def test_add_accounts_and_remove_accounts_and_set_accounts_from_release_channels(
-    get_value_mock, runner, nativeapp_teardown, nativeapp_basic_pdf
+    runner, nativeapp_teardown, set_pdf_release_channels
 ):
 
     with nativeapp_teardown():
@@ -165,13 +184,9 @@ def test_add_accounts_and_remove_accounts_and_set_accounts_from_release_channels
         )
 
 
-@mock.patch(
-    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
-    return_value=True,
-)
 @pytest.mark.integration
 def test_add_version_and_remove_version_from_release_channels(
-    get_value_mock, runner, nativeapp_teardown, nativeapp_basic_pdf
+    runner, nativeapp_teardown, set_pdf_release_channels
 ):
 
     with nativeapp_teardown():
