@@ -475,7 +475,6 @@ EnhancedExitCodesOption = typer.Option(
     envvar="SNOWFLAKE_ENHANCED_EXIT_CODES",
 )
 
-
 # If IfExistsOption, IfNotExistsOption, or ReplaceOption are used with names other than those in CREATE_MODE_OPTION_NAMES,
 # you must also override mutually_exclusive if you want to retain the validation that at most one of these flags is
 # passed.

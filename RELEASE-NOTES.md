@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added `--single-transaction` flag to `snow sql`. Wraps BEGIN/COMMIT around statements to execute them as a single transaction, ensuring all commands complete successfully or no change is applied.
 
 ## Fixes and improvements
 
