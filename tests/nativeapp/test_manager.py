@@ -79,6 +79,7 @@ from tests.nativeapp.patch_utils import (
 from tests.nativeapp.utils import (
     APP_PACKAGE_ENTITY_DEPLOY,
     APP_PACKAGE_ENTITY_GET_EXISTING_APP_PKG_INFO,
+    APP_PACKAGE_ENTITY_GET_RELEASE_CHANNELS,
     APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME,
     ENTITIES_UTILS_MODULE,
     SQL_EXECUTOR_EXECUTE,
@@ -844,7 +845,7 @@ def test_get_snowsight_url_without_pdf_warehouse(
 @mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
 @mock.patch(SQL_FACADE_CREATE_APP_PKG)
 @mock.patch("snowflake.cli.api.config.get_config_value")
-@pytest.mark.parametrize("feature_flag", [True, False, None])
+@pytest.mark.parametrize("feature_flag", [True, False])
 def test_given_no_existing_pkg_when_create_app_pkg_then_success_and_respect_release_channels_flag(
     mock_get_config_value,
     mock_create_app_pkg,
@@ -887,7 +888,7 @@ def test_given_no_existing_pkg_when_create_app_pkg_then_success_and_respect_rele
 @mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
 @mock.patch(SQL_FACADE_ALTER_APP_PKG_PROPERTIES)
 @mock.patch("snowflake.cli.api.config.get_config_value")
-@pytest.mark.parametrize("feature_flag", [True, False, None])
+@pytest.mark.parametrize("feature_flag", [True, False])
 def test_given_existing_app_package_with_feature_flag_set_when_create_pkg_then_set_pkg_property_to_same_value(
     mock_get_config_value,
     mock_alter_app_pkg_properties,
@@ -938,7 +939,9 @@ def test_given_existing_app_package_with_feature_flag_set_when_create_pkg_then_s
 @mock_get_app_pkg_distribution_in_sf()
 @mock.patch(APP_PACKAGE_ENTITY_IS_DISTRIBUTION_SAME, return_value=True)
 @mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
+@mock.patch(APP_PACKAGE_ENTITY_GET_RELEASE_CHANNELS, return_value=None)
 def test_create_app_pkg_different_owner(
+    mock_get_release_channels,
     mock_get_ui_parameter,
     mock_is_distribution_same,
     mock_get_distribution,
@@ -983,7 +986,9 @@ def test_create_app_pkg_different_owner(
     [False, True],
 )
 @mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
+@mock.patch(APP_PACKAGE_ENTITY_GET_RELEASE_CHANNELS, return_value=None)
 def test_create_app_pkg_external_distribution(
+    mock_get_release_channels,
     mock_get_ui_parameter,
     mock_is_distribution_same,
     mock_get_distribution,
@@ -1033,7 +1038,9 @@ def test_create_app_pkg_external_distribution(
     ],
 )
 @mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
+@mock.patch(APP_PACKAGE_ENTITY_GET_RELEASE_CHANNELS, return_value=None)
 def test_create_app_pkg_internal_distribution_special_comment(
+    mock_get_release_channel,
     mock_get_ui_parameter,
     mock_is_distribution_same,
     mock_get_distribution,

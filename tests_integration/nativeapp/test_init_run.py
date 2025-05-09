@@ -553,7 +553,7 @@ def test_nativeapp_force_cross_upgrade(
 
 
 @mock.patch(
-    "snowflake.cli._plugins.nativeapp.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
 )
 @pytest.mark.integration
 @pytest.mark.parametrize(
@@ -603,7 +603,7 @@ def test_nativeapp_upgrade_from_release_directive_and_default_channel(
 
 
 @mock.patch(
-    "snowflake.cli._plugins.nativeapp.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
 )
 @pytest.mark.integration
 @pytest.mark.parametrize(
@@ -642,7 +642,7 @@ def test_nativeapp_create_from_release_directive_and_default_channel(
 
 
 @mock.patch(
-    "snowflake.cli._plugins.nativeapp.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
+    "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value",
     return_value=True,
 )
 @pytest.mark.integration

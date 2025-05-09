@@ -140,6 +140,7 @@ def test_bundle(project_directory):
 @mock.patch(f"{APP_PACKAGE_ENTITY}.validate_setup_script")
 @mock.patch(f"{APPLICATION_PACKAGE_ENTITY_MODULE}.sync_deploy_root_with_stage")
 @mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
+@pytest.mark.parametrize("enable_release_channels", [False, True])
 def test_deploy(
     mock_get_parameter,
     mock_sync,
@@ -148,6 +149,7 @@ def test_deploy(
     mock_execute,
     project_directory,
     mock_cursor,
+    enable_release_channels,
 ):
     side_effects, expected = mock_execute_helper(
         [
@@ -196,12 +198,25 @@ def test_deploy(
                 mock.call("select current_role()"),
             ),
             (None, mock.call("use role app_role")),
+            (
+                None,
+                mock.call(
+                    f"alter application package pkg\n    set enable_release_channels = {enable_release_channels}\n".lower()
+                ),
+            ),
+            (None, mock.call("use role old_role")),
+            (
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (None, mock.call("use role app_role")),
             (None, mock.call("use role old_role")),
         ]
     )
     mock_execute.side_effect = side_effects
 
     app_pkg, bundle_ctx, mock_console = _get_app_pkg_entity(project_directory)
+    app_pkg.model.enable_release_channels = enable_release_channels
 
     app_pkg.action_deploy(
         bundle_ctx,
@@ -289,6 +304,18 @@ def test_deploy_w_stage_subdir(
                     [],
                 ),
                 mock.call("describe application package pkg"),
+            ),
+            (None, mock.call("use role old_role")),
+            (
+                mock_cursor([("old_role",)], []),
+                mock.call("select current_role()"),
+            ),
+            (None, mock.call("use role app_role")),
+            (
+                None,
+                mock.call(
+                    "alter application package pkg\n    set enable_release_channels = false\n"
+                ),
             ),
             (None, mock.call("use role old_role")),
             (

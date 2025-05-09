@@ -81,9 +81,14 @@ class BaseSqlExecutor:
         """
         self._log.debug("Executing %s", sql_text)
         stream = StringIO(sql_text)
+
         stream_generator = self._conn.execute_stream(
-            stream, remove_comments=remove_comments, cursor_class=cursor_class, **kwargs
+            stream,
+            remove_comments=remove_comments,
+            cursor_class=cursor_class,
+            **kwargs,
         )
+
         return stream_generator if return_cursors else list()
 
     def execute_string(self, query: str, **kwargs) -> Iterable[SnowflakeCursor]:
@@ -194,7 +199,7 @@ class SqlExecutor(BaseSqlExecutor):
             create api integration {name.sql_identifier}
             api_provider = {api_provider}
             api_allowed_prefixes = ('{allowed_prefix}')
-            allowed_authentication_secrets = ({secret if secret else ''})
+            allowed_authentication_secrets = ({secret if secret else ""})
             enabled = true
             """
         )
@@ -278,6 +283,10 @@ class SqlExecutor(BaseSqlExecutor):
             lambda row: row[name_col] == unquote_identifier(unqualified_name),
         )
         return show_obj_row
+
+    def disable_autocommit(self):
+        """Disable autocommit in current context."""
+        return self._conn.autocommit(False)
 
 
 class SqlExecutionMixin(SqlExecutor):

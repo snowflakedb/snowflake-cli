@@ -9,10 +9,10 @@ import yaml
 from snowflake.cli._plugins.nativeapp.entities.application_package import (
     ApplicationPackageEntityModel,
 )
-from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli._plugins.workspace.manager import WorkspaceManager
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.errors import SchemaValidationError
 from snowflake.cli.api.project.schemas.project_definition import (
     DefinitionV20,

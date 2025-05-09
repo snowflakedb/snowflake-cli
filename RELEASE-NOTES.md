@@ -19,6 +19,16 @@
 ## Deprecations
 
 ## New additions
+* Added `--single-transaction` flag to `snow sql`. Wraps BEGIN/COMMIT around statements to execute them as a single transaction, ensuring all commands complete successfully or no change is applied.
+
+## Fixes and improvements
+* Move `enable_release_channels` from global feature flag to project level.
+
+# v3.8.0
+
+## Deprecations
+
+## New additions
 * Added support for OAuth tokens.
 * Cleaning up the output directory after coping files to the stage for Streamlit, Notebook, SPCS Service and project.
 * Added interactive mode for `snow sql`.

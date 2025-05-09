@@ -44,7 +44,6 @@ from snowflake.cli._plugins.nativeapp.exceptions import (
     ObjectPropertyNotFoundError,
     SetupScriptFailedValidation,
 )
-from snowflake.cli._plugins.nativeapp.feature_flags import FeatureFlag
 from snowflake.cli._plugins.nativeapp.policy import (
     AllowAlwaysPolicy,
     AskAlwaysPolicy,
@@ -88,6 +87,7 @@ from snowflake.cli.api.entities.utils import (
 )
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.project.schemas.entities.common import (
     EntityModelBaseWithArtifacts,
     Identifier,
@@ -189,6 +189,10 @@ class ApplicationPackageEntityModel(EntityModelBaseWithArtifacts):
     children: Optional[List[ApplicationPackageChildField]] = Field(
         title="Entities that will be bundled and deployed as part of this application package",
         default=[],
+    )
+    enable_release_channels: bool = Field(
+        title="Enable release channels for this application package",
+        default=False,
     )
 
     @field_validator("children")
@@ -1550,24 +1554,33 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
     def _get_enable_release_channels_flag(self) -> Optional[bool]:
         """
         Returns the requested value of enable_release_channels flag for the application package.
-        It retrieves the value from the configuration file and checks that the feature is enabled in the account.
+        It retrieves the value from snowflake.yml (and from the configuration file),
+        and checks that the feature is enabled in the account.
         If return value is None, it means do not explicitly set the flag.
         """
-        feature_flag_from_config = FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value()
+        value_from_snowflake_yml = self.model.enable_release_channels
+        feature_flag_from_config = FeatureFlag.ENABLE_RELEASE_CHANNELS.is_enabled()
+        if feature_flag_from_config and not value_from_snowflake_yml:
+            self._workspace_ctx.console.warning(
+                f"{FeatureFlag.ENABLE_RELEASE_CHANNELS.name} value in config.yml is deprecated."
+                f" Set [enable_release_channels] for the application package in snowflake.yml instead."
+            )
+        enable_release_channels = value_from_snowflake_yml or feature_flag_from_config
+
         feature_enabled_in_account = (
             get_snowflake_facade().get_ui_parameter(
                 UIParameter.NA_FEATURE_RELEASE_CHANNELS, "ENABLED"
             )
             == "ENABLED"
         )
-
-        if feature_flag_from_config is not None and not feature_enabled_in_account:
+        if enable_release_channels and not feature_enabled_in_account:
             self._workspace_ctx.console.warning(
-                f"Ignoring feature flag {FeatureFlag.ENABLE_RELEASE_CHANNELS.name} because release channels are not enabled in the current account."
+                f"Ignoring [enable_release_channels] value because "
+                "release channels are not enabled in the current account."
             )
             return None
 
-        return feature_flag_from_config
+        return enable_release_channels
 
     def create_app_package(self) -> None:
         """
