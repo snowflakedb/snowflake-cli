@@ -15,13 +15,17 @@
 from __future__ import annotations
 
 import sys
+from enum import Enum
 from pathlib import Path
 from typing import List, Optional
 
 import click
 import typer
 from click import UsageError
-from snowflake.cli._plugins.cortex.constants import DEFAULT_MODEL
+from snowflake.cli._plugins.cortex.constants import (
+    DEFAULT_BACKEND,
+    DEFAULT_MODEL,
+)
 from snowflake.cli._plugins.cortex.manager import CortexManager
 from snowflake.cli._plugins.cortex.types import (
     Language,
@@ -36,7 +40,7 @@ from snowflake.cli.api.commands.overrideable_parameter import (
     OverrideableOption,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.constants import PYTHON_3_12
+from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, PYTHON_3_12
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -115,6 +119,11 @@ def search(
     return CollectionResult(response.results)
 
 
+class Backend(Enum):
+    SQL = "sql"
+    REST = "rest"
+
+
 @app.command(
     name="complete",
     requires_connection=True,
@@ -130,6 +139,11 @@ def complete(
         "--model",
         help="String specifying the model to be used.",
     ),
+    backend: Optional[Backend] = typer.Option(
+        DEFAULT_BACKEND,
+        "--backend",
+        help="String specifying whether to use sql or rest backend.",
+    ),
     file: Optional[Path] = ExclusiveReadableFileOption(
         help="JSON file containing conversation history to be used to generate a completion. Cannot be combined with TEXT argument.",
     ),
@@ -143,18 +157,30 @@ def complete(
 
     manager = CortexManager()
 
+    is_file_input: bool = False
     if text:
-        result_text = manager.complete_for_prompt(
-            text=Text(text),
-            model=Model(model),
-        )
+        prompt = text
     elif file:
-        result_text = manager.complete_for_conversation(
-            conversation_json_file=SecurePath(file),
-            model=Model(model),
-        )
+        prompt = SecurePath(file).read_text(file_size_limit_mb=DEFAULT_SIZE_LIMIT_MB)
+        is_file_input = True
     else:
         raise UsageError("Either --file option or TEXT argument has to be provided.")
+
+    if backend == Backend.SQL:
+        result_text = manager.complete(
+            text=Text(prompt),
+            model=Model(model),
+            is_file_input=is_file_input,
+        )
+    elif backend == Backend.REST:
+        root = get_cli_context().snow_api_root
+        result_text = manager.rest_complete(
+            text=Text(prompt),
+            model=Model(model),
+            root=root,
+        )
+    else:
+        raise UsageError("--backend option should be either rest or sql.")
 
     return MessageResult(result_text.strip())
 
