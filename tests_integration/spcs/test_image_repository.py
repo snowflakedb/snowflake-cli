@@ -38,7 +38,19 @@ INTEGRATION_REPOSITORY = "snowcli_repository"
 @pytest.mark.integration
 def test_list_images_tags(runner):
     # test assumes the testing environment has been set up with /<DATABASE>/PUBLIC/snowcli_repository/snowpark_test_echo:1
-    _list_images(runner)
+    assert [
+        "spcs",
+        "image-repository",
+        "list-images",
+        INTEGRATION_REPOSITORY,
+        "--database",
+        INTEGRATION_DATABASE,
+        "--schema",
+        INTEGRATION_SCHEMA,
+        "--like",
+        "%",
+    ] == []
+    # _list_images(runner)
     _list_images_with_like_positive_case(runner)
     _list_images_with_like_empty_list(runner)
     _list_tags(runner)
@@ -128,6 +140,7 @@ def _list_images_with_like_positive_case(runner):
         ]
     )
     assert isinstance(result2.json, list), result2.output
+    assert result2.json == []
     assert len(result2.json) == 3, result2.json
     assert contains_row_with(
         result.json,
