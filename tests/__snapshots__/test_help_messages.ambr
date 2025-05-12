@@ -11113,7 +11113,7 @@
    image registry.                                                                
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --help          -h        Show this message and exit.                        |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -11360,8 +11360,8 @@
    image registry.                                                                
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --private-link            Please return the private link URL instead of the  |
-  |                           public URL.                                        |
+  | --private-link            Get the private link URL instead of the public     |
+  |                           URL.                                               |
   | --help          -h        Show this message and exit.                        |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
