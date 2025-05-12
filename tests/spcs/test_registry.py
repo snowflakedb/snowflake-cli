@@ -87,7 +87,19 @@ def test_get_registry_url(mock_execute, mock_conn, mock_cursor):
 @mock.patch(
     "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.execute_query"
 )
-def test_get_registry_privatelink_url(mock_execute, mock_conn, mock_cursor):
+@pytest.mark.parametrize(
+    "column_value, expected",
+    [
+        (
+            "orgname-alias.registry.privatelink.snowflakecomputing.com/DB/SCHEMA/IMAGES",
+            "orgname-alias.registry.privatelink.snowflakecomputing.com",
+        ),
+        ("", ""),
+    ],
+)
+def test_get_registry_privatelink_url(
+    mock_execute, mock_conn, mock_cursor, column_value, expected
+):
     mock_row = [
         "2023-01-01 00:00:00",
         "IMAGES",
@@ -97,7 +109,7 @@ def test_get_registry_privatelink_url(mock_execute, mock_conn, mock_cursor):
         "TEST_ROLE",
         "ROLE",
         "",
-        "orgname-alias.registry.privatelink.snowflakecomputing.com/DB/SCHEMA/IMAGES",
+        column_value,
     ]
 
     mock_execute.return_value = mock_cursor(
@@ -116,14 +128,14 @@ def test_get_registry_privatelink_url(mock_execute, mock_conn, mock_cursor):
     expected_query = "show image repositories in account"
     assert mock_execute.call_count == 2
     mock_execute.assert_any_call(expected_query, cursor_class=DictCursor)
-    assert result == "orgname-alias.registry.privatelink.snowflakecomputing.com"
+    assert result == expected
 
 
 @mock.patch("snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._conn")
 @mock.patch(
     "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.execute_query"
 )
-def test_get_registry_privatelink_url_returns_empty_response(
+def test_get_registry_privatelink_url_returns_empty_for_missing_column(
     mock_execute, mock_conn, mock_cursor
 ):
     mock_row = [
