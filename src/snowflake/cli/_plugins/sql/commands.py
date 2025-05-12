@@ -121,17 +121,13 @@ def execute_sql(
 
     manager = SqlManager()
 
-    if single_transaction:
-        logger.debug("disabling AUTOCOMMIT")
-        manager.disable_autocommit()
-        query = f"BEGIN; {query.rstrip().rstrip(';')}; COMMIT"  # type: ignore
-
     expected_results_cnt, cursors = manager.execute(
         query,
         files,
         std_in,
         data=data,
         retain_comments=retain_comments,
+        single_transaction=single_transaction,
     )
     if expected_results_cnt == 0:
         # case expected if input only scheduled async queries
