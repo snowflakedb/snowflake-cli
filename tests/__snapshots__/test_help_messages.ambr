@@ -11113,7 +11113,7 @@
    image registry.                                                                
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --help          -h        Show this message and exit.                        |
+  | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
