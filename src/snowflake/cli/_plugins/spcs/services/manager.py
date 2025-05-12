@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import List, Optional
 
 import yaml
+
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.spcs.common import (
     EVENT_COLUMN_NAMES,
@@ -33,7 +34,7 @@ from snowflake.cli._plugins.spcs.common import (
     format_metric_row,
     handle_object_already_exists,
     new_logs_only,
-    strip_empty_lines,
+    strip_empty_lines, build_db_and_schema_clause,
 )
 from snowflake.cli._plugins.spcs.services.service_project_paths import (
     ServiceProjectPaths,
@@ -391,13 +392,14 @@ class ServiceManager(SqlExecutionMixin):
 
     def get_all_metrics(
         self,
-        service_name: str,
+        service_name: FQN | str,
         instance_id: str,
         container_name: str,
         since: str | datetime | None = None,
         until: str | datetime | None = None,
         show_all_columns: bool = False,
     ):
+        service_name, database, schema = parse_service_details(service_name)
 
         account_event_table = self.get_account_event_table()
         resource_clause = build_resource_clause(
@@ -405,11 +407,19 @@ class ServiceManager(SqlExecutionMixin):
         )
         since_clause, until_clause = build_time_clauses(since, until)
 
+        if database:
+            db_and_schema_clause = build_db_and_schema_clause(
+                database_name=database, schema_name=schema
+            )
+        else:
+            db_and_schema_clause = ""
+
         query = f"""\
                     select *
                     from {account_event_table}
                     where (
                         {resource_clause}
+                        {db_and_schema_clause}
                         {since_clause}
                         {until_clause}
                     )
@@ -441,11 +451,19 @@ class ServiceManager(SqlExecutionMixin):
         container_name: str,
         show_all_columns: bool = False,
     ):
+        service_name, database, schema = parse_service_details(service_name)
 
         account_event_table = self.get_account_event_table()
         resource_clause = build_resource_clause(
             service_name, instance_id, container_name
         )
+
+        if database:
+            db_and_schema_clause = build_db_and_schema_clause(
+                database_name=database, schema_name=schema
+            )
+        else:
+            db_and_schema_clause = ""
 
         query = f"""
             with rankedmetrics as (
@@ -583,3 +601,15 @@ class ServiceManager(SqlExecutionMixin):
         unset_list = [property_name for property_name, value in property_pairs if value]
         query = f"alter service {service_name} unset {','.join(unset_list)}"
         return self.execute_query(query)
+
+def parse_service_details(service_identifier: str | FQN) -> tuple[str, str | None, str | None]:
+    if isinstance(service_identifier, FQN):
+        name = service_identifier.name
+        database = service_identifier.database
+        schema = service_identifier.schema
+    else:
+        name = service_identifier
+        database = None
+        schema = None
+
+    return name, database, schema
