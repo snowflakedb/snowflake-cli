@@ -23,6 +23,16 @@
 ## Fixes and improvements
 
 
+# v3.7.2
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+* Fix error appearing on help messages after click BCR update.
+
+
 # v3.7.1
 
 ## Deprecations
