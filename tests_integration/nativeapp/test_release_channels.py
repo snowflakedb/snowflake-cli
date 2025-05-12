@@ -74,7 +74,7 @@ def test_release_channels_disabled_to_enabled_switch(
         result = runner.invoke_with_connection(["app", "deploy"])
         assert result.exit_code == 0
         assert (
-            "ENABLE_RELEASE_CHANNELS value in config.yml is deprecated. "
+            "ENABLE_RELEASE_CHANNELS value in config.toml is deprecated. "
             "Set [enable_release_channels] for the application package in snowflake.yml instead."
         ) in result.output
 
@@ -83,7 +83,7 @@ def test_release_channels_disabled_to_enabled_switch(
         result = runner.invoke_with_connection(["app", "deploy"])
         assert result.exit_code == 0
         assert (
-            "ENABLE_RELEASE_CHANNELS value in config.yml is deprecated."
+            "ENABLE_RELEASE_CHANNELS value in config.toml is deprecated."
         ) not in result.output
 
         # release channels should be listed

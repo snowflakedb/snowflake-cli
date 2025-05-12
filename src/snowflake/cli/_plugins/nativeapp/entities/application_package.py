@@ -1562,7 +1562,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         feature_flag_from_config = FeatureFlag.ENABLE_RELEASE_CHANNELS.is_enabled()
         if feature_flag_from_config and not value_from_snowflake_yml:
             self._workspace_ctx.console.warning(
-                f"{FeatureFlag.ENABLE_RELEASE_CHANNELS.name} value in config.yml is deprecated."
+                f"{FeatureFlag.ENABLE_RELEASE_CHANNELS.name} value in config.toml is deprecated."
                 f" Set [enable_release_channels] for the application package in snowflake.yml instead."
             )
         enable_release_channels = value_from_snowflake_yml or feature_flag_from_config
