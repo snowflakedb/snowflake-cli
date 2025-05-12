@@ -50,6 +50,7 @@ class SqlManager(SqlExecutionMixin):
         std_in: bool,
         data: Dict | None = None,
         retain_comments: bool = False,
+        single_transaction: bool = False,
     ) -> Tuple[ExpectedResultsCount, Iterable[SnowflakeCursor]]:
         """Reads, transforms and execute statements from input.
 
@@ -86,6 +87,16 @@ class SqlManager(SqlExecutionMixin):
                 logger.info("Statement compilation error: %s", error)
                 cli_console.warning(error)
             raise CliSqlError("SQL rendering error")
+
+        if single_transaction:
+            logger.info("disabling AUTOCOMMIT")
+            self.disable_autocommit()
+            compiled_statements = [
+                CompiledStatement(statement="BEGIN;"),
+                *compiled_statements,
+                CompiledStatement(statement="COMMIT;"),
+            ]
+            expected_results_cnt = len(compiled_statements)
 
         cursor_class = SnowflakeCursor if get_cli_context().is_repl else VerboseCursor
         return expected_results_cnt, self._execute_compiled_statements(
