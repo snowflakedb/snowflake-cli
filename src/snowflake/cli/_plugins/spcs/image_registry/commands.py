@@ -29,7 +29,7 @@ import typer
 PrivateLinkOption: bool = typer.Option(
     False,
     "--private-link",
-    help="Please return the private link URL instead of the public URL.",
+    help="Get the private link URL instead of the public URL.",
 )
 
 
