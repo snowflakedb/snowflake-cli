@@ -24,6 +24,14 @@ app = SnowTyperFactory(
     short_help="Manages image registries.",
 )
 
+import typer
+
+PrivateLinkOption: bool = typer.Option(
+    False,
+    "--private-link",
+    help="Please return the private link URL instead of the public URL.",
+)
+
 
 _TOKEN_EPILOG = """\
 Usage Example: snow spcs image-registry token --format JSON | docker login $(snow spcs image-registry url) -u 0sessiontoken --password-stdin
@@ -46,13 +54,13 @@ def token(**options) -> ObjectResult:
 
 
 @app.command(requires_connection=True)
-def url(**options) -> MessageResult:
+def url(private_link: bool = PrivateLinkOption, **options) -> MessageResult:
     """
     Gets the image registry URL for the current account.
 
     Must be called from a role that can view at least one image repository in the image registry.
     """
-    return MessageResult(RegistryManager().get_registry_url())
+    return MessageResult(RegistryManager().get_registry_url(private_link))
 
 
 @app.command(requires_connection=True)

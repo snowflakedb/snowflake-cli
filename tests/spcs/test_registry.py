@@ -87,6 +87,71 @@ def test_get_registry_url(mock_execute, mock_conn, mock_cursor):
 @mock.patch(
     "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.execute_query"
 )
+def test_get_registry_privatelink_url(mock_execute, mock_conn, mock_cursor):
+    mock_row = [
+        "2023-01-01 00:00:00",
+        "IMAGES",
+        "DB",
+        "SCHEMA",
+        "orgname-alias.registry.snowflakecomputing.com/DB/SCHEMA/IMAGES",
+        "TEST_ROLE",
+        "ROLE",
+        "",
+        "orgname-alias.registry.privatelink.snowflakecomputing.com/DB/SCHEMA/IMAGES",
+    ]
+
+    mock_execute.return_value = mock_cursor(
+        rows=[
+            {},
+            {
+                col: row
+                for col, row in zip(
+                    [*MOCK_REPO_COLUMNS, "privatelink_repository_url"], mock_row
+                )
+            },
+        ],
+        columns=MOCK_REPO_COLUMNS,
+    )
+    result = RegistryManager().get_registry_url(private_link=True)
+    expected_query = "show image repositories in account"
+    assert mock_execute.call_count == 2
+    mock_execute.assert_any_call(expected_query, cursor_class=DictCursor)
+    assert result == "orgname-alias.registry.privatelink.snowflakecomputing.com"
+
+
+@mock.patch("snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._conn")
+@mock.patch(
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.execute_query"
+)
+def test_get_registry_privatelink_url_returns_empty_response(
+    mock_execute, mock_conn, mock_cursor
+):
+    mock_row = [
+        "2023-01-01 00:00:00",
+        "IMAGES",
+        "DB",
+        "SCHEMA",
+        "orgname-alias.registry.snowflakecomputing.com/DB/SCHEMA/IMAGES",
+        "TEST_ROLE",
+        "ROLE",
+        "",
+    ]
+
+    mock_execute.return_value = mock_cursor(
+        rows=[{}, {col: row for col, row in zip(MOCK_REPO_COLUMNS, mock_row)}],
+        columns=MOCK_REPO_COLUMNS,
+    )
+    result = RegistryManager().get_registry_url(private_link=True)
+    expected_query = "show image repositories in account"
+    assert mock_execute.call_count == 2
+    mock_execute.assert_any_call(expected_query, cursor_class=DictCursor)
+    assert result == ""
+
+
+@mock.patch("snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager._conn")
+@mock.patch(
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.execute_query"
+)
 def test_get_registry_url_with_schema_query(mock_execute, mock_conn, mock_cursor):
     mock_row = [
         "2023-01-01 00:00:00",
