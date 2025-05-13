@@ -67,25 +67,34 @@
   | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
   |                                                contains allowlist            |
   |                                                parameters.                   |
-  | --oauth-client-id                     TEXT     OAuth client ID to use when   |
-  |                                                connecting to Snowflake.      |
-  | --oauth-client-secret                 TEXT     OAuth client secret to use    |
-  |                                                when connecting to Snowflake. |
-  | --oauth-authorization-url             TEXT     OAuth authorization URL to    |
-  |                                                use when connecting to        |
-  |                                                Snowflake.                    |
-  | --oauth-redirect-uri                  TEXT     OAuth redirect URI to use     |
-  |                                                when connecting to Snowflake. |
-  | --oauth-scope                         TEXT     OAuth scope to use when       |
-  |                                                connecting to Snowflake.      |
-  | --oauth-disable-pkce                           Disable Proof Key for Code    |
+  | --oauth-client-id                     TEXT     Value of client id provided   |
+  |                                                by the Identity Provider for  |
+  |                                                Snowflake integration.        |
+  | --oauth-client-secret                 TEXT     Value of the client secret    |
+  |                                                provided by the Identity      |
+  |                                                Provider for Snowflake        |
+  |                                                integration.                  |
+  | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the authorization   |
+  |                                                code to the driver.           |
+  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the access tokens   |
+  |                                                to the driver.                |
+  | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
+  |                                                code redirection.             |
+  | --oauth-scope                         TEXT     Scope requested in the        |
+  |                                                Identity Provider             |
+  |                                                authorization request.        |
+  | --oauth-disable-pkce                           Disables Proof Key for Code   |
   |                                                Exchange (PKCE). Default:     |
   |                                                False.                        |
-  | --oauth-enable-refresh-toke…                   Enable refresh tokens.        |
-  |                                                Default: False.               |
-  | --oauth-enable-single-use-r…                   Client-side opt-in to         |
-  |                                                single-use refresh tokens.    |
-  |                                                Default: False.               |
+  | --oauth-enable-refresh-toke…                   Enables a silent              |
+  |                                                re-authentication when the    |
+  |                                                actual access token becomes   |
+  |                                                outdated. Default: False.     |
+  | --oauth-enable-single-use-r…                   Whether to opt-in to          |
+  |                                                single-use refresh token      |
+  |                                                semantics. Default: False.    |
   | --client-store-temporary-cr…                   Store the temporary           |
   |                                                credential.                   |
   +------------------------------------------------------------------------------+

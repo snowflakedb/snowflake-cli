@@ -42,6 +42,7 @@ from snowflake.cli.api.commands.flags import (
     OauthEnableSingleUseRefreshTokensOption,
     OauthRedirectUriOption,
     OauthScopeOption,
+    OauthTokenRequestUrlOption,
     OutputFormatOption,
     PasswordOption,
     PortOption,
@@ -355,6 +356,12 @@ GLOBAL_CONNECTION_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[str],
         default=OauthAuthorizationUrlOption,
+    ),
+    inspect.Parameter(
+        "oauth_token_request_url",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=OauthTokenRequestUrlOption,
     ),
     inspect.Parameter(
         "oauth_redirect_uri",

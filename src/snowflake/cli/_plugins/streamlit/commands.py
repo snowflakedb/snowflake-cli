@@ -25,12 +25,8 @@ from snowflake.cli._plugins.object.command_aliases import (
     scope_option,
 )
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
-from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
-    StreamlitEntityModel,
-)
-from snowflake.cli._plugins.streamlit.streamlit_project_paths import (
-    StreamlitProjectPaths,
-)
+from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
+from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import (
     with_experimental_behaviour,
@@ -45,7 +41,9 @@ from snowflake.cli.api.commands.flags import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import get_entity_for_operation
+from snowflake.cli.api.console.console import CliConsole
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.entities.utils import EntityActions
 from snowflake.cli.api.exceptions import NoProjectDefinitionError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
@@ -158,18 +156,24 @@ def streamlit_deploy(
             )
         pd = convert_project_definition_to_v2(cli_context.project_root, pd)
 
-    streamlit: StreamlitEntityModel = get_entity_for_operation(
-        cli_context=cli_context,
-        entity_id=entity_id,
-        project_definition=pd,
-        entity_type="streamlit",
+    streamlit: StreamlitEntity = StreamlitEntity(
+        entity_model=get_entity_for_operation(
+            cli_context=cli_context,
+            entity_id=entity_id,
+            project_definition=pd,
+            entity_type=ObjectType.STREAMLIT.value.cli_name,
+        ),
+        workspace_ctx=_get_current_workspace_context(),
     )
 
-    streamlit_project_paths = StreamlitProjectPaths(cli_context.project_root)
-    url = StreamlitManager().deploy(
-        streamlit=streamlit,
-        streamlit_project_paths=streamlit_project_paths,
+    url = streamlit.perform(
+        EntityActions.DEPLOY,
+        ActionContext(
+            get_entity=lambda *args: None,
+        ),
+        _open=open_,
         replace=replace,
+        experimental=options.get("experimental"),
         prune=prune,
     )
 
@@ -190,3 +194,14 @@ def get_url(
     if open_:
         typer.launch(url)
     return MessageResult(url)
+
+
+def _get_current_workspace_context():
+    ctx = get_cli_context()
+
+    return WorkspaceContext(
+        console=CliConsole(),
+        project_root=ctx.project_root,
+        get_default_role=lambda: ctx.connection.role,
+        get_default_warehouse=lambda: ctx.connection.warehouse,
+    )

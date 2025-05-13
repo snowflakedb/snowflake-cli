@@ -34,6 +34,7 @@ from snowflake.cli.api.exceptions import (
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import (
     identifier_to_show_like_pattern,
+    to_identifier,
     unquote_identifier,
 )
 from snowflake.cli.api.utils.cursor import find_first_row
@@ -80,9 +81,14 @@ class BaseSqlExecutor:
         """
         self._log.debug("Executing %s", sql_text)
         stream = StringIO(sql_text)
+
         stream_generator = self._conn.execute_stream(
-            stream, remove_comments=remove_comments, cursor_class=cursor_class, **kwargs
+            stream,
+            remove_comments=remove_comments,
+            cursor_class=cursor_class,
+            **kwargs,
         )
+
         return stream_generator if return_cursors else list()
 
     def execute_string(self, query: str, **kwargs) -> Iterable[SnowflakeCursor]:
@@ -121,7 +127,7 @@ class SqlExecutor(BaseSqlExecutor):
             raise CouldNotUseObjectError(object_type=object_type, name=name) from err
 
     def current_role(self) -> str:
-        return self.execute_query(f"select current_role()").fetchone()[0]
+        return to_identifier(self.execute_query(f"select current_role()").fetchone()[0])
 
     @contextmanager
     def use_role(self, new_role: str):
@@ -129,6 +135,7 @@ class SqlExecutor(BaseSqlExecutor):
         Switches to a different role for a while, then switches back.
         This is a no-op if the requested role is already active.
         """
+        new_role = to_identifier(new_role)
         prev_role = self.current_role()
         is_different_role = new_role.lower() != prev_role.lower()
         if is_different_role:
@@ -152,10 +159,11 @@ class SqlExecutor(BaseSqlExecutor):
         If there is no default warehouse in the account, it will throw an error.
         """
 
+        new_wh = to_identifier(new_wh)
         wh_result = self.execute_query(f"select current_warehouse()").fetchone()
         # If user has an assigned default warehouse, prev_wh will contain a value even if the warehouse is suspended.
         try:
-            prev_wh = wh_result[0]
+            prev_wh = to_identifier(wh_result[0])
         except:
             prev_wh = None
 
@@ -191,7 +199,7 @@ class SqlExecutor(BaseSqlExecutor):
             create api integration {name.sql_identifier}
             api_provider = {api_provider}
             api_allowed_prefixes = ('{allowed_prefix}')
-            allowed_authentication_secrets = ({secret if secret else ''})
+            allowed_authentication_secrets = ({secret if secret else ""})
             enabled = true
             """
         )
@@ -275,6 +283,10 @@ class SqlExecutor(BaseSqlExecutor):
             lambda row: row[name_col] == unquote_identifier(unqualified_name),
         )
         return show_obj_row
+
+    def disable_autocommit(self):
+        """Disable autocommit in current context."""
+        return self._conn.autocommit(False)
 
 
 class SqlExecutionMixin(SqlExecutor):

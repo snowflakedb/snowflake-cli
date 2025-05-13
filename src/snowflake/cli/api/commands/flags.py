@@ -287,7 +287,7 @@ EnableDiagOption = typer.Option(
 OauthClientIdOption = typer.Option(
     None,
     "--oauth-client-id",
-    help="OAuth client ID to use when connecting to Snowflake.",
+    help="Value of client id provided by the Identity Provider for Snowflake integration.",
     callback=_connection_callback("oauth_client_id"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
@@ -295,7 +295,7 @@ OauthClientIdOption = typer.Option(
 
 OauthClientSecretOption = typer.Option(
     None,
-    help="OAuth client secret to use when connecting to Snowflake.",
+    help="Value of the client secret provided by the Identity Provider for Snowflake integration.",
     callback=_connection_callback("oauth_client_secret"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
@@ -304,8 +304,17 @@ OauthClientSecretOption = typer.Option(
 OauthAuthorizationUrlOption = typer.Option(
     None,
     "--oauth-authorization-url",
-    help="OAuth authorization URL to use when connecting to Snowflake.",
+    help="Identity Provider endpoint supplying the authorization code to the driver.",
     callback=_connection_callback("oauth_authorization_url"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+OauthTokenRequestUrlOption = typer.Option(
+    None,
+    "--oauth-token-request-url",
+    help="Identity Provider endpoint supplying the access tokens to the driver.",
+    callback=_connection_callback("oauth_token_request_url"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -313,7 +322,7 @@ OauthAuthorizationUrlOption = typer.Option(
 OauthRedirectUriOption = typer.Option(
     None,
     "--oauth-redirect-uri",
-    help="OAuth redirect URI to use when connecting to Snowflake.",
+    help="URI to use for authorization code redirection.",
     callback=_connection_callback("oauth_redirect_uri"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
@@ -322,7 +331,7 @@ OauthRedirectUriOption = typer.Option(
 OauthScopeOption = typer.Option(
     None,
     "--oauth-scope",
-    help="OAuth scope to use when connecting to Snowflake.",
+    help="Scope requested in the Identity Provider authorization request.",
     callback=_connection_callback("oauth_scope"),
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
@@ -331,7 +340,7 @@ OauthScopeOption = typer.Option(
 OauthDisablePkceOption = typer.Option(
     None,
     "--oauth-disable-pkce",
-    help="Disable Proof Key for Code Exchange (PKCE). Default: `False`.",
+    help="Disables Proof Key for Code Exchange (PKCE). Default: `False`.",
     callback=_connection_callback("oauth_disable_pkce"),
     show_default=False,
     is_flag=True,
@@ -341,7 +350,7 @@ OauthDisablePkceOption = typer.Option(
 OauthEnableRefreshTokensOption = typer.Option(
     None,
     "--oauth-enable-refresh-tokens",
-    help="Enable refresh tokens. Default: `False`.",
+    help="Enables a silent re-authentication when the actual access token becomes outdated. Default: `False`.",
     callback=_connection_callback("oauth_enable_refresh_tokens"),
     show_default=False,
     is_flag=True,
@@ -351,7 +360,7 @@ OauthEnableRefreshTokensOption = typer.Option(
 OauthEnableSingleUseRefreshTokensOption = typer.Option(
     None,
     "--oauth-enable-single-use-refresh-tokens",
-    help="Client-side opt-in to single-use refresh tokens. Default: `False`.",
+    help="Whether to opt-in to single-use refresh token semantics. Default: `False`.",
     callback=_connection_callback("oauth_enable_single_use_refresh_tokens"),
     show_default=False,
     is_flag=True,
@@ -465,7 +474,6 @@ EnhancedExitCodesOption = typer.Option(
     is_eager=True,
     envvar="SNOWFLAKE_ENHANCED_EXIT_CODES",
 )
-
 
 # If IfExistsOption, IfNotExistsOption, or ReplaceOption are used with names other than those in CREATE_MODE_OPTION_NAMES,
 # you must also override mutually_exclusive if you want to retain the validation that at most one of these flags is

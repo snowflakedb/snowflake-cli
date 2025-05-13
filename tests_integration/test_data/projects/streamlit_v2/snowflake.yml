@@ -13,3 +13,18 @@ entities:
     grants:
       - privilege: "USAGE"
         role: "ACCOUNTADMIN"
+  app_1:
+    type: "streamlit"
+    main_file: streamlit_app.py
+    stage: app_1_stage
+    artifacts:
+      - streamlit_app.py
+      - app_1.py
+    query_warehouse: "xsmall"
+  app_2:
+    type: "streamlit"
+    main_file: streamlit_app.py
+    stage: app_2_stage
+    artifacts:
+      - streamlit_app.py
+      - app_2.py

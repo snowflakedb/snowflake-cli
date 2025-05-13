@@ -1,4 +1,22 @@
 # serializer version: 1
+# name: test_error_is_raised_when_packages_are_specified_with_no_repository
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | During evaluation of DefinitionV20 in project definition following errors    |
+  | were encountered:                                                            |
+  | For field entities.func1.function you provided '{'artifacts': [{'dest':      |
+  | 'my_snowpark_project', 'src': 'app.py'}], 'stage': 'dev_deployment',         |
+  | 'artifact_repository_packages': ['package'], 'external_access_integrations': |
+  | [], 'handler': 'app.func1_handler', 'identifier': {'name': 'func1'},         |
+  | 'imports': [], 'meta': {'use_mixins': ['snowpark_shared']}, 'returns':       |
+  | 'string', 'runtime': '3.10', 'secrets': {}, 'signature': [{'default':        |
+  | 'default value', 'name': 'a', 'type': 'string'}, {'name': 'b', 'type':       |
+  | 'variant'}], 'type': 'function'}'. This caused: Value error, You specified   |
+  | Artifact_repository_packages without setting Artifact_repository.            |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
 # name: test_raise_error_when_artifact_contains_asterix
   '''
   +- Error ----------------------------------------------------------------------+

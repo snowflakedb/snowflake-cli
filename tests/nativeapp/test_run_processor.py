@@ -2624,6 +2624,7 @@ def test_run_app_from_release_directive_with_default_channel_when_release_channe
     }
     mock_show_release_channels.return_value = []
     mock_conn.return_value = MockConnectionCtx()
+    mock_execute.return_value = mock_cursor([("app_role",)], [])
     mock_sql_facade_upgrade_application.side_effect = (
         UpgradeApplicationRestrictionError(DEFAULT_USER_INPUT_ERROR_MESSAGE)
     )

@@ -2,8 +2,8 @@
 name: Ok To Test
 
 on:
-  issue_comment:
-    types: [created]
+  # To not run this workflow on every comment
+  workflow_dispatch
 
 jobs:
   ok-to-test:

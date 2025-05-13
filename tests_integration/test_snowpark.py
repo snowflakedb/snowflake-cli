@@ -25,7 +25,7 @@ from tests_integration.testing_utils import (
     SnowparkTestSteps,
 )
 from tests_integration.testing_utils.snowpark_utils import (
-    SnowparkTestSetup,
+    FlowTestSetup,
 )
 from typing import List
 from zipfile import ZipFile
@@ -38,7 +38,7 @@ bundle_root = Path("output") / "bundle" / "snowpark"
 
 @pytest.mark.integration
 def test_snowpark_flow(
-    _test_steps,
+    _snowpark_test_steps,
     project_directory,
     alter_snowflake_yml,
     test_database,
@@ -46,7 +46,7 @@ def test_snowpark_flow(
 ):
     database = test_database.upper()
     with project_directory("snowpark") as tmp_dir:
-        _test_steps.snowpark_build_should_zip_files(
+        _snowpark_test_steps.snowpark_build_should_zip_files(
             additional_files=[
                 Path("output"),
                 Path("output") / "bundle",
@@ -56,7 +56,7 @@ def test_snowpark_flow(
             ]
         )
 
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
                     "object": f"{database}.PUBLIC.hello_procedure(name string)",
@@ -76,10 +76,10 @@ def test_snowpark_flow(
             ]
         )
 
-        _test_steps.assert_those_procedures_are_in_snowflake(
+        _snowpark_test_steps.assert_those_procedures_are_in_snowflake(
             "hello_procedure(VARCHAR) RETURN VARCHAR"
         )
-        _test_steps.assert_those_functions_are_in_snowflake(
+        _snowpark_test_steps.assert_those_functions_are_in_snowflake(
             "hello_function(VARCHAR) RETURN VARCHAR"
         )
 
@@ -87,29 +87,29 @@ def test_snowpark_flow(
             f"{STAGE_NAME}/my_snowpark_project/app.zip",
             f"{STAGE_NAME}/dependencies.zip",
         ]
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+        _snowpark_test_steps.assert_that_only_these_files_are_staged_in_test_db(
             *expected_files, stage_name=STAGE_NAME
         )
 
         # Listing procedures or functions shows created objects
-        _test_steps.object_show_includes_given_identifiers(
+        _snowpark_test_steps.object_show_includes_given_identifiers(
             object_type="procedure",
             identifier=("hello_procedure", "(VARCHAR) RETURN VARCHAR"),
         )
-        _test_steps.object_show_includes_given_identifiers(
+        _snowpark_test_steps.object_show_includes_given_identifiers(
             object_type="function",
             identifier=("hello_function", "(VARCHAR) RETURN VARCHAR"),
         )
 
         # Created objects can be described
-        _test_steps.object_describe_should_return_entity_description(
+        _snowpark_test_steps.object_describe_should_return_entity_description(
             object_type="procedure",
             identifier="hello_procedure(VARCHAR)",
             signature="(NAME VARCHAR)",
             returns=RETURN_TYPE,
         )
 
-        _test_steps.object_describe_should_return_entity_description(
+        _snowpark_test_steps.object_describe_should_return_entity_description(
             object_type="function",
             identifier="hello_function(VARCHAR)",
             signature="(NAME VARCHAR)",
@@ -118,28 +118,28 @@ def test_snowpark_flow(
 
         # Grants are given correctly
 
-        _test_steps.set_grants_on_selected_object(
+        _snowpark_test_steps.set_grants_on_selected_object(
             object_type="procedure",
             object_name="hello_procedure(VARCHAR)",
             privillege="USAGE",
             role="test_role",
         )
 
-        _test_steps.set_grants_on_selected_object(
+        _snowpark_test_steps.set_grants_on_selected_object(
             object_type="function",
             object_name="hello_function(VARCHAR)",
             privillege="USAGE",
             role="test_role",
         )
 
-        _test_steps.assert_that_object_has_expected_grant(
+        _snowpark_test_steps.assert_that_object_has_expected_grant(
             object_type="procedure",
             object_name="hello_procedure(VARCHAR)",
             expected_privillege="USAGE",
             expected_role="test_role",
         )
 
-        _test_steps.assert_that_object_has_expected_grant(
+        _snowpark_test_steps.assert_that_object_has_expected_grant(
             object_type="function",
             object_name="hello_function(VARCHAR)",
             expected_privillege="USAGE",
@@ -147,20 +147,20 @@ def test_snowpark_flow(
         )
 
         # Created objects can be executed
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier="hello_procedure('foo')",
             expected_value="Hello foo",
         )
 
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="hello_function('foo')",
             expected_value="Hello foo!",
         )
 
         # Subsequent deploy of same object should fail
-        _test_steps.snowpark_deploy_should_return_error_with_message_contains(
+        _snowpark_test_steps.snowpark_deploy_should_return_error_with_message_contains(
             "Following objects already exists"
         )
 
@@ -177,7 +177,7 @@ def test_snowpark_flow(
         )
 
         # Now we deploy with replace flag, it should update existing objects
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             additional_arguments=["--replace"],
             expected_result=[
                 {
@@ -211,7 +211,7 @@ def test_snowpark_flow(
         )
 
         # Another deploy with replace flag, it should update existing objects
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             additional_arguments=["--replace"],
             expected_result=[
                 {
@@ -233,7 +233,7 @@ def test_snowpark_flow(
         )
 
         # Try to deploy again, with --force-replace flag, all objects should be updated
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             additional_arguments=["--force-replace"],
             expected_result=[
                 {
@@ -255,45 +255,45 @@ def test_snowpark_flow(
         )
 
         # Check if objects were updated
-        _test_steps.assert_those_procedures_are_in_snowflake(
+        _snowpark_test_steps.assert_those_procedures_are_in_snowflake(
             "hello_procedure(VARCHAR) RETURN VARIANT"
         )
-        _test_steps.assert_those_functions_are_in_snowflake(
+        _snowpark_test_steps.assert_those_functions_are_in_snowflake(
             "hello_function(VARCHAR) RETURN VARIANT"
         )
 
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+        _snowpark_test_steps.assert_that_only_these_files_are_staged_in_test_db(
             *expected_files, stage_name=STAGE_NAME
         )
 
         # Listing procedures or functions shows updated objects
-        _test_steps.object_show_includes_given_identifiers(
+        _snowpark_test_steps.object_show_includes_given_identifiers(
             object_type="procedure",
             identifier=("hello_procedure", "(VARCHAR) RETURN VARIANT"),
         )
-        _test_steps.object_show_includes_given_identifiers(
+        _snowpark_test_steps.object_show_includes_given_identifiers(
             object_type="function",
             identifier=("hello_function", "(VARCHAR) RETURN VARIANT"),
         )
 
         # Updated objects can be executed
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier="hello_procedure('foo')",
             expected_value='"Hello foo"',
         )
 
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="hello_function('foo')",
             expected_value='"Hello foo!"',
         )
 
         # Check if adding import triggers replace
-        _test_steps.package_should_build_proper_artifact(
+        _snowpark_test_steps.package_should_build_proper_artifact(
             "dummy_pkg_for_tests", "dummy_pkg_for_tests/shrubbery.py"
         )
-        _test_steps.package_should_upload_artifact_to_stage(
+        _snowpark_test_steps.package_should_upload_artifact_to_stage(
             "dummy_pkg_for_tests.zip", STAGE_NAME
         )
 
@@ -303,7 +303,7 @@ def test_snowpark_flow(
             value=["@dev_deployment/dummy_pkg_for_tests.zip"],
         )
 
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             additional_arguments=["--replace"],
             expected_result=[
                 {
@@ -327,20 +327,20 @@ def test_snowpark_flow(
         # Same file should be present, with addition of uploaded package
         expected_files.append(f"{STAGE_NAME}/dummy_pkg_for_tests.zip")
 
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+        _snowpark_test_steps.assert_that_only_these_files_are_staged_in_test_db(
             *expected_files, stage_name=STAGE_NAME
         )
 
         # Grants are preserved after updates
 
-        _test_steps.assert_that_object_has_expected_grant(
+        _snowpark_test_steps.assert_that_object_has_expected_grant(
             object_type="procedure",
             object_name="hello_procedure(VARCHAR)",
             expected_privillege="USAGE",
             expected_role="test_role",
         )
 
-        _test_steps.assert_that_object_has_expected_grant(
+        _snowpark_test_steps.assert_that_object_has_expected_grant(
             object_type="function",
             object_name="hello_function(VARCHAR)",
             expected_privillege="USAGE",
@@ -348,34 +348,36 @@ def test_snowpark_flow(
         )
 
         # Check if objects can be dropped
-        _test_steps.object_drop_should_finish_successfully(
+        _snowpark_test_steps.object_drop_should_finish_successfully(
             object_type="procedure", identifier="hello_procedure(varchar)"
         )
-        _test_steps.object_drop_should_finish_successfully(
+        _snowpark_test_steps.object_drop_should_finish_successfully(
             object_type="function", identifier="hello_function(varchar)"
         )
 
-        _test_steps.object_show_should_return_no_data(
+        _snowpark_test_steps.object_show_should_return_no_data(
             object_type="function", object_prefix="hello"
         )
-        _test_steps.object_show_should_return_no_data(
+        _snowpark_test_steps.object_show_should_return_no_data(
             object_type="procedure", object_prefix="hello"
         )
 
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+        _snowpark_test_steps.assert_that_only_these_files_are_staged_in_test_db(
             *expected_files, stage_name=STAGE_NAME
         )
 
 
 @pytest.mark.integration
 def test_snowpark_flow_old_build(
-    _test_steps, project_directory, alter_snowflake_yml, test_database
+    _snowpark_test_steps, project_directory, alter_snowflake_yml, test_database
 ):
     database = test_database.upper()
     with project_directory("snowpark") as tmp_dir:
-        _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
+        _snowpark_test_steps.snowpark_build_should_zip_files(
+            additional_files=[Path("app.zip")]
+        )
 
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
                     "object": f"{database}.PUBLIC.hello_procedure(name string)",
@@ -395,10 +397,10 @@ def test_snowpark_flow_old_build(
             ]
         )
 
-        _test_steps.assert_those_procedures_are_in_snowflake(
+        _snowpark_test_steps.assert_those_procedures_are_in_snowflake(
             "hello_procedure(VARCHAR) RETURN VARCHAR"
         )
-        _test_steps.assert_those_functions_are_in_snowflake(
+        _snowpark_test_steps.assert_those_functions_are_in_snowflake(
             "hello_function(VARCHAR) RETURN VARCHAR"
         )
 
@@ -406,29 +408,29 @@ def test_snowpark_flow_old_build(
             f"{STAGE_NAME}/my_snowpark_project/app.zip",
             f"{STAGE_NAME}/dependencies.zip",
         ]
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+        _snowpark_test_steps.assert_that_only_these_files_are_staged_in_test_db(
             *expected_files, stage_name=STAGE_NAME
         )
 
         # Listing procedures or functions shows created objects
-        _test_steps.object_show_includes_given_identifiers(
+        _snowpark_test_steps.object_show_includes_given_identifiers(
             object_type="procedure",
             identifier=("hello_procedure", "(VARCHAR) RETURN VARCHAR"),
         )
-        _test_steps.object_show_includes_given_identifiers(
+        _snowpark_test_steps.object_show_includes_given_identifiers(
             object_type="function",
             identifier=("hello_function", "(VARCHAR) RETURN VARCHAR"),
         )
 
         # Created objects can be described
-        _test_steps.object_describe_should_return_entity_description(
+        _snowpark_test_steps.object_describe_should_return_entity_description(
             object_type="procedure",
             identifier="hello_procedure(VARCHAR)",
             signature="(NAME VARCHAR)",
             returns=RETURN_TYPE,
         )
 
-        _test_steps.object_describe_should_return_entity_description(
+        _snowpark_test_steps.object_describe_should_return_entity_description(
             object_type="function",
             identifier="hello_function(VARCHAR)",
             signature="(NAME VARCHAR)",
@@ -437,28 +439,28 @@ def test_snowpark_flow_old_build(
 
         # Grants are given correctly
 
-        _test_steps.set_grants_on_selected_object(
+        _snowpark_test_steps.set_grants_on_selected_object(
             object_type="procedure",
             object_name="hello_procedure(VARCHAR)",
             privillege="USAGE",
             role="test_role",
         )
 
-        _test_steps.set_grants_on_selected_object(
+        _snowpark_test_steps.set_grants_on_selected_object(
             object_type="function",
             object_name="hello_function(VARCHAR)",
             privillege="USAGE",
             role="test_role",
         )
 
-        _test_steps.assert_that_object_has_expected_grant(
+        _snowpark_test_steps.assert_that_object_has_expected_grant(
             object_type="procedure",
             object_name="hello_procedure(VARCHAR)",
             expected_privillege="USAGE",
             expected_role="test_role",
         )
 
-        _test_steps.assert_that_object_has_expected_grant(
+        _snowpark_test_steps.assert_that_object_has_expected_grant(
             object_type="function",
             object_name="hello_function(VARCHAR)",
             expected_privillege="USAGE",
@@ -466,20 +468,20 @@ def test_snowpark_flow_old_build(
         )
 
         # Created objects can be executed
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier="hello_procedure('foo')",
             expected_value="Hello foo",
         )
 
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="hello_function('foo')",
             expected_value="Hello foo!",
         )
 
         # Subsequent deploy of same object should fail
-        _test_steps.snowpark_deploy_should_return_error_with_message_contains(
+        _snowpark_test_steps.snowpark_deploy_should_return_error_with_message_contains(
             "Following objects already exists"
         )
 
@@ -496,7 +498,7 @@ def test_snowpark_flow_old_build(
         )
 
         # Now we deploy with replace flag, it should update existing objects
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             additional_arguments=["--replace"],
             expected_result=[
                 {
@@ -530,7 +532,7 @@ def test_snowpark_flow_old_build(
         )
 
         # Another deploy with replace flag, it should update existing objects
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             additional_arguments=["--replace"],
             expected_result=[
                 {
@@ -552,45 +554,45 @@ def test_snowpark_flow_old_build(
         )
 
         # Check if objects were updated
-        _test_steps.assert_those_procedures_are_in_snowflake(
+        _snowpark_test_steps.assert_those_procedures_are_in_snowflake(
             "hello_procedure(VARCHAR) RETURN VARIANT"
         )
-        _test_steps.assert_those_functions_are_in_snowflake(
+        _snowpark_test_steps.assert_those_functions_are_in_snowflake(
             "hello_function(VARCHAR) RETURN VARIANT"
         )
 
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+        _snowpark_test_steps.assert_that_only_these_files_are_staged_in_test_db(
             *expected_files, stage_name=STAGE_NAME
         )
 
         # Listing procedures or functions shows updated objects
-        _test_steps.object_show_includes_given_identifiers(
+        _snowpark_test_steps.object_show_includes_given_identifiers(
             object_type="procedure",
             identifier=("hello_procedure", "(VARCHAR) RETURN VARIANT"),
         )
-        _test_steps.object_show_includes_given_identifiers(
+        _snowpark_test_steps.object_show_includes_given_identifiers(
             object_type="function",
             identifier=("hello_function", "(VARCHAR) RETURN VARIANT"),
         )
 
         # Updated objects can be executed
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier="hello_procedure('foo')",
             expected_value='"Hello foo"',
         )
 
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="hello_function('foo')",
             expected_value='"Hello foo!"',
         )
 
         # Check if adding import triggers replace
-        _test_steps.package_should_build_proper_artifact(
+        _snowpark_test_steps.package_should_build_proper_artifact(
             "dummy_pkg_for_tests", "dummy_pkg_for_tests/shrubbery.py"
         )
-        _test_steps.package_should_upload_artifact_to_stage(
+        _snowpark_test_steps.package_should_upload_artifact_to_stage(
             "dummy_pkg_for_tests.zip", STAGE_NAME
         )
 
@@ -600,7 +602,7 @@ def test_snowpark_flow_old_build(
             value=["@dev_deployment/dummy_pkg_for_tests.zip"],
         )
 
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             additional_arguments=["--replace"],
             expected_result=[
                 {
@@ -624,20 +626,20 @@ def test_snowpark_flow_old_build(
         # Same file should be present, with addition of uploaded package
         expected_files.append(f"{STAGE_NAME}/dummy_pkg_for_tests.zip")
 
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+        _snowpark_test_steps.assert_that_only_these_files_are_staged_in_test_db(
             *expected_files, stage_name=STAGE_NAME
         )
 
         # Grants are preserved after updates
 
-        _test_steps.assert_that_object_has_expected_grant(
+        _snowpark_test_steps.assert_that_object_has_expected_grant(
             object_type="procedure",
             object_name="hello_procedure(VARCHAR)",
             expected_privillege="USAGE",
             expected_role="test_role",
         )
 
-        _test_steps.assert_that_object_has_expected_grant(
+        _snowpark_test_steps.assert_that_object_has_expected_grant(
             object_type="function",
             object_name="hello_function(VARCHAR)",
             expected_privillege="USAGE",
@@ -645,21 +647,21 @@ def test_snowpark_flow_old_build(
         )
 
         # Check if objects can be dropped
-        _test_steps.object_drop_should_finish_successfully(
+        _snowpark_test_steps.object_drop_should_finish_successfully(
             object_type="procedure", identifier="hello_procedure(varchar)"
         )
-        _test_steps.object_drop_should_finish_successfully(
+        _snowpark_test_steps.object_drop_should_finish_successfully(
             object_type="function", identifier="hello_function(varchar)"
         )
 
-        _test_steps.object_show_should_return_no_data(
+        _snowpark_test_steps.object_show_should_return_no_data(
             object_type="function", object_prefix="hello"
         )
-        _test_steps.object_show_should_return_no_data(
+        _snowpark_test_steps.object_show_should_return_no_data(
             object_type="procedure", object_prefix="hello"
         )
 
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+        _snowpark_test_steps.assert_that_only_these_files_are_staged_in_test_db(
             *expected_files, stage_name=STAGE_NAME
         )
 
@@ -669,26 +671,30 @@ def test_snowpark_flow_old_build(
     "project_name", ["snowpark_with_import_v1", "snowpark_with_import_v2"]
 )
 def test_snowpark_with_separately_created_package(
-    _test_steps, project_directory, alter_snowflake_yml, test_database, project_name
+    _snowpark_test_steps,
+    project_directory,
+    alter_snowflake_yml,
+    test_database,
+    project_name,
 ):
-    _test_steps.package_should_build_proper_artifact(
+    _snowpark_test_steps.package_should_build_proper_artifact(
         "dummy_pkg_for_tests", "dummy_pkg_for_tests/shrubbery.py"
     )
-    _test_steps.package_should_upload_artifact_to_stage(
+    _snowpark_test_steps.package_should_upload_artifact_to_stage(
         "dummy_pkg_for_tests.zip", STAGE_NAME
     )
 
-    _test_steps.artifacts_left_after_package_creation_should_be_deleted(
+    _snowpark_test_steps.artifacts_left_after_package_creation_should_be_deleted(
         "dummy_pkg_for_tests.zip"
     )
 
     with project_directory(project_name):
 
-        _test_steps.snowpark_build_should_zip_files(
+        _snowpark_test_steps.snowpark_build_should_zip_files(
             additional_files=[Path("app.zip")], no_dependencies=True
         )
 
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
                     "object": f"{test_database.upper()}.PUBLIC.test_func(name string)",
@@ -697,7 +703,7 @@ def test_snowpark_with_separately_created_package(
                 },
             ]
         )
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="test_func('foo')",
             expected_value="We want... a shrubbery!",
@@ -714,7 +720,7 @@ def test_snowpark_with_separately_created_package(
 )
 def test_snowpark_with_single_dependency_having_no_other_deps(
     runner,
-    _test_steps,
+    _snowpark_test_steps,
     project_directory,
     alter_snowflake_yml,
     test_database,
@@ -728,7 +734,7 @@ def test_snowpark_with_single_dependency_having_no_other_deps(
             "dummy_pkg_for_tests/shrubbery.py" in ZipFile("dependencies.zip").namelist()
         )
 
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
                     "object": f"{test_database.upper()}.PUBLIC.test_func(name string)",
@@ -738,7 +744,7 @@ def test_snowpark_with_single_dependency_having_no_other_deps(
             ]
         )
 
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="test_func('foo')",
             expected_value="We want... a shrubbery!",
@@ -755,7 +761,7 @@ def test_snowpark_with_single_dependency_having_no_other_deps(
 )
 def test_snowpark_with_single_requirement_having_transient_deps(
     runner,
-    _test_steps,
+    _snowpark_test_steps,
     project_directory,
     alter_snowflake_yml,
     test_database,
@@ -769,7 +775,7 @@ def test_snowpark_with_single_requirement_having_transient_deps(
         assert "dummy_pkg_for_tests_with_deps/shrubbery.py" in files
         assert "dummy_pkg_for_tests/shrubbery.py" in files  # as transient dep
 
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
                     "object": f"{test_database.upper()}.PUBLIC.test_func(name string)",
@@ -779,7 +785,7 @@ def test_snowpark_with_single_requirement_having_transient_deps(
             ]
         )
 
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="test_func('foo')",
             expected_value="['We want... a shrubbery!', 'fishy, fishy, fish!']",
@@ -796,7 +802,7 @@ def test_snowpark_with_single_requirement_having_transient_deps(
 )
 def test_snowpark_commands_executed_outside_project_dir(
     runner,
-    _test_steps,
+    _snowpark_test_steps,
     project_directory,
     alter_snowflake_yml,
     test_database,
@@ -816,7 +822,7 @@ def test_snowpark_commands_executed_outside_project_dir(
         assert "dummy_pkg_for_tests_with_deps/shrubbery.py" in files
         assert "dummy_pkg_for_tests/shrubbery.py" in files  # as transient dep
 
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             additional_arguments=["--project", project_subpath],
             expected_result=[
                 {
@@ -827,7 +833,7 @@ def test_snowpark_commands_executed_outside_project_dir(
             ],
         )
 
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="test_func('foo')",
             expected_value="['We want... a shrubbery!', 'fishy, fishy, fish!']",
@@ -840,15 +846,19 @@ def test_snowpark_commands_executed_outside_project_dir(
     ["snowpark_with_default_values_v1", "snowpark_with_default_values_v2"],
 )
 def test_snowpark_default_arguments(
-    _test_steps, project_directory, alter_snowflake_yml, test_database, project_name
+    _snowpark_test_steps,
+    project_directory,
+    alter_snowflake_yml,
+    test_database,
+    project_name,
 ):
     database = test_database.upper()
     with project_directory(project_name):
-        _test_steps.snowpark_build_should_zip_files(
+        _snowpark_test_steps.snowpark_build_should_zip_files(
             additional_files=[Path("app.zip")], no_dependencies=True
         )
 
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
                     "object": f"{database}.PUBLIC.whole_new_word_procedure(base varchar default 'word', "
@@ -876,14 +886,14 @@ def test_snowpark_default_arguments(
             ]
         )
 
-        _test_steps.object_show_includes_given_identifiers(
+        _snowpark_test_steps.object_show_includes_given_identifiers(
             object_type="function",
             identifier=(
                 "WHOLE_NEW_WORD",
                 "(DEFAULT VARCHAR, DEFAULT NUMBER, DEFAULT VARCHAR) RETURN VARCHAR",
             ),
         )
-        _test_steps.object_show_includes_given_identifiers(
+        _snowpark_test_steps.object_show_includes_given_identifiers(
             object_type="procedure",
             identifier=(
                 "WHOLE_NEW_WORD_PROCEDURE",
@@ -892,13 +902,13 @@ def test_snowpark_default_arguments(
         )
 
         # Created objects can be described
-        _test_steps.object_describe_should_return_entity_description(
+        _snowpark_test_steps.object_describe_should_return_entity_description(
             object_type="function",
             identifier="WHOLE_NEW_WORD(VARCHAR, NUMBER, VARCHAR)",
             signature="(BASE VARCHAR, MULT NUMBER, SUFFIX VARCHAR)",
             returns=RETURN_TYPE,
         )
-        _test_steps.object_describe_should_return_entity_description(
+        _snowpark_test_steps.object_describe_should_return_entity_description(
             object_type="procedure",
             identifier="WHOLE_NEW_WORD_PROCEDURE(VARCHAR, NUMBER, VARCHAR)",
             signature="(BASE VARCHAR, MULT NUMBER, SUFFIX VARCHAR)",
@@ -906,31 +916,31 @@ def test_snowpark_default_arguments(
         )
 
         # execute with default arguments
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="whole_new_word()",
             expected_value="wordword!",
         )
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier="whole_new_word_procedure()",
             expected_value="wordword, but a procedure",
         )
 
         # execute naming arguments
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="whole_new_word(mult => 4, base => 'nii')",
             expected_value="niiniiniinii!",
         )
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier="whole_new_word_procedure(mult => 4, base => 'nii')",
             expected_value="niiniiniinii, but a procedure",
         )
 
         # check default values for all types
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="check_all_types()",
             expected_value="s:<str>, i:7, b1:True, b2:True, f:1.5, l:[1, 2, 3]",
@@ -939,7 +949,7 @@ def test_snowpark_default_arguments(
 
 @pytest.mark.integration
 def test_snowpark_fully_qualified_name_v1(
-    _test_steps,
+    _snowpark_test_steps,
     runner,
     test_database,
     project_directory,
@@ -953,7 +963,9 @@ def test_snowpark_fully_qualified_name_v1(
         ["sql", "-q", f"create schema {database}.{different_schema}"]
     )
     with project_directory("snowpark_fully_qualified_name_v1") as tmp_dir:
-        _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
+        _snowpark_test_steps.snowpark_build_should_zip_files(
+            additional_files=[Path("app.zip")]
+        )
 
         # "default" database and schema provided by fully qualified name
         alter_snowflake_yml(
@@ -991,7 +1003,7 @@ def test_snowpark_fully_qualified_name_v1(
             value=database,
         )
 
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
                     "object": f"{database}.{default_schema}.fqn_function(name string)",
@@ -1023,7 +1035,7 @@ def test_snowpark_fully_qualified_name_v1(
             ]
         )
 
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
                     "object": f"{database}.{default_schema}.fqn_function(name string)",
@@ -1059,7 +1071,7 @@ def test_snowpark_fully_qualified_name_v1(
 
 @pytest.mark.integration
 def test_snowpark_fully_qualified_name_v2(
-    _test_steps,
+    _snowpark_test_steps,
     runner,
     test_database,
     project_directory,
@@ -1073,7 +1085,9 @@ def test_snowpark_fully_qualified_name_v2(
         ["sql", "-q", f"create schema {database}.{different_schema}"]
     )
     with project_directory("snowpark_fully_qualified_name_v2") as tmp_dir:
-        _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
+        _snowpark_test_steps.snowpark_build_should_zip_files(
+            additional_files=[Path("app.zip")]
+        )
 
         # "default" database and schema provided by fully qualified name
         alter_snowflake_yml(
@@ -1099,7 +1113,7 @@ def test_snowpark_fully_qualified_name_v2(
             parameter_path="entities.database_function.identifier.database",
             value=database,
         )
-        # provide default database and changed schema as arguments
+        # procvide default database and changed schema as arguments
         alter_snowflake_yml(
             tmp_dir / "snowflake.yml",
             parameter_path="entities.database_schema_function.identifier.schema",
@@ -1111,7 +1125,7 @@ def test_snowpark_fully_qualified_name_v2(
             value=database,
         )
 
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
                     "object": f"{database}.{default_schema}.database_function(name string)",
@@ -1143,7 +1157,7 @@ def test_snowpark_fully_qualified_name_v2(
             ]
         )
 
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
                     "object": f"{database}.{default_schema}.database_function(name string)",
@@ -1182,7 +1196,7 @@ def test_snowpark_fully_qualified_name_v2(
     "project_name", ["snowpark_vectorized_v1", "snowpark_vectorized_v2"]
 )
 def test_snowpark_vector_function(
-    _test_steps,
+    _snowpark_test_steps,
     project_directory,
     alter_snowflake_yml,
     test_database,
@@ -1191,9 +1205,11 @@ def test_snowpark_vector_function(
 ):
     database = test_database.upper()
     with project_directory(project_name):
-        _test_steps.snowpark_build_should_zip_files(additional_files=[Path("app.zip")])
+        _snowpark_test_steps.snowpark_build_should_zip_files(
+            additional_files=[Path("app.zip")]
+        )
 
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
                     "object": f"{database}.PUBLIC.vector_func(x number(10, 5), y number(10, 5))",
@@ -1396,7 +1412,9 @@ def test_incorrect_requirements(project_directory, runner, alter_requirements_tx
 
 
 @pytest.mark.integration
-def test_snowpark_aliases(project_directory, runner, _test_steps, test_database):
+def test_snowpark_aliases(
+    project_directory, runner, _snowpark_test_steps, test_database
+):
     with project_directory("snowpark"):
         for command in ["build", "deploy"]:
             result = runner.invoke_with_connection_json(["snowpark", command])
@@ -1437,7 +1455,7 @@ def test_snowpark_aliases(project_directory, runner, _test_steps, test_database)
 
 @pytest.mark.integration
 def test_snowpark_flow_v2(
-    _test_steps,
+    _snowpark_test_steps,
     project_directory,
     alter_snowflake_yml,
     test_database,
@@ -1445,7 +1463,7 @@ def test_snowpark_flow_v2(
 ):
     database = test_database.upper()
     with project_directory("snowpark_v2") as tmp_dir:
-        _test_steps.snowpark_build_should_zip_files(
+        _snowpark_test_steps.snowpark_build_should_zip_files(
             additional_files=[
                 Path("output"),
                 Path("output") / "bundle",
@@ -1455,7 +1473,7 @@ def test_snowpark_flow_v2(
                 bundle_root / "c.py",
             ]
         )
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
                     "object": f"{database}.PUBLIC.hello_procedure(name string)",
@@ -1475,20 +1493,20 @@ def test_snowpark_flow_v2(
             ]
         )
 
-        _test_steps.assert_those_procedures_are_in_snowflake(
+        _snowpark_test_steps.assert_those_procedures_are_in_snowflake(
             "hello_procedure(VARCHAR) RETURN VARCHAR"
         )
-        _test_steps.assert_those_functions_are_in_snowflake(
+        _snowpark_test_steps.assert_those_functions_are_in_snowflake(
             "hello_function(VARCHAR) RETURN VARCHAR"
         )
 
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+        _snowpark_test_steps.assert_that_only_these_files_are_staged_in_test_db(
             "stage_a/app_1.zip",
             "stage_a/dependencies.zip",
             stage_name="stage_a",
         )
 
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+        _snowpark_test_steps.assert_that_only_these_files_are_staged_in_test_db(
             f"{STAGE_NAME}/app_2.zip",
             f"{STAGE_NAME}/c.py",
             f"{STAGE_NAME}/dependencies.zip",
@@ -1496,19 +1514,19 @@ def test_snowpark_flow_v2(
         )
 
         # Created objects can be executed
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier="hello_procedure('foo')",
             expected_value="Hello foo",
         )
 
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier="test()",
             expected_value="Test procedure",
         )
 
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="hello_function('foo')",
             expected_value="Hello foo!",
@@ -1517,14 +1535,14 @@ def test_snowpark_flow_v2(
 
 @pytest.mark.integration
 def test_snowpark_flow_v2_old_build(
-    _test_steps, project_directory, alter_snowflake_yml, test_database
+    _snowpark_test_steps, project_directory, alter_snowflake_yml, test_database
 ):
     database = test_database.upper()
     with project_directory("snowpark_v2") as tmp_dir:
-        _test_steps.snowpark_build_should_zip_files(
+        _snowpark_test_steps.snowpark_build_should_zip_files(
             additional_files=[Path("app_1.zip"), Path("app_2.zip")]
         )
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
                     "object": f"{database}.PUBLIC.hello_procedure(name string)",
@@ -1544,20 +1562,20 @@ def test_snowpark_flow_v2_old_build(
             ]
         )
 
-        _test_steps.assert_those_procedures_are_in_snowflake(
+        _snowpark_test_steps.assert_those_procedures_are_in_snowflake(
             "hello_procedure(VARCHAR) RETURN VARCHAR"
         )
-        _test_steps.assert_those_functions_are_in_snowflake(
+        _snowpark_test_steps.assert_those_functions_are_in_snowflake(
             "hello_function(VARCHAR) RETURN VARCHAR"
         )
 
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+        _snowpark_test_steps.assert_that_only_these_files_are_staged_in_test_db(
             "stage_a/app_1.zip",
             "stage_a/dependencies.zip",
             stage_name="stage_a",
         )
 
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+        _snowpark_test_steps.assert_that_only_these_files_are_staged_in_test_db(
             f"{STAGE_NAME}/app_2.zip",
             f"{STAGE_NAME}/c.py",
             f"{STAGE_NAME}/dependencies.zip",
@@ -1565,19 +1583,19 @@ def test_snowpark_flow_v2_old_build(
         )
 
         # Created objects can be executed
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier="hello_procedure('foo')",
             expected_value="Hello foo",
         )
 
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier="test()",
             expected_value="Test procedure",
         )
 
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="hello_function('foo')",
             expected_value="Hello foo!",
@@ -1586,7 +1604,7 @@ def test_snowpark_flow_v2_old_build(
 
 @pytest.mark.integration
 def test_snowpark_with_glob_patterns(
-    _test_steps,
+    _snowpark_test_steps,
     project_directory,
     alter_snowflake_yml,
     test_database,
@@ -1594,7 +1612,7 @@ def test_snowpark_with_glob_patterns(
 ):
     database = test_database.upper()
     with project_directory("snowpark_glob_patterns"):
-        _test_steps.snowpark_build_should_zip_files(
+        _snowpark_test_steps.snowpark_build_should_zip_files(
             additional_files=[
                 Path("output"),
                 Path("output") / "bundle",
@@ -1604,7 +1622,7 @@ def test_snowpark_with_glob_patterns(
                 bundle_root / "e.py",
             ]
         )
-        _test_steps.snowpark_deploy_should_finish_successfully_and_return(
+        _snowpark_test_steps.snowpark_deploy_should_finish_successfully_and_return(
             [
                 {
                     "object": f"{database}.PUBLIC.hello_procedure(name string)",
@@ -1623,7 +1641,7 @@ def test_snowpark_with_glob_patterns(
                 },
             ]
         )
-        _test_steps.snowpark_execute_should_return_expected_value(
+        _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier="hello_procedure('foo')",
             expected_value="Hello foo" + "Test procedure",
@@ -1632,7 +1650,7 @@ def test_snowpark_with_glob_patterns(
 
 @pytest.mark.integration
 def test_snowpark_deploy_prune_flag(
-    project_directory, test_database, runner, _test_steps
+    project_directory, test_database, runner, _snowpark_test_steps
 ):
     with project_directory("snowpark_v2") as project_root:
         # upload unexpected file to stage
@@ -1652,7 +1670,7 @@ def test_snowpark_deploy_prune_flag(
         # deploy without "prune" should not remove file from stage
         result = runner.invoke_with_connection(["snowpark", "deploy"])
         assert result.exit_code == 0, result.output
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+        _snowpark_test_steps.assert_that_only_these_files_are_staged_in_test_db(
             f"{STAGE_NAME}/app_2.zip",
             f"{STAGE_NAME}/c.py",
             f"{STAGE_NAME}/dependencies.zip",
@@ -1665,7 +1683,7 @@ def test_snowpark_deploy_prune_flag(
             ["snowpark", "deploy", "--replace", "--prune"]
         )
         assert result.exit_code == 0, result.output
-        _test_steps.assert_that_only_these_files_are_staged_in_test_db(
+        _snowpark_test_steps.assert_that_only_these_files_are_staged_in_test_db(
             f"{STAGE_NAME}/app_2.zip",
             f"{STAGE_NAME}/c.py",
             f"{STAGE_NAME}/dependencies.zip",
@@ -1696,6 +1714,54 @@ def test_if_excluding_version_of_anaconda_package_moves_it_to_other_requirements
             assert any("about_time" in name for name in zf.namelist())
 
 
+def test_using_external_packages_from_package_repository(
+    test_database, runner, project_directory
+):
+
+    with project_directory("snowpark_artifact_repository") as tmp_dir:
+        result = runner.invoke_with_connection(
+            [
+                "snowpark",
+                "build",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Build done." in result.output
+
+        result = runner.invoke_with_connection(
+            [
+                "snowpark",
+                "deploy",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(
+            [
+                "snowpark",
+                "execute",
+                "function",
+                "test_function()",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "We want... a shrubbery!" in result.output
+
+        result = runner.invoke_with_connection(
+            [
+                "snowpark",
+                "execute",
+                "procedure",
+                "test_procedure()",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "We want... a shrubbery!" in result.output
+
+
 @pytest.fixture
 def _test_setup(
     runner,
@@ -1704,7 +1770,7 @@ def _test_setup(
     temporary_working_directory,
     snapshot,
 ):
-    snowpark_procedure_test_setup = SnowparkTestSetup(
+    snowpark_procedure_test_setup = FlowTestSetup(
         runner=runner,
         sql_test_helper=sql_test_helper,
         test_database=test_database,
@@ -1714,7 +1780,7 @@ def _test_setup(
 
 
 @pytest.fixture
-def _test_steps(_test_setup):
+def _snowpark_test_steps(_test_setup):
     yield SnowparkTestSteps(_test_setup)
 
 

@@ -9,7 +9,7 @@ on:
         value: ${{ jobs.define-matrix.outputs.python }}
 
 permissions:
-  contents: read
+  contents: none
 
 jobs:
   define-matrix:
