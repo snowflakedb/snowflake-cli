@@ -113,21 +113,28 @@ FROM {stage_name}"""
                 if profile_name.lower() != target_profile.lower():
                     errors[profile_name].append("Remove unnecessary profiles")
 
-        supported_keys = {
-            "database",
+        required_fields = {
             "account",
+            "database",
+            "role",
+            "schema",
             "type",
             "user",
-            "role",
             "warehouse",
-            "schema",
+        }
+        supported_fields = {
+            "threads",
         }
         for target_name, target in profiles[target_profile]["outputs"].items():
-            if missing_keys := supported_keys - set(target.keys()):
+            if missing_keys := required_fields - set(target.keys()):
                 errors[target_profile].append(
                     f"Missing required fields: {', '.join(sorted(missing_keys))} in target {target_name}"
                 )
-            if unsupported_keys := set(target.keys()) - supported_keys:
+            if (
+                unsupported_keys := set(target.keys())
+                - required_fields
+                - supported_fields
+            ):
                 errors[target_profile].append(
                     f"Unsupported fields found: {', '.join(sorted(unsupported_keys))} in target {target_name}"
                 )
