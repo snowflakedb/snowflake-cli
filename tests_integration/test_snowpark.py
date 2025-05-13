@@ -1714,8 +1714,9 @@ def test_if_excluding_version_of_anaconda_package_moves_it_to_other_requirements
             assert any("about_time" in name for name in zf.namelist())
 
 
+@pytest.mark.integration
 def test_using_external_packages_from_package_repository(
-    test_database, runner, project_directory
+    test_database, runner, project_directory, alter_snowflake_yml
 ):
 
     with project_directory("snowpark_artifact_repository") as tmp_dir:
@@ -1760,6 +1761,43 @@ def test_using_external_packages_from_package_repository(
 
         assert result.exit_code == 0, result.output
         assert "We want... a shrubbery!" in result.output
+
+        # Update packages
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="mixins.snowpark_shared.artifact_repository_packages",
+            value=["dummy-pkg-for-tests", "dummy-pkg-for-tests-with-deps"],
+        )
+
+        result = runner.invoke_with_connection_json(
+            [
+                "snowpark",
+                "deploy",
+                "--replace",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert all(
+            entity.get("status", "") == "definition updated" for entity in result.json
+        )
+
+        # TODO: after introducing more available repositories, add repository change case
+
+        # Update constraints
+        alter_snowflake_yml(
+            tmp_dir / "snowflake.yml",
+            parameter_path="mixins.snowpark_shared.resource_constraint",
+            value={"architecture": "x86"},
+        )
+        result = runner.invoke_with_connection_json(
+            ["snowpark", "deploy", "--replace", "--warehouse", "snowpark_tests"]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert all(
+            entity.get("status", "") == "definition updated" for entity in result.json
+        )
 
 
 @pytest.fixture
