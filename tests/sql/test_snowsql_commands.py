@@ -128,7 +128,7 @@ def test_queries_from_args():
         )
     )
 
-    # start_date and end_date convertion
+    # start_date and end_date conversion
     assert QueriesCommand.from_args(
         [], {"start_date": "2025-05-05T00:00:00", "end_date": "2025-05-05T00:00:01"}
     ) == CompileCommandResult(
