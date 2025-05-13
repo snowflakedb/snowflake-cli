@@ -55,7 +55,7 @@ class SnowparkServicesTestSteps:
     schema = "public"
     container_name = "hello-world"
     ISO8601_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z")
-    another_database =  "SNOWCLI_DB_2"
+    another_database = "SNOWCLI_DB_2"
 
     def __init__(self, setup: SnowparkServicesTestSetup):
         self._setup = setup
@@ -112,18 +112,26 @@ class SnowparkServicesTestSteps:
             result, {"status": f"Service {service_name.upper()} successfully created."}
         )
 
-    def metrics_should_include_services_from_both_dbs(self, service_name: str, container_name: str) -> None:
+    def metrics_should_include_services_from_both_dbs(
+        self, service_name: str, container_name: str
+    ) -> None:
         result = self._execute_metrics(service_name, container_name)
 
-        assert any(item.get('DATABASE NAME')==self.database for item in result.json)
-        assert any(item.get('DATABASE NAME')==self.another_database for item in result.json)
+        assert any(item.get("DATABASE NAME") == self.database for item in result.json)
+        assert any(
+            item.get("DATABASE NAME") == self.another_database for item in result.json
+        )
 
-    def metrics_with_fqn_should_include_only_one_service(self, service_name: str, db_name: str, container_name: str) -> None:
+    def metrics_with_fqn_should_include_only_one_service(
+        self, service_name: str, db_name: str, container_name: str
+    ) -> None:
         fqn = f"{db_name}.{self.schema}.{service_name}"
-        result = self._execute_metrics(fqn, container_name, )
+        result = self._execute_metrics(
+            fqn,
+            container_name,
+        )
 
-        assert all(item.get('DATABASE NAME')==db_name for item in result.json)
-
+        assert all(item.get("DATABASE NAME") == db_name for item in result.json)
 
     def upgrade_service(self) -> None:
         result = self._setup.runner.invoke_with_connection_json(
@@ -179,7 +187,6 @@ class SnowparkServicesTestSteps:
         assert expected_log in result.output
         payload = json.loads(result.output)
         self.verify_included_timestamps(payload)
-
 
     def verify_included_timestamps(self, log_output):
         log_message = log_output.get("message", "")
@@ -443,7 +450,12 @@ class SnowparkServicesTestSteps:
             ],
         )
 
-    def _execute_metrics(self, service_name: str, container_name: str, db_arguments: List[str] | None = None):
+    def _execute_metrics(
+        self,
+        service_name: str,
+        container_name: str,
+        db_arguments: List[str] | None = None,
+    ):
         if db_arguments is None:
             db_arguments = []
         return self._setup.runner.invoke_with_connection_json(
@@ -457,8 +469,8 @@ class SnowparkServicesTestSteps:
                 "--instance-id",
                 0,
                 *db_arguments,
-            ])
-
+            ]
+        )
 
     def _get_spec_path(self, spec_file_name) -> Path:
         return self._setup.test_root_path / "spcs" / "spec" / spec_file_name

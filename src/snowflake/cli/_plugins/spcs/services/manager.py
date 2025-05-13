@@ -21,12 +21,12 @@ from pathlib import Path
 from typing import List, Optional
 
 import yaml
-
 from snowflake.cli._plugins.object.common import Tag
 from snowflake.cli._plugins.spcs.common import (
     EVENT_COLUMN_NAMES,
     NoPropertiesProvidedError,
     SPCSEventTableError,
+    build_db_and_schema_clause,
     build_resource_clause,
     build_time_clauses,
     filter_log_timestamp,
@@ -34,7 +34,7 @@ from snowflake.cli._plugins.spcs.common import (
     format_metric_row,
     handle_object_already_exists,
     new_logs_only,
-    strip_empty_lines, build_db_and_schema_clause,
+    strip_empty_lines,
 )
 from snowflake.cli._plugins.spcs.services.service_project_paths import (
     ServiceProjectPaths,
@@ -603,7 +603,10 @@ class ServiceManager(SqlExecutionMixin):
         query = f"alter service {service_name} unset {','.join(unset_list)}"
         return self.execute_query(query)
 
-def parse_service_details(service_identifier: str | FQN) -> tuple[str, str | None, str | None]:
+
+def parse_service_details(
+    service_identifier: str | FQN,
+) -> tuple[str, str | None, str | None]:
     if isinstance(service_identifier, FQN):
         name = service_identifier.name
         database = service_identifier.database

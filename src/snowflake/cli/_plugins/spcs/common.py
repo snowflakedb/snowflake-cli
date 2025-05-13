@@ -180,11 +180,13 @@ def build_time_clauses(
 
     return since_clause, until_clause
 
-def build_db_and_schema_clause(database_name: str, schema_name: str  | None) -> str:
-    return f'''
+
+def build_db_and_schema_clause(database_name: str, schema_name: str | None) -> str:
+    return f"""
         and resource_attributes:"snow.database.name" = '{database_name}'
         and resource_attributes:"snow.schema.name" = '{schema_name or 'PUBLIC'}'
-'''
+"""
+
 
 def format_event_row(event_dict: dict) -> dict:
     try:
