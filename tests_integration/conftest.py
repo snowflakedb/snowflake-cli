@@ -43,6 +43,8 @@ from snowflake.cli.api.connections import OpenConnectionCache
 from snowflake.cli.api.project.util import TEST_RESOURCE_SUFFIX_VAR
 from tests.conftest import clean_logging_handlers_fixture  # noqa: F401
 from tests.testing_utils.files_and_dirs import merge_left
+from tests_common import IS_WINDOWS
+
 
 pytest_plugins = [
     "tests.project.fixtures",
@@ -262,11 +264,20 @@ def resource_suffix(request):
 
 @pytest.fixture
 def enable_snowpark_glob_support_feature_flag():
-    with mock.patch(
-        f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled",
-        return_value=True,
-    ), mock.patch(
-        f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_disabled",
-        return_value=False,
+    with (
+        mock.patch(
+            f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled",
+            return_value=True,
+        ),
+        mock.patch(
+            f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_disabled",
+            return_value=False,
+        ),
     ):
         yield
+
+
+@pytest.fixture(autouse=True)
+def global_setup(monkeypatch):
+    width = 81 if IS_WINDOWS else 80
+    monkeypatch.setenv("COLUMNS", str(width))

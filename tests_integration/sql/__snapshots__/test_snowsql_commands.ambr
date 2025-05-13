@@ -1,19 +1,23 @@
 # serializer version: 1
 # name: test_queries_help
   '''
-  +--------------------------------------------+
-  | FILTER    | ARGUMENT             | DEFAULT |
-  |-----------+----------------------+---------|
-  | amount    | integer              | 25      |
-  | status    | string               | any     |
-  | warehouse | string               | any     |
-  | user      | string               | any     |
-  | start     | date in milliseconds | any     |
-  | end       | date in milliseconds | any     |
-  | type      | string               | any     |
-  | duration  | time in milliseconds | any     |
-  | session   | No arguments         | any     |
-  +--------------------------------------------+
+  +------------------------------------------------------------------------------+
+  | FILTER     | ARGUMENT                                              | DEFAULT |
+  |------------+-------------------------------------------------------+---------|
+  | amount     | integer                                               | 25      |
+  | status     | string                                                | any     |
+  | warehouse  | string                                                | any     |
+  | user       | string                                                | any     |
+  | start_date | datetime in ISO format (for example                   | any     |
+  |            | YYYY-MM-DDTHH:mm:ss.sss)                              |         |
+  | end_date   | datetime in ISO format (for example                   | any     |
+  |            | YYYY-MM-DDTHH:mm:ss.sss)                              |         |
+  | start      | timestamp in milliseconds                             | any     |
+  | end        | timestamp in milliseconds                             | any     |
+  | type       | string                                                | any     |
+  | duration   | time in milliseconds                                  | any     |
+  | session    | No arguments                                          | any     |
+  +------------------------------------------------------------------------------+
   
   '''
 # ---

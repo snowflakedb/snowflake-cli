@@ -106,7 +106,7 @@ def test_queries_from_args():
             "user": "user",
             "amount": "3",
             "start": "1234",
-            "end": "1234",
+            "end": "5678",
             "duration": "200",
             "type": "insert",
             "status": "running",
@@ -119,12 +119,25 @@ def test_queries_from_args():
                 amount=3,
                 user="user",
                 warehouse="warehouse",
-                start_time="1234",
-                end_time="1234",
+                start_timestamp_ms=1234.0,
+                end_timestamp_ms=5678.0,
                 duration="200",
                 stmt_type="INSERT",
                 status="RUNNING",
             )
+        )
+    )
+
+    # start_date and end_date conversion
+    assert QueriesCommand.from_args(
+        [],
+        {
+            "start_date": "2025-05-05T00:00:00+00:00",
+            "end_date": "2025-05-05T00:00:01+00:00",
+        },
+    ) == CompileCommandResult(
+        command=QueriesCommand(
+            start_timestamp_ms=1746403200000.0, end_timestamp_ms=1746403201000.0
         )
     )
 
@@ -152,6 +165,36 @@ def test_queries_from_args():
     assert QueriesCommand.from_args([], {"status": "invalid"}) == (
         CompileCommandResult(
             error_message="Invalid argument passed to 'status' filter: INVALID"
+        )
+    )
+    assert QueriesCommand.from_args([], {"start": "23456aba"}) == (
+        CompileCommandResult(
+            error_message="Invalid argument passed to 'start' filter: 23456aba"
+        )
+    )
+    assert QueriesCommand.from_args([], {"end": "23456aba"}) == (
+        CompileCommandResult(
+            error_message="Invalid argument passed to 'end' filter: 23456aba"
+        )
+    )
+    assert QueriesCommand.from_args([], {"start_date": "not-a-date"}) == (
+        CompileCommandResult(
+            error_message="Invalid date format passed to 'start_date' filter: not-a-date"
+        )
+    )
+    assert QueriesCommand.from_args([], {"end_date": "not-a-date"}) == (
+        CompileCommandResult(
+            error_message="Invalid date format passed to 'end_date' filter: not-a-date"
+        )
+    )
+    assert QueriesCommand.from_args([], {"start": 123, "start_date": "2025-05-01"}) == (
+        CompileCommandResult(
+            error_message="'start_date' filter cannot be used with 'start' filter"
+        )
+    )
+    assert QueriesCommand.from_args([], {"end": 123, "end_date": "2025-05-01"}) == (
+        CompileCommandResult(
+            error_message="'end_date' filter cannot be used with 'end' filter"
         )
     )
 
@@ -205,8 +248,8 @@ def test_queries_execute(mock_print, mock_time, mock_ctx, current_session):
         amount=3,
         user="user",
         warehouse="warehouse",
-        start_time="1234",
-        end_time="1234",
+        start_timestamp_ms=2345.0,
+        end_timestamp_ms=6789.0,
         duration="200",
         stmt_type="INSERT",
         status="RUNNING",
@@ -214,7 +257,7 @@ def test_queries_execute(mock_print, mock_time, mock_ctx, current_session):
 
     expected_url = (
         "/monitoring/queries?_dc=mocked_time&includeDDL=false&max=3&user=user&wh=warehouse"
-        "&start=1234&end=1234&min_duration=200"
+        "&start=2345.0&end=6789.0&min_duration=200"
         f"{'&session_id=mocked_session_id' if current_session else ''}"
         "&subset=RUNNING&stmt_type=INSERT"
     )
