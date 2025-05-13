@@ -19,6 +19,43 @@ def test_autocommit_on(runner):
 
 
 @pytest.mark.integration
+def test_autocommit_on_from_stdin(runner):
+    result = runner.invoke_with_connection_json(
+        [
+            "sql",
+            "--single-transaction",
+            "-i",
+        ],
+        input="show parameters like 'autocommit'",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.json[1][0]["key"] == "AUTOCOMMIT", result.json
+    assert result.json[1][0]["default"] == "true"
+    assert result.json[1][0]["value"] == "false"
+
+
+@pytest.mark.integration
+def test_autocommit_on_from_file(runner, tmp_path_factory):
+    source_file = tmp_path_factory.mktemp("data") / "source.sql"
+    source_file.write_text("show parameters like 'autocommit';")
+
+    result = runner.invoke_with_connection_json(
+        [
+            "sql",
+            "--single-transaction",
+            "-f",
+            source_file,
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.json[1][0]["key"] == "AUTOCOMMIT", result.json
+    assert result.json[1][0]["default"] == "true"
+    assert result.json[1][0]["value"] == "false"
+
+
+@pytest.mark.integration
 def test_autocommit_off(runner):
     result = runner.invoke_with_connection_json(
         [
