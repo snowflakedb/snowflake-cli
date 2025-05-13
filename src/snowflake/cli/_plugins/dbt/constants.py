@@ -22,6 +22,7 @@ DBT_COMMANDS = [
     "list",
     "parse",
     "run",
+    "run-operation",
     "seed",
     "show",
     "snapshot",
