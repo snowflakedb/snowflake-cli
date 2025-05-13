@@ -88,3 +88,9 @@ def assert_stage_has_files(runner, stage: str, expected_files: Set[str]) -> None
     result = runner.invoke_with_connection_json(["stage", "list-files", stage])
     assert result.exit_code == 0, result.output
     assert set(file["name"] for file in result.json) == set(expected_files)
+
+
+def does_stage_exist(runner, stage: str) -> bool:
+    result = runner.invoke_with_connection_json(["stage", "list", "--like", stage])
+    assert result.exit_code == 0, result.output
+    return len(result.json) == 1
