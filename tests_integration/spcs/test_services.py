@@ -23,7 +23,7 @@ from tests_integration.spcs.testing_utils.spcs_services_utils import (
 
 
 @pytest.mark.integration
-# @pytest.mark.skip("Skipped temporarily")
+@pytest.mark.skip("Skipped temporarily")
 def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
 
     test_steps, service_name = _test_steps

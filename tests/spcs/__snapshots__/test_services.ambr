@@ -92,3 +92,19 @@
   
   '''
 # ---
+# name: test_metrics_all_filters
+  '''
+                      select *
+                      from event_table_db.data_schema.snowservices_logs
+                      where (
+                          resource_attributes:"snow.service.name" = 'LOG_EVENT' and (resource_attributes:"snow.service.instance" = '0' OR resource_attributes:"snow.service.container.instance" = '0') and resource_attributes:"snow.service.container.name" = 'log-printer'
+                          
+                          and timestamp >= sysdate() - interval '2 hour'
+                          and timestamp <= sysdate() - interval '1 hour'
+                      )
+                      and record_type = 'METRIC'
+                      and scope['name'] = 'snow.spcs.platform'
+                      order by timestamp desc
+                  
+  '''
+# ---

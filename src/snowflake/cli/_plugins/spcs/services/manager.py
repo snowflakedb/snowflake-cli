@@ -407,12 +407,11 @@ class ServiceManager(SqlExecutionMixin):
         )
         since_clause, until_clause = build_time_clauses(since, until)
 
+        db_and_schema_clause = ""
         if database:
             db_and_schema_clause = build_db_and_schema_clause(
                 database_name=database, schema_name=schema
             )
-        else:
-            db_and_schema_clause = ""
 
         query = f"""\
                     select *
@@ -458,12 +457,11 @@ class ServiceManager(SqlExecutionMixin):
             service_name, instance_id, container_name
         )
 
+        db_and_schema_clause = ""
         if database:
             db_and_schema_clause = build_db_and_schema_clause(
                 database_name=database, schema_name=schema
             )
-        else:
-            db_and_schema_clause = ""
 
         query = f"""
             with rankedmetrics as (

@@ -126,10 +126,7 @@ class SnowparkServicesTestSteps:
         self, service_name: str, db_name: str, container_name: str
     ) -> None:
         fqn = f"{db_name}.{self.schema}.{service_name}"
-        result = self._execute_metrics(
-            fqn,
-            container_name,
-        )
+        result = self._execute_metrics(fqn, container_name)
 
         assert all(item.get("DATABASE NAME") == db_name for item in result.json)
 
