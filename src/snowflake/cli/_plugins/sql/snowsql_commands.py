@@ -73,12 +73,12 @@ class QueriesCommand(SnowSQLCommand):
             ["user", "string", "any"],
             [
                 "start_date",
-                "date in ISO format (for example YYYY-MM-DDTHH:mm:ss.sss)",
+                "datetime in ISO format (for example YYYY-MM-DDTHH:mm:ss.sss)",
                 "any",
             ],
             [
                 "end_date",
-                "date in ISO format (for example YYYY-MM-DDTHH:mm:ss.sss)",
+                "datetime in ISO format (for example YYYY-MM-DDTHH:mm:ss.sss)",
                 "any",
             ],
             ["start", "timestamp in milliseconds", "any"],

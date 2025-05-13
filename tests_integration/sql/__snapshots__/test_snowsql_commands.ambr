@@ -8,9 +8,9 @@
   | status     | string                                                | any     |
   | warehouse  | string                                                | any     |
   | user       | string                                                | any     |
-  | start_date | date in ISO format (for example                       | any     |
+  | start_date | datetime in ISO format (for example                   | any     |
   |            | YYYY-MM-DDTHH:mm:ss.sss)                              |         |
-  | end_date   | date in ISO format (for example                       | any     |
+  | end_date   | datetime in ISO format (for example                   | any     |
   |            | YYYY-MM-DDTHH:mm:ss.sss)                              |         |
   | start      | timestamp in milliseconds                             | any     |
   | end        | timestamp in milliseconds                             | any     |
