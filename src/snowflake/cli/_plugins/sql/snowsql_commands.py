@@ -65,31 +65,28 @@ class QueriesCommand(SnowSQLCommand):
             self._execute_queries(connection)
 
     def _execute_help(self):
-        filters = []
         headers = ["FILTER", "ARGUMENT", "DEFAULT"]
-        filters.append(["amount", "integer", "25"])
-        filters.append(["status", "string", "any"])
-        filters.append(["warehouse", "string", "any"])
-        filters.append(["user", "string", "any"])
-        filters.append(
+        filters = [
+            ["amount", "integer", "25"],
+            ["status", "string", "any"],
+            ["warehouse", "string", "any"],
+            ["user", "string", "any"],
             [
                 "start_date",
                 "date in ISO format (for example YYYY-MM-DDTHH:mm:ss.sss)",
                 "any",
-            ]
-        )
-        filters.append(
+            ],
             [
                 "end_date",
                 "date in ISO format (for example YYYY-MM-DDTHH:mm:ss.sss)",
                 "any",
-            ]
-        )
-        filters.append(["start", "timestamp in milliseconds", "any"])
-        filters.append(["end", "timestamp in milliseconds", "any"])
-        filters.append(["type", "string", "any"])
-        filters.append(["duration", "time in milliseconds", "any"])
-        filters.append(["session", "No arguments", "any"])
+            ],
+            ["start", "timestamp in milliseconds", "any"],
+            ["end", "timestamp in milliseconds", "any"],
+            ["type", "string", "any"],
+            ["duration", "time in milliseconds", "any"],
+            ["session", "No arguments", "any"],
+        ]
         _print_result_to_stdout(headers, filters)
 
     def _execute_queries(self, connection: SnowflakeConnection) -> None:
