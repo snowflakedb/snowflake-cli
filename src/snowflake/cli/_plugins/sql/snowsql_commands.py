@@ -2,6 +2,7 @@ import enum
 import re
 import time
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Dict, Generator, Iterable, List, Tuple
 from urllib.parse import urlencode
 
@@ -70,8 +71,22 @@ class QueriesCommand(SnowSQLCommand):
         filters.append(["status", "string", "any"])
         filters.append(["warehouse", "string", "any"])
         filters.append(["user", "string", "any"])
-        filters.append(["start", "date in milliseconds", "any"])
-        filters.append(["end", "date in milliseconds", "any"])
+        filters.append(
+            [
+                "start_date",
+                "date in ISO format (for example YYYY-MM-DDTHH:mm:ss.sss)",
+                "any",
+            ]
+        )
+        filters.append(
+            [
+                "end_date",
+                "date in ISO format (for example YYYY-MM-DDTHH:mm:ss.sss)",
+                "any",
+            ]
+        )
+        filters.append(["start", "timestamp in milliseconds", "any"])
+        filters.append(["end", "timestamp in milliseconds", "any"])
         filters.append(["type", "string", "any"])
         filters.append(["duration", "time in milliseconds", "any"])
         filters.append(["session", "No arguments", "any"])
@@ -130,9 +145,37 @@ class QueriesCommand(SnowSQLCommand):
             )
         user = kwargs.pop("user", None)
         warehouse = kwargs.pop("warehouse", None)
-        start_time = kwargs.pop("start", None)
-        end_time = kwargs.pop("end", None)
+        start_timestamp = kwargs.pop("start", None)
+        end_timestamp = kwargs.pop("end", None)
         duration = kwargs.pop("duration", None)
+
+        start_date = kwargs.pop("start_date", None)
+        if start_date:
+            if start_timestamp:
+                return CompileCommandResult(
+                    error_message=f"'start_date' filter cannot be used with 'start' filter"
+                )
+            try:
+                seconds = datetime.fromisoformat(start_date).timestamp()
+                start_time = seconds * 1000  # convert to milliseconds
+            except ValueError:
+                return CompileCommandResult(
+                    error_message=f"Invalid date format passed to 'start_date' filter: {start_date}"
+                )
+        end_date = kwargs.pop("end_date", None)
+        if end_date:
+            if end_timestamp:
+                return CompileCommandResult(
+                    error_message=f"'end_date' filter cannot be used with 'end' filter"
+                )
+            try:
+                seconds = datetime.fromisoformat(end_date).timestamp()
+                end_time = seconds * 1000  # convert to milliseconds
+            except ValueError:
+                return CompileCommandResult(
+                    error_message=f"Invalid date format passed to 'end_date' filter: {end_date}"
+                )
+
         stmt_type = kwargs.pop("type", None)
         if stmt_type:
             stmt_type = stmt_type.upper()
@@ -190,8 +233,8 @@ class QueriesCommand(SnowSQLCommand):
                 amount=int(amount),
                 user=user,
                 warehouse=warehouse,
-                start_time=start_time,
-                end_time=end_time,
+                start_time=start_timestamp,
+                end_time=end_timestamp,
                 duration=duration,
                 stmt_type=stmt_type,
                 status=status,
