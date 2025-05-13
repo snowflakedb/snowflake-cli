@@ -55,7 +55,7 @@ class SnowparkServicesTestSteps:
     schema = "public"
     container_name = "hello-world"
     ISO8601_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z")
-    another_database = "SNOWCLI_DB_2"
+    another_database =  "SNOWCLI_DB_2"
 
     def __init__(self, setup: SnowparkServicesTestSetup):
         self._setup = setup
@@ -79,7 +79,7 @@ class SnowparkServicesTestSteps:
         )
 
     def create_second_service(self, service_name: str) -> None:
-        self._create_new_database()
+
         result = self._setup.runner.invoke_with_connection_json(
             [
                 "spcs",
@@ -118,11 +118,11 @@ class SnowparkServicesTestSteps:
         assert any(item.get('DATABASE NAME')==self.database for item in result.json)
         assert any(item.get('DATABASE NAME')==self.another_database for item in result.json)
 
-    def metrics_with_fqn_should_include_only_one_service(self, service_name: str, container_name: str) -> None:
-        fqn = f"{self.database}.{self.schema}.{service_name}"
+    def metrics_with_fqn_should_include_only_one_service(self, service_name: str, db_name: str, container_name: str) -> None:
+        fqn = f"{db_name}.{self.schema}.{service_name}"
         result = self._execute_metrics(fqn, container_name, )
 
-        assert len(result.json) == 1
+        assert all(item.get('DATABASE NAME')==db_name for item in result.json)
 
 
     def upgrade_service(self) -> None:
@@ -476,15 +476,3 @@ class SnowparkServicesTestSteps:
             "--schema",
             self.schema,
         )
-
-    def _create_new_database(self):
-        result  = self._setup.runner.invoke_with_connection_json(
-            [
-                "object",
-                "create",
-                "database",
-                f"name={self.another_database}",
-            ],
-        )
-
-        assert result.exit_code == 0, result.output

@@ -478,6 +478,7 @@ class ServiceManager(SqlExecutionMixin):
                     record_type = 'METRIC'
                     and scope['name'] = 'snow.spcs.platform'
                     and {resource_clause}
+                    {db_and_schema_clause}
                     and timestamp > dateadd('hour', -1, current_timestamp)
             )
             select *
