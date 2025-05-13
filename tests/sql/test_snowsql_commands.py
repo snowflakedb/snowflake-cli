@@ -130,10 +130,14 @@ def test_queries_from_args():
 
     # start_date and end_date conversion
     assert QueriesCommand.from_args(
-        [], {"start_date": "2025-05-05T00:00:00", "end_date": "2025-05-05T00:00:01"}
+        [],
+        {
+            "start_date": "2025-05-05T00:00:00+00:00",
+            "end_date": "2025-05-05T00:00:01+00:00",
+        },
     ) == CompileCommandResult(
         command=QueriesCommand(
-            start_timestamp_ms=1746396000000.0, end_timestamp_ms=1746396001000.0
+            start_timestamp_ms=1746403200000.0, end_timestamp_ms=1746403201000.0
         )
     )
 
