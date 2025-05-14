@@ -3,3 +3,4 @@ dbt_integration_project:
   outputs: 
     dev:
       type: snowflake
+      threads: 2

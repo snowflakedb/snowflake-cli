@@ -18,6 +18,7 @@ class TestDeploy:
                         "database": "testdb",
                         "role": "test_role",
                         "schema": "test_schema",
+                        "threads": 4,
                         "type": "snowflake",
                         "user": "test_user",
                         "warehouse": "test_warehouse",
