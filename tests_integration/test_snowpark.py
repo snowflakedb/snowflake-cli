@@ -1744,6 +1744,8 @@ def test_using_external_packages_from_package_repository(
                 "execute",
                 "function",
                 "test_function()",
+                "--warehouse",
+                "snowpark_tests",
             ]
         )
 
@@ -1756,6 +1758,8 @@ def test_using_external_packages_from_package_repository(
                 "execute",
                 "procedure",
                 "test_procedure()",
+                "--warehouse",
+                "snowpark_tests",
             ]
         )
 
