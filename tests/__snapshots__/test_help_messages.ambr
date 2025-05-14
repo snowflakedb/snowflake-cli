@@ -11360,7 +11360,9 @@
    image registry.                                                                
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --private-link            Get the private link URL instead of the public     |
+  |                           URL.                                               |
+  | --help          -h        Show this message and exit.                        |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
