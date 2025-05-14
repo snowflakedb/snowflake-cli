@@ -57,6 +57,12 @@ version_flag = typer.Option(
 variables_flag = variables_option(
     'Variables for the execution context; for example: `-D "<key>=<value>"`.'
 )
+configuration_flag = typer.Option(
+    None,
+    "--configuration",
+    help="Configuration of the project to use. If not specified default configuration is used.",
+    show_default=False,
+)
 from_option = OverrideableOption(
     None,
     "--from",
@@ -82,13 +88,17 @@ def execute(
     identifier: FQN = project_identifier,
     version: Optional[str] = version_flag,
     variables: Optional[List[str]] = variables_flag,
+    configuration: Optional[str] = configuration_flag,
     **options,
 ):
     """
     Executes a project.
     """
     result = ProjectManager().execute(
-        project_name=identifier, version=version, variables=variables
+        project_name=identifier,
+        configuration=configuration,
+        version=version,
+        variables=variables,
     )
     return SingleQueryResult(result)
 
@@ -98,13 +108,18 @@ def dry_run(
     identifier: FQN = project_identifier,
     version: Optional[str] = version_flag,
     variables: Optional[List[str]] = variables_flag,
+    configuration: Optional[str] = configuration_flag,
     **options,
 ):
     """
     Validates a project.
     """
     result = ProjectManager().execute(
-        project_name=identifier, version=version, dry_run=True, variables=variables
+        project_name=identifier,
+        configuration=configuration,
+        version=version,
+        dry_run=True,
+        variables=variables,
     )
     return SingleQueryResult(result)
 

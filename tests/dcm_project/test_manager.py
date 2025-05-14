@@ -103,11 +103,15 @@ def test_create(mock_sync_artifacts, mock_execute_query, initialize_version):
 def test_execute_project(mock_execute_query):
     mgr = ProjectManager()
     mgr.execute(
-        project_name=TEST_PROJECT, version="v42", variables=["key=value", "aaa=bbb"]
+        project_name=TEST_PROJECT,
+        version="v42",
+        variables=["key=value", "aaa=bbb"],
+        configuration="some_configuration",
     )
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE PROJECT IDENTIFIER('my_project') using (key=>value, aaa=>bbb) WITH VERSION v42"
+        query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
+        " using (key=>value, aaa=>bbb) WITH VERSION v42"
     )
 
 
@@ -125,10 +129,16 @@ def test_execute_project_with_default_version(mock_execute_query, project_direct
 @mock.patch(execute_queries)
 def test_validate_project(mock_execute_query, project_directory):
     mgr = ProjectManager()
-    mgr.execute(project_name=TEST_PROJECT, version="v42", dry_run=True)
+    mgr.execute(
+        project_name=TEST_PROJECT,
+        version="v42",
+        dry_run=True,
+        configuration="some_configuration",
+    )
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE PROJECT IDENTIFIER('my_project') WITH VERSION v42 DRY_RUN=TRUE"
+        query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
+        " WITH VERSION v42 DRY_RUN=TRUE"
     )
 
 

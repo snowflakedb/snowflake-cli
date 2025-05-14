@@ -141,9 +141,34 @@ def test_execute_project_with_variables(mock_pm, runner, project_directory):
 
 
 @mock.patch(ProjectManager)
+def test_execute_project_with_configuration(mock_pm, runner, project_directory):
+    result = runner.invoke(
+        ["project", "execute", "fooBar", "--configuration", "some_configuration"]
+    )
+    assert result.exit_code == 0, result.output
+
+    mock_pm().execute.assert_called_once_with(
+        project_name=FQN.from_string("fooBar"),
+        configuration="some_configuration",
+        version=None,
+        variables=None,
+    )
+
+
+@mock.patch(ProjectManager)
 def test_validate_project(mock_pm, runner, project_directory):
     result = runner.invoke(
-        ["project", "dry-run", "fooBar", "--version", "v1", "-D", "key=value"]
+        [
+            "project",
+            "dry-run",
+            "fooBar",
+            "--version",
+            "v1",
+            "-D",
+            "key=value",
+            "--configuration",
+            "some_configuration",
+        ]
     )
     assert result.exit_code == 0, result.output
 
@@ -152,6 +177,7 @@ def test_validate_project(mock_pm, runner, project_directory):
         version="v1",
         dry_run=True,
         variables=["key=value"],
+        configuration="some_configuration",
     )
 
 
