@@ -46,6 +46,9 @@ GRANT ALL ON DATABASE <% main_database %> TO ROLE <% role %>;
 GRANT ALL ON SCHEMA <% main_database %>.PUBLIC TO ROLE <% role %>;
 USE DATABASE <% main_database %>;
 
+-- CREATE SECOND DATABASE
+CREATE DATABASE IF NOT EXISTS snowcli_db_2;
+
 -- STAGES SETUP
 CREATE STAGE IF NOT EXISTS <% main_database %>.PUBLIC.SNOWCLI_STAGE DIRECTORY = ( ENABLE = TRUE );
 

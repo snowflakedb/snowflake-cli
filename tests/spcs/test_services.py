@@ -1216,7 +1216,7 @@ def test_service_events_disabled(runner, config_file):
 
 @patch(EXECUTE_QUERY)
 def test_metrics_all_filters(
-    mock_execute_query, runner, enable_events_and_metrics_config
+    mock_execute_query, runner, enable_events_and_metrics_config, snapshot
 ):
     mock_execute_query.side_effect = [
         [
@@ -1286,23 +1286,7 @@ def test_metrics_all_filters(
     ), f"Unexpected query in Call 0: {call_0}"
 
     actual_query = mock_execute_query.mock_calls[1].args[0]
-    expected_query = (
-        "                    select *\n"
-        "                    from event_table_db.data_schema.snowservices_logs\n"
-        "                    where (\n"
-        "                        resource_attributes:\"snow.service.name\" = 'LOG_EVENT' and (resource_attributes:\"snow.service.instance\" = '0' OR resource_attributes:\"snow.service.container.instance\" = '0') and resource_attributes:\"snow.service.container.name\" = 'log-printer'\n"
-        "                        and timestamp >= sysdate() - interval '2 hour'\n"
-        "                        and timestamp <= sysdate() - interval '1 hour'\n"
-        "                    )\n"
-        "                    and record_type = 'METRIC'\n"
-        "                    and scope['name'] = 'snow.spcs.platform'\n"
-        "                    order by timestamp desc\n"
-        "                "
-    )
-
-    assert (
-        actual_query == expected_query
-    ), f"Generated query does not match expected query.\n\nActual:\n{actual_query}\n\nExpected:\n{expected_query}"
+    assert actual_query == snapshot, actual_query
 
 
 def test_read_yaml(temporary_directory):

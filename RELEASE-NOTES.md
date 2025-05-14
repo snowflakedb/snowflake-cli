@@ -40,6 +40,7 @@
 * Fix for deploying Snowpark project using `!=` operator in `requirements.txt`.
 * Fix escaping identifiers for `use` commands.
 * Move `enable_release_channels` from global feature flag to project level.
+* Fixed `snow spcs service metrics` command to accept fully qualified service names.
 
 # v3.7.1
 
