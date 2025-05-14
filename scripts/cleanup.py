@@ -77,6 +77,7 @@ if __name__ == "__main__":
             "CLEANUP_DB",
             "DOCS_TESTING",
             "SNOWCLI_DB",
+            "SNOWCLI_DB_2",
         ],
         ("compute pool", "compute pools"): [],
         ("service", "services"): [],

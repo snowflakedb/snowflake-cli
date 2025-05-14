@@ -437,7 +437,7 @@ def metrics(
     manager = ServiceManager()
     if since or until:
         metrics = manager.get_all_metrics(
-            service_name=name.identifier,
+            service_name=name,
             container_name=container_name,
             instance_id=instance_id,
             since=since,
@@ -446,7 +446,7 @@ def metrics(
         )
     else:
         metrics = manager.get_latest_metrics(
-            service_name=name.identifier,
+            service_name=name,
             container_name=container_name,
             instance_id=instance_id,
             show_all_columns=show_all_columns,

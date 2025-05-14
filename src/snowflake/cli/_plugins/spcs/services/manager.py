@@ -26,6 +26,7 @@ from snowflake.cli._plugins.spcs.common import (
     EVENT_COLUMN_NAMES,
     NoPropertiesProvidedError,
     SPCSEventTableError,
+    build_db_and_schema_clause,
     build_resource_clause,
     build_time_clauses,
     filter_log_timestamp,
@@ -391,13 +392,14 @@ class ServiceManager(SqlExecutionMixin):
 
     def get_all_metrics(
         self,
-        service_name: str,
+        service_name: FQN | str,
         instance_id: str,
         container_name: str,
         since: str | datetime | None = None,
         until: str | datetime | None = None,
         show_all_columns: bool = False,
     ):
+        service_name, database, schema = parse_service_details(service_name)
 
         account_event_table = self.get_account_event_table()
         resource_clause = build_resource_clause(
@@ -405,11 +407,18 @@ class ServiceManager(SqlExecutionMixin):
         )
         since_clause, until_clause = build_time_clauses(since, until)
 
+        db_and_schema_clause = ""
+        if database:
+            db_and_schema_clause = build_db_and_schema_clause(
+                database_name=database, schema_name=schema
+            )
+
         query = f"""\
                     select *
                     from {account_event_table}
                     where (
                         {resource_clause}
+                        {db_and_schema_clause}
                         {since_clause}
                         {until_clause}
                     )
@@ -441,11 +450,18 @@ class ServiceManager(SqlExecutionMixin):
         container_name: str,
         show_all_columns: bool = False,
     ):
+        service_name, database, schema = parse_service_details(service_name)
 
         account_event_table = self.get_account_event_table()
         resource_clause = build_resource_clause(
             service_name, instance_id, container_name
         )
+
+        db_and_schema_clause = ""
+        if database:
+            db_and_schema_clause = build_db_and_schema_clause(
+                database_name=database, schema_name=schema
+            )
 
         query = f"""
             with rankedmetrics as (
@@ -460,6 +476,7 @@ class ServiceManager(SqlExecutionMixin):
                     record_type = 'METRIC'
                     and scope['name'] = 'snow.spcs.platform'
                     and {resource_clause}
+                    {db_and_schema_clause}
                     and timestamp > dateadd('hour', -1, current_timestamp)
             )
             select *
@@ -583,3 +600,18 @@ class ServiceManager(SqlExecutionMixin):
         unset_list = [property_name for property_name, value in property_pairs if value]
         query = f"alter service {service_name} unset {','.join(unset_list)}"
         return self.execute_query(query)
+
+
+def parse_service_details(
+    service_identifier: str | FQN,
+) -> tuple[str, str | None, str | None]:
+    if isinstance(service_identifier, FQN):
+        name = service_identifier.name
+        database = service_identifier.database
+        schema = service_identifier.schema
+    else:
+        name = service_identifier
+        database = None
+        schema = None
+
+    return name, database, schema
