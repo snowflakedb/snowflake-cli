@@ -112,6 +112,12 @@ class SnowparkObjectManager(SqlExecutionMixin):
                 ]
             )
 
+        if entity.resource_constraint:
+            constraints = ",".join(
+                f"{key}='{value}'" for key, value in entity.resource_constraint.items()
+            )
+            query.append(f"RESOURCE_CONSTRAINT=({constraints})")
+
         return self.execute_query("\n".join(query))
 
     def deploy_entity(
@@ -191,6 +197,22 @@ def _check_if_replace_is_required(
         "runtime_version", "RUNTIME_NOT_SET"
     ):
         log.info("Runtime versions do not match. Replacing the %s", object_type)
+        return True
+
+    if entity.resource_constraint != resource_json.get("resource_constraint", None):
+        log.info("Resource constraints do not match. Replacing the %s", object_type)
+        return True
+
+    if entity.artifact_repository != resource_json.get("artifact_repository", None):
+        log.info("Artifact repository does not match. Replacing the %s", object_type)
+        return True
+
+    if entity.artifact_repository_packages != resource_json.get(
+        "artifact_repository_packages", None
+    ):
+        log.info(
+            "Artifact repository packages do not match. Replacing the %s", object_type
+        )
         return True
 
     if isinstance(entity, ProcedureEntityModel):
