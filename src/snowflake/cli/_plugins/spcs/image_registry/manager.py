@@ -73,7 +73,7 @@ class RegistryManager(SqlExecutionMixin):
     def _has_url_scheme(self, url: str):
         return re.fullmatch(r"^.*//.+", url) is not None
 
-    def get_registry_url(self) -> str:
+    def get_registry_url(self, private_link: bool = False) -> str:
         images_query = "show image repositories in schema snowflake.images;"
         images_result = self.execute_query(images_query, cursor_class=DictCursor)
 
@@ -88,7 +88,15 @@ class RegistryManager(SqlExecutionMixin):
             if not results:
                 raise NoImageRepositoriesFoundError()
 
-        sample_repository_url = results["repository_url"]
+        if private_link:
+            privatelink_repository_url = "privatelink_repository_url"
+
+            if privatelink_repository_url not in results:
+                return ""
+            sample_repository_url = results[privatelink_repository_url]
+        else:
+            sample_repository_url = results["repository_url"]
+
         if not self._has_url_scheme(sample_repository_url):
             sample_repository_url = f"//{sample_repository_url}"
         return urlparse(sample_repository_url).netloc
