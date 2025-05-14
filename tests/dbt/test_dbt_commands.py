@@ -71,6 +71,7 @@ class TestDBTDeploy:
                                 "database": "testdb",
                                 "role": "test_role",
                                 "schema": "test_schema",
+                                "threads": 2,
                                 "type": "snowflake",
                                 "user": "test_user",
                                 "warehouse": "test_warehouse",
