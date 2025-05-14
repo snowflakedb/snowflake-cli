@@ -20,7 +20,7 @@ import yaml
 
 @pytest.mark.integration
 @pytest.mark.qa_only
-def test_dbt(
+def test_deploy_and_execute(
     runner,
     snowflake_session,
     test_database,
@@ -54,7 +54,6 @@ def test_dbt(
                 "dbt",
                 "deploy",
                 name,
-                "--force",
                 "--profiles-dir",
                 str(new_profiles_directory.resolve()),
             ]
@@ -93,6 +92,61 @@ def test_dbt(
         )
         assert len(result.json) == 1, result.json
         assert result.json[0]["COUNT"] == 1, result.json[0]
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_dbt_deploy_options(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    with project_directory("dbt_project") as root_dir:
+        # Given a local dbt project
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_{ts}"
+
+        # deploy for the first time - create new dbt object
+        _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 0, result.output
+
+        timestamp_after_create = _fetch_creation_date(name, runner)
+
+        # deploy for the second time - alter existing object
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 0, result.output
+
+        timestamp_after_alter = _fetch_creation_date(name, runner)
+        assert (
+            timestamp_after_alter == timestamp_after_create
+        ), f"Timestamps differ: {timestamp_after_alter} vs {timestamp_after_create}"
+
+        # deploy for the third time - this time with --force flag to replace dbt object
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name, "--force"])
+        assert result.exit_code == 0, result.output
+
+        timestamp_after_replace = _fetch_creation_date(name, runner)
+        assert (
+            timestamp_after_replace > timestamp_after_create
+        ), f"Timestamps are the same: {timestamp_after_replace} vs {timestamp_after_create}"
+
+
+def _fetch_creation_date(name, runner) -> datetime.datetime:
+    result = runner.invoke_with_connection_json(
+        [
+            "dbt",
+            "list",
+            "--like",
+            name,
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert len(result.json) == 1
+    dbt_object = result.json[0]
+    assert dbt_object["name"].lower() == name.lower()
+    return datetime.datetime.fromisoformat(dbt_object["created_on"])
 
 
 def _setup_dbt_profile(root_dir: Path, snowflake_session, include_password: bool):

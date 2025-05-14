@@ -128,20 +128,16 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
             dbt_project_path, "@MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"
         )
 
-    @pytest.mark.parametrize("exists", (True, False))
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     def test_force_flag_uses_create_or_replace(
         self,
         _mock_create,
         _mock_put_recursive,
-        exists,
         mock_connect,
         runner,
         dbt_project_path,
-        mock_exists,
     ):
-        mock_exists.return_value = exists
 
         result = runner.invoke(
             [
@@ -156,6 +152,34 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
         assert result.exit_code == 0, result.output
         assert mock_connect.mocked_ctx.get_query().startswith(
             "CREATE OR REPLACE DBT PROJECT"
+        )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_alters_existing_object(
+        self,
+        _mock_create,
+        _mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_exists,
+    ):
+        mock_exists.return_value = True
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_connect.mocked_ctx.get_query().startswith(
+            """ALTER DBT PROJECT TEST_PIPELINE ADD VERSION
+FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
         )
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
@@ -265,27 +289,6 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
 
         assert result.exit_code == 1, result.output
         assert "profile dev is not defined in profiles.yml" in result.output
-        assert mock_connect.mocked_ctx.get_query() == ""
-
-    def test_raises_when_dbt_object_exists_and_is_not_force(
-        self, dbt_project_path, mock_connect, runner, mock_exists
-    ):
-        mock_exists.return_value = True
-
-        result = runner.invoke(
-            [
-                "dbt",
-                "deploy",
-                "TEST_PIPELINE",
-                f"--source={dbt_project_path}",
-            ],
-        )
-
-        assert result.exit_code == 1, result.output
-        assert (
-            "DBT project TEST_PIPELINE already exists. Use --force flag to overwrite"
-            in result.output
-        )
         assert mock_connect.mocked_ctx.get_query() == ""
 
 
