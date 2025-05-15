@@ -230,5 +230,6 @@ def test_get_deploy_sql_with_repository_packages(example_function_workspace, sna
     entity, _ = example_function_workspace
     entity.model.artifact_repository = "snowflake.snowpark.pypi_shared_repository"
     entity.model.artifact_repository_packages = ["package1", "package2"]
+    entity.model.resource_constraint = {"architecture": "x86"}
     deploy_sql = entity.get_deploy_sql(CreateMode.create)
     assert deploy_sql == snapshot

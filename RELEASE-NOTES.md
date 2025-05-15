@@ -33,13 +33,14 @@
 * Added interactive mode for `snow sql`.
 * Added support for async SQL queries (`;>` syntax).
 * Added support for `!queries`, `!result` and `!abort` commands from SnowSQL.
-* Added `artifact_repository` and `artifact_repository_packages` fields to the Snowpark Entity Model to support direct usage of non-anaconda packages.
+* Added `artifact_repository`, `artifact_repository_packages` and `resource_constraint` fields to the Snowpark Entity Model to support direct usage of non-anaconda packages.
 * Added `--single-transaction` flag to `snow sql`. Wraps BEGIN/COMMIT around statements to execute them as a single transaction, ensuring all commands complete successfully or no change is applied.
 
 ## Fixes and improvements
 * Fix for deploying Snowpark project using `!=` operator in `requirements.txt`.
 * Fix escaping identifiers for `use` commands.
 * Move `enable_release_channels` from global feature flag to project level.
+* Fixed `snow spcs service metrics` command to accept fully qualified service names.
 
 # v3.7.1
 

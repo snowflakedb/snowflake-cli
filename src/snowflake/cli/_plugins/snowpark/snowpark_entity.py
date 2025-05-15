@@ -184,6 +184,8 @@ class SnowparkEntity(EntityBase[Generic[T]]):
                     f"ARTIFACT_REPOSITORY_PACKAGES=({','.join(packages)})",
                 ]
             )
+        if self.model.resource_constraint:
+            query.append(self._get_resource_constraints_sql())
 
         return "\n".join(query)
 
@@ -245,6 +247,15 @@ class SnowparkEntity(EntityBase[Generic[T]]):
                 )
 
         return download_result
+
+    def _get_resource_constraints_sql(self) -> str:
+        if self.model.resource_constraint:
+            constraints = ",".join(
+                f"{key}='{value}'"
+                for key, value in self.model.resource_constraint.items()
+            )
+            return f"RESOURCE_CONSTRAINT=({constraints})"
+        return ""
 
 
 class FunctionEntity(SnowparkEntity[FunctionEntityModel]):
