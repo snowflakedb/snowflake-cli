@@ -93,6 +93,39 @@ def test_project_deploy(
 
 @pytest.mark.integration
 @pytest.mark.qa_only
+def test_execute_multiple_configurations(
+    runner,
+    test_database,
+    project_directory,
+):
+    project_name = "project_descriptive_name"
+    entity_id = "my_project"
+    with project_directory("dcm_project_multiple_configurations"):
+        result = runner.invoke_with_connection(["project", "create", entity_id])
+        assert result.exit_code == 0, result.output
+
+        for configuration in ["test", "dev", "prod"]:
+            for command in ["dry-run", "execute"]:
+                result = runner.invoke_with_connection_json(
+                    [
+                        "project",
+                        command,
+                        project_name,
+                        "--configuration",
+                        configuration,
+                        "-D",
+                        f"db='{test_database}'",
+                    ]
+                )
+                assert result.exit_code == 0, result.output
+                assert (
+                    f"SNOWCLI_TEST_TABLE_{configuration}".upper()
+                    in result.json["operations"]
+                )
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
 def test_create_corner_cases(
     runner,
     test_database,
