@@ -1,4 +1,9 @@
 spec:
+  platformMonitor:
+    metricConfig:
+      groups:
+        - system
+        - system_limits
   containers:
   - name: hello-world
     image: /snowcli_db/public/snowcli_repository/snowpark_test_echo:1

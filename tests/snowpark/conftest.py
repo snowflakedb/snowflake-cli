@@ -54,6 +54,8 @@ def mock_procedure_description(mock_cursor):
             ("runtime_version", "3.10"),
             ("packages", "['snowflake-snowpark-python','pytest<9.0.0,>=7.0.0']"),
             ("installed_packages", "['_libgcc_mutex==0.1']"),
+            ("artifact_repository", None),
+            ("artifact_repository_packages", None),
         ],
         columns=[
             "signature",

@@ -57,6 +57,10 @@ class SnowparkEntityModel(
         default=None, title="Packages to be installed from artifact repository"
     )
 
+    resource_constraint: Optional[dict] = Field(
+        default=None, title="Resource constraints for the function/procedure"
+    )
+
     @field_validator("artifacts")
     @classmethod
     def _convert_artifacts(cls, artifacts: Union[dict, str]):

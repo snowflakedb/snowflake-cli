@@ -10,6 +10,15 @@ get_entity_for_operation = (
 )
 
 
+@pytest.fixture
+def mock_project_exists():
+    with mock.patch(
+        "snowflake.cli._plugins.project.commands.ObjectManager.object_exists",
+        return_value=True,
+    ) as _fixture:
+        yield _fixture
+
+
 @mock.patch(ProjectManager)
 @mock.patch(ObjectManager)
 @pytest.mark.parametrize("no_version", [False, True])
@@ -41,7 +50,13 @@ def test_create(mock_om, mock_pm, runner, project_directory, no_version):
     ],
 )
 def test_add_version(
-    mock_pm, runner, project_directory, prune, _from, expected_prune_value
+    mock_pm,
+    runner,
+    project_directory,
+    prune,
+    _from,
+    expected_prune_value,
+    mock_project_exists,
 ):
     with project_directory("dcm_project") as root:
         command = [
@@ -75,6 +90,28 @@ def test_add_version(
     }
 
     assert expected_kwargs == kwargs
+
+
+def test_add_version_raises_when_project_does_not_exist(
+    runner, project_directory, mock_project_exists
+):
+    mock_project_exists.return_value = False
+    with project_directory("dcm_project") as root:
+        command = [
+            "project",
+            "add-version",
+            "my_project",
+            "--alias",
+            "v1",
+            "--comment",
+            "fancy",
+        ]
+        result = runner.invoke(command)
+        assert result.exit_code == 1, result.output
+        assert (
+            "Project 'my_project' does not exist. Use `project create` command first"
+            in result.output
+        )
 
 
 @mock.patch(ProjectManager)

@@ -15,7 +15,6 @@
 from typing import List, Optional
 
 import typer
-from click import ClickException
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
@@ -38,6 +37,7 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import MessageResult, QueryResult, SingleQueryResult
 
@@ -133,11 +133,11 @@ def create(
     )
     om = ObjectManager()
     if om.object_exists(object_type="project", fqn=project.fqn):
-        raise ClickException(f"Project '{project.fqn}' already exists.")
+        raise CliError(f"Project '{project.fqn}' already exists.")
     if not no_version and om.object_exists(
         object_type="stage", fqn=FQN.from_stage(project.stage)
     ):
-        raise ClickException(f"Stage '{project.stage}' already exists.")
+        raise CliError(f"Stage '{project.stage}' already exists.")
 
     pm = ProjectManager()
     with cli_console.phase(f"Creating project '{project.fqn}'"):
@@ -177,6 +177,11 @@ def add_version(
         project_definition=cli_context.project_definition,
         entity_type="project",
     )
+    om = ObjectManager()
+    if not om.object_exists(object_type="project", fqn=project.fqn):
+        raise CliError(
+            f"Project '{project.fqn}' does not exist. Use `project create` command first"
+        )
     ProjectManager().add_version(
         project=project,
         prune=prune,
