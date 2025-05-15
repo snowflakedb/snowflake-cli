@@ -7620,14 +7620,15 @@
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --no-version                Do not initialize project with a new version,    |
-  |                             only create the snowflake object.                |
-  | --project     -p      TEXT  Path where the Snowflake project is stored.      |
-  |                             Defaults to the current working directory.       |
-  | --env                 TEXT  String in the format key=value. Overrides        |
-  |                             variables from the env section used for          |
-  |                             templates.                                       |
-  | --help        -h            Show this message and exit.                      |
+  | --no-version                   Do not initialize project with a new version, |
+  |                                only create the snowflake object.             |
+  | --if-not-exists                Do nothing if the project already exists.     |
+  | --project        -p      TEXT  Path where the Snowflake project is stored.   |
+  |                                Defaults to the current working directory.    |
+  | --env                    TEXT  String in the format key=value. Overrides     |
+  |                                variables from the env section used for       |
+  |                                templates.                                    |
+  | --help           -h            Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
