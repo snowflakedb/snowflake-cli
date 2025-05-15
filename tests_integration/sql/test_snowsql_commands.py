@@ -1,6 +1,5 @@
 import pytest
 from typing import Optional
-from os import getenv
 
 
 @pytest.fixture
@@ -31,6 +30,8 @@ def test_queries(runner):
 @pytest.mark.parametrize("use_iso_format", [True, False])
 def test_queries_time_filters(runner, existing_query_id, use_iso_format):
     import datetime
+    from os import getenv
+    from time import sleep
 
     now = datetime.datetime.now()
     an_hour_ago = now - datetime.timedelta(hours=1)
@@ -42,6 +43,7 @@ def test_queries_time_filters(runner, existing_query_id, use_iso_format):
         ["sql", "-q", f"!result {existing_query_id}"]
     )
     assert result.exit_code == 0, result.output
+    sleep(0.5)
 
     def _format_filter_no_prefix(time: datetime.datetime):
         if use_iso_format:
