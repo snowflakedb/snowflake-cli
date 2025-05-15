@@ -58,7 +58,7 @@
   
   :samp:`--model {TEXT}`
     String specifying the model to be used. Default: llama3.1-70b.
-
+  
   :samp:`--backend [sql|rest]`
     String specifying whether to use sql or rest backend. Default: rest.
   

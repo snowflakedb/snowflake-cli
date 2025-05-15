@@ -115,6 +115,8 @@ def test_cortex_complete_for_prompt_with_chosen_model(_mock_cortex_result, runne
                 "Is 5 more than 4? Please answer using one word without a period.",
                 "--model",
                 "reka-flash",
+                "--backend",
+                "sql",
             ]
         )
         assert_successful_result_message(result, expected_msg="Yes")
