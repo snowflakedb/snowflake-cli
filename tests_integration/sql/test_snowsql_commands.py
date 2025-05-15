@@ -1,5 +1,6 @@
 import pytest
 from typing import Optional
+from os import getenv
 
 
 @pytest.fixture
@@ -36,13 +37,20 @@ def test_queries_time_filters(runner, existing_query_id, use_iso_format):
     two_hours_ago = now - datetime.timedelta(hours=2)
     in_five_minutes = now + datetime.timedelta(minutes=5)
 
+    # wait for the query to execute
+    result = runner.invoke_with_connection(
+        ["sql", "-q", f"!result {existing_query_id}"]
+    )
+    assert result.exit_code == 0, result.output
+
     def _format_filter_no_prefix(time: datetime.datetime):
         if use_iso_format:
             return f"_date={time.isoformat()}"
-        return f"={time.timestamp() * 1000.0}"
+        return f"={int(time.timestamp() * 1000)}"
 
     def _query(start: Optional[datetime.datetime], end: Optional[datetime.datetime]):
-        result = "!queries"
+        user = getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_USER", "")
+        result = f"!queries user={user}"
         if start:
             result += f" start{_format_filter_no_prefix(start)}"
         if end:
@@ -50,14 +58,15 @@ def test_queries_time_filters(runner, existing_query_id, use_iso_format):
         return result
 
     for start, end, query_expected in [
-        (an_hour_ago, in_five_minutes, True),
-        (an_hour_ago, None, True),
         (in_five_minutes, None, False),
         (two_hours_ago, an_hour_ago, False),
+        (an_hour_ago, in_five_minutes, True),
+        (an_hour_ago, None, True),
     ]:
-        result = runner.invoke_with_connection(["sql", "-q", _query(start, end)])
+        result = runner.invoke_with_connection_json(["sql", "-q", _query(start, end)])
         assert result.exit_code == 0, result.output
-        assert query_expected == (existing_query_id in result.output)
+        query_ids = [row["QUERY ID"] for row in result.json]
+        assert query_expected == (existing_query_id in query_ids)
 
 
 @pytest.mark.integration
