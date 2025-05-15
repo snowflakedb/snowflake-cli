@@ -7872,11 +7872,13 @@
   |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --version           TEXT  Version of the project to use. If not specified    |
-  |                           default version is used                            |
-  | --variable  -D      TEXT  Variables for the execution context; for example:  |
-  |                           -D "<key>=<value>".                                |
-  | --help      -h            Show this message and exit.                        |
+  | --version                TEXT  Version of the project to use. If not         |
+  |                                specified default version is used             |
+  | --variable       -D      TEXT  Variables for the execution context; for      |
+  |                                example: -D "<key>=<value>".                  |
+  | --configuration          TEXT  Configuration of the project to use. If not   |
+  |                                specified default configuration is used.      |
+  | --help           -h            Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7999,11 +8001,13 @@
   |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --version           TEXT  Version of the project to use. If not specified    |
-  |                           default version is used                            |
-  | --variable  -D      TEXT  Variables for the execution context; for example:  |
-  |                           -D "<key>=<value>".                                |
-  | --help      -h            Show this message and exit.                        |
+  | --version                TEXT  Version of the project to use. If not         |
+  |                                specified default version is used             |
+  | --variable       -D      TEXT  Variables for the execution context; for      |
+  |                                example: -D "<key>=<value>".                  |
+  | --configuration          TEXT  Configuration of the project to use. If not   |
+  |                                specified default configuration is used.      |
+  | --help           -h            Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
