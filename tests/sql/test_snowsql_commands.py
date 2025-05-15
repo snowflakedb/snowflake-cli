@@ -119,8 +119,8 @@ def test_queries_from_args():
                 amount=3,
                 user="user",
                 warehouse="warehouse",
-                start_timestamp_ms=1234.0,
-                end_timestamp_ms=5678.0,
+                start_timestamp_ms=1234,
+                end_timestamp_ms=5678,
                 duration="200",
                 stmt_type="INSERT",
                 status="RUNNING",
@@ -137,7 +137,7 @@ def test_queries_from_args():
         },
     ) == CompileCommandResult(
         command=QueriesCommand(
-            start_timestamp_ms=1746403200000.0, end_timestamp_ms=1746403201000.0
+            start_timestamp_ms=1746403200000, end_timestamp_ms=1746403201000
         )
     )
 
@@ -248,8 +248,8 @@ def test_queries_execute(mock_print, mock_time, mock_ctx, current_session):
         amount=3,
         user="user",
         warehouse="warehouse",
-        start_timestamp_ms=2345.0,
-        end_timestamp_ms=6789.0,
+        start_timestamp_ms=2345,
+        end_timestamp_ms=6789,
         duration="200",
         stmt_type="INSERT",
         status="RUNNING",
@@ -257,7 +257,7 @@ def test_queries_execute(mock_print, mock_time, mock_ctx, current_session):
 
     expected_url = (
         "/monitoring/queries?_dc=mocked_time&includeDDL=false&max=3&user=user&wh=warehouse"
-        "&start=2345.0&end=6789.0&min_duration=200"
+        "&start=2345&end=6789&min_duration=200"
         f"{'&session_id=mocked_session_id' if current_session else ''}"
         "&subset=RUNNING&stmt_type=INSERT"
     )
