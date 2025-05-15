@@ -12,8 +12,8 @@
   |            | YYYY-MM-DDTHH:mm:ss.sss)                              |         |
   | end_date   | datetime in ISO format (for example                   | any     |
   |            | YYYY-MM-DDTHH:mm:ss.sss)                              |         |
-  | start      | timestamp in milliseconds                             | any     |
-  | end        | timestamp in milliseconds                             | any     |
+  | start      | timestamp in milliseconds (integer)                   | any     |
+  | end        | timestamp in milliseconds (integer)                   | any     |
   | type       | string                                                | any     |
   | duration   | time in milliseconds                                  | any     |
   | session    | No arguments                                          | any     |
