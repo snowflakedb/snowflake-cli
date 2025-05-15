@@ -114,7 +114,7 @@ def test_stage_copy_remote_to_local_quoted_stage_recursive(
 ):
     mock_execute.side_effect = [
         mock_cursor([{"name": '"stage name"/file'}], []),
-        mock_cursor([("file")], ["file"]),
+        mock_cursor(["file"], ["file"]),
     ]
     with TemporaryDirectory() as tmp_dir:
         result = runner.invoke(
@@ -191,7 +191,7 @@ def test_stage_copy_remote_to_local_quoted_uri_recursive(
 ):
     mock_execute.side_effect = [
         mock_cursor([{"name": "stageName/file.py"}], []),
-        mock_cursor([(raw_path)], ["file"]),
+        mock_cursor([raw_path], ["file"]),
     ]
     with TemporaryDirectory() as tmp_dir:
         tmp_dir = Path(tmp_dir).resolve()
@@ -516,8 +516,32 @@ def test_stage_create(mock_execute, runner, mock_cursor):
     result = runner.invoke(["stage", "create", "-c", "empty", "stageName"])
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        "create stage if not exists IDENTIFIER('stageName')"
+        "create stage if not exists IDENTIFIER('stageName') encryption = (type = 'SNOWFLAKE_FULL')"
     )
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_create_encryption(mock_execute, runner, mock_cursor):
+    mock_execute.return_value = mock_cursor(["row"], [])
+    for encryption in ["SNOWFLAKE_SSE", "SNOWFLAKE_FULL"]:
+        result = runner.invoke(
+            ["stage", "create", '"stage name"', "--encryption", encryption]
+        )
+        assert result.exit_code == 0, result.output
+        mock_execute.assert_called_once_with(
+            f"""create stage if not exists IDENTIFIER('"stage name"') encryption = (type = '{encryption}')"""
+        )
+        mock_execute.reset_mock()
+
+    result = runner.invoke(
+        ["stage", "create", '"stage name"', "--encryption", "incorrect_encryption"]
+    )
+    assert result.exit_code == 2, result.output
+    assert (
+        "Invalid value for '--encryption': 'incorrect_encryption' is not one of"
+        in result.output
+    )
+    assert "'SNOWFLAKE_FULL', 'SNOWFLAKE_SSE'." in result.output
 
 
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
@@ -526,7 +550,7 @@ def test_stage_create_quoted(mock_execute, runner, mock_cursor):
     result = runner.invoke(["stage", "create", "-c", "empty", '"stage name"'])
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        """create stage if not exists IDENTIFIER('"stage name"')"""
+        """create stage if not exists IDENTIFIER("stage name") encryption = (type = 'SNOWFLAKE_FULL')"""
     )
 
 
