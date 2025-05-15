@@ -18,6 +18,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+from unittest import result
 
 import pytest
 from snowflake.connector import DictCursor
@@ -819,3 +820,13 @@ def test_recursive_upload_no_recursive_glob_pattern(
             "target_size": 16,
         }
     ]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("encryption", ["SNOWFLAKE_FULL", "SNOWFLAKE_SSE"])
+def test_create_encryption(runner, test_database, encryption):
+    result = runner.invoke_with_connection_json(
+        ["stage", "create", "a_stage", "--encryption", encryption]
+    )
+    assert result.exit_code == 0, result.output
+    assert result.json == {"status": f"Stage area A_STAGE successfully created."}
