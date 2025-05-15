@@ -124,6 +124,12 @@ def test_create_corner_cases(
         _assert_project_has_versions(
             runner, project_name, expected_versions={("VERSION$1", None)}
         )
+        result = runner.invoke_with_connection(["project", "create", "--if-not-exists"])
+        assert result.exit_code == 0, result.output
+        assert f"Project '{project_name}' already exists." in result.output
+        _assert_project_has_versions(
+            runner, project_name, expected_versions={("VERSION$1", None)}
+        )
 
 
 @pytest.mark.integration

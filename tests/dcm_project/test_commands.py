@@ -38,6 +38,23 @@ def test_create(mock_om, mock_pm, runner, project_directory, no_version):
 
 
 @mock.patch(ProjectManager)
+@mock.patch(ObjectManager)
+@pytest.mark.parametrize("if_not_exists", [False, True])
+def test_create_object_exists(
+    mock_om, mock_pm, runner, project_directory, if_not_exists
+):
+    mock_om().object_exists.return_value = True
+    with project_directory("dcm_project"):
+        command = ["project", "create"]
+        if if_not_exists:
+            command.append("--if-not-exists")
+        result = runner.invoke(command)
+        assert result.exit_code == 0 if if_not_exists else 1, result.output
+        assert "Project 'my_project' already exists." in result.output
+        mock_pm().create.assert_not_called()
+
+
+@mock.patch(ProjectManager)
 @pytest.mark.parametrize(
     "prune,_from,expected_prune_value",
     [
