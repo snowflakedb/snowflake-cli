@@ -25,6 +25,7 @@ import time
 from collections import deque
 from contextlib import nullcontext
 from dataclasses import dataclass
+from enum import Enum
 from os import path
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -66,6 +67,11 @@ EXECUTE_SUPPORTED_FILES_FORMATS = (
 # Replace magic numbers with constants
 OMIT_FIRST = slice(1, None)
 STAGE_PATH_REGEX = rf"(?P<prefix>(@|{re.escape('snow://')}))?(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?P<name>{VALID_IDENTIFIER_REGEX})/?(?P<directory>([^/]*/?)*)?"
+
+
+class StageEncryption(Enum):
+    SNOWFLAKE_FULL = "SNOWFLAKE_FULL"
+    SNOWFLAKE_SSE = "SNOWFLAKE_SSE"
 
 
 @dataclass
@@ -515,10 +521,16 @@ class StageManager(SqlExecutionMixin):
             return self.execute_query(f"remove {stage_path.path_for_sql()}")
 
     def create(
-        self, fqn: FQN, comment: Optional[str] = None, temporary: bool = False
+        self,
+        fqn: FQN,
+        comment: Optional[str] = None,
+        temporary: bool = False,
+        encryption: StageEncryption | None = None,
     ) -> SnowflakeCursor:
         temporary_str = "temporary " if temporary else ""
         query = f"create {temporary_str}stage if not exists {fqn.sql_identifier}"
+        if encryption:
+            query += f" encryption = (type = '{encryption.value}')"
         if comment:
             query += f" comment='{comment}'"
         return self.execute_query(query)
