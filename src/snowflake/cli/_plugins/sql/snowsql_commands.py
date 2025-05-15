@@ -52,8 +52,8 @@ class QueriesCommand(SnowSQLCommand):
     amount: int = 25
     user: str | None = None
     warehouse: str | None = None
-    start_timestamp_ms: float | None = None
-    end_timestamp_ms: float | None = None
+    start_timestamp_ms: int | None = None
+    end_timestamp_ms: int | None = None
     duration: str | None = None
     stmt_type: str | None = None
     status: str | None = None
@@ -81,8 +81,8 @@ class QueriesCommand(SnowSQLCommand):
                 "datetime in ISO format (for example YYYY-MM-DDTHH:mm:ss.sss)",
                 "any",
             ],
-            ["start", "timestamp in milliseconds", "any"],
-            ["end", "timestamp in milliseconds", "any"],
+            ["start", "timestamp in milliseconds (integer)", "any"],
+            ["end", "timestamp in milliseconds (integer)", "any"],
             ["type", "string", "any"],
             ["duration", "time in milliseconds", "any"],
             ["session", "No arguments", "any"],
@@ -147,7 +147,7 @@ class QueriesCommand(SnowSQLCommand):
         start_timestamp_ms = kwargs.pop("start", None)
         if start_timestamp_ms:
             try:
-                start_timestamp_ms = float(start_timestamp_ms)
+                start_timestamp_ms = int(start_timestamp_ms)
             except ValueError:
                 return CompileCommandResult(
                     error_message=f"Invalid argument passed to 'start' filter: {start_timestamp_ms}"
@@ -155,7 +155,7 @@ class QueriesCommand(SnowSQLCommand):
         end_timestamp_ms = kwargs.pop("end", None)
         if end_timestamp_ms:
             try:
-                end_timestamp_ms = float(end_timestamp_ms)
+                end_timestamp_ms = int(end_timestamp_ms)
             except ValueError:
                 return CompileCommandResult(
                     error_message=f"Invalid argument passed to 'end' filter: {end_timestamp_ms}"
@@ -169,7 +169,7 @@ class QueriesCommand(SnowSQLCommand):
                 )
             try:
                 seconds = datetime.fromisoformat(start_date).timestamp()
-                start_timestamp_ms = seconds * 1000  # convert to milliseconds
+                start_timestamp_ms = int(seconds * 1000)  # convert to milliseconds
             except ValueError:
                 return CompileCommandResult(
                     error_message=f"Invalid date format passed to 'start_date' filter: {start_date}"
@@ -182,7 +182,7 @@ class QueriesCommand(SnowSQLCommand):
                 )
             try:
                 seconds = datetime.fromisoformat(end_date).timestamp()
-                end_timestamp_ms = seconds * 1000  # convert to milliseconds
+                end_timestamp_ms = int(seconds * 1000)  # convert to milliseconds
             except ValueError:
                 return CompileCommandResult(
                     error_message=f"Invalid date format passed to 'end_date' filter: {end_date}"
