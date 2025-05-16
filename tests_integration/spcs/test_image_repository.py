@@ -35,6 +35,7 @@ INTEGRATION_SCHEMA = "PUBLIC"
 INTEGRATION_REPOSITORY = "snowcli_repository"
 
 
+@pytest.mark.no_qa  # temporarily skipping the test on QA due to missing image on testing account
 @pytest.mark.integration
 def test_list_images_tags(runner):
     # test assumes the testing environment has been set up with /<DATABASE>/PUBLIC/snowcli_repository/snowpark_test_echo:1
