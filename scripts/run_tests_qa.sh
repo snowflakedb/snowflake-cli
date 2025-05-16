@@ -9,7 +9,11 @@ python -m pip install --upgrade pip hatch
 update-ca-certificates
 
 echo "Test cleanup"
+echo "prune"
+python -m hatch env prune
+echo "create env"
 python -m hatch env create integration
+echo "run cleanup script"
 python -m hatch run e2e:cleanup
 
 echo "Run test"
