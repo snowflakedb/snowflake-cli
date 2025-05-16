@@ -79,11 +79,10 @@ class DBTManager(SqlExecutionMixin):
         with cli_console.phase("Creating DBT project"):
             if force is True:
                 query = f"CREATE OR REPLACE DBT PROJECT {name}"
+            elif self.exists(name=name):
+                query = f"ALTER DBT PROJECT {name} ADD VERSION"
             else:
-                if self.exists(name=name):
-                    query = f"ALTER DBT PROJECT {name} ADD VERSION"
-                else:
-                    query = f"CREATE DBT PROJECT {name}"
+                query = f"CREATE DBT PROJECT {name}"
             query += f"\nFROM {stage_name}"
             return self.execute_query(query)
 
