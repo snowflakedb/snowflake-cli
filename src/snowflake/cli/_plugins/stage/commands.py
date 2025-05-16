@@ -29,7 +29,10 @@ from snowflake.cli._plugins.stage.diff import (
     DiffResult,
     compute_stage_diff,
 )
-from snowflake.cli._plugins.stage.manager import StageEncryption, StageManager
+from snowflake.cli._plugins.stage.manager import (
+    InternalStageEncryptionType,
+    StageManager,
+)
 from snowflake.cli._plugins.stage.utils import print_diff_to_console
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.common import OnErrorType
@@ -152,8 +155,8 @@ def copy(
 @app.command("create", requires_connection=True)
 def stage_create(
     stage_name: FQN = StageNameArgument,
-    encryption: StageEncryption = typer.Option(
-        StageEncryption.SNOWFLAKE_FULL.value,
+    encryption: InternalStageEncryptionType = typer.Option(
+        InternalStageEncryptionType.SNOWFLAKE_FULL.value,
         "--encryption",
         help="Type of encryption supported for all files stored on the stage.",
     ),

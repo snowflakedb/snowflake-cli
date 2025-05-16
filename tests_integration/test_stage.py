@@ -18,10 +18,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
-from unittest import result
-
 import pytest
-from snowflake.connector import DictCursor
 
 from tests.stage.test_stage import RecursiveUploadTester, NESTED_STRUCTURE
 from tests_integration.test_utils import (

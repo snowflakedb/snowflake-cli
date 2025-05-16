@@ -550,7 +550,7 @@ def test_stage_create_quoted(mock_execute, runner, mock_cursor):
     result = runner.invoke(["stage", "create", "-c", "empty", '"stage name"'])
     assert result.exit_code == 0, result.output
     mock_execute.assert_called_once_with(
-        """create stage if not exists IDENTIFIER("stage name") encryption = (type = 'SNOWFLAKE_FULL')"""
+        """create stage if not exists IDENTIFIER('"stage name"') encryption = (type = 'SNOWFLAKE_FULL')"""
     )
 
 

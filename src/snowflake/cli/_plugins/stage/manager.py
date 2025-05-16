@@ -69,7 +69,7 @@ OMIT_FIRST = slice(1, None)
 STAGE_PATH_REGEX = rf"(?P<prefix>(@|{re.escape('snow://')}))?(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?P<name>{VALID_IDENTIFIER_REGEX})/?(?P<directory>([^/]*/?)*)?"
 
 
-class StageEncryption(Enum):
+class InternalStageEncryptionType(Enum):
     SNOWFLAKE_FULL = "SNOWFLAKE_FULL"
     SNOWFLAKE_SSE = "SNOWFLAKE_SSE"
 
@@ -525,7 +525,7 @@ class StageManager(SqlExecutionMixin):
         fqn: FQN,
         comment: Optional[str] = None,
         temporary: bool = False,
-        encryption: StageEncryption | None = None,
+        encryption: InternalStageEncryptionType | None = None,
     ) -> SnowflakeCursor:
         temporary_str = "temporary " if temporary else ""
         query = f"create {temporary_str}stage if not exists {fqn.sql_identifier}"
