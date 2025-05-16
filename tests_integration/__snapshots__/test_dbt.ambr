@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_dbt
+# name: test_deploy_and_execute
   '''
   ╭─ Error ──────────────────────────────────────────────────────────────────────╮
   │ Found following errors in profiles.yml. Please fix them before proceeding:   │
