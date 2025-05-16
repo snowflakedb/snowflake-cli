@@ -153,6 +153,9 @@ test-spcs = [
 test_qa = [
   "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/test_streamlit_old.py",
 ]
+debug = [
+  "snow connection list"
+]
 
 [[tool.hatch.envs.local.matrix]]
 python = ["3.10", "3.11", "3.12"]

@@ -16,5 +16,8 @@ python -m hatch env create integration
 echo "run cleanup script"
 python -m hatch run e2e:cleanup
 
+echo "debug"
+python -m hatch run integration:debug
+
 echo "Run test"
 python -m hatch run integration:test_qa
