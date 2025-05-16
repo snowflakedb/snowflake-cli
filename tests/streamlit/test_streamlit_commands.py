@@ -361,7 +361,9 @@ class TestStreamlitCommands(StreamlitTestClass):
                 result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
         if enable_streamlit_versioned_stage:
-            post_create_command = f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') ADD LIVE VERSION FROM LAST;"
+            post_create_command = (
+                f"ALTER STREAMLIT {STREAMLIT_NAME} ADD LIVE VERSION FROM LAST;"
+            )
         else:
             if enable_streamlit_no_checkouts:
                 post_create_command = None
@@ -403,7 +405,9 @@ class TestStreamlitCommands(StreamlitTestClass):
                 result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
         if enable_streamlit_versioned_stage:
-            post_create_command = f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') ADD LIVE VERSION FROM LAST;"
+            post_create_command = (
+                f"ALTER STREAMLIT {STREAMLIT_NAME} ADD LIVE VERSION FROM LAST;"
+            )
         else:
             post_create_command = (
                 f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') CHECKOUT;"

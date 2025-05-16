@@ -168,12 +168,22 @@ class EntityBase(Generic[T]):
 
         return stage_collection.create(stage_object, mode=CreateMode.if_not_exists)
 
+    def _get_fqn(
+        self, schema: Optional[str] = None, database: Optional[str] = None
+    ) -> FQN:
+        schema_to_use = schema or self._entity_model.fqn.schema or self._conn.schema  # type: ignore
+        db_to_use = database or self._entity_model.fqn.database or self._conn.database  # type: ignore
+        return self._entity_model.fqn.set_schema(schema_to_use).set_database(db_to_use)  # type: ignore
+
+    def _get_sql_identifier(
+        self, schema: Optional[str] = None, database: Optional[str] = None
+    ) -> str:
+        return str(self._get_fqn(schema, database).sql_identifier)
+
     def _get_identifier(
         self, schema: Optional[str] = None, database: Optional[str] = None
     ) -> str:
-        schema_to_use = schema or self._entity_model.fqn.schema or self._conn.schema  # type: ignore
-        db_to_use = database or self._entity_model.fqn.database or self._conn.database  # type: ignore
-        return f"{self._entity_model.fqn.set_schema(schema_to_use).set_database(db_to_use).sql_identifier}"  # type: ignore
+        return str(self._get_fqn(schema, database).identifier)
 
     def _upload_files_to_stage(
         self,
