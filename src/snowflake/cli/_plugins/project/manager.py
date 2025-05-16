@@ -31,15 +31,20 @@ class ProjectManager(SqlExecutionMixin):
     def execute(
         self,
         project_name: FQN,
+        configuration: str | None = None,
         version: str | None = None,
         variables: List[str] | None = None,
         dry_run: bool = False,
     ):
         query = f"EXECUTE PROJECT {project_name.sql_identifier}"
+        if configuration or variables:
+            query += f" USING"
+        if configuration:
+            query += f" CONFIGURATION {configuration}"
         if variables:
             query += StageManager.parse_execute_variables(
                 parse_key_value_variables(variables)
-            )
+            ).removeprefix(" using")
         if version:
             query += f" WITH VERSION {version}"
         if dry_run:

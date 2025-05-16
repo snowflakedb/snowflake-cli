@@ -1,0 +1,10 @@
+manifest_version: 1
+include_definitions:
+  - file_a.sql
+configurations:
+  dev:
+    table_name_suffix: "dev"
+  test:
+    table_name_suffix: "test"
+  prod:
+    table_name_suffix: "prod"

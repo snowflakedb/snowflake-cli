@@ -1,0 +1,8 @@
+definition_version: 2
+entities:
+  my_project:
+    type: project
+    stage: "my_project_stage"
+    identifier: "project_descriptive_name"
+    artifacts:
+      - file_a.sql
