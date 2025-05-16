@@ -111,7 +111,7 @@ def test_execute_project(mock_execute_query):
 
     mock_execute_query.assert_called_once_with(
         query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
-        " using (key=>value, aaa=>bbb) WITH VERSION v42"
+        " (key=>value, aaa=>bbb) WITH VERSION v42"
     )
 
 

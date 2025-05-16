@@ -123,6 +123,7 @@ def test_execute_project(mock_pm, runner, project_directory):
         project_name=FQN.from_string("fooBar"),
         version=None,
         variables=None,
+        configuration=None,
     )
 
 
@@ -137,6 +138,7 @@ def test_execute_project_with_variables(mock_pm, runner, project_directory):
         project_name=FQN.from_string("fooBar"),
         version="v1",
         variables=["key=value"],
+        configuration=None,
     )
 
 
