@@ -17,6 +17,7 @@
 ## Backward incompatibility
 
 ## Deprecations
+* Snowpark processor in Native Apps.
 
 ## New additions
 * Added `--private-link` flag to `snow spcs image-registry url` command for retrieving private link URLs.
