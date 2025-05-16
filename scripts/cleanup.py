@@ -52,6 +52,18 @@ def remove_resources(single: str, plural: str, known_instances: t.List[str], rol
             remove_resource(resource_type=single, item=item, role=role)
 
 
+def _get_private_key_data() -> t.Dict[str, str | None]:
+    if private_key_raw := os.getenv(
+        "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW"
+    ):
+        return {"private_key_raw": private_key_raw}
+    return {
+        "private_key_file": os.getenv(
+            "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_FILE"
+        )
+    }
+
+
 if __name__ == "__main__":
     role = os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_ROLE", "INTEGRATION_TESTS")
     config = {
@@ -59,12 +71,10 @@ if __name__ == "__main__":
         "host": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST"),
         "account": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT"),
         "user": os.getenv("SNOWFLAKE_CONNECTIONS_INTEGRATION_USER"),
-        "private_key_raw": os.getenv(
-            "SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW"
-        ),
         "database": "SNOWCLI_DB",
         "schema": "public",
         "role": role,
+        **_get_private_key_data(),
     }
     config = {k: v for k, v in config.items() if v is not None}
     update_connection_details_with_private_key(config)
