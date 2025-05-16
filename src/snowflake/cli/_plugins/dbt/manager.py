@@ -61,11 +61,6 @@ class DBTManager(SqlExecutionMixin):
 
         self._validate_profiles(profiles_path, profile)
 
-        if self.exists(name=name) and force is not True:
-            raise CliError(
-                f"DBT project {name} already exists. Use --force flag to overwrite"
-            )
-
         with cli_console.phase("Creating temporary stage"):
             stage_manager = StageManager()
             stage_fqn = FQN.from_string(f"dbt_{name}_stage").using_context()
@@ -82,9 +77,13 @@ class DBTManager(SqlExecutionMixin):
             cli_console.step(f"Copied {result_count} files")
 
         with cli_console.phase("Creating DBT project"):
-            query = f"""{'CREATE OR REPLACE' if force is True else 'CREATE'} DBT PROJECT {name}
-FROM {stage_name}"""
-
+            if force is True:
+                query = f"CREATE OR REPLACE DBT PROJECT {name}"
+            elif self.exists(name=name):
+                query = f"ALTER DBT PROJECT {name} ADD VERSION"
+            else:
+                query = f"CREATE DBT PROJECT {name}"
+            query += f"\nFROM {stage_name}"
             return self.execute_query(query)
 
     @staticmethod
