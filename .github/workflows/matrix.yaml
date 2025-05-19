@@ -33,5 +33,5 @@ jobs:
             echo 'python=["3.10", "3.11", "3.12", "3.13"]' >> "$GITHUB_OUTPUT"
           else
             # Last supported and most frequently used
-            echo 'python=["3.13"]' >> "$GITHUB_OUTPUT"
+            echo 'python=["3.10"]' >> "$GITHUB_OUTPUT"
           fi
