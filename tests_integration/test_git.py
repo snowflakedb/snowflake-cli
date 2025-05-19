@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import sys
 import time
 
 import pytest
@@ -19,6 +18,7 @@ from snowflake.connector.errors import ProgrammingError
 from pathlib import Path
 import tempfile
 
+from tests_common import skip_snowpark_on_newest_python
 from tests_integration.test_utils import contains_row_with
 
 FILE_IN_REPO = "README.md"
@@ -290,7 +290,7 @@ def test_execute(runner, test_database, sf_git_this_repository, snapshot):
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(sys.version_info > (3, 12), reason="requires python3.12 or lower")
+@skip_snowpark_on_newest_python
 def test_execute_python(runner, test_database, sf_git_this_repository, snapshot):
     result = runner.invoke_with_connection_json(
         [
@@ -305,9 +305,7 @@ def test_execute_python(runner, test_database, sf_git_this_repository, snapshot)
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(
-    sys.version_info >= (3, 12), reason="Snowpark is not supported in Python >= 3.12"
-)
+@skip_snowpark_on_newest_python
 def test_git_execute_python_without_requirements(
     snowflake_session,
     runner,

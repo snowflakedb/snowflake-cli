@@ -90,7 +90,7 @@ exclude = ["/.github", "/.compat"]
 packages = ["src/snowflake"]
 
 [tool.hatch.envs.default]
-python = "3.10"
+python = "3.13"
 features = ["development"]
 
 [tool.hatch.envs.default.scripts]
@@ -103,7 +103,7 @@ test-cov = [
 legacy-pypi-build = [".compat/build_snowflake-cli-labs.sh"]
 
 [tool.hatch.envs.packaging]
-python = "3.10"
+python = "3.13"
 features = ["development", "packaging"]
 
 [tool.hatch.envs.packaging.scripts]
