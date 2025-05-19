@@ -778,6 +778,12 @@ class StageManager(SqlExecutionMixin):
         return [req.package_name for req in requirements]
 
     def _bootstrap_snowpark_execution_environment(self, stage_path: StagePath):
+        """Prepares Snowpark session for executing Python code remotely."""
+        if sys.version_info >= PYTHON_3_12:
+            raise ClickException(
+                f"Executing Python files is not supported in Python >= 3.12. Current version: {sys.version}"
+            )
+
         from snowflake.snowpark.functions import sproc
 
         self.snowpark_session.add_packages("snowflake-snowpark-python")

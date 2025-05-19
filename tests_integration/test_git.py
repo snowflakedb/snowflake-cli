@@ -290,6 +290,7 @@ def test_execute(runner, test_database, sf_git_this_repository, snapshot):
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="requires python3.12 or lower")
 def test_execute_python(runner, test_database, sf_git_this_repository, snapshot):
     result = runner.invoke_with_connection_json(
         [

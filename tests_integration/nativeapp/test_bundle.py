@@ -14,6 +14,7 @@
 
 import os
 import os.path
+import sys
 
 import pytest
 import yaml
@@ -344,6 +345,7 @@ def test_nativeapp_can_bundle_with_subdirs(
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="requires python3.12 or lower")
 def test_nativeapp_bundle_subdirs_dont_overwrite(
     runner, nativeapp_teardown, setup_v2_project_w_subdir_w_snowpark
 ):
