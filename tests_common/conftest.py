@@ -131,3 +131,10 @@ def alter_snowflake_yml():
             yaml.safe_dump(yml, fh)
 
     return _update
+
+
+SNOWPARK_HIGHEST_SUPPORTED_PYTHON_VERSION = (3, 12)
+skip_snowpark_on_newest_python = pytest.mark.skipif(
+    sys.version_info > SNOWPARK_HIGHEST_SUPPORTED_PYTHON_VERSION,
+    reason="requires python3.12 or lower",
+)

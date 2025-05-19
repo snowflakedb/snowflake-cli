@@ -24,7 +24,7 @@ import pytest
 from snowflake.cli import __about__
 from snowflake.cli.api.secure_path import SecurePath
 
-from tests_common import IS_WINDOWS
+from tests_common import IS_WINDOWS, SNOWPARK_HIGHEST_SUPPORTED_PYTHON_VERSION
 
 TEST_DIR = Path(__file__).parent
 
@@ -143,8 +143,8 @@ def _install_snowcli_with_external_plugin(
         / "multilingual_hello_command_group",
     )
 
-    # Required by snowpark example tests
-    _pip_install(python, "snowflake-snowpark-python[pandas]==1.25.0")
+    if sys.version_info <= SNOWPARK_HIGHEST_SUPPORTED_PYTHON_VERSION:
+        _pip_install(python, "snowflake-snowpark-python[pandas]==1.25.0")
 
 
 def _python_path(venv_path: Path) -> Path:

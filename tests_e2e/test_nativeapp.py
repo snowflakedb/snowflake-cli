@@ -19,6 +19,7 @@ from textwrap import dedent
 
 import pytest
 
+from tests_common import skip_snowpark_on_newest_python
 from tests_e2e.conftest import subprocess_check_output, subprocess_run
 
 
@@ -68,6 +69,7 @@ def assert_snapshot_match_with_query_result(output: str, snapshot) -> bool:
 
 
 @pytest.mark.e2e
+@skip_snowpark_on_newest_python
 def test_full_lifecycle_with_codegen(
     snowcli, test_root_path, project_directory, snapshot
 ):

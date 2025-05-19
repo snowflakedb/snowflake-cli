@@ -39,8 +39,8 @@ dependencies = [
   "rich==14.0.0",
   "setuptools==80.3.1",
   "snowflake-connector-python[secure-local-storage]==3.15.0",
-  'snowflake-snowpark-python>=1.15.0,<1.26.0;python_version < "3.12"',
-  'snowflake.core==1.4.0; python_version < "3.12"',
+  'snowflake-snowpark-python>=1.15.0,<1.26.0;python_version <= "3.12"',
+  "snowflake.core==1.4.0",
   "tomlkit==0.13.2",
   "typer==0.15.2",
   "urllib3>=1.24.3,<2.5",
@@ -90,7 +90,7 @@ exclude = ["/.github", "/.compat"]
 packages = ["src/snowflake"]
 
 [tool.hatch.envs.default]
-python = "3.10"
+python = "3.13"
 features = ["development"]
 
 [tool.hatch.envs.default.scripts]
@@ -103,7 +103,7 @@ test-cov = [
 legacy-pypi-build = [".compat/build_snowflake-cli-labs.sh"]
 
 [tool.hatch.envs.packaging]
-python = "3.10"
+python = "3.13"
 features = ["development", "packaging"]
 
 [tool.hatch.envs.packaging.scripts]
@@ -155,7 +155,7 @@ test_qa = [
 ]
 
 [[tool.hatch.envs.local.matrix]]
-python = ["3.10", "3.11", "3.12"]
+python = ["3.10", "3.11", "3.12", "3.13"]
 
 [tool.coverage.run]
 source = ["snowflake.cli"]
