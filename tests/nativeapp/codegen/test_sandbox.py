@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import subprocess
+import sys
 from pathlib import Path
 from unittest import mock
 
@@ -825,6 +826,7 @@ def test_execute_does_not_interpret_return_codes(
     assert not mock_which.called
 
 
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="requires python3.12 or lower")
 def test_sandbox_env_builder(temporary_directory):
     env_path = Path(temporary_directory) / "venv"
     builder = sandbox.SandboxEnvBuilder(env_path)

@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import sys
 import uuid
 from pathlib import Path
 from textwrap import dedent
@@ -68,6 +69,7 @@ def assert_snapshot_match_with_query_result(output: str, snapshot) -> bool:
 
 
 @pytest.mark.e2e
+@pytest.mark.skipif(sys.version_info > (3, 12), reason="requires python3.12 or lower")
 def test_full_lifecycle_with_codegen(
     snowcli, test_root_path, project_directory, snapshot
 ):
