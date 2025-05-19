@@ -143,8 +143,8 @@ def _install_snowcli_with_external_plugin(
         / "multilingual_hello_command_group",
     )
 
-    # Required by snowpark example tests
-    _pip_install(python, "snowflake-snowpark-python[pandas]==1.25.0")
+    if sys.version_info < (3, 13):
+        _pip_install(python, "snowflake-snowpark-python[pandas]==1.25.0")
 
 
 def _python_path(venv_path: Path) -> Path:
