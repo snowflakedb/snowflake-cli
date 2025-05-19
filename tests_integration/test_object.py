@@ -312,6 +312,7 @@ def test_create_error_database_not_exist(runner):
     assert "Database 'THIS_DB_DOES_NOT_EXIST' does not exist." in result.output
 
 
+@pytest.skip(reason="SNOW-2110515")
 @pytest.mark.integration
 def test_create_error_schema_not_exist(runner, test_database):
     # schema does not exist
