@@ -74,7 +74,7 @@ class RestApi:
         Executes rest request via snowflake.connector.network.SnowflakeRestful
         """
         # SnowflakeRestful.request assumes that API response is always a dict,
-        # which is not true in case of this API, so we need to do thisnow s workaround:
+        # which is not true in case of this API, so we need to do this workaround:
         from snowflake.connector.network import (
             CONTENT_TYPE_APPLICATION_JSON,
             HTTP_HEADER_ACCEPT,
