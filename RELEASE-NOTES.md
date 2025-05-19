@@ -24,6 +24,7 @@
 
 ## Fixes and improvements
 * Upgrade message is printed to stderr.
+* Fixed `snowflake.core` import issue on newer Python versions
 
 # v3.8.0
 
