@@ -23,6 +23,7 @@
 * Added `--encryption` flag to `snow stage create` command defining the type of encryption for all files on the stage.
 
 ## Fixes and improvements
+* Upgrade message is printed to stderr.
 
 # v3.8.0
 

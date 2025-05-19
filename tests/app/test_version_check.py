@@ -2,66 +2,65 @@ from io import BytesIO
 from itertools import cycle
 from unittest.mock import patch
 
+import pytest
 from packaging.version import Version
 from requests import Response
 from snowflake.cli._app.version_check import _VersionCache, get_new_version_msg
 from snowflake.cli.api.secure_path import SecurePath
 
-
-@patch("snowflake.cli._app.version_check.VERSION", "1.0.0")
-@patch(
+_WARNING_MESSAGE = (
+    "New version of Snowflake CLI available. Newest: 2.0.0, current: 1.0.0"
+)
+_PATCH_VERSION = ["snowflake.cli._app.version_check.VERSION", "1.0.0"]
+_PATCH_LAST_VERSION = [
     "snowflake.cli._app.version_check._VersionCache.get_last_version",
     lambda _: Version("2.0.0"),
-)
-def test_banner_shows_up_in_help(build_runner):
-    runner = build_runner()
-    result = runner.invoke(["--help"])
-    msg = "New version of Snowflake CLI available. Newest: 2.0.0, current: 1.0.0"
-    assert msg in result.output
+]
 
 
-@patch("snowflake.cli._app.version_check.VERSION", "1.0.0")
-@patch(
-    "snowflake.cli._app.version_check._VersionCache.get_last_version",
-    lambda _: Version("2.0.0"),
-)
-def test_banner_shows_up_in_command_invocation(build_runner):
-    runner = build_runner()
-    result = runner.invoke(["connection", "set-default", "default"])
-    msg = "New version of Snowflake CLI available. Newest: 2.0.0, current: 1.0.0"
-    assert msg in result.output
+@pytest.fixture
+def warning_is_thrown():
+    with pytest.warns(UserWarning, match=_WARNING_MESSAGE):
+        yield
 
 
-@patch("snowflake.cli._app.version_check.VERSION", "1.0.0")
-@patch(
-    "snowflake.cli._app.version_check._VersionCache.get_last_version",
-    lambda _: Version("2.0.0"),
-)
-def test_banner_do_not_shows_up_if_silent(build_runner):
-    runner = build_runner()
-    result = runner.invoke(["connection", "set-default", "default", "--silent"])
-    msg = "New version of Snowflake CLI available. Newest: 2.0.0, current: 1.0.0"
-    assert msg not in result.output
+@pytest.fixture
+def warning_is_not_thrown():
+    with pytest.warns() as recorded_warnings:
+        yield
+    for warning in recorded_warnings:
+        assert _WARNING_MESSAGE not in str(warning.message)
+
+
+@patch(*_PATCH_VERSION)
+@patch(*_PATCH_LAST_VERSION)  # type: ignore
+def test_banner_shows_up_in_help(build_runner, warning_is_thrown):
+    build_runner().invoke(["--help"])
+
+
+@patch(*_PATCH_VERSION)
+@patch(*_PATCH_LAST_VERSION)  # type: ignore
+def test_banner_shows_up_in_command_invocation(build_runner, warning_is_thrown):
+    build_runner().invoke(["connection", "set-default", "default"])
+
+
+@patch(*_PATCH_VERSION)
+@patch(*_PATCH_LAST_VERSION)  # type: ignore
+def test_banner_do_not_shows_up_if_silent(build_runner, warning_is_not_thrown):
+    build_runner().invoke(["connection", "set-default", "default", "--silent"])
 
 
 @patch("snowflake.cli._app.version_check._VersionCache._read_latest_version")
 def test_version_check_exception_are_handled_safely(
-    mock_read_latest_version, build_runner
+    mock_read_latest_version, build_runner, warning_is_not_thrown
 ):
     mock_read_latest_version.side_effect = Exception("Error")
-    runner = build_runner()
-    result = runner.invoke(["connection", "set-default", "default"])
-
-    msg = "New version of Snowflake CLI available. Newest: 2.0.0, current: 1.0.0"
+    result = build_runner().invoke(["connection", "set-default", "default"])
     assert result.exit_code == 0
-    assert msg not in result.output
 
 
-@patch("snowflake.cli._app.version_check.VERSION", "1.0.0")
-@patch(
-    "snowflake.cli._app.version_check._VersionCache.get_last_version",
-    lambda _: Version("2.0.0"),
-)
+@patch(*_PATCH_VERSION)
+@patch(*_PATCH_LAST_VERSION)  # type: ignore
 def test_get_new_version_msg_message_if_new_version_available():
     msg = get_new_version_msg()
     assert (
@@ -70,7 +69,7 @@ def test_get_new_version_msg_message_if_new_version_available():
     )
 
 
-@patch("snowflake.cli._app.version_check.VERSION", "1.0.0")
+@patch(*_PATCH_VERSION)
 @patch(
     "snowflake.cli._app.version_check._VersionCache.get_last_version", lambda _: None
 )
@@ -79,10 +78,7 @@ def test_get_new_version_msg_does_not_show_message_if_no_new_version():
 
 
 @patch("snowflake.cli._app.version_check.VERSION", "3.0.0")
-@patch(
-    "snowflake.cli._app.version_check._VersionCache.get_last_version",
-    lambda _: Version("2.0.0"),
-)
+@patch(*_PATCH_LAST_VERSION)  # type: ignore
 def test_new_version_banner_does_not_show_message_if_local_version_is_newer():
     assert get_new_version_msg() is None
 
