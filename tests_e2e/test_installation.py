@@ -11,21 +11,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from pathlib import Path
 
 import pytest
 
+from tests_common import skip_snowpark_on_newest_python
 from tests_e2e.conftest import subprocess_check_output, subprocess_run
 
 
 @pytest.mark.e2e
+@skip_snowpark_on_newest_python
 def test_snow_help(snowcli, snapshot):
     output = subprocess_check_output([snowcli, "--help"])
     snapshot.assert_match(output)
 
 
 @pytest.mark.e2e
+@skip_snowpark_on_newest_python
 def test_snow_sql(snowcli, test_root_path, snapshot):
     output = subprocess_check_output(
         [

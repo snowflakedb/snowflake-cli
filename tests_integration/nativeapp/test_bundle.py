@@ -15,11 +15,11 @@
 import os
 import os.path
 
-import pytest
 import yaml
 from shlex import split
 
 from tests.project.fixtures import *
+from tests_common import skip_snowpark_on_newest_python
 from tests_integration.testing_utils import (
     assert_that_result_failed_with_message_containing,
 )
@@ -344,6 +344,7 @@ def test_nativeapp_can_bundle_with_subdirs(
 
 
 @pytest.mark.integration
+@skip_snowpark_on_newest_python
 def test_nativeapp_bundle_subdirs_dont_overwrite(
     runner, nativeapp_teardown, setup_v2_project_w_subdir_w_snowpark
 ):
