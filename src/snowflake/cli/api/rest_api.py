@@ -74,7 +74,7 @@ class RestApi:
         Executes rest request via snowflake.connector.network.SnowflakeRestful
         """
         # SnowflakeRestful.request assumes that API response is always a dict,
-        # which is not true in case of this API, so we need to do this workaround:
+        # which is not true in case of this API, so we need to do thisnow s workaround:
         from snowflake.connector.network import (
             CONTENT_TYPE_APPLICATION_JSON,
             HTTP_HEADER_ACCEPT,
@@ -155,8 +155,9 @@ class RestApi:
             raise SchemaNotDefinedException(
                 "Schema not defined in connection. Please try again with `--schema` flag."
             )
-        if not self._schema_exists(db_name=db, schema_name=schema):
-            raise SchemaNotExistsException(f"Schema '{schema}' does not exist.")
+        # temporarily skip schema existence check due to server-side issue (SNOW-2110515)
+        # if not self._schema_exists(db_name=db, schema_name=schema):
+        #     raise SchemaNotExistsException(f"Schema '{schema}' does not exist.")
         if self.get_endpoint_exists(
             url := f"{SF_REST_API_URL_PREFIX}/databases/{self.conn.database}/schemas/{self.conn.schema}/{plural_object_type}/"
         ):
