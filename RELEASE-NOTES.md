@@ -30,6 +30,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Upgrade message is printed to stderr.
 
 # v3.8.0
 

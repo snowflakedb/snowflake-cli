@@ -1,10 +1,11 @@
 import json
 import time
+from warnings import warn
 
 import requests
 from packaging.version import Version
 from snowflake.cli.__about__ import VERSION
-from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
@@ -21,8 +22,8 @@ def get_new_version_msg() -> str | None:
 
 def show_new_version_banner_callback(msg):
     def _callback(*args, **kwargs):
-        if msg:
-            cli_console.message(msg)
+        if msg and not get_cli_context().silent:
+            warn(msg)
 
     return _callback
 
