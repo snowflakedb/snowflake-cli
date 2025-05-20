@@ -8,9 +8,7 @@ python -m hatch env create integration
 python -m hatch run e2e:cleanup
 
 echo ">>> DEBUG <<<"
-export SNOWFLAKE_CONNECTIONS_INTEGRATION_ROLE=accountadmin
 python -m hatch run integration:debug
-export SNOWFLAKE_CONNECTIONS_INTEGRATION_ROLE=integration_tests
 
 echo "Run test"
 python -m hatch run integration:test_qa
