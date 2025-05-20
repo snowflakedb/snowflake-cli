@@ -156,7 +156,7 @@ test_qa = [
 debug = [
    """
    snow --config-file tests_integration/config/connection_configs.toml connection test -c integration;
-   snow --config-file tests_integration/config/connection_configs.toml sql -q 'select current_organization_name() -c integration'
+   snow --config-file tests_integration/config/connection_configs.toml sql -q 'select current_organization_name()' -c integration
    """
 ]
 
