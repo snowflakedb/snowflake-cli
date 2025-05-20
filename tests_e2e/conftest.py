@@ -22,9 +22,10 @@ from typing import Optional
 
 import pytest
 from snowflake.cli import __about__
+from snowflake.cli.api.constants import PYTHON_3_12
 from snowflake.cli.api.secure_path import SecurePath
 
-from tests_common import IS_WINDOWS, SNOWPARK_HIGHEST_SUPPORTED_PYTHON_VERSION
+from tests_common import IS_WINDOWS
 
 TEST_DIR = Path(__file__).parent
 
@@ -143,7 +144,7 @@ def _install_snowcli_with_external_plugin(
         / "multilingual_hello_command_group",
     )
 
-    if sys.version_info <= SNOWPARK_HIGHEST_SUPPORTED_PYTHON_VERSION:
+    if sys.version_info < PYTHON_3_12:
         _pip_install(python, "snowflake-snowpark-python[pandas]==1.25.0")
 
 
