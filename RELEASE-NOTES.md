@@ -23,8 +23,18 @@
 * Added `--encryption` flag to `snow stage create` command defining the type of encryption for all files on the stage.
 
 ## Fixes and improvements
+
+
+# v3.8.1
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
 * Upgrade message is printed to stderr.
 * Fixed `snowflake.core` import issue on newer Python versions
+
 
 # v3.8.0
 
@@ -44,6 +54,17 @@
 * Fix escaping identifiers for `use` commands.
 * Move `enable_release_channels` from global feature flag to project level.
 * Fixed `snow spcs service metrics` command to accept fully qualified service names.
+
+
+# v3.7.2
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+* Fix error appearing on help messages after click BCR update.
+
 
 # v3.7.1
 
