@@ -151,7 +151,13 @@ test-spcs = [
   "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/spcs",
 ]
 test_qa = [
-  "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/test_snowpark.py",
+  "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/test_snowpark.py::test_snowpark_flow",
+]
+debug = [
+   """
+   snow --config-file tests_integration/config/connection_configs.toml connection test -c integration;
+   snow --config-file tests_integration/config/connection_configs.toml object list role
+   """
 ]
 
 [[tool.hatch.envs.local.matrix]]
