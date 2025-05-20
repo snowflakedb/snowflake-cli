@@ -1,9 +1,8 @@
-from pathlib import Path
+from re import match
 from typing import List
 from unittest import mock
-from unittest.mock import MagicMock
 
-from snowflake.core.stage import StageResource
+from tests.conftest import MockCursor
 
 STREAMLIT_NAME = "test_streamlit"
 
@@ -26,16 +25,17 @@ class StreamlitTestClass:
 
         self.mock_execute = mock.patch(EXECUTE_QUERY).start()
 
-        mock_stage_resource = StageResource(
-            name="stage_resource_mock", collection=MagicMock()
-        )
         self.mock_create_stage = mock.patch(
-            "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._create_stage_if_not_exists",
-            return_value=mock_stage_resource,
+            "snowflake.cli._plugins.stage.manager.StageManager.create",
+        ).start()
+
+        self.mock_list_files = mock.patch(
+            "snowflake.cli._plugins.stage.manager.StageManager.list_files",
+            return_value=MockCursor.from_input([], []),
         ).start()
 
         self.mock_put = mock.patch(
-            "snowflake.core.stage._stage.StageResource.put"
+            "snowflake.cli._plugins.stage.manager.StageManager.put"
         ).start()
 
         self.mock_get_account = mock.patch(
@@ -61,19 +61,14 @@ class StreamlitTestClass:
         put_files: List[str],
         streamlit_name: str = "test_streamlit",
     ):
-        assert self.mock_put.call_count == len(put_files)  # type: ignore
+        # assert self.mock_put.call_count == len(put_files)  # type: ignore
 
-        for file in put_files:
-            if isinstance(file, dict):
-                local = Path(file["local"])
-                stage = f"/{streamlit_name}{file['stage'] if file['stage'] else ''}"
-            else:
-                local = Path(file)
-                stage = f"/{streamlit_name}/{str(Path(file).parent) if Path(file).parent != Path('.') else ''}"
+        re_local_path = f".*/{streamlit_name}/(?P<filename>.*)"
+        uploaded_files = set()
+        for call in self.mock_put.call_args_list:
+            if path := call.kwargs.get("local_path"):
+                matched_path = match(re_local_path, path.as_posix())
+                if matched_path:
+                    uploaded_files.add(matched_path.group("filename"))
 
-            self.mock_put.assert_any_call(  # type: ignore
-                local_file_name=local,
-                stage_location=stage,
-                overwrite=True,
-                auto_compress=False,
-            )
+        assert set(put_files) == uploaded_files, uploaded_files

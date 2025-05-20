@@ -334,39 +334,41 @@ class MockConnectionCtx(mock.MagicMock):
         return self.execute_string(query.read(), **kwargs)
 
 
+class MockResultMetadata(NamedTuple):
+    name: str
+
+
+class MockCursor(SnowflakeCursor):
+    def __init__(self, rows: List[Union[tuple, dict]], columns: List[str]):
+        super().__init__(mock.Mock())
+        self._rows = rows
+        self._columns = [MockResultMetadata(c) for c in columns]
+        self.query = "SELECT A MOCK QUERY"
+
+    def fetchone(self):
+        if self._rows:
+            return self._rows.pop(0)
+        return None
+
+    def fetchall(self):
+        return self._rows
+
+    @property
+    def rowcount(self):
+        return len(self._rows)
+
+    @property
+    def description(self):
+        yield from self._columns
+
+    @classmethod
+    def from_input(cls, rows, columns):
+        return cls(rows, columns)
+
+
 @pytest.fixture
 def mock_cursor():
-    class MockResultMetadata(NamedTuple):
-        name: str
-
-    class _MockCursor(SnowflakeCursor):
-        def __init__(self, rows: List[Union[tuple, dict]], columns: List[str]):
-            super().__init__(mock.Mock())
-            self._rows = rows
-            self._columns = [MockResultMetadata(c) for c in columns]
-            self.query = "SELECT A MOCK QUERY"
-
-        def fetchone(self):
-            if self._rows:
-                return self._rows.pop(0)
-            return None
-
-        def fetchall(self):
-            return self._rows
-
-        @property
-        def rowcount(self):
-            return len(self._rows)
-
-        @property
-        def description(self):
-            yield from self._columns
-
-        @classmethod
-        def from_input(cls, rows, columns):
-            return cls(rows, columns)
-
-    return _MockCursor.from_input
+    return MockCursor.from_input
 
 
 @pytest.fixture
@@ -512,12 +514,15 @@ def native_app_project_instance():
 
 @pytest.fixture
 def enable_snowpark_glob_support_feature_flag():
-    with mock.patch(
-        f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled",
-        return_value=True,
-    ), mock.patch(
-        f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_disabled",
-        return_value=False,
+    with (
+        mock.patch(
+            f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_enabled",
+            return_value=True,
+        ),
+        mock.patch(
+            f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_SNOWPARK_GLOB_SUPPORT.is_disabled",
+            return_value=False,
+        ),
     ):
         yield
 

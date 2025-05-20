@@ -19,15 +19,24 @@ ALL_PATHS = [
     },
 ]
 
+ALL_BUNDLED_PATHS = [
+    "src/dir/dir_app.py",
+    "src/app.py",
+]
+
 
 class TestArtifacts(StreamlitTestClass):
     @pytest.mark.parametrize(
-        "artifacts, paths",
+        "artifacts, paths, bundled_paths",
         [
-            ("src", ALL_PATHS),
-            ("src/", ALL_PATHS),
-            ("src/*", ALL_PATHS),
-            ("src/*.py", [{"local": Path("src") / "app.py", "stage": "/src"}]),
+            ("src", ALL_PATHS, ALL_BUNDLED_PATHS),
+            ("src/", ALL_PATHS, ALL_BUNDLED_PATHS),
+            ("src/*", ALL_PATHS, ALL_BUNDLED_PATHS),
+            (
+                "src/*.py",
+                [{"local": Path("src") / "app.py", "stage": "/src"}],
+                ["src/app.py"],
+            ),
             (
                 "src/dir/dir_app.py",
                 [
@@ -36,6 +45,7 @@ class TestArtifacts(StreamlitTestClass):
                         "stage": "/src/dir",
                     }
                 ],
+                ["src/dir/dir_app.py"],
             ),
             (
                 {"src": "src/**/*", "dest": "source/"},
@@ -50,6 +60,11 @@ class TestArtifacts(StreamlitTestClass):
                         "stage": "/source/dir",
                     },
                 ],
+                [
+                    "source/dir_app.py",
+                    "source/app.py",
+                    "source/dir/dir_app.py",
+                ],
             ),
             (
                 {"src": "src", "dest": "source/"},
@@ -62,6 +77,10 @@ class TestArtifacts(StreamlitTestClass):
                         "local": Path("src") / "dir" / "dir_app.py",
                         "stage": "/source/src/dir",
                     },
+                ],
+                [
+                    "source/src/app.py",
+                    "source/src/dir/dir_app.py",
                 ],
             ),
             (
@@ -76,6 +95,44 @@ class TestArtifacts(StreamlitTestClass):
                         "stage": "/source/src/dir",
                     },
                 ],
+                [
+                    "source/src/app.py",
+                    "source/src/dir/dir_app.py",
+                ],
+            ),
+            (
+                {"src": "src", "dest": "source/"},
+                [
+                    {
+                        "local": Path("src") / "app.py",
+                        "stage": "/source/src",
+                    },
+                    {
+                        "local": Path("src") / "dir" / "dir_app.py",
+                        "stage": "/source/src/dir",
+                    },
+                ],
+                [
+                    "source/src/app.py",
+                    "source/src/dir/dir_app.py",
+                ],
+            ),
+            (
+                {"src": "src/", "dest": "source/"},
+                [
+                    {
+                        "local": Path("src") / "app.py",
+                        "stage": "/source/src",
+                    },
+                    {
+                        "local": Path("src") / "dir" / "dir_app.py",
+                        "stage": "/source/src/dir",
+                    },
+                ],
+                [
+                    "source/src/app.py",
+                    "source/src/dir/dir_app.py",
+                ],
             ),
             (
                 {"src": "src/*", "dest": "source/"},
@@ -86,6 +143,7 @@ class TestArtifacts(StreamlitTestClass):
                         "stage": "/source/dir",
                     },
                 ],
+                ["source/dir/dir_app.py", "source/app.py"],
             ),
             (
                 {"src": "src/dir/dir_app.py", "dest": "source/dir/apps/"},
@@ -95,6 +153,7 @@ class TestArtifacts(StreamlitTestClass):
                         "stage": "/source/dir/apps",
                     }
                 ],
+                ["source/dir/apps/dir_app.py"],
             ),
         ],
     )
@@ -102,6 +161,7 @@ class TestArtifacts(StreamlitTestClass):
         self,
         artifacts,
         paths,
+        bundled_paths,
         project_directory,
         alter_snowflake_yml,
         runner,
@@ -128,16 +188,20 @@ class TestArtifacts(StreamlitTestClass):
             assert result.exit_code == 0, result.output
 
             self._assert_that_exactly_those_files_were_put_to_stage(
-                STREAMLIT_FILES + paths, streamlit_name="test_streamlit_deploy_snowcli"
+                STREAMLIT_FILES + bundled_paths, streamlit_name="my_streamlit"
             )
 
     @pytest.mark.parametrize(
-        "artifacts, paths",
+        "artifacts, paths, bundle_paths",
         [
-            ("src", ALL_PATHS),
-            ("src/", ALL_PATHS),
-            ("src/*", ALL_PATHS),
-            ("src/*.py", [{"local": Path("src") / "app.py", "stage": "/src"}]),
+            ("src", ALL_PATHS, ALL_BUNDLED_PATHS),
+            ("src/", ALL_PATHS, ALL_BUNDLED_PATHS),
+            ("src/*", ALL_PATHS, ALL_BUNDLED_PATHS),
+            (
+                "src/*.py",
+                [{"local": Path("src") / "app.py", "stage": "/src"}],
+                ["src/app.py"],
+            ),
             (
                 {"src": "src/**/*", "dest": "source/"},
                 [
@@ -151,6 +215,7 @@ class TestArtifacts(StreamlitTestClass):
                         "stage": "/source/dir",
                     },
                 ],
+                ["source/dir/dir_app.py", "source/app.py", "source/dir_app.py"],
             ),
             (
                 {"src": "src/", "dest": "source/"},
@@ -161,6 +226,7 @@ class TestArtifacts(StreamlitTestClass):
                         "stage": "/source/src/dir",
                     },
                 ],
+                ["source/src/app.py", "source/src/dir/dir_app.py"],
             ),
             (
                 {"src": "src/dir/dir_app.py", "dest": "source/dir/apps/"},
@@ -170,6 +236,7 @@ class TestArtifacts(StreamlitTestClass):
                         "stage": "/source/dir/apps",
                     }
                 ],
+                ["source/dir/apps/dir_app.py"],
             ),
         ],
     )
@@ -177,6 +244,7 @@ class TestArtifacts(StreamlitTestClass):
         self,
         artifacts,
         paths,
+        bundle_paths,
         runner,
         project_directory,
         alter_snowflake_yml,
@@ -197,6 +265,6 @@ class TestArtifacts(StreamlitTestClass):
             assert result.exit_code == 0, result.output
 
             self._assert_that_exactly_those_files_were_put_to_stage(
-                put_files=STREAMLIT_FILES + paths,
-                streamlit_name="test_streamlit_deploy_snowcli",
+                put_files=STREAMLIT_FILES + bundle_paths,
+                streamlit_name="my_streamlit",
             )
