@@ -4,18 +4,13 @@ from pathlib import Path
 from typing import Generic, List, Optional, Type, TypeVar, get_args
 
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
-from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.cli_global_context import get_cli_context, span
 from snowflake.cli.api.entities.resolver import Dependency, DependencyResolver
 from snowflake.cli.api.entities.utils import EntityActions, get_sql_executor
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutor
-from snowflake.cli.api.utils.path_utils import change_directory
-from snowflake.cli.api.utils.python_api_utils import StageEncryptionType
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import SnowflakeCursor
-from snowflake.core import CreateMode
-from snowflake.core.stage import Stage, StageEncryption, StageResource
 
 T = TypeVar("T")
 
@@ -130,13 +125,6 @@ class EntityBase(Generic[T]):
         return root
 
     @property
-    def stage_object(self) -> "StageResource":
-        if self._stage_object is None:
-            self._stage_object = self._create_stage_if_not_exists()
-
-        return self._stage_object
-
-    @property
     def model(self) -> T:
         return self._entity_model
 
@@ -152,52 +140,12 @@ class EntityBase(Generic[T]):
     def get_drop_sql(self) -> str:
         return f"DROP {self.model.type.upper()} {self.identifier};"  # type: ignore[attr-defined]
 
-    def _create_stage_if_not_exists(
-        self, stage_name: Optional[str] = None
-    ) -> StageResource:
-        if stage_name is None:
-            stage_name = self.model.stage  # type: ignore[attr-defined]
-
-        stage_collection = (
-            self.snow_api_root.databases[self.database].schemas[self.schema].stages  # type: ignore[attr-defined]
-        )
-        stage_object = Stage(
-            name=stage_name,
-            encryption=StageEncryption(type=StageEncryptionType.SNOWFLAKE_SSE.value),
-        )
-
-        return stage_collection.create(stage_object, mode=CreateMode.if_not_exists)
-
     def _get_identifier(
         self, schema: Optional[str] = None, database: Optional[str] = None
     ) -> str:
         schema_to_use = schema or self._entity_model.fqn.schema or self._conn.schema  # type: ignore
         db_to_use = database or self._entity_model.fqn.database or self._conn.database  # type: ignore
         return f"{self._entity_model.fqn.set_schema(schema_to_use).set_database(db_to_use).sql_identifier}"  # type: ignore
-
-    def _upload_files_to_stage(
-        self,
-        stage: StageResource,
-        bundle_map: BundleMap,
-        stage_root: Optional[str] = None,
-    ) -> None:
-        with change_directory(self.root):
-            for src, dest in bundle_map.all_mappings(
-                absolute=True, expand_directories=True
-            ):
-                if src.is_file():
-                    upload_dst = (
-                        f"{stage_root}/{dest.relative_to(self.root)}"
-                        if stage_root
-                        else f"/{self.fqn.name}/{get_parent_path_for_stage_deployment(dest.relative_to(bundle_map.deploy_root()))}"
-                    )
-
-                    stage.put(
-                        local_file_name=src.relative_to(self.root),
-                        stage_location=upload_dst,
-                        overwrite=True,
-                        auto_compress=False,
-                    )
 
     def get_from_fqn_or_conn(self, attribute_name: str) -> str:
         attribute = getattr(self.fqn, attribute_name, None) or getattr(

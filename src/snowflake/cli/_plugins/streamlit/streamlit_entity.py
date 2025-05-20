@@ -99,9 +99,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 f"Streamlit {self.model.fqn.sql_identifier} already exists. Use 'replace' option to overwrite."
             )
 
-        console.step(f"Creating stage {self.model.stage} if not exists")
-        stage = self._create_stage_if_not_exists()
-
         if (
             experimental
             or GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled()
@@ -120,18 +117,15 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             stage_root = StageManager.get_standard_stage_prefix(
                 f"{FQN.from_string(self.model.stage).using_connection(self._conn)}/{name}"
             )
-            if prune:
-                sync_deploy_root_with_stage(
-                    console=self._workspace_ctx.console,
-                    deploy_root=bundle_map.deploy_root(),
-                    bundle_map=bundle_map,
-                    prune=prune,
-                    recursive=True,
-                    stage_path=StageManager().stage_path_parts_from_str(stage_root),
-                    print_diff=True,
-                )
-            else:
-                self._upload_files_to_stage(stage, bundle_map, None)
+            sync_deploy_root_with_stage(
+                console=self._workspace_ctx.console,
+                deploy_root=bundle_map.deploy_root(),
+                bundle_map=bundle_map,
+                prune=prune,
+                recursive=True,
+                stage_path=StageManager().stage_path_parts_from_str(stage_root),
+                print_diff=True,
+            )
 
             console.step(f"Creating Streamlit object {self.model.fqn.sql_identifier}")
 
@@ -266,17 +260,12 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         else:
             stage_root = f"{embeded_stage_name}/default_checkout"
 
-        stage_resource = self._create_stage_if_not_exists(embeded_stage_name)
-
-        if prune:
-            sync_deploy_root_with_stage(
-                console=self._workspace_ctx.console,
-                deploy_root=bundle_map.deploy_root(),
-                bundle_map=bundle_map,
-                prune=prune,
-                recursive=True,
-                stage_path=StageManager().stage_path_parts_from_str(stage_root),
-                print_diff=True,
-            )
-        else:
-            self._upload_files_to_stage(stage_resource, bundle_map)
+        sync_deploy_root_with_stage(
+            console=self._workspace_ctx.console,
+            deploy_root=bundle_map.deploy_root(),
+            bundle_map=bundle_map,
+            prune=prune,
+            recursive=True,
+            stage_path=StageManager().stage_path_parts_from_str(stage_root),
+            print_diff=True,
+        )
