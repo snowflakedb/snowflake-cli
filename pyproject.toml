@@ -151,7 +151,10 @@ test-spcs = [
   "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/spcs",
 ]
 test_qa = [
-  "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/",
+  "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/test_streamlit_old.py",
+]
+debug = [
+  "pip install pipdeptree; pipdeptree; snow --config-file tests_integration/config/connection_configs.toml connection test -c integration"
 ]
 
 [[tool.hatch.envs.local.matrix]]
