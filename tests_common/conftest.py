@@ -28,6 +28,7 @@ from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import StreamlitEntityModel
 from snowflake.cli._plugins.workspace.context import WorkspaceContext, ActionContext
 from snowflake.cli.api.console.abc import AbstractConsole
+from snowflake.cli.api.constants import PYTHON_3_12
 
 PROJECT_DIR = Path(__file__).parent / "test_data" / "projects"
 
@@ -131,3 +132,9 @@ def alter_snowflake_yml():
             yaml.safe_dump(yml, fh)
 
     return _update
+
+
+skip_snowpark_on_newest_python = pytest.mark.skipif(
+    sys.version_info >= PYTHON_3_12,
+    reason="requires python3.11 or lower",
+)
