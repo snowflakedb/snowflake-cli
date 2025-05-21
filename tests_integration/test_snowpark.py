@@ -36,7 +36,6 @@ RETURN_TYPE = "VARCHAR"
 bundle_root = Path("output") / "bundle" / "snowpark"
 
 
-@pytest.mark.no_qa  # temporarily skip due to account misconfiguration (SNOW-2110509)
 @pytest.mark.integration
 def test_snowpark_flow(
     _snowpark_test_steps,
@@ -368,7 +367,6 @@ def test_snowpark_flow(
         )
 
 
-@pytest.mark.no_qa  # temporarily skip due to account misconfiguration (SNOW-2110509)
 @pytest.mark.integration
 def test_snowpark_flow_old_build(
     _snowpark_test_steps, project_directory, alter_snowflake_yml, test_database
