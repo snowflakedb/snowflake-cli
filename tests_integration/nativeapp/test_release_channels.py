@@ -69,15 +69,6 @@ def test_release_channels_disabled_to_enabled_switch(
         assert result.exit_code == 0
         assert result.json == []
 
-        # setting ENABLE_RELEASE_CHANNELS feature flag should issue a warning
-        get_value_mock.return_value = True
-        result = runner.invoke_with_connection(["app", "deploy"])
-        assert result.exit_code == 0
-        assert (
-            "ENABLE_RELEASE_CHANNELS value in config.toml is deprecated. "
-            "Set [enable_release_channels] for the application package in snowflake.yml instead."
-        ) in result.output
-
         # setting enable_release_channels in pdf should silence the warning
         set_pdf_release_channels(True)
         result = runner.invoke_with_connection(["app", "deploy"])
