@@ -39,6 +39,7 @@ class StreamlitTestSteps:
                 entity_id,
             ]
         )
+        assert result.exit_code == 0, result.output
 
         self.assert_proper_url_is_returned(result, entity_id, database)
 

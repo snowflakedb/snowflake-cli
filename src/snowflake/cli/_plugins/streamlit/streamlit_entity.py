@@ -112,7 +112,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             name = (
                 self.model.identifier.name
                 if isinstance(self.model.identifier, Identifier)
-                else self.model.identifier
+                else self.model.identifier or self.entity_id
             )
             stage_root = StageManager.get_standard_stage_prefix(
                 f"{FQN.from_string(self.model.stage).using_connection(self._conn)}/{name}"
