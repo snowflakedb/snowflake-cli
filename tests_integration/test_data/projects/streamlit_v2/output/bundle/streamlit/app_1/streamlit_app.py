@@ -1,1 +1,0 @@
-/Users/pczajka/Snowflake/snowcli/tests_integration/test_data/projects/streamlit_v2/streamlit_app.py
