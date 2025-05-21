@@ -190,9 +190,9 @@ class ApplicationPackageEntityModel(EntityModelBaseWithArtifacts):
         title="Entities that will be bundled and deployed as part of this application package",
         default=[],
     )
-    enable_release_channels: bool = Field(
+    enable_release_channels: Optional[bool] = Field(
         title="Enable release channels for this application package",
-        default=False,
+        default=None,
     )
 
     @field_validator("children")
@@ -1559,13 +1559,16 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
         If return value is None, it means do not explicitly set the flag.
         """
         value_from_snowflake_yml = self.model.enable_release_channels
-        feature_flag_from_config = FeatureFlag.ENABLE_RELEASE_CHANNELS.is_enabled()
-        if feature_flag_from_config and not value_from_snowflake_yml:
-            self._workspace_ctx.console.warning(
-                f"{FeatureFlag.ENABLE_RELEASE_CHANNELS.name} value in config.toml is deprecated."
-                f" Set [enable_release_channels] for the application package in snowflake.yml instead."
-            )
-        enable_release_channels = value_from_snowflake_yml or feature_flag_from_config
+        feature_flag_from_config = FeatureFlag.ENABLE_RELEASE_CHANNELS.get_value()
+        if value_from_snowflake_yml is not None:
+            enable_release_channels = value_from_snowflake_yml
+        else:
+            enable_release_channels = feature_flag_from_config
+            if feature_flag_from_config is not None:
+                self._workspace_ctx.console.warning(
+                    f"{FeatureFlag.ENABLE_RELEASE_CHANNELS.name} value in config.toml is deprecated."
+                    f" Set [enable_release_channels] for the application package in snowflake.yml instead."
+                )
 
         feature_enabled_in_account = (
             get_snowflake_facade().get_ui_parameter(

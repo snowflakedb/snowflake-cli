@@ -25,6 +25,16 @@
 ## Fixes and improvements
 
 
+# v3.8.2
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+* Fix `enable_release_channels` property in application package definition to default to `None` instead of `False`.
+
+
 # v3.8.1
 
 ## Deprecations
