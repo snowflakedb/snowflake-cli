@@ -152,7 +152,7 @@ test-spcs = [
 ]
 test_qa = [
   """
-  snow --config-file  sql -q 'CREATE ROLE IF NOT EXISTS test_role';
+  snow --config-file tests_integration/config/connection_configs.toml sql -q 'CREATE ROLE IF NOT EXISTS test_role';
   pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/test_snowpark.py::test_snowpark_flow
   """
 ]
