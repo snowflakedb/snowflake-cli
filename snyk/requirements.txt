@@ -17,7 +17,7 @@ snowflake.core==1.4.0
 tomlkit==0.13.2
 typer==0.15.2
 urllib3>=1.24.3,<2.5
-Faker==37.1.0
+Faker==37.3.0
 coverage==7.8.0
 factory-boy==3.3.3
 pre-commit>=3.5.0
