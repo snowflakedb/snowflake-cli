@@ -102,6 +102,7 @@ if __name__ == "__main__":
             "USERADMIN",
             "INTEGRATION_TESTS",
             "APP_PUBLIC",
+            "TEST_ROLE",
         ],
     }
 

@@ -140,7 +140,7 @@ def test_bundle(project_directory):
 @mock.patch(f"{APP_PACKAGE_ENTITY}.validate_setup_script")
 @mock.patch(f"{APPLICATION_PACKAGE_ENTITY_MODULE}.sync_deploy_root_with_stage")
 @mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
-@pytest.mark.parametrize("enable_release_channels", [False, True])
+@pytest.mark.parametrize("enable_release_channels", [False, True, None])
 def test_deploy(
     mock_get_parameter,
     mock_sync,
@@ -193,18 +193,26 @@ def test_deploy(
                 mock.call("describe application package pkg"),
             ),
             (None, mock.call("use role old_role")),
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                None,
-                mock.call(
-                    f"alter application package pkg\n    set enable_release_channels = {enable_release_channels}\n".lower()
+        ]
+        + (
+            []
+            if enable_release_channels is None
+            else [
+                (
+                    mock_cursor([("old_role",)], []),
+                    mock.call("select current_role()"),
                 ),
-            ),
-            (None, mock.call("use role old_role")),
+                (None, mock.call("use role app_role")),
+                (
+                    None,
+                    mock.call(
+                        f"alter application package pkg\n    set enable_release_channels = {enable_release_channels}\n".lower()
+                    ),
+                ),
+                (None, mock.call("use role old_role")),
+            ]
+        )
+        + [
             (
                 mock_cursor([("old_role",)], []),
                 mock.call("select current_role()"),
@@ -304,18 +312,6 @@ def test_deploy_w_stage_subdir(
                     [],
                 ),
                 mock.call("describe application package pkg"),
-            ),
-            (None, mock.call("use role old_role")),
-            (
-                mock_cursor([("old_role",)], []),
-                mock.call("select current_role()"),
-            ),
-            (None, mock.call("use role app_role")),
-            (
-                None,
-                mock.call(
-                    "alter application package pkg\n    set enable_release_channels = false\n"
-                ),
             ),
             (None, mock.call("use role old_role")),
             (
@@ -2612,3 +2608,32 @@ def test_given_release_channel_and_label_without_create_version_when_publish_the
         )
 
     assert str(e.value) == "--label can only be used with --create-version flag."
+
+
+@pytest.mark.parametrize(
+    "feature_flag, enable_snowflake_yml, expected",
+    [
+        (None, None, None),
+        (True, None, True),
+        (False, None, False),
+        (False, True, True),
+        (True, False, False),
+    ],
+)
+@mock.patch(f"{APPLICATION_PACKAGE_ENTITY_MODULE}.sync_deploy_root_with_stage")
+@mock.patch(SQL_FACADE_GET_UI_PARAMETER, return_value="ENABLED")
+@mock.patch("snowflake.cli.api.config.get_config_value")
+def test_get_enable_release_channels(
+    mock_get_config_value,
+    mock_get_parameter,
+    mock_sync,
+    project_directory,
+    mock_cursor,
+    feature_flag,
+    enable_snowflake_yml,
+    expected,
+):
+    mock_get_config_value.return_value = feature_flag
+    app_pkg, bundle_ctx, mock_console = _get_app_pkg_entity(project_directory)
+    app_pkg.model.enable_release_channels = enable_snowflake_yml
+    assert app_pkg._get_enable_release_channels_flag() == expected  # noqa: SLF001
