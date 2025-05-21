@@ -510,12 +510,13 @@ class TestStreamlitCommands(StreamlitTestClass):
         expected_query = dedent(
             f"""
                 CREATE OR REPLACE STREAMLIT IDENTIFIER('{entity_id}')
-                ROOT_LOCATION = '@streamlit/None'
+                ROOT_LOCATION = '@streamlit/{entity_id}'
                 MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = 'streamlit';"""
         ).strip()
 
         assert result.exit_code == 0, result.output
+        assert self.mock_execute.mock_calls == [mock.call(expected_query)]
         self.mock_execute.assert_any_call(expected_query)
 
         self._assert_that_exactly_those_files_were_put_to_stage(
