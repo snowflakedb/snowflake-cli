@@ -151,7 +151,10 @@ test-spcs = [
   "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/spcs",
 ]
 test_qa = [
-  "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/test_snowpark.py",
+  """
+  snow --config-file  sql -q 'CREATE ROLE IF NOT EXISTS test_role';
+  pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/test_snowpark.py::test_snowpark_flow
+  """
 ]
 
 [[tool.hatch.envs.local.matrix]]
