@@ -126,8 +126,10 @@ class SqlExecutor(BaseSqlExecutor):
             # Rewrite the error to make the message more useful.
             raise CouldNotUseObjectError(object_type=object_type, name=name) from err
 
-    def current_role(self) -> str:
-        return to_identifier(self.execute_query(f"select current_role()").fetchone()[0])
+    def current_role(self) -> Optional[str]:
+        if result := self.execute_query(f"select current_role()").fetchone()[0]:
+            return to_identifier(result)
+        return None
 
     @contextmanager
     def use_role(self, new_role: str):
@@ -137,14 +139,17 @@ class SqlExecutor(BaseSqlExecutor):
         """
         new_role = to_identifier(new_role)
         prev_role = self.current_role()
-        is_different_role = new_role.lower() != prev_role.lower()
+        if prev_role:
+            is_different_role = new_role.lower() != prev_role.lower()
+        else:
+            is_different_role = True
         if is_different_role:
             self._log.debug("Assuming different role: %s", new_role)
             self.execute_query(f"use role {new_role}")
         try:
             yield
         finally:
-            if is_different_role:
+            if is_different_role and prev_role:
                 self.execute_query(f"use role {prev_role}")
 
     def session_has_warehouse(self) -> bool:
