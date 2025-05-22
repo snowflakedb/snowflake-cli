@@ -1,5 +1,4 @@
 import shutil
-from pathlib import Path
 from textwrap import dedent
 from unittest import mock
 
@@ -41,14 +40,8 @@ class TestStreamlitCommands(StreamlitTestClass):
 
         assert result.exit_code == 0, result.output
         self.mock_execute.assert_called_with(expected_query)
-        self.mock_create_stage.assert_called_once
-        self.mock_put.assert_called_once_with(
-            local_file_name=Path("streamlit_app.py"),
-            stage_location="/test_streamlit/",
-            overwrite=True,
-            auto_compress=False,
-        )
-
+        self.mock_create_stage.assert_called_once()
+        self._assert_that_exactly_those_files_were_put_to_stage(["streamlit_app.py"])
         mock_typer.launch.assert_not_called()
 
     @mock.patch(TYPER)
@@ -72,12 +65,7 @@ class TestStreamlitCommands(StreamlitTestClass):
 
         self.mock_execute.assert_called_with(expected_query)
         self.mock_create_stage.assert_called_once()
-        self.mock_put.assert_called_once_with(
-            local_file_name=Path("streamlit_app.py"),
-            stage_location="/test_streamlit/",
-            overwrite=True,
-            auto_compress=False,
-        )
+        self._assert_that_exactly_those_files_were_put_to_stage(["streamlit_app.py"])
         mock_typer.launch.assert_not_called()
 
     def test_deploy_with_empty_pages(self, project_directory, runner):
@@ -124,12 +112,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         assert result.exit_code == 0, result.output
         self.mock_execute.assert_called_with(expected_query)
         self.mock_create_stage.assert_called_once()
-        self.mock_put.assert_called_once_with(
-            local_file_name=Path("streamlit_app.py"),
-            stage_location="/test_streamlit/",
-            overwrite=True,
-            auto_compress=False,
-        )
+        self._assert_that_exactly_those_files_were_put_to_stage(["streamlit_app.py"])
         mock_typer.launch.assert_not_called()
 
     @pytest.mark.parametrize(
@@ -215,7 +198,8 @@ class TestStreamlitCommands(StreamlitTestClass):
         )
 
     @pytest.mark.parametrize(
-        "project_name", ["streamlit_full_definition_v2", "streamlit_full_definition"]
+        "project_name",
+        ["streamlit_full_definition_v2", "streamlit_full_definition"],
     )
     def test_deploy_all_streamlit_files(self, project_name, project_directory, runner):
         with project_directory(project_name) as tmp_dir:
@@ -526,12 +510,13 @@ class TestStreamlitCommands(StreamlitTestClass):
         expected_query = dedent(
             f"""
                 CREATE OR REPLACE STREAMLIT IDENTIFIER('{entity_id}')
-                ROOT_LOCATION = '@streamlit/None'
+                ROOT_LOCATION = '@streamlit/{entity_id}'
                 MAIN_FILE = 'streamlit_app.py'
                 QUERY_WAREHOUSE = 'streamlit';"""
         ).strip()
 
         assert result.exit_code == 0, result.output
+        assert self.mock_execute.mock_calls == [mock.call(expected_query)]
         self.mock_execute.assert_any_call(expected_query)
 
         self._assert_that_exactly_those_files_were_put_to_stage(
@@ -566,7 +551,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         self.mock_create_stage.assert_called_once()
         self._assert_that_exactly_those_files_were_put_to_stage(
             ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
-            streamlit_name="test_streamlit_deploy_snowcli",
+            streamlit_name="my_streamlit",
         )
 
     def test_execute_streamlit(self, runner, mock_streamlit_ctx):
