@@ -1,7 +1,10 @@
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+
+from tests_integration.testing_utils.feature_flag_utils import with_feature_flags
 
 ProjectManager = "snowflake.cli._plugins.project.commands.ProjectManager"
 ObjectManager = "snowflake.cli._plugins.project.commands.ObjectManager"
@@ -174,6 +177,7 @@ def test_execute_project_with_configuration(mock_pm, runner, project_directory):
     )
 
 
+@with_feature_flags({FeatureFlag.ENABLE_SNOWFLAKE_PROJECTS_DRY_RUN: True})
 @mock.patch(ProjectManager)
 def test_validate_project(mock_pm, runner, project_directory):
     result = runner.invoke(

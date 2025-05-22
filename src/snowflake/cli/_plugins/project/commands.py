@@ -18,7 +18,6 @@ import typer
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
-from snowflake.cli._plugins.project.feature_flags import FeatureFlag
 from snowflake.cli._plugins.project.manager import ProjectManager
 from snowflake.cli._plugins.project.project_entity_model import (
     ProjectEntityModel,
@@ -39,6 +38,7 @@ from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import MessageResult, QueryResult, SingleQueryResult
 
@@ -104,7 +104,10 @@ def execute(
     return SingleQueryResult(result)
 
 
-@app.command(requires_connection=True)
+@app.command(
+    requires_connection=True,
+    hidden=FeatureFlag.ENABLE_SNOWFLAKE_PROJECTS_DRY_RUN.is_enabled,
+)
 def dry_run(
     identifier: FQN = project_identifier,
     version: Optional[str] = version_flag,

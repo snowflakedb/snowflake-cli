@@ -14,6 +14,7 @@
 
 import pytest
 
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secure_path import SecurePath
 
 from typing import Set, Optional, Tuple
@@ -53,18 +54,19 @@ def test_project_deploy(
             runner, project_name, expected_versions={("VERSION$1", None)}
         )
 
-        result = runner.invoke_with_connection(
-            [
-                "project",
-                "dry-run",
-                project_name,
-                "--version",
-                "last",
-                "-D",
-                f"table_name='{test_database}.PUBLIC.MyTable'",
-            ]
-        )
-        assert result.exit_code == 0
+        if FeatureFlag.ENABLE_SNOWFLAKE_PROJECTS_DRY_RUN.is_enabled():
+            result = runner.invoke_with_connection(
+                [
+                    "project",
+                    "dry-run",
+                    project_name,
+                    "--version",
+                    "last",
+                    "-D",
+                    f"table_name='{test_database}.PUBLIC.MyTable'",
+                ]
+            )
+            assert result.exit_code == 0
 
         result = runner.invoke_with_connection(
             [
@@ -105,7 +107,11 @@ def test_execute_multiple_configurations(
         assert result.exit_code == 0, result.output
 
         for configuration in ["test", "dev", "prod"]:
-            for command in ["dry-run", "execute"]:
+            if FeatureFlag.ENABLE_SNOWFLAKE_PROJECTS_DRY_RUN.is_enabled():
+                commands = ["dry-run", "execute"]
+            else:
+                commands = ["execute"]
+            for command in commands:
                 result = runner.invoke_with_connection_json(
                     [
                         "project",
