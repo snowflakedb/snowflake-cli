@@ -78,7 +78,11 @@ def test_info_callback(runner):
         {"key": "system_info", "value": platform.platform()},
         {
             "key": "feature_flags",
-            "value": {"dummy_flag": True, "wrong_type_flag": "UNKNOWN"},
+            "value": {
+                "dummy_flag": True,
+                "wrong_type_flag": "UNKNOWN",
+                "enable_snowflake_projects_dry_run": True,
+            },
         },
         {"key": "SNOWFLAKE_HOME", "value": "FooBar"},
     ]

@@ -8385,6 +8385,7 @@
   | create          Creates a project in Snowflake. By default, the project is   |
   |                 initialized with a new version created from local files.     |
   | drop            Drops project with given name.                               |
+  | dry-run         Validates a project.                                         |
   | execute         Executes a project.                                          |
   | list            Lists all available projects.                                |
   | list-versions   Lists versions of given project.                             |
@@ -17442,6 +17443,7 @@
   | create          Creates a project in Snowflake. By default, the project is   |
   |                 initialized with a new version created from local files.     |
   | drop            Drops project with given name.                               |
+  | dry-run         Validates a project.                                         |
   | execute         Executes a project.                                          |
   | list            Lists all available projects.                                |
   | list-versions   Lists versions of given project.                             |

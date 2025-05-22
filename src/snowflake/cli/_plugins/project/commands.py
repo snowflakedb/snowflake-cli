@@ -106,7 +106,7 @@ def execute(
 
 @app.command(
     requires_connection=True,
-    hidden=FeatureFlag.ENABLE_SNOWFLAKE_PROJECTS_DRY_RUN.is_enabled,
+    hidden=FeatureFlag.ENABLE_SNOWFLAKE_PROJECTS_DRY_RUN.is_disabled(),
 )
 def dry_run(
     identifier: FQN = project_identifier,

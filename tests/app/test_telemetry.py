@@ -73,6 +73,7 @@ def test_executing_command_sends_telemetry_usage_data(
             "project_definition_version": "None",
             "config_feature_flags": {
                 "dummy_flag": "True",
+                "enable_snowflake_projects_dry_run": "True",
                 "foo": "False",
                 "wrong_type_flag": "UNKNOWN",
             },

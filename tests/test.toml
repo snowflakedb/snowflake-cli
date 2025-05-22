@@ -56,3 +56,4 @@ private_key_file = "/private/key"
 [cli.features]
 dummy_flag = true
 wrong_type_flag = "not_true"
+enable_snowflake_projects_dry_run = "true"
