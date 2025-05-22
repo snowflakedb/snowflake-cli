@@ -19,8 +19,17 @@
 ## Deprecations
 
 ## New additions
-* Added `--private-link` flag to `snow spcs image-registry url` command for retrieving private link URLs.
 * Added `--encryption` flag to `snow stage create` command defining the type of encryption for all files on the stage.
+
+## Fixes and improvements
+
+
+# v3.8.3
+
+## Deprecations
+
+## New additions
+* Added `--private-link` flag to `snow spcs image-registry url` command for retrieving private link URLs.
 
 ## Fixes and improvements
 
