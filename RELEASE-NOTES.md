@@ -31,6 +31,7 @@
 * Added `--encryption` flag to `snow stage create` command defining the type of encryption for all files on the stage.
 
 ## Fixes and improvements
+* Fix `use` commands error if current database is not set.
 
 
 # v3.8.3

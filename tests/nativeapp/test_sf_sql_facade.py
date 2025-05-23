@@ -841,6 +841,24 @@ def test_use_role_same_id(mock_execute_query, mock_cursor, new_role, current_rol
     assert mock_execute_query.mock_calls == expected
 
 
+def test_use_role_current_role_empty(mock_execute_query, mock_cursor):
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([(None,)], []),
+                mock.call("select current_role()"),
+            ),
+            (None, mock.call('use role "test role"')),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    with sql_facade._use_role_optional("test role"):  # noqa: SLF001
+        pass
+
+    assert mock_execute_query.mock_calls == expected
+
+
 @pytest.mark.parametrize(
     "old_db, expected_old_db",
     [("old_db", "old_db"), ("old db", '"old db"')],
@@ -883,6 +901,24 @@ def test_use_db_same_id(mock_execute_query, mock_cursor, new_db, current_db):
     mock_execute_query.side_effect = side_effects
 
     with sql_facade._use_database_optional(new_db):  # noqa: SLF001
+        pass
+
+    assert mock_execute_query.mock_calls == expected
+
+
+def test_use_db_current_db_empty(mock_execute_query, mock_cursor):
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([(None,)], []),
+                mock.call("select current_database()"),
+            ),
+            (None, mock.call('use database "new db"')),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    with sql_facade._use_database_optional("new db"):  # noqa: SLF001
         pass
 
     assert mock_execute_query.mock_calls == expected
@@ -936,6 +972,24 @@ def test_use_schema_same_id(
     mock_execute_query.side_effect = side_effects
 
     with sql_facade._use_schema_optional(new_schema):  # noqa: SLF001
+        pass
+
+    assert mock_execute_query.mock_calls == expected
+
+
+def test_use_schema_current_schema_empty(mock_execute_query, mock_cursor):
+    side_effects, expected = mock_execute_helper(
+        [
+            (
+                mock_cursor([(None,)], []),
+                mock.call("select current_schema()"),
+            ),
+            (None, mock.call('use schema "new schema"')),
+        ]
+    )
+    mock_execute_query.side_effect = side_effects
+
+    with sql_facade._use_schema_optional("new schema"):  # noqa: SLF001
         pass
 
     assert mock_execute_query.mock_calls == expected

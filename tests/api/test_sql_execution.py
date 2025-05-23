@@ -63,6 +63,17 @@ def test_use_role_same_id(mock_execute_query, mock_cursor, new_role, current_rol
     assert mock_execute_query.mock_calls == [mock.call("select current_role()")]
 
 
+@mock.patch(EXECUTE_QUERY)
+def test_use_role_no_current_role(mock_execute_query, mock_cursor):
+    mock_execute_query.return_value = mock_cursor([(None,)], [])
+    with SqlExecutor().use_role("new_role"):
+        pass
+    assert mock_execute_query.mock_calls == [
+        mock.call("select current_role()"),
+        mock.call(f"use role new_role"),
+    ]
+
+
 @pytest.mark.parametrize(
     "new_warehouse, expected_new_warehouse, current_warehouse, expected_current_warehouse",
     [
@@ -91,6 +102,20 @@ def test_use_warehouse_different_id(
         mock.call("select current_warehouse()"),
         mock.call(f"use warehouse {expected_new_warehouse}"),
         mock.call(f"use warehouse {expected_current_warehouse}"),
+    ]
+
+
+@mock.patch(EXECUTE_QUERY)
+def test_use_warehouse_no_current_wh(
+    mock_execute_query,
+    mock_cursor,
+):
+    mock_execute_query.return_value = mock_cursor([(None,)], [])
+    with SqlExecutor().use_warehouse("new_warehouse"):
+        pass
+    assert mock_execute_query.mock_calls == [
+        mock.call("select current_warehouse()"),
+        mock.call(f"use warehouse new_warehouse"),
     ]
 
 
