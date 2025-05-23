@@ -18,7 +18,7 @@ import logging
 from typing import Optional
 
 import typer
-from click import ClickException, types
+from click import types
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from snowflake.cli._plugins.dbt.constants import (
     DBT_COMMANDS,
@@ -32,6 +32,7 @@ from snowflake.cli.api.commands.decorators import global_options_with_connection
 from snowflake.cli.api.commands.flags import identifier_argument, like_option
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
@@ -92,7 +93,9 @@ def deploy_dbt(
     **options,
 ) -> CommandResult:
     """
-    Copy dbt files and create or update dbt on Snowflake project.
+    Copy dbt files and either recreate dbt on Snowflake if `--force` flag is
+    provided; or create a new one if it doesn't exist; or update files and
+    create a new version if it exists.
     """
     project_path = SecurePath(source) if source is not None else SecurePath.cwd()
     profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
@@ -106,11 +109,10 @@ def deploy_dbt(
     )
 
 
-# `execute` is a pass through command group, meaning that all params after command should be passed over as they are,
-# suppressing usual CLI behaviour for displaying help or formatting options.
 dbt_execute_app = SnowTyperFactory(
     name="execute",
-    help="Execute a dbt command on Snowflake",
+    help="Execute a dbt command on Snowflake. Subcommand name and all "
+    "parameters following it will be passed over to dbt.",
     subcommand_metavar="DBT_COMMAND",
 )
 app.add_typer(dbt_execute_app)
@@ -136,7 +138,7 @@ for cmd in DBT_COMMANDS:
         requires_connection=False,
         requires_global_options=False,
         context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
-        help=f"Execute {cmd} command on Snowflake.",
+        help=f"Execute {cmd} command on Snowflake. Command name and all parameters following it will be passed over to dbt.",
         add_help_option=False,
     )
     def _dbt_execute(
@@ -169,16 +171,16 @@ for cmd in DBT_COMMANDS:
                 success_column_index = columns.index(RESULT_COLUMN_NAME)
                 stdout_column_index = columns.index(OUTPUT_COLUMN_NAME)
             except ValueError:
-                raise ClickException("Malformed server response")
+                raise CliError("Malformed server response")
             try:
                 is_success, output = [
                     (row[success_column_index], row[stdout_column_index])
                     for row in result
                 ][-1]
             except IndexError:
-                raise ClickException("No data returned from server")
+                raise CliError("No data returned from server")
 
             if is_success is True:
                 return MessageResult(output)
             else:
-                raise ClickException(output)
+                raise CliError(output)
