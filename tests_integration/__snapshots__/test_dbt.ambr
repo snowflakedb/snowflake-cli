@@ -1,0 +1,11 @@
+# serializer version: 1
+# name: test_deploy_and_execute
+  '''
+  ╭─ Error ──────────────────────────────────────────────────────────────────────╮
+  │ Found following errors in profiles.yml. Please fix them before proceeding:   │
+  │ dbt_integration_project                                                      │
+  │  * Unsupported fields found: password in target dev                          │
+  ╰──────────────────────────────────────────────────────────────────────────────╯
+  
+  '''
+# ---
