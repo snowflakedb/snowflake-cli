@@ -19,6 +19,15 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v3.9.0
+
+## Deprecations
+
+## New additions
 * Added `--encryption` flag to `snow stage create` command defining the type of encryption for all files on the stage.
 
 ## Fixes and improvements
