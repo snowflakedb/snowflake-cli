@@ -22,7 +22,6 @@ from unittest import mock
 import pytest
 import tomlkit
 from snowflake.cli.api.config import ConnectionConfig
-from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.secret import SecretType
 from snowflake.cli.api.secure_utils import file_permissions_are_strict
 
@@ -488,12 +487,15 @@ def test_second_connection_not_update_default_connection(runner, os_agnostic_sna
         assert content == os_agnostic_snapshot
 
 
-@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli.api.sql_execution.BaseSqlExecutor.execute_query")
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
-def test_connection_test(mock_connect, mock_om, runner):
+def test_connection_test(mock_connect, mock_execute_query, mock_cursor, runner):
+    mock_execute_query.return_value = mock_cursor
+
     result = runner.invoke(
         ["connection", "test", "-c", "full", "--diag-log-path", "/tmp"]
     )
+
     assert result.exit_code == 0, result.output
     assert "Host" in result.output
     assert "Password" not in result.output
@@ -505,14 +507,11 @@ def test_connection_test(mock_connect, mock_om, runner):
         diag_log_path=Path("/tmp"),
         connection_name="full",
     )
-
     conn = mock_connect.return_value
-    assert mock_om.return_value.use.mock_calls == [
-        mock.call(object_type=ObjectType.ROLE, name=f'"{conn.role}"'),
-        mock.call(object_type=ObjectType.DATABASE, name=f'"{conn.database}"'),
-        mock.call(object_type=ObjectType.SCHEMA, name=f'"{conn.schema}"'),
-        mock.call(object_type=ObjectType.WAREHOUSE, name=f'"{conn.warehouse}"'),
-    ]
+    print(mock_execute_query.mock_calls[0])
+    expected = f"USE ROLE {conn.role};\nUSE DATABASE {conn.database};\nUSE SCHEMA {conn.schema};\nUSE WAREHOUSE {conn.warehouse};\n"
+
+    mock_execute_query.assert_called_once_with(expected)
 
 
 @mock.patch("snowflake.connector.connect")
@@ -777,12 +776,12 @@ def test_key_pair_authentication_from_config(
     "command",
     [
         ["sql", "-q", "select 1"],
-        ["connection", "test"],
+        ["object", "list", "warehouse"],
     ],
 )
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
-def test_mfa_passcode(_, mock_connect, runner, command):
+@mock.patch("snowflake.cli._plugins.object.commands.ObjectManager")
+def test_mfa_passcode(_, mock_connect, mock_cursor, runner, command):
     command.extend(["--mfa-passcode", "123"])
     result = runner.invoke(command)
 
@@ -832,11 +831,11 @@ def test_if_password_callback_is_called_only_once_from_arguments(runner):
     "command",
     [
         ["sql", "-q", "select 1"],
-        ["connection", "test"],
+        ["object", "list", "functions"],
     ],
 )
 @mock.patch("snowflake.connector.connect")
-@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli._plugins.object.commands.ObjectManager")
 def test_mfa_passcode_from_prompt(_, mock_connect, runner, command):
     command.append("--mfa-passcode")
     result = runner.invoke(command, input="123")
@@ -1036,9 +1035,10 @@ def test_set_default_connection(runner):
         assert config["default_connection_name"] == "conn2"
 
 
-@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli.api.sql_execution.BaseSqlExecutor.execute_query")
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
-def test_connection_test_diag_report(mock_connect, mock_om, runner):
+def test_connection_test_diag_report(mock_connect, mock_execute, mock_cursor, runner):
+    mock_execute.return_value = mock_cursor
     result = runner.invoke(
         ["connection", "test", "-c", "full", "--enable-diag", "--diag-log-path", "/tmp"]
     )
@@ -1054,10 +1054,14 @@ def test_connection_test_diag_report(mock_connect, mock_om, runner):
     )
 
 
-@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+@mock.patch("snowflake.cli.api.sql_execution.BaseSqlExecutor.execute_query")
 @mock.patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
-def test_diag_log_path_default_is_actual_tempdir(mock_connect, mock_om, runner):
+def test_diag_log_path_default_is_actual_tempdir(
+    mock_connect, mock_execute, mock_cursor, runner
+):
     from snowflake.cli.api.commands.flags import _DIAG_LOG_DEFAULT_VALUE
+
+    mock_execute.return_value = mock_cursor
 
     result = runner.invoke(["connection", "test", "-c", "full", "--enable-diag"])
     assert result.exit_code == 0, result.output

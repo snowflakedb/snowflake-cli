@@ -35,7 +35,6 @@ from snowflake.cli._plugins.auth.keypair.manager import AuthManager
 from snowflake.cli._plugins.connection.util import (
     strip_if_value_present,
 )
-from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api import exceptions
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
@@ -65,7 +64,6 @@ from snowflake.cli.api.config import (
     set_config_value,
 )
 from snowflake.cli.api.console import cli_console
-from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -75,6 +73,7 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.secret import SecretType
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.cli.api.sql_execution import SqlExecutor
 from snowflake.connector import ProgrammingError
 from snowflake.connector.constants import CONNECTIONS_FILE
 
@@ -329,24 +328,40 @@ def test(
     cli_context = get_cli_context()
     conn = cli_context.connection
 
-    # Test session attributes
-    om = ObjectManager()
-    try:
-        # "use database" operation changes schema to default "public",
-        # so to test schema set up by user we need to copy it here:
-        schema = conn.schema
+    executor = SqlExecutor(conn)
 
-        if conn.role:
-            om.use(object_type=ObjectType.ROLE, name=f'"{conn.role}"')
-        if conn.database:
-            om.use(object_type=ObjectType.DATABASE, name=f'"{conn.database}"')
-        if schema:
-            om.use(object_type=ObjectType.SCHEMA, name=f'"{schema}"')
-        if conn.warehouse:
-            om.use(object_type=ObjectType.WAREHOUSE, name=f'"{conn.warehouse}"')
+    # Test session attributes
+    query = ""
+
+    schema = conn.schema
+
+    if conn.role:
+        query += f"USE ROLE {conn.role};\n"
+    if conn.database:
+        query += f"USE DATABASE {conn.database};\n"
+    if schema:
+        query += f"USE SCHEMA {schema};\n"
+    if conn.warehouse:
+        query += f"USE WAREHOUSE {conn.warehouse};\n"
+
+    try:
+        executor.execute_query(query)
 
     except ProgrammingError as err:
-        raise ClickException(str(err))
+        object_type = err.query.split(" ")[1] if len(err.query.split(" ")) > 1 else None
+        name = (
+            err.query.split(" ")[2].replace(";", "")
+            if len(err.query.split(" ")) > 2
+            else None
+        )
+
+        message = (
+            f"Could not use {object_type} '{name}'. Check your connection details"
+            if object_type and name
+            else "Connection test failed"
+        )
+
+        raise ClickException(message)
 
     conn_ctx = cli_context.connection_context
     result = {
