@@ -176,7 +176,7 @@ def test_identifier_for_url(identifier, expected):
     assert identifier_for_url(identifier) == expected
 
 
-@patch("snowflake.cli._plugins.connection.util.get_account")
+@patch("snowflake.cli._plugins.connection.util.get_account_name")
 @patch("snowflake.cli._plugins.connection.util.get_context")
 @patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
 @pytest.mark.parametrize(
@@ -216,6 +216,27 @@ def test_make_snowsight_url(
     get_account.return_value = account
     actual = make_snowsight_url(None, path)  # all uses of conn are mocked
     assert actual == expected
+
+
+@patch(
+    "snowflake.cli._plugins.connection.util.is_regionless_redirect", return_value=False
+)
+@patch("snowflake.cli._plugins.connection.util.get_region", return_value="x.y")
+@patch(
+    "snowflake.cli._plugins.connection.util.get_account_locator",
+    return_value="account_locator",
+)
+@patch(
+    "snowflake.cli._plugins.connection.util.get_snowsight_host",
+    return_value="https://test.snowsight.host",
+)
+def test_get_snowsight_host_with_account_locator(
+    get_snowsight_host, get_locator, get_region, is_regionless
+):
+    assert (
+        make_snowsight_url(None, "an/url/path")
+        == "https://test.snowsight.host/x.y/account_locator/an/url/path"
+    )
 
 
 @pytest.mark.parametrize(
@@ -286,8 +307,8 @@ def test_get_context_local_non_regionless_gets_local_region(
         ("org-acct.mydns.snowflakecomputing.com", None),
         ("account.x.us-west-2.aws.snowflakecomputing.com", "x.us-west-2.aws"),
         ("naf_test_pc.us-west-2.snowflakecomputing.com", None),
-        ("test_account.az.int.snowflakecomputing.com", None),
-        ("frozenweb.prod3.external-zone.snowflakecomputing.com", None),
+        ("test_account.az.int.snowflakecomputing.com", "az.int"),
+        ("frozenweb.prod3.external-zone.snowflakecomputing.com", "prod3.external-zone"),
     ],
 )
 def test_get_host_region(host, expected):
