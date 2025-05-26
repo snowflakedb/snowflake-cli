@@ -159,7 +159,10 @@ class SnowflakeSQLFacade:
             )
 
         try:
-            prev_obj = to_identifier(current_obj_result_row[0])
+            if current_obj_result_row[0]:
+                prev_obj = to_identifier(current_obj_result_row[0])
+            else:
+                prev_obj = None
         except IndexError:
             prev_obj = None
 
