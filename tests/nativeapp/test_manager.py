@@ -720,7 +720,7 @@ def test_get_existing_app_pkg_info_app_pkg_does_not_exist(
 # With connection warehouse, with PDF warehouse
 # Without connection warehouse, with PDF warehouse
 @mock.patch("snowflake.cli._plugins.connection.util.get_context")
-@mock.patch("snowflake.cli._plugins.connection.util.get_account")
+@mock.patch("snowflake.cli._plugins.connection.util.get_account_name")
 @mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
