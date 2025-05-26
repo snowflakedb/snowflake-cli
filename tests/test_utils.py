@@ -32,12 +32,14 @@ from snowflake.cli._plugins.connection.util import (
     make_snowsight_url,
 )
 from snowflake.cli._plugins.snowpark import package_utils
+from snowflake.cli.api.feature_flags import BooleanFlag, FeatureFlagMixin
 from snowflake.cli.api.project.util import identifier_for_url
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils import path_utils
 from snowflake.connector import SnowflakeConnection
 
 from tests.test_data import test_data
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 def test_prepare_app_zip(
@@ -444,3 +446,16 @@ def test_get_ui_parameter_with_no_value_then_use_default(mock_cursor):
         get_ui_parameter(connection, UIParameter.NA_ENABLE_REGIONLESS_REDIRECT, "any")
         == "any"
     )
+
+
+def test_with_feature_flags():
+    class _TestFlags(FeatureFlagMixin):
+        FOO = BooleanFlag("FOO", False)
+
+    assert _TestFlags.FOO.is_disabled()
+
+    with with_feature_flags({_TestFlags.FOO: False}):
+        assert _TestFlags.FOO.is_disabled()
+
+    with with_feature_flags({_TestFlags.FOO: True}):
+        assert _TestFlags.FOO.is_enabled()

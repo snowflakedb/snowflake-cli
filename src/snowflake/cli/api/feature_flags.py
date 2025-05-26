@@ -50,7 +50,7 @@ class FeatureFlagMixin(Enum):
             is not None
         )
 
-    def env_variable(self):
+    def env_variable(self) -> str:
         return get_env_variable_name(*FEATURE_FLAGS_SECTION_PATH, key=self.value.name)
 
 
@@ -76,3 +76,4 @@ class FeatureFlag(FeatureFlagMixin):
     ENABLE_NATIVE_APP_CHILDREN = BooleanFlag("ENABLE_NATIVE_APP_CHILDREN", False)
     # TODO 4.0: remove ENABLE_RELEASE_CHANNELS
     ENABLE_RELEASE_CHANNELS = BooleanFlag("ENABLE_RELEASE_CHANNELS", None)
+    ENABLE_SNOWFLAKE_PROJECTS = BooleanFlag("ENABLE_SNOWFLAKE_PROJECTS", False)

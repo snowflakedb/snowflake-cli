@@ -13,10 +13,14 @@
 # limitations under the License.
 
 import os
+from contextlib import nullcontext
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secret import SecretType
+
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 # Used as a solution to syrupy having some problems with comparing multilines string
@@ -242,16 +246,13 @@ def test_internal_application_data_is_sent_if_feature_flag_is_set(
         "application_name": "snowcli",
         "using_session_keep_alive": True,
     }
-    env = {}
-    if feature_flag is not None:
-        env["SNOWFLAKE_CLI_FEATURES_ENABLE_SEPARATE_AUTHENTICATION_POLICY_ID"] = str(
-            feature_flag
-        )
     if feature_flag:
         # internal app data should be disabled by default
         expected_kwargs["internal_application_name"] = "SNOWFLAKE_CLI"
         expected_kwargs["internal_application_version"] = "0.0.0-test_patched"
-    with mock.patch.dict(os.environ, env):
+    with with_feature_flags(
+        {FeatureFlag.ENABLE_SEPARATE_AUTHENTICATION_POLICY_ID: feature_flag}
+    ) if feature_flag is not None else nullcontext():
         result = runner.invoke(["sql", "-q", "select 1"])
     assert result.exit_code == 0
     mock_connect.assert_called_once_with(**expected_kwargs)
