@@ -788,7 +788,7 @@ def test_get_snowsight_url_with_pdf_warehouse(
 # With connection warehouse, without PDF warehouse
 # Without connection warehouse, without PDF warehouse
 @mock.patch("snowflake.cli._plugins.connection.util.get_context")
-@mock.patch("snowflake.cli._plugins.connection.util.get_account")
+@mock.patch("snowflake.cli._plugins.connection.util.get_account_name")
 @mock.patch("snowflake.cli._plugins.connection.util.get_snowsight_host")
 @mock.patch(SQL_EXECUTOR_EXECUTE)
 @mock_connection()
