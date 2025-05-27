@@ -1,6 +1,7 @@
 import json
 import time
 from collections import namedtuple
+from datetime import datetime, timedelta
 from warnings import warn
 
 import requests
@@ -12,14 +13,29 @@ from snowflake.connector.config_manager import CONFIG_MANAGER
 
 REPOSITORY_URL = "https://pypi.org/pypi/snowflake-cli/json"
 
+# delay version check warning by X days, as homebrew version takes more time to become available
+NEW_VERSION_AVAILABLE_WARNING_DELAY = timedelta(days=2)
+
+
 VersionAndTime = namedtuple("VersionAndTime", ["version", "upload_time"])
 
 
 def get_new_version_msg() -> str | None:
     last = _VersionCache().get_last_version()
-    current = Version(VERSION)
-    new_version_available = last and last.version and Version(last.version) > current
-    if new_version_available:
+    if not last or not last.version:
+        return None
+    current_version = Version(VERSION)
+    new_version_available = Version(last.version) > current_version
+
+    if not last.upload_time:
+        delay_time_passed = True
+    else:
+        upload_time = datetime.fromisoformat(last.upload_time)
+        delay_time_passed = (
+            datetime.now() > upload_time + NEW_VERSION_AVAILABLE_WARNING_DELAY
+        )
+
+    if new_version_available and delay_time_passed:
         return f"\nNew version of Snowflake CLI available. Newest: {last.version}, current: {VERSION}\n"  # type:ignore
     return None
 

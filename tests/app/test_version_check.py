@@ -1,3 +1,4 @@
+from datetime import datetime
 from io import BytesIO
 from itertools import cycle
 from unittest.mock import patch
@@ -66,10 +67,7 @@ def test_version_check_exception_are_handled_safely(
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
 def test_get_new_version_msg_message_if_new_version_available():
     msg = get_new_version_msg()
-    assert (
-        msg.strip()
-        == "New version of Snowflake CLI available. Newest: 2.0.0, current: 1.0.0"
-    )
+    assert msg.strip() == _WARNING_MESSAGE
 
 
 @patch(*_PATCH_VERSION)
@@ -84,6 +82,26 @@ def test_get_new_version_msg_does_not_show_message_if_no_new_version():
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
 def test_new_version_banner_does_not_show_message_if_local_version_is_newer():
     assert get_new_version_msg() is None
+
+
+@patch(*_PATCH_VERSION)
+@patch("snowflake.cli._app.version_check._VersionCache.get_last_version")
+@patch("snowflake.cli._app.version_check.datetime")
+@pytest.mark.parametrize(
+    "last_upload, should_show",
+    [("2020-01-14", False), ("2020-01-12", True), (None, True)],
+)
+def test_new_version_banner_shows_after_delay_had_passed(
+    mock_datetime, mock_last_version, last_upload, should_show
+):
+    mock_datetime.now.return_value = datetime(2020, 1, 15)
+    mock_datetime.fromisoformat.side_effect = (
+        lambda *args, **kw: datetime.fromisoformat(*args, **kw)
+    )
+    mock_last_version.return_value = VersionAndTime("2.0.0", last_upload)
+    message = get_new_version_msg()
+    expected = _WARNING_MESSAGE if should_show else None
+    assert expected == (message.strip() if message else message)
 
 
 @patch("snowflake.cli._app.version_check.requests.get")
