@@ -2,6 +2,7 @@ from textwrap import dedent
 
 import pytest
 import yaml
+from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
 from snowflake.cli._plugins.dbt.manager import DBTManager
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.secure_path import SecurePath
@@ -33,7 +34,7 @@ class TestDeploy:
         yield source_path
 
     def _generate_profile(self, project_path, profile):
-        dbt_profiles_file = project_path / "profiles.yml"
+        dbt_profiles_file = project_path / PROFILES_FILENAME
         dbt_profiles_file.write_text(yaml.dump(profile))
 
     def test_validate_profiles_raises_when_file_does_not_exist(self, project_path):
@@ -126,3 +127,63 @@ dev
 dev
  * Value for type field is invalid. Should be set to `snowflake` in target local"""
         assert exc_info.value.message == dedent(expected_error_message)
+
+    # def test_prepare_profiles_file_replaces_existing_symlink_with_file(self, tmp_path_factory, profile, tmpdir):
+    #     profiles_path = tmp_path_factory.mktemp("profiles")
+    #     dbt_profiles_file = profiles_path / "profiles_real.yml"
+    #     dbt_profiles_file.write_text(yaml.dump(profile))
+    #     os.symlink(dbt_profiles_file.absolute(), (profiles_path / "profiles.yml").absolute())
+    #     assert (profiles_path / "profiles.yml").is_symlink() is True
+    #
+    #     tmp_dbt_path = Path(tmpdir)
+    #     os.symlink((dbt_profiles_file / "profiles.yml").absolute(), (tmp_dbt_path / "profiles.yml").absolute())
+    #     assert (tmp_dbt_path / "profiles.yml").is_symlink() is True
+    #
+    #     DBTManager._prepare_profiles_file(SecurePath(profiles_path), tmp_dbt_path)
+    #
+    #     assert tmp_dbt_path.is_symlink() is False
+
+    def test_prepare_profiles_file_copies_file_if_it_was_not_symlinked(
+        self, tmp_path_factory, profile
+    ):
+        profiles_path = tmp_path_factory.mktemp("profiles")
+        dbt_profiles_file = profiles_path / PROFILES_FILENAME
+        dbt_profiles_file.write_text(yaml.dump(profile))
+        assert (profiles_path / PROFILES_FILENAME).is_symlink() is False
+
+        tmp_dbt_path = tmp_path_factory.mktemp("dbt")
+
+        DBTManager._prepare_profiles_file(profiles_path, tmp_dbt_path)  # noqa: SLF001
+
+        assert tmp_dbt_path.is_symlink() is False
+
+    def test_prepare_profiles_file_removes_all_comments(
+        self, tmp_path_factory, profile
+    ):
+        profiles_path = tmp_path_factory.mktemp("profiles")
+        dbt_profiles_file = profiles_path / PROFILES_FILENAME
+        # not a comment - valid ones start exactly with `# `
+        profile["#key"] = "#value"
+        dbt_profiles_file.write_text(yaml.dump(profile))
+        with open(dbt_profiles_file, "a") as fp:
+            fp.write("# full line comment\n")
+            fp.write("key: with # comment\n")
+            fp.write("another_key: with # comment # and one more # and more\n")
+            fp.write("#         password: 123\n")
+
+        tmp_dbt_path = tmp_path_factory.mktemp("dbt")
+
+        DBTManager._prepare_profiles_file(profiles_path, tmp_dbt_path)  # noqa: SLF001
+
+        assert tmp_dbt_path.is_symlink() is False
+        with open(tmp_dbt_path / PROFILES_FILENAME, "r") as fp:
+            actual = yaml.safe_load(fp)
+        expected = profile | {"key": "with", "another_key": "with"}
+        assert actual == expected
+
+        # pyyaml ignores comments, so as safety net we need to check that comments were removed on lower level
+        with open(tmp_dbt_path / PROFILES_FILENAME, "r") as fp:
+            for line in fp:
+                assert "comment" not in line
+                assert "password" not in line
+                assert "# " not in line

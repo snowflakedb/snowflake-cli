@@ -17,6 +17,8 @@ from pathlib import Path
 import pytest
 import yaml
 
+from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
+
 
 @pytest.mark.integration
 @pytest.mark.qa_only
@@ -46,8 +48,8 @@ def test_deploy_and_execute(
         # change location of profiles.yml and redeploy
         new_profiles_directory = Path(root_dir) / "dbt_profiles"
         new_profiles_directory.mkdir(parents=True, exist_ok=True)
-        profiles_file = root_dir / "profiles.yml"
-        profiles_file.rename(new_profiles_directory / "profiles.yml")
+        profiles_file = root_dir / PROFILES_FILENAME
+        profiles_file.rename(new_profiles_directory / PROFILES_FILENAME)
 
         result = runner.invoke_with_connection_json(
             [
@@ -150,7 +152,7 @@ def _fetch_creation_date(name, runner) -> datetime.datetime:
 
 
 def _setup_dbt_profile(root_dir: Path, snowflake_session, include_password: bool):
-    with open((root_dir / "profiles.yml"), "r") as f:
+    with open((root_dir / PROFILES_FILENAME), "r") as f:
         profiles = yaml.safe_load(f)
     dev_profile = profiles["dbt_integration_project"]["outputs"]["dev"]
     dev_profile["database"] = snowflake_session.database
@@ -163,4 +165,4 @@ def _setup_dbt_profile(root_dir: Path, snowflake_session, include_password: bool
         dev_profile["password"] = "secret_phrase"
     else:
         dev_profile.pop("password", None)
-    (root_dir / "profiles.yml").write_text(yaml.dump(profiles))
+    (root_dir / PROFILES_FILENAME).write_text(yaml.dump(profiles))
