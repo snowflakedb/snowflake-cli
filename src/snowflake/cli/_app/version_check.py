@@ -60,7 +60,9 @@ class _VersionCache:
         return response.json().get("versions", {}).get("stable", None)
 
     def _update_latest_version(self) -> Version | None:
-        # use brew version, revert to pypi if it is not available
+        # Use brew version, fallback to pypi if brew is not available.
+        # Brew repo takes longer to propagate the upgrade and is triggered later in our release process,
+        # we treat it as "slowest point" and determinant that the released version is available.
         version = self._get_version_from_brew() or self._get_version_from_pypi()
         if version is None:
             return None
