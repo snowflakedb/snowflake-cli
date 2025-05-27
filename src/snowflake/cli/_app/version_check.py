@@ -13,7 +13,7 @@ from snowflake.connector.config_manager import CONFIG_MANAGER
 
 REPOSITORY_URL = "https://pypi.org/pypi/snowflake-cli/json"
 
-# delay version check warning by X days, as homebrew version takes more time to become available
+# delay version check warning by 2 days, as homebrew index needs ~day to propagate the upgrade.
 NEW_VERSION_AVAILABLE_WARNING_DELAY = timedelta(days=2)
 
 
