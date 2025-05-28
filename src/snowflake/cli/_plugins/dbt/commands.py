@@ -23,6 +23,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from snowflake.cli._plugins.dbt.constants import (
     DBT_COMMANDS,
     OUTPUT_COLUMN_NAME,
+    PROFILES_FILENAME,
     RESULT_COLUMN_NAME,
 )
 from snowflake.cli._plugins.dbt.manager import DBTManager
@@ -82,7 +83,7 @@ def deploy_dbt(
         default=None,
     ),
     profiles_dir: Optional[str] = typer.Option(
-        help="Path to directory containing profiles.yml. Defaults to directory provided in --source or current working directory",
+        help=f"Path to directory containing {PROFILES_FILENAME}. Defaults to directory provided in --source or current working directory",
         show_default=False,
         default=None,
     ),

@@ -15,8 +15,11 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import yaml
+from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
@@ -68,13 +71,18 @@ class DBTManager(SqlExecutionMixin):
             stage_manager.create(stage_fqn, temporary=True)
 
         with cli_console.phase("Copying project files to stage"):
-            result_count = len(list(stage_manager.put_recursive(path.path, stage_name)))
-            if profiles_path != path:
-                stage_manager.put(
-                    str((profiles_path.path / "profiles.yml").absolute()), stage_name
+            with TemporaryDirectory() as tmp:
+                tmp_path = Path(tmp)
+                stage_manager.copy_to_tmp_dir(path.path, tmp_path)
+                self._prepare_profiles_file(profiles_path.path, tmp_path)
+                result_count = len(
+                    list(
+                        stage_manager.put_recursive(
+                            path.path, stage_name, temp_directory=tmp_path
+                        )
+                    )
                 )
-                result_count += 1
-            cli_console.step(f"Copied {result_count} files")
+                cli_console.step(f"Copied {result_count} files")
 
         with cli_console.phase("Creating DBT project"):
             if force is True:
@@ -95,16 +103,18 @@ class DBTManager(SqlExecutionMixin):
          * no other profiles are defined there
          * does not contain any confidential data like passwords
         """
-        profiles_file = profiles_path / "profiles.yml"
+        profiles_file = profiles_path / PROFILES_FILENAME
         if not profiles_file.exists():
             raise CliError(
-                f"profiles.yml does not exist in directory {profiles_path.path.absolute()}."
+                f"{PROFILES_FILENAME} does not exist in directory {profiles_path.path.absolute()}."
             )
         with profiles_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
             profiles = yaml.safe_load(fd)
 
         if target_profile not in profiles:
-            raise CliError(f"profile {target_profile} is not defined in profiles.yml")
+            raise CliError(
+                f"profile {target_profile} is not defined in {PROFILES_FILENAME}"
+            )
 
         errors = defaultdict(list)
         if len(profiles.keys()) > 1:
@@ -143,11 +153,25 @@ class DBTManager(SqlExecutionMixin):
                 )
 
         if errors:
-            message = "Found following errors in profiles.yml. Please fix them before proceeding:"
+            message = f"Found following errors in {PROFILES_FILENAME}. Please fix them before proceeding:"
             for target, issues in errors.items():
                 message += f"\n{target}"
                 message += "\n * " + "\n * ".join(issues)
             raise CliError(message)
+
+    @staticmethod
+    def _prepare_profiles_file(profiles_path: Path, tmp_path: Path):
+        # We need to copy profiles.yml file (not symlink) in order to redact
+        # any comments without changing original file. This can be achieved
+        # with pyyaml, which looses comments while reading a yaml file
+        source_profiles_file = SecurePath(profiles_path / PROFILES_FILENAME)
+        target_profiles_file = SecurePath(tmp_path / PROFILES_FILENAME)
+        if target_profiles_file.exists():
+            target_profiles_file.unlink()
+        with source_profiles_file.open(
+            read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
+        ) as sfd, target_profiles_file.open(mode="w") as tfd:
+            yaml.safe_dump(yaml.safe_load(sfd), tfd)
 
     def execute(
         self, dbt_command: str, name: str, run_async: bool, *dbt_cli_args

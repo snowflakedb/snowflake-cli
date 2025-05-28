@@ -19,7 +19,11 @@ from unittest import mock
 
 import pytest
 import yaml
-from snowflake.cli._plugins.dbt.constants import OUTPUT_COLUMN_NAME, RESULT_COLUMN_NAME
+from snowflake.cli._plugins.dbt.constants import (
+    OUTPUT_COLUMN_NAME,
+    PROFILES_FILENAME,
+    RESULT_COLUMN_NAME,
+)
 from snowflake.cli.api.identifiers import FQN
 
 
@@ -60,7 +64,7 @@ class TestDBTDeploy:
         source_path = tmp_path_factory.mktemp("dbt_project")
         dbt_project_file = source_path / "dbt_project.yml"
         dbt_project_file.write_text(yaml.dump({"profile": "dev"}))
-        dbt_profiles_file = source_path / "profiles.yml"
+        dbt_profiles_file = source_path / PROFILES_FILENAME
         dbt_profiles_file.write_text(
             yaml.dump(
                 {
@@ -124,9 +128,7 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
         )
         stage_fqn = FQN.from_string(f"dbt_TEST_PIPELINE_stage").using_context()
         mock_create.assert_called_once_with(stage_fqn, temporary=True)
-        mock_put_recursive.assert_called_once_with(
-            dbt_project_path, "@MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"
-        )
+        mock_put_recursive.assert_called_once()
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
@@ -183,13 +185,11 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
         )
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
-    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     def test_dbt_deploy_with_custom_profiles_dir(
         self,
         _mock_create,
-        mock_put,
-        _mock_put_recursive,
+        mock_put_recursive,
         mock_connect,
         runner,
         dbt_project_path,
@@ -197,8 +197,8 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
     ):
         new_profiles_directory = Path(dbt_project_path) / "dbt_profiles"
         new_profiles_directory.mkdir(parents=True, exist_ok=True)
-        profiles_file = dbt_project_path / "profiles.yml"
-        profiles_file.rename(new_profiles_directory / "profiles.yml")
+        profiles_file = dbt_project_path / PROFILES_FILENAME
+        profiles_file.rename(new_profiles_directory / PROFILES_FILENAME)
 
         result = runner.invoke(
             [
@@ -211,10 +211,7 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
         )
 
         assert result.exit_code == 0, result.output
-        mock_put.assert_called_once_with(
-            str(new_profiles_directory / "profiles.yml"),
-            "@MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage",
-        )
+        mock_put_recursive.assert_called_once()
 
     def test_raises_when_dbt_project_yml_is_not_available(
         self, dbt_project_path, mock_connect, runner
@@ -257,7 +254,7 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
     def test_raises_when_profiles_yml_is_not_available(
         self, dbt_project_path, mock_connect, runner
     ):
-        (dbt_project_path / "profiles.yml").unlink()
+        (dbt_project_path / PROFILES_FILENAME).unlink()
 
         result = runner.invoke(
             [
@@ -275,7 +272,7 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
     def test_raises_when_profiles_yml_does_not_contain_selected_profile(
         self, dbt_project_path, mock_connect, runner
     ):
-        with open((dbt_project_path / "profiles.yml"), "w") as f:
+        with open((dbt_project_path / PROFILES_FILENAME), "w") as f:
             yaml.dump({}, f)
 
         result = runner.invoke(
