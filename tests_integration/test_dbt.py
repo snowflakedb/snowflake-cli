@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import datetime
+import os
 from pathlib import Path
 
 import pytest
 import yaml
+
+from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
 
 
 @pytest.mark.integration
@@ -46,8 +49,8 @@ def test_deploy_and_execute(
         # change location of profiles.yml and redeploy
         new_profiles_directory = Path(root_dir) / "dbt_profiles"
         new_profiles_directory.mkdir(parents=True, exist_ok=True)
-        profiles_file = root_dir / "profiles.yml"
-        profiles_file.rename(new_profiles_directory / "profiles.yml")
+        profiles_file = root_dir / PROFILES_FILENAME
+        profiles_file.rename(new_profiles_directory / PROFILES_FILENAME)
 
         result = runner.invoke_with_connection_json(
             [
@@ -114,7 +117,13 @@ def test_dbt_deploy_options(
 
         timestamp_after_create = _fetch_creation_date(name, runner)
 
-        # deploy for the second time - alter existing object
+        # deploy for the second time - alter existing object and use profiles.yml as symlink
+        profiles_file = (Path(root_dir) / PROFILES_FILENAME).rename(
+            Path(root_dir) / "profiles_file"
+        )
+        os.symlink(profiles_file, Path(root_dir) / PROFILES_FILENAME)
+        assert (Path(root_dir) / PROFILES_FILENAME).is_symlink()
+
         result = runner.invoke_with_connection_json(["dbt", "deploy", name])
         assert result.exit_code == 0, result.output
 
@@ -150,7 +159,7 @@ def _fetch_creation_date(name, runner) -> datetime.datetime:
 
 
 def _setup_dbt_profile(root_dir: Path, snowflake_session, include_password: bool):
-    with open((root_dir / "profiles.yml"), "r") as f:
+    with open((root_dir / PROFILES_FILENAME), "r") as f:
         profiles = yaml.safe_load(f)
     dev_profile = profiles["dbt_integration_project"]["outputs"]["dev"]
     dev_profile["database"] = snowflake_session.database
@@ -163,4 +172,4 @@ def _setup_dbt_profile(root_dir: Path, snowflake_session, include_password: bool
         dev_profile["password"] = "secret_phrase"
     else:
         dev_profile.pop("password", None)
-    (root_dir / "profiles.yml").write_text(yaml.dump(profiles))
+    (root_dir / PROFILES_FILENAME).write_text(yaml.dump(profiles))
