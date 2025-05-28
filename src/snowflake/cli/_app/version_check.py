@@ -9,7 +9,8 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
-REPOSITORY_URL = "https://pypi.org/pypi/snowflake-cli/json"
+REPOSITORY_URL_PIP = "https://pypi.org/pypi/snowflake-cli/json"
+REPOSITORY_URL_BREW = "https://formulae.brew.sh/api/formula/snowflake-cli.json"
 
 
 def get_new_version_msg() -> str | None:
@@ -48,12 +49,21 @@ class _VersionCache:
     @staticmethod
     def _get_version_from_pypi() -> str | None:
         headers = {"Content-Type": "application/vnd.pypi.simple.v1+json"}
-        response = requests.get(REPOSITORY_URL, headers=headers, timeout=3)
+        response = requests.get(REPOSITORY_URL_PIP, headers=headers, timeout=3)
         response.raise_for_status()
-        return response.json()["info"]["version"]
+        return response.json().get("info", {}).get("version", None)
+
+    @staticmethod
+    def _get_version_from_brew() -> str | None:
+        response = requests.get(REPOSITORY_URL_BREW, timeout=3)
+        response.raise_for_status()
+        return response.json().get("versions", {}).get("stable", None)
 
     def _update_latest_version(self) -> Version | None:
-        version = self._get_version_from_pypi()
+        # Use brew version, fallback to pypi if brew is not available.
+        # Brew repo takes longer to propagate the upgrade and is triggered later in our release process,
+        # we treat it as "slowest point" and determinant that the released version is available.
+        version = self._get_version_from_brew() or self._get_version_from_pypi()
         if version is None:
             return None
         self._save_latest_version(version)
