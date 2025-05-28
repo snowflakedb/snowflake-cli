@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 from textwrap import dedent
 
 import pytest
@@ -128,34 +130,23 @@ dev
  * Value for type field is invalid. Should be set to `snowflake` in target local"""
         assert exc_info.value.message == dedent(expected_error_message)
 
-    # def test_prepare_profiles_file_replaces_existing_symlink_with_file(self, tmp_path_factory, profile, tmpdir):
-    #     profiles_path = tmp_path_factory.mktemp("profiles")
-    #     dbt_profiles_file = profiles_path / "profiles_real.yml"
-    #     dbt_profiles_file.write_text(yaml.dump(profile))
-    #     os.symlink(dbt_profiles_file.absolute(), (profiles_path / "profiles.yml").absolute())
-    #     assert (profiles_path / "profiles.yml").is_symlink() is True
-    #
-    #     tmp_dbt_path = Path(tmpdir)
-    #     os.symlink((dbt_profiles_file / "profiles.yml").absolute(), (tmp_dbt_path / "profiles.yml").absolute())
-    #     assert (tmp_dbt_path / "profiles.yml").is_symlink() is True
-    #
-    #     DBTManager._prepare_profiles_file(SecurePath(profiles_path), tmp_dbt_path)
-    #
-    #     assert tmp_dbt_path.is_symlink() is False
-
-    def test_prepare_profiles_file_copies_file_if_it_was_not_symlinked(
-        self, tmp_path_factory, profile
+    def test_prepare_profiles_file_replaces_existing_symlink_with_file(
+        self, tmp_path_factory, profile, tmpdir
     ):
         profiles_path = tmp_path_factory.mktemp("profiles")
-        dbt_profiles_file = profiles_path / PROFILES_FILENAME
+        dbt_profiles_file = profiles_path / "profiles_real.yml"
         dbt_profiles_file.write_text(yaml.dump(profile))
-        assert (profiles_path / PROFILES_FILENAME).is_symlink() is False
+        os.symlink(dbt_profiles_file.absolute(), profiles_path / "profiles.yml")
+        assert (profiles_path / "profiles.yml").is_symlink() is True
 
-        tmp_dbt_path = tmp_path_factory.mktemp("dbt")
+        tmp_dbt_path = Path(tmpdir)
+        tmp_profiles_file = tmp_dbt_path / "profiles.yml"
+        os.symlink(dbt_profiles_file, tmp_profiles_file)
+        assert tmp_profiles_file.is_symlink() is True
 
         DBTManager._prepare_profiles_file(profiles_path, tmp_dbt_path)  # noqa: SLF001
 
-        assert tmp_dbt_path.is_symlink() is False
+        assert tmp_profiles_file.is_symlink() is False
 
     def test_prepare_profiles_file_removes_all_comments(
         self, tmp_path_factory, profile
