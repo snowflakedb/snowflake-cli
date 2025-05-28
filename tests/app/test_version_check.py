@@ -97,6 +97,19 @@ def test_get_version_from_pypi(mock_get):
     )
 
 
+@patch("snowflake.cli._app.version_check.requests.get")
+def test_get_version_from_brew(mock_get):
+    r = Response()
+    r.status_code = 200
+    r.raw = BytesIO(b'{"versions": {"stable": "1.2.3"}}')
+    mock_get.return_value = r
+    assert _VersionCache()._get_version_from_brew() == "1.2.3"  # noqa
+    mock_get.assert_called_once_with(
+        "https://formulae.brew.sh/api/formula/snowflake-cli.json",
+        timeout=3,
+    )
+
+
 @patch("snowflake.cli._app.version_check.time.time", lambda: 0.0)
 def test_saves_latest_version(named_temporary_file):
     with named_temporary_file() as f:
@@ -117,19 +130,44 @@ def test_read_last_version(named_temporary_file):
         assert vc._read_latest_version() == Version("4.2.3")  # noqa
 
 
-@patch(
-    "snowflake.cli._app.version_check._VersionCache._get_version_from_pypi",
-    lambda _: "8.0.0",
+@pytest.mark.parametrize(
+    "pypi_version, brew_version, expected",
+    [
+        ("8.0.0", "8.0.0", "8.0.0"),
+        ("8.0.0", "8.0.1", "8.0.1"),
+        ("8.0.1", "8.0.0", "8.0.0"),
+        ("8.0.1", None, "8.0.1"),
+        (None, "8.0.1", "8.0.1"),
+        (None, None, None),
+    ],
 )
+@patch("snowflake.cli._app.version_check._VersionCache._get_version_from_pypi")
+@patch("snowflake.cli._app.version_check._VersionCache._get_version_from_brew")
 @patch("snowflake.cli._app.version_check.time.time")
-def test_read_last_version_and_updates_it(mock_time, named_temporary_file):
+def test_read_last_version_and_updates_it(
+    mock_time,
+    mock_brew,
+    mock_pypi,
+    named_temporary_file,
+    pypi_version,
+    brew_version,
+    expected,
+):
     mock_time.side_effect = cycle((2 * 60 * 60, 120))
+    mock_pypi.return_value = pypi_version
+    mock_brew.return_value = brew_version
 
     with named_temporary_file() as f:
-        f.write_text('{"last_time_check": 0.0, "version": "1.2.3"}')
+        f.write_text(old_data := '{"last_time_check": 0.0, "version": "1.2.3"}')
         sf = SecurePath(f)
         vc = _VersionCache()
         vc._cache_file = sf  # noqa
-        assert vc._read_latest_version() == Version("8.0.0")  # noqa
+        result = vc._read_latest_version()  # noqa
         data = sf.read_text(file_size_limit_mb=1)
-        assert data == '{"last_time_check": 120, "version": "8.0.0"}'
+
+        if expected:
+            assert result == Version(expected)  # noqa
+            assert data == f'{{"last_time_check": 120, "version": "{expected}"}}'
+        else:
+            assert result is None
+            assert data == old_data
