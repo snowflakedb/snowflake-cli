@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import datetime
+import os
 from pathlib import Path
 
 import pytest
@@ -116,7 +117,13 @@ def test_dbt_deploy_options(
 
         timestamp_after_create = _fetch_creation_date(name, runner)
 
-        # deploy for the second time - alter existing object
+        # deploy for the second time - alter existing object and use profiles.yml as symlink
+        profiles_file = (Path(root_dir) / PROFILES_FILENAME).rename(
+            Path(root_dir) / "profiles_file"
+        )
+        os.symlink(profiles_file, Path(root_dir) / PROFILES_FILENAME)
+        assert (Path(root_dir) / PROFILES_FILENAME).is_symlink()
+
         result = runner.invoke_with_connection_json(["dbt", "deploy", name])
         assert result.exit_code == 0, result.output
 
