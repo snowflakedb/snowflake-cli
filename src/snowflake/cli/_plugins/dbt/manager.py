@@ -153,7 +153,7 @@ class DBTManager(SqlExecutionMixin):
                 )
 
         if errors:
-            message = "Found following errors in profiles.yml. Please fix them before proceeding:"
+            message = f"Found following errors in {PROFILES_FILENAME}. Please fix them before proceeding:"
             for target, issues in errors.items():
                 message += f"\n{target}"
                 message += "\n * " + "\n * ".join(issues)
@@ -161,10 +161,9 @@ class DBTManager(SqlExecutionMixin):
 
     @staticmethod
     def _prepare_profiles_file(profiles_path: Path, tmp_path: Path):
-        yaml_comment = "# "
         # We need to copy profiles.yml file (not symlink) in order to redact
-        # any comments
-        # absolute_src = SecurePath(resolve_without_follow(profiles_path/PROFILES_FILENAME))
+        # any comments without changing original file. This can be achieved
+        # with pyyaml, which looses comments while reading a yaml file
         source_profiles_file = SecurePath(profiles_path / PROFILES_FILENAME)
         target_profiles_file = SecurePath(tmp_path / PROFILES_FILENAME)
         if target_profiles_file.exists():
@@ -172,14 +171,7 @@ class DBTManager(SqlExecutionMixin):
         with source_profiles_file.open(
             read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
         ) as sfd, target_profiles_file.open(mode="w") as tfd:
-            for line in sfd:
-                comment_start = line.find(yaml_comment)
-                if comment_start == 0:
-                    continue
-                elif comment_start > 0:
-                    tfd.write(line[:comment_start] + "\n")
-                else:
-                    tfd.write(line)
+            yaml.safe_dump(yaml.safe_load(sfd), tfd)
 
     def execute(
         self, dbt_command: str, name: str, run_async: bool, *dbt_cli_args

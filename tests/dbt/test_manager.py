@@ -136,11 +136,11 @@ dev
         profiles_path = tmp_path_factory.mktemp("profiles")
         dbt_profiles_file = profiles_path / "profiles_real.yml"
         dbt_profiles_file.write_text(yaml.dump(profile))
-        os.symlink(dbt_profiles_file.absolute(), profiles_path / "profiles.yml")
-        assert (profiles_path / "profiles.yml").is_symlink() is True
+        os.symlink(dbt_profiles_file.absolute(), profiles_path / PROFILES_FILENAME)
+        assert (profiles_path / PROFILES_FILENAME).is_symlink() is True
 
         tmp_dbt_path = Path(tmpdir)
-        tmp_profiles_file = tmp_dbt_path / "profiles.yml"
+        tmp_profiles_file = tmp_dbt_path / PROFILES_FILENAME
         os.symlink(dbt_profiles_file, tmp_profiles_file)
         assert tmp_profiles_file.is_symlink() is True
 
