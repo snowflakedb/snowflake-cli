@@ -1,4 +1,4 @@
-FROM ubuntu:18.04 AS base
+FROM ubuntu:20.04 AS base
 
 ENV HOME=/root
 
