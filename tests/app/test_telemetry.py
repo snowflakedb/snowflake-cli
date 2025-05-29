@@ -21,8 +21,15 @@ import typer
 from click import ClickException
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import CouldNotUseObjectError
+from snowflake.cli.api.feature_flags import BooleanFlag, FeatureFlagMixin
 from snowflake.connector import ProgrammingError
 from snowflake.connector.version import VERSION as DRIVER_VERSION
+
+from tests_common.feature_flag_utils import with_feature_flags
+
+
+class _TestFlags(FeatureFlagMixin):
+    FOO = BooleanFlag("FOO", False)
 
 
 @mock.patch(
@@ -33,7 +40,7 @@ from snowflake.connector.version import VERSION as DRIVER_VERSION
 @mock.patch("snowflake.cli._app.telemetry.get_time_millis")
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
-@mock.patch.dict(os.environ, {"SNOWFLAKE_CLI_FEATURES_FOO": "False"})
+@with_feature_flags({_TestFlags.FOO: False})
 def test_executing_command_sends_telemetry_usage_data(
     _, mock_conn, mock_time, mock_uuid4, mock_platform, mock_version, runner
 ):
@@ -120,7 +127,7 @@ def test_executing_command_sends_ci_usage_data(_, mock_conn, runner, env_var, ci
 @mock.patch("snowflake.connector.time_util.get_time_millis")
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
-@mock.patch.dict(os.environ, {"SNOWFLAKE_CLI_FEATURES_FOO": "False"})
+@with_feature_flags({_TestFlags.FOO: False})
 def test_executing_command_sends_telemetry_result_data(
     _, mock_conn, mock_time, mock_uuid4, mock_platform, mock_version, runner
 ):

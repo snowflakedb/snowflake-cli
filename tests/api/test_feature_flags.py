@@ -17,6 +17,8 @@ from unittest import mock
 import pytest
 from snowflake.cli.api.feature_flags import BooleanFlag, FeatureFlagMixin
 
+from tests_common.feature_flag_utils import with_feature_flags
+
 
 class _TestFlags(FeatureFlagMixin):
     # Intentional inconsistency between constant and the enum name to make sure there's no strict relation
@@ -115,15 +117,11 @@ def test_get_value_flag_from_config_file(mock_get_config_value, value_from_confi
 
 @pytest.mark.parametrize("value_from_env", ["1", "true", "True", "TRUE", "TruE"])
 def test_flag_is_enabled_from_env_var(value_from_env):
-    with mock.patch.dict(
-        "os.environ", {"SNOWFLAKE_CLI_FEATURES_DISABLED_DEFAULT": value_from_env}
-    ):
+    with with_feature_flags({_TestFlags.DISABLED_BY_DEFAULT: value_from_env}):
         assert _TestFlags.DISABLED_BY_DEFAULT.is_enabled() is True
 
 
 @pytest.mark.parametrize("value_from_env", ["0", "false", "False", "FALSE", "FaLse"])
 def test_flag_is_disabled_from_env_var(value_from_env):
-    with mock.patch.dict(
-        "os.environ", {"SNOWFLAKE_CLI_FEATURES_ENABLED_DEFAULT": value_from_env}
-    ):
+    with with_feature_flags({_TestFlags.ENABLED_BY_DEFAULT: value_from_env}):
         assert _TestFlags.ENABLED_BY_DEFAULT.is_enabled() is False
