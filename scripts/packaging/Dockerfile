@@ -1,9 +1,9 @@
-FROM ubuntu:22.04 AS base
+FROM ubuntu:18.04 AS base
 
 ENV HOME=/root
 
 RUN apt -y update
-RUN apt -y install -y software-properties-common binutils
+RUN apt -y install -y software-properties-common binutils --fix-missing
 RUN add-apt-repository ppa:deadsnakes/ppa
 RUN apt install -y --fix-missing ruby\
   squashfs-tools\
