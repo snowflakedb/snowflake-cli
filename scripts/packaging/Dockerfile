@@ -5,7 +5,7 @@ ENV HOME=/root
 RUN apt -y update
 RUN apt -y install -y software-properties-common binutils
 RUN add-apt-repository ppa:deadsnakes/ppa
-RUN apt install -y ruby\
+RUN apt install -y --fix-missing ruby\
   squashfs-tools\
   rpm\
   vim \
