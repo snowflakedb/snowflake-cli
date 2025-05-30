@@ -64,10 +64,10 @@ def url(private_link: bool = PrivateLinkOption, **options) -> MessageResult:
 
 
 @app.command(requires_connection=True)
-def login(**options) -> MessageResult:
+def login(private_link: bool = PrivateLinkOption, **options) -> MessageResult:
     """
     Logs in to the account image registry with the current user's credentials through Docker.
 
     Must be called from a role that can view at least one image repository in the image registry.
     """
-    return MessageResult(RegistryManager().docker_registry_login().strip())
+    return MessageResult(RegistryManager().docker_registry_login(private_link).strip())
