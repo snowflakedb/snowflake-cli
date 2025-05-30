@@ -101,8 +101,8 @@ class RegistryManager(SqlExecutionMixin):
             sample_repository_url = f"//{sample_repository_url}"
         return urlparse(sample_repository_url).netloc
 
-    def docker_registry_login(self) -> str:
-        registry_url = self.get_registry_url()
+    def docker_registry_login(self, private_link: bool = False) -> str:
+        registry_url = self.get_registry_url(private_link)
         token = self.get_token()
         command = [
             "docker",

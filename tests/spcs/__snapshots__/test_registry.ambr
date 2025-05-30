@@ -15,6 +15,22 @@
   
   '''
 # ---
+# name: test_docker_registry_login_cli_private_link
+  '''
+  Login Succeeded
+  
+  '''
+# ---
+# name: test_docker_registry_login_cli_private_link_no_repo
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | No image repository found. To run this command, please switch to a role with |
+  | read access to at least one image repository or create a new image           |
+  | repository first.                                                            |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
 # name: test_docker_registry_login_subprocess_error
   'Login Failed: Docker Failed'
 # ---
