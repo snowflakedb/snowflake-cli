@@ -205,6 +205,7 @@ def test_nativeapp_teardown_unowned_app(
             assert result.exit_code == 1
 
 
+@pytest.mark.no_qa  # temporarily skipped until [SNOW-2123931] is solved
 @pytest.mark.integration
 @pytest.mark.parametrize("default_release_directive", [True, False])
 @pytest.mark.parametrize(
