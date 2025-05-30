@@ -268,7 +268,7 @@ def test_docker_registry_login(mock_check_output, mock_get_url, mock_get_token):
     mock_check_output.assert_called_once_with(
         expected_command, input=json.dumps(test_token), text=True, stderr=PIPE
     )
-    mock_get_url.assert_called_once_with()
+    mock_get_url.assert_called_once_with(False)
     mock_get_token.assert_called_once_with()
     assert result == test_output
 
@@ -355,3 +355,67 @@ def test_docker_registry_login_docker_not_installed_error(
         RegistryManager().docker_registry_login()
 
     assert e.value.message == "Docker is not installed."
+
+
+@mock.patch(
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.docker_registry_login"
+)
+def test_docker_registry_login_cli_private_link(
+    mock_docker_login, runner, os_agnostic_snapshot
+):
+    mock_docker_login.return_value = "Login Succeeded\n"
+    result = runner.invoke(["spcs", "image-registry", "login", "--private-link"])
+    assert result.exit_code == 0, result.output
+    mock_docker_login.assert_called_once_with(True)
+    assert result.output == os_agnostic_snapshot
+
+
+@mock.patch(
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.get_token"
+)
+@mock.patch(
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
+)
+@mock.patch(
+    "snowflake.cli._plugins.spcs.image_registry.manager.subprocess.check_output"
+)
+def test_docker_registry_login_private_link_manager(
+    mock_check_output, mock_get_url, mock_get_token
+):
+    test_output = mock_check_output.return_value = "Login Succeeded\n"
+    test_url = (
+        mock_get_url.return_value
+    ) = "orgname-acctname.registry.privatelink.snowflakecomputing.com"
+    test_token = mock_get_token.return_value = {
+        "token": "ver:1-hint:abc",
+        "expires_in": 3600,
+    }
+
+    expected_command = [
+        "docker",
+        "login",
+        "--username",
+        "0sessiontoken",
+        "--password-stdin",
+        test_url,
+    ]
+
+    result = RegistryManager().docker_registry_login(private_link=True)
+    mock_check_output.assert_called_once_with(
+        expected_command, input=json.dumps(test_token), text=True, stderr=PIPE
+    )
+    mock_get_url.assert_called_once_with(True)
+    mock_get_token.assert_called_once_with()
+    assert result == test_output
+
+
+@mock.patch(
+    "snowflake.cli._plugins.spcs.image_registry.manager.RegistryManager.get_registry_url"
+)
+def test_docker_registry_login_cli_private_link_no_repo(
+    mock_get_registry_url, runner, os_agnostic_snapshot
+):
+    mock_get_registry_url.side_effect = NoImageRepositoriesFoundError()
+    result = runner.invoke(["spcs", "image-registry", "login", "--private-link"])
+    assert result.exit_code == 1, result.output
+    assert result.output == os_agnostic_snapshot
