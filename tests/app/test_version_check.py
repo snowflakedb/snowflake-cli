@@ -1,9 +1,11 @@
 import json
 from io import BytesIO
 from itertools import cycle
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import tomlkit
 from packaging.version import Version
 from requests import Response
 from snowflake.cli._app.version_check import (
@@ -12,6 +14,7 @@ from snowflake.cli._app.version_check import (
     get_new_version_msg,
 )
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.connector.config_manager import CONFIG_MANAGER
 
 _WARNING_MESSAGE = (
     "New version of Snowflake CLI available. Newest: 2.0.0, current: 1.0.0"
@@ -205,3 +208,33 @@ def test_should_show_new_version_msg_parametrized(
             cache_data["last_time_shown"] = last_time_shown
         f.write_text(json.dumps(cache_data))
         assert vc.should_show_new_version_msg() is expected
+
+
+@patch(*_PATCH_VERSION)
+@patch(*_PATCH_LAST_VERSION)  # type: ignore
+@patch(*_PATCH_SHOULD_SHOW_NEW_VERSION_MSG)  # type: ignore
+def test_get_new_version_msg_muted_by_env(monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_MUTE_NEW_VERSION_MESSAGE", "true")
+    # Patch config to return None so env is checked
+    with patch("snowflake.cli.api.config.get_config_section", lambda *a, **k: {}):
+        assert get_new_version_msg() is None
+
+
+@patch(*_PATCH_VERSION)
+@patch(*_PATCH_LAST_VERSION)  # type: ignore
+@patch(*_PATCH_SHOULD_SHOW_NEW_VERSION_MSG)  # type: ignore
+def test_get_new_version_msg_muted_by_config_file(tmp_path):
+    assert get_new_version_msg() is not None
+
+    # Create a config.toml with mute_new_version_message = true
+    config_path = tmp_path / "config.toml"
+    config_data = tomlkit.document()
+    config_data.add("cli", {"mute_new_version_message": True})
+    config_path.write_text(tomlkit.dumps(config_data))
+
+    # Point CONFIG_MANAGER.file_path to this config and reload config
+    CONFIG_MANAGER.file_path = Path(config_path)
+    CONFIG_MANAGER.read_config()
+
+    # Now the mute should be respected
+    assert get_new_version_msg() is None

@@ -6,6 +6,7 @@ import requests
 from packaging.version import Version
 from snowflake.cli.__about__ import VERSION
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.config import get_config_bool_value
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
@@ -18,7 +19,13 @@ VERSION_CACHE_REFRESH_INTERVAL = 60 * 60  # 1 hour
 NEW_VERSION_MSG_INTERVAL = 60 * 60 * 24 * 7  # 1 week
 
 
+def is_new_version_message_muted() -> bool:
+    return get_config_bool_value("cli", key="mute_new_version_message", default=False)
+
+
 def get_new_version_msg() -> str | None:
+    if is_new_version_message_muted():
+        return None
     cache = _VersionCache()
     last = cache.get_last_version()
     current = Version(VERSION)
