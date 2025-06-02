@@ -15,6 +15,7 @@
   
    Snowflake CLI tool for developers [v0.0.1-test_patched]
   
+  
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
@@ -78,6 +79,7 @@
   
    Snowflake CLI tool for developers [v0.0.1-test_patched]
   
+  
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
@@ -121,6 +123,7 @@
    Usage: snow [OPTIONS] COMMAND [ARGS]...
   
    Snowflake CLI tool for developers [v0.0.1-test_patched]
+  
   
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
@@ -204,6 +207,7 @@
    Usage: snow [OPTIONS] COMMAND [ARGS]...
   
    Snowflake CLI tool for developers [v0.0.1-test_patched]
+  
   
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
