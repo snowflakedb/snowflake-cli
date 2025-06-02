@@ -1,3 +1,4 @@
+import json
 from io import BytesIO
 from itertools import cycle
 from unittest.mock import patch
@@ -5,7 +6,11 @@ from unittest.mock import patch
 import pytest
 from packaging.version import Version
 from requests import Response
-from snowflake.cli._app.version_check import _VersionCache, get_new_version_msg
+from snowflake.cli._app.version_check import (
+    NEW_VERSION_MSG_INTERVAL,
+    _VersionCache,
+    get_new_version_msg,
+)
 from snowflake.cli.api.secure_path import SecurePath
 
 _WARNING_MESSAGE = (
@@ -15,6 +20,10 @@ _PATCH_VERSION = ["snowflake.cli._app.version_check.VERSION", "1.0.0"]
 _PATCH_LAST_VERSION = [
     "snowflake.cli._app.version_check._VersionCache.get_last_version",
     lambda _: Version("2.0.0"),
+]
+_PATCH_SHOULD_SHOW_NEW_VERSION_MSG = [
+    "snowflake.cli._app.version_check._VersionCache.should_show_new_version_msg",
+    lambda _: True,
 ]
 
 
@@ -61,6 +70,7 @@ def test_version_check_exception_are_handled_safely(
 
 @patch(*_PATCH_VERSION)
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
+@patch(*_PATCH_SHOULD_SHOW_NEW_VERSION_MSG)  # type: ignore
 def test_get_new_version_msg_message_if_new_version_available():
     msg = get_new_version_msg()
     assert (
@@ -114,7 +124,7 @@ def test_get_version_from_brew(mock_get):
 def test_saves_latest_version(named_temporary_file):
     with named_temporary_file() as f:
         vc = _VersionCache()
-        vc._cache_file = f  # noqa
+        vc._cache_file = f  # noqa: SLF001
         vc._save_latest_version("1.2.3")  # noqa
         data = f.read_text()
     assert data == '{"last_time_check": 0.0, "version": "1.2.3"}'
@@ -125,7 +135,7 @@ def test_read_last_version(named_temporary_file):
     with named_temporary_file() as f:
         sf = SecurePath(f)
         vc = _VersionCache()
-        vc._cache_file = sf  # noqa
+        vc._cache_file = sf  # noqa: SLF001
         f.write_text('{"last_time_check": 0.0, "version": "4.2.3"}')
         assert vc._read_latest_version() == Version("4.2.3")  # noqa
 
@@ -161,7 +171,7 @@ def test_read_last_version_and_updates_it(
         f.write_text(old_data := '{"last_time_check": 0.0, "version": "1.2.3"}')
         sf = SecurePath(f)
         vc = _VersionCache()
-        vc._cache_file = sf  # noqa
+        vc._cache_file = sf  # noqa: SLF001
         result = vc._read_latest_version()  # noqa
         data = sf.read_text(file_size_limit_mb=1)
 
@@ -171,3 +181,27 @@ def test_read_last_version_and_updates_it(
         else:
             assert result is None
             assert data == old_data
+
+
+@pytest.mark.parametrize(
+    "now,last_time_shown,expected",
+    [
+        (1000000, 1000000 - NEW_VERSION_MSG_INTERVAL - 1, True),
+        (1000000, 1000000 - NEW_VERSION_MSG_INTERVAL + 100, False),
+        (1000000, None, True),
+    ],
+)
+@patch("snowflake.cli._app.version_check.time.time")
+def test_should_show_new_version_msg_parametrized(
+    mock_time, named_temporary_file, now, last_time_shown, expected
+):
+    mock_time.return_value = now
+    with named_temporary_file() as f:
+        sf = SecurePath(f)
+        vc = _VersionCache()
+        vc._cache_file = sf  # noqa: SLF001
+        cache_data = {"last_time_check": 0.0, "version": "2.0.0"}
+        if last_time_shown is not None:
+            cache_data["last_time_shown"] = last_time_shown
+        f.write_text(json.dumps(cache_data))
+        assert vc.should_show_new_version_msg() is expected

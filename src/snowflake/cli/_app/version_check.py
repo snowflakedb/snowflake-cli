@@ -12,11 +12,18 @@ from snowflake.connector.config_manager import CONFIG_MANAGER
 REPOSITORY_URL_PIP = "https://pypi.org/pypi/snowflake-cli/json"
 REPOSITORY_URL_BREW = "https://formulae.brew.sh/api/formula/snowflake-cli.json"
 
+# How often to refresh the version cache (seconds)
+VERSION_CACHE_REFRESH_INTERVAL = 60 * 60  # 1 hour
+# How often to show the new version message (seconds)
+NEW_VERSION_MSG_INTERVAL = 60 * 60 * 24 * 7  # 1 week
+
 
 def get_new_version_msg() -> str | None:
-    last = _VersionCache().get_last_version()
+    cache = _VersionCache()
+    last = cache.get_last_version()
     current = Version(VERSION)
-    if last and last > current:
+    if last and last > current and cache.should_show_new_version_msg():
+        cache.update_last_time_shown()
         return f"\nNew version of Snowflake CLI available. Newest: {last}, current: {VERSION}\n"
     return None
 
@@ -32,6 +39,7 @@ def show_new_version_banner_callback(msg):
 class _VersionCache:
     _last_time = "last_time_check"
     _version = "version"
+    _last_time_shown = "last_time_shown"
     _version_cache_file = SecurePath(
         CONFIG_MANAGER.file_path.parent / ".cli_version.cache"
     )
@@ -44,6 +52,26 @@ class _VersionCache:
             _VersionCache._last_time: time.time(),
             _VersionCache._version: str(version),
         }
+        if self._cache_file.exists():
+            try:
+                old_data = json.loads(self._cache_file.read_text(file_size_limit_mb=1))
+                if _VersionCache._last_time_shown in old_data:
+                    data[_VersionCache._last_time_shown] = old_data[
+                        _VersionCache._last_time_shown
+                    ]
+            except Exception:
+                pass
+        self._cache_file.write_text(json.dumps(data))
+
+    def update_last_time_shown(self):
+        if self._cache_file.exists():
+            try:
+                data = json.loads(self._cache_file.read_text(file_size_limit_mb=1))
+            except Exception:
+                data = {}
+        else:
+            data = {}
+        data[_VersionCache._last_time_shown] = time.time()
         self._cache_file.write_text(json.dumps(data))
 
     @staticmethod
@@ -73,9 +101,8 @@ class _VersionCache:
         if self._cache_file.exists():
             data = json.loads(self._cache_file.read_text(file_size_limit_mb=1))
             now = time.time()
-            if data[_VersionCache._last_time] > now - 60 * 60:
+            if data[_VersionCache._last_time] > now - VERSION_CACHE_REFRESH_INTERVAL:
                 return Version(data[_VersionCache._version])
-
         return self._update_latest_version()
 
     def get_last_version(self) -> Version | None:
@@ -83,3 +110,16 @@ class _VersionCache:
             return self._read_latest_version()
         except:  # anything, this it not crucial feature
             return None
+
+    def should_show_new_version_msg(self) -> bool:
+        if not self._cache_file.exists():
+            return True
+        try:
+            data = json.loads(self._cache_file.read_text(file_size_limit_mb=1))
+            now = time.time()
+            last_time_shown = data.get(_VersionCache._last_time_shown, 0)
+            if last_time_shown < now - NEW_VERSION_MSG_INTERVAL:
+                return True
+        except Exception:
+            return True
+        return False
