@@ -1,4 +1,4 @@
-FROM artifactory.ci1.us-west-2.aws-dev.app.snowflake.com:8080/docker-remote/library/ubuntu:18.04 AS base
+FROM artifactory.ci1.us-west-2.aws-dev.app.snowflake.com/docker-remote/library/ubuntu:18.04 AS base
 
 ENV HOME=/root
 
