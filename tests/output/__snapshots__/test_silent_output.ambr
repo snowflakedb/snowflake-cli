@@ -6,6 +6,7 @@
                                                                                   
    Returns a URL to the specified Streamlit app                                   
                                                                                   
+                                                                                  
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the Streamlit app; for example:           |
   |                      my_streamlit                                            |
