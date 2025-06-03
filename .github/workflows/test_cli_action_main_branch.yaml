@@ -1,0 +1,44 @@
+name: "CLI Action main branch testing"
+
+on:
+  schedule:
+    - cron: "0 7 * * *" # 9am Polish time (UTC+2)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  define-matrix:
+    uses: ./.github/workflows/matrix.yaml
+
+  cli-main-branch:
+    name: "Check Snowflake CLI from main branch"
+    needs: define-matrix
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
+        python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: Snowflake-Labs/snowflake-cli-action@main
+        with:
+          custom-github-ref: "main"
+          default-config-file-path: "tests_integration/config/connection_configs.toml"
+      - name: Test connection
+        env:
+          TERM: unknown
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_AUTHENTICATOR: SNOWFLAKE_JWT
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT: ${{ secrets.SNOWFLAKE_ACCOUNT }}
+          SNOWFLAKE_CONNECTIONS_INTEGRATION_PRIVATE_KEY_RAW: ${{ secrets.SNOWFLAKE_PRIVATE_KEY_RAW }}
+        run: snow connection test -c integration | grep Status
