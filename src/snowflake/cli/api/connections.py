@@ -48,6 +48,7 @@ class ConnectionContext:
     private_key_file: Optional[str] = None
     warehouse: Optional[str] = None
     mfa_passcode: Optional[str] = None
+    token: Optional[str] = None
     enable_diag: Optional[bool] = False
     diag_log_path: Optional[Path] = None
     diag_allowlist_path: Optional[Path] = None

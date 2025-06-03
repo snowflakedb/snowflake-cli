@@ -63,6 +63,7 @@ SUPPORTED_ENV_OVERRIDES = [
     "warehouse",
     "session_token",
     "master_token",
+    "token",
     "token_file_path",
     "oauth_client_id",
     "oauth_client_secret",

@@ -53,6 +53,7 @@ from snowflake.cli.api.commands.flags import (
     SilentOption,
     TemporaryConnectionOption,
     TokenFilePathOption,
+    TokenOption,
     UserOption,
     VerboseOption,
     WarehouseOption,
@@ -266,6 +267,12 @@ GLOBAL_CONNECTION_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[str],
         default=PrivateKeyPathOption,
+    ),
+    inspect.Parameter(
+        "token",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=TokenOption,
     ),
     inspect.Parameter(
         "session_token",
