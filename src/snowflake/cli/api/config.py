@@ -164,7 +164,10 @@ _DEFAULT_LOGS_CONFIG = {
     "level": "info",
 }
 
-_DEFAULT_CLI_CONFIG = {LOGS_SECTION: _DEFAULT_LOGS_CONFIG}
+_DEFAULT_CLI_CONFIG = {
+    LOGS_SECTION: _DEFAULT_LOGS_CONFIG,
+    IGNORE_NEW_VERSION_WARNING_KEY: False,
+}
 
 
 @contextmanager
@@ -205,10 +208,12 @@ def _read_config_file():
 
 def _initialise_logs_section():
     with _config_file() as conf_file_cache:
-        if conf_file_cache.get(CLI_SECTION) is None:
-            conf_file_cache[CLI_SECTION] = _DEFAULT_CLI_CONFIG
-        if conf_file_cache[CLI_SECTION].get(LOGS_SECTION) is None:
-            conf_file_cache[CLI_SECTION][LOGS_SECTION] = _DEFAULT_LOGS_CONFIG
+        conf_file_cache[CLI_SECTION][LOGS_SECTION] = _DEFAULT_LOGS_CONFIG
+
+
+def _initialise_cli_section():
+    with _config_file() as conf_file_cache:
+        conf_file_cache[CLI_SECTION] = {IGNORE_NEW_VERSION_WARNING_KEY: False}
 
 
 def set_config_value(path: List[str], value: Any) -> None:
@@ -322,6 +327,7 @@ def _initialise_config(config_file: Path) -> None:
     config_file = SecurePath(config_file)
     config_file.parent.mkdir(parents=True, exist_ok=True)
     config_file.touch()
+    _initialise_cli_section()
     _initialise_logs_section()
     log.info("Created Snowflake configuration file at %s", CONFIG_MANAGER.file_path)
 
