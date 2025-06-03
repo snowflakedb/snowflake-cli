@@ -74,6 +74,7 @@ class _VersionCache:
                     ]
             except Exception:
                 pass
+        self._cache_file.parent.mkdir(parents=True, exist_ok=True)
         self._cache_file.write_text(json.dumps(data))
 
     def update_last_time_shown(self):
@@ -85,6 +86,7 @@ class _VersionCache:
         else:
             data = {}
         data[_VersionCache._last_time_shown] = time.time()
+        self._cache_file.parent.mkdir(parents=True, exist_ok=True)
         self._cache_file.write_text(json.dumps(data))
 
     @staticmethod
