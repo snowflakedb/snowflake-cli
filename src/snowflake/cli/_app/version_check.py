@@ -23,14 +23,14 @@ VERSION_CACHE_REFRESH_INTERVAL = 60 * 60  # 1 hour
 NEW_VERSION_MSG_INTERVAL = 60 * 60 * 24 * 7  # 1 week
 
 
-def is_ignore_new_version_warning_enabled() -> bool:
+def should_ignore_new_version_warning() -> bool:
     return get_config_bool_value(
         CLI_SECTION, key=IGNORE_NEW_VERSION_WARNING_KEY, default=False
     )
 
 
 def get_new_version_msg() -> str | None:
-    if is_ignore_new_version_warning_enabled():
+    if should_ignore_new_version_warning():
         return None
     cache = _VersionCache()
     last = cache.get_last_version()

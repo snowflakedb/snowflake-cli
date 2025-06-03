@@ -303,7 +303,7 @@ def get_config_value(*path, key: str, default: Optional[Any] = Empty) -> Any:
         return env_variable
     try:
         return get_config_section(*path)[key]
-    except (KeyError, NonExistentKey, MissingConfigOptionError):
+    except (KeyError, NonExistentKey, MissingConfigOptionError, ConfigSourceError):
         if default is not Empty:
             return default
         raise
