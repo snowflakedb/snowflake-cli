@@ -213,8 +213,8 @@ def test_should_show_new_version_msg_parametrized(
 @patch(*_PATCH_VERSION)
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
 @patch(*_PATCH_SHOULD_SHOW_NEW_VERSION_MSG)  # type: ignore
-def test_get_new_version_msg_muted_by_env(monkeypatch):
-    monkeypatch.setenv("SNOWFLAKE_CLI_MUTE_NEW_VERSION_MESSAGE", "true")
+def test_get_new_version_msg_ignored_by_env(monkeypatch):
+    monkeypatch.setenv("SNOWFLAKE_CLI_IGNORE_NEW_VERSION_WARNING", "true")
     # Patch config to return None so env is checked
     with patch("snowflake.cli.api.config.get_config_section", lambda *a, **k: {}):
         assert get_new_version_msg() is None
@@ -223,18 +223,18 @@ def test_get_new_version_msg_muted_by_env(monkeypatch):
 @patch(*_PATCH_VERSION)
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
 @patch(*_PATCH_SHOULD_SHOW_NEW_VERSION_MSG)  # type: ignore
-def test_get_new_version_msg_muted_by_config_file(tmp_path):
+def test_get_new_version_msg_ignored_by_config_file(tmp_path):
     assert get_new_version_msg() is not None
 
-    # Create a config.toml with mute_new_version_message = true
+    # Create a config.toml with ignore_new_version_warning = true
     config_path = tmp_path / "config.toml"
     config_data = tomlkit.document()
-    config_data.add("cli", {"mute_new_version_message": True})
+    config_data.add("cli", {"ignore_new_version_warning": True})
     config_path.write_text(tomlkit.dumps(config_data))
 
     # Point CONFIG_MANAGER.file_path to this config and reload config
     CONFIG_MANAGER.file_path = Path(config_path)
     CONFIG_MANAGER.read_config()
 
-    # Now the mute should be respected
+    # Now the ignore should be respected
     assert get_new_version_msg() is None
