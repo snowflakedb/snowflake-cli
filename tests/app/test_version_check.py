@@ -1,7 +1,7 @@
 import json
 from io import BytesIO
 from itertools import cycle
-from pathlib import Path
+from unittest import mock
 from unittest.mock import patch
 
 import pytest
@@ -13,8 +13,8 @@ from snowflake.cli._app.version_check import (
     _VersionCache,
     get_new_version_msg,
 )
+from snowflake.cli.api.config import config_init
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.connector.config_manager import CONFIG_MANAGER
 
 _WARNING_MESSAGE = (
     "New version of Snowflake CLI available. Newest: 2.0.0, current: 1.0.0"
@@ -214,27 +214,22 @@ def test_should_show_new_version_msg_parametrized(
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
 @patch(*_PATCH_SHOULD_SHOW_NEW_VERSION_MSG)  # type: ignore
 def test_get_new_version_msg_ignored_by_env(monkeypatch):
-    monkeypatch.setenv("SNOWFLAKE_CLI_IGNORE_NEW_VERSION_WARNING", "true")
-    # Patch config to return None so env is checked
-    with patch("snowflake.cli.api.config.get_config_section", lambda *a, **k: {}):
+    with mock.patch.dict(
+        "os.environ", {"SNOWFLAKE_CLI_IGNORE_NEW_VERSION_WARNING": "true"}
+    ):
         assert get_new_version_msg() is None
 
 
 @patch(*_PATCH_VERSION)
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
 @patch(*_PATCH_SHOULD_SHOW_NEW_VERSION_MSG)  # type: ignore
-def test_get_new_version_msg_ignored_by_config_file(tmp_path):
-    assert get_new_version_msg() is not None
+def test_get_new_version_msg_ignored_by_config_file(test_snowcli_config):
+    config_text = test_snowcli_config.read_text()
+    doc = tomlkit.parse(config_text)
+    if "cli" not in doc:
+        doc["cli"] = {}
+    doc["cli"]["ignore_new_version_warning"] = True
+    test_snowcli_config.write_text(tomlkit.dumps(doc))
+    config_init(test_snowcli_config)
 
-    # Create a config.toml with ignore_new_version_warning = true
-    config_path = tmp_path / "config.toml"
-    config_data = tomlkit.document()
-    config_data.add("cli", {"ignore_new_version_warning": True})
-    config_path.write_text(tomlkit.dumps(config_data))
-
-    # Point CONFIG_MANAGER.file_path to this config and reload config
-    CONFIG_MANAGER.file_path = Path(config_path)
-    CONFIG_MANAGER.read_config()
-
-    # Now the ignore should be respected
     assert get_new_version_msg() is None
