@@ -35,7 +35,7 @@ def get_new_version_msg() -> str | None:
     cache = _VersionCache()
     last = cache.get_last_version()
     current = Version(VERSION)
-    if last and last > current and cache.should_show_new_version_msg():
+    if last and last > current and not cache.was_warning_shown_recently():
         cache.update_last_time_shown()
         return f"\nNew version of Snowflake CLI available. Newest: {last}, current: {VERSION}\n"
     return None
@@ -126,15 +126,19 @@ class _VersionCache:
         except:  # anything, this it not crucial feature
             return None
 
-    def should_show_new_version_msg(self) -> bool:
+    def was_warning_shown_recently(self) -> bool:
+        """
+        Returns True if the new version warning was shown recently (within the interval),
+        meaning we should NOT show the warning again yet.
+        """
         if not self._cache_file.exists():
-            return True
+            return False
         try:
             data = json.loads(self._cache_file.read_text(file_size_limit_mb=1))
             now = time.time()
             last_time_shown = data.get(_VersionCache._last_time_shown, 0)
-            if last_time_shown < now - NEW_VERSION_MSG_INTERVAL:
+            if last_time_shown >= now - NEW_VERSION_MSG_INTERVAL:
                 return True
         except Exception:
-            return True
+            return False
         return False
