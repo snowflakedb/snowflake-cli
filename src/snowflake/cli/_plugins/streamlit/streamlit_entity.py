@@ -240,7 +240,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         try:
             if GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled():
                 self._execute_query(self.get_add_live_version_sql())
-            elif not GlobalFeatureFlag.ENABLE_STREAMLIT_NO_CHECKOUTS.is_enabled():
+            else:
                 self._execute_query(self.get_checkout_sql())
         except ProgrammingError as e:
             if "Checkout already exists" in str(
