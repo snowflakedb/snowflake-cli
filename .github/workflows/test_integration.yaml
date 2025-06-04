@@ -21,7 +21,6 @@ concurrency:
 
 permissions:
   contents: none
-  issues: write
 
 jobs:
   define-matrix:
