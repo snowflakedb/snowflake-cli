@@ -9,7 +9,7 @@ import tomlkit
 from packaging.version import Version
 from requests import Response
 from snowflake.cli._app.version_check import (
-    NEW_VERSION_MSG_INTERVAL,
+    NEW_VERSION_MESSAGE_INTERVAL,
     _VersionCache,
     get_new_version_msg,
 )
@@ -190,8 +190,8 @@ def test_read_last_version_and_updates_it(
 @pytest.mark.parametrize(
     "now,last_time_shown,expected",
     [
-        (1000000, 1000000 - NEW_VERSION_MSG_INTERVAL - 1, False),
-        (1000000, 1000000 - NEW_VERSION_MSG_INTERVAL + 100, True),
+        (1000000, 1000000 - NEW_VERSION_MESSAGE_INTERVAL - 1, False),
+        (1000000, 1000000 - NEW_VERSION_MESSAGE_INTERVAL + 100, True),
         (1000000, None, False),
     ],
     ids=[

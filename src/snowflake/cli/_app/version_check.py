@@ -20,7 +20,7 @@ REPOSITORY_URL_BREW = "https://formulae.brew.sh/api/formula/snowflake-cli.json"
 # How often to refresh the version cache (seconds)
 VERSION_CACHE_REFRESH_INTERVAL = 60 * 60  # 1 hour
 # How often to show the new version message (seconds)
-NEW_VERSION_MSG_INTERVAL = 60 * 60 * 24 * 7  # 1 week
+NEW_VERSION_MESSAGE_INTERVAL = 60 * 60 * 24 * 7  # 1 week
 
 
 def should_ignore_new_version_warning() -> bool:
@@ -137,7 +137,7 @@ class _VersionCache:
             data = json.loads(self._cache_file.read_text(file_size_limit_mb=1))
             now = time.time()
             last_time_shown = data.get(_VersionCache._last_time_shown, 0)
-            if last_time_shown >= now - NEW_VERSION_MSG_INTERVAL:
+            if last_time_shown >= now - NEW_VERSION_MESSAGE_INTERVAL:
                 return True
         except Exception:
             return False
