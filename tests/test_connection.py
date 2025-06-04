@@ -877,6 +877,7 @@ def test_mfa_cache(mock_connect, runner):
             "SNOWFLAKE_CONNECTIONS_EMPTY_ROLE": "role",
             "SNOWFLAKE_CONNECTIONS_EMPTY_SCHEMA": "my_schema",
             "SNOWFLAKE_CONNECTIONS_EMPTY_PASSWORD": "dummy",
+            "SNOWFLAKE_CONNECTIONS_EMPTY_TOKEN": "a_dummy_token",
         },
         {
             "SNOWFLAKE_ACCOUNT": "some_account",
@@ -885,6 +886,7 @@ def test_mfa_cache(mock_connect, runner):
             "SNOWFLAKE_ROLE": "role",
             "SNOWFLAKE_SCHEMA": "my_schema",
             "SNOWFLAKE_PASSWORD": "dummy",
+            "SNOWFLAKE_TOKEN": "a_dummy_token",
         },
     ],
 )
@@ -907,6 +909,7 @@ def test_connection_details_are_resolved_using_environment_variables(
             "password": "dummy",
             "application_name": "snowcli",
             "using_session_keep_alive": True,
+            "token": "a_dummy_token",
         }
 
 
@@ -919,6 +922,7 @@ def test_connection_details_are_resolved_using_environment_variables(
             "SNOWFLAKE_CONNECTIONS_EMPTY_WAREHOUSE": "large",
             "SNOWFLAKE_CONNECTIONS_EMPTY_ROLE": "role",
             "SNOWFLAKE_CONNECTIONS_EMPTY_SCHEMA": "my_schema",
+            "SNOWFLAKE_CONNECTIONS_EMPTY_TOKEN": "a_dummy_token",
         },
         {
             "SNOWFLAKE_ACCOUNT": "some_account",
@@ -926,6 +930,7 @@ def test_connection_details_are_resolved_using_environment_variables(
             "SNOWFLAKE_WAREHOUSE": "large",
             "SNOWFLAKE_ROLE": "role",
             "SNOWFLAKE_SCHEMA": "my_schema",
+            "SNOWFLAKE_TOKEN": "a_dummy_token",
         },
     ],
 )
@@ -951,6 +956,8 @@ def test_flags_take_precedence_before_environment_variables(
                 "password_from_flag",
                 "--role",
                 "role_from_flag",
+                "--token",
+                "a_dummy_token_but_from_flag",
             ]
         )
 
@@ -966,6 +973,7 @@ def test_flags_take_precedence_before_environment_variables(
             "role": "role_from_flag",
             "application_name": "snowcli",
             "using_session_keep_alive": True,
+            "token": "a_dummy_token_but_from_flag",
         }
 
 
