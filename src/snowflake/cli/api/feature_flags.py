@@ -56,9 +56,6 @@ class FeatureFlagMixin(Enum):
 
 @unique
 class FeatureFlag(FeatureFlagMixin):
-    ENABLE_STREAMLIT_EMBEDDED_STAGE = BooleanFlag(
-        "ENABLE_STREAMLIT_EMBEDDED_STAGE", False
-    )
     ENABLE_STREAMLIT_NO_CHECKOUTS = BooleanFlag("ENABLE_STREAMLIT_NO_CHECKOUTS", False)
     ENABLE_STREAMLIT_VERSIONED_STAGE = BooleanFlag(
         "ENABLE_STREAMLIT_VERSIONED_STAGE", False

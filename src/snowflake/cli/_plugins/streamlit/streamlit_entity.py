@@ -102,7 +102,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if (
             experimental
             or GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled()
-            or GlobalFeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled()
         ):
             self._deploy_experimental(bundle_map=bundle_map, replace=replace)
         else:
