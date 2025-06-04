@@ -194,6 +194,11 @@ def test_read_last_version_and_updates_it(
         (1000000, 1000000 - NEW_VERSION_MSG_INTERVAL + 100, True),
         (1000000, None, False),
     ],
+    ids=[
+        "not_shown_recently",
+        "shown_recently",
+        "never_shown",
+    ],
 )
 @patch("snowflake.cli._app.version_check.time.time")
 def test_was_warning_shown_recently_parametrized(
@@ -215,7 +220,9 @@ def test_was_warning_shown_recently_parametrized(
 @patch(*_PATCH_VERSION)
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
 @patch(*_PATCH_WAS_WARNING_SHOWN_RECENTLY)  # type: ignore
-def test_get_new_version_msg_ignored_by_env(monkeypatch):
+def test_get_new_version_msg_ignored_by_env():
+    assert get_new_version_msg().strip() == _WARNING_MESSAGE
+
     with mock.patch.dict(
         "os.environ", {"SNOWFLAKE_CLI_IGNORE_NEW_VERSION_WARNING": "true"}
     ):
@@ -226,6 +233,8 @@ def test_get_new_version_msg_ignored_by_env(monkeypatch):
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
 @patch(*_PATCH_WAS_WARNING_SHOWN_RECENTLY)  # type: ignore
 def test_get_new_version_msg_ignored_by_config_file(test_snowcli_config):
+    assert get_new_version_msg().strip() == _WARNING_MESSAGE
+
     config_text = test_snowcli_config.read_text()
     doc = tomlkit.parse(config_text)
     if "cli" not in doc:
