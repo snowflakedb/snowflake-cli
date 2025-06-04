@@ -1,5 +1,0 @@
-manifest_version: 1
-include_definitions:
-  - file_a.sql
-template_variables:
-  - table_name: "wont_be_used"
