@@ -270,11 +270,6 @@ class GitHub:
 
     def comment_on_issue(self, issue: dict, test: TestResult) -> dict:
         body = "+1"
-        for phase in PHASES:
-            if getattr(test, phase).outcome in (FAILED, FLAKY):
-                body += f"\n```python\n{getattr(test, phase).crash.message}\n```\n"
-                break
-
         number = issue["number"]
         return cast(
             dict, self.post(f"repos/{ISSUE_REPO}/issues/{number}/comments", body=body)
@@ -318,7 +313,6 @@ class GitHub:
             return
 
         yield f"# 🔴 {phase.title()} failed"
-        yield f"```python\n{phase_info.longrepr}\n```"
 
         if phase_info.crash:
             crash_info = phase_info.crash
