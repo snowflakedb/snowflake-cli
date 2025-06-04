@@ -19,7 +19,7 @@
 ## Deprecations
 
 ## New additions
-* Add support for passing OAuth token via`--token` flag.
+* Add support for passing OAuth token via `--token` flag.
 
 ## Fixes and improvements
 
