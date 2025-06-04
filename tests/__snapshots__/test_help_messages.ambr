@@ -200,6 +200,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -331,6 +333,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -516,6 +520,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -648,6 +654,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -867,6 +875,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -1006,6 +1016,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -1144,6 +1156,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -1279,6 +1293,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -1418,6 +1434,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -1556,6 +1574,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -1689,6 +1709,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -1854,6 +1876,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -1999,6 +2023,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -2140,6 +2166,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -2289,6 +2317,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -2426,6 +2456,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -2679,6 +2711,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -2837,6 +2871,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -2968,6 +3004,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -3175,6 +3213,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -3340,6 +3380,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -3471,6 +3513,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -3655,6 +3699,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -3778,6 +3824,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -3904,6 +3952,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -4030,6 +4080,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -4149,6 +4201,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -4385,6 +4439,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -4571,6 +4627,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -4729,6 +4787,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -4856,6 +4916,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -5007,6 +5069,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -5158,6 +5222,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -5309,6 +5375,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -5460,6 +5528,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -5611,6 +5681,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -5762,6 +5834,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -5913,6 +5987,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -6064,6 +6140,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -6215,6 +6293,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -6366,6 +6446,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -6517,6 +6599,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -6670,6 +6754,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -6829,6 +6915,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -6952,6 +7040,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -7075,6 +7165,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -7220,6 +7312,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -7344,6 +7438,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -7472,6 +7568,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -7601,6 +7699,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -7729,6 +7829,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -7859,6 +7961,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -7994,6 +8098,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -8213,6 +8319,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -8340,6 +8448,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -8477,6 +8587,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -8601,6 +8713,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -8725,6 +8839,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -8849,6 +8965,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -9016,6 +9134,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -9146,6 +9266,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -9276,6 +9398,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -9417,6 +9541,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -9696,6 +9822,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -9828,6 +9956,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -9951,6 +10081,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -10081,6 +10213,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -10211,6 +10345,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -10335,6 +10471,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -10464,6 +10602,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -10631,6 +10771,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -10771,6 +10913,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -10900,6 +11044,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -11029,6 +11175,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -11160,6 +11308,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -11294,6 +11444,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -11432,6 +11584,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -11555,6 +11709,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -11681,6 +11837,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -11919,6 +12077,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -12049,6 +12209,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -12173,6 +12335,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -12297,6 +12461,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -12420,6 +12586,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -12544,6 +12712,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -12688,6 +12858,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -12813,6 +12985,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -12937,6 +13111,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -13062,6 +13238,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -13195,6 +13373,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -13350,6 +13530,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -13471,6 +13653,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -13601,6 +13785,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -13750,6 +13936,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -13878,6 +14066,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -14002,6 +14192,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -14130,6 +14322,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -14260,6 +14454,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -14389,6 +14585,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -14513,6 +14711,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -14727,6 +14927,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -14858,6 +15060,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -14981,6 +15185,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -15104,6 +15310,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -15243,6 +15451,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -15366,6 +15576,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -15489,6 +15701,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -15612,6 +15826,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -15735,6 +15951,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -15864,6 +16082,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -15999,6 +16219,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -16132,6 +16354,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -16255,6 +16479,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -16419,6 +16645,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -16546,6 +16774,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -16669,6 +16899,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -16805,6 +17037,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -16930,6 +17164,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -17165,6 +17401,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -17316,6 +17554,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -17444,6 +17684,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -17567,6 +17809,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -17692,6 +17936,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -17815,6 +18061,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -17957,6 +18205,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -18084,6 +18334,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -18213,6 +18465,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -18338,6 +18592,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -18510,6 +18766,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -18634,6 +18892,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -18758,6 +19018,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -18882,6 +19144,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -19007,6 +19271,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -19136,6 +19402,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -19262,6 +19530,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
@@ -19642,6 +19912,8 @@
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
   | --token-file-path                     TEXT     Path to file with an OAuth    |
   |                                                token to use when connecting  |
   |                                                to Snowflake.                 |
