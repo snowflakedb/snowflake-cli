@@ -118,10 +118,13 @@ def test_execute_multiple_configurations(
                     ]
                 )
                 assert result.exit_code == 0, result.output
-                assert (
-                    f"SNOWCLI_TEST_TABLE_{configuration}".upper()
-                    in result.json["operations"]
-                )
+
+                assert result.json[0] == {
+                    "details": {"columns": {"FOOBAR": {"type": "VARCHAR"}}},
+                    "objectDomain": "TABLE",
+                    "objectName": f"{test_database}.PUBLIC.SNOWCLI_TEST_TABLE_{configuration}".upper(),
+                    "operationType": "CREATE",
+                }
 
 
 @pytest.mark.integration
