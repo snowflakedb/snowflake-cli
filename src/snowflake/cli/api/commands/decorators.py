@@ -269,12 +269,6 @@ GLOBAL_CONNECTION_OPTIONS = [
         default=PrivateKeyPathOption,
     ),
     inspect.Parameter(
-        "token",
-        inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[str],
-        default=TokenOption,
-    ),
-    inspect.Parameter(
         "session_token",
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[str],
@@ -285,6 +279,12 @@ GLOBAL_CONNECTION_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[str],
         default=MasterTokenOption,
+    ),
+    inspect.Parameter(
+        "token",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=TokenOption,
     ),
     inspect.Parameter(
         "token_file_path",
