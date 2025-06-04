@@ -36,39 +36,38 @@ def warning_is_thrown():
         yield
 
 
-@pytest.fixture
-def warning_is_not_thrown():
-    with pytest.warns() as recorded_warnings:
-        yield
-    for warning in recorded_warnings:
-        assert _WARNING_MESSAGE not in str(warning.message)
-
-
 @patch(*_PATCH_VERSION)
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
+@patch(*_PATCH_SHOULD_SHOW_NEW_VERSION_MSG)  # type: ignore
 def test_banner_shows_up_in_help(build_runner, warning_is_thrown):
     build_runner().invoke(["--help"])
 
 
 @patch(*_PATCH_VERSION)
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
+@patch(*_PATCH_SHOULD_SHOW_NEW_VERSION_MSG)  # type: ignore
 def test_banner_shows_up_in_command_invocation(build_runner, warning_is_thrown):
     build_runner().invoke(["connection", "set-default", "default"])
 
 
 @patch(*_PATCH_VERSION)
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
-def test_banner_do_not_shows_up_if_silent(build_runner, warning_is_not_thrown):
+@patch(*_PATCH_SHOULD_SHOW_NEW_VERSION_MSG)  # type: ignore
+def test_banner_do_not_shows_up_if_silent(build_runner, recwarn):
     build_runner().invoke(["connection", "set-default", "default", "--silent"])
+    for warning in recwarn:
+        assert _WARNING_MESSAGE not in str(warning.message)
 
 
 @patch("snowflake.cli._app.version_check._VersionCache._read_latest_version")
 def test_version_check_exception_are_handled_safely(
-    mock_read_latest_version, build_runner, warning_is_not_thrown
+    mock_read_latest_version, build_runner, recwarn
 ):
     mock_read_latest_version.side_effect = Exception("Error")
     result = build_runner().invoke(["connection", "set-default", "default"])
     assert result.exit_code == 0
+    for warning in recwarn:
+        assert _WARNING_MESSAGE not in str(warning.message)
 
 
 @patch(*_PATCH_VERSION)
@@ -86,12 +85,14 @@ def test_get_new_version_msg_message_if_new_version_available():
 @patch(
     "snowflake.cli._app.version_check._VersionCache.get_last_version", lambda _: None
 )
+@patch(*_PATCH_SHOULD_SHOW_NEW_VERSION_MSG)  # type: ignore
 def test_get_new_version_msg_does_not_show_message_if_no_new_version():
     assert get_new_version_msg() is None
 
 
 @patch("snowflake.cli._app.version_check.VERSION", "3.0.0")
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
+@patch(*_PATCH_SHOULD_SHOW_NEW_VERSION_MSG)  # type: ignore
 def test_new_version_banner_does_not_show_message_if_local_version_is_newer():
     assert get_new_version_msg() is None
 
