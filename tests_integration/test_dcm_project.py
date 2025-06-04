@@ -33,7 +33,6 @@ def _assert_project_has_versions(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_project_deploy(
     runner,
     test_database,
@@ -92,7 +91,6 @@ def test_project_deploy(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_execute_multiple_configurations(
     runner,
     test_database,
@@ -128,7 +126,6 @@ def test_execute_multiple_configurations(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_create_corner_cases(
     runner,
     test_database,
@@ -169,7 +166,6 @@ def test_create_corner_cases(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_project_add_version(
     runner,
     test_database,
@@ -291,7 +287,6 @@ def test_project_add_version(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_project_add_version_without_create_fails(
     runner,
     test_database,
