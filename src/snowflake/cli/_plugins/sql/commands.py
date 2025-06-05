@@ -83,6 +83,11 @@ def execute_sql(
         flag_value=False,
         is_flag=True,
     ),
+    disable_templating: Optional[bool] = typer.Option(
+        False,
+        "--disable-templating",
+        help="Do not resolve variables before passing queries to Snowflake.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -116,7 +121,12 @@ def execute_sql(
             raise CliArgumentError("single transaction cannot be used with REPL")
         from snowflake.cli._plugins.sql.repl import Repl
 
-        Repl(SqlManager(), data=data, retain_comments=retain_comments).run()
+        Repl(
+            SqlManager(),
+            data=data,
+            retain_comments=retain_comments,
+            disable_templating=disable_templating,
+        ).run()
         sys.exit(0)
 
     manager = SqlManager()
@@ -128,6 +138,7 @@ def execute_sql(
         data=data,
         retain_comments=retain_comments,
         single_transaction=single_transaction,
+        disable_templating=disable_templating,
     )
     if expected_results_cnt == 0:
         # case expected if input only scheduled async queries

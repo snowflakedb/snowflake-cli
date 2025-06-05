@@ -24,6 +24,7 @@ from snowflake.cli._app.printing import print_result
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli._plugins.sql.statement_reader import (
     CompiledStatement,
+    OperatorFunctions,
     compile_statements,
     files_reader,
     query_reader,
@@ -51,6 +52,7 @@ class SqlManager(SqlExecutionMixin):
         data: Dict | None = None,
         retain_comments: bool = False,
         single_transaction: bool = False,
+        disable_templating: bool = False,
     ) -> Tuple[ExpectedResultsCount, Iterable[SnowflakeCursor]]:
         """Reads, transforms and execute statements from input.
 
@@ -62,10 +64,13 @@ class SqlManager(SqlExecutionMixin):
         """
         query = sys.stdin.read() if std_in else query
 
-        stmt_operators = (
-            transpile_snowsql_templates,
-            partial(snowflake_sql_jinja_render, data=data),
-        )
+        if disable_templating:
+            stmt_operators: OperatorFunctions = []
+        else:
+            stmt_operators = (
+                transpile_snowsql_templates,
+                partial(snowflake_sql_jinja_render, data=data),
+            )
         remove_comments = not retain_comments
 
         if query:

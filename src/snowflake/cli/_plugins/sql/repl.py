@@ -35,6 +35,7 @@ class Repl:
         sql_manager: SqlManager,
         data: dict | None = None,
         retain_comments: bool = False,
+        disable_templating: bool = False,
     ):
         """Requires a `SqlManager` instance to execute queries.
 
@@ -46,6 +47,7 @@ class Repl:
         setattr(get_cli_context_manager(), "is_repl", True)
         self._data = data or {}
         self._retain_comments = retain_comments
+        self._disable_templating = disable_templating
         self._history = FileHistory(HISTORY_FILE)
         self._lexer = PygmentsLexer(CliLexer)
         self._completer = cli_completer
@@ -155,6 +157,7 @@ class Repl:
             std_in=False,
             data=self._data,
             retain_comments=self._retain_comments,
+            disable_templating=self._disable_templating,
         )
         return cursors
 
