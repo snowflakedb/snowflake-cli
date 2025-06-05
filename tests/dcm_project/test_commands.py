@@ -132,7 +132,9 @@ def test_add_version_raises_when_project_does_not_exist(
 
 
 @mock.patch(ProjectManager)
-def test_execute_project(mock_pm, runner, project_directory):
+def test_execute_project(mock_pm, runner, project_directory, mock_cursor):
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
     result = runner.invoke(["project", "execute", "fooBar"])
     assert result.exit_code == 0, result.output
 
@@ -145,7 +147,11 @@ def test_execute_project(mock_pm, runner, project_directory):
 
 
 @mock.patch(ProjectManager)
-def test_execute_project_with_variables(mock_pm, runner, project_directory):
+def test_execute_project_with_variables(
+    mock_pm, runner, project_directory, mock_cursor
+):
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
     result = runner.invoke(
         ["project", "execute", "fooBar", "--version", "v1", "-D", "key=value"]
     )
@@ -160,7 +166,11 @@ def test_execute_project_with_variables(mock_pm, runner, project_directory):
 
 
 @mock.patch(ProjectManager)
-def test_execute_project_with_configuration(mock_pm, runner, project_directory):
+def test_execute_project_with_configuration(
+    mock_pm, runner, project_directory, mock_cursor
+):
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
     result = runner.invoke(
         ["project", "execute", "fooBar", "--configuration", "some_configuration"]
     )
@@ -175,7 +185,9 @@ def test_execute_project_with_configuration(mock_pm, runner, project_directory):
 
 
 @mock.patch(ProjectManager)
-def test_validate_project(mock_pm, runner, project_directory):
+def test_validate_project(mock_pm, runner, project_directory, mock_cursor):
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
     result = runner.invoke(
         [
             "project",
