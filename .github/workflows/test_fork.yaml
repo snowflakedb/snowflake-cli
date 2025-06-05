@@ -21,6 +21,7 @@ on:
 
 permissions:
   contents: none
+  issues: none
 
 jobs:
   test-fork:

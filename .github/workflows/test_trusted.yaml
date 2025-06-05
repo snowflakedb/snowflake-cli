@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: none
+  issues: write
 
 jobs:
   tests-trusted:
