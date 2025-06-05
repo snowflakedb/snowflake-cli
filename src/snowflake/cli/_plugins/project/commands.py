@@ -40,7 +40,11 @@ from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.types import MessageResult, QueryResult, SingleQueryResult
+from snowflake.cli.api.output.types import (
+    MessageResult,
+    QueryJsonValueResult,
+    QueryResult,
+)
 
 app = SnowTyperFactory(
     name="project",
@@ -101,7 +105,7 @@ def execute(
         version=version,
         variables=variables,
     )
-    return SingleQueryResult(result)
+    return QueryJsonValueResult(result)
 
 
 @app.command(requires_connection=True)
@@ -122,7 +126,7 @@ def dry_run(
         dry_run=True,
         variables=variables,
     )
-    return SingleQueryResult(result)
+    return QueryJsonValueResult(result)
 
 
 @app.command(requires_connection=True)
