@@ -147,11 +147,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
     ):
         return f"ALTER STREAMLIT {self._get_identifier(schema,database)} ADD LIVE VERSION FROM LAST;"
 
-    def get_checkout_sql(
-        self, schema: Optional[str] = None, database: Optional[str] = None
-    ):
-        return f"ALTER STREAMLIT {self._get_identifier(schema,database)} CHECKOUT;"
-
     def get_deploy_sql(
         self,
         if_not_exists: bool = False,
@@ -238,26 +233,14 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             )
         )
         try:
-            if GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled():
-                self._execute_query(self.get_add_live_version_sql())
-            else:
-                self._execute_query(self.get_checkout_sql())
+            self._execute_query(self.get_add_live_version_sql())
         except ProgrammingError as e:
-            if "Checkout already exists" in str(
-                e
-            ) or "There is already a live version" in str(e):
+            if "There is already a live version" in str(e):
                 log.info("Checkout already exists, continuing")
             else:
                 raise
 
-        embeded_stage_name = (
-            f"snow://streamlit/{self.model.fqn.using_connection(self._conn).identifier}"
-        )
-
-        if GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled():
-            stage_root = f"{embeded_stage_name}/versions/live"
-        else:
-            stage_root = f"{embeded_stage_name}/default_checkout"
+        stage_root = f"snow://streamlit/{self.model.fqn.using_connection(self._conn).identifier}/versions/live"
 
         sync_deploy_root_with_stage(
             console=self._workspace_ctx.console,
