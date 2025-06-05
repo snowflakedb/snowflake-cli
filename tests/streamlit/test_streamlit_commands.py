@@ -310,12 +310,10 @@ class TestStreamlitCommands(StreamlitTestClass):
         "project_name", ["example_streamlit", "example_streamlit_v2"]
     )
     @pytest.mark.parametrize("enable_streamlit_versioned_stage", [True, False])
-    @pytest.mark.parametrize("enable_streamlit_no_checkouts", [True, False])
     def test_deploy_streamlit_main_and_pages_files_experimental(
         self,
         os_agnostic_snapshot,
         enable_streamlit_versioned_stage,
-        enable_streamlit_no_checkouts,
         project_name,
         project_directory,
         runner,
@@ -325,10 +323,6 @@ class TestStreamlitCommands(StreamlitTestClass):
             mock.patch(
                 "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled",
                 return_value=enable_streamlit_versioned_stage,
-            ),
-            mock.patch(
-                "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_NO_CHECKOUTS.is_enabled",
-                return_value=enable_streamlit_no_checkouts,
             ),
         ):
             with project_directory(project_name) as tmp_dir:
@@ -344,15 +338,7 @@ class TestStreamlitCommands(StreamlitTestClass):
                     )
                 result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
-        if enable_streamlit_versioned_stage:
-            post_create_command = f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') ADD LIVE VERSION FROM LAST;"
-        else:
-            if enable_streamlit_no_checkouts:
-                post_create_command = None
-            else:
-                post_create_command = (
-                    f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') CHECKOUT;"
-                )
+        post_create_command = f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') ADD LIVE VERSION FROM LAST;"
 
         expected_query = dedent(
             f"""
@@ -386,12 +372,7 @@ class TestStreamlitCommands(StreamlitTestClass):
             with project_directory(project_name) as tmp_dir:
                 result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
-        if enable_streamlit_versioned_stage:
-            post_create_command = f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') ADD LIVE VERSION FROM LAST;"
-        else:
-            post_create_command = (
-                f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') CHECKOUT;"
-            )
+        post_create_command = f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') ADD LIVE VERSION FROM LAST;"
 
         expected_query = dedent(
             f"""
@@ -437,9 +418,6 @@ class TestStreamlitCommands(StreamlitTestClass):
         ).strip()
         assert result.exit_code == 0, result.output
         self.mock_execute.assert_any_call(expected_query)
-        self.mock_execute.assert_any_call(
-            f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') CHECKOUT;"
-        )
         self._assert_that_exactly_those_files_were_put_to_stage(
             ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
         )

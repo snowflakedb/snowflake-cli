@@ -102,7 +102,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if (
             experimental
             or GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled()
-            or GlobalFeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled()
         ):
             self._deploy_experimental(bundle_map=bundle_map, replace=replace)
         else:
@@ -147,11 +146,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         self, schema: Optional[str] = None, database: Optional[str] = None
     ):
         return f"ALTER STREAMLIT {self._get_identifier(schema,database)} ADD LIVE VERSION FROM LAST;"
-
-    def get_checkout_sql(
-        self, schema: Optional[str] = None, database: Optional[str] = None
-    ):
-        return f"ALTER STREAMLIT {self._get_identifier(schema,database)} CHECKOUT;"
 
     def get_deploy_sql(
         self,
@@ -239,26 +233,14 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             )
         )
         try:
-            if GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled():
-                self._execute_query(self.get_add_live_version_sql())
-            elif not GlobalFeatureFlag.ENABLE_STREAMLIT_NO_CHECKOUTS.is_enabled():
-                self._execute_query(self.get_checkout_sql())
+            self._execute_query(self.get_add_live_version_sql())
         except ProgrammingError as e:
-            if "Checkout already exists" in str(
-                e
-            ) or "There is already a live version" in str(e):
+            if "There is already a live version" in str(e):
                 log.info("Checkout already exists, continuing")
             else:
                 raise
 
-        embeded_stage_name = (
-            f"snow://streamlit/{self.model.fqn.using_connection(self._conn).identifier}"
-        )
-
-        if GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled():
-            stage_root = f"{embeded_stage_name}/versions/live"
-        else:
-            stage_root = f"{embeded_stage_name}/default_checkout"
+        stage_root = f"snow://streamlit/{self.model.fqn.using_connection(self._conn).identifier}/versions/live"
 
         sync_deploy_root_with_stage(
             console=self._workspace_ctx.console,
