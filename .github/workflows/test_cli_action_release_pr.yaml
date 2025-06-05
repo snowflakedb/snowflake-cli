@@ -1,25 +1,39 @@
-name: "CLI Action testing"
+name: "CLI Action release branch testing"
 
 on:
-  schedule:
-    - cron: "0 0 * * *"
+  pull_request:
+    branches:
+      - 'release-v*'
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  version:
-    name: "Check Snowflake CLI version"
-    runs-on: ubuntu-latest
+  define-matrix:
+    uses: ./.github/workflows/matrix.yaml
+
+  cli-release-pr:
+    name: "Check Snowflake CLI from PR branch against release branch"
+    needs: define-matrix
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
+        python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
       - uses: Snowflake-Labs/snowflake-cli-action@main
         with:
-          cli-version: "latest"
+          custom-github-ref: ${{ github.head_ref }}
           default-config-file-path: "tests_integration/config/connection_configs.toml"
       - name: Test CLI commands
         shell: bash
