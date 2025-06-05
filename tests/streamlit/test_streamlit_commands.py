@@ -338,12 +338,7 @@ class TestStreamlitCommands(StreamlitTestClass):
                     )
                 result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
-        if enable_streamlit_versioned_stage:
-            post_create_command = f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') ADD LIVE VERSION FROM LAST;"
-        else:
-            post_create_command = (
-                f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') CHECKOUT;"
-            )
+        post_create_command = f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') ADD LIVE VERSION FROM LAST;"
 
         expected_query = dedent(
             f"""
@@ -377,12 +372,7 @@ class TestStreamlitCommands(StreamlitTestClass):
             with project_directory(project_name) as tmp_dir:
                 result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
-        if enable_streamlit_versioned_stage:
-            post_create_command = f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') ADD LIVE VERSION FROM LAST;"
-        else:
-            post_create_command = (
-                f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') CHECKOUT;"
-            )
+        post_create_command = f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') ADD LIVE VERSION FROM LAST;"
 
         expected_query = dedent(
             f"""
@@ -428,9 +418,6 @@ class TestStreamlitCommands(StreamlitTestClass):
         ).strip()
         assert result.exit_code == 0, result.output
         self.mock_execute.assert_any_call(expected_query)
-        self.mock_execute.assert_any_call(
-            f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') CHECKOUT;"
-        )
         self._assert_that_exactly_those_files_were_put_to_stage(
             ["streamlit_app.py", "environment.yml", "pages/my_page.py"],
         )
