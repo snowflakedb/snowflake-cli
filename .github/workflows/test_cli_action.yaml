@@ -31,5 +31,5 @@ jobs:
         run: |
           set -e
           snow --version
-          snow connection test -c integration
-          snow sql -q "select 42"
+          snow connection test -c integration | grep Status
+          snow sql -c integration -q "select 42"
