@@ -23,6 +23,15 @@
 
 ## Fixes and improvements
 
+# v3.9.1
+
+## Deprecations
+
+## New additions
+* Added `--private-link` flag to `snow spcs image-registry login` command to login using private link URLs.
+
+## Fixes and improvements
+
 
 # v3.9.0
 
