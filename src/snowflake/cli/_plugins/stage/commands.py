@@ -79,6 +79,8 @@ add_object_command_aliases(
     scope_option=scope_option(help_example="`list --in database my_db`"),
 )
 
+assert 1 / 0
+
 
 @app.command("list-files", requires_connection=True)
 def stage_list_files(
