@@ -22,6 +22,7 @@ jobs:
           cli-version: "latest"
           default-config-file-path: "tests_integration/config/connection_configs.toml"
       - name: Test CLI commands
+        shell: bash
         env:
           TERM: unknown
           SNOWFLAKE_CONNECTIONS_INTEGRATION_AUTHENTICATOR: SNOWFLAKE_JWT
