@@ -22,6 +22,7 @@
 * Add support for passing OAuth token via `--token` flag.
 
 ## Fixes and improvements
+* Fixed failing snow sql command when snowflake.yml is invalid
 
 # v3.9.1
 

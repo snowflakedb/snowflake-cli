@@ -95,7 +95,11 @@ def snowflake_sql_jinja_render(content: str, data: Dict | None = None) -> str:
                 f"{reserved_key} in user defined data. The `{reserved_key}` variable is reserved for CLI usage."
             )
 
-    context_data = get_cli_context().template_context
+    try:
+        context_data = get_cli_context().template_context
+    except Exception:
+        cli_console.warning("Invalid snowflake.yml file.")
+        context_data = {}
     context_data.update(data)
     env = choose_sql_jinja_env_based_on_template_syntax(content)
 
