@@ -29,15 +29,31 @@ def should_ignore_new_version_warning() -> bool:
     )
 
 
+def was_warning_shown_recently(last_time_shown: float | int | None) -> bool:
+    """
+    Returns True if the new version warning was shown recently (within the interval),
+    meaning we should NOT show the warning again yet.
+    """
+    if not last_time_shown:
+        return False
+    now = time.time()
+    return last_time_shown >= now - NEW_VERSION_MESSAGE_INTERVAL
+
+
 def get_new_version_msg() -> str | None:
     if should_ignore_new_version_warning():
         return None
     cache = _VersionCache()
-    last = cache.get_last_version()
-    current = Version(VERSION)
-    if last and last > current and not cache.was_warning_shown_recently():
+    last_version = cache.get_last_version()
+    last_time_shown = cache.get_last_time_shown()
+    current_version = Version(VERSION)
+    if (
+        last_version
+        and last_version > current_version
+        and not was_warning_shown_recently(last_time_shown)
+    ):
         cache.update_last_time_shown()
-        return f"\nNew version of Snowflake CLI available. Newest: {last}, current: {VERSION}\n"
+        return f"\nNew version of Snowflake CLI available. Newest: {last_version}, current: {VERSION}\n"
     return None
 
 
@@ -126,19 +142,11 @@ class _VersionCache:
         except:  # anything, this it not crucial feature
             return None
 
-    def was_warning_shown_recently(self) -> bool:
-        """
-        Returns True if the new version warning was shown recently (within the interval),
-        meaning we should NOT show the warning again yet.
-        """
-        if not self._cache_file.exists():
-            return False
-        try:
-            data = json.loads(self._cache_file.read_text(file_size_limit_mb=1))
-            now = time.time()
-            last_time_shown = data.get(_VersionCache._last_time_shown, 0)
-            if last_time_shown >= now - NEW_VERSION_MESSAGE_INTERVAL:
-                return True
-        except Exception:
-            return False
-        return False
+    def get_last_time_shown(self) -> float | int | None:
+        if self._cache_file.exists():
+            try:
+                data = json.loads(self._cache_file.read_text(file_size_limit_mb=1))
+                return data.get(_VersionCache._last_time_shown, 0)
+            except Exception:
+                return None
+        return None

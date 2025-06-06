@@ -1,4 +1,4 @@
-import json
+import time
 from io import BytesIO
 from itertools import cycle
 from unittest import mock
@@ -12,6 +12,7 @@ from snowflake.cli._app.version_check import (
     NEW_VERSION_MESSAGE_INTERVAL,
     _VersionCache,
     get_new_version_msg,
+    was_warning_shown_recently,
 )
 from snowflake.cli.api.config import config_init
 from snowflake.cli.api.secure_path import SecurePath
@@ -24,10 +25,18 @@ _PATCH_LAST_VERSION = [
     "snowflake.cli._app.version_check._VersionCache.get_last_version",
     lambda _: Version("2.0.0"),
 ]
-_PATCH_WAS_WARNING_SHOWN_RECENTLY = [
-    "snowflake.cli._app.version_check._VersionCache.was_warning_shown_recently",
-    lambda _: False,
-]
+
+
+@pytest.fixture(autouse=True)
+def mock_last_time_shown():
+    """
+    Mock the last time the warning was shown to be in the past, so that the warning is shown.
+    """
+    with mock.patch(
+        "snowflake.cli._app.version_check._VersionCache.get_last_time_shown",
+        return_value=time.time() - NEW_VERSION_MESSAGE_INTERVAL - 10,
+    ) as mock_last_time_shown:
+        yield mock_last_time_shown
 
 
 @pytest.fixture
@@ -38,21 +47,18 @@ def warning_is_thrown():
 
 @patch(*_PATCH_VERSION)
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
-@patch(*_PATCH_WAS_WARNING_SHOWN_RECENTLY)  # type: ignore
 def test_banner_shows_up_in_help(build_runner, warning_is_thrown):
     build_runner().invoke(["--help"])
 
 
 @patch(*_PATCH_VERSION)
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
-@patch(*_PATCH_WAS_WARNING_SHOWN_RECENTLY)  # type: ignore
 def test_banner_shows_up_in_command_invocation(build_runner, warning_is_thrown):
     build_runner().invoke(["connection", "set-default", "default"])
 
 
 @patch(*_PATCH_VERSION)
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
-@patch(*_PATCH_WAS_WARNING_SHOWN_RECENTLY)  # type: ignore
 def test_banner_do_not_shows_up_if_silent(build_runner, recwarn):
     build_runner().invoke(["connection", "set-default", "default", "--silent"])
     for warning in recwarn:
@@ -72,7 +78,6 @@ def test_version_check_exception_are_handled_safely(
 
 @patch(*_PATCH_VERSION)
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
-@patch(*_PATCH_WAS_WARNING_SHOWN_RECENTLY)  # type: ignore
 def test_get_new_version_msg_message_if_new_version_available():
     msg = get_new_version_msg()
     assert (
@@ -85,14 +90,12 @@ def test_get_new_version_msg_message_if_new_version_available():
 @patch(
     "snowflake.cli._app.version_check._VersionCache.get_last_version", lambda _: None
 )
-@patch(*_PATCH_WAS_WARNING_SHOWN_RECENTLY)  # type: ignore
 def test_get_new_version_msg_does_not_show_message_if_no_new_version():
     assert get_new_version_msg() is None
 
 
 @patch("snowflake.cli._app.version_check.VERSION", "3.0.0")
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
-@patch(*_PATCH_WAS_WARNING_SHOWN_RECENTLY)  # type: ignore
 def test_new_version_banner_does_not_show_message_if_local_version_is_newer():
     assert get_new_version_msg() is None
 
@@ -202,24 +205,14 @@ def test_read_last_version_and_updates_it(
 )
 @patch("snowflake.cli._app.version_check.time.time")
 def test_was_warning_shown_recently_parametrized(
-    mock_time, named_temporary_file, now, last_time_shown, expected
+    mock_time, now, last_time_shown, expected
 ):
     mock_time.return_value = now
-    with named_temporary_file() as f:
-        sf = SecurePath(f)
-        vc = _VersionCache()
-        vc._cache_file = sf  # noqa: SLF001
-        cache_data = {"last_time_check": 0.0, "version": "2.0.0"}
-        if last_time_shown is not None:
-            cache_data["last_time_shown"] = last_time_shown
-        f.write_text(json.dumps(cache_data))
-
-        assert vc.was_warning_shown_recently() is expected
+    assert was_warning_shown_recently(last_time_shown) is expected
 
 
 @patch(*_PATCH_VERSION)
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
-@patch(*_PATCH_WAS_WARNING_SHOWN_RECENTLY)  # type: ignore
 def test_get_new_version_msg_ignored_by_env():
     assert get_new_version_msg().strip() == _WARNING_MESSAGE
 
@@ -231,7 +224,6 @@ def test_get_new_version_msg_ignored_by_env():
 
 @patch(*_PATCH_VERSION)
 @patch(*_PATCH_LAST_VERSION)  # type: ignore
-@patch(*_PATCH_WAS_WARNING_SHOWN_RECENTLY)  # type: ignore
 def test_get_new_version_msg_ignored_by_config_file(test_snowcli_config):
     assert get_new_version_msg().strip() == _WARNING_MESSAGE
 
