@@ -491,6 +491,7 @@ def test_nativeapp_run_orphan(
         )
 
 
+@pytest.mark.no_qa  # temporarily skipped until [SNOW-2123931] is solved
 # Verifies that we can always cross-upgrade between different
 # run configurations as long as we pass the --force flag to "app run"
 # TODO: add back all parameterizations and implement --force for "app teardown"

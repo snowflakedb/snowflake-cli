@@ -7,6 +7,7 @@ from tests_integration.testing_utils.streamlit_utils import StreamlitTestSteps
 APP_1 = "app_1"
 
 
+@pytest.mark.no_qa  # temporarily skipped until [SNOW-2123917] is solved
 @pytest.mark.integration
 def test_streamlit_flow(
     _streamlit_test_steps, project_directory, test_database, alter_snowflake_yml
