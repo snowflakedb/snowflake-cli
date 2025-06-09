@@ -35,7 +35,7 @@ class RepositoryManager(Repo):
         self.remotes.origin.fetch()
 
     def exists(self, ref: str) -> bool:
-        return any(ref == r.name for r in self.references)
+        return any(r.name.endswith(ref) for r in self.references)
 
     @contextmanager
     def tmp_checkout(self, ref: str):
