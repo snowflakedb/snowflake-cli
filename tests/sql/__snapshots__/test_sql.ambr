@@ -10,3 +10,13 @@
   
   '''
 # ---
+# name: test_sql_with_old_template_and_invalid_snowflake_yml
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Failed to read snowflake.yml file:                                           |
+  | snowflake.cli.api.project.schemas.project_definition.build_project_definitio |
+  | n() argument after ** must be a mapping, not str                             |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---

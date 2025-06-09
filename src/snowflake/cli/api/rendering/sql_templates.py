@@ -20,7 +20,7 @@ from click import ClickException
 from jinja2 import Environment, StrictUndefined, loaders, meta
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.console import cli_console
-from snowflake.cli.api.exceptions import InvalidTemplateError
+from snowflake.cli.api.exceptions import CliArgumentError, InvalidTemplateError
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.rendering.jinja import (
     CONTEXT_KEY,
@@ -94,17 +94,19 @@ def snowflake_sql_jinja_render(content: str, data: Dict | None = None) -> str:
             raise ClickException(
                 f"{reserved_key} in user defined data. The `{reserved_key}` variable is reserved for CLI usage."
             )
-
-    try:
-        context_data = get_cli_context().template_context
-    except Exception:
-        cli_console.warning("Invalid snowflake.yml file.")
-        context_data = {}
-    context_data.update(data)
     env = choose_sql_jinja_env_based_on_template_syntax(content)
+    has_templates = has_sql_templates(content)
 
     get_cli_context().metrics.set_counter(
-        CLICounterField.SQL_TEMPLATES, int(has_sql_templates(content))
+        CLICounterField.SQL_TEMPLATES, int(has_templates)
     )
 
-    return env.from_string(content).render(context_data)
+    if has_templates:
+        try:
+            context_data = get_cli_context().template_context
+        except Exception as e:
+            raise CliArgumentError(f"Failed to read snowflake.yml file: {e}")
+        context_data.update(data)
+        return env.from_string(content).render(context_data)
+    else:
+        return content
