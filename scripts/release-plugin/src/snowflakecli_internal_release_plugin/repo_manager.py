@@ -51,6 +51,10 @@ class RepositoryManager(Repo):
                 self.git.checkout(current_ref.name)
 
 
+def _release_branch_name(version: str) -> str:
+    return f"release-v{version}"
+
+
 class ReleaseInfo:
     """Class providing information about release."""
 
@@ -61,11 +65,25 @@ class ReleaseInfo:
 
     @property
     def release_branch_name(self) -> str:
-        return f"release-v{self.version}"
+        return _release_branch_name(self.version)
 
     @property
     def final_tag_name(self) -> str:
         return f"v{self.version}"
+
+    @property
+    def is_patch_release(self) -> bool:
+        return not self.version.endswith(".0")
+
+    @property
+    def root_branch_name(self) -> str:
+        """Branch the release branch is cut off from. Returns 'main' for non-patch releases,
+        and release branch of previous release for patch releases."""
+        if not self.is_patch_release:
+            return "main"
+        base, patch = self.version.rsplit(".", maxsplit=1)
+        prev_version = f"{base}.{int(patch)-1}"
+        return _release_branch_name(prev_version)
 
     def rc_tag_name(self, number: int) -> str:
         return f"{self.final_tag_name}-rc{number}"
