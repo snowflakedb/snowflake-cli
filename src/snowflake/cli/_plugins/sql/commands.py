@@ -15,11 +15,13 @@
 from __future__ import annotations
 
 import sys
+from enum import Enum
 from logging import getLogger
 from pathlib import Path
 from typing import List, Optional
 
 import typer
+from click import UsageError
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
@@ -34,6 +36,7 @@ from snowflake.cli.api.output.types import (
     MultipleResults,
     QueryResult,
 )
+from snowflake.cli.api.rendering.sql_templates import SQLTemplateSyntaxConfig
 
 logger = getLogger(__name__)
 # simple Typer with defaults because it won't become a command group as it contains only one command
@@ -44,6 +47,37 @@ SOURCE_EXCLUSIVE_OPTIONS_NAMES = ["query", "files", "std_in"]
 SourceOption = OverrideableOption(
     mutually_exclusive=SOURCE_EXCLUSIVE_OPTIONS_NAMES, show_default=False
 )
+
+
+class _TemplateSyntaxOption(str, Enum):
+    LEGACY = "LEGACY"
+    STANDARD = "STANDARD"
+    JINJA = "JINJA"
+    ALL = "ALL"
+    NONE = "NONE"
+
+
+def _parse_template_syntax_config(
+    enabled_syntaxes: List[_TemplateSyntaxOption],
+) -> SQLTemplateSyntaxConfig:
+    if (
+        _TemplateSyntaxOption.ALL in enabled_syntaxes
+        or _TemplateSyntaxOption.NONE in enabled_syntaxes
+    ) and len(enabled_syntaxes) > 1:
+        raise UsageError(
+            "ALL and NONE template syntax options should not be used with other options."
+        )
+
+    if _TemplateSyntaxOption.ALL in enabled_syntaxes:
+        return SQLTemplateSyntaxConfig(True, True, True)
+    if _TemplateSyntaxOption.NONE in enabled_syntaxes:
+        return SQLTemplateSyntaxConfig(False, False, False)
+
+    result = SQLTemplateSyntaxConfig()
+    result.enable_legacy_syntax = _TemplateSyntaxOption.LEGACY in enabled_syntaxes
+    result.enable_standard_syntax = _TemplateSyntaxOption.STANDARD in enabled_syntaxes
+    result.enable_jinja_syntax = _TemplateSyntaxOption.JINJA in enabled_syntaxes
+    return result
 
 
 @app.command(name="sql", requires_connection=True, no_args_is_help=False)
@@ -83,10 +117,11 @@ def execute_sql(
         flag_value=False,
         is_flag=True,
     ),
-    disable_templating: Optional[bool] = typer.Option(
-        False,
-        "--disable-templating",
-        help="Do not resolve variables before passing queries to Snowflake.",
+    templating_syntax: List[_TemplateSyntaxOption] = typer.Option(
+        [_TemplateSyntaxOption.LEGACY, _TemplateSyntaxOption.STANDARD],
+        "--template-syntax",
+        help="Syntax used to resolve variables before passing queries to Snowflake.",
+        case_sensitive=False,
     ),
     **options,
 ) -> CommandResult:
@@ -104,6 +139,8 @@ def execute_sql(
     data = {}
     if data_override:
         data = {v.key: v.value for v in parse_key_value_variables(data_override)}
+
+    template_syntax_config = _parse_template_syntax_config(templating_syntax)
 
     retain_comments = bool(retain_comments)
     single_transaction = bool(single_transaction)
@@ -125,7 +162,7 @@ def execute_sql(
             SqlManager(),
             data=data,
             retain_comments=retain_comments,
-            disable_templating=disable_templating,
+            template_syntax_config=template_syntax_config,
         ).run()
         sys.exit(0)
 
@@ -138,7 +175,7 @@ def execute_sql(
         data=data,
         retain_comments=retain_comments,
         single_transaction=single_transaction,
-        disable_templating=disable_templating,
+        template_syntax_config=template_syntax_config,
     )
     if expected_results_cnt == 0:
         # case expected if input only scheduled async queries

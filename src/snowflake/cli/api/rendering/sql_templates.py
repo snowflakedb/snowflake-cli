@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Dict, Optional
 
 from click import ClickException
@@ -27,6 +28,7 @@ from snowflake.cli.api.rendering.jinja import (
     FUNCTION_KEY,
     IgnoreAttrEnvironment,
     env_bootstrap,
+    get_basic_jinja_env,
 )
 
 _SQL_TEMPLATE_START = "<%"
@@ -34,6 +36,16 @@ _SQL_TEMPLATE_END = "%>"
 _OLD_SQL_TEMPLATE_START = "&{"
 _OLD_SQL_TEMPLATE_END = "}"
 RESERVED_KEYS = [CONTEXT_KEY, FUNCTION_KEY]
+
+
+@dataclass
+class SQLTemplateSyntaxConfig:
+    """Class defining which syntax should be used for the template resolution.
+    Jinja syntax is not recommended and should be disabled by default."""
+
+    enable_legacy_syntax: bool = True
+    enable_standard_syntax: bool = True
+    enable_jinja_syntax: bool = False
 
 
 def _get_sql_jinja_env(template_start: str, template_end: str) -> Environment:
@@ -63,11 +75,19 @@ def has_sql_templates(template_content: str) -> bool:
     )
 
 
+def _get_legacy_sql_env() -> Environment:
+    return _get_sql_jinja_env(_OLD_SQL_TEMPLATE_START, _OLD_SQL_TEMPLATE_END)
+
+
+def _get_standard_sql_env() -> Environment:
+    return _get_sql_jinja_env(_SQL_TEMPLATE_START, _SQL_TEMPLATE_END)
+
+
 def choose_sql_jinja_env_based_on_template_syntax(
     template_content: str, reference_name: Optional[str] = None
 ) -> Environment:
-    old_syntax_env = _get_sql_jinja_env(_OLD_SQL_TEMPLATE_START, _OLD_SQL_TEMPLATE_END)
-    new_syntax_env = _get_sql_jinja_env(_SQL_TEMPLATE_START, _SQL_TEMPLATE_END)
+    old_syntax_env = _get_legacy_sql_env()
+    new_syntax_env = _get_standard_sql_env()
     has_old_syntax = _does_template_have_env_syntax(old_syntax_env, template_content)
     has_new_syntax = _does_template_have_env_syntax(new_syntax_env, template_content)
     reference_name_str = f" in {reference_name}" if reference_name else ""
@@ -86,7 +106,15 @@ def choose_sql_jinja_env_based_on_template_syntax(
     return new_syntax_env
 
 
-def snowflake_sql_jinja_render(content: str, data: Dict | None = None) -> str:
+def snowflake_sql_jinja_render(
+    content: str,
+    enabled_syntax_config: SQLTemplateSyntaxConfig,
+    data: Dict | None = None,
+) -> str:
+    """
+    If both legacy and standard syntax are enabled, CLI chooses one basing on provided content.
+    If jinja syntax is enabled, it is resolved after standard and legacy syntax.
+    """
     data = data or {}
 
     for reserved_key in RESERVED_KEYS:
@@ -94,13 +122,31 @@ def snowflake_sql_jinja_render(content: str, data: Dict | None = None) -> str:
             raise ClickException(
                 f"{reserved_key} in user defined data. The `{reserved_key}` variable is reserved for CLI usage."
             )
-
-    context_data = get_cli_context().template_context
-    context_data.update(data)
-    env = choose_sql_jinja_env_based_on_template_syntax(content)
-
     get_cli_context().metrics.set_counter(
         CLICounterField.SQL_TEMPLATES, int(has_sql_templates(content))
     )
 
-    return env.from_string(content).render(context_data)
+    # resolve legacy and standard SQL syntax:
+    context_data = get_cli_context().template_context
+    context_data.update(data)
+    if (
+        enabled_syntax_config.enable_legacy_syntax
+        and enabled_syntax_config.enable_standard_syntax
+    ):
+        env = choose_sql_jinja_env_based_on_template_syntax(content)
+    elif enabled_syntax_config.enable_legacy_syntax:
+        env = _get_legacy_sql_env()
+    elif enabled_syntax_config.enable_standard_syntax:
+        env = _get_standard_sql_env()
+    else:
+        env = None
+
+    if env:
+        content = env.from_string(content).render(context_data)
+
+    # resolve jinja templating
+    if enabled_syntax_config.enable_jinja_syntax:
+        jinja_env = get_basic_jinja_env()
+        content = jinja_env.from_string(content).render(context_data)
+
+    return content
