@@ -23,6 +23,7 @@
 * Added feature to allow suppressing the new version warning message in the Snowflake CLI, configurable via a configuration file or environment variable.
 
 ## Fixes and improvements
+* Fixed failing snow sql command when snowflake.yml is invalid and query has no templating.
 
 # v3.9.1
 
