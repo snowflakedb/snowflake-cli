@@ -21,7 +21,7 @@ from click import ClickException
 from jinja2 import Environment, StrictUndefined, loaders, meta
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console.console import cli_console
-from snowflake.cli.api.exceptions import InvalidTemplateError
+from snowflake.cli.api.exceptions import CliArgumentError, InvalidTemplateError
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.rendering.jinja import (
     CONTEXT_KEY,
@@ -122,13 +122,19 @@ def snowflake_sql_jinja_render(
             raise ClickException(
                 f"{reserved_key} in user defined data. The `{reserved_key}` variable is reserved for CLI usage."
             )
+    has_templates = has_sql_templates(content)
     get_cli_context().metrics.set_counter(
-        CLICounterField.SQL_TEMPLATES, int(has_sql_templates(content))
+        CLICounterField.SQL_TEMPLATES, int(has_templates)
     )
+    context_data = {}
+    if has_templates:
+        try:
+            context_data = get_cli_context().template_context
+        except Exception as e:
+            raise CliArgumentError(f"Failed to read snowflake.yml file: {e}")
+    context_data.update(data)
 
     # resolve legacy and standard SQL syntax:
-    context_data = get_cli_context().template_context
-    context_data.update(data)
     if (
         enabled_syntax_config.enable_legacy_syntax
         and enabled_syntax_config.enable_standard_syntax

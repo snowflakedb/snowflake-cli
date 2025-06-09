@@ -628,3 +628,39 @@ def test_comments_are_handled_correctly_from_query(
         mock.call(exp_query, cursor_class=VerboseCursor) for exp_query in expected
     ]
     assert mock_execute.mock_calls == expected_calls
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_no_template_with_invalid_snowflake_yml(
+    mock_execute, mock_cursor, runner, temporary_directory, snapshot
+):
+    mock_execute.return_value = (mock_cursor(["1"], ["1"]) for _ in range(1))
+    snowflake_yml_path = Path(temporary_directory) / "snowflake.yml"
+    snowflake_yml_path.write_text(
+        """
+        invalid
+        snowflake
+        yml
+        """
+    )
+    result = runner.invoke(["sql", "-q", "select 1"])
+    assert result.exit_code == 0, result.output
+    assert result.output == snapshot
+
+
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlExecutionMixin._execute_string")
+def test_sql_with_old_template_and_invalid_snowflake_yml(
+    mock_execute, mock_cursor, runner, temporary_directory, snapshot
+):
+    mock_execute.return_value = (mock_cursor(["row"], []) for _ in range(1))
+    snowflake_yml_path = Path(temporary_directory) / "snowflake.yml"
+    snowflake_yml_path.write_text(
+        """
+        invalid
+        snowflake
+        yml
+        """
+    )
+    result = runner.invoke(["sql", "-q", "select <% foo %>"])
+    assert result.exit_code == 1, result.output
+    assert result.output == snapshot

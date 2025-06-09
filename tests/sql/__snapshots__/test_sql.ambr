@@ -1,4 +1,14 @@
 # serializer version: 1
+# name: test_sql_no_template_with_invalid_snowflake_yml
+  '''
+  +---+
+  | 1 |
+  |---|
+  | 1 |
+  +---+
+  
+  '''
+# ---
 # name: test_sql_repl_if_no_query_file_or_stdin
   '''
   ╭──────────────────────────────────────────────────────────────────────────────╮
@@ -7,6 +17,16 @@
   ╰──────────────────────────────────────────────────────────────────────────────╯
   
   Leaving REPL, bye ...
+  
+  '''
+# ---
+# name: test_sql_with_old_template_and_invalid_snowflake_yml
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Failed to read snowflake.yml file:                                           |
+  | snowflake.cli.api.project.schemas.project_definition.build_project_definitio |
+  | n() argument after ** must be a mapping, not str                             |
+  +------------------------------------------------------------------------------+
   
   '''
 # ---
