@@ -197,7 +197,7 @@ class _CliGlobalContextAccess:
     @property
     def _should_force_mute_intermediate_output(self) -> bool:
         """Computes whether cli_console output should be muted."""
-        return self._manager.output_format == OutputFormat.JSON
+        return self._manager.output_format in [OutputFormat.JSON, OutputFormat.CSV]
 
     @property
     def snow_api_root(
