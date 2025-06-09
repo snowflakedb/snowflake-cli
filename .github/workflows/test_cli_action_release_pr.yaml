@@ -30,7 +30,7 @@ jobs:
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.13"
       - uses: Snowflake-Labs/snowflake-cli-action@main
         with:
           custom-github-ref: "v3.9.1"
