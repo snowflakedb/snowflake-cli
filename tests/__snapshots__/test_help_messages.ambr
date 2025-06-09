@@ -17360,6 +17360,10 @@
   |                                                        applied.              |
   |                                                        [default:             |
   |                                                        no-single-transactio… |
+  | --disable-templating                                   Do not resolve        |
+  |                                                        variables before      |
+  |                                                        passing queries to    |
+  |                                                        Snowflake.            |
   | --project             -p                         TEXT  Path where the        |
   |                                                        Snowflake project is  |
   |                                                        stored. Defaults to   |

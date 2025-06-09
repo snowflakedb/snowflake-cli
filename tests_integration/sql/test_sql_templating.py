@@ -103,3 +103,18 @@ def test_sql_env_value_from_cli_multiple_args(
 
     assert result.exit_code == 0
     assert result.json == [{"'TEST1-TEST2'": "test1-test2"}]
+
+
+@pytest.mark.integration
+def test_disable_templating(runner):
+    result = runner.invoke_with_connection_json(
+        ["sql", "-q", "select 'B&C', '&{ A }', '<% D %>'", "--disable-templating"]
+    )
+    assert result.exit_code == 0, result.output
+    assert result.json == [
+        {
+            "'&{ A }'": "&{ A }",
+            "'<% D %>'": "<% D %>",
+            "'B&C'": "B&C",
+        }
+    ]
