@@ -104,12 +104,14 @@ def _init_patch_release(release_info: ReleaseInfo) -> MessageResult:
             release_info.final_tag_name
         )
         for branch_name in [release_info.release_branch_name, cherrypick_branch]:
+            cli_console.step(f"creating branch {branch_name}")
             repo.git.checkout(branch_name, b=True)
             repo.git.push("origin", branch_name, set_upstream=True)
 
     # create empty bump-release-notes branch on main
     with repo.tmp_checkout("main"):
         bump_release_notes_main_branch = f"bump-release-notes-{release_info.version}"
+        cli_console.step(f"creating branch {bump_release_notes_main_branch}")
         repo.git.checkout(bump_release_notes_main_branch, b=True)
         repo.git.push("origin", bump_release_notes_main_branch, set_upstream=True)
 
