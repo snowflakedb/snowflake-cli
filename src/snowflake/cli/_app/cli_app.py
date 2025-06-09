@@ -59,6 +59,7 @@ def _do_not_execute_on_completion(callback):
 
 class CliAppFactory:
     def __init__(self):
+        assert False
         self._commands_registration = CommandsRegistrationWithCallbacks()
         self._app: Optional[SnowCliMainTyper] = None
         self._click_context: Optional[ClickContext] = None
