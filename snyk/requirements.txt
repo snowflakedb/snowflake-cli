@@ -14,7 +14,7 @@ setuptools==80.8.0
 snowflake-connector-python[secure-local-storage]==3.15.0
 snowflake-snowpark-python>=1.15.0,<1.26.0;python_version < "3.12"
 snowflake.core==1.5.0
-tomlkit==0.13.2
+tomlkit==0.13.3
 typer==0.16.0
 urllib3>=1.24.3,<2.5
 Faker==37.3.0
