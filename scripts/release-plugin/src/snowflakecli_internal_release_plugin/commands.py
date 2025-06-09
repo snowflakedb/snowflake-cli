@@ -99,14 +99,19 @@ def _commit_bump_version(
 def _init_patch_release(release_info: ReleaseInfo) -> MessageResult:
     repo = release_info.repo
     with repo.tmp_checkout(release_info.root_branch_name):
-        # create release branch and release cherrypick branch, publish both
+        # create release branch
+        cli_console.step(f"creating branch {release_info.release_branch_name}")
+        repo.git.checkout(release_info.release_branch_name, b=True)
+        repo.git.push("origin", release_info.release_branch_name, set_upstream=True)
+
+        # create cherrypick branch
         cherrypick_branch = release_info.cherrypick_branch_name(
             release_info.final_tag_name
         )
-        for branch_name in [release_info.release_branch_name, cherrypick_branch]:
-            cli_console.step(f"creating branch {branch_name}")
-            repo.git.checkout(branch_name, b=True)
-            repo.git.push("origin", branch_name, set_upstream=True)
+        cli_console.step(f"creating branch {cherrypick_branch}")
+        repo.git.checkout(cherrypick_branch, b=True)
+        _commit_bump_version(repo, release_info.version, release_info.final_tag_name)
+        repo.git.push("origin", cherrypick_branch, set_upstream=True)
 
     # create empty bump-release-notes branch on main
     with repo.tmp_checkout("main"):
