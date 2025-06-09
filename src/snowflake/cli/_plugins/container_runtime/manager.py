@@ -33,7 +33,7 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
 
 class ContainerRuntimeManager(SqlExecutionMixin):
-    DEFAULT_COMPUTE_POOL = "ML_RUNTIME_CPU_TEST_POOL_M"
+    DEFAULT_COMPUTE_POOL = "E2E_CPU_POOL"
     DEFAULT_TIMEOUT_MIN = 60
     DEFAULT_STORAGE_SIZE_GB = 10
     DEFAULT_SERVICE_PREFIX = "SNOW_CR"
