@@ -151,7 +151,7 @@ test-spcs = [
   "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/spcs",
 ]
 test_qa = [
-  "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/test_streamlit.py",
+  "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/",
 ]
 
 [[tool.hatch.envs.local.matrix]]
