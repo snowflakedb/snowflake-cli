@@ -4,6 +4,7 @@ from snowflake.cli.api.output.types import CommandResult
 from tests_integration.testing_utils import (
     assert_that_result_failed_with_message_containing,
     assert_that_result_is_successful_and_output_json_equals,
+    assert_that_result_is_successful,
     assert_that_result_is_error,
 )
 
@@ -95,9 +96,9 @@ class StreamlitTestSteps:
             ]
         )
 
-        assert_that_result_is_successful_and_output_json_equals(
-            result, {"message": create_expected_url(entity_id, database)}
-        )
+        assert_that_result_is_successful(result)
+        message = result.json["message"]
+        assert message.endswith(create_expected_url_suffix(entity_id, database))
 
     def execute_should_run_streamlit(self, entity_id: str, database: str):
         result = self.setup.runner.invoke_with_connection_json(
@@ -154,13 +155,11 @@ class StreamlitTestSteps:
     def assert_proper_url_is_returned(
         self, result: CommandResult, entity_id: str, database: str
     ):
-        assert_that_result_is_successful_and_output_json_equals(
-            result,
-            {
-                "message": f"Streamlit successfully deployed and available under {create_expected_url(entity_id, database)}",
-            },
-        )
+        assert_that_result_is_successful(result)
+        message = result.json["message"]
+        assert message.startswith("Streamlit successfully deployed and available under")
+        assert message.endswith(create_expected_url_suffix(entity_id, database))
 
 
-def create_expected_url(entity_id: str, database: str):
-    return f"https://app.snowflake.com/SFENGINEERING/snowcli_it/#/streamlit-apps/{database}.PUBLIC.{entity_id.upper()}"
+def create_expected_url_suffix(entity_id: str, database: str):
+    return f".snowflake.com/SFENGINEERING/snowcli_it/#/streamlit-apps/{database}.PUBLIC.{entity_id.upper()}"

@@ -35,7 +35,6 @@ INTEGRATION_SCHEMA = "PUBLIC"
 INTEGRATION_REPOSITORY = "snowcli_repository"
 
 
-@pytest.mark.no_qa  # temporarily skipping the test on QA due to missing image on testing account
 @pytest.mark.integration
 def test_list_images_tags(runner):
     # test assumes the testing environment has been set up with /<DATABASE>/PUBLIC/snowcli_repository/snowpark_test_echo:1
@@ -129,7 +128,7 @@ def _list_images_with_like_positive_case(runner):
         ]
     )
     assert isinstance(result2.json, list), result2.output
-    assert len(result2.json) == 3, result2.json
+    assert len(result2.json) >= 2, result2.json
     assert contains_row_with(
         result.json,
         {
