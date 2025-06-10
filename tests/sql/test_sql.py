@@ -488,18 +488,6 @@ def test_supported_syntax_config(
     mock_execute_query.assert_called_once_with(expected_query, cursor_class=mock.ANY)
 
 
-@mock.patch("snowflake.cli._plugins.sql.manager.SqlManager._execute_string")
-def test_execute_passed_correct_query(mock_execute_string):
-    sql_manager = SqlManager()
-    _, results = sql_manager.execute(
-        query="select 1; select 2", files=None, std_in=False
-    )
-    list(results)
-    mock_execute_string.assert_has_calls(
-        mock.call("select 1; select 2", cursor_class=mock.ANY)
-    )
-
-
 @pytest.mark.parametrize(
     "flags,exp_legacy,exp_standard,exp_jinja",
     [

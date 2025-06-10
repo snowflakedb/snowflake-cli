@@ -13,7 +13,10 @@ from snowflake.cli._plugins.sql.statement_reader import (
     parse_statement,
     query_reader,
 )
-from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
+from snowflake.cli.api.rendering.sql_templates import (
+    SQLTemplateSyntaxConfig,
+    snowflake_sql_jinja_render,
+)
 from snowflake.cli.api.secure_path import SecurePath
 
 
@@ -342,7 +345,11 @@ def test_parse_source_default_fallback(command):
 def test_rendering_of_sql_with_commands(query):
     stmt_operators = (
         transpile_snowsql_templates,
-        partial(snowflake_sql_jinja_render, data={"aaa": "foo", "bbb": "bar"}),
+        partial(
+            snowflake_sql_jinja_render,
+            data={"aaa": "foo", "bbb": "bar"},
+            enabled_syntax_config=SQLTemplateSyntaxConfig(),
+        ),
     )
     parsed_source = parse_statement(query, stmt_operators)
     assert parsed_source.statement_type == StatementType.FILE
