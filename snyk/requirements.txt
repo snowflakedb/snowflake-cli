@@ -7,7 +7,7 @@ pip
 pluggy==1.6.0
 prompt-toolkit==3.0.51
 pydantic==2.11.4
-requests==2.32.3
+requests==2.32.4
 requirements-parser==0.13.0
 rich==14.0.0
 setuptools==80.8.0
