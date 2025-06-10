@@ -243,6 +243,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 raise
 
         stage_root = f"snow://streamlit/{self.model.fqn.using_connection(self._conn).identifier}/versions/live"
+        # import pudb; pudb.set_trace()
 
         sync_deploy_root_with_stage(
             console=self._workspace_ctx.console,

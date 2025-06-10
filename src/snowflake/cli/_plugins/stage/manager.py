@@ -67,6 +67,7 @@ EXECUTE_SUPPORTED_FILES_FORMATS = (
 # Replace magic numbers with constants
 OMIT_FIRST = slice(1, None)
 STAGE_PATH_REGEX = rf"(?P<prefix>(@|{re.escape('snow://')}))?(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?P<name>{VALID_IDENTIFIER_REGEX})/?(?P<directory>([^/]*/?)*)?"
+STREAMLIT_EMBEDDED_STAGE_PATH_REGEX = rf"(?P<prefix>{re.escape('snow://')})streamlit/?(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?P<name>{VALID_IDENTIFIER_REGEX})/?(?P<directory>([^/]*/?)*)?"
 
 
 class InternalStageEncryptionType(Enum):
@@ -201,6 +202,22 @@ class DefaultStagePathParts(StagePathParts):
 
 
 @dataclass
+class StreamlitEmbeddedStagePathParts(StagePathParts):
+    FOO = "snow://streamlit"
+
+    def __init__(self, stage_path: str):
+        match = re.fullmatch(STREAMLIT_EMBEDDED_STAGE_PATH_REGEX, stage_path)
+        if match is None:
+            raise ClickException("Invalid embedded stage path")
+        self.directory = match.group("directory")
+        self._schema = match.group("second_qualifier") or match.group("first_qualifier")
+        self._prefix = match.group("prefix") or "@"
+        self.stage = stage_path.removesuffix(self.directory).rstrip("/")
+        self.stage_name = self.stage.removeprefix(self._prefix)
+        self.is_directory = True if stage_path.endswith("/") else False
+
+
+@dataclass
 class UserStagePathParts(StagePathParts):
     """
     For path like @db.schema.stage/dir the values will be:
@@ -247,8 +264,9 @@ class StageManager(SqlExecutionMixin):
         super().__init__()
         self._python_exe_procedure = None
 
-    @staticmethod
-    def build_path(stage_path: str) -> StagePath:
+    def build_path(self, stage_path: Union[str, StagePath]) -> StagePath:
+        if isinstance(stage_path, StagePath):
+            return stage_path
         return StagePath.from_stage_str(stage_path)
 
     @staticmethod
@@ -747,9 +765,12 @@ class StageManager(SqlExecutionMixin):
     @staticmethod
     def stage_path_parts_from_str(stage_path: str) -> StagePathParts:
         """Create StagePathParts object from stage path string."""
+        # import pudb; pudb.set_trace()
         stage_path = StageManager.get_standard_stage_prefix(stage_path)
         if stage_path.startswith(USER_STAGE_PREFIX):
             return UserStagePathParts(stage_path)
+        elif stage_path.startswith(StreamlitEmbeddedStagePathParts.FOO):
+            return StreamlitEmbeddedStagePathParts(stage_path)
         return DefaultStagePathParts(stage_path)
 
     def _check_for_requirements_file(self, stage_path: StagePath) -> List[str]:
