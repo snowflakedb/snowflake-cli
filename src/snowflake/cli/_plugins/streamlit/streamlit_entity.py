@@ -166,7 +166,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         else:
             query = "CREATE STREAMLIT"
 
-        query += f" {self._get_identifier(schema, database)}"
+        query += f" {self._get_sql_identifier(schema, database)}"
 
         if from_stage_name:
             query += f"\nROOT_LOCATION = '{from_stage_name}'"
@@ -201,13 +201,15 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         return query + ";"
 
     def get_describe_sql(self) -> str:
-        return f"DESCRIBE STREAMLIT {self._get_identifier()};"
+        return f"DESCRIBE STREAMLIT {self._get_sql_identifier()};"
 
     def get_share_sql(self, to_role: str) -> str:
-        return f"GRANT USAGE ON STREAMLIT {self._get_identifier()} TO ROLE {to_role};"
+        return (
+            f"GRANT USAGE ON STREAMLIT {self._get_sql_identifier()} TO ROLE {to_role};"
+        )
 
     def get_execute_sql(self):
-        return f"EXECUTE STREAMLIT {self._get_identifier()}();"
+        return f"EXECUTE STREAMLIT {self._get_sql_identifier()}();"
 
     def get_usage_grant_sql(self, app_role: str, schema: Optional[str] = None) -> str:
         entity_id = self.entity_id

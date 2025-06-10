@@ -3,12 +3,14 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.feature_flags import FeatureFlag
 
 from tests.streamlit.streamlit_test_class import (
     STREAMLIT_NAME,
     TYPER,
     StreamlitTestClass,
 )
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 class TestStreamlitCommands(StreamlitTestClass):
@@ -319,11 +321,10 @@ class TestStreamlitCommands(StreamlitTestClass):
         runner,
         alter_snowflake_yml,
     ):
-        with (
-            mock.patch(
-                "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled",
-                return_value=enable_streamlit_versioned_stage,
-            ),
+        with with_feature_flags(
+            {
+                FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE: enable_streamlit_versioned_stage
+            }
         ):
             with project_directory(project_name) as tmp_dir:
                 if project_name == "example_streamlit_v2":
@@ -338,7 +339,9 @@ class TestStreamlitCommands(StreamlitTestClass):
                     )
                 result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
-        post_create_command = f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') ADD LIVE VERSION FROM LAST;"
+        post_create_command = (
+            f"ALTER STREAMLIT {STREAMLIT_NAME} ADD LIVE VERSION FROM LAST;"
+        )
 
         expected_query = dedent(
             f"""
@@ -365,14 +368,17 @@ class TestStreamlitCommands(StreamlitTestClass):
     def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
         self, enable_streamlit_versioned_stage, project_name, project_directory, runner
     ):
-        with mock.patch(
-            "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled",
-            return_value=enable_streamlit_versioned_stage,
+        with with_feature_flags(
+            {
+                FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE: enable_streamlit_versioned_stage
+            }
         ):
             with project_directory(project_name) as tmp_dir:
                 result = runner.invoke(["streamlit", "deploy", "--experimental"])
 
-        post_create_command = f"ALTER STREAMLIT IDENTIFIER('{STREAMLIT_NAME}') ADD LIVE VERSION FROM LAST;"
+        post_create_command = (
+            f"ALTER STREAMLIT {STREAMLIT_NAME} ADD LIVE VERSION FROM LAST;"
+        )
 
         expected_query = dedent(
             f"""

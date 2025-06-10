@@ -133,12 +133,22 @@ class EntityBase(Generic[T]):
     def get_drop_sql(self) -> str:
         return f"DROP {self.model.type.upper()} {self.identifier};"  # type: ignore[attr-defined]
 
+    def _get_fqn(
+        self, schema: Optional[str] = None, database: Optional[str] = None
+    ) -> FQN:
+        schema_to_use = schema or self._entity_model.fqn.schema or self._conn.schema  # type: ignore
+        db_to_use = database or self._entity_model.fqn.database or self._conn.database  # type: ignore
+        return self._entity_model.fqn.set_schema(schema_to_use).set_database(db_to_use)  # type: ignore
+
+    def _get_sql_identifier(
+        self, schema: Optional[str] = None, database: Optional[str] = None
+    ) -> str:
+        return str(self._get_fqn(schema, database).sql_identifier)
+
     def _get_identifier(
         self, schema: Optional[str] = None, database: Optional[str] = None
     ) -> str:
-        schema_to_use = schema or self._entity_model.fqn.schema or self._conn.schema  # type: ignore
-        db_to_use = database or self._entity_model.fqn.database or self._conn.database  # type: ignore
-        return f"{self._entity_model.fqn.set_schema(schema_to_use).set_database(db_to_use).sql_identifier}"  # type: ignore
+        return str(self._get_fqn(schema, database).identifier)
 
     def get_from_fqn_or_conn(self, attribute_name: str) -> str:
         attribute = getattr(self.fqn, attribute_name, None) or getattr(
