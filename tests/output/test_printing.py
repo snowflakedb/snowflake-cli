@@ -403,7 +403,7 @@ def _empty_cursor(mock_cursor):
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def _multiple_results(_create_mock_cursor):
     return MultipleResults(
         [

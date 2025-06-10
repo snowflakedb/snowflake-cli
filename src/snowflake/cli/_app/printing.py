@@ -139,13 +139,11 @@ def _print_csv_result(result: CommandResult):
         writer.writeheader()
         writer.writerow(data)
     elif isinstance(data, list):
-        header_written = False
-        writer = csv.DictWriter(sys.stdout, None, lineterminator="\n")  # type: ignore
+        if not data:
+            return
+        writer = csv.DictWriter(sys.stdout, [*data[0]], lineterminator="\n")
+        writer.writeheader()
         for entry in data:
-            if not header_written:
-                writer.fieldnames = [*entry]
-                writer.writeheader()
-                header_written = True
             writer.writerow(entry)
 
 
