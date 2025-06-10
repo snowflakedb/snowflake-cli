@@ -530,11 +530,7 @@ def test_nativeapp_force_cross_upgrade(
 
         # Set default release directive
         result = runner.invoke_with_connection(
-            [
-                "sql",
-                "-q",
-                f"alter application package {pkg_name} set default release directive version = v1 patch = 0",
-            ]
+            ["app", "publish", "--version", "v1", "--patch", "0"]
         )
         assert result.exit_code == 0
 
