@@ -92,7 +92,7 @@ if __name__ == "__main__":
         ("compute pool", "compute pools"): [],
         ("service", "services"): [],
         ("application", "applications"): [],
-        ("warehouse", "warehouses"): ["XSMALL"],
+        ("warehouse", "warehouses"): ["XSMALL", "SNOWPARK_TESTS"],
         ("image repository", "image repositories"): ["SNOWCLI_REPOSITORY"],
         ("role", "roles"): [
             "ACCOUNTADMIN",
