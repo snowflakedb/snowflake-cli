@@ -102,7 +102,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if (
             experimental
             or GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled()
-            or GlobalFeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled()
         ):
             self._deploy_experimental(bundle_map=bundle_map, replace=replace)
         else:
@@ -148,11 +147,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
     ):
         return f"ALTER STREAMLIT {self._get_identifier(schema,database)} ADD LIVE VERSION FROM LAST;"
 
-    def get_checkout_sql(
-        self, schema: Optional[str] = None, database: Optional[str] = None
-    ):
-        return f"ALTER STREAMLIT {self._get_identifier(schema,database)} CHECKOUT;"
-
     def get_deploy_sql(
         self,
         if_not_exists: bool = False,
@@ -172,7 +166,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         else:
             query = "CREATE STREAMLIT"
 
-        query += f" {self._get_identifier(schema, database)}"
+        query += f" {self._get_sql_identifier(schema, database)}"
 
         if from_stage_name:
             query += f"\nROOT_LOCATION = '{from_stage_name}'"
@@ -207,13 +201,15 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         return query + ";"
 
     def get_describe_sql(self) -> str:
-        return f"DESCRIBE STREAMLIT {self._get_identifier()};"
+        return f"DESCRIBE STREAMLIT {self._get_sql_identifier()};"
 
     def get_share_sql(self, to_role: str) -> str:
-        return f"GRANT USAGE ON STREAMLIT {self._get_identifier()} TO ROLE {to_role};"
+        return (
+            f"GRANT USAGE ON STREAMLIT {self._get_sql_identifier()} TO ROLE {to_role};"
+        )
 
     def get_execute_sql(self):
-        return f"EXECUTE STREAMLIT {self._get_identifier()}();"
+        return f"EXECUTE STREAMLIT {self._get_sql_identifier()}();"
 
     def get_usage_grant_sql(self, app_role: str, schema: Optional[str] = None) -> str:
         entity_id = self.entity_id
@@ -239,33 +235,25 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             )
         )
         try:
-            if GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled():
-                self._execute_query(self.get_add_live_version_sql())
-            elif not GlobalFeatureFlag.ENABLE_STREAMLIT_NO_CHECKOUTS.is_enabled():
-                self._execute_query(self.get_checkout_sql())
+            self._execute_query(self.get_add_live_version_sql())
         except ProgrammingError as e:
-            if "Checkout already exists" in str(
-                e
-            ) or "There is already a live version" in str(e):
+            if "There is already a live version" in str(e):
                 log.info("Checkout already exists, continuing")
             else:
                 raise
 
-        embeded_stage_name = (
-            f"snow://streamlit/{self.model.fqn.using_connection(self._conn).identifier}"
-        )
+        # TODO: fetch embedded stage path from server
+        # TODO: there's no way to alter existing streamlits
+        stage_root = f"snow://streamlit/{self.model.fqn.using_connection(self._conn).identifier}/versions/live/"
 
-        if GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled():
-            stage_root = f"{embeded_stage_name}/versions/live"
-        else:
-            stage_root = f"{embeded_stage_name}/default_checkout"
-
+        stage_path = StageManager().stage_path_parts_from_str(stage_root)
         sync_deploy_root_with_stage(
             console=self._workspace_ctx.console,
             deploy_root=bundle_map.deploy_root(),
             bundle_map=bundle_map,
             prune=prune,
             recursive=True,
-            stage_path=StageManager().stage_path_parts_from_str(stage_root),
+            stage_path=stage_path,
             print_diff=True,
+            force_overwrite=True,  # files copied to streamlit embedded stages been to be overwritten
         )

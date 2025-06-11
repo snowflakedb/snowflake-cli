@@ -121,7 +121,7 @@ def test_valid_children():
 
 
 @mock.patch(
-    "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._get_identifier",
+    "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._get_sql_identifier",
     return_value="IDENTIFIER('v_schema.my_streamlit')",
 )
 def test_children_bundle_with_custom_dir(mock_id, project_directory):
