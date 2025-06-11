@@ -66,5 +66,5 @@ jobs:
       runs-on: ${{ matrix.os }}
       python-version: ${{ matrix.python-version }}
       python-env: integration
-      hatch-run: integration:test-spcs
+      hatch-run: integration:test_spcs
     secrets: inherit

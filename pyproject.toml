@@ -147,7 +147,7 @@ features = ["development"]
 test = [
   'pytest -m "integration and not qa_only" -n6 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/spcs tests_integration/',
 ]
-test-spcs = [
+test_spcs = [
   "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/spcs",
 ]
 test_qa = [
