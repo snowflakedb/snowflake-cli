@@ -167,6 +167,7 @@ def test_sync_deploy_root_with_stage(
         deploy_root_path=dm.project_root / pkg_model.deploy_root,
         diff_result=mock_diff_result,
         stage_full_path="app_pkg.app_src.stage",
+        force_overwrite=False,
     )
 
 
@@ -231,6 +232,7 @@ def test_sync_deploy_root_with_stage_subdir(
         deploy_root_path=dm.project_root / pkg_model.deploy_root,
         diff_result=mock_diff_result,
         stage_full_path=stage_full_path,
+        force_overwrite=False,
     )
 
 

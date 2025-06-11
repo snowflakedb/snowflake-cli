@@ -99,10 +99,15 @@ class StagePath:
 
     @classmethod
     def from_stage_str(cls, stage_str: str | FQN) -> StagePath:
-        _at_prefixed, _snow_prefixed = stage_str.startswith("@"), stage_str.startswith(
-            SNOW_PREFIX
-        )
+        _at_prefixed, _snow_prefixed = str(stage_str).startswith("@"), str(
+            stage_str
+        ).startswith(SNOW_PREFIX)
         stage_str = cls.strip_stage_prefixes(str(stage_str))
+        if _snow_prefixed:
+            resource = stage_str.split("/", maxsplit=1)[0]
+            stage_str = stage_str.removeprefix(resource + "/")
+        else:
+            resource = None
         parts = stage_str.split("/", maxsplit=1)
         parts = [p for p in parts if p]
         if len(parts) == 2:
@@ -113,6 +118,7 @@ class StagePath:
         if _at_prefixed:
             stage_string = cls.add_at_prefix(stage_string)
         if _snow_prefixed:
+            stage_string = resource + "/" + stage_string
             stage_string = cls.add_snow_prefix(stage_string)
         stage_path = cls(
             stage_name=stage_string, path=path, trailing_slash=stage_str.endswith("/")

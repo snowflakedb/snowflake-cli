@@ -53,14 +53,8 @@ def with_at_prefix(test_data: list[tuple[str, bool]]):
     return [(f"@{path}", is_git_repo) for path, is_git_repo in test_data]
 
 
-def with_snow_prefix(test_data: list[tuple[str, bool]]):
-    return [(f"snow://{path}", is_git_repo) for path, is_git_repo in test_data]
-
-
 def parametrize_with(data: list[tuple[str, bool]]):
-    return pytest.mark.parametrize(
-        "path, is_git_repo", [*data, *with_at_prefix(data), *with_snow_prefix(data)]
-    )
+    return pytest.mark.parametrize("path, is_git_repo", [*data, *with_at_prefix(data)])
 
 
 def build_stage_path(path, is_git_repo):
@@ -126,9 +120,12 @@ def test_dir_with_file_paths(path, is_git_repo):
     assert stage_path.suffix == ".py"
     assert stage_path.stem == "file"
     assert stage_path.stage == path.lstrip("@").replace("snow://", "").split("/")[0]
-    assert stage_path.absolute_path() == "@" + path.lstrip("@").replace(
-        "snow://", ""
-    ).rstrip("/")
+    if path.startswith("snow://"):
+        assert stage_path.absolute_path() == path.rstrip("/")
+    else:
+        assert stage_path.absolute_path() == "@" + path.lstrip("@").replace(
+            "snow://", ""
+        ).rstrip("/")
 
 
 def test_join_path():
