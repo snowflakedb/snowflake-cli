@@ -27,6 +27,7 @@
   * standard (`<% ... %>`), enabled by default
   * legacy (`&{ ... }`), enabled by default
   * jinja (new) (`{{ ... }}`), disabled by default
+* Added packages alias for artifact_repository_packages in the snowflake.yml schema.
 
 ## Fixes and improvements
 * Fixed failing snow sql command when snowflake.yml is invalid and query has no templating.
