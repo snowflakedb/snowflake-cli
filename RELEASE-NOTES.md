@@ -23,6 +23,7 @@
 * Added feature to allow suppressing the new version warning message in the Snowflake CLI, configurable via a configuration file or environment variable.
 * Add support for `--format=CSV`.
 * Fix JSON serialization for `Decimal` and `time`.
+* Added packages alias for artifact_repository_packages in the snowflake.yml schema.
 
 ## Fixes and improvements
 * Fixed failing snow sql command when snowflake.yml is invalid and query has no templating.

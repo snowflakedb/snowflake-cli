@@ -2,7 +2,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Generic, List, Optional, TypeVar
 
-from click import ClickException
+from click import ClickException, UsageError
 from snowflake.cli._plugins.snowpark import package_utils
 from snowflake.cli._plugins.snowpark.common import (
     DEFAULT_RUNTIME,
@@ -173,19 +173,32 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         if self.model.secrets:
             query.append(self.model.get_secrets_sql())
 
-        if self.model.type == "procedure" and self.model.execute_as_caller:
-            query.append("EXECUTE AS CALLER")
+        if self.model.artifact_repository_packages and self.model.packages:
+            raise UsageError(
+                "You cannot specify both artifact_repository_packages and packages.",
+            )
 
-        if self.model.artifact_repository and self.model.artifact_repository_packages:
-            packages = [f"'{item}'" for item in self.model.artifact_repository_packages]
+        if self.model.artifact_repository and (
+            self.model.artifact_repository_packages or self.model.packages
+        ):
+            if self.model.artifact_repository_packages:
+                packages = [
+                    f"'{item}'" for item in self.model.artifact_repository_packages
+                ]
+            else:
+                packages = [f"'{item}'" for item in self.model.packages]
+
             query.extend(
                 [
                     f"ARTIFACT_REPOSITORY= {self.model.artifact_repository} ",
-                    f"ARTIFACT_REPOSITORY_PACKAGES=({','.join(packages)})",
+                    f"PACKAGES=({','.join(packages)})",
                 ]
             )
         if self.model.resource_constraint:
             query.append(self._get_resource_constraints_sql())
+
+        if self.model.type == "procedure" and self.model.execute_as_caller:
+            query.append("EXECUTE AS CALLER")
 
         return "\n".join(query)
 

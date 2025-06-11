@@ -12,7 +12,7 @@
   | 'string', 'runtime': '3.10', 'secrets': {}, 'signature': [{'default':        |
   | 'default value', 'name': 'a', 'type': 'string'}, {'name': 'b', 'type':       |
   | 'variant'}], 'type': 'function'}'. This caused: Value error, You specified   |
-  | Artifact_repository_packages without setting Artifact_repository.            |
+  | packages / artifact_repository_packages without setting artifact_repository. |
   +------------------------------------------------------------------------------+
   
   '''
