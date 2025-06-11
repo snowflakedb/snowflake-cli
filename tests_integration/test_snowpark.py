@@ -1720,19 +1720,13 @@ def test_using_external_packages_from_package_repository(
 ):
 
     with project_directory("snowpark_artifact_repository") as tmp_dir:
-        result0 = runner.invoke_with_connection(
-            [
-                "connection",
-                "test",
-            ]
-        )
         result = runner.invoke_with_connection(
             [
                 "snowpark",
                 "build",
             ]
         )
-        assert result.exit_code == 0, result0.output
+        assert result.exit_code == 0, result.output
         assert "Build done." in result.output
 
         result = runner.invoke_with_connection(
