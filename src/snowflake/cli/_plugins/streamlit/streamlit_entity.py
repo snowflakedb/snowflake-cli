@@ -242,15 +242,18 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             else:
                 raise
 
-        stage_root = f"snow://streamlit/{self.model.fqn.using_connection(self._conn).identifier}/versions/live"
-        # import pudb; pudb.set_trace()
+        # TODO: fetch embedded stage path from server
+        # TODO: there's no way to alter existing streamlits
+        stage_root = f"snow://streamlit/{self.model.fqn.using_connection(self._conn).identifier}/versions/live/"
 
+        stage_path = StageManager().stage_path_parts_from_str(stage_root)
         sync_deploy_root_with_stage(
             console=self._workspace_ctx.console,
             deploy_root=bundle_map.deploy_root(),
             bundle_map=bundle_map,
             prune=prune,
             recursive=True,
-            stage_path=StageManager().stage_path_parts_from_str(stage_root),
+            stage_path=stage_path,
             print_diff=True,
+            force_overwrite=True,  # files copied to streamlit embedded stages been to be overwritten
         )

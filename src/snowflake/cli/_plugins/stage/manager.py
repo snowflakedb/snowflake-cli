@@ -59,6 +59,7 @@ log = logging.getLogger(__name__)
 
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
 USER_STAGE_PREFIX = "@~"
+EMBEDDED_STAGE_PREFIX = "snow://"
 EXECUTE_SUPPORTED_FILES_FORMATS = (
     ".sql",
     ".py",
@@ -68,6 +69,18 @@ EXECUTE_SUPPORTED_FILES_FORMATS = (
 OMIT_FIRST = slice(1, None)
 STAGE_PATH_REGEX = rf"(?P<prefix>(@|{re.escape('snow://')}))?(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?P<name>{VALID_IDENTIFIER_REGEX})/?(?P<directory>([^/]*/?)*)?"
 STREAMLIT_EMBEDDED_STAGE_PATH_REGEX = rf"(?P<prefix>{re.escape('snow://')})streamlit/?(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?P<name>{VALID_IDENTIFIER_REGEX})/?(?P<directory>([^/]*/?)*)?"
+
+# Define supported embedded resource types
+EMBEDDED_RESOURCE_TYPES = ("streamlit", "notebook")
+EMBEDDED_RESOURCE_TYPES_REGEX = "|".join(map(re.escape, EMBEDDED_RESOURCE_TYPES))
+EMBEDDED_STAGE_PATH_REGEX = (
+    rf"(?P<prefix>{re.escape(EMBEDDED_STAGE_PREFIX)})"
+    rf"(?P<resource_type>{EMBEDDED_RESOURCE_TYPES_REGEX})/?"
+    rf"(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?"
+    rf"(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?"
+    rf"(?P<name>{VALID_IDENTIFIER_REGEX})/?"
+    rf"(?P<directory>([^/]*/?)*)?"
+)
 
 
 class InternalStageEncryptionType(Enum):
@@ -81,6 +94,7 @@ class StagePathParts:
     stage: str
     stage_name: str
     is_directory: bool
+    is_embedded: bool = False
 
     @classmethod
     def get_directory(cls, stage_path: str) -> str:
@@ -128,7 +142,7 @@ class StagePathParts:
 
 def _strip_standard_stage_prefix(path: str) -> str:
     """Removes '@' or 'snow://' prefix from given string"""
-    for prefix in ["@", "snow://"]:
+    for prefix in ["@", EMBEDDED_STAGE_PREFIX]:
         if path.startswith(prefix):
             path = path.removeprefix(prefix)
     return path
@@ -202,19 +216,32 @@ class DefaultStagePathParts(StagePathParts):
 
 
 @dataclass
-class StreamlitEmbeddedStagePathParts(StagePathParts):
-    FOO = "snow://streamlit"
-
+class EmbeddedStagePathParts(StagePathParts):
     def __init__(self, stage_path: str):
-        match = re.fullmatch(STREAMLIT_EMBEDDED_STAGE_PATH_REGEX, stage_path)
+        match = re.fullmatch(EMBEDDED_STAGE_PATH_REGEX, stage_path)
         if match is None:
             raise ClickException("Invalid embedded stage path")
+        self.resource_type = match.group("resource_type")
         self.directory = match.group("directory")
+        self.resource_type = match.group("resource_type")
         self._schema = match.group("second_qualifier") or match.group("first_qualifier")
-        self._prefix = match.group("prefix") or "@"
+        self._prefix = match.group("prefix")
         self.stage = stage_path.removesuffix(self.directory).rstrip("/")
         self.stage_name = self.stage.removeprefix(self._prefix)
         self.is_directory = True if stage_path.endswith("/") else False
+        self.is_embedded = True
+
+    @property
+    def path(self) -> str:
+        return f"{self._prefix}{self.stage_name.rstrip('/')}/{self.directory}".rstrip(
+            "/"
+        )
+
+    @property
+    def full_path(self) -> str:
+        return f"{self._prefix}{self.stage_name.rstrip('/')}/{self.directory}".rstrip(
+            "/"
+        )
 
 
 @dataclass
@@ -765,12 +792,11 @@ class StageManager(SqlExecutionMixin):
     @staticmethod
     def stage_path_parts_from_str(stage_path: str) -> StagePathParts:
         """Create StagePathParts object from stage path string."""
-        # import pudb; pudb.set_trace()
         stage_path = StageManager.get_standard_stage_prefix(stage_path)
         if stage_path.startswith(USER_STAGE_PREFIX):
             return UserStagePathParts(stage_path)
-        elif stage_path.startswith(StreamlitEmbeddedStagePathParts.FOO):
-            return StreamlitEmbeddedStagePathParts(stage_path)
+        elif stage_path.startswith(EMBEDDED_STAGE_PREFIX):
+            return EmbeddedStagePathParts(stage_path)
         return DefaultStagePathParts(stage_path)
 
     def _check_for_requirements_file(self, stage_path: StagePath) -> List[str]:

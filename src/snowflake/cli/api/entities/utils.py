@@ -91,6 +91,7 @@ def sync_deploy_root_with_stage(
     package_name: str | None = None,
     local_paths_to_sync: List[Path] | None = None,
     print_diff: bool = True,
+    force_overwrite: bool = False,
 ) -> DiffResult:
     """
     Ensures that the files on our remote stage match the artifacts we have in
@@ -108,11 +109,14 @@ def sync_deploy_root_with_stage(
         local_paths_to_sync (List[Path], optional): List of local paths to sync. Defaults to None to sync all
         local paths. Note that providing an empty list here is equivalent to None.
         print_diff (bool): Whether to print the diff between the local files and the remote stage. Defaults to True
+        force_overwrite (bool): Some resources (e.g. streamlit) need to overwrite files on the stage. Defaults to False.
 
     Returns:
         A `DiffResult` instance describing the changes that were performed.
     """
-    if not package_name:
+    if stage_path.is_embedded:
+        pass
+    elif not package_name:
         # ensure stage exists
         stage_fqn = FQN.from_stage(stage_path.stage)
         console.step(f"Creating stage {stage_fqn} if not exists.")
@@ -202,6 +206,7 @@ def sync_deploy_root_with_stage(
             deploy_root_path=deploy_root,
             diff_result=diff,
             stage_full_path=stage_path.full_path,
+            force_overwrite=force_overwrite,
         )
     return diff
 
