@@ -16,7 +16,7 @@ from typing import Tuple
 
 import pytest
 
-from tests_integration.spcs.testing_utils.spcs_services_utils import (
+from tests_integration.tests_using_container_services.spcs.testing_utils.spcs_services_utils import (
     SnowparkServicesTestSetup,
     SnowparkServicesTestSteps,
 )

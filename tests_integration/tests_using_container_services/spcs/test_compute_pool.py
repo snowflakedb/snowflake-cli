@@ -16,8 +16,7 @@ import uuid
 from typing import Tuple
 
 import pytest
-
-from tests_integration.spcs.testing_utils.compute_pool_utils import (
+from tests_integration.tests_using_container_services.spcs.testing_utils.compute_pool_utils import (
     ComputePoolTestSetup,
     ComputePoolTestSteps,
 )
