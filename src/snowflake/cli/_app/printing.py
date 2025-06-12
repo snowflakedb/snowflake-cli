@@ -17,7 +17,7 @@ from __future__ import annotations
 import csv
 import json
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from json import JSONEncoder
 from pathlib import Path
@@ -59,7 +59,7 @@ class CustomJSONEncoder(JSONEncoder):
             return o.result
         if isinstance(o, (CollectionResult, MultipleResults)):
             return list(o.result)
-        if isinstance(o, (date, datetime)):
+        if isinstance(o, (date, datetime, time)):
             return o.isoformat()
         if isinstance(o, (Path, Decimal)):
             return str(o)
