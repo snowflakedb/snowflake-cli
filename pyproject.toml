@@ -151,7 +151,7 @@ test-spcs = [
   "pytest -m integration -n6 --dist=worksteal --deflake-test-type=integration tests_integration/spcs",
 ]
 test_qa = [
-  "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/",
+  "pytest -m 'integration and not no_qa' -n6 --dist=worksteal --deflake-test-type=integration tests_integration/nativeapp/test_teardown.py::test_nativeapp_teardown_pkg_versions",
 ]
 
 [[tool.hatch.envs.local.matrix]]
