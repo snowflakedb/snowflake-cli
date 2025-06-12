@@ -14,6 +14,7 @@
 
 import json
 from datetime import datetime
+from decimal import Decimal
 from textwrap import dedent
 from typing import NamedTuple
 
@@ -355,6 +356,22 @@ def test_print_with_no_response_json(capsys):
     json_str = get_output(capsys)
     json.loads(json_str)
     assert json_str == "null\n"
+
+
+def test_print_decimal(capsys, mock_cursor):
+    query_result = QueryResult(
+        mock_cursor(
+            columns=["decimal"],
+            rows=[(Decimal("123.4567"),)],
+        )
+    )
+    print_result(query_result, output_format=OutputFormat.JSON)
+
+    assert get_output_as_json(capsys) == [
+        {
+            "decimal": "123.4567",
+        }
+    ]
 
 
 def test_print_stream_result(capsys, _stream):

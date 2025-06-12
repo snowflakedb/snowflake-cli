@@ -18,6 +18,7 @@ import csv
 import json
 import sys
 from datetime import date, datetime
+from decimal import Decimal
 from json import JSONEncoder
 from pathlib import Path
 from textwrap import indent
@@ -60,7 +61,7 @@ class CustomJSONEncoder(JSONEncoder):
             return list(o.result)
         if isinstance(o, (date, datetime)):
             return o.isoformat()
-        if isinstance(o, Path):
+        if isinstance(o, (Path, Decimal)):
             return str(o)
         return super().default(o)
 
