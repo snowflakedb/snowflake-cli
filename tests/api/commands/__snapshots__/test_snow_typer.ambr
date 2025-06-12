@@ -101,20 +101,22 @@
   |                                                credential.                   |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON]  Specifies the output format.    |
-  |                                              [default: TABLE]                |
-  | --verbose              -v                    Displays log entries for log    |
-  |                                              levels info and higher.         |
-  | --debug                                      Displays log entries for log    |
-  |                                              levels debug and higher; debug  |
-  |                                              logs contain additional         |
-  |                                              information.                    |
-  | --silent                                     Turns off intermediate output   |
-  |                                              to console.                     |
-  | --enhanced-exit-codes                        Differentiate exit error codes  |
-  |                                              based on failure type.          |
-  |                                              [env var:                       |
-  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
+  | --format                       [TABLE|JSON|CSV]  Specifies the output        |
+  |                                                  format.                     |
+  |                                                  [default: TABLE]            |
+  | --verbose              -v                        Displays log entries for    |
+  |                                                  log levels info and higher. |
+  | --debug                                          Displays log entries for    |
+  |                                                  log levels debug and        |
+  |                                                  higher; debug logs contain  |
+  |                                                  additional information.     |
+  | --silent                                         Turns off intermediate      |
+  |                                                  output to console.          |
+  | --enhanced-exit-codes                            Differentiate exit error    |
+  |                                                  codes based on failure      |
+  |                                                  type.                       |
+  |                                                  [env var:                   |
+  |                                                  SNOWFLAKE_ENHANCED_EXIT_CO… |
   +------------------------------------------------------------------------------+
   
   
@@ -132,20 +134,22 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON]  Specifies the output format.    |
-  |                                              [default: TABLE]                |
-  | --verbose              -v                    Displays log entries for log    |
-  |                                              levels info and higher.         |
-  | --debug                                      Displays log entries for log    |
-  |                                              levels debug and higher; debug  |
-  |                                              logs contain additional         |
-  |                                              information.                    |
-  | --silent                                     Turns off intermediate output   |
-  |                                              to console.                     |
-  | --enhanced-exit-codes                        Differentiate exit error codes  |
-  |                                              based on failure type.          |
-  |                                              [env var:                       |
-  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
+  | --format                       [TABLE|JSON|CSV]  Specifies the output        |
+  |                                                  format.                     |
+  |                                                  [default: TABLE]            |
+  | --verbose              -v                        Displays log entries for    |
+  |                                                  log levels info and higher. |
+  | --debug                                          Displays log entries for    |
+  |                                                  log levels debug and        |
+  |                                                  higher; debug logs contain  |
+  |                                                  additional information.     |
+  | --silent                                         Turns off intermediate      |
+  |                                                  output to console.          |
+  | --enhanced-exit-codes                            Differentiate exit error    |
+  |                                                  codes based on failure      |
+  |                                                  type.                       |
+  |                                                  [env var:                   |
+  |                                                  SNOWFLAKE_ENHANCED_EXIT_CO… |
   +------------------------------------------------------------------------------+
   
   
@@ -185,20 +189,22 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON]  Specifies the output format.    |
-  |                                              [default: TABLE]                |
-  | --verbose              -v                    Displays log entries for log    |
-  |                                              levels info and higher.         |
-  | --debug                                      Displays log entries for log    |
-  |                                              levels debug and higher; debug  |
-  |                                              logs contain additional         |
-  |                                              information.                    |
-  | --silent                                     Turns off intermediate output   |
-  |                                              to console.                     |
-  | --enhanced-exit-codes                        Differentiate exit error codes  |
-  |                                              based on failure type.          |
-  |                                              [env var:                       |
-  |                                              SNOWFLAKE_ENHANCED_EXIT_CODES]  |
+  | --format                       [TABLE|JSON|CSV]  Specifies the output        |
+  |                                                  format.                     |
+  |                                                  [default: TABLE]            |
+  | --verbose              -v                        Displays log entries for    |
+  |                                                  log levels info and higher. |
+  | --debug                                          Displays log entries for    |
+  |                                                  log levels debug and        |
+  |                                                  higher; debug logs contain  |
+  |                                                  additional information.     |
+  | --silent                                         Turns off intermediate      |
+  |                                                  output to console.          |
+  | --enhanced-exit-codes                            Differentiate exit error    |
+  |                                                  codes based on failure      |
+  |                                                  type.                       |
+  |                                                  [env var:                   |
+  |                                                  SNOWFLAKE_ENHANCED_EXIT_CO… |
   +------------------------------------------------------------------------------+
   
   

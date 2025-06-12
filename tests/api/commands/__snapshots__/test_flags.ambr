@@ -5,7 +5,7 @@
   Try 'root stage list-files --help' for help.
   +- Error ----------------------------------------------------------------------+
   | Invalid value for '--format': 'invalid_format' is not one of 'TABLE',        |
-  | 'JSON'.                                                                      |
+  | 'JSON', 'CSV'.                                                               |
   +------------------------------------------------------------------------------+
   
   '''

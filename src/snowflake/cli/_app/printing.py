@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import sys
 from datetime import date, datetime
@@ -94,26 +95,56 @@ def _print_multiple_table_results(obj: CollectionResult):
 
 
 def is_structured_format(output_format):
-    return output_format == OutputFormat.JSON
+    return output_format in [OutputFormat.JSON, OutputFormat.CSV]
 
 
-def print_structured(result: CommandResult):
+def print_structured(
+    result: CommandResult, output_format: OutputFormat = OutputFormat.JSON
+):
     """Handles outputs like json, yml and other structured and parsable formats."""
     printed_end_line = False
     if isinstance(result, MultipleResults):
-        _stream_json(result)
+        if output_format == OutputFormat.CSV:
+            for command_result in result.result:
+                _print_csv_result(command_result)
+                print(flush=True)
+            printed_end_line = True
+        else:
+            _stream_json(result)
     elif isinstance(result, StreamResult):
         # A StreamResult prints each value onto its own line
-        # instead of joining all the values into a JSON array
+        # instead of joining all the values into a JSON array or CSV entry set
         for r in result.result:
-            json.dump(r, sys.stdout, cls=CustomJSONEncoder)
+            if output_format == OutputFormat.CSV:
+                _print_csv_result(r.result)
+            else:
+                json.dump(r, sys.stdout, cls=CustomJSONEncoder)
             print(flush=True)
             printed_end_line = True
     else:
-        json.dump(result, sys.stdout, cls=CustomJSONEncoder, indent=4)
+        if output_format == OutputFormat.CSV:
+            _print_csv_result(result)
+            printed_end_line = True
+        else:
+            json.dump(result, sys.stdout, cls=CustomJSONEncoder, indent=4)
     # Adds empty line at the end
     if not printed_end_line:
         print(flush=True)
+
+
+def _print_csv_result(result: CommandResult):
+    data = json.loads(json.dumps(result, cls=CustomJSONEncoder))
+    if isinstance(data, dict):
+        writer = csv.DictWriter(sys.stdout, [*data], lineterminator="\n")
+        writer.writeheader()
+        writer.writerow(data)
+    elif isinstance(data, list):
+        if not data:
+            return
+        writer = csv.DictWriter(sys.stdout, [*data[0]], lineterminator="\n")
+        writer.writeheader()
+        for entry in data:
+            writer.writerow(entry)
 
 
 def _stream_json(result):
@@ -168,7 +199,7 @@ def _print_single_table(obj):
 def print_result(cmd_result: CommandResult, output_format: OutputFormat | None = None):
     output_format = output_format or _get_format_type()
     if is_structured_format(output_format):
-        print_structured(cmd_result)
+        print_structured(cmd_result, output_format)
     elif isinstance(cmd_result, (MultipleResults, StreamResult)):
         for res in cmd_result.result:
             print_result(res)
