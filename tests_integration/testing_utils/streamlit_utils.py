@@ -31,18 +31,21 @@ class StreamlitTestSteps:
             "Multiple entities of type streamlit found. Please provide entity id for the operation.",
         )
 
-    def deploy_with_entity_id_specified_should_succeed(self, entity_id: str, database):
+    def deploy_with_entity_id_specified_should_succeed(
+        self, entity_id: str, session, experimental=False
+    ):
         self.assert_that_only_those_entities_are_listed([], entity_id.upper())
-        result = self.setup.runner.invoke_with_connection_json(
-            [
-                "streamlit",
-                "deploy",
-                entity_id,
-            ]
-        )
+        cmd = [
+            "streamlit",
+            "deploy",
+            entity_id,
+        ]
+        if experimental:
+            cmd.extend(["--experimental"])
+        result = self.setup.runner.invoke_with_connection_json(cmd)
         assert result.exit_code == 0, result.output
 
-        self.assert_proper_url_is_returned(result, entity_id, database)
+        self.assert_proper_url_is_returned(result, entity_id, session)
 
     def another_deploy_without_replace_flag_should_end_with_error(
         self, entity_id: str, database
@@ -87,7 +90,7 @@ class StreamlitTestSteps:
         assert len(result.json) == 1
         assert result.json[0]["name"] == entity_id.upper()
 
-    def get_url_should_give_proper_url(self, entity_id: str, database: str):
+    def get_url_should_give_proper_url(self, entity_id: str, snowflake_session):
         result = self.setup.runner.invoke_with_connection_json(
             [
                 "streamlit",
@@ -98,7 +101,7 @@ class StreamlitTestSteps:
 
         assert_that_result_is_successful(result)
         message = result.json["message"]
-        assert message.endswith(create_expected_url_suffix(entity_id, database))
+        assert message.endswith(create_expected_url_suffix(entity_id, snowflake_session))
 
     def execute_should_run_streamlit(self, entity_id: str, database: str):
         result = self.setup.runner.invoke_with_connection_json(
@@ -127,9 +130,16 @@ class StreamlitTestSteps:
         )
 
     def assert_that_only_those_files_were_uploaded(
-        self, uploaded_files: List[str], stage_name: str
+        self,
+        uploaded_files: List[str],
+        stage_name: str,
+        uploaded_to_live_version: bool = False,
     ):
-        assert set(uploaded_files) == set(self.get_actual_file_staged_in_db(stage_name))
+        actual = set(self.get_actual_file_staged_in_db(stage_name))
+        if uploaded_to_live_version:
+            actual = {file.removeprefix("/versions/live/") for file in actual}
+
+        assert set(uploaded_files) == actual
 
     def assert_that_only_those_entities_are_listed(
         self, entities: List[str], name: Optional[str]
@@ -153,13 +163,13 @@ class StreamlitTestSteps:
         ]
 
     def assert_proper_url_is_returned(
-        self, result: CommandResult, entity_id: str, database: str
+        self, result: CommandResult, entity_id: str, session
     ):
         assert_that_result_is_successful(result)
         message = result.json["message"]
         assert message.startswith("Streamlit successfully deployed and available under")
-        assert message.endswith(create_expected_url_suffix(entity_id, database))
+        assert message.endswith(create_expected_url_suffix(entity_id, session))
 
 
-def create_expected_url_suffix(entity_id: str, database: str):
-    return f".snowflake.com/SFENGINEERING/snowcli_it/#/streamlit-apps/{database}.PUBLIC.{entity_id.upper()}"
+def create_expected_url_suffix(entity_id: str, session):
+    return f".snowflake.com/SFENGINEERING/{session.account}/#/streamlit-apps/{session.database.upper()}.{session.schema.upper()}.{entity_id.upper()}"

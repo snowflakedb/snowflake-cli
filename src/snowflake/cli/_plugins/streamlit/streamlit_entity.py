@@ -18,7 +18,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import bundle_root
 from snowflake.cli.api.project.schemas.entities.common import Identifier, PathMapping
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
@@ -135,7 +135,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         return self.perform(EntityActions.GET_URL, action_context, *args, **kwargs)
 
     def describe(self) -> SnowflakeCursor:
-        return self._execute_query(self.get_describe_sql())
+        return self._execute_query(self.get_describe_sql(), cursor_class=DictCursor)
 
     def action_share(
         self, action_ctx: ActionContext, to_role: str, *args, **kwargs
@@ -238,15 +238,13 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             self._execute_query(self.get_add_live_version_sql())
         except ProgrammingError as e:
             if "There is already a live version" in str(e):
-                log.info("Checkout already exists, continuing")
+                log.info("Live version already exists, continuing")
             else:
                 raise
 
-        # TODO: fetch embedded stage path from server
-        # TODO: there's no way to alter existing streamlits
-        stage_root = f"snow://streamlit/{self.model.fqn.using_connection(self._conn).identifier}/versions/live/"
-
+        stage_root = self.describe().fetchone()["live_version_location_uri"]
         stage_path = StageManager().stage_path_parts_from_str(stage_root)
+
         sync_deploy_root_with_stage(
             console=self._workspace_ctx.console,
             deploy_root=bundle_map.deploy_root(),
