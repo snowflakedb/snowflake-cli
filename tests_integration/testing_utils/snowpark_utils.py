@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple, Optional
 from zipfile import ZipFile
 
+from snowflake.cli._plugins.stage.manager import StageManager
 from syrupy import SnapshotAssertion
 
 from snowflake.cli.api.feature_flags import FeatureFlag
@@ -63,7 +64,8 @@ class FlowTestSetup:
     def query_files_uploaded_in_this_test_case(
         self, stage_name: str
     ) -> List[Dict[str, Any]]:
-        return self.sql_test_helper.execute_single_sql(f"LIST @{stage_name}")
+        stage_string = StageManager().build_path(stage_name)
+        return self.sql_test_helper.execute_single_sql(f"LIST {stage_string}")
 
 
 class SnowparkTestSteps:

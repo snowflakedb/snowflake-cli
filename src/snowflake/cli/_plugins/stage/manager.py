@@ -223,7 +223,6 @@ class EmbeddedStagePathParts(StagePathParts):
             raise ClickException("Invalid embedded stage path")
         self.resource_type = match.group("resource_type")
         self.directory = match.group("directory")
-        self.resource_type = match.group("resource_type")
         self._schema = match.group("second_qualifier") or match.group("first_qualifier")
         self._prefix = match.group("prefix")
         self.stage = stage_path.removesuffix(self.directory).rstrip("/")

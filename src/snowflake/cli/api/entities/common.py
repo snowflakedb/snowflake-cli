@@ -102,8 +102,10 @@ class EntityBase(Generic[T]):
     ) -> SqlExecutor:
         return get_sql_executor()
 
-    def _execute_query(self, sql: str) -> SnowflakeCursor:
-        return self._sql_executor.execute_query(sql)
+    def _execute_query(
+        self, sql: str, cursor_class: Type[SnowflakeCursor] = SnowflakeCursor
+    ) -> SnowflakeCursor:
+        return self._sql_executor.execute_query(sql, cursor_class=cursor_class)
 
     @functools.cached_property
     def _conn(self) -> SnowflakeConnection:
