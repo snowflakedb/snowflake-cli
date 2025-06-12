@@ -40,7 +40,7 @@ jobs:
       runs-on: ${{ matrix.os }}
       python-version: ${{ matrix.python-version }}
       python-env: integration
-      hatch-run: integration:test-spcs
+      hatch-run: integration:test_container_services
     secrets: inherit
 
   # Repo owner has commented /ok-to-test on a (fork-based) pull request
@@ -66,5 +66,5 @@ jobs:
       runs-on: ${{ matrix.os }}
       python-version: ${{ matrix.python-version }}
       python-env: integration
-      hatch-run: integration:test_spcs
+      hatch-run: integration:test_container_services
     secrets: inherit
