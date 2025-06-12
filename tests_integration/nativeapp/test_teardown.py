@@ -227,22 +227,31 @@ def test_nativeapp_teardown_pkg_versions(
 
     with nativeapp_project_directory(test_project):
         result = runner.invoke_with_connection(["app", "version", "create", "v1"])
-        assert result.exit_code == 0
+        assert result.exit_code == 0, result.output
+        result = runner.invoke_with_connection(
+            ["app", "release-channel", "add-version", "--version", "v1", "DEFAULT"]
+        )
+        assert result.exit_code == 0, result.output
 
         # when setting a release directive, we will not have the ability to drop the version later
         if default_release_directive:
             result = runner.invoke_with_connection(
                 [
-                    "sql",
-                    "-q",
-                    f"alter application package {pkg_name} set default release directive version = v1 patch = 0",
+                    "app",
+                    "release-directive",
+                    "set",
+                    "DEFAULT",
+                    "--version",
+                    "v1",
+                    "--patch",
+                    "0",
                 ]
             )
-            assert result.exit_code == 0
+            assert result.exit_code == 0, result.output
 
         # try to teardown; fail because we have a version
         result = runner.invoke_with_connection(split(command))
-        assert result.exit_code == 1
+        assert result.exit_code == 1, result.output
         assert f"Drop versions first, or use --force to override." in result.output
 
         teardown_args = []
@@ -251,14 +260,14 @@ def test_nativeapp_teardown_pkg_versions(
             result = runner.invoke_with_connection(
                 ["app", "version", "drop", "v1", "--force"]
             )
-            assert result.exit_code == 0
+            assert result.exit_code == 0, result.output
         else:
             # if we did set a release directive, we need --force for teardown to work
             teardown_args = ["--force"]
 
         # either way, we can now tear down the application package
         result = runner.invoke_with_connection(split(command) + teardown_args)
-        assert result.exit_code == 0
+        assert result.exit_code == 0, result.output
 
 
 @pytest.mark.integration
