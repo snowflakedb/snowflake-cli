@@ -1714,7 +1714,6 @@ def test_if_excluding_version_of_anaconda_package_moves_it_to_other_requirements
             assert any("about_time" in name for name in zf.namelist())
 
 
-@pytest.mark.no_qa  # temporarily skip due to account misconfiguration (SNOW-2110509)
 @pytest.mark.integration
 def test_using_external_packages_from_package_repository(
     test_database, runner, project_directory, alter_snowflake_yml

@@ -23,7 +23,10 @@ import typer
 from click.exceptions import ClickException
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console.console import cli_console
-from snowflake.cli.api.output.types import CollectionResult, MessageResult
+from snowflake.cli.api.output.types import (
+    CollectionResult,
+    MessageResult,
+)
 
 from snowflakecli_internal_release_plugin.repo_manager import (
     ReleaseInfo,
@@ -93,26 +96,52 @@ def _commit_bump_version(
     repo.git.commit(m=f"Bump version to {tag_name}")
 
 
-@app.command(name="init")
-def init_release(version: str = VersionArgument, **options):
-    """Update release notes and version on branch `main`, create branch release-vX.Y.Z and release tag rc0."""
-    repo = RepositoryManager()
-    release_info = ReleaseInfo(version, repo)
-    if repo.exists(release_info.release_branch_name):
-        raise ClickException(
-            f'Branch "{release_info.release_branch_name}" already exists'
-        )
+def _init_patch_release(release_info: ReleaseInfo) -> MessageResult:
+    repo = release_info.repo
+    with repo.tmp_checkout(release_info.root_branch_name):
+        # create release branch
+        cli_console.step(f"creating branch {release_info.release_branch_name}")
+        repo.git.checkout(release_info.release_branch_name, b=True)
+        repo.git.push("origin", release_info.release_branch_name, set_upstream=True)
 
+        # create cherrypick branch
+        cherrypick_branch = release_info.cherrypick_branch_name(
+            release_info.final_tag_name
+        )
+        cli_console.step(f"creating branch {cherrypick_branch}")
+        repo.git.checkout(cherrypick_branch, b=True)
+        _commit_bump_version(repo, release_info.version, release_info.final_tag_name)
+        repo.git.push("origin", cherrypick_branch, set_upstream=True)
+
+    # create empty bump-release-notes branch on main
     with repo.tmp_checkout("main"):
+        bump_release_notes_main_branch = f"bump-release-notes-{release_info.version}"
+        cli_console.step(f"creating branch {bump_release_notes_main_branch}")
+        repo.git.checkout(bump_release_notes_main_branch, b=True)
+        repo.git.push("origin", bump_release_notes_main_branch, set_upstream=True)
+
+    release_pr_url = get_pr_url(cherrypick_branch)
+    main_pr_url = get_pr_url(bump_release_notes_main_branch)
+
+    return MessageResult(
+        f"""Release branch successfully initialized.
+    create PR to '{release_info.release_branch_name}': {release_pr_url}
+    create PR to 'main': {main_pr_url}"""
+    )
+
+
+def _init_normal_release(release_info: ReleaseInfo) -> MessageResult:
+    repo = release_info.repo
+    with repo.tmp_checkout(release_info.root_branch_name):
         # create release branch and update release notes
         repo.git.checkout(release_info.release_branch_name, b=True)
-        _commit_update_release_notes(repo, version)
+        _commit_update_release_notes(repo, release_info.version)
         repo.git.push("origin", release_info.release_branch_name, set_upstream=True)
 
         # create separate brunch bumping main version
-        bump_release_notes_main_branch = f"bump-release-notes-{version}"
+        bump_release_notes_main_branch = f"bump-release-notes-{release_info.version}"
         repo.git.checkout(bump_release_notes_main_branch, b=True)
-        _commit_bump_dev_version(repo, version)
+        _commit_bump_dev_version(repo, release_info.version)
         repo.git.push("origin", bump_release_notes_main_branch, set_upstream=True)
 
         # create rc0 branch
@@ -134,6 +163,22 @@ def init_release(version: str = VersionArgument, **options):
     create PR to 'main': {main_pr_url}
     create PR to '{release_info.release_branch_name}': {rc0_pr_url}"""
     )
+
+
+@app.command(name="init")
+def init_release(version: str = VersionArgument, **options):
+    """Creates branch release-vX.Y.Z and cherrypick branch for rc0 (normal releases) or final version (patch releases).
+    For normal releases updates release notes and version on branch `main`."""
+    repo = RepositoryManager()
+    release_info = ReleaseInfo(version, repo)
+    if repo.exists(release_info.release_branch_name):
+        raise ClickException(
+            f'Branch "{release_info.release_branch_name}" already exists'
+        )
+
+    if release_info.is_patch_release:
+        return _init_patch_release(release_info)
+    return _init_normal_release(release_info)
 
 
 @app.command()
