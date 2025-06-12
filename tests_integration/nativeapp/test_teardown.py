@@ -228,13 +228,13 @@ def test_nativeapp_teardown_pkg_versions(
     with nativeapp_project_directory(test_project):
         result = runner.invoke_with_connection(["app", "version", "create", "v1"])
         assert result.exit_code == 0, result.output
-        result = runner.invoke_with_connection(
-            ["app", "release-channel", "add-version", "--version", "v1", "DEFAULT"]
-        )
-        assert result.exit_code == 0, result.output
 
         # when setting a release directive, we will not have the ability to drop the version later
         if default_release_directive:
+            result = runner.invoke_with_connection(
+                ["app", "release-channel", "add-version", "--version", "v1", "DEFAULT"]
+            )
+            assert result.exit_code == 0, result.output
             result = runner.invoke_with_connection(
                 [
                     "app",
