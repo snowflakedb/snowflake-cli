@@ -1,4 +1,4 @@
-name: SPCS Integration testing
+name: Integration tests using container services
 
 on:
   pull_request:
