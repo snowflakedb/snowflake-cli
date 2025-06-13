@@ -1,9 +1,0 @@
-# serializer version: 1
-# name: test_corrupted_config_in_default_location
-  '''
-  +- Error ----------------------------------------------------------------------+
-  | Configuration file seems to be corrupted. Key "demo" already exists. at line |
-  | 2 col 18                                                                     |
-  +------------------------------------------------------------------------------+
-  '''
-# ---
