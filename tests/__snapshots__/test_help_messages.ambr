@@ -17617,7 +17617,7 @@
   |                                                            applied.          |
   |                                                            [default:         |
   |                                                            no-single-transa… |
-  | --template-synt…                          [LEGACY|STANDAR  Syntax used to    |
+  | --enable-templa…                          [LEGACY|STANDAR  Syntax used to    |
   |                                           D|JINJA|ALL|NON  resolve variables |
   |                                           E]               before passing    |
   |                                                            queries to        |

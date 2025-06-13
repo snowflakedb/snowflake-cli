@@ -108,7 +108,7 @@ class SQLTemplateSyntaxConfig:
 
 def snowflake_sql_jinja_render(
     content: str,
-    enabled_syntax_config: SQLTemplateSyntaxConfig,
+    template_syntax_config: SQLTemplateSyntaxConfig,
     data: Dict | None = None,
 ) -> str:
     """
@@ -140,13 +140,13 @@ def snowflake_sql_jinja_render(
 
     # resolve legacy and standard SQL templating:
     if (
-        enabled_syntax_config.enable_legacy_syntax
-        and enabled_syntax_config.enable_standard_syntax
+        template_syntax_config.enable_legacy_syntax
+        and template_syntax_config.enable_standard_syntax
     ):
         env = choose_sql_jinja_env_based_on_template_syntax(content)
-    elif enabled_syntax_config.enable_legacy_syntax:
+    elif template_syntax_config.enable_legacy_syntax:
         env = _get_legacy_sql_env()
-    elif enabled_syntax_config.enable_standard_syntax:
+    elif template_syntax_config.enable_standard_syntax:
         env = _get_standard_sql_env()
     else:
         env = None
@@ -155,7 +155,7 @@ def snowflake_sql_jinja_render(
         content = env.from_string(content).render(context_data)
 
     # resolve jinja templating
-    if enabled_syntax_config.enable_jinja_syntax:
+    if template_syntax_config.enable_jinja_syntax:
         jinja_env = get_basic_jinja_env()
         content = jinja_env.from_string(content).render(context_data)
 

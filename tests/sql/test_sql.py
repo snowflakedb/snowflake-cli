@@ -504,13 +504,13 @@ def test_supported_syntax_config(
     ],
 )
 @mock.patch("snowflake.cli._plugins.sql.commands.SqlManager")
-def test_command_template_syntax_flag(
+def test_command_enable_templating_flag(
     mock_manager, mock_cursor, runner, flags, exp_legacy, exp_standard, exp_jinja
 ):
     mock_manager().execute.return_value = (0, mock_cursor([], []))
     command = ["sql", "-q", "select 1"]
     for flag in flags:
-        command += ["--template-syntax", flag]
+        command += ["--enable-templating", flag]
     result = runner.invoke(command)
     assert result.exit_code == 0, result.output
     mock_manager().execute.assert_called_once_with(
@@ -532,10 +532,10 @@ def test_command_template_syntax_flag(
     "flags,error",
     [(["all", "legacy"], []), (["none", "jinja"], [])],
 )
-def test_command_template_syntax_flag_errors(runner, flags, error):
+def test_command_enable_templating_flag_errors(runner, flags, error):
     command = ["sql", "-q", "select 1"]
     for flag in flags:
-        command += ["--template-syntax", flag]
+        command += ["--enable-templating", flag]
     result = runner.invoke(command)
     assert result.exit_code == 2, result.output
     assert (

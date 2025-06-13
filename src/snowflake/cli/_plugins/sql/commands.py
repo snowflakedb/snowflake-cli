@@ -119,7 +119,7 @@ def execute_sql(
     ),
     enabled_templating: List[_EnabledTemplating] = typer.Option(
         [_EnabledTemplating.LEGACY, _EnabledTemplating.STANDARD],
-        "--enabled-templating",
+        "--enable-templating",
         help="Syntax used to resolve variables before passing queries to Snowflake.",
         case_sensitive=False,
     ),

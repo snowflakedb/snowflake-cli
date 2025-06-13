@@ -72,7 +72,7 @@ class SqlManager(SqlExecutionMixin):
         stmt_operators.append(
             partial(
                 snowflake_sql_jinja_render,
-                enabled_syntax_config=template_syntax_config,
+                template_syntax_config=template_syntax_config,
                 data=data,
             )
         )

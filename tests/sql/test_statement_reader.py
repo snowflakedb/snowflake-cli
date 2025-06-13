@@ -348,7 +348,7 @@ def test_rendering_of_sql_with_commands(query):
         partial(
             snowflake_sql_jinja_render,
             data={"aaa": "foo", "bbb": "bar"},
-            enabled_syntax_config=SQLTemplateSyntaxConfig(),
+            template_syntax_config=SQLTemplateSyntaxConfig(),
         ),
     )
     parsed_source = parse_statement(query, stmt_operators)
