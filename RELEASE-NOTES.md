@@ -21,7 +21,8 @@
 ## New additions
 * Add support for passing OAuth token via `--token` flag.
 * Added feature to allow suppressing the new version warning message in the Snowflake CLI, configurable via a configuration file or environment variable.
-* Add support for `--format=CSV`
+* Add support for `--format=CSV`.
+* Fix JSON serialization for `Decimal` and `time`.
 * Add `--template-syntax` flag for `snow sql` command, configuring which template syntax should be used to resolve variables:
   * standard (`<% ... %>`), enabled by default
   * legacy (`&{ ... }`), enabled by default
