@@ -72,6 +72,7 @@
 # name: test_new_connection_can_be_added_as_default
   '''
   default_connection_name = "default-conn"
+  
   [connections.default-conn]
   account = "account1"
   user = "user1"
