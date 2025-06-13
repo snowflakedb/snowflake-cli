@@ -79,7 +79,6 @@ class SnowparkObjectManager(SqlExecutionMixin):
     ) -> str:
         entity.imports.extend(artifact_files)
         imports = [f"'{x}'" for x in entity.imports]
-        packages_list = ",".join(f"'{p}'" for p in snowflake_dependencies)
 
         object_type = entity.get_type()
 
@@ -91,7 +90,6 @@ class SnowparkObjectManager(SqlExecutionMixin):
             f"runtime_version={entity.runtime or DEFAULT_RUNTIME}",
             f"imports=({', '.join(imports)})",
             f"handler='{entity.handler}'",
-            f"packages=({packages_list})",
         ]
 
         if entity.external_access_integrations:
@@ -100,23 +98,33 @@ class SnowparkObjectManager(SqlExecutionMixin):
         if entity.secrets:
             query.append(entity.get_secrets_sql())
 
-        if isinstance(entity, ProcedureEntityModel) and entity.execute_as_caller:
-            query.append("execute as caller")
-
-        if entity.artifact_repository and entity.artifact_repository_packages:
-            packages = [f"'{item}'" for item in entity.artifact_repository_packages]
-            query.extend(
-                [
-                    f"ARTIFACT_REPOSITORY= {entity.artifact_repository}",
-                    f"ARTIFACT_REPOSITORY_PACKAGES=({','.join(packages)})",
-                ]
+        if entity.artifact_repository_packages and entity.packages:
+            raise UsageError(
+                "You cannot specify both artifact_repository_packages and packages.",
             )
+
+        packages_list = snowflake_dependencies.copy()
+        if entity.artifact_repository and (
+            entity.artifact_repository_packages or entity.packages
+        ):
+            if entity.artifact_repository_packages:
+                packages_list.extend(entity.artifact_repository_packages)
+            else:
+                packages_list.extend(entity.packages)
+            query.append(
+                f"ARTIFACT_REPOSITORY= {entity.artifact_repository}",
+            )
+        packages = [f"'{item}'" for item in packages_list]
+        query.append(f"packages=({','.join(packages)})")
 
         if entity.resource_constraint:
             constraints = ",".join(
                 f"{key}='{value}'" for key, value in entity.resource_constraint.items()
             )
             query.append(f"RESOURCE_CONSTRAINT=({constraints})")
+
+        if isinstance(entity, ProcedureEntityModel) and entity.execute_as_caller:
+            query.append("execute as caller")
 
         return self.execute_query("\n".join(query))
 
@@ -213,6 +221,10 @@ def _check_if_replace_is_required(
         log.info(
             "Artifact repository packages do not match. Replacing the %s", object_type
         )
+        return True
+
+    if entity.packages != resource_json.get("artifact_repository_packages", None):
+        log.info("Packages do not match. Replacing the %s", object_type)
         return True
 
     if isinstance(entity, ProcedureEntityModel):
