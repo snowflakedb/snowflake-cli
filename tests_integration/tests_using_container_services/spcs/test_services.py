@@ -23,7 +23,6 @@ from tests_integration.tests_using_container_services.spcs.testing_utils.spcs_se
 
 
 @pytest.mark.integration
-# @pytest.mark.skip("Skipped temporarily")
 def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str], test_database):
 
     test_steps, service_name = _test_steps
@@ -109,7 +108,7 @@ def test_service_create_from_project_definition(
 
 
 @pytest.mark.integration
-@pytest.mark.xfail(reason="Consistently timing out on execute call")
+# @pytest.mark.xfail(reason="Consistently timing out on execute call")
 def test_job_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
 
     test_steps, job_service_name = _test_steps
