@@ -49,7 +49,7 @@ SourceOption = OverrideableOption(
 )
 
 
-class _TemplateSyntaxOption(str, Enum):
+class _EnabledTemplating(str, Enum):
     LEGACY = "LEGACY"
     STANDARD = "STANDARD"
     JINJA = "JINJA"
@@ -58,25 +58,25 @@ class _TemplateSyntaxOption(str, Enum):
 
 
 def _parse_template_syntax_config(
-    enabled_syntaxes: List[_TemplateSyntaxOption],
+    enabled_syntaxes: List[_EnabledTemplating],
 ) -> SQLTemplateSyntaxConfig:
     if (
-        _TemplateSyntaxOption.ALL in enabled_syntaxes
-        or _TemplateSyntaxOption.NONE in enabled_syntaxes
+        _EnabledTemplating.ALL in enabled_syntaxes
+        or _EnabledTemplating.NONE in enabled_syntaxes
     ) and len(enabled_syntaxes) > 1:
         raise UsageError(
             "ALL and NONE template syntax options should not be used with other options."
         )
 
-    if _TemplateSyntaxOption.ALL in enabled_syntaxes:
+    if _EnabledTemplating.ALL in enabled_syntaxes:
         return SQLTemplateSyntaxConfig(True, True, True)
-    if _TemplateSyntaxOption.NONE in enabled_syntaxes:
+    if _EnabledTemplating.NONE in enabled_syntaxes:
         return SQLTemplateSyntaxConfig(False, False, False)
 
     result = SQLTemplateSyntaxConfig()
-    result.enable_legacy_syntax = _TemplateSyntaxOption.LEGACY in enabled_syntaxes
-    result.enable_standard_syntax = _TemplateSyntaxOption.STANDARD in enabled_syntaxes
-    result.enable_jinja_syntax = _TemplateSyntaxOption.JINJA in enabled_syntaxes
+    result.enable_legacy_syntax = _EnabledTemplating.LEGACY in enabled_syntaxes
+    result.enable_standard_syntax = _EnabledTemplating.STANDARD in enabled_syntaxes
+    result.enable_jinja_syntax = _EnabledTemplating.JINJA in enabled_syntaxes
     return result
 
 
@@ -117,9 +117,9 @@ def execute_sql(
         flag_value=False,
         is_flag=True,
     ),
-    templating_syntax: List[_TemplateSyntaxOption] = typer.Option(
-        [_TemplateSyntaxOption.LEGACY, _TemplateSyntaxOption.STANDARD],
-        "--template-syntax",
+    enabled_templating: List[_EnabledTemplating] = typer.Option(
+        [_EnabledTemplating.LEGACY, _EnabledTemplating.STANDARD],
+        "--enabled-templating",
         help="Syntax used to resolve variables before passing queries to Snowflake.",
         case_sensitive=False,
     ),
@@ -140,7 +140,7 @@ def execute_sql(
     if data_override:
         data = {v.key: v.value for v in parse_key_value_variables(data_override)}
 
-    template_syntax_config = _parse_template_syntax_config(templating_syntax)
+    template_syntax_config = _parse_template_syntax_config(enabled_templating)
 
     retain_comments = bool(retain_comments)
     single_transaction = bool(single_transaction)
