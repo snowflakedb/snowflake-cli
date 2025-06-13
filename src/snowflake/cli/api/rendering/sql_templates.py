@@ -38,16 +38,6 @@ _OLD_SQL_TEMPLATE_END = "}"
 RESERVED_KEYS = [CONTEXT_KEY, FUNCTION_KEY]
 
 
-@dataclass
-class SQLTemplateSyntaxConfig:
-    """Class defining which syntax should be used for the template resolution.
-    Jinja syntax is not recommended and should be disabled by default."""
-
-    enable_legacy_syntax: bool = True
-    enable_standard_syntax: bool = True
-    enable_jinja_syntax: bool = False
-
-
 def _get_sql_jinja_env(template_start: str, template_end: str) -> Environment:
     _random_block = "___very___unique___block___to___disable___logic___blocks___"
     return env_bootstrap(
@@ -106,6 +96,16 @@ def choose_sql_jinja_env_based_on_template_syntax(
     return new_syntax_env
 
 
+@dataclass
+class SQLTemplateSyntaxConfig:
+    """Class defining which syntax should be used for the template resolution.
+    Jinja syntax is not recommended and should be disabled by default."""
+
+    enable_legacy_syntax: bool = True
+    enable_standard_syntax: bool = True
+    enable_jinja_syntax: bool = False
+
+
 def snowflake_sql_jinja_render(
     content: str,
     enabled_syntax_config: SQLTemplateSyntaxConfig,
@@ -115,6 +115,10 @@ def snowflake_sql_jinja_render(
     If both legacy and standard syntax are enabled, CLI chooses one basing on provided content.
     If jinja syntax is enabled, it is resolved after standard and legacy syntax.
     """
+    # Jinja syntax is server-side templating, it should not be resolved by CLI by default.
+    # The main use case for adding support for it on CLI side is for testing scripts before running them on server,
+    # which is why jinja templates are resolved after standard CLI templates.
+
     data = data or {}
 
     for reserved_key in RESERVED_KEYS:
@@ -134,7 +138,7 @@ def snowflake_sql_jinja_render(
             raise CliArgumentError(f"Failed to read snowflake.yml file: {e}")
     context_data.update(data)
 
-    # resolve legacy and standard SQL syntax:
+    # resolve legacy and standard SQL templating:
     if (
         enabled_syntax_config.enable_legacy_syntax
         and enabled_syntax_config.enable_standard_syntax
