@@ -110,7 +110,7 @@ Note: Before running the script, set up your environment variables.
 To build and push all required Docker images, run the following script:
 
 ```bash
-./tests_integration/spcs/docker/build_and_push_all.sh
+./tests_integration/tests_using_container_services/spcs/docker/build_and_push_all.sh
 ```
 
 ## Remote debugging with PyCharm or IntelliJ
