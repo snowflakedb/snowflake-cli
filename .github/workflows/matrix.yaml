@@ -24,7 +24,7 @@ jobs:
           if [ "${{ github.event_name }}" = "schedule" ]; then
             echo 'os=["windows-latest", "ubuntu-latest", "macos-latest"]' >> "$GITHUB_OUTPUT"
           else
-            echo 'os=["windows-latest", "ubuntu-latest"]' >> "$GITHUB_OUTPUT"
+            echo 'os=["ubuntu-latest"]' >> "$GITHUB_OUTPUT"
           fi
       - name: Define python versions
         id: python
