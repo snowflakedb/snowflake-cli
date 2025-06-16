@@ -22,6 +22,7 @@ from snowflake.cli.api.rendering.project_definition_templates import (
     has_client_side_templates,
 )
 from snowflake.cli.api.rendering.sql_templates import (
+    SQLTemplateSyntaxConfig,
     has_sql_templates,
     snowflake_sql_jinja_render,
 )
@@ -40,7 +41,14 @@ def cli_context():
 
 
 def test_rendering_with_data(cli_context):
-    assert snowflake_sql_jinja_render("&{ foo }", data={"foo": "bar"}) == "bar"
+    assert (
+        snowflake_sql_jinja_render(
+            "&{ foo }",
+            data={"foo": "bar"},
+            template_syntax_config=SQLTemplateSyntaxConfig(),
+        )
+        == "bar"
+    )
 
 
 @pytest.mark.parametrize(
@@ -57,7 +65,12 @@ def test_rendering_with_data(cli_context):
     ],
 )
 def test_rendering(text, output, cli_context):
-    assert snowflake_sql_jinja_render(text, data={"foo": "bar"}) == output
+    assert (
+        snowflake_sql_jinja_render(
+            text, data={"foo": "bar"}, template_syntax_config=SQLTemplateSyntaxConfig()
+        )
+        == output
+    )
 
 
 @pytest.mark.parametrize(
@@ -77,15 +90,30 @@ def test_rendering(text, output, cli_context):
     ],
 )
 def test_that_common_logic_block_are_ignored(text, cli_context):
-    assert snowflake_sql_jinja_render(text) == text
+    assert (
+        snowflake_sql_jinja_render(
+            text, template_syntax_config=SQLTemplateSyntaxConfig()
+        )
+        == text
+    )
 
 
 def test_that_common_comments_are_respected(cli_context):
     # Make sure comment are ignored
-    assert snowflake_sql_jinja_render("{# note a comment &{ foo } #}") == ""
+    assert (
+        snowflake_sql_jinja_render(
+            "{# note a comment &{ foo } #}",
+            template_syntax_config=SQLTemplateSyntaxConfig(),
+        )
+        == ""
+    )
     # Make sure comment's work together with templates
     assert (
-        snowflake_sql_jinja_render("{# note a comment #}&{ foo }", data={"foo": "bar"})
+        snowflake_sql_jinja_render(
+            "{# note a comment #}&{ foo }",
+            data={"foo": "bar"},
+            template_syntax_config=SQLTemplateSyntaxConfig(),
+        )
         == "bar"
     )
 
@@ -100,7 +128,9 @@ def test_that_common_comments_are_respected(cli_context):
 )
 def test_that_undefined_variables_raise_error(text, cli_context):
     with pytest.raises(UndefinedError):
-        snowflake_sql_jinja_render(text)
+        snowflake_sql_jinja_render(
+            text, template_syntax_config=SQLTemplateSyntaxConfig()
+        )
 
 
 @pytest.mark.parametrize(
@@ -112,7 +142,11 @@ def test_that_undefined_variables_raise_error(text, cli_context):
 )
 def test_reserved_keywords_raise_error(key_word, cli_context):
     with pytest.raises(ClickException) as err:
-        snowflake_sql_jinja_render("select 1;", data={key_word: "some_value"})
+        snowflake_sql_jinja_render(
+            "select 1;",
+            data={key_word: "some_value"},
+            template_syntax_config=SQLTemplateSyntaxConfig(),
+        )
     assert (
         err.value.message
         == f"{key_word} in user defined data. The `{key_word}` variable is reserved for CLI usage."
@@ -121,9 +155,9 @@ def test_reserved_keywords_raise_error(key_word, cli_context):
 
 @mock.patch.dict(os.environ, {"TEST_ENV_VAR": "foo"})
 def test_contex_can_access_environment_variable(cli_context):
-    assert snowflake_sql_jinja_render("&{ ctx.env.TEST_ENV_VAR }") == os.environ.get(
-        "TEST_ENV_VAR"
-    )
+    assert snowflake_sql_jinja_render(
+        "&{ ctx.env.TEST_ENV_VAR }", template_syntax_config=SQLTemplateSyntaxConfig()
+    ) == os.environ.get("TEST_ENV_VAR")
 
 
 def test_has_sql_templates():

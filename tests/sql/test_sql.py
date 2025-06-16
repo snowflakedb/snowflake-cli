@@ -17,6 +17,7 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.snowsql_templating import transpile_snowsql_templates
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import (
@@ -25,6 +26,7 @@ from snowflake.cli.api.exceptions import (
 )
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import identifier_to_show_like_pattern
+from snowflake.cli.api.rendering.sql_templates import SQLTemplateSyntaxConfig
 from snowflake.cli.api.sql_execution import SqlExecutionMixin, VerboseCursor
 from snowflake.connector.cursor import DictCursor
 
@@ -448,6 +450,97 @@ def test_uses_variables_from_cli_are_added_outside_context(
     assert result.exit_code == 0, result.output
     mock_execute_query.assert_called_once_with(
         "select foo_value other_value", cursor_class=VerboseCursor
+    )
+
+
+@pytest.mark.parametrize(
+    "query,legacy,standard,jinja,expected_query",
+    [
+        ("{{ a }} &a &{ a } <% a %>", False, False, False, "{{ a }} &a &{ a } <% a %>"),
+        ("{{ a }} &a &{ a } <% a %>", True, False, False, "{{ a }} foo foo <% a %>"),
+        ("{{ a }} &a &{ a } <% a %>", False, True, False, "{{ a }} &a &{ a } foo"),
+        ("{{ a }} &a &{ a } <% a %>", False, False, True, "foo &a &{ a } <% a %>"),
+        ("{{ a }} &a &{ a } <% a %>", True, False, True, "foo foo foo <% a %>"),
+        ("{{ a }} &a &{ a } <% a %>", False, True, True, "foo &a &{ a } foo"),
+        ("{{ a }} &a &{ a }", True, True, False, "{{ a }} foo foo"),
+        ("{{ a }} <% a %>", True, True, False, "{{ a }} foo"),
+        ("{{ a }} &a &{ a }", True, True, True, "foo foo foo"),
+        ("{{ a }} <% a %>", True, True, True, "foo foo"),
+    ],
+)
+@mock.patch("snowflake.cli._plugins.sql.manager.SqlManager._execute_string")
+def test_supported_syntax_config(
+    mock_execute_query, query, legacy, standard, jinja, expected_query
+):
+    manager = SqlManager()
+    _, results = manager.execute(
+        query=query,
+        files=None,
+        std_in=False,
+        data={"a": "foo"},
+        template_syntax_config=SQLTemplateSyntaxConfig(
+            enable_legacy_syntax=legacy,
+            enable_standard_syntax=standard,
+            enable_jinja_syntax=jinja,
+        ),
+    )
+    list(results)
+    mock_execute_query.assert_called_once_with(expected_query, cursor_class=mock.ANY)
+
+
+@pytest.mark.parametrize(
+    "flags,exp_legacy,exp_standard,exp_jinja",
+    [
+        ([], True, True, False),
+        (["all"], True, True, True),
+        (["none"], False, False, False),
+        (["jinja"], False, False, True),
+        (["legacy"], True, False, False),
+        (["standard"], False, True, False),
+        (["jinja", "standard"], False, True, True),
+        (["legacy", "standard"], True, True, False),
+        (["jinja", "legacy"], True, False, True),
+        (["jinja", "legacy", "standard"], True, True, True),
+    ],
+)
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager")
+def test_command_enable_templating_flag(
+    mock_manager, mock_cursor, runner, flags, exp_legacy, exp_standard, exp_jinja
+):
+    mock_manager().execute.return_value = (0, mock_cursor([], []))
+    command = ["sql", "-q", "select 1"]
+    for flag in flags:
+        command += ["--enable-templating", flag]
+    result = runner.invoke(command)
+    assert result.exit_code == 0, result.output
+    mock_manager().execute.assert_called_once_with(
+        "select 1",
+        [],
+        False,
+        data={},
+        retain_comments=False,
+        single_transaction=False,
+        template_syntax_config=SQLTemplateSyntaxConfig(
+            enable_legacy_syntax=exp_legacy,
+            enable_standard_syntax=exp_standard,
+            enable_jinja_syntax=exp_jinja,
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "flags,error",
+    [(["all", "legacy"], []), (["none", "jinja"], [])],
+)
+def test_command_enable_templating_flag_errors(runner, flags, error):
+    command = ["sql", "-q", "select 1"]
+    for flag in flags:
+        command += ["--enable-templating", flag]
+    result = runner.invoke(command)
+    assert result.exit_code == 2, result.output
+    assert (
+        "ALL and NONE template syntax options should not be used with other"
+        in result.output
     )
 
 

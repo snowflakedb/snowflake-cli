@@ -32,7 +32,10 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliArgumentError, CliSqlError
 from snowflake.cli.api.output.types import CollectionResult
-from snowflake.cli.api.rendering.sql_templates import snowflake_sql_jinja_render
+from snowflake.cli.api.rendering.sql_templates import (
+    SQLTemplateSyntaxConfig,
+    snowflake_sql_jinja_render,
+)
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin, VerboseCursor
 from snowflake.connector.cursor import SnowflakeCursor
@@ -51,6 +54,7 @@ class SqlManager(SqlExecutionMixin):
         data: Dict | None = None,
         retain_comments: bool = False,
         single_transaction: bool = False,
+        template_syntax_config: SQLTemplateSyntaxConfig = SQLTemplateSyntaxConfig(),
     ) -> Tuple[ExpectedResultsCount, Iterable[SnowflakeCursor]]:
         """Reads, transforms and execute statements from input.
 
@@ -62,9 +66,15 @@ class SqlManager(SqlExecutionMixin):
         """
         query = sys.stdin.read() if std_in else query
 
-        stmt_operators = (
-            transpile_snowsql_templates,
-            partial(snowflake_sql_jinja_render, data=data),
+        stmt_operators = []
+        if template_syntax_config.enable_legacy_syntax:
+            stmt_operators.append(transpile_snowsql_templates)
+        stmt_operators.append(
+            partial(
+                snowflake_sql_jinja_render,
+                template_syntax_config=template_syntax_config,
+                data=data,
+            )
         )
         remove_comments = not retain_comments
 
