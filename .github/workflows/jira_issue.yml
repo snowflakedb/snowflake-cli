@@ -2,7 +2,7 @@ name: Jira creation
 
 on:
   issues:
-    types: [opened]
+    types: [opened, labeled]
   issue_comment:
     types: [created]
 
@@ -29,10 +29,11 @@ jobs:
         )
         || (
           github.event_name == 'issues'
-          && (
-            github.event.pull_request.user.login != 'whitesource-for-github-com[bot]'
-            || startsWith(github.event.issue.title, 'Flaky')
-          )
+          && github.event.pull_request.user.login != 'whitesource-for-github-com[bot]'
+        )
+        || (
+          github.event.action == 'labeled'
+          && github.event.label.name == 'flaky-test'
         )
       )
     steps:
