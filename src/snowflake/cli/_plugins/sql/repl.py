@@ -13,6 +13,7 @@ from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import MultipleResults, QueryResult
+from snowflake.cli.api.rendering.sql_templates import SQLTemplateSyntaxConfig
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.config_manager import CONFIG_MANAGER
 from snowflake.connector.cursor import SnowflakeCursor
@@ -35,6 +36,7 @@ class Repl:
         sql_manager: SqlManager,
         data: dict | None = None,
         retain_comments: bool = False,
+        template_syntax_config: SQLTemplateSyntaxConfig = SQLTemplateSyntaxConfig(),
     ):
         """Requires a `SqlManager` instance to execute queries.
 
@@ -46,6 +48,7 @@ class Repl:
         setattr(get_cli_context_manager(), "is_repl", True)
         self._data = data or {}
         self._retain_comments = retain_comments
+        self._template_syntax_config = template_syntax_config
         self._history = FileHistory(HISTORY_FILE)
         self._lexer = PygmentsLexer(CliLexer)
         self._completer = cli_completer
@@ -155,6 +158,7 @@ class Repl:
             std_in=False,
             data=self._data,
             retain_comments=self._retain_comments,
+            template_syntax_config=self._template_syntax_config,
         )
         return cursors
 
