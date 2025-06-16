@@ -799,10 +799,6 @@ class StageManager(SqlExecutionMixin):
 
     def _bootstrap_snowpark_execution_environment(self, stage_path: StagePath):
         """Prepares Snowpark session for executing Python code remotely."""
-        if sys.version_info < PYTHON_3_12:
-            # Because Snowpark works only below 3.12 and to use @sproc Session must be imported here.
-            pass
-
         if sys.version_info >= PYTHON_3_12:
             raise ClickException(
                 f"Executing Python files is not supported in Python >= 3.12. Current version: {sys.version}"
