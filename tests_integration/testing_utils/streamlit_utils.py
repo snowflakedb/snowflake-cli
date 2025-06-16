@@ -1,6 +1,8 @@
 from typing import List, Optional
 
+from snowflake.cli._plugins.connection.util import get_account
 from snowflake.cli.api.output.types import CommandResult
+from snowflake.connector import SnowflakeConnection
 from tests_integration.testing_utils import (
     assert_that_result_failed_with_message_containing,
     assert_that_result_is_successful_and_output_json_equals,
@@ -32,7 +34,7 @@ class StreamlitTestSteps:
         )
 
     def deploy_with_entity_id_specified_should_succeed(
-        self, entity_id: str, session, experimental=False
+        self, entity_id: str, session: SnowflakeConnection, experimental=False
     ):
         self.assert_that_only_those_entities_are_listed([], entity_id.upper())
         cmd = [
@@ -48,10 +50,10 @@ class StreamlitTestSteps:
         self.assert_proper_url_is_returned(result, entity_id, session)
 
     def another_deploy_without_replace_flag_should_end_with_error(
-        self, entity_id: str, database
+        self, entity_id: str, session: SnowflakeConnection
     ):
         self.assert_that_only_those_entities_are_listed(
-            [f"{database}.PUBLIC.{entity_id.upper()}"], entity_id.upper()
+            [f"{session.database}.PUBLIC.{entity_id.upper()}"], entity_id.upper()
         )
         result = self.setup.runner.invoke_with_connection_json(
             [
@@ -63,22 +65,27 @@ class StreamlitTestSteps:
 
         assert_that_result_is_error(result, 1)
 
-    def another_deploy_with_replace_flag_should_succeed(self, entity_id: str, database):
+    def another_deploy_with_replace_flag_should_succeed(
+        self, entity_id: str, session: SnowflakeConnection, experimental=False
+    ):
         self.assert_that_only_those_entities_are_listed(
-            [f"{database}.PUBLIC.{entity_id.upper()}"], entity_id.upper()
+            [f"{session.database}.PUBLIC.{entity_id.upper()}"], entity_id.upper()
         )
-        result = self.setup.runner.invoke_with_connection_json(
-            [
-                "streamlit",
-                "deploy",
-                entity_id,
-                "--replace",
-            ]
-        )
+        cmd = [
+            "streamlit",
+            "deploy",
+            entity_id,
+            "--replace",
+        ]
+        if experimental:
+            cmd.extend(["--experimental"])
+        result = self.setup.runner.invoke_with_connection_json(cmd)
 
-        self.assert_proper_url_is_returned(result, entity_id, database)
+        self.assert_proper_url_is_returned(result, entity_id, session)
 
-    def streamlit_describe_should_show_proper_streamlit(self, entity_id: str, database):
+    def streamlit_describe_should_show_proper_streamlit(
+        self, entity_id: str, session: SnowflakeConnection
+    ):
         result = self.setup.runner.invoke_with_connection_json(
             [
                 "streamlit",
@@ -90,7 +97,9 @@ class StreamlitTestSteps:
         assert len(result.json) == 1
         assert result.json[0]["name"] == entity_id.upper()
 
-    def get_url_should_give_proper_url(self, entity_id: str, snowflake_session):
+    def get_url_should_give_proper_url(
+        self, entity_id: str, snowflake_session: SnowflakeConnection
+    ):
         result = self.setup.runner.invoke_with_connection_json(
             [
                 "streamlit",
@@ -101,9 +110,13 @@ class StreamlitTestSteps:
 
         assert_that_result_is_successful(result)
         message = result.json["message"]
-        assert message.endswith(create_expected_url_suffix(entity_id, snowflake_session))
+        assert message.endswith(
+            create_expected_url_suffix(entity_id, snowflake_session)
+        )
 
-    def execute_should_run_streamlit(self, entity_id: str, database: str):
+    def execute_should_run_streamlit(
+        self, entity_id: str, session: SnowflakeConnection
+    ):
         result = self.setup.runner.invoke_with_connection_json(
             [
                 "streamlit",
@@ -116,7 +129,7 @@ class StreamlitTestSteps:
             result, {"message": f"Streamlit {entity_id} executed."}
         )
 
-    def drop_should_succeed(self, entity_id: str, database: str):
+    def drop_should_succeed(self, entity_id: str, session: SnowflakeConnection):
         result = self.setup.runner.invoke_with_connection_json(
             [
                 "streamlit",
@@ -163,7 +176,7 @@ class StreamlitTestSteps:
         ]
 
     def assert_proper_url_is_returned(
-        self, result: CommandResult, entity_id: str, session
+        self, result: CommandResult, entity_id: str, session: SnowflakeConnection
     ):
         assert_that_result_is_successful(result)
         message = result.json["message"]
@@ -171,5 +184,5 @@ class StreamlitTestSteps:
         assert message.endswith(create_expected_url_suffix(entity_id, session))
 
 
-def create_expected_url_suffix(entity_id: str, session):
-    return f".snowflake.com/SFENGINEERING/{session.account}/#/streamlit-apps/{session.database.upper()}.{session.schema.upper()}.{entity_id.upper()}"
+def create_expected_url_suffix(entity_id: str, session: SnowflakeConnection):
+    return f".snowflake.com/SFENGINEERING/{get_account(session)}/#/streamlit-apps/{session.database.upper()}.{session.schema.upper()}.{entity_id.upper()}"
