@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Generic, List, Optional, Type, TypeVar, get_args
 
 from snowflake.cli._plugins.workspace.context import ActionContext, WorkspaceContext
-from snowflake.cli.api.cli_global_context import get_cli_context, span
+from snowflake.cli.api.cli_global_context import span
 from snowflake.cli.api.entities.resolver import Dependency, DependencyResolver
 from snowflake.cli.api.entities.utils import EntityActions, get_sql_executor
 from snowflake.cli.api.identifiers import FQN
@@ -116,13 +116,6 @@ class EntityBase(Generic[T]):
     @property
     def schema(self) -> Optional[str]:
         return self.get_from_fqn_or_conn("schema")
-
-    @property
-    def snow_api_root(self) -> Optional[object]:
-        root = get_cli_context().snow_api_root
-        if root is None:
-            raise ValueError("snow_api_root is not set")
-        return root
 
     @property
     def model(self) -> T:

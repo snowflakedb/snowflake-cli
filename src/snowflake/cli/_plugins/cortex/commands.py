@@ -41,6 +41,7 @@ from snowflake.cli.api.commands.overrideable_parameter import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, PYTHON_3_12
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -94,6 +95,7 @@ def search(
     """
     Performs query search using Cortex Search Services.
     """
+    from snowflake.core import Root
 
     if not SEARCH_COMMAND_ENABLED:
         raise click.ClickException(
@@ -104,7 +106,12 @@ def search(
         columns = []
 
     conn = get_cli_context().connection
-    root = get_cli_context().snow_api_root
+    if conn:
+        root = Root(conn)
+    else:
+        raise CliError(
+            "Cortex Search requires a connection to be established. Please connect to a Snowflake account first."
+        )
 
     search_service = (
         root.databases[conn.database]
@@ -173,11 +180,9 @@ def complete(
             is_file_input=is_file_input,
         )
     elif backend == Backend.REST:
-        root = get_cli_context().snow_api_root
         result_text = manager.rest_complete(
             text=Text(prompt),
             model=Model(model),
-            root=root,
         )
     else:
         raise UsageError("--backend option should be either rest or sql.")
