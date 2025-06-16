@@ -16,8 +16,7 @@ jobs:
       issues: write
     if: |
       (
-        github.event_name == 'issues'
-        || (
+        (
           github.event_name == 'issue_comment'
           && github.event.comment.body == 'recreate jira'
           && (github.event.comment.user.login == 'sfc-gh-turbaszek'
@@ -26,6 +25,16 @@ jobs:
             || github.event.comment.user.login == 'sfc-gh-mraba'
             || github.event.comment.user.login == 'sfc-gh-jwilkowski'
             || github.event.comment.user.login == 'sfc-gh-daniszewski'
+          )
+        )
+        || (
+          github.event_name == 'issues'
+          && (
+            (
+              github.event.pull_request.user.login == 'github-actions[bot]'
+              && startsWith(toLowerCase(github.event.issue.title), 'flaky')
+            )
+            || github.event.pull_request.user.login != 'whitesource-for-github-com[bot]'
           )
         )
       )
