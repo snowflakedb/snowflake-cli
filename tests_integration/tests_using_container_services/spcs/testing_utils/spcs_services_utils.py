@@ -55,10 +55,10 @@ class SnowparkServicesTestSteps:
     schema = "public"
     container_name = "hello-world"
     ISO8601_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z")
-    another_database = "SNOWCLI_DB_2"
 
-    def __init__(self, setup: SnowparkServicesTestSetup):
+    def __init__(self, setup: SnowparkServicesTestSetup, another_database: str):
         self._setup = setup
+        self.another_database = another_database
 
     def create_service(self, service_name: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
@@ -112,23 +112,13 @@ class SnowparkServicesTestSteps:
             result, {"status": f"Service {service_name.upper()} successfully created."}
         )
 
-    def metrics_should_include_services_from_both_dbs(
-        self, service_name: str, container_name: str
-    ) -> None:
-        result = self._execute_metrics(service_name, container_name)
-
-        assert any(item.get("DATABASE NAME") == self.database for item in result.json)
-        assert any(
-            item.get("DATABASE NAME") == self.another_database for item in result.json
-        )
-
-    def metrics_with_fqn_should_include_only_one_service(
-        self, service_name: str, db_name: str, container_name: str
-    ) -> None:
-        fqn = f"{db_name}.{self.schema}.{service_name}"
+    def metrics_command_should_execute_correctly(
+        self, service_name: str, container_name: str, db_name: str | None = None
+    ):
+        # Due to latency in account event table, we're not able to verify metrics contents.
+        fqn = service_name if not db_name else f"{db_name}.{self.schema}.{service_name}"
         result = self._execute_metrics(fqn, container_name)
-
-        assert all(item.get("DATABASE NAME") == db_name for item in result.json)
+        assert result.exit_code == 0, result.output
 
     def upgrade_service(self) -> None:
         result = self._setup.runner.invoke_with_connection_json(
@@ -309,7 +299,6 @@ class SnowparkServicesTestSteps:
             new_container_name not in describe_result.json[0]["spec"]
         ), f"Container name '{new_container_name}' found in output of DESCRIBE SERVICE before spec has been updated. This is unexpected."
 
-        spec_path = f"{self._setup.test_root_path}/spcs/spec/spec_upgrade.yml"
         upgrade_result = self._setup.runner.invoke_with_connection_json(
             [
                 "spcs",
@@ -317,7 +306,7 @@ class SnowparkServicesTestSteps:
                 "upgrade",
                 service_name,
                 "--spec-path",
-                spec_path,
+                self._get_spec_path("spec_upgrade.yml"),
                 *self._database_schema_args(),
             ]
         )
@@ -470,7 +459,13 @@ class SnowparkServicesTestSteps:
         )
 
     def _get_spec_path(self, spec_file_name) -> Path:
-        return self._setup.test_root_path / "spcs" / "spec" / spec_file_name
+        return (
+            self._setup.test_root_path
+            / "tests_using_container_services"
+            / "spcs"
+            / "spec"
+            / spec_file_name
+        )
 
     def get_absolute_spec_path(self, spec_file_name) -> Path:
         return self._get_spec_path(spec_file_name).absolute()

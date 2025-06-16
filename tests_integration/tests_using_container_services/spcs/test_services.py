@@ -23,8 +23,7 @@ from tests_integration.tests_using_container_services.spcs.testing_utils.spcs_se
 
 
 @pytest.mark.integration
-@pytest.mark.skip("Skipped temporarily")
-def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
+def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str], test_database):
 
     test_steps, service_name = _test_steps
 
@@ -50,14 +49,12 @@ def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
     test_steps.list_containers_should_show_containers(service_name)
     test_steps.list_roles_should_show_roles(service_name)
     test_steps.upgrade_service_should_change_spec(service_name)
-    test_steps.metrics_should_include_services_from_both_dbs(
-        service_name, "hello-world"
+    test_steps.metrics_command_should_execute_correctly(service_name, "hello-world")
+    test_steps.metrics_command_should_execute_correctly(
+        service_name, "hello-world", test_steps.database
     )
-    test_steps.metrics_with_fqn_should_include_only_one_service(
-        service_name, test_steps.database, "hello-world"
-    )
-    test_steps.metrics_with_fqn_should_include_only_one_service(
-        service_name, test_steps.another_database, "hello-world"
+    test_steps.metrics_command_should_execute_correctly(
+        service_name, "hello-world", test_steps.another_database
     )
     test_steps.set_unset_service_property(service_name)
     test_steps.drop_service(service_name)
@@ -111,7 +108,6 @@ def test_service_create_from_project_definition(
 
 
 @pytest.mark.integration
-@pytest.mark.xfail(reason="Consistently timing out on execute call")
 def test_job_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
 
     test_steps, job_service_name = _test_steps
@@ -141,10 +137,10 @@ def _test_setup(
 
 
 @pytest.fixture
-def _test_steps(_test_setup):
+def _test_steps(_test_setup, test_database):
     random_uuid = uuid.uuid4().hex
     service_name = f"spcs_service_{random_uuid}"
-    test_steps = SnowparkServicesTestSteps(_test_setup)
+    test_steps = SnowparkServicesTestSteps(_test_setup, another_database=test_database)
 
     yield test_steps, service_name
 
