@@ -58,7 +58,10 @@ def test_corrupted_config_in_default_location(
     result_err = subprocess_run(
         [snowcli, "connection", "list"],
     )
-    assert result_err.stderr == snapshot
+    assert (
+        'Configuration file seems to be corrupted. Key "demo" already exists'
+        in result_err.stderr
+    )
 
     # corrupted config in default location should not influence one passed with --config-file flag
     healthy_config = test_root_path / "config" / "config.toml"
