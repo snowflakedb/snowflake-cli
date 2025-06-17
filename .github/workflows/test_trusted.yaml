@@ -37,7 +37,7 @@ jobs:
           python -m hatch env create ${{ inputs.python-env }}
       - name: Run integration tests
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SNOWFLAKE_GITHUB_TOKEN }}
           TERM: unknown
           SNOWFLAKE_CONNECTIONS_INTEGRATION_AUTHENTICATOR: SNOWFLAKE_JWT
           SNOWFLAKE_CONNECTIONS_INTEGRATION_HOST: ${{ secrets.SNOWFLAKE_HOST }}
