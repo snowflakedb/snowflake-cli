@@ -254,7 +254,9 @@ def list_versions(
 @app.command(requires_connection=True)
 def drop_version(
     identifier: FQN = project_identifier,
-    version_name: str = typer.Argument(help="Name or alias of the version to drop"),
+    version_name: str = typer.Argument(
+        help="Name or alias of the version to drop", show_default=False
+    ),
     if_exists: bool = IfExistsOption(help="Do nothing if the version does not exist."),
     **options,
 ):
