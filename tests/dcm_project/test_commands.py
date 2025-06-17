@@ -340,6 +340,25 @@ def test_list_versions(mock_pm, runner):
     )
 
 
+@mock.patch(ProjectManager)
+@pytest.mark.parametrize("if_exists", [True, False])
+def test_drop_version(mock_pm, runner, if_exists):
+    command = ["project", "drop-version", "fooBar", "v1"]
+    if if_exists:
+        command.append("--if-exists")
+
+    result = runner.invoke(command)
+
+    assert result.exit_code == 0, result.output
+    assert "Version 'v1' dropped from project 'fooBar'" in result.output
+
+    mock_pm().drop_version.assert_called_once_with(
+        project_name=FQN.from_string("fooBar"),
+        version_name="v1",
+        if_exists=if_exists,
+    )
+
+
 def test_drop_project(mock_connect, runner):
     result = runner.invoke(
         [

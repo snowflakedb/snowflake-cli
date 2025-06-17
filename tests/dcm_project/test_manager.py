@@ -198,3 +198,17 @@ def test_list_versions(mock_execute_query):
     mock_execute_query.assert_called_once_with(
         query="SHOW VERSIONS IN PROJECT my_project"
     )
+
+
+@mock.patch(execute_queries)
+@pytest.mark.parametrize("if_exists", [True, False])
+def test_drop_version(mock_execute_query, if_exists):
+    mgr = ProjectManager()
+    mgr.drop_version(project_name=TEST_PROJECT, version_name="v1", if_exists=if_exists)
+
+    expected_query = "ALTER PROJECT my_project DROP VERSION"
+    if if_exists:
+        expected_query += " IF EXISTS"
+    expected_query += " v1"
+
+    mock_execute_query.assert_called_once_with(query=expected_query)
