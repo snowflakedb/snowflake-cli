@@ -99,15 +99,14 @@ class StagePath:
 
     @classmethod
     def from_stage_str(cls, stage_str: str | FQN) -> StagePath:
-        _at_prefixed, _snow_prefixed = str(stage_str).startswith("@"), str(
-            stage_str
-        ).startswith(SNOW_PREFIX)
+        _is_at_prefixed = str(stage_str).startswith("@")
+        _is_snow_prefixed = str(stage_str).startswith(SNOW_PREFIX)
         stage_str = cls.strip_stage_prefixes(str(stage_str))
-        if _snow_prefixed:
-            resource = stage_str.split("/", maxsplit=1)[0]
-            stage_str = stage_str.removeprefix(resource + "/")
+        if _is_snow_prefixed:
+            resource_type = stage_str.split("/", maxsplit=1)[0]
+            stage_str = stage_str.removeprefix(resource_type + "/")
         else:
-            resource = None
+            resource_type = ""
         parts = stage_str.split("/", maxsplit=1)
         parts = [p for p in parts if p]
         if len(parts) == 2:
@@ -115,11 +114,10 @@ class StagePath:
         else:
             stage_string = parts[0]
             path = None
-        if _at_prefixed:
+        if _is_at_prefixed:
             stage_string = cls.add_at_prefix(stage_string)
-        if _snow_prefixed:
-            stage_string = resource + "/" + stage_string
-            stage_string = cls.add_snow_prefix(stage_string)
+        if _is_snow_prefixed:
+            stage_string = cls.add_snow_prefix(resource_type + "/" + stage_string)
         stage_path = cls(
             stage_name=stage_string, path=path, trailing_slash=stage_str.endswith("/")
         )
@@ -131,15 +129,14 @@ class StagePath:
         @configuration_repo / branches/main  / scripts/setup.sql
         @configuration_repo / branches/"foo/main"  / scripts/setup.sql
         """
-        _at_prefixed, _snow_prefixed = git_str.startswith("@"), git_str.startswith(
-            SNOW_PREFIX
-        )
+        _is_at_prefixed = git_str.startswith("@")
+        _is_snow_prefixed = git_str.startswith(SNOW_PREFIX)
         repo_name, git_ref, path = cls._split_repo_path(
             cls.strip_stage_prefixes(git_str)
         )
-        if _at_prefixed:
+        if _is_at_prefixed:
             repo_name = cls.add_at_prefix(repo_name)
-        if _snow_prefixed:
+        if _is_snow_prefixed:
             repo_name = cls.add_snow_prefix(repo_name)
         return cls(
             stage_name=repo_name,

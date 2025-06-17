@@ -145,6 +145,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
     def get_add_live_version_sql(
         self, schema: Optional[str] = None, database: Optional[str] = None
     ):
+        # this query unlike most others doesn't accept fqn wrapped in `IDENTIFIER('')`
         return f"ALTER STREAMLIT {self._get_identifier(schema,database)} ADD LIVE VERSION FROM LAST;"
 
     def get_deploy_sql(

@@ -115,6 +115,7 @@ def sync_deploy_root_with_stage(
         A `DiffResult` instance describing the changes that were performed.
     """
     if stage_path.is_vstage:
+        # vstages are created by FBE, so no need to do it manually
         pass
     elif not package_name:
         # ensure stage exists

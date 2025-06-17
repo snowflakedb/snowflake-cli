@@ -60,7 +60,7 @@ log = logging.getLogger(__name__)
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
 AT_PREFIX = "@"
 USER_STAGE_PREFIX = "@~"
-VSTAGE_PREFIX = "snow://"
+SNOW_PREFIX = "snow://"
 
 EXECUTE_SUPPORTED_FILES_FORMATS = (
     ".sql",
@@ -75,7 +75,7 @@ STAGE_PATH_REGEX = rf"(?P<prefix>(@|{re.escape('snow://')}))?(?:(?P<first_qualif
 VSTAGE_RESOURCE_TYPES = ("streamlit", "notebook")
 VSTAGE_RESOURCE_TYPES_REGEX = "|".join(map(re.escape, VSTAGE_RESOURCE_TYPES))
 VSTAGE_PATH_REGEX = (
-    rf"(?P<prefix>{re.escape(VSTAGE_PREFIX)})"
+    rf"(?P<prefix>{re.escape(SNOW_PREFIX)})"
     rf"(?P<resource_type>{VSTAGE_RESOURCE_TYPES_REGEX})/?"
     rf"(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?"
     rf"(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?"
@@ -143,7 +143,7 @@ class StagePathParts:
 
 def _strip_standard_stage_prefix(path: str) -> str:
     """Removes '@' or 'snow://' prefix from given string"""
-    for prefix in [AT_PREFIX, VSTAGE_PREFIX]:
+    for prefix in [AT_PREFIX, SNOW_PREFIX]:
         if path.startswith(prefix):
             path = path.removeprefix(prefix)
     return path
@@ -301,7 +301,7 @@ class StageManager(SqlExecutionMixin):
         if isinstance(name, FQN):
             name = name.identifier
         # Handle vstages
-        if name.startswith(VSTAGE_PREFIX) or name.startswith(AT_PREFIX):
+        if name.startswith(SNOW_PREFIX) or name.startswith(AT_PREFIX):
             return name
 
         return f"{AT_PREFIX}{name}"
@@ -795,7 +795,7 @@ class StageManager(SqlExecutionMixin):
         stage_path = StageManager.get_standard_stage_prefix(stage_path)
         if stage_path.startswith(USER_STAGE_PREFIX):
             return UserStagePathParts(stage_path)
-        elif stage_path.startswith(VSTAGE_PREFIX):
+        elif stage_path.startswith(SNOW_PREFIX):
             return VStagePathParts(stage_path)
         return DefaultStagePathParts(stage_path)
 

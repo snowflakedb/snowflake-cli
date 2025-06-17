@@ -120,12 +120,9 @@ def test_dir_with_file_paths(path, is_git_repo):
     assert stage_path.suffix == ".py"
     assert stage_path.stem == "file"
     assert stage_path.stage == path.lstrip("@").replace("snow://", "").split("/")[0]
-    if path.startswith("snow://"):
-        assert stage_path.absolute_path() == path.rstrip("/")
-    else:
-        assert stage_path.absolute_path() == "@" + path.lstrip("@").replace(
-            "snow://", ""
-        ).rstrip("/")
+    assert stage_path.absolute_path() == "@" + path.lstrip("@").replace(
+        "snow://", ""
+    ).rstrip("/")
 
 
 def test_join_path():
@@ -473,3 +470,17 @@ def test_join_system_path():
     stage_path = StagePath.from_stage_str("stage")
     system_path = Path("dir") / "subdir" / "file.txt"
     assert str(stage_path / system_path) == "@stage/dir/subdir/file.txt"
+
+
+@pytest.mark.parametrize(
+    "stage_str",
+    [
+        "snow://streamlit/db.schema.name/live/version",
+        "snow://notebook/db.schema.name/live/version",
+        "snow://streamlit/schema.name/live/version",
+        "snow://streamlit/name/live/version",
+    ],
+)
+def test_vstage_paths(stage_str):
+    stage_path = StagePath.from_stage_str(stage_str)
+    assert str(stage_path) == stage_str
