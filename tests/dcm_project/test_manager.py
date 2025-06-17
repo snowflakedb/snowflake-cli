@@ -57,7 +57,7 @@ def test_create_version(mock_execute_query, stage_name):
         project_name=TEST_PROJECT, from_stage=stage_name, alias="v1", comment="fancy"
     )
     mock_execute_query.assert_called_once_with(
-        query=f"ALTER PROJECT my_project ADD VERSION IF NOT EXISTS \"v1\" FROM @stage_foo COMMENT = 'fancy'"
+        query=f"ALTER PROJECT my_project ADD VERSION IF NOT EXISTS v1 FROM @stage_foo COMMENT = 'fancy'"
     )
 
 
