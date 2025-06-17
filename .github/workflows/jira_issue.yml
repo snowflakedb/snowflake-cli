@@ -2,7 +2,7 @@ name: Jira creation
 
 on:
   issues:
-    types: [opened, labeled]
+    types: [opened, reopened]
   issue_comment:
     types: [created]
 
@@ -27,14 +27,7 @@ jobs:
             || github.event.comment.user.login == 'sfc-gh-daniszewski'
           )
         )
-        || (
-          github.event_name == 'issues'
-          && github.event.pull_request.user.login != 'whitesource-for-github-com[bot]'
-        )
-        || (
-          github.event.action == 'labeled'
-          && github.event.label.name == 'flaky-test'
-        )
+        || github.event_name == 'issues'
       )
     steps:
       - name: Checkout
