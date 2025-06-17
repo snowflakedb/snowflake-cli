@@ -33,7 +33,7 @@ dependencies = [
   "pip",
   "pluggy==1.6.0",
   "prompt-toolkit==3.0.51",
-  "pydantic==2.11.4",
+  "pydantic==2.11.7",
   "requests==2.32.4",
   "requirements-parser==0.13.0",
   "rich==14.0.0",
