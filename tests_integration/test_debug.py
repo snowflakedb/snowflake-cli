@@ -2,7 +2,7 @@ import pytest
 
 
 @pytest.mark.integration
-def test_deliberately_flaky7(runner):
+def test_deliberately_flaky8(runner):
     dbname = "snowflake_cli_deliberately_flaky_test_run"
 
     result = runner.invoke_with_connection(["object", "describe", "database", dbname])
