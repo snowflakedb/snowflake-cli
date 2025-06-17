@@ -3,7 +3,6 @@ from unittest import mock
 
 import pytest
 import yaml
-from click import UsageError
 from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
     AnacondaPackages,
     AvailablePackage,
@@ -242,9 +241,8 @@ def test_get_deploy_sql_with_packages_and_artifact_repository_packages(
     entity, _ = example_function_workspace
     entity.model.artifact_repository = "snowflake.snowpark.pypi_shared_repository"
     entity.model.packages = ["package1", "package2"]
-    entity.model.artifact_repository_packages = ["package1", "package2"]
     with pytest.raises(
-        UsageError,
+        ValueError,
         match="You cannot specify both artifact_repository_packages and packages.",
     ):
-        entity.get_deploy_sql(CreateMode.create)
+        entity.model.artifact_repository_packages = ["package1", "package2"]

@@ -2,7 +2,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Generic, List, Optional, TypeVar
 
-from click import ClickException, UsageError
+from click import ClickException
 from snowflake.cli._plugins.snowpark import package_utils
 from snowflake.cli._plugins.snowpark.common import (
     DEFAULT_RUNTIME,
@@ -172,11 +172,6 @@ class SnowparkEntity(EntityBase[Generic[T]]):
 
         if self.model.secrets:
             query.append(self.model.get_secrets_sql())
-
-        if self.model.artifact_repository_packages and self.model.packages:
-            raise UsageError(
-                "You cannot specify both artifact_repository_packages and packages.",
-            )
 
         if self.model.artifact_repository and (
             self.model.artifact_repository_packages or self.model.packages
