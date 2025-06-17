@@ -58,8 +58,10 @@ log = logging.getLogger(__name__)
 
 
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
+AT_PREFIX = "@"
 USER_STAGE_PREFIX = "@~"
-EMBEDDED_STAGE_PREFIX = "snow://"
+VSTAGE_PREFIX = "snow://"
+
 EXECUTE_SUPPORTED_FILES_FORMATS = (
     ".sql",
     ".py",
@@ -68,14 +70,13 @@ EXECUTE_SUPPORTED_FILES_FORMATS = (
 # Replace magic numbers with constants
 OMIT_FIRST = slice(1, None)
 STAGE_PATH_REGEX = rf"(?P<prefix>(@|{re.escape('snow://')}))?(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?P<name>{VALID_IDENTIFIER_REGEX})/?(?P<directory>([^/]*/?)*)?"
-STREAMLIT_EMBEDDED_STAGE_PATH_REGEX = rf"(?P<prefix>{re.escape('snow://')})streamlit/?(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?P<name>{VALID_IDENTIFIER_REGEX})/?(?P<directory>([^/]*/?)*)?"
 
-# Define supported embedded resource types
-EMBEDDED_RESOURCE_TYPES = ("streamlit", "notebook")
-EMBEDDED_RESOURCE_TYPES_REGEX = "|".join(map(re.escape, EMBEDDED_RESOURCE_TYPES))
-EMBEDDED_STAGE_PATH_REGEX = (
-    rf"(?P<prefix>{re.escape(EMBEDDED_STAGE_PREFIX)})"
-    rf"(?P<resource_type>{EMBEDDED_RESOURCE_TYPES_REGEX})/?"
+# Define supported VSTAGE resource types
+VSTAGE_RESOURCE_TYPES = ("streamlit", "notebook")
+VSTAGE_RESOURCE_TYPES_REGEX = "|".join(map(re.escape, VSTAGE_RESOURCE_TYPES))
+VSTAGE_PATH_REGEX = (
+    rf"(?P<prefix>{re.escape(VSTAGE_PREFIX)})"
+    rf"(?P<resource_type>{VSTAGE_RESOURCE_TYPES_REGEX})/?"
     rf"(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?"
     rf"(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?"
     rf"(?P<name>{VALID_IDENTIFIER_REGEX})/?"
@@ -94,7 +95,7 @@ class StagePathParts:
     stage: str
     stage_name: str
     is_directory: bool
-    is_embedded: bool = False
+    is_vstage: bool = False
 
     @classmethod
     def get_directory(cls, stage_path: str) -> str:
@@ -128,7 +129,7 @@ class StagePathParts:
 
     def get_standard_stage_path(self) -> str:
         path = self.get_full_stage_path(self.path)
-        return f"@{path}{'/'if self.is_directory and not path.endswith('/') else ''}"
+        return f"{AT_PREFIX}{path}{'/'if self.is_directory and not path.endswith('/') else ''}"
 
     def get_standard_stage_directory_path(self) -> str:
         path = self.get_standard_stage_path()
@@ -142,7 +143,7 @@ class StagePathParts:
 
 def _strip_standard_stage_prefix(path: str) -> str:
     """Removes '@' or 'snow://' prefix from given string"""
-    for prefix in ["@", EMBEDDED_STAGE_PREFIX]:
+    for prefix in [AT_PREFIX, VSTAGE_PREFIX]:
         if path.startswith(prefix):
             path = path.removeprefix(prefix)
     return path
@@ -167,7 +168,7 @@ class DefaultStagePathParts(StagePathParts):
             raise ClickException("Invalid stage path")
         self.directory = match.group("directory")
         self._schema = match.group("second_qualifier") or match.group("first_qualifier")
-        self._prefix = match.group("prefix") or "@"
+        self._prefix = match.group("prefix") or AT_PREFIX
         self.stage = stage_path.removesuffix(self.directory).rstrip("/")
 
         stage_name = FQN.from_stage(self.stage).name
@@ -216,11 +217,11 @@ class DefaultStagePathParts(StagePathParts):
 
 
 @dataclass
-class EmbeddedStagePathParts(StagePathParts):
+class VStagePathParts(StagePathParts):
     def __init__(self, stage_path: str):
-        match = re.fullmatch(EMBEDDED_STAGE_PATH_REGEX, stage_path)
+        match = re.fullmatch(VSTAGE_PATH_REGEX, stage_path)
         if match is None:
-            raise ClickException("Invalid embedded stage path")
+            raise ClickException("Invalid vstage path")
         self.resource_type = match.group("resource_type")
         self.directory = match.group("directory")
         self._schema = match.group("second_qualifier") or match.group("first_qualifier")
@@ -228,7 +229,7 @@ class EmbeddedStagePathParts(StagePathParts):
         self.stage = stage_path.removesuffix(self.directory).rstrip("/")
         self.stage_name = self.stage.removeprefix(self._prefix)
         self.is_directory = True if stage_path.endswith("/") else False
-        self.is_embedded = True
+        self.is_vstage = True
 
     @property
     def path(self) -> str:
@@ -299,11 +300,11 @@ class StageManager(SqlExecutionMixin):
     def get_standard_stage_prefix(name: str | FQN) -> str:
         if isinstance(name, FQN):
             name = name.identifier
-        # Handle embedded stages
-        if name.startswith("snow://") or name.startswith("@"):
+        # Handle vstages
+        if name.startswith(VSTAGE_PREFIX) or name.startswith(AT_PREFIX):
             return name
 
-        return f"@{name}"
+        return f"{AT_PREFIX}{name}"
 
     @staticmethod
     def get_stage_from_path(path: str):
@@ -319,7 +320,7 @@ class StageManager(SqlExecutionMixin):
             return name  # already quoted
 
         standard_name = StageManager.get_standard_stage_prefix(name)
-        if standard_name.startswith("@") and not re.fullmatch(
+        if standard_name.startswith(AT_PREFIX) and not re.fullmatch(
             r"@([\w./$])+", standard_name
         ):
             return to_string_literal(standard_name)
@@ -794,8 +795,8 @@ class StageManager(SqlExecutionMixin):
         stage_path = StageManager.get_standard_stage_prefix(stage_path)
         if stage_path.startswith(USER_STAGE_PREFIX):
             return UserStagePathParts(stage_path)
-        elif stage_path.startswith(EMBEDDED_STAGE_PREFIX):
-            return EmbeddedStagePathParts(stage_path)
+        elif stage_path.startswith(VSTAGE_PREFIX):
+            return VStagePathParts(stage_path)
         return DefaultStagePathParts(stage_path)
 
     def _check_for_requirements_file(self, stage_path: StagePath) -> List[str]:

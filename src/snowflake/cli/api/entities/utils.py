@@ -114,7 +114,7 @@ def sync_deploy_root_with_stage(
     Returns:
         A `DiffResult` instance describing the changes that were performed.
     """
-    if stage_path.is_embedded:
+    if stage_path.is_vstage:
         pass
     elif not package_name:
         # ensure stage exists

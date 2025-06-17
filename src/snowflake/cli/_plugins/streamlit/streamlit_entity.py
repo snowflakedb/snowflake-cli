@@ -253,5 +253,5 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             recursive=True,
             stage_path=stage_path,
             print_diff=True,
-            force_overwrite=True,  # files copied to streamlit embedded stages been to be overwritten
+            force_overwrite=True,  # files copied to streamlit vstage need to be overwritten
         )
