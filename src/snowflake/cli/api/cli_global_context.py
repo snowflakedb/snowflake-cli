@@ -19,7 +19,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterator, Optional
+from typing import TYPE_CHECKING, Iterator
 
 from snowflake.cli.api.connections import ConnectionContext, OpenConnectionCache
 from snowflake.cli.api.exceptions import MissingConfigurationError
@@ -31,7 +31,6 @@ from snowflake.connector import SnowflakeConnection
 if TYPE_CHECKING:
     from snowflake.cli.api.project.definition_manager import DefinitionManager
     from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
-    from snowflake.core import Root
 
 _CONNECTION_CACHE = OpenConnectionCache()
 
@@ -198,17 +197,6 @@ class _CliGlobalContextAccess:
     def _should_force_mute_intermediate_output(self) -> bool:
         """Computes whether cli_console output should be muted."""
         return self._manager.output_format in [OutputFormat.JSON, OutputFormat.CSV]
-
-    @property
-    def snow_api_root(
-        self,
-    ) -> Optional[Root]:
-        from snowflake.core import Root
-
-        if self.connection:
-            return Root(self.connection)
-        else:
-            return None
 
     @property
     def enhanced_exit_codes(self) -> bool:

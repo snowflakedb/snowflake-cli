@@ -26,18 +26,13 @@ from snowflake.cli._plugins.cortex.types import (
     SourceDocument,
     Text,
 )
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
-from snowflake.cli.api.exceptions import SnowflakeSQLExecutionError
+from snowflake.cli.api.exceptions import CliError, SnowflakeSQLExecutionError
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector import ProgrammingError
 from snowflake.connector.cursor import DictCursor
-from snowflake.core._root import Root
-from snowflake.core.cortex.inference_service import CortexInferenceService
-from snowflake.core.cortex.inference_service._generated.models import CompleteRequest
-from snowflake.core.cortex.inference_service._generated.models.complete_request_messages_inner import (
-    CompleteRequestMessagesInner,
-)
 
 log = logging.getLogger(__name__)
 
@@ -89,24 +84,33 @@ class CortexManager(SqlExecutionMixin):
                 lambda: json_result["choices"][0]["messages"]
             )
 
-    def make_rest_complete_request(
-        self,
-        model: Model,
-        prompt: Text,
-    ) -> CompleteRequest:
-        return CompleteRequest(
-            model=str(model),
-            messages=[CompleteRequestMessagesInner(content=str(prompt))],
-            stream=True,
-        )
-
     def rest_complete(
         self,
         text: Text,
         model: Model,
-        root: "Root",
     ) -> str:
-        complete_request = self.make_rest_complete_request(model=model, prompt=text)
+        from snowflake.core import Root
+        from snowflake.core.cortex.inference_service import CortexInferenceService
+        from snowflake.core.cortex.inference_service._generated.models import (
+            CompleteRequest,
+        )
+        from snowflake.core.cortex.inference_service._generated.models.complete_request_messages_inner import (
+            CompleteRequestMessagesInner,
+        )
+
+        cli_context = get_cli_context()
+        if cli_context.connection:
+            root = Root(cli_context.connection)
+        else:
+            raise CliError(
+                "Cortex Search requires a connection to be established. Please connect to a Snowflake account first."
+            )
+
+        complete_request = CompleteRequest(
+            model=str(model),
+            messages=[CompleteRequestMessagesInner(content=str(text))],
+            stream=True,
+        )
         cortex_inference_service = CortexInferenceService(root=root)
         try:
             raw_resp = cortex_inference_service.complete(
