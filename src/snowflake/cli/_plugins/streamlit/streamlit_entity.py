@@ -122,7 +122,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 bundle_map=bundle_map,
                 prune=prune,
                 recursive=True,
-                stage_path=StageManager().stage_path_parts_from_str(stage_root),
+                stage_path_parts=StageManager().stage_path_parts_from_str(stage_root),
                 print_diff=True,
             )
 
@@ -244,7 +244,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 raise
 
         stage_root = self.describe().fetchone()["live_version_location_uri"]
-        stage_path = StageManager().stage_path_parts_from_str(stage_root)
+        stage_path_parts = StageManager().stage_path_parts_from_str(stage_root)
 
         sync_deploy_root_with_stage(
             console=self._workspace_ctx.console,
@@ -252,7 +252,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             bundle_map=bundle_map,
             prune=prune,
             recursive=True,
-            stage_path=stage_path,
+            stage_path_parts=stage_path_parts,
             print_diff=True,
             force_overwrite=True,  # files copied to streamlit vstage need to be overwritten
         )

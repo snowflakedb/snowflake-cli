@@ -113,13 +113,7 @@ class StagePathParts:
     def schema(self) -> str | None:
         raise NotImplementedError
 
-    def replace_stage_prefix(self, file_path: str) -> str:
-        raise NotImplementedError
-
     def add_stage_prefix(self, file_path: str) -> str:
-        raise NotImplementedError
-
-    def get_directory_from_file_path(self, file_path: str) -> List[str]:
         raise NotImplementedError
 
     def get_full_stage_path(self, path: str):
@@ -197,10 +191,6 @@ class DefaultStagePathParts(StagePathParts):
         stage = self.stage.rstrip("/")
         return f"{stage}/{file_path.lstrip('/')}"
 
-    def get_directory_from_file_path(self, file_path: str) -> List[str]:
-        stage_path_length = len(Path(self.directory).parts)
-        return list(Path(file_path).parts[1 + stage_path_length : -1])
-
 
 @dataclass
 class VStagePathParts(StagePathParts):
@@ -228,6 +218,16 @@ class VStagePathParts(StagePathParts):
         return f"{self._prefix}{self.stage_name.rstrip('/')}/{self.directory}".rstrip(
             "/"
         )
+
+    @property
+    def schema(self) -> str | None:
+        return self._schema
+
+    def add_stage_prefix(self, file_path: str) -> str:
+        return self.full_path
+
+    def get_standard_stage_path(self) -> str:
+        return self.full_path
 
 
 @dataclass
@@ -261,10 +261,6 @@ class UserStagePathParts(StagePathParts):
 
     def add_stage_prefix(self, file_path: str) -> str:
         return f"{self.stage}/{file_path}"
-
-    def get_directory_from_file_path(self, file_path: str) -> List[str]:
-        stage_path_length = len(Path(self.directory).parts)
-        return list(Path(file_path).parts[stage_path_length:-1])
 
 
 class StageManager(SqlExecutionMixin):

@@ -86,7 +86,7 @@ def sync_deploy_root_with_stage(
     bundle_map: BundleMap,
     prune: bool,
     recursive: bool,
-    stage_path: StagePathParts,
+    stage_path_parts: StagePathParts,
     role: str | None = None,
     package_name: str | None = None,
     local_paths_to_sync: List[Path] | None = None,
@@ -102,7 +102,7 @@ def sync_deploy_root_with_stage(
         role (str): The name of the role to use for queries and commands.
         prune (bool): Whether to prune artifacts from the stage that don't exist locally.
         recursive (bool): Whether to traverse directories recursively.
-        stage_path (DefaultStagePathParts): stage path object.
+        stage_path_parts (StagePathParts): stage path parts object.
 
         package_name (str): supported for Native App compatibility. Should be None out of Native App context.
 
@@ -114,19 +114,19 @@ def sync_deploy_root_with_stage(
     Returns:
         A `DiffResult` instance describing the changes that were performed.
     """
-    if stage_path.is_vstage:
+    if stage_path_parts.is_vstage:
         # vstages are created by FBE, so no need to do it manually
         pass
     elif not package_name:
         # ensure stage exists
-        stage_fqn = FQN.from_stage(stage_path.stage)
+        stage_fqn = FQN.from_stage(stage_path_parts.stage)
         console.step(f"Creating stage {stage_fqn} if not exists.")
         StageManager().create(fqn=stage_fqn)
     else:
         # ensure stage exists - nativeapp behavior
         sql_facade = get_snowflake_facade()
-        schema = stage_path.schema
-        stage_fqn = stage_path.stage
+        schema = stage_path_parts.schema
+        stage_fqn = stage_path_parts.stage
         # Does a stage already exist within the application package, or we need to create one?
         # Using "if not exists" should take care of either case.
         console.step(
@@ -139,12 +139,12 @@ def sync_deploy_root_with_stage(
     # Perform a diff operation and display results to the user for informational purposes
     if print_diff:
         console.step(
-            f"Performing a diff between the Snowflake stage: {stage_path.path} and your local deploy_root: {deploy_root.resolve()}."
+            f"Performing a diff between the Snowflake stage: {stage_path_parts.path} and your local deploy_root: {deploy_root.resolve()}."
         )
 
     diff: DiffResult = compute_stage_diff(
         local_root=deploy_root,
-        stage_path=stage_path,
+        stage_path=stage_path_parts,
     )
 
     if local_paths_to_sync:
@@ -206,7 +206,7 @@ def sync_deploy_root_with_stage(
             role=role,
             deploy_root_path=deploy_root,
             diff_result=diff,
-            stage_full_path=stage_path.full_path,
+            stage_full_path=stage_path_parts.full_path,
             force_overwrite=force_overwrite,
         )
     return diff

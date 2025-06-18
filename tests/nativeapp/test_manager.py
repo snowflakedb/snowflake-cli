@@ -151,7 +151,7 @@ def test_sync_deploy_root_with_stage(
         role="new_role",
         prune=True,
         recursive=True,
-        stage_path=DefaultStagePathParts.from_fqn(stage_fqn),
+        stage_path_parts=DefaultStagePathParts.from_fqn(stage_fqn),
     )
 
     mock_stage_exists.assert_called_once_with(stage_fqn)
@@ -216,7 +216,7 @@ def test_sync_deploy_root_with_stage_subdir(
         role="new_role",
         prune=True,
         recursive=True,
-        stage_path=DefaultStagePathParts.from_fqn(stage_fqn, "v1"),
+        stage_path_parts=DefaultStagePathParts.from_fqn(stage_fqn, "v1"),
     )
 
     mock_stage_exists.assert_called_once_with(stage_fqn)
@@ -287,7 +287,7 @@ def test_sync_deploy_root_with_stage_prune(
         role="new_role",
         prune=prune,
         recursive=True,
-        stage_path=DefaultStagePathParts.from_fqn(stage_fqn),
+        stage_path_parts=DefaultStagePathParts.from_fqn(stage_fqn),
     )
 
     if expected_warn:

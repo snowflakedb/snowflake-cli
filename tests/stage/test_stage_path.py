@@ -3,7 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from snowflake.cli._plugins.stage.manager import DefaultStagePathParts
+from click import ClickException
+from snowflake.cli._plugins.stage.manager import DefaultStagePathParts, VStagePathParts
 from snowflake.cli.api.stage_path import StagePath
 
 # (path, is_git_repo)
@@ -484,3 +485,117 @@ def test_join_system_path():
 def test_vstage_paths(stage_str):
     stage_path = StagePath.from_stage_str(stage_str)
     assert str(stage_path) == stage_str
+
+
+@pytest.mark.parametrize(
+    "input_path, expected_path, expected_full_path, expected_schema, expected_stage, expected_stage_name, expected_resource_type, expected_directory, expected_is_directory",
+    [
+        # Basic cases
+        (
+            "snow://streamlit/name",
+            "snow://streamlit/name",
+            "snow://streamlit/name",
+            None,
+            "snow://streamlit/name",
+            "streamlit/name",
+            "streamlit",
+            "",
+            False,
+        ),
+        (
+            "snow://notebook/schema.name",
+            "snow://notebook/schema.name",
+            "snow://notebook/schema.name",
+            "schema",
+            "snow://notebook/schema.name",
+            "notebook/schema.name",
+            "notebook",
+            "",
+            False,
+        ),
+        (
+            "snow://streamlit/db.schema.name",
+            "snow://streamlit/db.schema.name",
+            "snow://streamlit/db.schema.name",
+            "schema",
+            "snow://streamlit/db.schema.name",
+            "streamlit/db.schema.name",
+            "streamlit",
+            "",
+            False,
+        ),
+        # With directories
+        (
+            "snow://streamlit/name/dir",
+            "snow://streamlit/name/dir",
+            "snow://streamlit/name/dir",
+            None,
+            "snow://streamlit/name",
+            "streamlit/name",
+            "streamlit",
+            "dir",
+            False,
+        ),
+        (
+            "snow://streamlit/db.schema.name/nested/path/file.py",
+            "snow://streamlit/db.schema.name/nested/path/file.py",
+            "snow://streamlit/db.schema.name/nested/path/file.py",
+            "schema",
+            "snow://streamlit/db.schema.name",
+            "streamlit/db.schema.name",
+            "streamlit",
+            "nested/path/file.py",
+            False,
+        ),
+        (
+            "snow://notebook/name/deep/nested/structure/",
+            "snow://notebook/name/deep/nested/structure",
+            "snow://notebook/name/deep/nested/structure",
+            None,
+            "snow://notebook/name",
+            "notebook/name",
+            "notebook",
+            "deep/nested/structure/",
+            True,
+        ),
+    ],
+)
+def test_vstage_path_parts_properties(
+    input_path,
+    expected_path,
+    expected_full_path,
+    expected_schema,
+    expected_stage,
+    expected_stage_name,
+    expected_resource_type,
+    expected_directory,
+    expected_is_directory,
+):
+    vstage_parts = VStagePathParts(input_path)
+
+    assert vstage_parts.path == vstage_parts.get_standard_stage_path() == expected_path
+    assert vstage_parts.full_path == expected_full_path
+    assert vstage_parts.schema == expected_schema
+    assert vstage_parts.stage == expected_stage
+    assert vstage_parts.stage_name == expected_stage_name
+    assert vstage_parts.resource_type == expected_resource_type
+    assert vstage_parts.directory == expected_directory
+    assert vstage_parts.is_directory == expected_is_directory
+    assert vstage_parts.is_vstage == True
+
+
+@pytest.mark.parametrize(
+    "invalid_path",
+    [
+        "snow://invalid_resource/name",
+        "snow://streamlit",  # Missing name
+        "regular_stage/path",
+        "@stage/path",
+        "snow://",
+        "snow://streamlit/",
+        "",
+    ],
+)
+def test_vstage_path_parts_invalid_paths(invalid_path):
+    with pytest.raises(ClickException, match="Invalid vstage path"):
+        VStagePathParts(invalid_path)
