@@ -18,6 +18,7 @@ from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.notebook.exceptions import NotebookFilePathError
 from snowflake.cli._plugins.notebook.types import NotebookStagePath
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
@@ -25,12 +26,20 @@ from snowflake.cli.api.stage_path import StagePath
 
 class NotebookManager(SqlExecutionMixin):
     def execute(self, notebook_name: FQN):
-        notebook = (
-            self._root.databases[notebook_name.database]
-            .schemas[notebook_name.schema]
-            .notebooks[notebook_name.name]
+        database = (
+            notebook_name.database or self.snowpark_session.get_current_database()
         )
-        return notebook.execute()
+        schema = notebook_name.schema or self.snowpark_session.get_current_schema()
+
+        notebook = (
+            self._root.databases[database].schemas[schema].notebooks[notebook_name.name]
+        )
+        from snowflake.core.exceptions import APIError
+
+        try:
+            return notebook.execute()
+        except APIError as e:
+            raise CliError(e.body)
 
     def get_url(self, notebook_name: FQN):
         fqn = notebook_name.using_connection(self._conn)
@@ -58,17 +67,18 @@ class NotebookManager(SqlExecutionMixin):
     ) -> str:
         from snowflake.core.notebook import Notebook
 
-        notebooks = (
-            self._root.databases[notebook_name.database]
-            .schemas[notebook_name.schema]
-            .notebooks
+        database = (
+            notebook_name.database or self.snowpark_session.get_current_database()
         )
+        schema = notebook_name.schema or self.snowpark_session.get_current_schema()
+
+        notebooks = self._root.databases[database].schemas[schema].notebooks
         stage_path = self.parse_stage_as_path(notebook_file)
         notebook = Notebook(
-            name=notebook_name,
-            from_location=stage_path.parent,
+            name=notebook_name.name,
+            from_location=str(stage_path.parent),
             query_warehouse=get_cli_context().connection.warehouse,
-            main_file=stage_path.name,
+            main_file=str(stage_path.name),
         )
         notebook_res = notebooks.create(notebook)
         notebook_res.add_live_version(from_last=True)

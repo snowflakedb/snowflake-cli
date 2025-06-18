@@ -15,7 +15,6 @@
 from pathlib import Path
 
 import pytest
-from snowflake.connector import ProgrammingError
 
 
 def _execute_notebook(runner, notebook_name):
@@ -29,7 +28,7 @@ def _execute_notebook(runner, notebook_name):
 def _execute_notebook_failure(runner, notebook_name):
     result = runner.invoke_with_connection(["notebook", "execute", notebook_name])
     assert result.exit_code == 1
-    assert "NameError: name 'fooBar' is not defined" in result.output
+    assert "NameError: name 'fooBar' is not defined".lower() in result.output
 
 
 @pytest.mark.integration
