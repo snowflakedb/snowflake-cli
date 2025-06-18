@@ -18,7 +18,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import bundle_root
 from snowflake.cli.api.project.schemas.entities.common import Identifier, PathMapping
 from snowflake.connector import ProgrammingError
-from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
@@ -102,7 +102,6 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if (
             experimental
             or GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled()
-            or GlobalFeatureFlag.ENABLE_STREAMLIT_EMBEDDED_STAGE.is_enabled()
         ):
             self._deploy_experimental(bundle_map=bundle_map, replace=replace)
         else:
@@ -123,7 +122,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 bundle_map=bundle_map,
                 prune=prune,
                 recursive=True,
-                stage_path=StageManager().stage_path_parts_from_str(stage_root),
+                stage_path_parts=StageManager().stage_path_parts_from_str(stage_root),
                 print_diff=True,
             )
 
@@ -136,7 +135,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         return self.perform(EntityActions.GET_URL, action_context, *args, **kwargs)
 
     def describe(self) -> SnowflakeCursor:
-        return self._execute_query(self.get_describe_sql())
+        return self._execute_query(self.get_describe_sql(), cursor_class=DictCursor)
 
     def action_share(
         self, action_ctx: ActionContext, to_role: str, *args, **kwargs
@@ -146,12 +145,8 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
     def get_add_live_version_sql(
         self, schema: Optional[str] = None, database: Optional[str] = None
     ):
+        # this query unlike most others doesn't accept fqn wrapped in `IDENTIFIER('')`
         return f"ALTER STREAMLIT {self._get_identifier(schema,database)} ADD LIVE VERSION FROM LAST;"
-
-    def get_checkout_sql(
-        self, schema: Optional[str] = None, database: Optional[str] = None
-    ):
-        return f"ALTER STREAMLIT {self._get_identifier(schema,database)} CHECKOUT;"
 
     def get_deploy_sql(
         self,
@@ -172,7 +167,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         else:
             query = "CREATE STREAMLIT"
 
-        query += f" {self._get_identifier(schema, database)}"
+        query += f" {self._get_sql_identifier(schema, database)}"
 
         if from_stage_name:
             query += f"\nROOT_LOCATION = '{from_stage_name}'"
@@ -207,13 +202,15 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         return query + ";"
 
     def get_describe_sql(self) -> str:
-        return f"DESCRIBE STREAMLIT {self._get_identifier()};"
+        return f"DESCRIBE STREAMLIT {self._get_sql_identifier()};"
 
     def get_share_sql(self, to_role: str) -> str:
-        return f"GRANT USAGE ON STREAMLIT {self._get_identifier()} TO ROLE {to_role};"
+        return (
+            f"GRANT USAGE ON STREAMLIT {self._get_sql_identifier()} TO ROLE {to_role};"
+        )
 
     def get_execute_sql(self):
-        return f"EXECUTE STREAMLIT {self._get_identifier()}();"
+        return f"EXECUTE STREAMLIT {self._get_sql_identifier()}();"
 
     def get_usage_grant_sql(self, app_role: str, schema: Optional[str] = None) -> str:
         entity_id = self.entity_id
@@ -239,26 +236,15 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             )
         )
         try:
-            if GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled():
-                self._execute_query(self.get_add_live_version_sql())
-            elif not GlobalFeatureFlag.ENABLE_STREAMLIT_NO_CHECKOUTS.is_enabled():
-                self._execute_query(self.get_checkout_sql())
+            self._execute_query(self.get_add_live_version_sql())
         except ProgrammingError as e:
-            if "Checkout already exists" in str(
-                e
-            ) or "There is already a live version" in str(e):
-                log.info("Checkout already exists, continuing")
+            if "There is already a live version" in str(e):
+                log.info("Live version already exists, continuing")
             else:
                 raise
 
-        embeded_stage_name = (
-            f"snow://streamlit/{self.model.fqn.using_connection(self._conn).identifier}"
-        )
-
-        if GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled():
-            stage_root = f"{embeded_stage_name}/versions/live"
-        else:
-            stage_root = f"{embeded_stage_name}/default_checkout"
+        stage_root = self.describe().fetchone()["live_version_location_uri"]
+        stage_path_parts = StageManager().stage_path_parts_from_str(stage_root)
 
         sync_deploy_root_with_stage(
             console=self._workspace_ctx.console,
@@ -266,6 +252,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             bundle_map=bundle_map,
             prune=prune,
             recursive=True,
-            stage_path=StageManager().stage_path_parts_from_str(stage_root),
+            stage_path_parts=stage_path_parts,
             print_diff=True,
+            force_overwrite=True,  # files copied to streamlit vstage need to be overwritten
         )

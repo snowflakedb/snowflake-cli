@@ -246,7 +246,7 @@ def test_deploy(
         role="app_role",
         prune=False,
         recursive=False,
-        stage_path=DefaultStagePathParts.from_fqn("pkg.app_src.stage"),
+        stage_path_parts=DefaultStagePathParts.from_fqn("pkg.app_src.stage"),
         local_paths_to_sync=["a/b", "c"],
         print_diff=True,
     )
@@ -347,7 +347,7 @@ def test_deploy_w_stage_subdir(
         role="app_role",
         prune=False,
         recursive=False,
-        stage_path=DefaultStagePathParts.from_fqn("pkg.app_src.stage", "v1"),
+        stage_path_parts=DefaultStagePathParts.from_fqn("pkg.app_src.stage", "v1"),
         local_paths_to_sync=["a/b", "c"],
         print_diff=True,
     )

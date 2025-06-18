@@ -9,6 +9,7 @@ from snowflake.cli.api.project.util import (
 )
 
 USER_STAGE_PREFIX = "~"
+SNOW_PREFIX = "snow://"
 
 
 class StagePath:
@@ -19,6 +20,7 @@ class StagePath:
         git_ref: str | None = None,
         trailing_slash: bool = False,
     ):
+        self._is_snow_prefixed_stage = stage_name.startswith(SNOW_PREFIX)
         self._stage_name = self.strip_stage_prefixes(stage_name)
         self._path = PurePosixPath(path) if path else PurePosixPath(".")
 
@@ -53,6 +55,10 @@ class StagePath:
     def stage_with_at(self) -> str:
         return self.add_at_prefix(self._stage_name)
 
+    @property
+    def stage_with_snow(self) -> str:
+        return self.add_snow_prefix(self._stage_name)
+
     def is_user_stage(self) -> bool:
         return self._is_user_stage
 
@@ -70,6 +76,12 @@ class StagePath:
         return text
 
     @staticmethod
+    def add_snow_prefix(text: str):
+        if not text.startswith(SNOW_PREFIX):
+            return SNOW_PREFIX + text
+        return text
+
+    @staticmethod
     def strip_at_prefix(text: str):
         if text.startswith("@"):
             return text[1:]
@@ -77,8 +89,8 @@ class StagePath:
 
     @staticmethod
     def strip_snow_prefix(text: str):
-        if text.startswith("snow://"):
-            return text[len("snow://") :]
+        if text.startswith(SNOW_PREFIX):
+            return text[len(SNOW_PREFIX) :]
         return text
 
     @classmethod
@@ -86,8 +98,15 @@ class StagePath:
         return cls.strip_at_prefix(cls.strip_snow_prefix(text))
 
     @classmethod
-    def from_stage_str(cls, stage_str: str | FQN):
+    def from_stage_str(cls, stage_str: str | FQN) -> StagePath:
+        _is_at_prefixed = str(stage_str).startswith("@")
+        _is_snow_prefixed = str(stage_str).startswith(SNOW_PREFIX)
         stage_str = cls.strip_stage_prefixes(str(stage_str))
+        if _is_snow_prefixed:
+            resource_type = stage_str.split("/", maxsplit=1)[0]
+            stage_str = stage_str.removeprefix(resource_type + "/")
+        else:
+            resource_type = ""
         parts = stage_str.split("/", maxsplit=1)
         parts = [p for p in parts if p]
         if len(parts) == 2:
@@ -95,9 +114,14 @@ class StagePath:
         else:
             stage_string = parts[0]
             path = None
-        return cls(
+        if _is_at_prefixed:
+            stage_string = cls.add_at_prefix(stage_string)
+        if _is_snow_prefixed:
+            stage_string = cls.add_snow_prefix(resource_type + "/" + stage_string)
+        stage_path = cls(
             stage_name=stage_string, path=path, trailing_slash=stage_str.endswith("/")
         )
+        return stage_path
 
     @classmethod
     def from_git_str(cls, git_str: str):
@@ -105,9 +129,15 @@ class StagePath:
         @configuration_repo / branches/main  / scripts/setup.sql
         @configuration_repo / branches/"foo/main"  / scripts/setup.sql
         """
+        _is_at_prefixed = git_str.startswith("@")
+        _is_snow_prefixed = git_str.startswith(SNOW_PREFIX)
         repo_name, git_ref, path = cls._split_repo_path(
             cls.strip_stage_prefixes(git_str)
         )
+        if _is_at_prefixed:
+            repo_name = cls.add_at_prefix(repo_name)
+        if _is_snow_prefixed:
+            repo_name = cls.add_snow_prefix(repo_name)
         return cls(
             stage_name=repo_name,
             path=path,
@@ -150,7 +180,9 @@ class StagePath:
             path = path / self._path
 
         str_path = str(path)
-        if at_prefix:
+        if self._is_snow_prefixed_stage:
+            str_path = self.add_snow_prefix(str_path)
+        elif at_prefix:
             str_path = self.add_at_prefix(str_path)
 
         if self._trailing_slash:

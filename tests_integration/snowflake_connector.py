@@ -24,6 +24,7 @@ import pytest
 from snowflake import connector
 from snowflake.cli.api.exceptions import EnvironmentVariableNotFoundError
 from snowflake.cli._app.snow_connector import update_connection_details_with_private_key
+from snowflake.connector import SnowflakeConnection
 
 _ENV_PARAMETER_PREFIX = "SNOWFLAKE_CONNECTIONS_INTEGRATION"
 SCHEMA_ENV_PARAMETER = f"{_ENV_PARAMETER_PREFIX}_SCHEMA"
@@ -88,7 +89,7 @@ def test_role(snowflake_session):
 
 
 @pytest.fixture(scope="session")
-def snowflake_session():
+def snowflake_session() -> SnowflakeConnection:
     config = {
         "application": "INTEGRATION_TEST",
         "authenticator": "SNOWFLAKE_JWT",

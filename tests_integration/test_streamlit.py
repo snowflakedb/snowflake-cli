@@ -9,9 +9,12 @@ APP_1 = "app_1"
 
 @pytest.mark.integration
 def test_streamlit_flow(
-    _streamlit_test_steps, project_directory, test_database, alter_snowflake_yml
+    _streamlit_test_steps,
+    project_directory,
+    test_database,
+    snowflake_session,
+    alter_snowflake_yml,
 ):
-
     database = test_database.upper()
     with project_directory("streamlit_v2"):
         _streamlit_test_steps.list_streamlit_should_return_empty_list()
@@ -19,8 +22,9 @@ def test_streamlit_flow(
         _streamlit_test_steps.deploy_should_result_in_error_as_there_are_multiple_entities_in_project_file()
 
         _streamlit_test_steps.deploy_with_entity_id_specified_should_succeed(
-            "app_1", database
+            "app_1", snowflake_session
         )
+
         _streamlit_test_steps.assert_that_only_those_files_were_uploaded(
             ["app_1_stage/app_1/app_1.py", "app_1_stage/app_1/streamlit_app.py"],
             f"{database}.public.app_1_stage",
@@ -30,10 +34,10 @@ def test_streamlit_flow(
         )
 
         _streamlit_test_steps.another_deploy_without_replace_flag_should_end_with_error(
-            "app_1", database
+            "app_1", snowflake_session
         )
         _streamlit_test_steps.another_deploy_with_replace_flag_should_succeed(
-            "app_1", database
+            "app_1", snowflake_session
         )
 
         _streamlit_test_steps.assert_that_only_those_entities_are_listed(
@@ -46,14 +50,69 @@ def test_streamlit_flow(
         )
 
         _streamlit_test_steps.streamlit_describe_should_show_proper_streamlit(
-            APP_1, database
+            APP_1, snowflake_session
         )
 
-        _streamlit_test_steps.get_url_should_give_proper_url(APP_1, database)
+        _streamlit_test_steps.get_url_should_give_proper_url(APP_1, snowflake_session)
 
-        _streamlit_test_steps.execute_should_run_streamlit(APP_1, database)
+        _streamlit_test_steps.execute_should_run_streamlit(APP_1, snowflake_session)
 
-        _streamlit_test_steps.drop_should_succeed(APP_1, database)
+        _streamlit_test_steps.drop_should_succeed(APP_1, snowflake_session)
+
+        _streamlit_test_steps.list_streamlit_should_return_empty_list()
+
+
+@pytest.mark.integration
+def test_streamlit_experimental_flow(
+    _streamlit_test_steps,
+    project_directory,
+    test_database,
+    snowflake_session,
+    alter_snowflake_yml,
+):
+    database = test_database.upper()
+    with project_directory("streamlit_v2"):
+        _streamlit_test_steps.list_streamlit_should_return_empty_list()
+
+        _streamlit_test_steps.deploy_should_result_in_error_as_there_are_multiple_entities_in_project_file()
+
+        _streamlit_test_steps.deploy_with_entity_id_specified_should_succeed(
+            "app_1", snowflake_session, experimental=True
+        )
+
+        stage_root = f"snow://streamlit/{snowflake_session.database}.{snowflake_session.schema}.app_1/versions/live/"
+
+        _streamlit_test_steps.assert_that_only_those_files_were_uploaded(
+            ["app_1.py", "streamlit_app.py"], stage_root, uploaded_to_live_version=True
+        )
+        _streamlit_test_steps.assert_that_only_those_entities_are_listed(
+            [f"{database}.PUBLIC.APP_1"], "APP_1"
+        )
+
+        _streamlit_test_steps.another_deploy_without_replace_flag_should_end_with_error(
+            "app_1", snowflake_session
+        )
+        _streamlit_test_steps.another_deploy_with_replace_flag_should_succeed(
+            "app_1", snowflake_session, experimental=True
+        )
+
+        _streamlit_test_steps.assert_that_only_those_entities_are_listed(
+            [f"{database}.PUBLIC.APP_1"], "APP_1"
+        )
+
+        _streamlit_test_steps.assert_that_only_those_files_were_uploaded(
+            ["app_1.py", "streamlit_app.py"], stage_root, uploaded_to_live_version=True
+        )
+
+        _streamlit_test_steps.streamlit_describe_should_show_proper_streamlit(
+            APP_1, snowflake_session
+        )
+
+        _streamlit_test_steps.get_url_should_give_proper_url(APP_1, snowflake_session)
+
+        _streamlit_test_steps.execute_should_run_streamlit(APP_1, snowflake_session)
+
+        _streamlit_test_steps.drop_should_succeed(APP_1, snowflake_session)
 
         _streamlit_test_steps.list_streamlit_should_return_empty_list()
 
