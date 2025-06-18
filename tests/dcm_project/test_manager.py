@@ -116,6 +116,38 @@ def test_execute_project(mock_execute_query):
 
 
 @mock.patch(execute_queries)
+def test_execute_project_with_from_stage(mock_execute_query):
+    mgr = ProjectManager()
+    mgr.execute(
+        project_name=TEST_PROJECT,
+        from_stage="@my_stage",
+        variables=["key=value", "aaa=bbb"],
+        configuration="some_configuration",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
+        " (key=>value, aaa=>bbb) FROM @my_stage"
+    )
+
+
+@mock.patch(execute_queries)
+def test_execute_project_with_from_stage_without_prefix(mock_execute_query):
+    mgr = ProjectManager()
+    mgr.execute(
+        project_name=TEST_PROJECT,
+        from_stage="my_stage",
+        variables=["key=value", "aaa=bbb"],
+        configuration="some_configuration",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
+        " (key=>value, aaa=>bbb) FROM @my_stage"
+    )
+
+
+@mock.patch(execute_queries)
 def test_execute_project_with_default_version(mock_execute_query, project_directory):
     mgr = ProjectManager()
 
@@ -139,6 +171,22 @@ def test_validate_project(mock_execute_query, project_directory):
     mock_execute_query.assert_called_once_with(
         query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
         " WITH VERSION v42 DRY_RUN=TRUE"
+    )
+
+
+@mock.patch(execute_queries)
+def test_validate_project_with_from_stage(mock_execute_query, project_directory):
+    mgr = ProjectManager()
+    mgr.execute(
+        project_name=TEST_PROJECT,
+        from_stage="@my_stage",
+        dry_run=True,
+        configuration="some_configuration",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
+        " FROM @my_stage DRY_RUN=TRUE"
     )
 
 

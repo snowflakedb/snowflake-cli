@@ -141,9 +141,41 @@ def test_execute_project(mock_pm, runner, project_directory, mock_cursor):
     mock_pm().execute.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
         version=None,
+        from_stage=None,
         variables=None,
         configuration=None,
     )
+
+
+@mock.patch(ProjectManager)
+def test_execute_project_with_from_stage(
+    mock_pm, runner, project_directory, mock_cursor
+):
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
+    result = runner.invoke(["project", "execute", "fooBar", "--from", "@my_stage"])
+    assert result.exit_code == 0, result.output
+
+    mock_pm().execute.assert_called_once_with(
+        project_name=FQN.from_string("fooBar"),
+        version=None,
+        from_stage="@my_stage",
+        variables=None,
+        configuration=None,
+    )
+
+
+@mock.patch(ProjectManager)
+def test_execute_project_version_and_from_stage_mutually_exclusive(
+    mock_pm, runner, project_directory, mock_cursor
+):
+    result = runner.invoke(
+        ["project", "execute", "fooBar", "--version", "v1", "--from", "@my_stage"]
+    )
+    assert result.exit_code == 1, result.output
+    assert "--version and --from are mutually exclusive" in result.output
+
+    mock_pm().execute.assert_not_called()
 
 
 @mock.patch(ProjectManager)
@@ -160,6 +192,7 @@ def test_execute_project_with_variables(
     mock_pm().execute.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
         version="v1",
+        from_stage=None,
         variables=["key=value"],
         configuration=None,
     )
@@ -180,6 +213,7 @@ def test_execute_project_with_configuration(
         project_name=FQN.from_string("fooBar"),
         configuration="some_configuration",
         version=None,
+        from_stage=None,
         variables=None,
     )
 
@@ -206,10 +240,63 @@ def test_validate_project(mock_pm, runner, project_directory, mock_cursor):
     mock_pm().execute.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
         version="v1",
+        from_stage=None,
         dry_run=True,
         variables=["key=value"],
         configuration="some_configuration",
     )
+
+
+@mock.patch(ProjectManager)
+def test_validate_project_with_from_stage(
+    mock_pm, runner, project_directory, mock_cursor
+):
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
+    result = runner.invoke(
+        [
+            "project",
+            "dry-run",
+            "fooBar",
+            "--from",
+            "@my_stage",
+            "-D",
+            "key=value",
+            "--configuration",
+            "some_configuration",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+
+    mock_pm().execute.assert_called_once_with(
+        project_name=FQN.from_string("fooBar"),
+        version=None,
+        from_stage="@my_stage",
+        dry_run=True,
+        variables=["key=value"],
+        configuration="some_configuration",
+    )
+
+
+@mock.patch(ProjectManager)
+def test_validate_project_version_and_from_stage_mutually_exclusive(
+    mock_pm, runner, project_directory, mock_cursor
+):
+    result = runner.invoke(
+        [
+            "project",
+            "dry-run",
+            "fooBar",
+            "--version",
+            "v1",
+            "--from",
+            "@my_stage",
+        ]
+    )
+    assert result.exit_code == 1, result.output
+    assert "--version and --from are mutually exclusive" in result.output
+
+    mock_pm().execute.assert_not_called()
 
 
 def test_list_command_alias(mock_connect, runner):
