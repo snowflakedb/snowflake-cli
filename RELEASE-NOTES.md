@@ -30,6 +30,7 @@
 
 ## Fixes and improvements
 * Fixed failing snow sql command when snowflake.yml is invalid and query has no templating.
+* Refactored Streamlit app deployment and management code; removed deprecated Streamlit features and improved handling of default warehouse deprecation warnings.
 
 # v3.9.1
 
