@@ -137,9 +137,6 @@ class StagePathParts:
             return path + "/"
         return path
 
-    def strip_stage_prefix(self, path: str):
-        raise NotImplementedError
-
 
 def _strip_standard_stage_prefix(path: str) -> str:
     """Removes '@' or 'snow://' prefix from given string"""
@@ -195,17 +192,6 @@ class DefaultStagePathParts(StagePathParts):
     @property
     def schema(self) -> str | None:
         return self._schema
-
-    def replace_stage_prefix(self, file_path: str) -> str:
-        file_path = _strip_standard_stage_prefix(file_path)
-        file_path_without_prefix = Path(file_path).parts[OMIT_FIRST]
-        return f"{self.stage}/{'/'.join(file_path_without_prefix)}"
-
-    def strip_stage_prefix(self, file_path: str) -> str:
-        file_path = _strip_standard_stage_prefix(file_path)
-        if file_path.startswith(self.stage_name):
-            return file_path[len(self.stage_name) :]
-        return file_path
 
     def add_stage_prefix(self, file_path: str) -> str:
         stage = self.stage.rstrip("/")
@@ -272,11 +258,6 @@ class UserStagePathParts(StagePathParts):
     @property
     def full_path(self) -> str:
         return f"{self.stage}/{self.directory}".rstrip("/")
-
-    def replace_stage_prefix(self, file_path: str) -> str:
-        if Path(file_path).parts[0] == self.stage_name:
-            return file_path
-        return f"{self.stage}/{file_path}"
 
     def add_stage_prefix(self, file_path: str) -> str:
         return f"{self.stage}/{file_path}"

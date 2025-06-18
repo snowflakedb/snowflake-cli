@@ -64,11 +64,6 @@ class GitStagePathParts(StagePathParts):
     def full_path(self) -> str:
         return f"{self.stage.rstrip('/')}/{self.directory}"
 
-    def replace_stage_prefix(self, file_path: str) -> str:
-        stage = Path(self.stage).parts[0]
-        file_path_without_prefix = Path(file_path).parts[OMIT_FIRST]
-        return f"{stage}/{'/'.join(file_path_without_prefix)}"
-
     def add_stage_prefix(self, file_path: str) -> str:
         stage = self.stage.rstrip("/")
         return f"{stage}/{file_path.lstrip('/')}"
