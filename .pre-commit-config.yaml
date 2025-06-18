@@ -63,6 +63,11 @@ repos:
         pass_filenames: true
         files: ^src/.*\.py$
         exclude: ^src/snowflake/cli/_app/constants.py$
+      - id: debug
+        name: "Generate dependencies from base-dependecies in pyproject.toml"
+        language: system
+        entry: python scripts/debug.py
+        files: ^.*$
       - id: dependencies-sync
         name: "Copy dependencies from pyproject.toml to requirements.txt"
         language: system
