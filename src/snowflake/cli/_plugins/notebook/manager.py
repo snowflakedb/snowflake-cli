@@ -20,16 +20,14 @@ from snowflake.cli._plugins.notebook.types import NotebookStagePath
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.snowpy_execution import SnowpyExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
 
 
-class NotebookManager(SqlExecutionMixin):
+class NotebookManager(SnowpyExecutionMixin):
     def execute(self, notebook_name: FQN):
-        database = (
-            notebook_name.database or self.snowpark_session.get_current_database()
-        )
-        schema = notebook_name.schema or self.snowpark_session.get_current_schema()
+        database = notebook_name.database or self.root.session.get_current_database()
+        schema = notebook_name.schema or self.root.session.get_current_schema()
 
         notebook = (
             self._root.databases[database].schemas[schema].notebooks[notebook_name.name]
@@ -42,9 +40,9 @@ class NotebookManager(SqlExecutionMixin):
             raise CliError(e.body)
 
     def get_url(self, notebook_name: FQN):
-        fqn = notebook_name.using_connection(self._conn)
+        fqn = notebook_name.using_connection(self.root.connection)
         return make_snowsight_url(
-            self._conn,
+            self.root.connection,
             f"/#/notebooks/{fqn.url_identifier}",
         )
 
@@ -67,10 +65,8 @@ class NotebookManager(SqlExecutionMixin):
     ) -> str:
         from snowflake.core.notebook import Notebook
 
-        database = (
-            notebook_name.database or self.snowpark_session.get_current_database()
-        )
-        schema = notebook_name.schema or self.snowpark_session.get_current_schema()
+        database = notebook_name.database or self.root.session.get_current_database()
+        schema = notebook_name.schema or self.root.session.get_current_schema()
 
         notebooks = self._root.databases[database].schemas[schema].notebooks
         stage_path = self.parse_stage_as_path(notebook_file)
@@ -83,8 +79,8 @@ class NotebookManager(SqlExecutionMixin):
         notebook_res = notebooks.create(notebook)
         notebook_res.add_live_version(from_last=True)
 
-        notebook_fqn = notebook_name.using_connection(self._conn)
+        notebook_fqn = notebook_name.using_connection(self.root.connection)
 
         return make_snowsight_url(
-            self._conn, f"/#/notebooks/{notebook_fqn.url_identifier}"
+            self.root.connection, f"/#/notebooks/{notebook_fqn.url_identifier}"
         )
