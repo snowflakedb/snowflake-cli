@@ -32,7 +32,7 @@ from tempfile import TemporaryDirectory
 from textwrap import dedent
 from typing import Deque, Dict, Generator, List, Optional, Union
 
-from click import ClickException, UsageError
+from click import UsageError
 from snowflake.cli._plugins.snowpark.package_utils import parse_requirements
 from snowflake.cli.api.commands.common import (
     OnErrorType,
@@ -41,6 +41,7 @@ from snowflake.cli.api.commands.common import (
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import PYTHON_3_12
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
@@ -72,11 +73,10 @@ OMIT_FIRST = slice(1, None)
 STAGE_PATH_REGEX = rf"(?P<prefix>(@|{re.escape('snow://')}))?(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?P<name>{VALID_IDENTIFIER_REGEX})/?(?P<directory>([^/]*/?)*)?"
 
 # Define supported VSTAGE resource types
-VSTAGE_RESOURCE_TYPES = ("streamlit", "notebook")
-VSTAGE_RESOURCE_TYPES_REGEX = "|".join(map(re.escape, VSTAGE_RESOURCE_TYPES))
+VSTAGE_RESOURCE_TYPE_REGEX = r"[a-zA-Z0-9\-]+"
 VSTAGE_PATH_REGEX = (
     rf"(?P<prefix>{re.escape(SNOW_PREFIX)})"
-    rf"(?P<resource_type>{VSTAGE_RESOURCE_TYPES_REGEX})/?"
+    rf"(?P<resource_type>{VSTAGE_RESOURCE_TYPE_REGEX})/"
     rf"(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?"
     rf"(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?"
     rf"(?P<name>{VALID_IDENTIFIER_REGEX})/?"
@@ -156,7 +156,7 @@ class DefaultStagePathParts(StagePathParts):
     def __init__(self, stage_path: str):
         match = re.fullmatch(STAGE_PATH_REGEX, stage_path)
         if match is None:
-            raise ClickException("Invalid stage path")
+            raise CliError("Invalid stage path")
         self.directory = match.group("directory")
         self._schema = match.group("second_qualifier") or match.group("first_qualifier")
         self._prefix = match.group("prefix") or AT_PREFIX
@@ -196,8 +196,8 @@ class DefaultStagePathParts(StagePathParts):
 class VStagePathParts(StagePathParts):
     def __init__(self, stage_path: str):
         match = re.fullmatch(VSTAGE_PATH_REGEX, stage_path)
-        if match is None:
-            raise ClickException("Invalid vstage path")
+        if match is None or not match.group("resource_type") or not match.group("name"):
+            raise CliError("Invalid vstage path")
         self.resource_type = match.group("resource_type")
         self.directory = match.group("directory")
         self._schema = match.group("second_qualifier") or match.group("first_qualifier")
@@ -525,7 +525,7 @@ class StageManager(SqlExecutionMixin):
         destination_stage_path = StagePath.from_stage_str(destination_path)
 
         if destination_stage_path.is_user_stage():
-            raise ClickException(
+            raise CliError(
                 "Destination path cannot be a user stage. Please provide a named stage."
             )
 
@@ -594,7 +594,7 @@ class StageManager(SqlExecutionMixin):
 
         all_files_list = self._get_files_list_from_stage(stage_path.root_path())
         if not all_files_list:
-            raise ClickException(f"No files found on stage '{stage_path}'")
+            raise CliError(f"No files found on stage '{stage_path}'")
 
         all_files_with_stage_name_prefix = [
             stage_path_parts.get_directory(file) for file in all_files_list
@@ -606,7 +606,7 @@ class StageManager(SqlExecutionMixin):
         )
 
         if not filtered_file_list:
-            raise ClickException(f"No files matched pattern '{stage_path}'")
+            raise CliError(f"No files matched pattern '{stage_path}'")
 
         # sort filtered files in alphabetical order with directories at the end
         sorted_file_path_list = sorted(
@@ -700,7 +700,7 @@ class StageManager(SqlExecutionMixin):
             if filtered_files:
                 return filtered_files
             else:
-                raise ClickException(
+                raise CliError(
                     f"Invalid file extension, only {', '.join(EXECUTE_SUPPORTED_FILES_FORMATS)} files are allowed."
                 )
         # Filter with fnmatch if contains `*` or `?`
@@ -824,7 +824,7 @@ class StageManager(SqlExecutionMixin):
     def _bootstrap_snowpark_execution_environment(self, stage_path: StagePath):
         """Prepares Snowpark session for executing Python code remotely."""
         if sys.version_info >= PYTHON_3_12:
-            raise ClickException(
+            raise CliError(
                 f"Executing Python files is not supported in Python >= 3.12. Current version: {sys.version}"
             )
 

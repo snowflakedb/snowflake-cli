@@ -3,8 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from click import ClickException
 from snowflake.cli._plugins.stage.manager import DefaultStagePathParts, VStagePathParts
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.stage_path import StagePath
 
 # (path, is_git_repo)
@@ -587,7 +587,7 @@ def test_vstage_path_parts_properties(
 @pytest.mark.parametrize(
     "invalid_path",
     [
-        "snow://invalid_resource/name",
+        "snow://invalid@resource/name",
         "snow://streamlit",  # Missing name
         "regular_stage/path",
         "@stage/path",
@@ -597,5 +597,5 @@ def test_vstage_path_parts_properties(
     ],
 )
 def test_vstage_path_parts_invalid_paths(invalid_path):
-    with pytest.raises(ClickException, match="Invalid vstage path"):
+    with pytest.raises(CliError, match="Invalid vstage path"):
         VStagePathParts(invalid_path)
