@@ -19,13 +19,11 @@ from snowflake.cli._plugins.notebook.exceptions import NotebookFilePathError
 from snowflake.cli._plugins.notebook.types import NotebookStagePath
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
 
 
-class NotebookManager:
-    _root = get_cli_context().snow_api_root
-    _conn = get_cli_context().connection
-
+class NotebookManager(SqlExecutionMixin):
     def execute(self, notebook_name: FQN):
         notebook = (
             self._root.databases[notebook_name.database]

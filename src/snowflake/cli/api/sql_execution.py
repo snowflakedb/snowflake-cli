@@ -41,6 +41,7 @@ from snowflake.cli.api.utils.cursor import find_first_row
 from snowflake.connector import SnowflakeConnection
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 from snowflake.connector.errors import ProgrammingError
+from snowflake.core import Root
 
 
 class BaseSqlExecutor:
@@ -60,6 +61,10 @@ class BaseSqlExecutor:
         if self._connection:
             return self._connection
         return get_cli_context().connection
+
+    @property
+    def _root(self) -> Root:
+        return get_cli_context().snow_api_root
 
     @cached_property
     def _log(self):
