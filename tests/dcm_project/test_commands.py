@@ -359,6 +359,41 @@ def test_drop_version(mock_pm, runner, if_exists):
     )
 
 
+@mock.patch(ProjectManager)
+@pytest.mark.parametrize(
+    "version_name,should_warn",
+    [
+        ("version", True),
+        ("VERSION", True),
+        ("Version", True),
+        ("VERSION$1", False),
+        ("v1", False),
+        ("my_version", False),
+        ("version1", False),
+        ("actual_version", False),
+    ],
+)
+def test_drop_version_shell_expansion_warning(
+    mock_pm, runner, version_name, should_warn
+):
+    """Test that warning is displayed for version names that look like shell expansion results."""
+    result = runner.invoke(["project", "drop-version", "fooBar", version_name])
+
+    assert result.exit_code == 0, result.output
+
+    if should_warn:
+        assert "might be truncated due to shell expansion" in result.output
+        assert "try using single quotes" in result.output
+    else:
+        assert "might be truncated due to shell expansion" not in result.output
+
+    mock_pm().drop_version.assert_called_once_with(
+        project_name=FQN.from_string("fooBar"),
+        version_name=version_name,
+        if_exists=False,
+    )
+
+
 def test_drop_project(mock_connect, runner):
     result = runner.invoke(
         [

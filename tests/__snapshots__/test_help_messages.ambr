@@ -10196,7 +10196,9 @@
   | *    identifier        TEXT  Identifier of the project; for example:         |
   |                              MY_PROJECT                                      |
   |                              [required]                                      |
-  | *    version_name      TEXT  Name or alias of the version to drop            |
+  | *    version_name      TEXT  Name or alias of the version to drop. For names |
+  |                              containing '$', use single quotes to prevent    |
+  |                              shell expansion (e.g., 'VERSION$1')             |
   |                              [required]                                      |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -10457,9 +10459,9 @@
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --version                TEXT  Version of the project to use. If not         |
-  |                                specified default version is used.            |
-  | --from                   TEXT  Execute project from given stage instead of   |
-  |                                using a specific version.                     |
+  |                                specified default version is used. For names  |
+  |                                containing '$', use single quotes to prevent  |
+  |                                shell expansion (e.g., 'VERSION$1').          |
   | --variable       -D      TEXT  Variables for the execution context; for      |
   |                                example: -D "<key>=<value>".                  |
   | --configuration          TEXT  Configuration of the project to use. If not   |
@@ -10593,9 +10595,9 @@
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --version                TEXT  Version of the project to use. If not         |
-  |                                specified default version is used.            |
-  | --from                   TEXT  Execute project from given stage instead of   |
-  |                                using a specific version.                     |
+  |                                specified default version is used. For names  |
+  |                                containing '$', use single quotes to prevent  |
+  |                                shell expansion (e.g., 'VERSION$1').          |
   | --variable       -D      TEXT  Variables for the execution context; for      |
   |                                example: -D "<key>=<value>".                  |
   | --configuration          TEXT  Configuration of the project to use. If not   |
