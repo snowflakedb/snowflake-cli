@@ -305,3 +305,111 @@ def test_project_add_version_without_create_fails(
         result = runner.invoke_with_connection_json(["project", "create"])
         assert result.exit_code == 0, result.output
         assert does_stage_exist(runner, default_stage_name) is True
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_project_execute_from_stage(
+    runner,
+    test_database,
+    project_directory,
+):
+    project_name = "project_descriptive_name"
+    entity_id = "my_project"
+    other_stage_name = "other_project_stage"
+
+    with project_directory("dcm_project") as project_root:
+        # Create a new project
+        result = runner.invoke_with_connection(["project", "create", entity_id])
+        assert result.exit_code == 0, result.output
+        _assert_project_has_versions(
+            runner, project_name, expected_versions={("VERSION$1", None)}
+        )
+
+        # Edit file_a.sql to add a second table definition
+        file_a_path = project_root / "file_a.sql"
+        original_content = file_a_path.read_text()
+        modified_content = (
+            original_content
+            + "\ndefine table identifier('{{ table_name }}_SECOND') (id int, name string);\n"
+        )
+        file_a_path.write_text(modified_content)
+
+        # Create another stage and upload files there
+        result = runner.invoke_with_connection(["stage", "create", other_stage_name])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(
+            ["stage", "copy", ".", f"@{other_stage_name}"]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Test dry-run from stage
+        result = runner.invoke_with_connection_json(
+            [
+                "project",
+                "dry-run",
+                project_name,
+                "--from",
+                f"@{other_stage_name}",
+                "-D",
+                f"table_name='{test_database}.PUBLIC.MyTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        # Assert that both tables are mentioned in the output
+        output_str = str(result.json)
+        assert f"{test_database}.PUBLIC.MYTABLE".upper() in output_str.upper()
+        assert f"{test_database}.PUBLIC.MYTABLE_SECOND".upper() in output_str.upper()
+
+        # Verify that the second table does not exist after dry-run
+        table_check_result = runner.invoke_with_connection_json(
+            [
+                "object",
+                "list",
+                "table",
+                "--like",
+                "MYTABLE_SECOND",
+                "--in",
+                "database",
+                test_database,
+            ]
+        )
+        assert table_check_result.exit_code == 0
+        assert len(table_check_result.json) == 0, "Table should not exist after dry-run"
+
+        # Test execute from stage
+        result = runner.invoke_with_connection_json(
+            [
+                "project",
+                "execute",
+                project_name,
+                "--from",
+                f"@{other_stage_name}",
+                "-D",
+                f"table_name='{test_database}.PUBLIC.MyTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        # Assert that both tables are mentioned in the output
+        output_str = str(result.json)
+        assert f"{test_database}.PUBLIC.MYTABLE".upper() in output_str.upper()
+        assert f"{test_database}.PUBLIC.MYTABLE_SECOND".upper() in output_str.upper()
+
+        # Verify that the second table actually exists after execute
+        table_check_result = runner.invoke_with_connection_json(
+            [
+                "object",
+                "list",
+                "table",
+                "--like",
+                "MYTABLE_SECOND",
+                "--in",
+                "database",
+                test_database,
+            ]
+        )
+        assert table_check_result.exit_code == 0
+        assert (
+            "MYTABLE_SECOND" == table_check_result.json[0]["name"]
+        ), "Table should exist after execute"

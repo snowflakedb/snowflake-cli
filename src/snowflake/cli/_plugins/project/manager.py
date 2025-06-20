@@ -33,6 +33,7 @@ class ProjectManager(SqlExecutionMixin):
         project_name: FQN,
         configuration: str | None = None,
         version: str | None = None,
+        from_stage: str | None = None,
         variables: List[str] | None = None,
         dry_run: bool = False,
     ):
@@ -47,6 +48,9 @@ class ProjectManager(SqlExecutionMixin):
             ).removeprefix(" using")
         if version:
             query += f" WITH VERSION {version}"
+        elif from_stage:
+            stage_path = StagePath.from_stage_str(from_stage)
+            query += f" FROM {stage_path.absolute_path()}"
         if dry_run:
             query += " DRY_RUN=TRUE"
         return self.execute_query(query=query)

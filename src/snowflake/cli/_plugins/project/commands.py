@@ -71,7 +71,6 @@ configuration_flag = typer.Option(
 from_option = OverrideableOption(
     None,
     "--from",
-    help="Create a new version using given stage instead of uploading local files.",
     show_default=False,
 )
 
@@ -81,7 +80,7 @@ add_object_command_aliases(
     object_type=ObjectType.PROJECT,
     name_argument=project_identifier,
     like_option=like_option(
-        help_example='`list --like "my%"` lists all projects that begin with “my”'
+        help_example='`list --like "my%"` lists all projects that begin with "my"'
     ),
     scope_option=scope_option(help_example="`list --in database my_db`"),
     ommit_commands=["create", "describe"],
@@ -92,6 +91,9 @@ add_object_command_aliases(
 def execute(
     identifier: FQN = project_identifier,
     version: Optional[str] = version_flag,
+    from_stage: Optional[str] = from_option(
+        help="Execute project from given stage instead of using a specific version"
+    ),
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
     **options,
@@ -99,10 +101,14 @@ def execute(
     """
     Executes a project.
     """
+    if version and from_stage:
+        raise CliError("--version and --from are mutually exclusive")
+
     result = ProjectManager().execute(
         project_name=identifier,
         configuration=configuration,
         version=version,
+        from_stage=from_stage,
         variables=variables,
     )
     return QueryJsonValueResult(result)
@@ -112,6 +118,9 @@ def execute(
 def dry_run(
     identifier: FQN = project_identifier,
     version: Optional[str] = version_flag,
+    from_stage: Optional[str] = from_option(
+        help="Execute project from given stage instead of using a specific version"
+    ),
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
     **options,
@@ -119,10 +128,14 @@ def dry_run(
     """
     Validates a project.
     """
+    if version and from_stage:
+        raise CliError("--version and --from are mutually exclusive")
+
     result = ProjectManager().execute(
         project_name=identifier,
         configuration=configuration,
         version=version,
+        from_stage=from_stage,
         dry_run=True,
         variables=variables,
     )
@@ -181,7 +194,9 @@ def create(
 @with_project_definition()
 def add_version(
     entity_id: str = entity_argument("project"),
-    _from: Optional[str] = from_option(),
+    _from: Optional[str] = from_option(
+        help="Create a new version using given stage instead of uploading local files"
+    ),
     _alias: Optional[str] = typer.Option(
         None, "--alias", help="Alias for the version.", show_default=False
     ),
