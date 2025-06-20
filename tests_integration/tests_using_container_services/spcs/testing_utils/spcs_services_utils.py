@@ -59,6 +59,8 @@ class SnowparkServicesTestSteps:
     def __init__(self, setup: SnowparkServicesTestSetup, another_database: str):
         self._setup = setup
         self.another_database = another_database
+        if another_database:
+            self.database = another_database
 
     def create_service(self, service_name: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
