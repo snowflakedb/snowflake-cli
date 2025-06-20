@@ -1714,7 +1714,7 @@ def test_if_excluding_version_of_anaconda_package_moves_it_to_other_requirements
             assert any("about_time" in name for name in zf.namelist())
 
 
-# @pytest.mark.integration
+@pytest.mark.integration
 def test_using_external_packages_from_package_repository(
     test_database, runner, project_directory, alter_snowflake_yml
 ):
