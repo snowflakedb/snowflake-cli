@@ -16,7 +16,7 @@ snowflake-snowpark-python>=1.15.0,<1.26.0;python_version < "3.12"
 snowflake.core==1.5.1
 tomlkit==0.13.3
 typer==0.16.0
-urllib3>=1.24.3,<2.5
+urllib3>=1.24.3,<2.6
 Faker==37.3.0
 coverage==7.8.0
 factory-boy==3.3.3
