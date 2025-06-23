@@ -22,7 +22,6 @@ from typing import List
 from venv import create as create_venv
 
 import tomlkit
-from tomlkit.items import Table, Trivia
 
 
 class PyprojectToml:
@@ -39,14 +38,16 @@ class PyprojectToml:
     ):
         original_contents = tomlkit.loads(self.PYPROJECT_TOML.read_text())
         new_contents = {"project": original_contents["project"]}
-        new_contents["project"]["dependencies"] = Table(
-            dependencies, trivia=Trivia(indent="  ")
-        )
+        new_contents["project"]["dependencies"] = dependencies
         path.write_text(tomlkit.dumps(new_contents))
 
     def write_generated_dependencies(self, dependencies: List[str]):
         contents = tomlkit.loads(self.PYPROJECT_TOML.read_text())
-        contents["project"]["dependencies"] = dependencies
+        contents["project"]["dependencies"] = tomlkit.array(
+            "[\n  # v-- section generated from cli.dependencies --v\n"
+            + "\n".join([f"  '{dep}'," for dep in dependencies])
+            + "\n  # ^-- section generated from cli.dependencies --^\n]"
+        )
         self.PYPROJECT_TOML.write_text(tomlkit.dumps(contents))
 
 
@@ -85,9 +86,7 @@ def recursively_generate_dependencies(
             ).stdout
 
         # parse uv output
-        dependency_regex = (
-            r".* (?P<name>[a-zA-Z].*) v(?P<version>[\.0-9]+)(?P<uv_comment>.*)"
-        )
+        dependency_regex = r".* (?P<name>[a-zA-Z].*) v(?P<version>[\.0-9a-zA-Z]+?)(?P<uv_comment>\s.*)?"
         ignored_comments = [
             "(*)",  # uv symbol for "repeated row"
             "(extra: development)",  # CLI deployment mode dependency
@@ -95,8 +94,8 @@ def recursively_generate_dependencies(
         ]
         dependencies = []
         for line in dependencies_raw.splitlines():
-            match = re.match(dependency_regex, line)
-            if not match or match.group("uv_comment").strip() in ignored_comments:
+            match = re.fullmatch(dependency_regex, line)
+            if not match or str(match.group("uv_comment")).strip() in ignored_comments:
                 continue
             dependencies.append(f"{match.group('name')}=={match.group('version')}")
 
