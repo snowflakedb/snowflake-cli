@@ -10326,7 +10326,9 @@
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --version                TEXT  Version of the project to use. If not         |
-  |                                specified default version is used             |
+  |                                specified default version is used.            |
+  | --from                   TEXT  Execute project from given stage instead of   |
+  |                                using a specific version.                     |
   | --variable       -D      TEXT  Variables for the execution context; for      |
   |                                example: -D "<key>=<value>".                  |
   | --configuration          TEXT  Configuration of the project to use. If not   |
@@ -10460,7 +10462,9 @@
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --version                TEXT  Version of the project to use. If not         |
-  |                                specified default version is used             |
+  |                                specified default version is used.            |
+  | --from                   TEXT  Execute project from given stage instead of   |
+  |                                using a specific version.                     |
   | --variable       -D      TEXT  Variables for the execution context; for      |
   |                                example: -D "<key>=<value>".                  |
   | --configuration          TEXT  Configuration of the project to use. If not   |
@@ -10718,7 +10722,7 @@
   +- Options --------------------------------------------------------------------+
   | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
   |                                 name. For example, list --like "my%" lists   |
-  |                                 all projects that begin with “my”.           |
+  |                                 all projects that begin with "my".           |
   |                                 [default: %%]                                |
   | --in            <TEXT TEXT>...                                               |
   |                                                                              |
