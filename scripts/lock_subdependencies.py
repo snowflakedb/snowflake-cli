@@ -22,6 +22,7 @@ from typing import List
 from venv import create as create_venv
 
 import tomlkit
+from tomlkit.items import Table, Trivia
 
 
 class PyprojectToml:
@@ -38,7 +39,9 @@ class PyprojectToml:
     ):
         original_contents = tomlkit.loads(self.PYPROJECT_TOML.read_text())
         new_contents = {"project": original_contents["project"]}
-        new_contents["project"]["dependencies"] = dependencies
+        new_contents["project"]["dependencies"] = Table(
+            dependencies, trivia=Trivia(indent="  ")
+        )
         path.write_text(tomlkit.dumps(new_contents))
 
     def write_generated_dependencies(self, dependencies: List[str]):
