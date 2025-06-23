@@ -132,14 +132,6 @@ class StagePathParts:
         return path
 
 
-def _strip_standard_stage_prefix(path: str) -> str:
-    """Removes '@' or 'snow://' prefix from given string"""
-    for prefix in [AT_PREFIX, SNOW_PREFIX]:
-        if path.startswith(prefix):
-            path = path.removeprefix(prefix)
-    return path
-
-
 @dataclass
 class DefaultStagePathParts(StagePathParts):
     """
@@ -197,7 +189,7 @@ class VStagePathParts(StagePathParts):
     def __init__(self, stage_path: str):
         match = re.fullmatch(VSTAGE_PATH_REGEX, stage_path)
         if match is None or not match.group("resource_type") or not match.group("name"):
-            raise CliError("Invalid vstage path")
+            raise CliError(f"Invalid vstage path: {stage_path}.")
         self.resource_type = match.group("resource_type")
         self.directory = match.group("directory")
         self._schema = match.group("second_qualifier") or match.group("first_qualifier")
