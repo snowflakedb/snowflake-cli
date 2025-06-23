@@ -361,14 +361,14 @@ def test_project_drop_version(
             runner, project_name, expected_versions={("VERSION$3", "THEDEFAULT")}
         )
 
-        # Try to drop the default version (should fail)
+        # Try to drop the default version
         result = runner.invoke_with_connection(
             ["project", "drop-version", project_name, "VERSION$3"]
         )
-        assert result.exit_code == 1, result.output
+        assert result.exit_code == 0, result.output
         assert (
-            f"Cannot drop version" in result.output
-            and "Version is default" in result.output
+            f"Version 'VERSION$3' dropped from project '{project_name}'"
+            in result.output
         )
 
         # Try to drop non-existent version without --if-exists (should fail)
