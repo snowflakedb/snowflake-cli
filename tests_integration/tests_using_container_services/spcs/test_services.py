@@ -61,11 +61,12 @@ def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str], test_datab
     test_steps.list_should_not_return_service(service_name)
 
 
-@pytest.mark.integration
+# @pytest.mark.integration
 def test_service_create_from_project_definition(
     _test_steps: Tuple[SnowparkServicesTestSteps, str],
     alter_snowflake_yml,
     project_directory,
+    test_database,
 ):
     test_steps, service_name = _test_steps
     stage = f"{service_name}_stage"
@@ -77,7 +78,7 @@ def test_service_create_from_project_definition(
         )
 
         test_steps.deploy_service(service_name)
-        test_steps.describe_should_return_service(service_name)
+        test_steps.describe_should_return_service(service_name, database=test_database)
 
         alter_snowflake_yml(
             "snowflake.yml",
@@ -100,6 +101,7 @@ def test_service_create_from_project_definition(
         test_steps.upgrade_service()
         test_steps.describe_should_return_service(
             service_name,
+            database=test_database,
             expected_values_contain={
                 "comment": "Upgraded service",
                 "spec": 'UPGRADED: "true"',

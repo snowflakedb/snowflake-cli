@@ -20,7 +20,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 import pytest
 from snowflake.connector import SnowflakeConnection
@@ -192,9 +192,12 @@ class SnowparkServicesTestSteps:
         assert not_contains_row_with(result.json, {"name": service_name.upper()})
 
     def describe_should_return_service(
-        self, service_name: str, expected_values_contain: Dict[str, str] = {}
+        self,
+        service_name: str,
+        database: Optional[str] = None,
+        expected_values_contain: Dict[str, str] = {},
     ) -> None:
-        result = self._execute_describe(service_name)
+        result = self._execute_describe(service_name, database)
         assert_that_result_is_successful(result)
         assert_that_result_is_successful_and_output_json_contains(
             result, {"name": service_name.upper()}
@@ -406,13 +409,13 @@ class SnowparkServicesTestSteps:
             ],
         )
 
-    def _execute_describe(self, service_name: str):
+    def _execute_describe(self, service_name: str, database: Optional[str] = None):
         return self._setup.runner.invoke_with_connection_json(
             [
                 "spcs",
                 "service",
                 "describe",
-                f"{self.database}.{self.schema}.{service_name}",
+                f"{database if database else self.database}.{self.schema}.{service_name}",
             ],
         )
 
