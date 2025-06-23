@@ -45,7 +45,7 @@ class PyprojectToml:
         contents = tomlkit.loads(self.PYPROJECT_TOML.read_text())
         contents["project"]["dependencies"] = tomlkit.array(
             "[\n  # v-- section generated from cli.dependencies --v\n"
-            + "\n".join([f"  '{dep}'," for dep in dependencies])
+            + "\n".join([f"  '{dep}'," for dep in sorted(dependencies)])
             + "\n  # ^-- section generated from cli.dependencies --^\n]"
         )
         self.PYPROJECT_TOML.write_text(tomlkit.dumps(contents))
