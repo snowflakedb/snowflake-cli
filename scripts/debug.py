@@ -15,7 +15,6 @@
 import re
 import sys
 from contextlib import contextmanager
-from copy import deepcopy
 from pathlib import Path
 from subprocess import run
 from tempfile import TemporaryDirectory
@@ -24,7 +23,28 @@ from venv import create as create_venv
 
 import tomlkit
 
-PYPROJECT_TOML = Path(__file__).parent.parent / "pyproject.toml"
+
+class PyprojectToml:
+    """Class responsible for reading and writing pyproject.toml file"""
+
+    PYPROJECT_TOML = Path(__file__).parent.parent / "pyproject.toml"
+
+    def read_base_dependencies(self):
+        contents = tomlkit.loads(self.PYPROJECT_TOML.read_text())
+        return contents["cli"]["dependencies"]
+
+    def create_minimal_project_with_dependencies(
+        self, dependencies: List[str], path: Path
+    ):
+        original_contents = tomlkit.loads(self.PYPROJECT_TOML.read_text())
+        new_contents = {"project": original_contents["project"]}
+        new_contents["project"]["dependencies"] = dependencies
+        path.write_text(tomlkit.dumps(new_contents))
+
+    def write_generated_dependencies(self, dependencies: List[str]):
+        contents = tomlkit.loads(self.PYPROJECT_TOML.read_text())
+        contents["project"]["dependencies"] = dependencies
+        self.PYPROJECT_TOML.write_text(tomlkit.dumps(contents))
 
 
 @contextmanager
@@ -42,44 +62,19 @@ def ensure_uv():
             yield [python_path, "-m", "uv"]
 
 
-def read_base_dependencies() -> List[str]:
-    return [
-        "click==8.1.8",
-        "GitPython==3.1.44",
-        "PyYAML==6.0.2",
-        "jinja2==3.1.6",
-        "packaging",
-        "pip",
-        "pluggy==1.6.0",
-        "prompt-toolkit==3.0.51",
-        "pydantic==2.11.7",
-        "requests==2.32.4",
-        "requirements-parser==0.13.0",
-        "rich==14.0.0",
-        "setuptools==80.9.0",
-        "snowflake-connector-python[secure-local-storage]==3.15.0",
-        'snowflake-snowpark-python>=1.15.0,<1.26.0;python_version < "3.12"',
-        "snowflake.core==1.5.1",
-        "tomlkit==0.13.3",
-        "typer==0.16.0",
-        "urllib3>=1.24.3,<2.5",
-    ]
-
-
-def write_dependencies(dependencies: List[str]) -> None:
-    pass
-
-
 def recursively_generate_dependencies(
     base_dependencies: List[str], depth: int
 ) -> List[str]:
     with TemporaryDirectory() as tmp_project_dir:
         # create pyproject.toml with dependencies = [base-dependencies]
-        tmp_pyproject_toml = Path(tmp_project_dir) / "pyproject.toml"
-        contents = tomlkit.loads(PYPROJECT_TOML.read_text())
-        tmp_contents = {"project": deepcopy(contents["project"])}
-        tmp_contents["project"]["dependencies"] = base_dependencies
-        tmp_pyproject_toml.write_text(tomlkit.dumps(tmp_contents))
+        PyprojectToml().create_minimal_project_with_dependencies(
+            dependencies=base_dependencies,
+            path=Path(tmp_project_dir) / "pyproject.toml",
+        )
+        PyprojectToml().create_minimal_project_with_dependencies(
+            dependencies=base_dependencies,
+            path=Path("debug.toml"),
+        )
 
         # run uv to list dependencies
         with ensure_uv() as uv:
@@ -117,7 +112,9 @@ def recursively_generate_dependencies(
 if __name__ == "__main__":
     if sys.platform.startswith("win"):
         # do not execute script on Windows, but do not block the commit
+        # reason: the plugin was only tested on unix-like systems (virtualenv and UV output might vary on Windows OS)
         sys.exit(0)
-    base_dependencies = read_base_dependencies()
+    pyproject = PyprojectToml()
+    base_dependencies = pyproject.read_base_dependencies()
     dependencies = recursively_generate_dependencies(base_dependencies, depth=2)
-    write_dependencies(dependencies)
+    pyproject.write_generated_dependencies(dependencies)
