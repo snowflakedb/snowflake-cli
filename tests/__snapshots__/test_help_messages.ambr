@@ -9922,7 +9922,7 @@
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --from                       TEXT  Create a new version using given stage    |
-  |                                    instead of uploading local files          |
+  |                                    instead of uploading local files.         |
   | --alias                      TEXT  Alias for the version.                    |
   | --comment                    TEXT  Version comment.                          |
   | --prune        --no-prune          Delete files that exist in the stage, but |
@@ -10326,9 +10326,9 @@
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --version                TEXT  Version of the project to use. If not         |
-  |                                specified default version is used             |
+  |                                specified default version is used.            |
   | --from                   TEXT  Execute project from given stage instead of   |
-  |                                using a specific version                      |
+  |                                using a specific version.                     |
   | --variable       -D      TEXT  Variables for the execution context; for      |
   |                                example: -D "<key>=<value>".                  |
   | --configuration          TEXT  Configuration of the project to use. If not   |
@@ -10462,9 +10462,9 @@
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --version                TEXT  Version of the project to use. If not         |
-  |                                specified default version is used             |
+  |                                specified default version is used.            |
   | --from                   TEXT  Execute project from given stage instead of   |
-  |                                using a specific version                      |
+  |                                using a specific version.                     |
   | --variable       -D      TEXT  Variables for the execution context; for      |
   |                                example: -D "<key>=<value>".                  |
   | --configuration          TEXT  Configuration of the project to use. If not   |
@@ -10722,13 +10722,13 @@
   +- Options --------------------------------------------------------------------+
   | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
   |                                 name. For example, list --like "my%" lists   |
-  |                                 all projects that begin with "my".           |
+  |                                 all projects that begin with "my"..          |
   |                                 [default: %%]                                |
   | --in            <TEXT TEXT>...                                               |
   |                                                                              |
   |                                 Specifies the scope of this command using    |
   |                                 '--in  ', for example list --in database     |
-  |                                 my_db.                                       |
+  |                                 my_db..                                      |
   |                                 [default: None, None]                        |
   | --help  -h                      Show this message and exit.                  |
   +------------------------------------------------------------------------------+
