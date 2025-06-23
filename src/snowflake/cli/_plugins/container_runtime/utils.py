@@ -1,4 +1,8 @@
 import enum
+import os
+import platform
+import re
+import subprocess
 from dataclasses import dataclass
 from pathlib import PurePath
 from typing import (
@@ -10,10 +14,171 @@ from typing import (
     cast,
 )
 
-from packaging import version
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.snowpark import session
 from typing_extensions import NotRequired, Required
+
+# Constants for SSH configuration
+SSH_CONFIG_PATH = "~/.ssh/config"
+SSH_HOST_PREFIX = "snowflake-remote-runtime-"
+
+
+def check_websocat_installed() -> bool:
+    """Check if websocat is installed on the system."""
+    try:
+        subprocess.run(
+            ["websocat", "--version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        return True
+    except FileNotFoundError:
+        return False
+
+
+def install_websocat_instructions() -> str:
+    """Return instructions for installing websocat based on the OS."""
+    system = platform.system().lower()
+    if system == "darwin":
+        return "Install websocat with Homebrew: brew install websocat"
+    elif system == "linux":
+        return "Install websocat: https://github.com/vi/websocat/releases"
+    elif system == "windows":
+        return "Install websocat: https://github.com/vi/websocat/releases"
+    else:
+        return "Install websocat from: https://github.com/vi/websocat/releases"
+
+
+def setup_ssh_config(
+    service_name: str, ssh_endpoint_url: str, ssh_key_path: str
+) -> None:
+    """
+    Setup SSH configuration for the remote runtime service.
+
+    Args:
+        service_name: The name of the service
+        ssh_endpoint_url: The URL of the SSH endpoint
+        ssh_key_path: Path to the SSH private key
+    """
+    # Check if websocat is installed
+    if not check_websocat_installed():
+        cc.step("⚠️  websocat is required for SSH connection but not found.")
+        cc.step(install_websocat_instructions())
+        cc.step("Please install websocat and run this command again.")
+        return
+
+    # Parse the endpoint URL to extract hostname and domain
+    match = re.match(r"wss://(.*?)(?:-ssh)?\.(.*)", ssh_endpoint_url)
+    if not match:
+        raise ValueError(f"Invalid SSH endpoint URL format: {ssh_endpoint_url}")
+
+    hostname, domain = match.groups()
+
+    # Prepare SSH config content
+    host_name = f"{SSH_HOST_PREFIX}{service_name}"
+    config_content = f"""
+# Snowflake Remote Runtime - {service_name}
+Host {host_name}
+  HostName {hostname}.{domain}
+  ProxyCommand websocat - --binary wss://{hostname}-ssh.{domain}
+  User root
+  IdentityFile {ssh_key_path}
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+"""
+
+    # Expand the SSH config path
+    ssh_config_path = os.path.expanduser(SSH_CONFIG_PATH)
+
+    # Check if the config already exists for this host
+    existing_config = ""
+    host_pattern = re.compile(f"^Host {re.escape(host_name)}$", re.MULTILINE)
+
+    if os.path.exists(ssh_config_path):
+        with open(ssh_config_path, "r") as f:
+            existing_config = f.read()
+
+    if host_pattern.search(existing_config):
+        # Config already exists, update it
+        lines = existing_config.splitlines()
+        new_lines = []
+        skip_until_next_host = False
+
+        for line in lines:
+            if line.strip().startswith(f"Host {host_name}"):
+                skip_until_next_host = True
+                continue
+            elif skip_until_next_host and line.strip().startswith("Host "):
+                skip_until_next_host = False
+
+            if not skip_until_next_host:
+                new_lines.append(line)
+
+        new_config = "\n".join(new_lines) + config_content
+    else:
+        # Append new config
+        new_config = (
+            existing_config + config_content if existing_config else config_content
+        )
+
+    # Write the updated config
+    with open(ssh_config_path, "w") as f:
+        f.write(new_config)
+
+    cc.step(f"SSH configuration added to {ssh_config_path}")
+
+
+def validate_stage_path(path: str) -> bool:
+    """Validate if a string is a valid Snowflake stage path."""
+    return path.startswith("@")
+
+
+def validate_git_repo(url: str) -> bool:
+    """Validate if a string is a valid Git repository URL."""
+    return (
+        url.startswith("git://") or url.startswith("https://") or url.startswith("git@")
+    )
+
+
+def parse_source_uri(uri: str) -> Dict[str, str]:
+    """
+    Parse a source URI and determine its type.
+
+    Args:
+        uri: Source URI string
+
+    Returns:
+        Dictionary with source type and path
+    """
+    if validate_stage_path(uri):
+        return {"type": "stage", "path": uri}
+    elif validate_git_repo(uri):
+        return {"type": "git", "url": uri}
+    else:
+        raise ValueError(
+            f"Invalid source URI format: {uri}. Must be a stage path (@stage/path) or Git repository URL."
+        )
+
+
+def format_stage_path(stage_path: str) -> str:
+    """
+    Format and normalize a stage path.
+
+    Args:
+        stage_path: Stage path to normalize
+
+    Returns:
+        Normalized stage path
+    """
+    # Remove trailing slashes
+    path = stage_path.rstrip("/")
+
+    # Ensure it starts with @
+    if not path.startswith("@"):
+        path = f"@{path}"
+
+    return path
 
 
 class SnowflakeCloudType(enum.Enum):
@@ -106,23 +271,3 @@ def get_current_region_id(sess: session.Session) -> str:
     res = sess.sql("SELECT CURRENT_REGION() AS CURRENT_REGION").collect()[0]
 
     return cast(str, res.CURRENT_REGION)
-
-
-def get_current_snowflake_version(sess: session.Session) -> version.Version:
-    """Get Snowflake Version as a version.Version object follow PEP way of versioning, that is to say:
-        "7.44.2 b202312132139364eb71238" to <Version('7.44.2+b202312132139364eb71238')>
-
-    Args:
-        sess: Snowpark Session.
-        statement_params: Statement params. Defaults to None.
-
-    Returns:
-        The version of Snowflake Version.
-    """
-    res = sess.sql("SELECT CURRENT_VERSION() AS CURRENT_VERSION").collect()[0]
-
-    version_str = res.CURRENT_VERSION
-    assert isinstance(version_str, str)
-
-    version_str = "+".join(version_str.split())
-    return version.parse(version_str)

@@ -15,7 +15,7 @@ STAGE_VOLUME_MOUNT_PATH = "/mnt/app"
 DEFAULT_IMAGE_REPO = "/snowflake/images/snowflake_images"
 DEFAULT_IMAGE_CPU = "st_plat/runtime/x86/runtime_image/snowbooks"
 DEFAULT_IMAGE_GPU = "st_plat/runtime/x86/generic_gpu/runtime_image/snowbooks"
-DEFAULT_IMAGE_TAG = "1.2.3"
+DEFAULT_IMAGE_TAG = "1.5.0"
 DEFAULT_ENTRYPOINT_PATH = "func.py"
 
 # Percent of container memory to allocate for /dev/shm volume

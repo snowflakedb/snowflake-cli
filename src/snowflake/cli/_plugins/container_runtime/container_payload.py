@@ -56,14 +56,19 @@ class ContainerPayload:
 
         # Create stage if necessary
         stage_name = stage_path.parts[0].lstrip("@")
-        try:
-            session.sql(f"describe stage {stage_name}").collect()
-        except Exception:
-            session.sql(
-                f"create stage if not exists {stage_name}"
-                " encryption = ( type = 'SNOWFLAKE_SSE' )"
-                " comment = 'Created by snowflake.cli for Container Service'"
-            ).collect()
+
+        # If it's user stage, skip creation
+        if stage_name.startswith("~"):
+            cc.step(f"Using user stage {stage_name}")
+        else:
+            try:
+                session.sql(f"describe stage {stage_name}").collect()
+            except Exception:
+                session.sql(
+                    f"create stage if not exists {stage_name}"
+                    " encryption = ( type = 'SNOWFLAKE_SSE' )"
+                    " comment = 'Created by snowflake.cli for Container Service'"
+                ).collect()
 
         cc.step(f"Uploading startup script to stage {stage_name}")
 

@@ -23,6 +23,7 @@ from snowflake.cli.api.console import cli_console as cc
 
 # Constants for Container Service
 DEFAULT_SERVER_PORT = 12020
+DEFAULT_WEBSOCKET_PORT = 12021
 DEFAULT_MEMORY_VOLUME_SIZE = 0.3  # as a fraction of total memory
 DEFAULT_CPU_REQUEST = 1
 DEFAULT_MEMORY_REQUEST = 4
@@ -285,6 +286,15 @@ def generate_service_spec(
         {
             "name": "server-ui",
             "port": DEFAULT_SERVER_PORT,
+            "public": True,
+        }
+    )
+
+    # Add websocket endpoint
+    endpoints.append(
+        {
+            "name": "websocket-ssh",
+            "port": DEFAULT_WEBSOCKET_PORT,
             "public": True,
         }
     )
