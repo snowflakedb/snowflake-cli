@@ -71,10 +71,6 @@ def recursively_generate_dependencies(
             dependencies=base_dependencies,
             path=Path(tmp_project_dir) / "pyproject.toml",
         )
-        PyprojectToml().create_minimal_project_with_dependencies(
-            dependencies=base_dependencies,
-            path=Path("debug.toml"),
-        )
 
         # run uv to list dependencies
         with ensure_uv() as uv:
@@ -84,7 +80,6 @@ def recursively_generate_dependencies(
                 capture_output=True,
                 check=True,
             ).stdout
-            Path("debug_output_raw").write_text(dependencies_raw)
 
         # parse uv output
         dependecy_regex = (
@@ -96,15 +91,11 @@ def recursively_generate_dependencies(
             "(extra: development) (*)",
         ]
         dependencies = []
-        debug_output: List[str] = []
         for line in dependencies_raw.splitlines():
             match = re.match(dependecy_regex, line)
             if not match or match.group("uv_comment").strip() in ignored_comments:
                 continue
-            # dependencies.append(line)
             dependencies.append(f"{match.group('name')}=={match.group('version')}")
-
-        Path("debug_output").write_text("\n".join(dependencies))
 
     return dependencies
 
@@ -116,5 +107,6 @@ if __name__ == "__main__":
         sys.exit(0)
     pyproject = PyprojectToml()
     base_dependencies = pyproject.read_base_dependencies()
+    # Depth limited to 2 (dependencies and their sub-dependencies) to avoid drastic changes. Can be changed later.
     dependencies = recursively_generate_dependencies(base_dependencies, depth=2)
     pyproject.write_generated_dependencies(dependencies)
