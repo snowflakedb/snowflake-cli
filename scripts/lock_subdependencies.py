@@ -66,7 +66,7 @@ def recursively_generate_dependencies(
     base_dependencies: List[str], depth: int
 ) -> List[str]:
     with TemporaryDirectory() as tmp_project_dir:
-        # create pyproject.toml with dependencies = [base-dependencies]
+        # create pyproject.toml with dependencies = [cli.dependencies]
         PyprojectToml().create_minimal_project_with_dependencies(
             dependencies=base_dependencies,
             path=Path(tmp_project_dir) / "pyproject.toml",
@@ -82,7 +82,7 @@ def recursively_generate_dependencies(
             ).stdout
 
         # parse uv output
-        dependecy_regex = (
+        dependency_regex = (
             r".* (?P<name>[a-zA-Z].*) v(?P<version>[\.0-9]+)(?P<uv_comment>.*)"
         )
         ignored_comments = [
@@ -92,7 +92,7 @@ def recursively_generate_dependencies(
         ]
         dependencies = []
         for line in dependencies_raw.splitlines():
-            match = re.match(dependecy_regex, line)
+            match = re.match(dependency_regex, line)
             if not match or match.group("uv_comment").strip() in ignored_comments:
                 continue
             dependencies.append(f"{match.group('name')}=={match.group('version')}")
