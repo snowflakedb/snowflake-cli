@@ -64,7 +64,7 @@ repos:
         files: ^src/.*\.py$
         exclude: ^src/snowflake/cli/_app/constants.py$
       - id: lock-subdependencies
-        name: "Lock project.dependencies from cli.dependecies in pyproject.toml"
+        name: "Generate project.dependencies from cli.dependecies in pyproject.toml"
         language: system
         entry: python scripts/lock_subdependencies.py
         files: ^pyproject.toml$
