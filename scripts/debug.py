@@ -116,6 +116,7 @@ def recursively_generate_dependencies(
 
 if __name__ == "__main__":
     if sys.platform.startswith("win"):
+        # do not execute script on Windows, but do not block the commit
         sys.exit(0)
     base_dependencies = read_base_dependencies()
     dependencies = recursively_generate_dependencies(base_dependencies, depth=2)
