@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from subprocess import run, PIPE
@@ -151,10 +152,29 @@ class DeflakePlugin:
         # Otherwise let the default hook implementation decide the status strings
         return None
 
+    @staticmethod
+    def is_known_server_issue(test: TestResult):
+        """Some tests might fail due to non-deterministic server-side issue,
+        often caused by multiple instances of workers running the tests, which raises false-positive flaky test alert.
+        This functions recognizes some if these cases."""
+        known_server_issues = [
+            (
+                "call",
+                "Exceeded maximum number of inbound queries allowed for this instance",
+            ),
+            ("setup", "GS instance is still unavailable at"),
+        ]
+        for phase, known_message in known_server_issues:
+            phase_info = getattr(test, phase)
+            regex = ".*".join(re.escape(word) for word in known_message.split())
+            if re.search(regex, phase_info.longrepr):
+                return True
+        return False
+
     def pytest_sessionfinish(self) -> None:
         # Called at the end of the pytest run to log flaky tests to GitHub
         for nodeid, test in self.test_run.tests.items():
-            if test.outcome != FLAKY:
+            if test.outcome != FLAKY or self.is_known_server_issue(test):
                 continue
 
             if self.github and self.test_type:
