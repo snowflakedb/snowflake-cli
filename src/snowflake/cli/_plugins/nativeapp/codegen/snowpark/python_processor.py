@@ -49,6 +49,7 @@ from snowflake.cli._plugins.nativeapp.codegen.snowpark.models import (
 from snowflake.cli._plugins.stage.diff import to_stage_path
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.cli_global_context import get_cli_context, span
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.metrics import CLICounterField
 from snowflake.cli.api.project.schemas.entities.common import (
@@ -181,6 +182,9 @@ class SnowparkAnnotationProcessor(ArtifactProcessor):
         setup script with generated SQL that registers these functions.
         """
 
+        cli_console.warning(
+            "Snowpark processor is not supported and will be removed soon."
+        )
         get_cli_context().metrics.set_counter(CLICounterField.SNOWPARK_PROCESSOR, 1)
 
         bundle_map = BundleMap(
