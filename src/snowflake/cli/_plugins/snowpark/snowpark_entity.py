@@ -173,19 +173,27 @@ class SnowparkEntity(EntityBase[Generic[T]]):
         if self.model.secrets:
             query.append(self.model.get_secrets_sql())
 
-        if self.model.type == "procedure" and self.model.execute_as_caller:
-            query.append("EXECUTE AS CALLER")
+        if self.model.artifact_repository and (
+            self.model.artifact_repository_packages or self.model.packages
+        ):
+            if self.model.artifact_repository_packages:
+                packages = [
+                    f"'{item}'" for item in self.model.artifact_repository_packages
+                ]
+            else:
+                packages = [f"'{item}'" for item in self.model.packages]
 
-        if self.model.artifact_repository and self.model.artifact_repository_packages:
-            packages = [f"'{item}'" for item in self.model.artifact_repository_packages]
             query.extend(
                 [
                     f"ARTIFACT_REPOSITORY= {self.model.artifact_repository} ",
-                    f"ARTIFACT_REPOSITORY_PACKAGES=({','.join(packages)})",
+                    f"PACKAGES=({','.join(packages)})",
                 ]
             )
         if self.model.resource_constraint:
             query.append(self._get_resource_constraints_sql())
+
+        if self.model.type == "procedure" and self.model.execute_as_caller:
+            query.append("EXECUTE AS CALLER")
 
         return "\n".join(query)
 

@@ -29,6 +29,37 @@ def test_query_parameter(runner):
 
 
 @pytest.mark.integration
+def test_serializing_various_datatypes_to_json(runner):
+    sql = """
+    SELECT 
+        12::NUMBER as number_col, 
+        12.345::FLOAT as float_col, 
+        TO_BINARY('THIS SHOULD WORK', 'UTF-8') as binary_col,
+        true::BOOLEAN as bool_true_col,
+        false::BOOLEAN as bool_false_col,
+        '2024-01-01'::DATE as date_col,
+        '11:22:33'::TIME as time_col,
+        '2024-01-01 11:22:33'::DATETIME as datetime_col
+        
+    """
+    result = runner.invoke_with_connection_json(["sql", "-q", sql])
+
+    assert result.exit_code == 0
+    assert result.json == [
+        {
+            "NUMBER_COL": 12,
+            "FLOAT_COL": 12.345,
+            "BOOL_TRUE_COL": True,
+            "BOOL_FALSE_COL": False,
+            "DATE_COL": "2024-01-01",
+            "TIME_COL": "11:22:33",
+            "DATETIME_COL": "2024-01-01T11:22:33",
+            "BINARY_COL": "544849532053484f554c4420574f524b",
+        }
+    ]
+
+
+@pytest.mark.integration
 def test_multi_queries_from_file(runner, test_root_path):
     result = runner.invoke_with_connection_json(
         [

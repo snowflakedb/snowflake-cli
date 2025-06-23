@@ -390,6 +390,30 @@ def test_print_time(capsys, mock_cursor):
     ]
 
 
+def test_print_bytearray(capsys, _bytearray_result):
+    print_result(_bytearray_result, output_format=OutputFormat.TABLE)
+
+    assert get_output(capsys) == dedent(
+        """\
+    +----------------------------------+
+    | BYTE_ARRAY                       |
+    |----------------------------------|
+    | 544849532053484f554c4420574f524b |
+    +----------------------------------+
+    """
+    )
+
+
+def test_print_bytearray_json(capsys, _bytearray_result):
+    print_result(_bytearray_result, output_format=OutputFormat.JSON)
+
+    assert get_output_as_json(capsys) == [
+        {
+            "BYTE_ARRAY": "544849532053484f554c4420574f524b",
+        }
+    ]
+
+
 def test_print_stream_result(capsys, _stream):
     print_result(_stream)
     assert get_output(capsys) == dedent(
@@ -502,3 +526,14 @@ def _stream():
         yield ObjectResult({"2": "3"})
 
     return StreamResult(g())
+
+
+@pytest.fixture
+def _bytearray_result(mock_cursor):
+    # expected hex value: 544849532053484f554c4420574f524b
+    return QueryResult(
+        mock_cursor(
+            columns=["BYTE_ARRAY"],
+            rows=[(bytearray("THIS SHOULD WORK", "utf-8"),)],
+        )
+    )

@@ -60,7 +60,7 @@
   IMPORTS=
   HANDLER='app.func1_handler'
   ARTIFACT_REPOSITORY= snowflake.snowpark.pypi_shared_repository 
-  ARTIFACT_REPOSITORY_PACKAGES=('package1','package2')
+  PACKAGES=('package1','package2')
   RESOURCE_CONSTRAINT=(architecture='x86')
   '''
 # ---

@@ -63,6 +63,8 @@ class CustomJSONEncoder(JSONEncoder):
             return o.isoformat()
         if isinstance(o, (Path, Decimal)):
             return str(o)
+        if isinstance(o, bytearray):
+            return o.hex()
         return super().default(o)
 
 
@@ -88,11 +90,17 @@ def _print_multiple_table_results(obj: CollectionResult):
     for column in first_item.keys():
         table.add_column(column, overflow="fold")
     with Live(table, refresh_per_second=4):
-        table.add_row(*[str(i) for i in first_item.values()])
+        table.add_row(*[__to_str(i) for i in first_item.values()])
         for item in items:
-            table.add_row(*[str(i) for i in item.values()])
+            table.add_row(*[__to_str(i) for i in item.values()])
     # Add separator between tables
     rich_print(flush=True)
+
+
+def __to_str(val):
+    if isinstance(val, bytearray):
+        return val.hex()
+    return str(val)
 
 
 def is_structured_format(output_format):
@@ -192,7 +200,7 @@ def _print_single_table(obj):
     table.add_column("value", overflow="fold")
     for key, value in obj.result.items():
         table.add_row(
-            sanitize_for_terminal(str(key)), sanitize_for_terminal(str(value))
+            sanitize_for_terminal(str(key)), sanitize_for_terminal(__to_str(value))
         )
     rich_print(table, flush=True)
 
