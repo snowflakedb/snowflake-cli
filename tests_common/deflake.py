@@ -163,6 +163,7 @@ class DeflakePlugin:
                 "Exceeded maximum number of inbound queries allowed for this instance",
             ),
             ("setup", "GS instance is still unavailable at"),
+            ("call", "This test is deliberately flaky to raise alert"),
         ]
         for phase, known_message in known_server_issues:
             phase_info = getattr(test, phase)
