@@ -17,19 +17,21 @@
 ## Backward incompatibility
 
 ## Deprecations
+* Snowpark processor in Native Apps.
 
 ## New additions
 * Add support for passing OAuth token via `--token` flag.
 * Added feature to allow suppressing the new version warning message in the Snowflake CLI, configurable via a configuration file or environment variable.
 * Add support for `--format=CSV`.
-* Fix JSON serialization for `Decimal`, `time` and `binary`.
 * Add `--enabled-temaplating` flag for `snow sql` command, configuring which template syntax should be used to resolve variables:
   * standard (`<% ... %>`), enabled by default
   * legacy (`&{ ... }`), enabled by default
   * jinja (new) (`{{ ... }}`), disabled by default
+* Added packages alias for artifact_repository_packages in the snowflake.yml schema.
 
 ## Fixes and improvements
 * Fixed failing snow sql command when snowflake.yml is invalid and query has no templating.
+* Fix JSON serialization for `Decimal`, `time` and `binary`.
 
 # v3.9.1
 

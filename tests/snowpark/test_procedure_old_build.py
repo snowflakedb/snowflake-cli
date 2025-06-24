@@ -169,9 +169,9 @@ def test_deploy_procedure_with_external_access(
             runtime_version=3.10
             imports=('@MockDatabase.MockSchema.dev_deployment/my_snowpark_project/app.py')
             handler='app.hello'
-            packages=()
             external_access_integrations=(external_1, external_2)
             secrets=('cred'=cred_name, 'other'=other_name)
+            packages=()
             """
         ).strip(),
     ]
