@@ -137,8 +137,5 @@ if __name__ == "__main__":
     dependencies = pyproject.read_base_dependencies()
     # Depth limited to 2 (dependencies and their sub-dependencies) to avoid drastic changes. Can be changed later.
     generated_dependencies = recursively_generate_dependencies(dependencies, depth=2)
-    Path("debug_generated").write_text("\n".join(generated_dependencies))
-    Path("debug_base").write_text("\n".join(dependencies))
     join_dependencies(dependencies, generated_dependencies)
-    Path("debug_joined").write_text("\n".join(dependencies))
     pyproject.write_generated_dependencies(dependencies)
