@@ -16,6 +16,7 @@ import re
 import sys
 from contextlib import contextmanager
 from pathlib import Path
+from shutil import which
 from subprocess import run
 from tempfile import TemporaryDirectory
 from typing import List, Set
@@ -54,16 +55,17 @@ class PyprojectToml:
 @contextmanager
 def ensure_uv():
     """Yields command to use to call uv"""
-    result = run(["uv", "--version"])
-    if result.returncode == 0:
+    if which("uv"):
         yield ["uv"]
-    else:
-        with TemporaryDirectory() as tmpdir:
-            venv_path = Path(tmpdir) / "venv"
-            create_venv(venv_path, with_pip=True)
-            python_path = venv_path / "bin" / "python"
-            run([str(python_path), "-m", "pip", "install", "uv"], check=True)
-            yield [python_path, "-m", "uv"]
+        return
+
+    # install uv in temporary virtual environment
+    with TemporaryDirectory() as tmpdir:
+        venv_path = Path(tmpdir) / "venv"
+        create_venv(venv_path, with_pip=True)
+        python_path = venv_path / "bin" / "python"
+        run([str(python_path), "-m", "pip", "install", "uv"], check=True)
+        yield [python_path, "-m", "uv"]
 
 
 def recursively_generate_dependencies(
