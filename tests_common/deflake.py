@@ -166,6 +166,7 @@ class DeflakePlugin:
         ]
         for phase, known_message in known_server_issues:
             phase_info = getattr(test, phase)
+            # match messages via regex, as they might be printed in multiple lines / pretty formatted by typer etc.
             regex = ".*".join(re.escape(word) for word in known_message.split())
             if re.search(regex, phase_info.longrepr):
                 return True
