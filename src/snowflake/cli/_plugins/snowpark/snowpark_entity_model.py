@@ -54,6 +54,9 @@ class SnowparkEntityModel(
         default=None, title="Artifact repository to be used"
     )
     artifact_repository_packages: Optional[List[str]] = Field(
+        default=None, title="Alias for packages"
+    )
+    packages: Optional[List[str]] = Field(
         default=None, title="Packages to be installed from artifact repository"
     )
 
@@ -91,9 +94,14 @@ class SnowparkEntityModel(
     def check_artifact_repository(cls, values: dict) -> dict:
         artifact_repository = values.get("artifact_repository")
         artifact_repository_packages = values.get("artifact_repository_packages")
-        if artifact_repository_packages and not artifact_repository:
+        packages = values.get("packages")
+        if artifact_repository_packages and packages:
             raise ValueError(
-                "You specified Artifact_repository_packages without setting Artifact_repository.",
+                "You cannot specify both artifact_repository_packages and packages.",
+            )
+        if (artifact_repository_packages or packages) and not artifact_repository:
+            raise ValueError(
+                "You specified packages / artifact_repository_packages without setting artifact_repository.",
             )
         return values
 
