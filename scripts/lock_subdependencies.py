@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from subprocess import run
 from tempfile import TemporaryDirectory
-from typing import List
+from typing import List, Set
 from venv import create as create_venv
 
 import tomlkit
@@ -68,7 +68,7 @@ def ensure_uv():
 
 def recursively_generate_dependencies(
     base_dependencies: List[str], depth: int
-) -> List[str]:
+) -> Set[str]:
     with TemporaryDirectory() as tmp_project_dir:
         # create pyproject.toml with dependencies = [cli.dependencies]
         PyprojectToml().create_minimal_project_with_dependencies(
@@ -92,14 +92,40 @@ def recursively_generate_dependencies(
             "(extra: development)",  # CLI deployment mode dependency
             "(extra: development) (*)",
         ]
-        dependencies = []
+        dependencies = set()
         for line in dependencies_raw.splitlines():
             match = re.fullmatch(dependency_regex, line)
             if not match or str(match.group("uv_comment")).strip() in ignored_comments:
                 continue
-            dependencies.append(f"{match.group('name')}=={match.group('version')}")
+            dependencies.add(f"{match.group('name')}=={match.group('version')}")
 
     return dependencies
+
+
+def join_dependencies(
+    dependencies: List[str], generated_dependencies: Set[str]
+) -> None:
+    """Add `generated_dependencies` not listed in `dependencies` to `dependencies`"""
+
+    def _get_name(dependency: str) -> str:
+        """get package name from dependency"""
+        min_found = len(dependency)
+        for sep in "=<>":
+            idx = dependency.find(sep)
+            if idx >= 0:
+                min_found = min(idx, min_found)
+
+        if min_found == len(dependency):
+            # version not provided
+            return dependency.lower()
+        return dependency[:min_found].lower()
+
+    existing_names = set(_get_name(dep) for dep in dependencies)
+    for dep in generated_dependencies:
+        if _get_name(dep) in existing_names:
+            continue
+        existing_names.add(_get_name(dep))
+        dependencies.append(dep)
 
 
 if __name__ == "__main__":
@@ -108,7 +134,11 @@ if __name__ == "__main__":
         # reason: the plugin was only tested on unix-like systems (virtualenv and UV output might vary on Windows OS)
         sys.exit(0)
     pyproject = PyprojectToml()
-    base_dependencies = pyproject.read_base_dependencies()
+    dependencies = pyproject.read_base_dependencies()
     # Depth limited to 2 (dependencies and their sub-dependencies) to avoid drastic changes. Can be changed later.
-    dependencies = recursively_generate_dependencies(base_dependencies, depth=2)
+    generated_dependencies = recursively_generate_dependencies(dependencies, depth=2)
+    Path("debug_generated").write_text("\n".join(generated_dependencies))
+    Path("debug_base").write_text("\n".join(dependencies))
+    join_dependencies(dependencies, generated_dependencies)
+    Path("debug_joined").write_text("\n".join(dependencies))
     pyproject.write_generated_dependencies(dependencies)
