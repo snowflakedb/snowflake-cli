@@ -228,7 +228,7 @@ def test_project_add_version(
             in result.output
         )
         _assert_project_has_versions(
-            runner, project_name, {("VERSION$1", None), ("VERSION$2", "v2")}
+            runner, project_name, {("VERSION$1", None), ("VERSION$2", "V2")}
         )
 
         # --prune flag should remove unexpected file from the default stage
@@ -241,13 +241,13 @@ def test_project_add_version(
 
         # --no-prune - unexpected file remains
         result = runner.invoke_with_connection(
-            ["project", "add-version", "--alias", "v3.1", "--no-prune"]
+            ["project", "add-version", "--alias", "v3_1", "--no-prune"]
         )
         assert result.exit_code == 0, result.output
         _assert_project_has_versions(
             runner,
             project_name,
-            {("VERSION$1", None), ("VERSION$2", "v2"), ("VERSION$3", "v3.1")},
+            {("VERSION$1", None), ("VERSION$2", "V2"), ("VERSION$3", "V3_1")},
         )
         assert_stage_has_files(
             runner,
@@ -261,7 +261,7 @@ def test_project_add_version(
 
         # prune flag - unexpected file should be removed
         result = runner.invoke_with_connection(
-            ["project", "add-version", "--alias", "v3.2"]
+            ["project", "add-version", "--alias", "v3_2"]
         )
         assert result.exit_code == 0, result.output
         _assert_project_has_versions(
@@ -269,9 +269,9 @@ def test_project_add_version(
             project_name,
             {
                 ("VERSION$1", None),
-                ("VERSION$2", "v2"),
-                ("VERSION$3", "v3.1"),
-                ("VERSION$4", "v3.2"),
+                ("VERSION$2", "V2"),
+                ("VERSION$3", "V3_1"),
+                ("VERSION$4", "V3_2"),
             },
         )
         assert_stage_has_files(
@@ -305,6 +305,88 @@ def test_project_add_version_without_create_fails(
         result = runner.invoke_with_connection_json(["project", "create"])
         assert result.exit_code == 0, result.output
         assert does_stage_exist(runner, default_stage_name) is True
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_project_drop_version(
+    runner,
+    test_database,
+    project_directory,
+):
+    project_name = "project_descriptive_name"
+    entity_id = "my_project"
+
+    with project_directory("dcm_project"):
+        # Create project with initial version
+        result = runner.invoke_with_connection(["project", "create", entity_id])
+        assert result.exit_code == 0, result.output
+        _assert_project_has_versions(
+            runner, project_name, expected_versions={("VERSION$1", None)}
+        )
+
+        # Add another version with alias
+        result = runner.invoke_with_connection(
+            ["project", "add-version", entity_id, "--alias", "v2"]
+        )
+        assert result.exit_code == 0, result.output
+        result = runner.invoke_with_connection(
+            ["project", "add-version", entity_id, "--alias", "theDefault"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_project_has_versions(
+            runner,
+            project_name,
+            {("VERSION$1", None), ("VERSION$2", "V2"), ("VERSION$3", "THEDEFAULT")},
+        )
+
+        # Drop the version by name
+        result = runner.invoke_with_connection(
+            ["project", "drop-version", project_name, "VERSION$1"]
+        )
+        assert result.exit_code == 0, result.output
+        assert (
+            f"Version 'VERSION$1' dropped from project '{project_name}'"
+            in result.output
+        )
+
+        # Drop the version by alias
+        result = runner.invoke_with_connection(
+            ["project", "drop-version", project_name, "v2"]
+        )
+        assert result.exit_code == 0, result.output
+        assert f"Version 'v2' dropped from project '{project_name}'" in result.output
+
+        _assert_project_has_versions(
+            runner, project_name, expected_versions={("VERSION$3", "THEDEFAULT")}
+        )
+
+        # Try to drop the default version
+        result = runner.invoke_with_connection(
+            ["project", "drop-version", project_name, "VERSION$3"]
+        )
+        assert result.exit_code == 0, result.output
+        assert (
+            f"Version 'VERSION$3' dropped from project '{project_name}'"
+            in result.output
+        )
+
+        # Try to drop non-existent version without --if-exists (should fail)
+        result = runner.invoke_with_connection(
+            ["project", "drop-version", project_name, "non_existent"]
+        )
+        assert result.exit_code == 1, result.output
+        assert "Version does not exist" in result.output
+
+        # Try to drop non-existent version with --if-exists (should succeed)
+        result = runner.invoke_with_connection(
+            ["project", "drop-version", project_name, "non_existent", "--if-exists"]
+        )
+        assert result.exit_code == 0, result.output
+        assert (
+            f"Version 'non_existent' dropped from project '{project_name}'"
+            in result.output
+        )
 
 
 @pytest.mark.qa_only

@@ -25,6 +25,7 @@ from snowflake.cli._plugins.project.project_entity_model import (
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
+    IfExistsOption,
     IfNotExistsOption,
     OverrideableOption,
     PruneOption,
@@ -56,7 +57,7 @@ project_identifier = identifier_argument(sf_object="project", example="MY_PROJEC
 version_flag = typer.Option(
     None,
     "--version",
-    help="Version of the project to use. If not specified default version is used.",
+    help="Version of the project to use. If not specified default version is used. For names containing '$', use single quotes to prevent shell expansion (e.g., 'VERSION$1').",
     show_default=False,
 )
 variables_flag = variables_option(
@@ -248,3 +249,34 @@ def list_versions(
     pm = ProjectManager()
     results = pm.list_versions(project_name=identifier)
     return QueryResult(results)
+
+
+@app.command(requires_connection=True)
+def drop_version(
+    identifier: FQN = project_identifier,
+    version_name: str = typer.Argument(
+        help="Name or alias of the version to drop. For names containing '$', use single quotes to prevent shell expansion (e.g., 'VERSION$1').",
+        show_default=False,
+    ),
+    if_exists: bool = IfExistsOption(help="Do nothing if the version does not exist."),
+    **options,
+):
+    """
+    Drops a version from the project.
+    """
+    # Detect potential shell expansion issues
+    if version_name and version_name.upper() == "VERSION":
+        cli_console.warning(
+            f"Version name '{version_name}' might be truncated due to shell expansion. "
+            f"If you meant to use a version like 'VERSION$1', try using single quotes: 'VERSION$1'."
+        )
+
+    pm = ProjectManager()
+    pm.drop_version(
+        project_name=identifier,
+        version_name=version_name,
+        if_exists=if_exists,
+    )
+    return MessageResult(
+        f"Version '{version_name}' dropped from project '{identifier}'."
+    )

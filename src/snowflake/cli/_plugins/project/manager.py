@@ -76,7 +76,7 @@ class ProjectManager(SqlExecutionMixin):
         stage_path = StagePath.from_stage_str(from_stage)
         query = f"ALTER PROJECT {project_name.identifier} ADD VERSION"
         if alias:
-            query += f' IF NOT EXISTS "{alias}"'
+            query += f" IF NOT EXISTS {alias}"
         query += f" FROM {stage_path.absolute_path(at_prefix=True)}"
         if comment:
             query += f" COMMENT = '{comment}'"
@@ -116,4 +116,19 @@ class ProjectManager(SqlExecutionMixin):
 
     def list_versions(self, project_name: FQN):
         query = f"SHOW VERSIONS IN PROJECT {project_name.identifier}"
+        return self.execute_query(query=query)
+
+    def drop_version(
+        self,
+        project_name: FQN,
+        version_name: str,
+        if_exists: bool = False,
+    ):
+        """
+        Drops a version from the project.
+        """
+        query = f"ALTER PROJECT {project_name.identifier} DROP VERSION"
+        if if_exists:
+            query += " IF EXISTS"
+        query += f" {version_name}"
         return self.execute_query(query=query)
