@@ -156,7 +156,7 @@ class DeflakePlugin:
     def is_known_server_issue(test: TestResult):
         """Some tests might fail due to non-deterministic server-side issue,
         often caused by multiple instances of workers running the tests, which raises false-positive flaky test alert.
-        This functions recognizes some if these cases."""
+        This functions recognizes some of these cases."""
         known_server_issues = [
             (
                 "call",
