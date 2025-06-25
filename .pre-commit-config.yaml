@@ -63,6 +63,11 @@ repos:
         pass_filenames: true
         files: ^src/.*\.py$
         exclude: ^src/snowflake/cli/_app/constants.py$
+      - id: lock-subdependencies
+        name: "Generate project.dependencies from cli.dependencies in pyproject.toml"
+        language: system
+        entry: python scripts/lock_subdependencies.py
+        files: ^pyproject.toml$
       - id: dependencies-sync
         name: "Copy dependencies from pyproject.toml to requirements.txt"
         language: system
