@@ -14,9 +14,8 @@
 
 from __future__ import annotations
 
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
 from textwrap import dedent
-from typing import List
 
 from click import UsageError
 from snowflake.cli._plugins.stage.manager import (
@@ -64,18 +63,9 @@ class GitStagePathParts(StagePathParts):
     def full_path(self) -> str:
         return f"{self.stage.rstrip('/')}/{self.directory}"
 
-    def replace_stage_prefix(self, file_path: str) -> str:
-        stage = Path(self.stage).parts[0]
-        file_path_without_prefix = Path(file_path).parts[OMIT_FIRST]
-        return f"{stage}/{'/'.join(file_path_without_prefix)}"
-
     def add_stage_prefix(self, file_path: str) -> str:
         stage = self.stage.rstrip("/")
         return f"{stage}/{file_path.lstrip('/')}"
-
-    def get_directory_from_file_path(self, file_path: str) -> List[str]:
-        stage_path_length = len(Path(self.directory).parts)
-        return list(Path(file_path).parts[3 + stage_path_length : -1])
 
 
 class GitManager(StageManager):
