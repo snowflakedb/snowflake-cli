@@ -178,6 +178,8 @@ def _get_definition_version() -> str | None:
 
 
 def _get_ci_environment_type() -> str:
+    if "SNOWFLAKE_GITHUB_ACTION" in os.environ:
+        return "SNOWFLAKE_GITHUB_ACTION"
     if "GITHUB_ACTIONS" in os.environ:
         return "GITHUB_ACTIONS"
     if "GITLAB_CI" in os.environ:
