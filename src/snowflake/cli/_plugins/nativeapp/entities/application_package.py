@@ -1330,7 +1330,7 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
                 role=self.role,
                 prune=prune,
                 recursive=recursive,
-                stage_path=stage_path,
+                stage_path_parts=stage_path,
                 local_paths_to_sync=paths,
                 print_diff=print_diff,
             )

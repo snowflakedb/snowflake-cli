@@ -32,6 +32,8 @@
 ## Fixes and improvements
 * Fixed failing snow sql command when snowflake.yml is invalid and query has no templating.
 * Fix JSON serialization for `Decimal`, `time` and `binary`.
+* Refactored Streamlit app deployment (using `FROM <stage>` syntax); removed deprecated Streamlit features
+
 
 # v3.9.1
 

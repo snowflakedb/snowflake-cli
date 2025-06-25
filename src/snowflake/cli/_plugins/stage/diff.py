@@ -239,6 +239,7 @@ def sync_local_diff_with_stage(
     deploy_root_path: Path,
     diff_result: DiffResult,
     stage_full_path: str,
+    force_overwrite: bool = False,
 ):
     """
     Syncs a given local directory's contents with a Snowflake stage, including removing old files, and re-uploading modified and new files.
@@ -267,6 +268,7 @@ def sync_local_diff_with_stage(
             deploy_root_path=deploy_root_path,
             stage_paths=diff_result.only_local,
             role=role,
+            overwrite=force_overwrite,
         )
     except Exception as err:
         # Could be ProgrammingError or IntegrityError from SnowflakeCursor
