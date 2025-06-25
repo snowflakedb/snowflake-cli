@@ -18,6 +18,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+
 import pytest
 
 from tests.stage.test_stage import RecursiveUploadTester, NESTED_STRUCTURE
@@ -786,6 +787,55 @@ def test_recursive_upload_glob_file_pattern(temporary_directory, runner, test_da
             "target_size": 16,
         },
     ]
+
+
+@pytest.mark.integration
+def test_stage_copy_refreshes_stream(
+    runner, snowflake_session, test_database, tmp_path
+):
+    stage_name = "test_stage_stream"
+    stage_name_with_at = "@" + stage_name
+    stream_name = "test_stream"
+
+    # Create stage and stream
+    runner.invoke_with_connection_json(["stage", "create", stage_name_with_at])
+    snowflake_session.execute_string(
+        f"ALTER STAGE {stage_name} SET DIRECTORY = (ENABLE = true)"
+    )
+    snowflake_session.execute_string(
+        f"CREATE OR REPLACE STREAM {stream_name} ON STAGE {stage_name}"
+    )
+
+    # Create test file
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("test content")
+
+    # Initial copy without --refresh
+    result = runner.invoke_with_connection_json(
+        ["stage", "copy", str(test_file), stage_name_with_at]
+    )
+    assert result.exit_code == 0
+
+    # Check stream has no changes
+    stream_changes_cursor = snowflake_session.execute_string(
+        f"SELECT * FROM {stream_name}"
+    )
+    stream_changes = row_from_snowflake_session(stream_changes_cursor)
+    assert len(stream_changes) == 0
+
+    # Copy again with --refresh flag
+    result = runner.invoke_with_connection_json(
+        ["stage", "copy", str(test_file), stage_name_with_at, "--refresh"]
+    )
+    assert result.exit_code == 0
+
+    # Check stream has changes after --refresh was specified
+    stream_changes_cursor = snowflake_session.execute_string(
+        f"SELECT * FROM {stream_name}"
+    )
+    stream_changes = row_from_snowflake_session(stream_changes_cursor)
+    assert len(stream_changes) == 1
+    assert stream_changes[0]["RELATIVE_PATH"] == "test.txt"
 
 
 @pytest.mark.integration

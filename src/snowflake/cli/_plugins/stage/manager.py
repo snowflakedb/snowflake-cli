@@ -768,6 +768,10 @@ class StageManager(SqlExecutionMixin):
             return VStagePathParts(stage_path)
         return DefaultStagePathParts(stage_path)
 
+    def refresh(self, stage_name):
+        sql = f"ALTER STAGE {stage_name} REFRESH"
+        return self.execute_query(sql)
+
     def _check_for_requirements_file(self, stage_path: StagePath) -> List[str]:
         """Looks for requirements.txt file on stage."""
         current_dir = stage_path.parent if stage_path.is_file() else stage_path
