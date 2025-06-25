@@ -3,6 +3,7 @@ from unittest import mock
 import pytest
 from snowflake.cli._plugins.project.manager import ProjectManager
 from snowflake.cli.api.identifiers import FQN
+from snowflake.connector.errors import ProgrammingError
 
 execute_queries = "snowflake.cli._plugins.project.manager.ProjectManager.execute_query"
 sync_artifacts_with_stage = (
@@ -111,7 +112,7 @@ def test_execute_project(mock_execute_query):
 
     mock_execute_query.assert_called_once_with(
         query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
-        " (key=>value, aaa=>bbb) WITH VERSION v42"
+        " (key=>value, aaa=>bbb) WITH VERSION v42 DEPLOY"
     )
 
 
@@ -127,7 +128,7 @@ def test_execute_project_with_from_stage(mock_execute_query):
 
     mock_execute_query.assert_called_once_with(
         query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
-        " (key=>value, aaa=>bbb) FROM @my_stage"
+        " (key=>value, aaa=>bbb) FROM @my_stage DEPLOY"
     )
 
 
@@ -143,7 +144,7 @@ def test_execute_project_with_from_stage_without_prefix(mock_execute_query):
 
     mock_execute_query.assert_called_once_with(
         query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
-        " (key=>value, aaa=>bbb) FROM @my_stage"
+        " (key=>value, aaa=>bbb) FROM @my_stage DEPLOY"
     )
 
 
@@ -154,7 +155,7 @@ def test_execute_project_with_default_version(mock_execute_query, project_direct
     mgr.execute(project_name=TEST_PROJECT, version=None)
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE PROJECT IDENTIFIER('my_project')"
+        query="EXECUTE PROJECT IDENTIFIER('my_project') DEPLOY"
     )
 
 
@@ -170,7 +171,7 @@ def test_validate_project(mock_execute_query, project_directory):
 
     mock_execute_query.assert_called_once_with(
         query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
-        " WITH VERSION v42 DRY_RUN=TRUE"
+        " WITH VERSION v42 PLAN"
     )
 
 
@@ -186,7 +187,7 @@ def test_validate_project_with_from_stage(mock_execute_query, project_directory)
 
     mock_execute_query.assert_called_once_with(
         query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
-        " FROM @my_stage DRY_RUN=TRUE"
+        " FROM @my_stage PLAN"
     )
 
 
@@ -212,3 +213,78 @@ def test_drop_version(mock_execute_query, if_exists):
     expected_query += " v1"
 
     mock_execute_query.assert_called_once_with(query=expected_query)
+
+
+# Tests for fallback mechanism - TODO: Remove these when old syntax support is dropped
+@mock.patch(execute_queries)
+def test_execute_project_fallback(mock_execute_query):
+    """Test fallback to old syntax when 'unexpected DEPLOY' error occurs"""
+    mgr = ProjectManager()
+
+    # First call raises ProgrammingError with 'unexpected DEPLOY'
+    # Second call (fallback) succeeds
+    mock_execute_query.side_effect = [
+        ProgrammingError(
+            "SQL compilation error: syntax error line 1 at position 45 unexpected 'DEPLOY'"
+        ),
+        mock.MagicMock(),  # Success on second call
+    ]
+
+    mgr.execute(project_name=TEST_PROJECT, version="v42")
+
+    # Verify two calls were made
+    assert mock_execute_query.call_count == 2
+
+    # First call with new syntax (DEPLOY)
+    first_call = mock_execute_query.call_args_list[0]
+    assert "DEPLOY" in first_call[1]["query"]
+
+    # Second call with old syntax (no DEPLOY)
+    second_call = mock_execute_query.call_args_list[1]
+    assert "DEPLOY" not in second_call[1]["query"]
+
+
+@mock.patch(execute_queries)
+def test_dry_run_project_fallback(mock_execute_query):
+    """Test fallback to old syntax when 'unexpected PLAN' error occurs"""
+    mgr = ProjectManager()
+
+    # First call raises ProgrammingError with 'unexpected PLAN'
+    # Second call (fallback) succeeds
+    mock_execute_query.side_effect = [
+        ProgrammingError(
+            "SQL compilation error: syntax error line 1 at position 45 unexpected 'PLAN'"
+        ),
+        mock.MagicMock(),  # Success on second call
+    ]
+
+    mgr.execute(project_name=TEST_PROJECT, dry_run=True, version="v42")
+
+    # Verify two calls were made
+    assert mock_execute_query.call_count == 2
+
+    # First call with new syntax (PLAN)
+    first_call = mock_execute_query.call_args_list[0]
+    assert "PLAN" in first_call[1]["query"]
+    assert "DRY_RUN" not in first_call[1]["query"]
+
+    # Second call with old syntax (DRY_RUN=TRUE)
+    second_call = mock_execute_query.call_args_list[1]
+    assert "DRY_RUN=TRUE" in second_call[1]["query"]
+    assert "PLAN" not in second_call[1]["query"]
+
+
+@mock.patch(execute_queries)
+def test_execute_project_no_fallback_on_other_errors(mock_execute_query):
+    """Test that fallback doesn't occur for other types of errors"""
+    mgr = ProjectManager()
+
+    # Mock a different type of error (not related to unexpected keywords)
+    mock_execute_query.side_effect = ProgrammingError("Some other SQL error")
+
+    # Should raise the original error without fallback
+    with pytest.raises(ProgrammingError, match="Some other SQL error"):
+        mgr.execute(project_name=TEST_PROJECT, version="v42")
+
+    # Verify only one call was made (no fallback)
+    assert mock_execute_query.call_count == 1

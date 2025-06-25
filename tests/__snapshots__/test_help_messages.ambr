@@ -10330,6 +10330,144 @@
   
   '''
 # ---
+# name: test_help_messages[project.deploy]
+  '''
+                                                                                  
+   Usage: root project deploy [OPTIONS] IDENTIFIER                                
+                                                                                  
+   Applies changes defined in the project to Snowflake.                           
+                                                                                  
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    identifier      TEXT  Identifier of the project; for example:           |
+  |                            MY_PROJECT                                        |
+  |                            [required]                                        |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --version                TEXT  Version of the project to use. If not         |
+  |                                specified default version is used. For names  |
+  |                                containing '$', use single quotes to prevent  |
+  |                                shell expansion (e.g., 'VERSION$1').          |
+  | --from                   TEXT  Apply changes defined in given stage instead  |
+  |                                of using a specific project version.          |
+  | --variable       -D      TEXT  Variables for the execution context; for      |
+  |                                example: -D "<key>=<value>".                  |
+  | --configuration          TEXT  Configuration of the project to use. If not   |
+  |                                specified default configuration is used.      |
+  | --help           -h            Show this message and exit.                   |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment    -c      TEXT     Name of the connection, as    |
+  |                                                defined in your config.toml   |
+  |                                                file. Default: default.       |
+  | --host                                TEXT     Host address for the          |
+  |                                                connection. Overrides the     |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --port                                INTEGER  Port for the connection.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --account,--accountname               TEXT     Name assigned to your         |
+  |                                                Snowflake account. Overrides  |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --user,--username                     TEXT     Username to connect to        |
+  |                                                Snowflake. Overrides the      |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --password                            TEXT     Snowflake password. Overrides |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --authenticator                       TEXT     Snowflake authenticator.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --private-key-file,--privat…          TEXT     Snowflake private key file    |
+  |                                                path. Overrides the value     |
+  |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
+  | --token-file-path                     TEXT     Path to file with an OAuth    |
+  |                                                token to use when connecting  |
+  |                                                to Snowflake.                 |
+  | --database,--dbname                   TEXT     Database to use. Overrides    |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --schema,--schemaname                 TEXT     Database schema to use.       |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --role,--rolename                     TEXT     Role to use. Overrides the    |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --warehouse                           TEXT     Warehouse to use. Overrides   |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --temporary-connection        -x               Uses a connection defined     |
+  |                                                with command line parameters, |
+  |                                                instead of one defined in     |
+  |                                                config                        |
+  | --mfa-passcode                        TEXT     Token to use for multi-factor |
+  |                                                authentication (MFA)          |
+  | --enable-diag                                  Whether to generate a         |
+  |                                                connection diagnostic report. |
+  | --diag-log-path                       TEXT     Path for the generated        |
+  |                                                report. Defaults to system    |
+  |                                                temporary directory.          |
+  | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
+  |                                                contains allowlist            |
+  |                                                parameters.                   |
+  | --oauth-client-id                     TEXT     Value of client id provided   |
+  |                                                by the Identity Provider for  |
+  |                                                Snowflake integration.        |
+  | --oauth-client-secret                 TEXT     Value of the client secret    |
+  |                                                provided by the Identity      |
+  |                                                Provider for Snowflake        |
+  |                                                integration.                  |
+  | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the authorization   |
+  |                                                code to the driver.           |
+  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the access tokens   |
+  |                                                to the driver.                |
+  | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
+  |                                                code redirection.             |
+  | --oauth-scope                         TEXT     Scope requested in the        |
+  |                                                Identity Provider             |
+  |                                                authorization request.        |
+  | --oauth-disable-pkce                           Disables Proof Key for Code   |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
+  | --oauth-enable-refresh-toke…                   Enables a silent              |
+  |                                                re-authentication when the    |
+  |                                                actual access token becomes   |
+  |                                                outdated. Default: False.     |
+  | --oauth-enable-single-use-r…                   Whether to opt-in to          |
+  |                                                single-use refresh token      |
+  |                                                semantics. Default: False.    |
+  | --client-store-temporary-cr…                   Store the temporary           |
+  |                                                credential.                   |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON|CSV]  Specifies the output        |
+  |                                                  format.                     |
+  |                                                  [default: TABLE]            |
+  | --verbose              -v                        Displays log entries for    |
+  |                                                  log levels info and higher. |
+  | --debug                                          Displays log entries for    |
+  |                                                  log levels debug and        |
+  |                                                  higher; debug logs contain  |
+  |                                                  additional information.     |
+  | --silent                                         Turns off intermediate      |
+  |                                                  output to console.          |
+  | --enhanced-exit-codes                            Differentiate exit error    |
+  |                                                  codes based on failure      |
+  |                                                  type.                       |
+  |                                                  [env var:                   |
+  |                                                  SNOWFLAKE_ENHANCED_EXIT_CO… |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[project.drop-version]
   '''
                                                                                   
@@ -10599,7 +10737,8 @@
                                                                                   
    Usage: root project dry-run [OPTIONS] IDENTIFIER                               
                                                                                   
-   Validates a project.                                                           
+   (deprecated)                                                                   
+   Plans a project deployment (validates without executing).                      
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -10612,8 +10751,8 @@
   |                                specified default version is used. For names  |
   |                                containing '$', use single quotes to prevent  |
   |                                shell expansion (e.g., 'VERSION$1').          |
-  | --from                   TEXT  Execute project from given stage instead of   |
-  |                                using a specific version.                     |
+  | --from                   TEXT  Plan project deployment from given stage      |
+  |                                instead of using a specific version.          |
   | --variable       -D      TEXT  Variables for the execution context; for      |
   |                                example: -D "<key>=<value>".                  |
   | --configuration          TEXT  Configuration of the project to use. If not   |
@@ -10739,7 +10878,8 @@
                                                                                   
    Usage: root project execute [OPTIONS] IDENTIFIER                               
                                                                                   
-   Executes a project.                                                            
+   (deprecated)                                                                   
+   Applies changes defined in the project to Snowflake.                           
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -10752,8 +10892,8 @@
   |                                specified default version is used. For names  |
   |                                containing '$', use single quotes to prevent  |
   |                                shell expansion (e.g., 'VERSION$1').          |
-  | --from                   TEXT  Execute project from given stage instead of   |
-  |                                using a specific version.                     |
+  | --from                   TEXT  Apply changes defined in given stage instead  |
+  |                                of using a specific project version.          |
   | --variable       -D      TEXT  Variables for the execution context; for      |
   |                                example: -D "<key>=<value>".                  |
   | --configuration          TEXT  Configuration of the project to use. If not   |
@@ -11139,6 +11279,144 @@
   
   '''
 # ---
+# name: test_help_messages[project.plan]
+  '''
+                                                                                  
+   Usage: root project plan [OPTIONS] IDENTIFIER                                  
+                                                                                  
+   Plans a project deployment (validates without executing).                      
+                                                                                  
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    identifier      TEXT  Identifier of the project; for example:           |
+  |                            MY_PROJECT                                        |
+  |                            [required]                                        |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --version                TEXT  Version of the project to use. If not         |
+  |                                specified default version is used. For names  |
+  |                                containing '$', use single quotes to prevent  |
+  |                                shell expansion (e.g., 'VERSION$1').          |
+  | --from                   TEXT  Plan project deployment from given stage      |
+  |                                instead of using a specific version.          |
+  | --variable       -D      TEXT  Variables for the execution context; for      |
+  |                                example: -D "<key>=<value>".                  |
+  | --configuration          TEXT  Configuration of the project to use. If not   |
+  |                                specified default configuration is used.      |
+  | --help           -h            Show this message and exit.                   |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment    -c      TEXT     Name of the connection, as    |
+  |                                                defined in your config.toml   |
+  |                                                file. Default: default.       |
+  | --host                                TEXT     Host address for the          |
+  |                                                connection. Overrides the     |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --port                                INTEGER  Port for the connection.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --account,--accountname               TEXT     Name assigned to your         |
+  |                                                Snowflake account. Overrides  |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --user,--username                     TEXT     Username to connect to        |
+  |                                                Snowflake. Overrides the      |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --password                            TEXT     Snowflake password. Overrides |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --authenticator                       TEXT     Snowflake authenticator.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --private-key-file,--privat…          TEXT     Snowflake private key file    |
+  |                                                path. Overrides the value     |
+  |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
+  | --token-file-path                     TEXT     Path to file with an OAuth    |
+  |                                                token to use when connecting  |
+  |                                                to Snowflake.                 |
+  | --database,--dbname                   TEXT     Database to use. Overrides    |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --schema,--schemaname                 TEXT     Database schema to use.       |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --role,--rolename                     TEXT     Role to use. Overrides the    |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --warehouse                           TEXT     Warehouse to use. Overrides   |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --temporary-connection        -x               Uses a connection defined     |
+  |                                                with command line parameters, |
+  |                                                instead of one defined in     |
+  |                                                config                        |
+  | --mfa-passcode                        TEXT     Token to use for multi-factor |
+  |                                                authentication (MFA)          |
+  | --enable-diag                                  Whether to generate a         |
+  |                                                connection diagnostic report. |
+  | --diag-log-path                       TEXT     Path for the generated        |
+  |                                                report. Defaults to system    |
+  |                                                temporary directory.          |
+  | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
+  |                                                contains allowlist            |
+  |                                                parameters.                   |
+  | --oauth-client-id                     TEXT     Value of client id provided   |
+  |                                                by the Identity Provider for  |
+  |                                                Snowflake integration.        |
+  | --oauth-client-secret                 TEXT     Value of the client secret    |
+  |                                                provided by the Identity      |
+  |                                                Provider for Snowflake        |
+  |                                                integration.                  |
+  | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the authorization   |
+  |                                                code to the driver.           |
+  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the access tokens   |
+  |                                                to the driver.                |
+  | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
+  |                                                code redirection.             |
+  | --oauth-scope                         TEXT     Scope requested in the        |
+  |                                                Identity Provider             |
+  |                                                authorization request.        |
+  | --oauth-disable-pkce                           Disables Proof Key for Code   |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
+  | --oauth-enable-refresh-toke…                   Enables a silent              |
+  |                                                re-authentication when the    |
+  |                                                actual access token becomes   |
+  |                                                outdated. Default: False.     |
+  | --oauth-enable-single-use-r…                   Whether to opt-in to          |
+  |                                                single-use refresh token      |
+  |                                                semantics. Default: False.    |
+  | --client-store-temporary-cr…                   Store the temporary           |
+  |                                                credential.                   |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON|CSV]  Specifies the output        |
+  |                                                  format.                     |
+  |                                                  [default: TABLE]            |
+  | --verbose              -v                        Displays log entries for    |
+  |                                                  log levels info and higher. |
+  | --debug                                          Displays log entries for    |
+  |                                                  log levels debug and        |
+  |                                                  higher; debug logs contain  |
+  |                                                  additional information.     |
+  | --silent                                         Turns off intermediate      |
+  |                                                  output to console.          |
+  | --enhanced-exit-codes                            Differentiate exit error    |
+  |                                                  codes based on failure      |
+  |                                                  type.                       |
+  |                                                  [env var:                   |
+  |                                                  SNOWFLAKE_ENHANCED_EXIT_CO… |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[project]
   '''
                                                                                   
@@ -11151,16 +11429,23 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | add-version     Uploads local files to Snowflake and cerates a new project   |
-  |                 version.                                                     |
-  | create          Creates a project in Snowflake. By default, the project is   |
-  |                 initialized with a new version created from local files.     |
+  | add-version     Uploads local files to Snowflake and cerates                 |
+  |                 a new project version.                                       |
+  | create          Creates a project in Snowflake. By default,                  |
+  |                 the project is initialized with a new version                |
+  |                 created from local files.                                    |
+  | deploy          Applies changes defined in the project to                    |
+  |                 Snowflake.                                                   |
   | drop            Drops project with given name.                               |
   | drop-version    Drops a version from the project.                            |
-  | dry-run         Validates a project.                                         |
-  | execute         Executes a project.                                          |
+  | dry-run         Plans a project deployment (validates without  (deprecated)  |
+  |                 executing).                                                  |
+  | execute         Applies changes defined in the project to      (deprecated)  |
+  |                 Snowflake.                                                   |
   | list            Lists all available projects.                                |
   | list-versions   Lists versions of given project.                             |
+  | plan            Plans a project deployment (validates without                |
+  |                 executing).                                                  |
   +------------------------------------------------------------------------------+
   
   
@@ -20892,16 +21177,23 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | add-version     Uploads local files to Snowflake and cerates a new project   |
-  |                 version.                                                     |
-  | create          Creates a project in Snowflake. By default, the project is   |
-  |                 initialized with a new version created from local files.     |
+  | add-version     Uploads local files to Snowflake and cerates                 |
+  |                 a new project version.                                       |
+  | create          Creates a project in Snowflake. By default,                  |
+  |                 the project is initialized with a new version                |
+  |                 created from local files.                                    |
+  | deploy          Applies changes defined in the project to                    |
+  |                 Snowflake.                                                   |
   | drop            Drops project with given name.                               |
   | drop-version    Drops a version from the project.                            |
-  | dry-run         Validates a project.                                         |
-  | execute         Executes a project.                                          |
+  | dry-run         Plans a project deployment (validates without  (deprecated)  |
+  |                 executing).                                                  |
+  | execute         Applies changes defined in the project to      (deprecated)  |
+  |                 Snowflake.                                                   |
   | list            Lists all available projects.                                |
   | list-versions   Lists versions of given project.                             |
+  | plan            Plans a project deployment (validates without                |
+  |                 executing).                                                  |
   +------------------------------------------------------------------------------+
   
   
