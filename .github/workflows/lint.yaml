@@ -37,7 +37,7 @@ jobs:
         id: pyproject_changed
         run: |
           git fetch origin ${{ github.base_ref }}
-          if git diff --name-only origin/${{ github.base_ref }}...${{ github.sha }} | grep '^pyproject.toml$'; then
+          if git diff --name-only $(git merge-base FETCH_HEAD HEAD)...${{ github.sha }} | grep '^pyproject.toml$'; then
             echo "pyproject_changed=true" >> $GITHUB_OUTPUT
           else
             echo "pyproject_changed=false" >> $GITHUB_OUTPUT
