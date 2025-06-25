@@ -141,9 +141,41 @@ def test_execute_project(mock_pm, runner, project_directory, mock_cursor):
     mock_pm().execute.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
         version=None,
+        from_stage=None,
         variables=None,
         configuration=None,
     )
+
+
+@mock.patch(ProjectManager)
+def test_execute_project_with_from_stage(
+    mock_pm, runner, project_directory, mock_cursor
+):
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
+    result = runner.invoke(["project", "execute", "fooBar", "--from", "@my_stage"])
+    assert result.exit_code == 0, result.output
+
+    mock_pm().execute.assert_called_once_with(
+        project_name=FQN.from_string("fooBar"),
+        version=None,
+        from_stage="@my_stage",
+        variables=None,
+        configuration=None,
+    )
+
+
+@mock.patch(ProjectManager)
+def test_execute_project_version_and_from_stage_mutually_exclusive(
+    mock_pm, runner, project_directory, mock_cursor
+):
+    result = runner.invoke(
+        ["project", "execute", "fooBar", "--version", "v1", "--from", "@my_stage"]
+    )
+    assert result.exit_code == 1, result.output
+    assert "--version and --from are mutually exclusive" in result.output
+
+    mock_pm().execute.assert_not_called()
 
 
 @mock.patch(ProjectManager)
@@ -160,6 +192,7 @@ def test_execute_project_with_variables(
     mock_pm().execute.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
         version="v1",
+        from_stage=None,
         variables=["key=value"],
         configuration=None,
     )
@@ -180,6 +213,7 @@ def test_execute_project_with_configuration(
         project_name=FQN.from_string("fooBar"),
         configuration="some_configuration",
         version=None,
+        from_stage=None,
         variables=None,
     )
 
@@ -206,10 +240,63 @@ def test_validate_project(mock_pm, runner, project_directory, mock_cursor):
     mock_pm().execute.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
         version="v1",
+        from_stage=None,
         dry_run=True,
         variables=["key=value"],
         configuration="some_configuration",
     )
+
+
+@mock.patch(ProjectManager)
+def test_validate_project_with_from_stage(
+    mock_pm, runner, project_directory, mock_cursor
+):
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
+    result = runner.invoke(
+        [
+            "project",
+            "dry-run",
+            "fooBar",
+            "--from",
+            "@my_stage",
+            "-D",
+            "key=value",
+            "--configuration",
+            "some_configuration",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+
+    mock_pm().execute.assert_called_once_with(
+        project_name=FQN.from_string("fooBar"),
+        version=None,
+        from_stage="@my_stage",
+        dry_run=True,
+        variables=["key=value"],
+        configuration="some_configuration",
+    )
+
+
+@mock.patch(ProjectManager)
+def test_validate_project_version_and_from_stage_mutually_exclusive(
+    mock_pm, runner, project_directory, mock_cursor
+):
+    result = runner.invoke(
+        [
+            "project",
+            "dry-run",
+            "fooBar",
+            "--version",
+            "v1",
+            "--from",
+            "@my_stage",
+        ]
+    )
+    assert result.exit_code == 1, result.output
+    assert "--version and --from are mutually exclusive" in result.output
+
+    mock_pm().execute.assert_not_called()
 
 
 def test_list_command_alias(mock_connect, runner):
@@ -250,6 +337,60 @@ def test_list_versions(mock_pm, runner):
 
     mock_pm().list_versions.assert_called_once_with(
         project_name=FQN.from_string("fooBar")
+    )
+
+
+@mock.patch(ProjectManager)
+@pytest.mark.parametrize("if_exists", [True, False])
+def test_drop_version(mock_pm, runner, if_exists):
+    command = ["project", "drop-version", "fooBar", "v1"]
+    if if_exists:
+        command.append("--if-exists")
+
+    result = runner.invoke(command)
+
+    assert result.exit_code == 0, result.output
+    assert "Version 'v1' dropped from project 'fooBar'" in result.output
+
+    mock_pm().drop_version.assert_called_once_with(
+        project_name=FQN.from_string("fooBar"),
+        version_name="v1",
+        if_exists=if_exists,
+    )
+
+
+@mock.patch(ProjectManager)
+@pytest.mark.parametrize(
+    "version_name,should_warn",
+    [
+        ("version", True),
+        ("VERSION", True),
+        ("Version", True),
+        ("VERSION$1", False),
+        ("v1", False),
+        ("my_version", False),
+        ("version1", False),
+        ("actual_version", False),
+    ],
+)
+def test_drop_version_shell_expansion_warning(
+    mock_pm, runner, version_name, should_warn
+):
+    """Test that warning is displayed for version names that look like shell expansion results."""
+    result = runner.invoke(["project", "drop-version", "fooBar", version_name])
+
+    assert result.exit_code == 0, result.output
+
+    if should_warn:
+        assert "might be truncated due to shell expansion" in result.output
+        assert "try using single quotes" in result.output
+    else:
+        assert "might be truncated due to shell expansion" not in result.output
+
+    mock_pm().drop_version.assert_called_once_with(
+        project_name=FQN.from_string("fooBar"),
+        version_name=version_name,
+        if_exists=False,
     )
 
 

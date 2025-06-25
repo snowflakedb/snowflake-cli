@@ -57,7 +57,7 @@ def test_create_version(mock_execute_query, stage_name):
         project_name=TEST_PROJECT, from_stage=stage_name, alias="v1", comment="fancy"
     )
     mock_execute_query.assert_called_once_with(
-        query=f"ALTER PROJECT my_project ADD VERSION IF NOT EXISTS \"v1\" FROM @stage_foo COMMENT = 'fancy'"
+        query=f"ALTER PROJECT my_project ADD VERSION IF NOT EXISTS v1 FROM @stage_foo COMMENT = 'fancy'"
     )
 
 
@@ -116,6 +116,38 @@ def test_execute_project(mock_execute_query):
 
 
 @mock.patch(execute_queries)
+def test_execute_project_with_from_stage(mock_execute_query):
+    mgr = ProjectManager()
+    mgr.execute(
+        project_name=TEST_PROJECT,
+        from_stage="@my_stage",
+        variables=["key=value", "aaa=bbb"],
+        configuration="some_configuration",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
+        " (key=>value, aaa=>bbb) FROM @my_stage"
+    )
+
+
+@mock.patch(execute_queries)
+def test_execute_project_with_from_stage_without_prefix(mock_execute_query):
+    mgr = ProjectManager()
+    mgr.execute(
+        project_name=TEST_PROJECT,
+        from_stage="my_stage",
+        variables=["key=value", "aaa=bbb"],
+        configuration="some_configuration",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
+        " (key=>value, aaa=>bbb) FROM @my_stage"
+    )
+
+
+@mock.patch(execute_queries)
 def test_execute_project_with_default_version(mock_execute_query, project_directory):
     mgr = ProjectManager()
 
@@ -143,6 +175,22 @@ def test_validate_project(mock_execute_query, project_directory):
 
 
 @mock.patch(execute_queries)
+def test_validate_project_with_from_stage(mock_execute_query, project_directory):
+    mgr = ProjectManager()
+    mgr.execute(
+        project_name=TEST_PROJECT,
+        from_stage="@my_stage",
+        dry_run=True,
+        configuration="some_configuration",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
+        " FROM @my_stage DRY_RUN=TRUE"
+    )
+
+
+@mock.patch(execute_queries)
 def test_list_versions(mock_execute_query):
     mgr = ProjectManager()
     mgr.list_versions(project_name=TEST_PROJECT)
@@ -150,3 +198,17 @@ def test_list_versions(mock_execute_query):
     mock_execute_query.assert_called_once_with(
         query="SHOW VERSIONS IN PROJECT my_project"
     )
+
+
+@mock.patch(execute_queries)
+@pytest.mark.parametrize("if_exists", [True, False])
+def test_drop_version(mock_execute_query, if_exists):
+    mgr = ProjectManager()
+    mgr.drop_version(project_name=TEST_PROJECT, version_name="v1", if_exists=if_exists)
+
+    expected_query = "ALTER PROJECT my_project DROP VERSION"
+    if if_exists:
+        expected_query += " IF EXISTS"
+    expected_query += " v1"
+
+    mock_execute_query.assert_called_once_with(query=expected_query)
