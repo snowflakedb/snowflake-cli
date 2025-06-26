@@ -31,7 +31,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - uses: Snowflake-Labs/snowflake-cli-action@main
+      - uses: snowflakedb/snowflake-cli-action@main
         with:
           custom-github-ref: ${{ github.head_ref }}
           default-config-file-path: "tests_integration/config/connection_configs.toml"
