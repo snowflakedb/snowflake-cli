@@ -773,6 +773,7 @@ class StageManager(SqlExecutionMixin):
 
     def refresh(self, stage_name):
         sql = f"ALTER STAGE {stage_name} REFRESH"
+        log.info("Refreshing stage %s", stage_name)
         return self.execute_query(sql)
 
     def _check_for_requirements_file(self, stage_path: StagePath) -> List[str]:
