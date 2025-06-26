@@ -17933,6 +17933,11 @@
   |                                                     downloading.             |
   |                                                     [default:                |
   |                                                     no-auto-compress]        |
+  | --refresh            --no-refresh                   Specifies whether ALTER  |
+  |                                                     STAGE {name} REFRESH     |
+  |                                                     should be executed after |
+  |                                                     uploading.               |
+  |                                                     [default: no-refresh]    |
   | --help           -h                                 Show this message and    |
   |                                                     exit.                    |
   +------------------------------------------------------------------------------+
