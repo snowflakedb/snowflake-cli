@@ -69,13 +69,49 @@ class StreamResult(CommandResult):
 class QueryResult(CollectionResult):
     def __init__(self, cursor: SnowflakeCursor | DictCursor):
         self.column_names = [col.name for col in cursor.description]
+        # Store column type information to identify VARIANT columns (JSON data)
+        self.column_types = [col.type_code for col in cursor.description]
         super().__init__(elements=self._prepare_payload(cursor))
         self._query = cursor.query
 
     def _prepare_payload(self, cursor: SnowflakeCursor | DictCursor):
         if isinstance(cursor, DictCursor):
-            return (k for k in cursor)
-        return ({k: v for k, v in zip(self.column_names, row)} for row in cursor)
+            return (self._process_columns(k) for k in cursor)
+        return (
+            self._process_columns({k: v for k, v in zip(self.column_names, row)})
+            for row in cursor
+        )
+
+    def _process_columns(self, row_dict):
+        """Process row data and parse JSON strings in columns that can contain JSON data.
+
+        Snowflake data types that can contain JSON:
+        - VARIANT (type code 5): Can contain any data type including JSON
+        - ARRAY (type code 10): Can contain JSON arrays
+        - OBJECT (type code 9): Can contain JSON objects
+        """
+        processed_row = {}
+        for i, (column_name, value) in enumerate(row_dict.items()):
+            # Check if this column can contain JSON data
+            if i < len(self.column_types) and self.column_types[i] in (
+                5,
+                9,
+                10,
+            ):  # VARIANT, OBJECT, or ARRAY
+                # For ARRAY and OBJECT types, the values are always JSON strings that need parsing
+                # For VARIANT types, only parse if the value is a string
+                if self.column_types[i] in (9, 10) or isinstance(value, str):
+                    try:
+                        # Try to parse as JSON
+                        processed_row[column_name] = json.loads(value)
+                    except (json.JSONDecodeError, TypeError):
+                        # If parsing fails, keep the original value
+                        processed_row[column_name] = value
+                else:
+                    processed_row[column_name] = value
+            else:
+                processed_row[column_name] = value
+        return processed_row
 
     @property
     def query(self):
