@@ -1,4 +1,5 @@
 import pytest
+from time import sleep
 
 
 class TableForTesting:
@@ -15,6 +16,9 @@ class TableForTesting:
         return f"INSERT INTO {self.name} VALUES ('{value}')"
 
     def get_contents(self):
+        # as very rarely the result of the last async query is not yet visible in the test result,
+        # we wait short amount of time to avoid false-negative test results
+        sleep(0.1)
         result = self.runner.invoke_with_connection_json(
             ["sql", "-q", f"SELECT {self.col} FROM {self.name}"]
         )
