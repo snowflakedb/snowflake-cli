@@ -596,3 +596,8 @@ def unset_property(
         comment=comment,
     )
     return SingleQueryResult(cursor)
+
+
+@app.command("event-table", requires_connection=True)
+def event_table(**options):
+    return MessageResult(ServiceManager().get_account_event_table())

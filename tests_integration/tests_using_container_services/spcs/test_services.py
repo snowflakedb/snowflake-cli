@@ -69,7 +69,15 @@ def test_metrics(_test_steps, test_database):
     test_steps.metrics_command_should_execute_correctly(
         service_name, "hello-world", test_database
     )
-    pass
+
+
+@pytest.mark.integration
+def test_event_table(runner):
+    result = runner.invoke_with_connection(["spcs", "service", "event-table"])
+    assert result.exit_code == 0, result.output
+    assert (
+        result.output == "snowflake.telemetry.events\n"
+    ), f"Not really event table: {result.output}"
 
 
 @pytest.mark.integration
