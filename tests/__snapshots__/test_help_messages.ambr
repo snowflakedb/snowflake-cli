@@ -17899,8 +17899,9 @@
                                                                                   
    Usage: root stage copy [OPTIONS] SOURCE_PATH DESTINATION_PATH                  
                                                                                   
-   Copies all files from target path to target directory. This works for both     
-   uploading to and downloading files from the stage.                             
+   Copies all files from source path to target directory. This works for          
+   uploading to and downloading files from the stage, and copying between named   
+   stages.                                                                        
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -17910,8 +17911,6 @@
   |                                  pattern has to be enclosed in quotes.       |
   |                                  [required]                                  |
   | *    destination_path      TEXT  Target directory path for copy operation.   |
-  |                                  Should be stage if source is local or local |
-  |                                  if source is stage.                         |
   |                                  [required]                                  |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -18852,7 +18851,7 @@
   +- Options --------------------------------------------------------------------+
   | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
   |                                 name. For example, list --like "my%" lists   |
-  |                                 all stages that begin with “my”.             |
+  |                                 all stages that begin with "my".             |
   |                                 [default: %%]                                |
   | --in            <TEXT TEXT>...                                               |
   |                                                                              |
@@ -19115,9 +19114,9 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | copy         Copies all files from target path to target directory. This     |
-  |              works for both uploading to and downloading files from the      |
-  |              stage.                                                          |
+  | copy         Copies all files from source path to target directory. This     |
+  |              works for uploading to and downloading files from the stage,    |
+  |              and copying between named stages.                               |
   | create       Creates a named stage if it does not already exist.             |
   | describe     Provides description of stage.                                  |
   | drop         Drops stage with given name.                                    |
@@ -20828,9 +20827,9 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | copy         Copies all files from target path to target directory. This     |
-  |              works for both uploading to and downloading files from the      |
-  |              stage.                                                          |
+  | copy         Copies all files from source path to target directory. This     |
+  |              works for uploading to and downloading files from the stage,    |
+  |              and copying between named stages.                               |
   | create       Creates a named stage if it does not already exist.             |
   | describe     Provides description of stage.                                  |
   | drop         Drops stage with given name.                                    |

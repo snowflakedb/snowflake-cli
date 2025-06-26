@@ -74,7 +74,7 @@ add_object_command_aliases(
     object_type=ObjectType.STAGE,
     name_argument=StageNameArgument,
     like_option=like_option(
-        help_example='`list --like "my%"` lists all stages that begin with “my”',
+        help_example='`list --like "my%"` lists all stages that begin with "my"',
     ),
     scope_option=scope_option(help_example="`list --in database my_db`"),
 )
@@ -98,7 +98,7 @@ def copy(
         show_default=False,
     ),
     destination_path: str = typer.Argument(
-        help="Target directory path for copy operation. Should be stage if source is local or local if source is stage.",
+        help="Target directory path for copy operation.",
         show_default=False,
     ),
     overwrite: bool = typer.Option(
@@ -120,16 +120,17 @@ def copy(
     **options,
 ) -> CommandResult:
     """
-    Copies all files from target path to target directory. This works for both uploading
-    to and downloading files from the stage.
+    Copies all files from source path to target directory. This works for uploading
+    to and downloading files from the stage, and copying between named stages.
     """
     is_get = is_stage_path(source_path)
     is_put = is_stage_path(destination_path)
 
     if is_get and is_put:
-        raise click.ClickException(
-            "Both source and target path are remote. This operation is not supported."
+        cursor = StageManager().copy_files(
+            source_path=source_path, destination_path=destination_path
         )
+        return QueryResult(cursor)
     if not is_get and not is_put:
         raise click.ClickException(
             "Both source and target path are local. This operation is not supported."

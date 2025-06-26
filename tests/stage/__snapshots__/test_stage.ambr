@@ -7,6 +7,14 @@
   
   '''
 # ---
+# name: test_copy_throws_error_for_same_platform_operation[@~/dir1-@~/dir2]
+  '''
+  +- Error ----------------------------------------------------------------------+
+  | Destination path cannot be a user stage. Please provide a named stage.       |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
 # name: test_copy_throws_error_for_same_platform_operation[local/path-other/local/path]
   '''
   +- Error ----------------------------------------------------------------------+

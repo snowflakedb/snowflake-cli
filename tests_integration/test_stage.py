@@ -820,6 +820,45 @@ def test_recursive_upload_no_recursive_glob_pattern(
 
 
 @pytest.mark.integration
+def test_stage_copy_between_stages(runner, snowflake_session, test_database, tmp_path):
+    """Test copying files between two stages"""
+    source_stage = "test_source_stage"
+    dest_stage = "test_dest_stage"
+
+    # Create source and destination stages
+    result = runner.invoke_with_connection_json(["stage", "create", source_stage])
+    assert result.exit_code == 0, result.output
+
+    result = runner.invoke_with_connection_json(["stage", "create", dest_stage])
+    assert result.exit_code == 0, result.output
+
+    # Create test files and upload to source stage
+    test_files = ["test1.txt", "test2.py", "test3.md"]
+    with tempfile.TemporaryDirectory() as td:
+        for filename in test_files:
+            file_path = Path(td) / filename
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_text(f"Content of {filename}")
+
+        result = runner.invoke_with_connection_json(
+            ["stage", "copy", td, f"@{source_stage}"]
+        )
+        assert result.exit_code == 0, result.output
+
+    # Copy all files from source stage to destination stage
+    result = runner.invoke_with_connection_json(
+        ["stage", "copy", f"@{source_stage}", f"@{dest_stage}"]
+    )
+    assert result.exit_code == 0, result.output
+
+    # Verify files are now in destination stage
+    result = runner.invoke_with_connection_json(["stage", "list-files", dest_stage])
+    assert result.exit_code == 0, result.output
+    for filename in test_files:
+        assert any(filename in row.get("name", "") for row in result.json)
+
+
+@pytest.mark.integration
 @pytest.mark.parametrize("encryption", ["SNOWFLAKE_FULL", "SNOWFLAKE_SSE"])
 def test_create_encryption(runner, test_database, encryption):
     result = runner.invoke_with_connection_json(
