@@ -43,6 +43,7 @@
 ## Fixes and improvements
 * Fixed failing snow sql command when snowflake.yml is invalid and query has no templating.
 * Fix JSON serialization for `Decimal`, `time` and `binary`.
+* Nested JSONs are printed as JSONs, not strings.
 * Refactored Streamlit app deployment (using `FROM <stage>` syntax); removed deprecated Streamlit features
 
 
