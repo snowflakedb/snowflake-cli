@@ -72,7 +72,6 @@ def test_metrics(_test_steps, test_database):
     test_steps.metrics_command_should_execute_correctly(
         service_name, "hello-world", test_database
     )
-    pass
 
 
 @pytest.mark.integration
