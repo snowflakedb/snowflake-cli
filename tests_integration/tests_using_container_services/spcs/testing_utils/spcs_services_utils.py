@@ -106,6 +106,10 @@ class SnowparkServicesTestSteps:
                 "spcs",
                 "service",
                 "deploy",
+                "--database",
+                self.database,
+                "--schema",
+                self.schema,
             ],
         )
         assert_that_result_is_successful_and_output_json_equals(
@@ -127,6 +131,10 @@ class SnowparkServicesTestSteps:
                 "service",
                 "deploy",
                 "--upgrade",
+                "--database",
+                self.database,
+                "--schema",
+                self.schema,
             ],
         )
         assert_that_result_is_successful_and_output_json_equals(
