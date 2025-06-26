@@ -336,9 +336,8 @@ def test_stage_copy_local_to_remote_star(mock_execute, runner, mock_cursor):
 @pytest.mark.parametrize(
     "source, dest",
     [
-        ("@snow/stage", "@stage/snow"),
-        ("snow://stage", "snow://stage/snow"),
         ("local/path", "other/local/path"),
+        ("@~/dir1", "@~/dir2"),
     ],
 )
 def test_copy_throws_error_for_same_platform_operation(
@@ -347,6 +346,16 @@ def test_copy_throws_error_for_same_platform_operation(
     result = runner.invoke(["stage", "copy", source, dest])
     assert result.exit_code == 1
     assert result.output == os_agnostic_snapshot
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_copy_stage_to_stage(mock_execute, runner, mock_cursor):
+    mock_execute.return_value = mock_cursor(["row"], [])
+    result = runner.invoke(["stage", "copy", "@snow/stage", "@stage/snow"])
+    assert result.exit_code == 0, result.output
+    mock_execute.assert_called_once_with(
+        "copy files into @stage/snow/ from @snow/stage"
+    )
 
 
 @pytest.mark.parametrize(
