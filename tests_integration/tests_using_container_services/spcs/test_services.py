@@ -53,6 +53,9 @@ def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
     test_steps.list_should_not_return_service(service_name)
 
 
+@pytest.mark.skip(
+    reason="Missing usage permissions on schema snowflake.telemetry for integration tests role"
+)
 @pytest.mark.integration
 def test_metrics(_test_steps, test_database):
     test_steps, service_name = _test_steps
