@@ -29,6 +29,7 @@
   * jinja (new) (`{{ ... }}`), disabled by default
 * Added packages alias for artifact_repository_packages in the snowflake.yml schema.
 * Added support for copying files between named stages using `snow stage copy @src_stage @dst_stage` command.
+* Added `--enable-directory` flag for `snow stage create` to enable directory table on newly created stage.
 
 ## Fixes and improvements
 * Fixed failing snow sql command when snowflake.yml is invalid and query has no templating.

@@ -166,12 +166,19 @@ def stage_create(
         "--encryption",
         help="Type of encryption supported for all files stored on the stage.",
     ),
+    enable_directory: bool = typer.Option(
+        False,
+        "--enable-directory",
+        help="Specifies whether directory support is enabled for the stage.",
+    ),
     **options,
 ) -> CommandResult:
     """
     Creates a named stage if it does not already exist.
     """
-    cursor = StageManager().create(fqn=stage_name, encryption=encryption)
+    cursor = StageManager().create(
+        fqn=stage_name, encryption=encryption, enable_directory=enable_directory
+    )
     return SingleQueryResult(cursor)
 
 

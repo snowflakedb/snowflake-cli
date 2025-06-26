@@ -798,9 +798,8 @@ def test_stage_copy_refreshes_stream(
     stream_name = "test_stream"
 
     # Create stage and stream
-    runner.invoke_with_connection_json(["stage", "create", stage_name_with_at])
-    snowflake_session.execute_string(
-        f"ALTER STAGE {stage_name} SET DIRECTORY = (ENABLE = true)"
+    runner.invoke_with_connection_json(
+        ["stage", "create", stage_name_with_at, "--enable-directory"]
     )
     snowflake_session.execute_string(
         f"CREATE OR REPLACE STREAM {stream_name} ON STAGE {stage_name}"
@@ -916,3 +915,15 @@ def test_create_encryption(runner, test_database, encryption):
     )
     assert result.exit_code == 0, result.output
     assert result.json == {"status": f"Stage area A_STAGE successfully created."}
+
+
+@pytest.mark.integration
+def test_create_directory_option(runner, test_database):
+    stage_name = "stage_with_directory"
+    result = runner.invoke_with_connection_json(
+        ["stage", "create", stage_name, "--enable-directory"]
+    )
+    assert result.exit_code == 0, result.output
+    assert result.json == {
+        "status": f"Stage area {stage_name.upper()} successfully created."
+    }

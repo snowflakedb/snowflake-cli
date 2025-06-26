@@ -548,11 +548,14 @@ class StageManager(SqlExecutionMixin):
         comment: Optional[str] = None,
         temporary: bool = False,
         encryption: InternalStageEncryptionType | None = None,
+        enable_directory: bool = False,
     ) -> SnowflakeCursor:
         temporary_str = "temporary " if temporary else ""
         query = f"create {temporary_str}stage if not exists {fqn.sql_identifier}"
         if encryption:
             query += f" encryption = (type = '{encryption.value}')"
+        if enable_directory:
+            query += f" directory = (enable = true)"
         if comment:
             query += f" comment='{comment}'"
         return self.execute_query(query)
