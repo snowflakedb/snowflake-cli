@@ -211,7 +211,7 @@ test_container_services = [
   "pytest -m integration -n5 --dist=worksteal --deflake-test-type=integration tests_integration/tests_using_container_services",
 ]
 test_qa = [
-  "pytest -m 'integration and not no_qa' -n5 --dist=worksteal --deflake-test-type=integration tests_integration/tests_using_container_services/spcs/test_services.py::test_event_table",
+  "pytest -m 'integration and not no_qa' -n5 --dist=worksteal --deflake-test-type=integration tests_integration/tests_using_container_services/spcs/test_services.py -k 'test_event_table or test_metrics'",
 ]
 
 [[tool.hatch.envs.local.matrix]]
