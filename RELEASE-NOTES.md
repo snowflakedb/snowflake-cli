@@ -30,6 +30,7 @@
 * Added packages alias for artifact_repository_packages in the snowflake.yml schema.
 * Added support for copying files between named stages using `snow stage copy @src_stage @dst_stage` command.
 * Added `--enable-directory` flag for `snow stage create` to enable directory table on newly created stage.
+* Added `--refresh` flag for `snow stage copy` to refresh content of directory table associated with stage.
 
 ## Fixes and improvements
 * Fixed failing snow sql command when snowflake.yml is invalid and query has no templating.
