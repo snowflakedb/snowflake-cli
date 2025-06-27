@@ -36,6 +36,7 @@ from tests.testing_utils.conversion import get_output, get_output_as_json
 
 class MockResultMetadata(NamedTuple):
     name: str
+    type_code: int = 1  # Default to a non-JSON type for most tests
 
 
 def test_single_value_from_query(capsys, mock_cursor):
