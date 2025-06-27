@@ -17,7 +17,6 @@ import math
 import os
 import time
 import re
-from datetime import datetime
 from pathlib import Path
 from textwrap import dedent
 from typing import List, Dict
@@ -56,9 +55,8 @@ class SnowparkServicesTestSteps:
     container_name = "hello-world"
     ISO8601_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z")
 
-    def __init__(self, setup: SnowparkServicesTestSetup, another_database: str):
+    def __init__(self, setup: SnowparkServicesTestSetup):
         self._setup = setup
-        self.another_database = another_database
 
     def create_service(self, service_name: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(
@@ -78,7 +76,7 @@ class SnowparkServicesTestSteps:
             result, {"status": f"Service {service_name.upper()} successfully created."}
         )
 
-    def create_second_service(self, service_name: str) -> None:
+    def create_second_service(self, service_name: str, database: str) -> None:
 
         result = self._setup.runner.invoke_with_connection_json(
             [
@@ -91,9 +89,7 @@ class SnowparkServicesTestSteps:
                 "--spec-path",
                 self._get_spec_path("spec.yml"),
                 "--database",
-                self.another_database,
-                "--schema",
-                self.schema,
+                database,
             ],
         )
         assert_that_result_is_successful_and_output_json_equals(
@@ -106,6 +102,10 @@ class SnowparkServicesTestSteps:
                 "spcs",
                 "service",
                 "deploy",
+                "--database",
+                self.database,
+                "--schema",
+                self.schema,
             ],
         )
         assert_that_result_is_successful_and_output_json_equals(
@@ -127,6 +127,10 @@ class SnowparkServicesTestSteps:
                 "service",
                 "deploy",
                 "--upgrade",
+                "--database",
+                self.database,
+                "--schema",
+                self.schema,
             ],
         )
         assert_that_result_is_successful_and_output_json_equals(
