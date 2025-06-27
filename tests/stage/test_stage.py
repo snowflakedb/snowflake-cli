@@ -1427,3 +1427,34 @@ def test_recursive_upload_with_provided_temp_directory():
         tester.prepare(structure=NESTED_STRUCTURE)
         StageManager().copy_to_tmp_dir(Path(source_directory), temp_directory_path)
         tester.execute(local_path=source_directory)
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_create_enable_directory(mock_execute, runner, mock_cursor):
+    mock_execute.return_value = mock_cursor(["row"], [])
+    result = runner.invoke(["stage", "create", "stageName", "--enable-directory"])
+    assert result.exit_code == 0, result.output
+    mock_execute.assert_called_once_with(
+        "create stage if not exists IDENTIFIER('stageName') encryption = (type = 'SNOWFLAKE_FULL') directory = (enable = true)"
+    )
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_create_with_encryption_and_directory_options(
+    mock_execute, runner, mock_cursor
+):
+    mock_execute.return_value = mock_cursor(["row"], [])
+    result = runner.invoke(
+        [
+            "stage",
+            "create",
+            "stageName",
+            "--encryption",
+            "SNOWFLAKE_SSE",
+            "--enable-directory",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    mock_execute.assert_called_once_with(
+        "create stage if not exists IDENTIFIER('stageName') encryption = (type = 'SNOWFLAKE_SSE') directory = (enable = true)"
+    )
