@@ -34,6 +34,7 @@
   | app                  Manages a Snowflake Native App                          |
   | connection           Manages connections to Snowflake.                       |
   | cortex               Provides access to Snowflake Cortex.                    |
+  | dbt                  (preview) Manages dbt on Snowflake projects.            |
   | git                  Manages git repositories in Snowflake.                  |
   | helpers              Helper commands.                                        |
   | init                 Creates project directory from template.                |
@@ -98,6 +99,7 @@
   | app          Manages a Snowflake Native App                                  |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
+  | dbt          (preview) Manages dbt on Snowflake projects.                    |
   | git          Manages git repositories in Snowflake.                          |
   | helpers      Helper commands.                                                |
   | init         Creates project directory from template.                        |
@@ -143,6 +145,7 @@
   | app                  Manages a Snowflake Native App                          |
   | connection           Manages connections to Snowflake.                       |
   | cortex               Provides access to Snowflake Cortex.                    |
+  | dbt                  (preview) Manages dbt on Snowflake projects.            |
   | git                  Manages git repositories in Snowflake.                  |
   | helpers              Helper commands.                                        |
   | init                 Creates project directory from template.                |
@@ -227,6 +230,7 @@
   | app          Manages a Snowflake Native App                                  |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
+  | dbt          (preview) Manages dbt on Snowflake projects.                    |
   | git          Manages git repositories in Snowflake.                          |
   | helpers      Helper commands.                                                |
   | init         Creates project directory from template.                        |

@@ -64,7 +64,7 @@ class FeatureFlag(FeatureFlagMixin):
     )
     ENABLE_SNOWPARK_GLOB_SUPPORT = BooleanFlag("ENABLE_SNOWPARK_GLOB_SUPPORT", False)
     ENABLE_SPCS_SERVICE_EVENTS = BooleanFlag("ENABLE_SPCS_SERVICE_EVENTS", False)
-    ENABLE_DBT = BooleanFlag("ENABLE_DBT", False)
+    ENABLE_DBT = BooleanFlag("ENABLE_DBT", True)
     ENABLE_AUTH_KEYPAIR = BooleanFlag("ENABLE_AUTH_KEYPAIR", False)
     ENABLE_NATIVE_APP_PYTHON_SETUP = BooleanFlag(
         "ENABLE_NATIVE_APP_PYTHON_SETUP", False
