@@ -16,7 +16,7 @@ import pytest
 
 
 @pytest.mark.integration
-@pytest.mark.no_qa
+@pytest.mark.no_preprod
 def test_use_session_token(runner, snowflake_session):
     session_token = snowflake_session.rest.token
     master_token = snowflake_session.rest.master_token

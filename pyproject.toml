@@ -54,8 +54,8 @@ dependencies = [
   'PyYAML==6.0.2',
   'annotated-types==0.7.0',
   'asn1crypto==1.5.1',
-  'boto3==1.38.44',
-  'botocore==1.38.44',
+  'boto3==1.38.45',
+  'botocore==1.38.45',
   'certifi==2025.6.15',
   'cffi==1.17.1',
   'cfgv==3.4.0',
@@ -204,14 +204,21 @@ pre-install-commands = [
 features = ["development"]
 
 [tool.hatch.envs.integration.scripts]
+# run integration tests unless directly marked "qa_only", except container services
 test = [
   'pytest -m "integration and not qa_only" -n5 --dist=worksteal --deflake-test-type=integration --ignore=tests_integration/tests_using_container_services tests_integration/',
 ]
+# run only container services tests
 test_container_services = [
   "pytest -m integration -n5 --dist=worksteal --deflake-test-type=integration tests_integration/tests_using_container_services",
 ]
+# run tests marked "qa_only"
 test_qa = [
-  "pytest -m 'integration and not no_qa' -n5 --dist=worksteal --deflake-test-type=integration tests_integration/",
+  "pytest -m 'integration and qa_only' -n5 --dist=worksteal --deflake-test-type=integration tests_integration/",
+]
+# run all integration tests, unless directly marked "qa_only" or "no_preprod"
+test_preprod = [
+  "pytest -m 'integration and not no_preprod and not qa_only' -n5 --dist=worksteal --deflake-test-type=integration tests_integration/",
 ]
 
 [[tool.hatch.envs.local.matrix]]
@@ -247,8 +254,8 @@ markers = [
   "loaded_modules: checks loaded modules",
   "patch_app_version: sets app version to 0.0.0-test_patched",
   "integration_experimental: experimental integration test",
-  "no_qa: mark test as not to be run in QA",
-  "qa_only: mark test as to be run only in QA",
+  "no_preprod: mark test as not to be run on preprod",
+  "qa_only: mark test as to be run in QA and not in any other environment",
 ]
 
 

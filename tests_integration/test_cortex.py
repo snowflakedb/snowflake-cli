@@ -29,7 +29,7 @@ from tests_integration.testing_utils.assertions.test_result_assertions import (
     sys.version_info >= (3, 12),
     reason="Snowflake Python API currently does not support Python 3.12 and greater",
 )
-@pytest.mark.no_qa
+@pytest.mark.no_preprod
 def test_cortex_search(runner):
     result = runner.invoke_with_connection_json(
         [
@@ -54,7 +54,7 @@ def test_cortex_search(runner):
 
 
 @pytest.mark.integration
-@pytest.mark.no_qa
+@pytest.mark.no_preprod
 def test_cortex_complete_for_prompt(runner):
     result = runner.invoke_with_connection(
         [
@@ -67,7 +67,7 @@ def test_cortex_complete_for_prompt(runner):
 
 
 @pytest.mark.integration
-@pytest.mark.no_qa
+@pytest.mark.no_preprod
 def test_cortex_complete_for_conversation(runner):
     result = runner.invoke_with_connection(
         [
@@ -81,7 +81,7 @@ def test_cortex_complete_for_conversation(runner):
 
 
 @pytest.mark.integration
-@pytest.mark.no_qa
+@pytest.mark.no_preprod
 def test_cortex_extract_answer(runner):
     result = runner.invoke_with_connection(
         [
@@ -95,7 +95,7 @@ def test_cortex_extract_answer(runner):
 
 
 @pytest.mark.integration
-@pytest.mark.no_qa
+@pytest.mark.no_preprod
 def test_cortex_sentiment(runner):
     result = runner.invoke_with_connection(
         [
@@ -112,7 +112,7 @@ def test_cortex_sentiment(runner):
 
 
 @pytest.mark.integration
-@pytest.mark.no_qa
+@pytest.mark.no_preprod
 def test_cortex_summarize(runner):
     result = runner.invoke_with_connection(
         [
@@ -129,7 +129,7 @@ def test_cortex_summarize(runner):
 
 
 @pytest.mark.integration
-@pytest.mark.no_qa
+@pytest.mark.no_preprod
 def test_cortex_translate_from_detected_language(runner):
     result = runner.invoke_with_connection(
         [
@@ -144,7 +144,7 @@ def test_cortex_translate_from_detected_language(runner):
 
 
 @pytest.mark.integration
-@pytest.mark.no_qa
+@pytest.mark.no_preprod
 def test_cortex_translate_from_chosen_language(runner):
     result = runner.invoke_with_connection(
         [
