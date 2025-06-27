@@ -45,8 +45,9 @@ from snowflake.cli.api.secure_path import SecurePath
 
 app = SnowTyperFactory(
     name="dbt",
-    help="Manages dbt on Snowflake projects",
+    help="Manages dbt on Snowflake projects.",
     is_hidden=FeatureFlag.ENABLE_DBT.is_disabled,
+    preview=True,
 )
 log = logging.getLogger(__name__)
 
@@ -64,7 +65,7 @@ add_object_command_aliases(
     object_type=ObjectType.DBT_PROJECT,
     name_argument=DBTNameArgument,
     like_option=like_option(
-        help_example='`list --like "my%"` lists all dbt projects that begin with “my”'
+        help_example='`list --like "my%"` lists all dbt projects that begin with "my"'
     ),
     scope_option=scope_option(help_example="`list --in database my_db`"),
     ommit_commands=["drop", "create", "describe"],
@@ -115,6 +116,7 @@ dbt_execute_app = SnowTyperFactory(
     help="Execute a dbt command on Snowflake. Subcommand name and all "
     "parameters following it will be passed over to dbt.",
     subcommand_metavar="DBT_COMMAND",
+    preview=True,
 )
 app.add_typer(dbt_execute_app)
 
@@ -141,6 +143,7 @@ for cmd in DBT_COMMANDS:
         context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
         help=f"Execute {cmd} command on Snowflake. Command name and all parameters following it will be passed over to dbt.",
         add_help_option=False,
+        preview=True,
     )
     def _dbt_execute(
         ctx: typer.Context,
