@@ -17,6 +17,15 @@
 ## Backward incompatibility
 
 ## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
+# v3.10.0
+
+## Deprecations
 * Snowpark processor in Native Apps.
 
 ## New additions
