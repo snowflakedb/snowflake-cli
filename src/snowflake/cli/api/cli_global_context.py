@@ -46,6 +46,7 @@ class _CliGlobalContextManager:
     silent: bool = False
     verbose: bool = False
     experimental: bool = False
+    expand_json: bool = False
     enable_tracebacks: bool = True
     is_repl: bool = False
 
@@ -174,6 +175,10 @@ class _CliGlobalContextAccess:
     @property
     def experimental(self) -> bool:
         return self._manager.experimental
+
+    @property
+    def expand_json(self) -> bool:
+        return self._manager.expand_json
 
     @property
     def project_definition(self) -> ProjectDefinition | None:

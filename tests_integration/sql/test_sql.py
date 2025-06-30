@@ -270,7 +270,12 @@ def test_inner_json_nested_object_extraction(runner):
         '{"user": {"profile": {"name": "Alice", "settings": {"theme": "dark"}}}}'
     )
     result = runner.invoke_with_connection_json(
-        ["sql", "-q", f"SELECT GET(PARSE_JSON('{nested_json}'), 'user') as user_object"]
+        [
+            "sql",
+            "-q",
+            f"SELECT GET(PARSE_JSON('{nested_json}'), 'user') as user_object",
+            "--expand-json",
+        ]
     )
 
     assert result.exit_code == 0
@@ -303,6 +308,7 @@ def test_array_construct_and_object_construct(runner):
             "sql",
             "-q",
             "SELECT ARRAY_CONSTRUCT(1, 2, 3) as a, OBJECT_CONSTRUCT('foo', 'XXXX', 'bar', 42) as o",
+            "--expand-json",
         ]
     )
 
@@ -318,3 +324,28 @@ def test_array_construct_and_object_construct(runner):
     object_result = result.json[0]["O"]
     assert isinstance(object_result, dict)
     assert object_result == {"foo": "XXXX", "bar": 42}
+
+
+@pytest.mark.integration
+def test_nested_json_backward_compatibility(runner):
+    """Test that without --expand-json flag, JSON objects are returned as strings (backward compatibility)."""
+    nested_json = (
+        '{"user": {"profile": {"name": "Alice", "settings": {"theme": "dark"}}}}'
+    )
+    result = runner.invoke_with_connection_json(
+        ["sql", "-q", f"SELECT GET(PARSE_JSON('{nested_json}'), 'user') as user_object"]
+    )
+
+    assert result.exit_code == 0
+    assert len(result.json) == 1
+
+    # Verify that nested objects are returned as strings (original behavior)
+    user_obj = result.json[0]["USER_OBJECT"]
+
+    # Should be a string, not a dict
+    assert isinstance(user_obj, str)
+
+    # The string should contain JSON content
+    assert "profile" in user_obj
+    assert "Alice" in user_obj
+    assert "dark" in user_obj

@@ -18,6 +18,7 @@ import json
 import typing as t
 from enum import IntEnum
 
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.connector import DictCursor
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -92,13 +93,9 @@ class QueryResult(CollectionResult):
         )
 
     def _process_columns(self, row_dict):
-        """Process row data and parse JSON strings in columns that can contain JSON data.
+        if not get_cli_context().expand_json:
+            return row_dict
 
-        Snowflake data types that can contain JSON:
-        - VARIANT (type code 5): Can contain any data type including JSON
-        - ARRAY (type code 10): Can contain JSON arrays
-        - OBJECT (type code 9): Can contain JSON objects
-        """
         processed_row = {}
         for i, (column_name, value) in enumerate(row_dict.items()):
             # Check if this column can contain JSON data

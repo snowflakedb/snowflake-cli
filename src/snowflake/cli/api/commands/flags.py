@@ -446,6 +446,15 @@ OutputFormatOption = typer.Option(
     rich_help_panel=_CLI_BEHAVIOUR,
 )
 
+ExpandJsonOption = typer.Option(
+    False,
+    "--expand-json",
+    help="Expand JSON strings in query results into structured JSON objects instead of keeping them as strings.",
+    callback=_context_callback("expand_json"),
+    is_flag=True,
+    rich_help_panel=_CLI_BEHAVIOUR,
+)
+
 SilentOption = typer.Option(
     False,
     "--silent",
