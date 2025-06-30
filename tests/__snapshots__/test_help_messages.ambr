@@ -17958,6 +17958,11 @@
   |                                                     downloading.             |
   |                                                     [default:                |
   |                                                     no-auto-compress]        |
+  | --refresh            --no-refresh                   Specifies whether ALTER  |
+  |                                                     STAGE {name} REFRESH     |
+  |                                                     should be executed after |
+  |                                                     uploading.               |
+  |                                                     [default: no-refresh]    |
   | --help           -h                                 Show this message and    |
   |                                                     exit.                    |
   +------------------------------------------------------------------------------+
@@ -18086,12 +18091,16 @@
   |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --encryption          [SNOWFLAKE_FULL|SNOWFLAKE_  Type of encryption         |
-  |                       SSE]                        supported for all files    |
-  |                                                   stored on the stage.       |
-  |                                                   [default: SNOWFLAKE_FULL]  |
-  | --help        -h                                  Show this message and      |
-  |                                                   exit.                      |
+  | --encryption                [SNOWFLAKE_FULL|SNOWFL  Type of encryption       |
+  |                             AKE_SSE]                supported for all files  |
+  |                                                     stored on the stage.     |
+  |                                                     [default:                |
+  |                                                     SNOWFLAKE_FULL]          |
+  | --enable-directory                                  Specifies whether        |
+  |                                                     directory support is     |
+  |                                                     enabled for the stage.   |
+  | --help              -h                              Show this message and    |
+  |                                                     exit.                    |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
