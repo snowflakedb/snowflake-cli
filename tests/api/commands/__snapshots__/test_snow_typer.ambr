@@ -112,6 +112,11 @@
   |                                                  additional information.     |
   | --silent                                         Turns off intermediate      |
   |                                                  output to console.          |
+  | --expand-json                                    Expand JSON strings in      |
+  |                                                  query results into          |
+  |                                                  structured JSON objects     |
+  |                                                  instead of keeping them as  |
+  |                                                  strings.                    |
   | --enhanced-exit-codes                            Differentiate exit error    |
   |                                                  codes based on failure      |
   |                                                  type.                       |
@@ -145,6 +150,11 @@
   |                                                  additional information.     |
   | --silent                                         Turns off intermediate      |
   |                                                  output to console.          |
+  | --expand-json                                    Expand JSON strings in      |
+  |                                                  query results into          |
+  |                                                  structured JSON objects     |
+  |                                                  instead of keeping them as  |
+  |                                                  strings.                    |
   | --enhanced-exit-codes                            Differentiate exit error    |
   |                                                  codes based on failure      |
   |                                                  type.                       |
@@ -200,6 +210,11 @@
   |                                                  additional information.     |
   | --silent                                         Turns off intermediate      |
   |                                                  output to console.          |
+  | --expand-json                                    Expand JSON strings in      |
+  |                                                  query results into          |
+  |                                                  structured JSON objects     |
+  |                                                  instead of keeping them as  |
+  |                                                  strings.                    |
   | --enhanced-exit-codes                            Differentiate exit error    |
   |                                                  codes based on failure      |
   |                                                  type.                       |
