@@ -16,9 +16,18 @@ from __future__ import annotations
 
 import json
 import typing as t
+from enum import IntEnum
 
 from snowflake.connector import DictCursor
 from snowflake.connector.cursor import SnowflakeCursor
+
+
+class SnowflakeColumnType(IntEnum):
+    """Snowflake column type codes for JSON-capable data types."""
+
+    VARIANT = 5
+    OBJECT = 9
+    ARRAY = 10
 
 
 class CommandResult:
@@ -94,13 +103,16 @@ class QueryResult(CollectionResult):
         for i, (column_name, value) in enumerate(row_dict.items()):
             # Check if this column can contain JSON data
             if i < len(self.column_types) and self.column_types[i] in (
-                5,
-                9,
-                10,
-            ):  # VARIANT, OBJECT, or ARRAY
+                SnowflakeColumnType.VARIANT,
+                SnowflakeColumnType.OBJECT,
+                SnowflakeColumnType.ARRAY,
+            ):
                 # For ARRAY and OBJECT types, the values are always JSON strings that need parsing
                 # For VARIANT types, only parse if the value is a string
-                if self.column_types[i] in (9, 10) or isinstance(value, str):
+                if self.column_types[i] in (
+                    SnowflakeColumnType.OBJECT,
+                    SnowflakeColumnType.ARRAY,
+                ) or isinstance(value, str):
                     try:
                         # Try to parse as JSON
                         processed_row[column_name] = json.loads(value)
