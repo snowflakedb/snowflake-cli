@@ -17,17 +17,19 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 from textwrap import dedent
-from typing import List
-from zipfile import ZipFile
 
 import pytest
 
+from tests_integration.conftest import IS_QA
 from tests_integration.testing_utils import (
     SnowparkTestSteps,
 )
 from tests_integration.testing_utils.snowpark_utils import (
     FlowTestSetup,
 )
+from typing import List
+from zipfile import ZipFile
+
 
 STAGE_NAME = "dev_deployment"
 RETURN_TYPE = "VARCHAR"
@@ -278,13 +280,13 @@ def test_snowpark_flow(
         _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier="hello_procedure('foo')",
-            expected_value="Hello foo",
+            expected_value='"Hello foo"',
         )
 
         _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="hello_function('foo')",
-            expected_value="Hello foo!",
+            expected_value='"Hello foo!"',
         )
 
         # Check if adding import triggers replace
@@ -577,13 +579,13 @@ def test_snowpark_flow_old_build(
         _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="procedure",
             identifier="hello_procedure('foo')",
-            expected_value="Hello foo",
+            expected_value='"Hello foo"',
         )
 
         _snowpark_test_steps.snowpark_execute_should_return_expected_value(
             object_type="function",
             identifier="hello_function('foo')",
-            expected_value="Hello foo!",
+            expected_value='"Hello foo!"',
         )
 
         # Check if adding import triggers replace
