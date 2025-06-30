@@ -927,3 +927,12 @@ def test_create_directory_option(runner, test_database):
     assert result.json == {
         "status": f"Stage area {stage_name.upper()} successfully created."
     }
+
+    # Verify directory is enabled
+    result = runner.invoke_with_connection_json(["stage", "describe", stage_name])
+    assert result.exit_code == 0, result.output
+    assert any(
+        row.get("parent_property") == "DIRECTORY"
+        and row.get("property_value") == "true"
+        for row in result.json
+    )
