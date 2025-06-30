@@ -46,6 +46,7 @@
       --verbose
       --debug
       --silent
+      --expand-json
       --enhanced-exit-codes
   
   Arguments
@@ -164,6 +165,9 @@
   
   :samp:`--silent`
     Turns off intermediate output to console. Default: False.
+  
+  :samp:`--expand-json`
+    Expand JSON strings in query results into structured JSON objects instead of keeping them as strings. Default: False.
   
   :samp:`--enhanced-exit-codes`
     Differentiate exit error codes based on failure type. Default: False.
