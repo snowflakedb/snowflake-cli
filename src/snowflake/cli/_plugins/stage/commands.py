@@ -117,6 +117,10 @@ def copy(
         default=False,
         help="Specifies whether Snowflake uses gzip to compress files during upload. Ignored when downloading.",
     ),
+    refresh: bool = typer.Option(
+        default=False,
+        help="Specifies whether ALTER STAGE {name} REFRESH should be executed after uploading.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -150,6 +154,7 @@ def copy(
         parallel=parallel,
         overwrite=overwrite,
         auto_compress=auto_compress,
+        refresh=refresh,
     )
 
 
@@ -161,12 +166,19 @@ def stage_create(
         "--encryption",
         help="Type of encryption supported for all files stored on the stage.",
     ),
+    enable_directory: bool = typer.Option(
+        False,
+        "--enable-directory",
+        help="Specifies whether directory support is enabled for the stage.",
+    ),
     **options,
 ) -> CommandResult:
     """
     Creates a named stage if it does not already exist.
     """
-    cursor = StageManager().create(fqn=stage_name, encryption=encryption)
+    cursor = StageManager().create(
+        fqn=stage_name, encryption=encryption, enable_directory=enable_directory
+    )
     return SingleQueryResult(cursor)
 
 
@@ -265,6 +277,7 @@ def _put(
     parallel: int,
     overwrite: bool,
     auto_compress: bool,
+    refresh: bool,
 ):
     if recursive and not source_path.is_file():
         cursor_generator = StageManager().put_recursive(
@@ -274,7 +287,7 @@ def _put(
             parallel=parallel,
             auto_compress=auto_compress,
         )
-        return CollectionResult(cursor_generator)
+        output = CollectionResult(cursor_generator)
     else:
         cursor = StageManager().put(
             local_path=source_path.resolve(),
@@ -283,4 +296,10 @@ def _put(
             parallel=parallel,
             auto_compress=auto_compress,
         )
-        return QueryResult(cursor)
+        output = QueryResult(cursor)
+
+    if refresh:
+        StageManager().refresh(
+            StageManager.stage_path_parts_from_str(destination_path).stage_name
+        )
+    return output
