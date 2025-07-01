@@ -17,7 +17,7 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Optional, TypedDict
+from typing import List, Optional, TypedDict
 
 import yaml
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
@@ -85,6 +85,7 @@ class DBTManager(SqlExecutionMixin):
         force: bool,
         default_target: Optional[str] = None,
         unset_default_target: bool = False,
+        external_access_integrations: Optional[List[str]] = None,
     ) -> SnowflakeCursor:
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
@@ -123,38 +124,95 @@ class DBTManager(SqlExecutionMixin):
 
         with cli_console.phase("Creating DBT project"):
             if force is True:
-                query = f"CREATE OR REPLACE DBT PROJECT {fqn}"
-                query += f"\nFROM {stage_name}"
-                if default_target:
-                    query += f" DEFAULT_TARGET='{default_target}'"
-                return self.execute_query(query)
+                return self._deploy__create_or_replace(
+                    fqn, stage_name, default_target, external_access_integrations
+                )
             else:
                 dbt_object_attributes = self.get_dbt_object_attributes(fqn)
                 if dbt_object_attributes is not None:
-                    # Project exists - add new version
-                    query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
-                    query += f"\nFROM {stage_name}"
-                    result = self.execute_query(query)
-
-                    current_default_target = dbt_object_attributes.get("default_target")
-                    if unset_default_target and current_default_target is not None:
-                        unset_query = f"ALTER DBT PROJECT {fqn} UNSET DEFAULT_TARGET"
-                        self.execute_query(unset_query)
-                    elif default_target and (
-                        current_default_target is None
-                        or current_default_target.lower() != default_target.lower()
-                    ):
-                        set_default_query = f"ALTER DBT PROJECT {fqn} SET DEFAULT_TARGET='{default_target}'"
-                        self.execute_query(set_default_query)
-
-                    return result
+                    return self._deploy__alter(
+                        fqn,
+                        stage_name,
+                        dbt_object_attributes,
+                        default_target,
+                        unset_default_target,
+                        external_access_integrations,
+                    )
                 else:
-                    # Project doesn't exist - create new one
-                    query = f"CREATE DBT PROJECT {fqn}"
-                    query += f"\nFROM {stage_name}"
-                    if default_target:
-                        query += f" DEFAULT_TARGET='{default_target}'"
-                    return self.execute_query(query)
+                    return self._deploy__create(
+                        fqn, stage_name, default_target, external_access_integrations
+                    )
+
+    def _deploy__alter(
+        self,
+        fqn: FQN,
+        stage_name: str,
+        dbt_object_attributes: DBTObjectEditableAttributes,
+        default_target: Optional[str],
+        unset_default_target: bool,
+        external_access_integrations: Optional[List[str]],
+    ) -> SnowflakeCursor:
+        query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
+        query += f"\nFROM {stage_name}"
+        query = self._handle_external_access_integrations_query(
+            query, external_access_integrations
+        )
+        result = self.execute_query(query)
+        current_default_target = dbt_object_attributes.get("default_target")
+        if unset_default_target and current_default_target is not None:
+            unset_query = f"ALTER DBT PROJECT {fqn} UNSET DEFAULT_TARGET"
+            self.execute_query(unset_query)
+        elif default_target and (
+            current_default_target is None
+            or current_default_target.lower() != default_target.lower()
+        ):
+            set_default_query = (
+                f"ALTER DBT PROJECT {fqn} SET DEFAULT_TARGET='{default_target}'"
+            )
+            self.execute_query(set_default_query)
+        return result
+
+    def _deploy__create(
+        self,
+        fqn: FQN,
+        stage_name: str,
+        default_target: Optional[str],
+        external_access_integrations: Optional[List[str]],
+    ) -> SnowflakeCursor:
+        # Project doesn't exist - create new one
+        query = f"CREATE DBT PROJECT {fqn}"
+        query += f"\nFROM {stage_name}"
+        if default_target:
+            query += f" DEFAULT_TARGET='{default_target}'"
+        query = self._handle_external_access_integrations_query(
+            query, external_access_integrations
+        )
+        return self.execute_query(query)
+
+    @staticmethod
+    def _handle_external_access_integrations_query(
+        query: str, external_access_integrations: Optional[List[str]]
+    ) -> str:
+        if external_access_integrations:
+            integrations_str = ", ".join(external_access_integrations)
+            query += f"\nEXTERNAL_ACCESS_INTEGRATIONS = ({integrations_str})"
+        return query
+
+    def _deploy__create_or_replace(
+        self,
+        fqn: FQN,
+        stage_name: str,
+        default_target: Optional[str],
+        external_access_integrations: Optional[List[str]],
+    ) -> SnowflakeCursor:
+        query = f"CREATE OR REPLACE DBT PROJECT {fqn}"
+        query += f"\nFROM {stage_name}"
+        if default_target:
+            query += f" DEFAULT_TARGET='{default_target}'"
+        query = self._handle_external_access_integrations_query(
+            query, external_access_integrations
+        )
+        return self.execute_query(query)
 
     @staticmethod
     def _validate_profiles(
