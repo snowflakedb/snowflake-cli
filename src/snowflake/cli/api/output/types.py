@@ -19,6 +19,7 @@ import typing as t
 from enum import IntEnum
 
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.connector import DictCursor
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -93,7 +94,7 @@ class QueryResult(CollectionResult):
         )
 
     def _process_columns(self, row_dict):
-        if not get_cli_context().expand_json:
+        if get_cli_context().output_format != OutputFormat.JSON_EXT:
             return row_dict
 
         processed_row = {}

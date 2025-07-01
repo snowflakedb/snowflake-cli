@@ -31,7 +31,6 @@ from snowflake.cli.api.commands.flags import (
     DiagLogPathOption,
     EnableDiagOption,
     EnhancedExitCodesOption,
-    ExpandJsonOption,
     HostOption,
     MasterTokenOption,
     MfaPasscodeOption,
@@ -433,12 +432,6 @@ GLOBAL_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[bool],
         default=SilentOption,
-    ),
-    inspect.Parameter(
-        "expand_json",
-        inspect.Parameter.KEYWORD_ONLY,
-        annotation=Optional[bool],
-        default=ExpandJsonOption,
     ),
     inspect.Parameter(
         "enhanced_exit_codes",

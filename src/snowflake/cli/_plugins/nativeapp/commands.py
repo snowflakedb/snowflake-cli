@@ -55,7 +55,6 @@ from snowflake.cli.api.exceptions import (
     IncompatibleParametersError,
     UnmetParametersError,
 )
-from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CommandResult,
     MessageResult,
@@ -117,9 +116,9 @@ def app_diff(
     diff = ws.perform_action(
         package_id,
         EntityActions.DIFF,
-        print_to_console=cli_context.output_format != OutputFormat.JSON,
+        print_to_console=not cli_context.output_format.is_json(),
     )
-    if cli_context.output_format == OutputFormat.JSON:
+    if cli_context.output_format.is_json():
         return ObjectResult(diff.to_dict())
 
     return None
@@ -373,7 +372,7 @@ def app_validate(
     )
     package_id = options["package_entity_id"]
     package = ws.get_entity(package_id)
-    if cli_context.output_format == OutputFormat.JSON:
+    if cli_context.output_format.is_json():
         return ObjectResult(
             package.get_validation_result(
                 action_ctx=ws.action_ctx,

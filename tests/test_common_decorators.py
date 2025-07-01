@@ -24,7 +24,6 @@ _KNOWN_SIG_GLOBAL_PARAMETERS = [
     "verbose",
     "debug",
     "silent",
-    "expand_json",
     "enhanced_exit_codes",
 ]
 _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [

@@ -30,7 +30,6 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.entities.utils import EntityActions
-from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -105,7 +104,7 @@ def create(
     )
 
     message = "Version create is now complete."
-    if cli_context.output_format == OutputFormat.JSON:
+    if cli_context.output_format.is_json():
         return ObjectResult(
             {
                 "message": message,

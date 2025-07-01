@@ -201,7 +201,10 @@ class _CliGlobalContextAccess:
     @property
     def _should_force_mute_intermediate_output(self) -> bool:
         """Computes whether cli_console output should be muted."""
-        return self._manager.output_format in [OutputFormat.JSON, OutputFormat.CSV]
+        return (
+            self._manager.output_format.is_json()
+            or self._manager.output_format == OutputFormat.CSV
+        )
 
     @property
     def enhanced_exit_codes(self) -> bool:
