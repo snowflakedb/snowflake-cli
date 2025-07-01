@@ -107,27 +107,24 @@
   |                                                credential.                   |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|CSV]  Specifies the output        |
-  |                                                  format.                     |
-  |                                                  [default: TABLE]            |
-  | --verbose              -v                        Displays log entries for    |
-  |                                                  log levels info and higher. |
-  | --debug                                          Displays log entries for    |
-  |                                                  log levels debug and        |
-  |                                                  higher; debug logs contain  |
-  |                                                  additional information.     |
-  | --silent                                         Turns off intermediate      |
-  |                                                  output to console.          |
-  | --expand-json                                    Expand JSON strings in      |
-  |                                                  query results into          |
-  |                                                  structured JSON objects     |
-  |                                                  instead of keeping them as  |
-  |                                                  strings.                    |
-  | --enhanced-exit-codes                            Differentiate exit error    |
-  |                                                  codes based on failure      |
-  |                                                  type.                       |
-  |                                                  [env var:                   |
-  |                                                  SNOWFLAKE_ENHANCED_EXIT_CO… |
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
   
   
