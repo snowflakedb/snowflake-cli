@@ -132,10 +132,10 @@ def test_add_version_raises_when_project_does_not_exist(
 
 
 @mock.patch(ProjectManager)
-def test_execute_project(mock_pm, runner, project_directory, mock_cursor):
+def test_deploy_project(mock_pm, runner, project_directory, mock_cursor):
     mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
 
-    result = runner.invoke(["project", "execute", "fooBar"])
+    result = runner.invoke(["project", "deploy", "fooBar"])
     assert result.exit_code == 0, result.output
 
     mock_pm().execute.assert_called_once_with(
@@ -148,12 +148,12 @@ def test_execute_project(mock_pm, runner, project_directory, mock_cursor):
 
 
 @mock.patch(ProjectManager)
-def test_execute_project_with_from_stage(
+def test_deploy_project_with_from_stage(
     mock_pm, runner, project_directory, mock_cursor
 ):
     mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
 
-    result = runner.invoke(["project", "execute", "fooBar", "--from", "@my_stage"])
+    result = runner.invoke(["project", "deploy", "fooBar", "--from", "@my_stage"])
     assert result.exit_code == 0, result.output
 
     mock_pm().execute.assert_called_once_with(
@@ -166,11 +166,11 @@ def test_execute_project_with_from_stage(
 
 
 @mock.patch(ProjectManager)
-def test_execute_project_version_and_from_stage_mutually_exclusive(
+def test_deploy_project_version_and_from_stage_mutually_exclusive(
     mock_pm, runner, project_directory, mock_cursor
 ):
     result = runner.invoke(
-        ["project", "execute", "fooBar", "--version", "v1", "--from", "@my_stage"]
+        ["project", "deploy", "fooBar", "--version", "v1", "--from", "@my_stage"]
     )
     assert result.exit_code == 1, result.output
     assert "--version and --from are mutually exclusive" in result.output
@@ -179,13 +179,11 @@ def test_execute_project_version_and_from_stage_mutually_exclusive(
 
 
 @mock.patch(ProjectManager)
-def test_execute_project_with_variables(
-    mock_pm, runner, project_directory, mock_cursor
-):
+def test_deploy_project_with_variables(mock_pm, runner, project_directory, mock_cursor):
     mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
 
     result = runner.invoke(
-        ["project", "execute", "fooBar", "--version", "v1", "-D", "key=value"]
+        ["project", "deploy", "fooBar", "--version", "v1", "-D", "key=value"]
     )
     assert result.exit_code == 0, result.output
 
@@ -199,13 +197,13 @@ def test_execute_project_with_variables(
 
 
 @mock.patch(ProjectManager)
-def test_execute_project_with_configuration(
+def test_deploy_project_with_configuration(
     mock_pm, runner, project_directory, mock_cursor
 ):
     mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
 
     result = runner.invoke(
-        ["project", "execute", "fooBar", "--configuration", "some_configuration"]
+        ["project", "deploy", "fooBar", "--configuration", "some_configuration"]
     )
     assert result.exit_code == 0, result.output
 
@@ -219,13 +217,13 @@ def test_execute_project_with_configuration(
 
 
 @mock.patch(ProjectManager)
-def test_validate_project(mock_pm, runner, project_directory, mock_cursor):
+def test_plan_project(mock_pm, runner, project_directory, mock_cursor):
     mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
 
     result = runner.invoke(
         [
             "project",
-            "dry-run",
+            "plan",
             "fooBar",
             "--version",
             "v1",
@@ -248,15 +246,13 @@ def test_validate_project(mock_pm, runner, project_directory, mock_cursor):
 
 
 @mock.patch(ProjectManager)
-def test_validate_project_with_from_stage(
-    mock_pm, runner, project_directory, mock_cursor
-):
+def test_plan_project_with_from_stage(mock_pm, runner, project_directory, mock_cursor):
     mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
 
     result = runner.invoke(
         [
             "project",
-            "dry-run",
+            "plan",
             "fooBar",
             "--from",
             "@my_stage",
@@ -279,13 +275,13 @@ def test_validate_project_with_from_stage(
 
 
 @mock.patch(ProjectManager)
-def test_validate_project_version_and_from_stage_mutually_exclusive(
+def test_plan_project_version_and_from_stage_mutually_exclusive(
     mock_pm, runner, project_directory, mock_cursor
 ):
     result = runner.invoke(
         [
             "project",
-            "dry-run",
+            "plan",
             "fooBar",
             "--version",
             "v1",
