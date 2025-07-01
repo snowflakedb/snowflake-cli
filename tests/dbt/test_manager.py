@@ -1,12 +1,14 @@
 import os
 from pathlib import Path
 from textwrap import dedent
+from unittest import mock
 
 import pytest
 import yaml
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
 from snowflake.cli._plugins.dbt.manager import DBTManager
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 
 
@@ -35,9 +37,76 @@ class TestDeploy:
         source_path = tmp_path_factory.mktemp("dbt_project")
         yield source_path
 
+    @pytest.fixture
+    def dbt_project_path(self, project_path, profile):
+        dbt_project_file = project_path / "dbt_project.yml"
+        dbt_project_file.write_text(yaml.dump({"profile": "dev"}))
+        dbt_profiles_file = project_path / PROFILES_FILENAME
+        dbt_profiles_file.write_text(yaml.dump(profile))
+        yield project_path
+
     def _generate_profile(self, project_path, profile):
         dbt_profiles_file = project_path / PROFILES_FILENAME
         dbt_profiles_file.write_text(yaml.dump(profile))
+
+    @pytest.fixture
+    def mock_exists(self):
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager.exists", return_value=False
+        ) as _fixture:
+            yield _fixture
+
+    @pytest.fixture
+    def mock_upload_files(self):
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager._upload_files",
+            return_value="@TestDB.TestSchema.dbt_test_project_stage",
+        ) as _fixture:
+            yield _fixture
+
+    @pytest.fixture
+    def mock_execute_query(self):
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager.execute_query"
+        ) as _fixture:
+            yield _fixture
+
+    def test_deploy_with_external_access_integrations(
+        self, dbt_project_path, mock_upload_files, mock_exists, mock_execute_query
+    ):
+        manager = DBTManager()
+
+        manager.deploy(
+            name=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            external_access_integrations=[
+                "google_apis_access_integration, dbt_hub_integration"
+            ],
+        )
+
+        expected_query = "CREATE DBT PROJECT test_project\nFROM @TestDB.TestSchema.dbt_test_project_stage\nEXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration, dbt_hub_integration)"
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    def test_deploy_alter_project_with_external_access_integrations(
+        self, dbt_project_path, mock_upload_files, mock_exists, mock_execute_query
+    ):
+        mock_exists.return_value = True
+        manager = DBTManager()
+
+        manager.deploy(
+            name=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            external_access_integrations=[
+                "google_apis_access_integration, dbt_hub_integration"
+            ],
+        )
+
+        expected_query = "ALTER DBT PROJECT test_project ADD VERSION\nFROM @TestDB.TestSchema.dbt_test_project_stage\nEXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration, dbt_hub_integration)"
+        mock_execute_query.assert_called_once_with(expected_query)
 
     def test_validate_profiles_raises_when_file_does_not_exist(self, project_path):
 
