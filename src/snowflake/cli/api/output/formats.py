@@ -18,4 +18,9 @@ from enum import Enum
 class OutputFormat(Enum):
     TABLE = "TABLE"
     JSON = "JSON"
+    JSON_EXT = "JSON_EXT"
     CSV = "CSV"
+
+    @property
+    def is_json(self) -> bool:
+        return self in (OutputFormat.JSON, OutputFormat.JSON_EXT)
