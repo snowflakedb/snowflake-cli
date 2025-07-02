@@ -104,7 +104,7 @@ def create(
     )
 
     message = "Version create is now complete."
-    if cli_context.output_format.is_json():
+    if cli_context.output_format.is_json:
         return ObjectResult(
             {
                 "message": message,

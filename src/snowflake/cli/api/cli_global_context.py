@@ -46,7 +46,6 @@ class _CliGlobalContextManager:
     silent: bool = False
     verbose: bool = False
     experimental: bool = False
-    expand_json: bool = False
     enable_tracebacks: bool = True
     is_repl: bool = False
 
@@ -177,10 +176,6 @@ class _CliGlobalContextAccess:
         return self._manager.experimental
 
     @property
-    def expand_json(self) -> bool:
-        return self._manager.expand_json
-
-    @property
     def project_definition(self) -> ProjectDefinition | None:
         return self._manager.project_definition
 
@@ -202,7 +197,7 @@ class _CliGlobalContextAccess:
     def _should_force_mute_intermediate_output(self) -> bool:
         """Computes whether cli_console output should be muted."""
         return (
-            self._manager.output_format.is_json()
+            self._manager.output_format.is_json
             or self._manager.output_format == OutputFormat.CSV
         )
 

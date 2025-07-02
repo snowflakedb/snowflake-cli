@@ -218,7 +218,7 @@ def stage_diff(
         local_root=Path(folder_name),
         stage_path=StageManager.stage_path_parts_from_str(stage_name),  # noqa: SLF001
     )
-    if get_cli_context().output_format.is_json():
+    if get_cli_context().output_format.is_json:
         return ObjectResult(diff.to_dict())
     else:
         print_diff_to_console(diff)

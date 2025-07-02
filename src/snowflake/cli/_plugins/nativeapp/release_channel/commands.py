@@ -67,7 +67,7 @@ def release_channel_list(
         release_channel=channel,
     )
 
-    if cli_context.output_format.is_json():
+    if cli_context.output_format.is_json:
         return CollectionResult(channels)
 
 
