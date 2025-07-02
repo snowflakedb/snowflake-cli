@@ -26,7 +26,6 @@ from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.entities.utils import EntityActions
-from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -68,7 +67,7 @@ def release_channel_list(
         release_channel=channel,
     )
 
-    if cli_context.output_format == OutputFormat.JSON:
+    if cli_context.output_format.is_json:
         return CollectionResult(channels)
 
 

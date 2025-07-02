@@ -153,7 +153,7 @@
   :samp:`--client-store-temporary-credential`
     Store the temporary credential.
   
-  :samp:`--format [TABLE|JSON|CSV]`
+  :samp:`--format [TABLE|JSON|JSON_EXT|CSV]`
     Specifies the output format. Default: TABLE.
   
   :samp:`--verbose, -v`
