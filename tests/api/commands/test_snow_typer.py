@@ -17,7 +17,11 @@ from unittest.mock import MagicMock
 
 import pytest
 import typer
-from snowflake.cli.api.commands.snow_typer import SnowTyper, SnowTyperFactory
+from snowflake.cli.api.commands.snow_typer import (
+    PREVIEW_PREFIX,
+    SnowTyper,
+    SnowTyperFactory,
+)
 from snowflake.cli.api.output.types import MessageResult
 from typer.testing import CliRunner
 
@@ -255,7 +259,7 @@ def test_snow_typer_with_keyboard_interrupt(cli):
 
 # Tests for the preview functionality
 def test_snow_typer_factory_preview_adds_prefix_to_app_help():
-    """Test that preview=True on SnowTyperFactory adds (preview) prefix to app help text."""
+    """Test that preview=True on SnowTyperFactory adds PREVIEW_PREFIX to app help text."""
     app = SnowTyperFactory(
         name="test_app",
         help="This is a test app.",
@@ -263,19 +267,19 @@ def test_snow_typer_factory_preview_adds_prefix_to_app_help():
     )
 
     instance = app.create_instance()
-    assert instance.info.help == "(preview) This is a test app."
+    assert instance.info.help == f"{PREVIEW_PREFIX}This is a test app."
 
 
 def test_snow_typer_factory_preview_prevents_double_prefix():
-    """Test that preview=True does not add double (preview) prefix."""
+    """Test that preview=True does not add double PREVIEW_PREFIX prefix."""
     app = SnowTyperFactory(
         name="test_app",
-        help="(preview) This is already prefixed.",
+        help=f"{PREVIEW_PREFIX}This is already prefixed.",
         preview=True,
     )
 
     instance = app.create_instance()
-    assert instance.info.help == "(preview) This is already prefixed."
+    assert instance.info.help == f"{PREVIEW_PREFIX}This is already prefixed."
 
 
 def test_snow_typer_factory_preview_propagates_to_commands():
@@ -297,7 +301,7 @@ def test_snow_typer_factory_preview_propagates_to_commands():
     registered_cmds = instance.registered_commands
     assert len(registered_cmds) == 1
     cmd_info = registered_cmds[0]
-    assert cmd_info.callback.__doc__ == "(preview) This is a test command."
+    assert cmd_info.callback.__doc__ == f"{PREVIEW_PREFIX}This is a test command."
 
 
 def test_snow_typer_individual_command_preview():
@@ -340,7 +344,10 @@ def test_snow_typer_individual_command_preview():
 
     assert preview_cmd_info is not None
     assert normal_cmd_info is not None
-    assert preview_cmd_info.callback.__doc__ == "(preview) This command is in preview."
+    assert (
+        preview_cmd_info.callback.__doc__
+        == f"{PREVIEW_PREFIX}This command is in preview."
+    )
     assert normal_cmd_info.callback.__doc__ == "This command is normal."
 
 
@@ -390,9 +397,12 @@ def test_snow_typer_preview_works_with_help_parameter():
     assert help_param_cmd_info is not None
     assert docstring_cmd_info is not None
 
-    # The help parameter command should have preview prefix in help
-    assert help_param_cmd_info.help == "(preview) This command uses help parameter."
-    # The docstring command should have preview prefix in docstring
+    # The help parameter command should have PREVIEW_PREFIX in help
     assert (
-        docstring_cmd_info.callback.__doc__ == "(preview) This command uses docstring."
+        help_param_cmd_info.help == f"{PREVIEW_PREFIX}This command uses help parameter."
+    )
+    # The docstring command should have PREVIEW_PREFIX in docstring
+    assert (
+        docstring_cmd_info.callback.__doc__
+        == f"{PREVIEW_PREFIX}This command uses docstring."
     )
