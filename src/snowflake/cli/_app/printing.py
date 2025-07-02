@@ -104,7 +104,7 @@ def __to_str(val):
 
 
 def is_structured_format(output_format):
-    return output_format in [OutputFormat.JSON, OutputFormat.CSV]
+    return output_format.is_json or output_format == OutputFormat.CSV
 
 
 def print_structured(
