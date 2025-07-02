@@ -46,6 +46,8 @@ from typer.core import TyperGroup
 
 log = logging.getLogger(__name__)
 
+PREVIEW_PREFIX = ""
+
 
 class SortedTyperGroup(TyperGroup):
     def list_commands(self, ctx: click.Context) -> List[str]:
@@ -107,18 +109,17 @@ class SnowTyper(typer.Typer):
 
         def custom_command(command_callable):
             """Custom command wrapper similar to Typer.command."""
-            # Sanitize doc string which is used to create help in terminal
             command_callable.__doc__ = sanitize_for_terminal(command_callable.__doc__)
 
             if preview and command_callable.__doc__:
-                if not command_callable.__doc__.strip().startswith("(preview)"):
+                if not command_callable.__doc__.strip().startswith(PREVIEW_PREFIX):
                     command_callable.__doc__ = (
-                        f"(preview) {command_callable.__doc__.strip()}"
+                        f"{PREVIEW_PREFIX}{command_callable.__doc__.strip()}"
                     )
 
             if preview and "help" in kwargs and kwargs["help"]:
-                if not kwargs["help"].strip().startswith("(preview)"):
-                    kwargs["help"] = f"(preview) {kwargs['help'].strip()}"
+                if not kwargs["help"].strip().startswith(PREVIEW_PREFIX):
+                    kwargs["help"] = f"{PREVIEW_PREFIX}{kwargs['help'].strip()}"
 
             if requires_connection:
                 command_callable = global_options_with_connection(command_callable)
@@ -256,8 +257,8 @@ class SnowTyperFactory:
     def create_instance(self) -> SnowTyper:
         help_text = self.help
         if self.preview and help_text:
-            if not help_text.strip().startswith("(preview)"):
-                help_text = f"(preview) {help_text.strip()}"
+            if not help_text.strip().startswith(PREVIEW_PREFIX):
+                help_text = f"{PREVIEW_PREFIX}{help_text.strip()}"
 
         app = SnowTyper(
             name=self.name,

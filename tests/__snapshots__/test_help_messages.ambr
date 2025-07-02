@@ -25,7 +25,6 @@
   | app          Manages a Snowflake Native App                                  |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
-  | dbt          (preview) Manages dbt on Snowflake projects.                    |
   | git          Manages git repositories in Snowflake.                          |
   | helpers      Helper commands.                                                |
   | init         Creates project directory from template.                        |
@@ -4870,9 +4869,9 @@
                                                                                   
    Usage: root dbt deploy [OPTIONS] NAME                                          
                                                                                   
-   (preview) Copy dbt files and either recreate dbt on Snowflake if --force flag  
-   is provided; or create a new one if it doesn't exist; or update files and      
-   create a new version if it exists.                                             
+   Copy dbt files and either recreate dbt on Snowflake if --force flag is         
+   provided; or create a new one if it doesn't exist; or update files and create  
+   a new version if it exists.                                                    
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -5011,8 +5010,8 @@
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
-   (preview) Execute a dbt command on Snowflake. Subcommand name and all          
-   parameters following it will be passed over to dbt.                            
+   Execute a dbt command on Snowflake. Subcommand name and all parameters         
+   following it will be passed over to dbt.                                       
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -5136,30 +5135,28 @@
   |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build           (preview) Execute build command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | compile         (preview) Execute compile command on Snowflake. Command name |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | deps            (preview) Execute deps command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | list            (preview) Execute list command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | parse           (preview) Execute parse command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | run             (preview) Execute run command on Snowflake. Command name and |
+  | build           Execute build command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | compile         Execute compile command on Snowflake. Command name and all   |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps            Execute deps command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | list            Execute list command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | parse           Execute parse command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | run             Execute run command on Snowflake. Command name and all       |
+  |                 parameters following it will be passed over to dbt.          |
+  | run-operation   Execute run-operation command on Snowflake. Command name and |
   |                 all parameters following it will be passed over to dbt.      |
-  | run-operation   (preview) Execute run-operation command on Snowflake.        |
-  |                 Command name and all parameters following it will be passed  |
-  |                 over to dbt.                                                 |
-  | seed            (preview) Execute seed command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | show            (preview) Execute show command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | snapshot        (preview) Execute snapshot command on Snowflake. Command     |
-  |                 name and all parameters following it will be passed over to  |
-  |                 dbt.                                                         |
-  | test            (preview) Execute test command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
+  | seed            Execute seed command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | show            Execute show command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | snapshot        Execute snapshot command on Snowflake. Command name and all  |
+  |                 parameters following it will be passed over to dbt.          |
+  | test            Execute test command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
   +------------------------------------------------------------------------------+
   
   
@@ -5170,8 +5167,8 @@
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
-   (preview) Execute a dbt command on Snowflake. Subcommand name and all          
-   parameters following it will be passed over to dbt.                            
+   Execute a dbt command on Snowflake. Subcommand name and all parameters         
+   following it will be passed over to dbt.                                       
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -5295,30 +5292,28 @@
   |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build           (preview) Execute build command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | compile         (preview) Execute compile command on Snowflake. Command name |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | deps            (preview) Execute deps command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | list            (preview) Execute list command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | parse           (preview) Execute parse command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | run             (preview) Execute run command on Snowflake. Command name and |
+  | build           Execute build command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | compile         Execute compile command on Snowflake. Command name and all   |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps            Execute deps command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | list            Execute list command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | parse           Execute parse command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | run             Execute run command on Snowflake. Command name and all       |
+  |                 parameters following it will be passed over to dbt.          |
+  | run-operation   Execute run-operation command on Snowflake. Command name and |
   |                 all parameters following it will be passed over to dbt.      |
-  | run-operation   (preview) Execute run-operation command on Snowflake.        |
-  |                 Command name and all parameters following it will be passed  |
-  |                 over to dbt.                                                 |
-  | seed            (preview) Execute seed command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | show            (preview) Execute show command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | snapshot        (preview) Execute snapshot command on Snowflake. Command     |
-  |                 name and all parameters following it will be passed over to  |
-  |                 dbt.                                                         |
-  | test            (preview) Execute test command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
+  | seed            Execute seed command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | show            Execute show command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | snapshot        Execute snapshot command on Snowflake. Command name and all  |
+  |                 parameters following it will be passed over to dbt.          |
+  | test            Execute test command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
   +------------------------------------------------------------------------------+
   
   
@@ -5329,8 +5324,8 @@
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
-   (preview) Execute a dbt command on Snowflake. Subcommand name and all          
-   parameters following it will be passed over to dbt.                            
+   Execute a dbt command on Snowflake. Subcommand name and all parameters         
+   following it will be passed over to dbt.                                       
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -5454,30 +5449,28 @@
   |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build           (preview) Execute build command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | compile         (preview) Execute compile command on Snowflake. Command name |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | deps            (preview) Execute deps command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | list            (preview) Execute list command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | parse           (preview) Execute parse command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | run             (preview) Execute run command on Snowflake. Command name and |
+  | build           Execute build command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | compile         Execute compile command on Snowflake. Command name and all   |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps            Execute deps command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | list            Execute list command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | parse           Execute parse command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | run             Execute run command on Snowflake. Command name and all       |
+  |                 parameters following it will be passed over to dbt.          |
+  | run-operation   Execute run-operation command on Snowflake. Command name and |
   |                 all parameters following it will be passed over to dbt.      |
-  | run-operation   (preview) Execute run-operation command on Snowflake.        |
-  |                 Command name and all parameters following it will be passed  |
-  |                 over to dbt.                                                 |
-  | seed            (preview) Execute seed command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | show            (preview) Execute show command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | snapshot        (preview) Execute snapshot command on Snowflake. Command     |
-  |                 name and all parameters following it will be passed over to  |
-  |                 dbt.                                                         |
-  | test            (preview) Execute test command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
+  | seed            Execute seed command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | show            Execute show command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | snapshot        Execute snapshot command on Snowflake. Command name and all  |
+  |                 parameters following it will be passed over to dbt.          |
+  | test            Execute test command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
   +------------------------------------------------------------------------------+
   
   
@@ -5488,8 +5481,8 @@
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
-   (preview) Execute a dbt command on Snowflake. Subcommand name and all          
-   parameters following it will be passed over to dbt.                            
+   Execute a dbt command on Snowflake. Subcommand name and all parameters         
+   following it will be passed over to dbt.                                       
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -5613,30 +5606,28 @@
   |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build           (preview) Execute build command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | compile         (preview) Execute compile command on Snowflake. Command name |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | deps            (preview) Execute deps command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | list            (preview) Execute list command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | parse           (preview) Execute parse command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | run             (preview) Execute run command on Snowflake. Command name and |
+  | build           Execute build command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | compile         Execute compile command on Snowflake. Command name and all   |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps            Execute deps command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | list            Execute list command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | parse           Execute parse command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | run             Execute run command on Snowflake. Command name and all       |
+  |                 parameters following it will be passed over to dbt.          |
+  | run-operation   Execute run-operation command on Snowflake. Command name and |
   |                 all parameters following it will be passed over to dbt.      |
-  | run-operation   (preview) Execute run-operation command on Snowflake.        |
-  |                 Command name and all parameters following it will be passed  |
-  |                 over to dbt.                                                 |
-  | seed            (preview) Execute seed command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | show            (preview) Execute show command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | snapshot        (preview) Execute snapshot command on Snowflake. Command     |
-  |                 name and all parameters following it will be passed over to  |
-  |                 dbt.                                                         |
-  | test            (preview) Execute test command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
+  | seed            Execute seed command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | show            Execute show command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | snapshot        Execute snapshot command on Snowflake. Command name and all  |
+  |                 parameters following it will be passed over to dbt.          |
+  | test            Execute test command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
   +------------------------------------------------------------------------------+
   
   
@@ -5647,8 +5638,8 @@
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
-   (preview) Execute a dbt command on Snowflake. Subcommand name and all          
-   parameters following it will be passed over to dbt.                            
+   Execute a dbt command on Snowflake. Subcommand name and all parameters         
+   following it will be passed over to dbt.                                       
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -5772,30 +5763,28 @@
   |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build           (preview) Execute build command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | compile         (preview) Execute compile command on Snowflake. Command name |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | deps            (preview) Execute deps command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | list            (preview) Execute list command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | parse           (preview) Execute parse command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | run             (preview) Execute run command on Snowflake. Command name and |
+  | build           Execute build command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | compile         Execute compile command on Snowflake. Command name and all   |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps            Execute deps command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | list            Execute list command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | parse           Execute parse command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | run             Execute run command on Snowflake. Command name and all       |
+  |                 parameters following it will be passed over to dbt.          |
+  | run-operation   Execute run-operation command on Snowflake. Command name and |
   |                 all parameters following it will be passed over to dbt.      |
-  | run-operation   (preview) Execute run-operation command on Snowflake.        |
-  |                 Command name and all parameters following it will be passed  |
-  |                 over to dbt.                                                 |
-  | seed            (preview) Execute seed command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | show            (preview) Execute show command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | snapshot        (preview) Execute snapshot command on Snowflake. Command     |
-  |                 name and all parameters following it will be passed over to  |
-  |                 dbt.                                                         |
-  | test            (preview) Execute test command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
+  | seed            Execute seed command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | show            Execute show command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | snapshot        Execute snapshot command on Snowflake. Command name and all  |
+  |                 parameters following it will be passed over to dbt.          |
+  | test            Execute test command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
   +------------------------------------------------------------------------------+
   
   
@@ -5806,8 +5795,8 @@
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
-   (preview) Execute a dbt command on Snowflake. Subcommand name and all          
-   parameters following it will be passed over to dbt.                            
+   Execute a dbt command on Snowflake. Subcommand name and all parameters         
+   following it will be passed over to dbt.                                       
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -5931,30 +5920,28 @@
   |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build           (preview) Execute build command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | compile         (preview) Execute compile command on Snowflake. Command name |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | deps            (preview) Execute deps command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | list            (preview) Execute list command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | parse           (preview) Execute parse command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | run             (preview) Execute run command on Snowflake. Command name and |
+  | build           Execute build command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | compile         Execute compile command on Snowflake. Command name and all   |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps            Execute deps command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | list            Execute list command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | parse           Execute parse command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | run             Execute run command on Snowflake. Command name and all       |
+  |                 parameters following it will be passed over to dbt.          |
+  | run-operation   Execute run-operation command on Snowflake. Command name and |
   |                 all parameters following it will be passed over to dbt.      |
-  | run-operation   (preview) Execute run-operation command on Snowflake.        |
-  |                 Command name and all parameters following it will be passed  |
-  |                 over to dbt.                                                 |
-  | seed            (preview) Execute seed command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | show            (preview) Execute show command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | snapshot        (preview) Execute snapshot command on Snowflake. Command     |
-  |                 name and all parameters following it will be passed over to  |
-  |                 dbt.                                                         |
-  | test            (preview) Execute test command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
+  | seed            Execute seed command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | show            Execute show command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | snapshot        Execute snapshot command on Snowflake. Command name and all  |
+  |                 parameters following it will be passed over to dbt.          |
+  | test            Execute test command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
   +------------------------------------------------------------------------------+
   
   
@@ -5965,8 +5952,8 @@
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
-   (preview) Execute a dbt command on Snowflake. Subcommand name and all          
-   parameters following it will be passed over to dbt.                            
+   Execute a dbt command on Snowflake. Subcommand name and all parameters         
+   following it will be passed over to dbt.                                       
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -6090,30 +6077,28 @@
   |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build           (preview) Execute build command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | compile         (preview) Execute compile command on Snowflake. Command name |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | deps            (preview) Execute deps command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | list            (preview) Execute list command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | parse           (preview) Execute parse command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | run             (preview) Execute run command on Snowflake. Command name and |
+  | build           Execute build command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | compile         Execute compile command on Snowflake. Command name and all   |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps            Execute deps command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | list            Execute list command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | parse           Execute parse command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | run             Execute run command on Snowflake. Command name and all       |
+  |                 parameters following it will be passed over to dbt.          |
+  | run-operation   Execute run-operation command on Snowflake. Command name and |
   |                 all parameters following it will be passed over to dbt.      |
-  | run-operation   (preview) Execute run-operation command on Snowflake.        |
-  |                 Command name and all parameters following it will be passed  |
-  |                 over to dbt.                                                 |
-  | seed            (preview) Execute seed command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | show            (preview) Execute show command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | snapshot        (preview) Execute snapshot command on Snowflake. Command     |
-  |                 name and all parameters following it will be passed over to  |
-  |                 dbt.                                                         |
-  | test            (preview) Execute test command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
+  | seed            Execute seed command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | show            Execute show command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | snapshot        Execute snapshot command on Snowflake. Command name and all  |
+  |                 parameters following it will be passed over to dbt.          |
+  | test            Execute test command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
   +------------------------------------------------------------------------------+
   
   
@@ -6124,8 +6109,8 @@
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
-   (preview) Execute a dbt command on Snowflake. Subcommand name and all          
-   parameters following it will be passed over to dbt.                            
+   Execute a dbt command on Snowflake. Subcommand name and all parameters         
+   following it will be passed over to dbt.                                       
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -6249,30 +6234,28 @@
   |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build           (preview) Execute build command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | compile         (preview) Execute compile command on Snowflake. Command name |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | deps            (preview) Execute deps command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | list            (preview) Execute list command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | parse           (preview) Execute parse command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | run             (preview) Execute run command on Snowflake. Command name and |
+  | build           Execute build command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | compile         Execute compile command on Snowflake. Command name and all   |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps            Execute deps command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | list            Execute list command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | parse           Execute parse command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | run             Execute run command on Snowflake. Command name and all       |
+  |                 parameters following it will be passed over to dbt.          |
+  | run-operation   Execute run-operation command on Snowflake. Command name and |
   |                 all parameters following it will be passed over to dbt.      |
-  | run-operation   (preview) Execute run-operation command on Snowflake.        |
-  |                 Command name and all parameters following it will be passed  |
-  |                 over to dbt.                                                 |
-  | seed            (preview) Execute seed command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | show            (preview) Execute show command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | snapshot        (preview) Execute snapshot command on Snowflake. Command     |
-  |                 name and all parameters following it will be passed over to  |
-  |                 dbt.                                                         |
-  | test            (preview) Execute test command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
+  | seed            Execute seed command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | show            Execute show command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | snapshot        Execute snapshot command on Snowflake. Command name and all  |
+  |                 parameters following it will be passed over to dbt.          |
+  | test            Execute test command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
   +------------------------------------------------------------------------------+
   
   
@@ -6283,8 +6266,8 @@
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
-   (preview) Execute a dbt command on Snowflake. Subcommand name and all          
-   parameters following it will be passed over to dbt.                            
+   Execute a dbt command on Snowflake. Subcommand name and all parameters         
+   following it will be passed over to dbt.                                       
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -6408,30 +6391,28 @@
   |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build           (preview) Execute build command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | compile         (preview) Execute compile command on Snowflake. Command name |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | deps            (preview) Execute deps command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | list            (preview) Execute list command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | parse           (preview) Execute parse command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | run             (preview) Execute run command on Snowflake. Command name and |
+  | build           Execute build command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | compile         Execute compile command on Snowflake. Command name and all   |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps            Execute deps command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | list            Execute list command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | parse           Execute parse command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | run             Execute run command on Snowflake. Command name and all       |
+  |                 parameters following it will be passed over to dbt.          |
+  | run-operation   Execute run-operation command on Snowflake. Command name and |
   |                 all parameters following it will be passed over to dbt.      |
-  | run-operation   (preview) Execute run-operation command on Snowflake.        |
-  |                 Command name and all parameters following it will be passed  |
-  |                 over to dbt.                                                 |
-  | seed            (preview) Execute seed command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | show            (preview) Execute show command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | snapshot        (preview) Execute snapshot command on Snowflake. Command     |
-  |                 name and all parameters following it will be passed over to  |
-  |                 dbt.                                                         |
-  | test            (preview) Execute test command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
+  | seed            Execute seed command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | show            Execute show command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | snapshot        Execute snapshot command on Snowflake. Command name and all  |
+  |                 parameters following it will be passed over to dbt.          |
+  | test            Execute test command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
   +------------------------------------------------------------------------------+
   
   
@@ -6442,8 +6423,8 @@
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
-   (preview) Execute a dbt command on Snowflake. Subcommand name and all          
-   parameters following it will be passed over to dbt.                            
+   Execute a dbt command on Snowflake. Subcommand name and all parameters         
+   following it will be passed over to dbt.                                       
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -6567,30 +6548,28 @@
   |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build           (preview) Execute build command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | compile         (preview) Execute compile command on Snowflake. Command name |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | deps            (preview) Execute deps command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | list            (preview) Execute list command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | parse           (preview) Execute parse command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | run             (preview) Execute run command on Snowflake. Command name and |
+  | build           Execute build command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | compile         Execute compile command on Snowflake. Command name and all   |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps            Execute deps command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | list            Execute list command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | parse           Execute parse command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | run             Execute run command on Snowflake. Command name and all       |
+  |                 parameters following it will be passed over to dbt.          |
+  | run-operation   Execute run-operation command on Snowflake. Command name and |
   |                 all parameters following it will be passed over to dbt.      |
-  | run-operation   (preview) Execute run-operation command on Snowflake.        |
-  |                 Command name and all parameters following it will be passed  |
-  |                 over to dbt.                                                 |
-  | seed            (preview) Execute seed command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | show            (preview) Execute show command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | snapshot        (preview) Execute snapshot command on Snowflake. Command     |
-  |                 name and all parameters following it will be passed over to  |
-  |                 dbt.                                                         |
-  | test            (preview) Execute test command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
+  | seed            Execute seed command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | show            Execute show command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | snapshot        Execute snapshot command on Snowflake. Command name and all  |
+  |                 parameters following it will be passed over to dbt.          |
+  | test            Execute test command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
   +------------------------------------------------------------------------------+
   
   
@@ -6601,8 +6580,8 @@
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
-   (preview) Execute a dbt command on Snowflake. Subcommand name and all          
-   parameters following it will be passed over to dbt.                            
+   Execute a dbt command on Snowflake. Subcommand name and all parameters         
+   following it will be passed over to dbt.                                       
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -6726,30 +6705,28 @@
   |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build           (preview) Execute build command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | compile         (preview) Execute compile command on Snowflake. Command name |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | deps            (preview) Execute deps command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | list            (preview) Execute list command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | parse           (preview) Execute parse command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | run             (preview) Execute run command on Snowflake. Command name and |
+  | build           Execute build command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | compile         Execute compile command on Snowflake. Command name and all   |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps            Execute deps command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | list            Execute list command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | parse           Execute parse command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | run             Execute run command on Snowflake. Command name and all       |
+  |                 parameters following it will be passed over to dbt.          |
+  | run-operation   Execute run-operation command on Snowflake. Command name and |
   |                 all parameters following it will be passed over to dbt.      |
-  | run-operation   (preview) Execute run-operation command on Snowflake.        |
-  |                 Command name and all parameters following it will be passed  |
-  |                 over to dbt.                                                 |
-  | seed            (preview) Execute seed command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | show            (preview) Execute show command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | snapshot        (preview) Execute snapshot command on Snowflake. Command     |
-  |                 name and all parameters following it will be passed over to  |
-  |                 dbt.                                                         |
-  | test            (preview) Execute test command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
+  | seed            Execute seed command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | show            Execute show command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | snapshot        Execute snapshot command on Snowflake. Command name and all  |
+  |                 parameters following it will be passed over to dbt.          |
+  | test            Execute test command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
   +------------------------------------------------------------------------------+
   
   
@@ -6760,8 +6737,8 @@
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
-   (preview) Execute a dbt command on Snowflake. Subcommand name and all          
-   parameters following it will be passed over to dbt.                            
+   Execute a dbt command on Snowflake. Subcommand name and all parameters         
+   following it will be passed over to dbt.                                       
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -6885,30 +6862,28 @@
   |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build           (preview) Execute build command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | compile         (preview) Execute compile command on Snowflake. Command name |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | deps            (preview) Execute deps command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | list            (preview) Execute list command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | parse           (preview) Execute parse command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | run             (preview) Execute run command on Snowflake. Command name and |
+  | build           Execute build command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | compile         Execute compile command on Snowflake. Command name and all   |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps            Execute deps command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | list            Execute list command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | parse           Execute parse command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | run             Execute run command on Snowflake. Command name and all       |
+  |                 parameters following it will be passed over to dbt.          |
+  | run-operation   Execute run-operation command on Snowflake. Command name and |
   |                 all parameters following it will be passed over to dbt.      |
-  | run-operation   (preview) Execute run-operation command on Snowflake.        |
-  |                 Command name and all parameters following it will be passed  |
-  |                 over to dbt.                                                 |
-  | seed            (preview) Execute seed command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | show            (preview) Execute show command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | snapshot        (preview) Execute snapshot command on Snowflake. Command     |
-  |                 name and all parameters following it will be passed over to  |
-  |                 dbt.                                                         |
-  | test            (preview) Execute test command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
+  | seed            Execute seed command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | show            Execute show command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | snapshot        Execute snapshot command on Snowflake. Command name and all  |
+  |                 parameters following it will be passed over to dbt.          |
+  | test            Execute test command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
   +------------------------------------------------------------------------------+
   
   
@@ -6919,7 +6894,7 @@
                                                                                   
    Usage: root dbt list [OPTIONS]                                                 
                                                                                   
-   (preview) Lists all available dbt projects.                                    
+   Lists all available dbt projects.                                              
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
@@ -7054,19 +7029,19 @@
                                                                                   
    Usage: root dbt [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
-   (preview) Manages dbt on Snowflake projects.                                   
+   Manages dbt on Snowflake projects.                                             
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | deploy    (preview) Copy dbt files and either recreate dbt on Snowflake if   |
-  |           --force flag is provided; or create a new one if it doesn't exist; |
-  |           or update files and create a new version if it exists.             |
-  | execute   (preview) Execute a dbt command on Snowflake. Subcommand name and  |
-  |           all parameters following it will be passed over to dbt.            |
-  | list      (preview) Lists all available dbt projects.                        |
+  | deploy    Copy dbt files and either recreate dbt on Snowflake if --force     |
+  |           flag is provided; or create a new one if it doesn't exist; or      |
+  |           update files and create a new version if it exists.                |
+  | execute   Execute a dbt command on Snowflake. Subcommand name and all        |
+  |           parameters following it will be passed over to dbt.                |
+  | list      Lists all available dbt projects.                                  |
   +------------------------------------------------------------------------------+
   
   
@@ -20432,7 +20407,6 @@
   | app          Manages a Snowflake Native App                                  |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
-  | dbt          (preview) Manages dbt on Snowflake projects.                    |
   | git          Manages git repositories in Snowflake.                          |
   | helpers      Helper commands.                                                |
   | init         Creates project directory from template.                        |
@@ -20635,8 +20609,8 @@
                                                                                   
    Usage: root dbt execute [OPTIONS] NAME DBT_COMMAND                             
                                                                                   
-   (preview) Execute a dbt command on Snowflake. Subcommand name and all          
-   parameters following it will be passed over to dbt.                            
+   Execute a dbt command on Snowflake. Subcommand name and all parameters         
+   following it will be passed over to dbt.                                       
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -20760,30 +20734,28 @@
   |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | build           (preview) Execute build command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | compile         (preview) Execute compile command on Snowflake. Command name |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | deps            (preview) Execute deps command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | list            (preview) Execute list command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | parse           (preview) Execute parse command on Snowflake. Command name   |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | run             (preview) Execute run command on Snowflake. Command name and |
+  | build           Execute build command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | compile         Execute compile command on Snowflake. Command name and all   |
+  |                 parameters following it will be passed over to dbt.          |
+  | deps            Execute deps command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | list            Execute list command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | parse           Execute parse command on Snowflake. Command name and all     |
+  |                 parameters following it will be passed over to dbt.          |
+  | run             Execute run command on Snowflake. Command name and all       |
+  |                 parameters following it will be passed over to dbt.          |
+  | run-operation   Execute run-operation command on Snowflake. Command name and |
   |                 all parameters following it will be passed over to dbt.      |
-  | run-operation   (preview) Execute run-operation command on Snowflake.        |
-  |                 Command name and all parameters following it will be passed  |
-  |                 over to dbt.                                                 |
-  | seed            (preview) Execute seed command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | show            (preview) Execute show command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
-  | snapshot        (preview) Execute snapshot command on Snowflake. Command     |
-  |                 name and all parameters following it will be passed over to  |
-  |                 dbt.                                                         |
-  | test            (preview) Execute test command on Snowflake. Command name    |
-  |                 and all parameters following it will be passed over to dbt.  |
+  | seed            Execute seed command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | show            Execute show command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
+  | snapshot        Execute snapshot command on Snowflake. Command name and all  |
+  |                 parameters following it will be passed over to dbt.          |
+  | test            Execute test command on Snowflake. Command name and all      |
+  |                 parameters following it will be passed over to dbt.          |
   +------------------------------------------------------------------------------+
   
   
@@ -20794,19 +20766,19 @@
                                                                                   
    Usage: root dbt [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
-   (preview) Manages dbt on Snowflake projects.                                   
+   Manages dbt on Snowflake projects.                                             
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | deploy    (preview) Copy dbt files and either recreate dbt on Snowflake if   |
-  |           --force flag is provided; or create a new one if it doesn't exist; |
-  |           or update files and create a new version if it exists.             |
-  | execute   (preview) Execute a dbt command on Snowflake. Subcommand name and  |
-  |           all parameters following it will be passed over to dbt.            |
-  | list      (preview) Lists all available dbt projects.                        |
+  | deploy    Copy dbt files and either recreate dbt on Snowflake if --force     |
+  |           flag is provided; or create a new one if it doesn't exist; or      |
+  |           update files and create a new version if it exists.                |
+  | execute   Execute a dbt command on Snowflake. Subcommand name and all        |
+  |           parameters following it will be passed over to dbt.                |
+  | list      Lists all available dbt projects.                                  |
   +------------------------------------------------------------------------------+
   
   
