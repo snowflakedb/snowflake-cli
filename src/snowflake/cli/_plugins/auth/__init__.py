@@ -1,4 +1,7 @@
 from snowflake.cli._plugins.auth.keypair.commands import app as keypair_app
+from snowflake.cli._plugins.auth.workflow_identity.commands import (
+    app as workflow_identity_app,
+)
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.feature_flags import FeatureFlag
 
@@ -9,3 +12,4 @@ app = SnowTyperFactory(
 )
 
 app.add_typer(keypair_app)
+app.add_typer(workflow_identity_app)
