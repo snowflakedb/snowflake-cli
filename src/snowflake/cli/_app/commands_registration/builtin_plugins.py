@@ -16,6 +16,7 @@ from snowflake.cli._plugins.auth.keypair import plugin_spec as auth_plugin_spec
 from snowflake.cli._plugins.connection import plugin_spec as connection_plugin_spec
 from snowflake.cli._plugins.cortex import plugin_spec as cortex_plugin_spec
 from snowflake.cli._plugins.dbt import plugin_spec as dbt_plugin_spec
+from snowflake.cli._plugins.dcm_project import plugin_spec as dcm_project_plugin_spec
 from snowflake.cli._plugins.git import plugin_spec as git_plugin_spec
 from snowflake.cli._plugins.helpers import plugin_spec as migrate_plugin_spec
 from snowflake.cli._plugins.init import plugin_spec as init_plugin_spec
@@ -38,6 +39,7 @@ def get_builtin_plugin_name_to_plugin_spec():
     plugin_specs = {
         "auth": auth_plugin_spec,
         "connection": connection_plugin_spec,
+        "dcm": dcm_project_plugin_spec,
         "helpers": migrate_plugin_spec,
         "spcs": spcs_plugin_spec,
         "app": nativeapp_plugin_spec,
