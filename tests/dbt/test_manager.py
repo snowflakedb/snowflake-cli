@@ -57,55 +57,75 @@ class TestDeploy:
             yield _fixture
 
     @pytest.fixture
-    def mock_upload_files(self):
-        with mock.patch(
-            "snowflake.cli._plugins.dbt.manager.DBTManager._upload_files",
-            return_value="@TestDB.TestSchema.dbt_test_project_stage",
-        ) as _fixture:
-            yield _fixture
-
-    @pytest.fixture
     def mock_execute_query(self):
         with mock.patch(
             "snowflake.cli._plugins.dbt.manager.DBTManager.execute_query"
         ) as _fixture:
             yield _fixture
 
+    @pytest.fixture
+    def mock_get_cli_context(self, mock_connect):
+        with mock.patch(
+            "snowflake.cli.api.cli_global_context.get_cli_context"
+        ) as cli_context:
+            mock_connect.database = "TestDB"
+            mock_connect.schema = "TestSchema"
+            cli_context().connection = mock_connect
+            yield cli_context()
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     def test_deploy_with_external_access_integrations(
-        self, dbt_project_path, mock_upload_files, mock_exists, mock_execute_query
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_exists,
+        mock_execute_query,
+        mock_get_cli_context,
     ):
         manager = DBTManager()
 
         manager.deploy(
-            name=FQN.from_string("test_project"),
+            fqn=FQN.from_string("test_project"),
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
             external_access_integrations=[
-                "google_apis_access_integration, dbt_hub_integration"
+                "google_apis_access_integration",
+                "dbt_hub_integration",
             ],
         )
 
-        expected_query = "CREATE DBT PROJECT test_project\nFROM @TestDB.TestSchema.dbt_test_project_stage\nEXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration, dbt_hub_integration)"
+        expected_query = "CREATE DBT PROJECT test_project\nFROM @TestDB.TestSchema.DBT_TEST_PROJECT_STAGE\nEXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration, dbt_hub_integration)"
         mock_execute_query.assert_called_once_with(expected_query)
 
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     def test_deploy_alter_project_with_external_access_integrations(
-        self, dbt_project_path, mock_upload_files, mock_exists, mock_execute_query
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_exists,
+        mock_execute_query,
+        mock_get_cli_context,
     ):
         mock_exists.return_value = True
         manager = DBTManager()
 
         manager.deploy(
-            name=FQN.from_string("test_project"),
+            fqn=FQN.from_string("test_project"),
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
             external_access_integrations=[
-                "google_apis_access_integration, dbt_hub_integration"
+                "google_apis_access_integration",
+                "dbt_hub_integration",
             ],
         )
 
-        expected_query = "ALTER DBT PROJECT test_project ADD VERSION\nFROM @TestDB.TestSchema.dbt_test_project_stage\nEXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration, dbt_hub_integration)"
+        expected_query = "ALTER DBT PROJECT test_project ADD VERSION\nFROM @TestDB.TestSchema.DBT_TEST_PROJECT_STAGE\nEXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration, dbt_hub_integration)"
         mock_execute_query.assert_called_once_with(expected_query)
 
     def test_validate_profiles_raises_when_file_does_not_exist(self, project_path):
