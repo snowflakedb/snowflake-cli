@@ -1,0 +1,9 @@
+definition_version: 2
+entities:
+  warehouse_notebook:
+    type: "notebook"
+    query_warehouse: xsmall
+    notebook_file: notebook.ipynb
+    runtime_environment_version: "WH-RUNTIME-2.0"
+    artifacts:
+     - notebook.ipynb 

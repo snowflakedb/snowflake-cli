@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added support for `runtime_environment_version` field in notebook entity configuration, allowing specification of runtime environment version for containerized notebooks.
 
 ## Fixes and improvements
 
