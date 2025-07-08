@@ -25,7 +25,6 @@ from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector.cursor import SnowflakeCursor
-from snowflake.connector.errors import ProgrammingError
 
 
 class ProjectManager(SqlExecutionMixin):
@@ -38,64 +37,11 @@ class ProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         dry_run: bool = False,
     ):
-        # TODO: Remove this fallback logic after new syntax is fully deployed
-        # Try new syntax first (DEPLOY/PLAN)
-        try:
-            return self._execute_with_new_syntax(
-                project_name, configuration, version, from_stage, variables, dry_run
-            )
-        except ProgrammingError as e:
-            error_msg = str(e).lower()
-            if "unexpected 'plan'" in error_msg or "unexpected 'deploy'" in error_msg:
-                # Fall back to old syntax if server doesn't support new keywords
-                return self._execute_with_old_syntax(
-                    project_name, configuration, version, from_stage, variables, dry_run
-                )
-            else:
-                # Re-raise if it's a different error
-                raise
-
-    def _execute_with_new_syntax(
-        self,
-        project_name: FQN,
-        configuration: str | None = None,
-        version: str | None = None,
-        from_stage: str | None = None,
-        variables: List[str] | None = None,
-        dry_run: bool = False,
-    ):
-        """Execute with new syntax: DEPLOY/PLAN keywords"""
         query = f"EXECUTE PROJECT {project_name.sql_identifier}"
-        if configuration or variables:
-            query += f" USING"
-        if configuration:
-            query += f" CONFIGURATION {configuration}"
-        if variables:
-            query += StageManager.parse_execute_variables(
-                parse_key_value_variables(variables)
-            ).removeprefix(" using")
-        if version:
-            query += f" WITH VERSION {version}"
-        elif from_stage:
-            stage_path = StagePath.from_stage_str(from_stage)
-            query += f" FROM {stage_path.absolute_path()}"
         if dry_run:
             query += " PLAN"
         else:
             query += " DEPLOY"
-        return self.execute_query(query=query)
-
-    def _execute_with_old_syntax(
-        self,
-        project_name: FQN,
-        configuration: str | None = None,
-        version: str | None = None,
-        from_stage: str | None = None,
-        variables: List[str] | None = None,
-        dry_run: bool = False,
-    ):
-        """Execute with old syntax: DRY_RUN=TRUE, no DEPLOY keyword"""
-        query = f"EXECUTE PROJECT {project_name.sql_identifier}"
         if configuration or variables:
             query += f" USING"
         if configuration:
@@ -109,8 +55,7 @@ class ProjectManager(SqlExecutionMixin):
         elif from_stage:
             stage_path = StagePath.from_stage_str(from_stage)
             query += f" FROM {stage_path.absolute_path()}"
-        if dry_run:
-            query += " DRY_RUN=TRUE"
+
         return self.execute_query(query=query)
 
     def _create_object(self, project_name: FQN) -> SnowflakeCursor:

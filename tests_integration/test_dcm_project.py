@@ -391,11 +391,6 @@ def test_project_drop_version(
 
 @pytest.mark.qa_only
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    "command_names",
-    [("plan", "deploy"), ("dry-run", "execute")],
-    ids=["plan-deploy", "dry-run-execute"],
-)
 def test_project_deploy_from_stage(
     runner,
     test_database,
@@ -436,7 +431,7 @@ def test_project_deploy_from_stage(
         result = runner.invoke_with_connection_json(
             [
                 "project",
-                command_names[0],
+                "plan",
                 project_name,
                 "--from",
                 f"@{other_stage_name}",
@@ -470,7 +465,7 @@ def test_project_deploy_from_stage(
         result = runner.invoke_with_connection_json(
             [
                 "project",
-                command_names[1],
+                "deploy",
                 project_name,
                 "--from",
                 f"@{other_stage_name}",

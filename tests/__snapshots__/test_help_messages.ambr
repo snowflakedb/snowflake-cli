@@ -10447,22 +10447,24 @@
   |                                                credential.                   |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|CSV]  Specifies the output        |
-  |                                                  format.                     |
-  |                                                  [default: TABLE]            |
-  | --verbose              -v                        Displays log entries for    |
-  |                                                  log levels info and higher. |
-  | --debug                                          Displays log entries for    |
-  |                                                  log levels debug and        |
-  |                                                  higher; debug logs contain  |
-  |                                                  additional information.     |
-  | --silent                                         Turns off intermediate      |
-  |                                                  output to console.          |
-  | --enhanced-exit-codes                            Differentiate exit error    |
-  |                                                  codes based on failure      |
-  |                                                  type.                       |
-  |                                                  [env var:                   |
-  |                                                  SNOWFLAKE_ENHANCED_EXIT_CO… |
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
   
   
@@ -11396,22 +11398,24 @@
   |                                                credential.                   |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
-  | --format                       [TABLE|JSON|CSV]  Specifies the output        |
-  |                                                  format.                     |
-  |                                                  [default: TABLE]            |
-  | --verbose              -v                        Displays log entries for    |
-  |                                                  log levels info and higher. |
-  | --debug                                          Displays log entries for    |
-  |                                                  log levels debug and        |
-  |                                                  higher; debug logs contain  |
-  |                                                  additional information.     |
-  | --silent                                         Turns off intermediate      |
-  |                                                  output to console.          |
-  | --enhanced-exit-codes                            Differentiate exit error    |
-  |                                                  codes based on failure      |
-  |                                                  type.                       |
-  |                                                  [env var:                   |
-  |                                                  SNOWFLAKE_ENHANCED_EXIT_CO… |
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
   
   
@@ -11429,23 +11433,16 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | add-version     Uploads local files to Snowflake and cerates                 |
-  |                 a new project version.                                       |
-  | create          Creates a project in Snowflake. By default,                  |
-  |                 the project is initialized with a new version                |
-  |                 created from local files.                                    |
-  | deploy          Applies changes defined in the project to                    |
-  |                 Snowflake.                                                   |
+  | add-version     Uploads local files to Snowflake and cerates a new project   |
+  |                 version.                                                     |
+  | create          Creates a project in Snowflake. By default, the project is   |
+  |                 initialized with a new version created from local files.     |
+  | deploy          Applies changes defined in the project to Snowflake.         |
   | drop            Drops project with given name.                               |
   | drop-version    Drops a version from the project.                            |
-  | dry-run         Plans a project deployment (validates without  (deprecated)  |
-  |                 executing).                                                  |
-  | execute         Applies changes defined in the project to      (deprecated)  |
-  |                 Snowflake.                                                   |
   | list            Lists all available projects.                                |
   | list-versions   Lists versions of given project.                             |
-  | plan            Plans a project deployment (validates without                |
-  |                 executing).                                                  |
+  | plan            Plans a project deployment (validates without executing).    |
   +------------------------------------------------------------------------------+
   
   
@@ -21177,23 +21174,16 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | add-version     Uploads local files to Snowflake and cerates                 |
-  |                 a new project version.                                       |
-  | create          Creates a project in Snowflake. By default,                  |
-  |                 the project is initialized with a new version                |
-  |                 created from local files.                                    |
-  | deploy          Applies changes defined in the project to                    |
-  |                 Snowflake.                                                   |
+  | add-version     Uploads local files to Snowflake and cerates a new project   |
+  |                 version.                                                     |
+  | create          Creates a project in Snowflake. By default, the project is   |
+  |                 initialized with a new version created from local files.     |
+  | deploy          Applies changes defined in the project to Snowflake.         |
   | drop            Drops project with given name.                               |
   | drop-version    Drops a version from the project.                            |
-  | dry-run         Plans a project deployment (validates without  (deprecated)  |
-  |                 executing).                                                  |
-  | execute         Applies changes defined in the project to      (deprecated)  |
-  |                 Snowflake.                                                   |
   | list            Lists all available projects.                                |
   | list-versions   Lists versions of given project.                             |
-  | plan            Plans a project deployment (validates without                |
-  |                 executing).                                                  |
+  | plan            Plans a project deployment (validates without executing).    |
   +------------------------------------------------------------------------------+
   
   

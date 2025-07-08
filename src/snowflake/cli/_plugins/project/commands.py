@@ -89,7 +89,6 @@ add_object_command_aliases(
 
 
 @app.command(requires_connection=True)
-@app.command("execute", requires_connection=True, deprecated=True)
 def deploy(
     identifier: FQN = project_identifier,
     version: Optional[str] = version_flag,
@@ -117,7 +116,6 @@ def deploy(
 
 
 @app.command(requires_connection=True)
-@app.command("dry-run", requires_connection=True, deprecated=True)
 def plan(
     identifier: FQN = project_identifier,
     version: Optional[str] = version_flag,
