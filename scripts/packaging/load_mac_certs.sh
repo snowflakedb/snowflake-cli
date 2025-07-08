@@ -4,17 +4,37 @@
 APPLE_CERT_DEVELOPER_INSTALLER="apple_dev_installer_cert.p12"
 APPLE_CERT_DEVELOPER_APPLICATION="apple_dev_application_cert.p12"
 
+# Define the expected MD5 checksum
+EXPECTED_INSTALLER_CHECKSUM="1f9d2dfd1a6dc87c87fe0426a6ee136e"
+EXPECTED_APPLICATION_CHECKSUM="658613e0abe5c3187284e9662f18e1f0"
+
 # Decode Developer ID Installer certificate from base64 into temporary file
 base64 -d < $APPLE_CERT_DEVELOPER_INSTALLER_BASE64 > $APPLE_CERT_DEVELOPER_INSTALLER
 
-# Check the checksum of the decoded Developer ID Installer certificate
-echo "1f9d2dfd1a6dc87c87fe0426a6ee136e $APPLE_CERT_DEVELOPER_INSTALLER" | md5sum -c -
+# Calculate the actual checksum of the decoded file
+ACTUAL_INSTALLER_CHECKSUM=$(md5 -q $APPLE_CERT_DEVELOPER_INSTALLER)
+
+# Compare the actual checksum with the expected one
+if [ "$ACTUAL_INSTALLER_CHECKSUM" == "$EXPECTED_INSTALLER_CHECKSUM" ]; then
+  echo "$APPLE_CERT_DEVELOPER_INSTALLER: OK"
+else
+  echo "$APPLE_CERT_DEVELOPER_INSTALLER: FAILED"
+  exit 1
+fi
 
 # Decode Developer ID Application certificate from base64 into temporary file
 base64 -d < $APPLE_CERT_DEVELOPER_APPLICATION_BASE64 > $APPLE_CERT_DEVELOPER_APPLICATION
 
-# Check the checksum of the decoded Developer ID Application certificate
-echo "658613e0abe5c3187284e9662f18e1f0 $APPLE_CERT_DEVELOPER_APPLICATION" | md5sum -c -
+# Calculate the actual checksum of the decoded file
+ACTUAL_APPLICATION_CHECKSUM=$(md5 -q $APPLE_CERT_DEVELOPER_APPLICATION)
+
+# Compare the actual checksum with the expected one
+if [ "$ACTUAL_APPLICATION_CHECKSUM" == "$EXPECTED_APPLICATION_CHECKSUM" ]; then
+  echo "$APPLE_CERT_DEVELOPER_APPLICATION: OK"
+else
+  echo "$APPLE_CERT_DEVELOPER_APPLICATION: FAILED"
+  exit 1
+fi
 
 # Set the Keychain path where the certificates will be imported
 KEYCHAIN_PATH=$HOME/Library/Keychains/login.keychain-db
