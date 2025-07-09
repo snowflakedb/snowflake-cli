@@ -338,6 +338,7 @@ class MockConnectionCtx(mock.MagicMock):
 
 class MockResultMetadata(NamedTuple):
     name: str
+    type_code: int = 1  # Default to a non-JSON type for most tests
 
 
 class MockCursor(SnowflakeCursor):

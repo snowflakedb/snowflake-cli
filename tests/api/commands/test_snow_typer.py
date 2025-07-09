@@ -17,7 +17,11 @@ from unittest.mock import MagicMock
 
 import pytest
 import typer
-from snowflake.cli.api.commands.snow_typer import SnowTyper, SnowTyperFactory
+from snowflake.cli.api.commands.snow_typer import (
+    PREVIEW_PREFIX,
+    SnowTyper,
+    SnowTyperFactory,
+)
 from snowflake.cli.api.output.types import MessageResult
 from typer.testing import CliRunner
 
@@ -251,3 +255,154 @@ def test_snow_typer_with_keyboard_interrupt(cli):
 
     # ensure duration metric captured is greater than or equal to 0
     assert post_execute.call_args.args[0].get_duration() >= 0
+
+
+# Tests for the preview functionality
+def test_snow_typer_factory_preview_adds_prefix_to_app_help():
+    """Test that preview=True on SnowTyperFactory adds PREVIEW_PREFIX to app help text."""
+    app = SnowTyperFactory(
+        name="test_app",
+        help="This is a test app.",
+        preview=True,
+    )
+
+    instance = app.create_instance()
+    assert instance.info.help == f"{PREVIEW_PREFIX}This is a test app."
+
+
+def test_snow_typer_factory_preview_prevents_double_prefix():
+    """Test that preview=True does not add double PREVIEW_PREFIX prefix."""
+    app = SnowTyperFactory(
+        name="test_app",
+        help=f"{PREVIEW_PREFIX}This is already prefixed.",
+        preview=True,
+    )
+
+    instance = app.create_instance()
+    assert instance.info.help == f"{PREVIEW_PREFIX}This is already prefixed."
+
+
+def test_snow_typer_factory_preview_propagates_to_commands():
+    """Test that preview=True on SnowTyperFactory propagates to individual commands."""
+    app = SnowTyperFactory(
+        name="test_app",
+        help="This is a test app.",
+        preview=True,
+    )
+
+    @app.command("test_cmd", requires_global_options=False, requires_connection=False)
+    def test_cmd():
+        """This is a test command."""
+        return MessageResult("test")
+
+    instance = app.create_instance()
+
+    # Get the command and check its help text
+    registered_cmds = instance.registered_commands
+    assert len(registered_cmds) == 1
+    cmd_info = registered_cmds[0]
+    assert cmd_info.callback.__doc__ == f"{PREVIEW_PREFIX}This is a test command."
+
+
+def test_snow_typer_individual_command_preview():
+    """Test that individual commands can have preview=True."""
+    app = SnowTyperFactory(
+        name="test_app",
+        help="This is a test app.",
+        preview=False,  # App itself is not preview
+    )
+
+    @app.command(
+        "preview_cmd",
+        requires_global_options=False,
+        requires_connection=False,
+        preview=True,
+    )
+    def preview_cmd():
+        """This command is in preview."""
+        return MessageResult("test")
+
+    @app.command("normal_cmd", requires_global_options=False, requires_connection=False)
+    def normal_cmd():
+        """This command is normal."""
+        return MessageResult("test")
+
+    instance = app.create_instance()
+
+    # Check that only the preview command has the prefix
+    registered_cmds = instance.registered_commands
+    assert len(registered_cmds) == 2
+
+    # Find commands by name
+    preview_cmd_info = None
+    normal_cmd_info = None
+    for cmd_info in registered_cmds:
+        if cmd_info.name == "preview_cmd":
+            preview_cmd_info = cmd_info
+        elif cmd_info.name == "normal_cmd":
+            normal_cmd_info = cmd_info
+
+    assert preview_cmd_info is not None
+    assert normal_cmd_info is not None
+    assert (
+        preview_cmd_info.callback.__doc__
+        == f"{PREVIEW_PREFIX}This command is in preview."
+    )
+    assert normal_cmd_info.callback.__doc__ == "This command is normal."
+
+
+def test_snow_typer_preview_works_with_help_parameter():
+    """Test that preview=True works with help parameter in addition to docstrings."""
+    app = SnowTyperFactory(
+        name="test_app",
+        help="This is a test app.",
+        preview=False,  # App itself is not preview
+    )
+
+    @app.command(
+        "help_param_cmd",
+        requires_global_options=False,
+        requires_connection=False,
+        preview=True,
+        help="This command uses help parameter.",
+    )
+    def help_param_cmd():
+        return MessageResult("test")
+
+    @app.command(
+        "docstring_cmd",
+        requires_global_options=False,
+        requires_connection=False,
+        preview=True,
+    )
+    def docstring_cmd():
+        """This command uses docstring."""
+        return MessageResult("test")
+
+    instance = app.create_instance()
+
+    # Check both commands have preview prefix
+    registered_cmds = instance.registered_commands
+    assert len(registered_cmds) == 2
+
+    # Find commands by name
+    help_param_cmd_info = None
+    docstring_cmd_info = None
+    for cmd_info in registered_cmds:
+        if cmd_info.name == "help_param_cmd":
+            help_param_cmd_info = cmd_info
+        elif cmd_info.name == "docstring_cmd":
+            docstring_cmd_info = cmd_info
+
+    assert help_param_cmd_info is not None
+    assert docstring_cmd_info is not None
+
+    # The help parameter command should have PREVIEW_PREFIX in help
+    assert (
+        help_param_cmd_info.help == f"{PREVIEW_PREFIX}This command uses help parameter."
+    )
+    # The docstring command should have PREVIEW_PREFIX in docstring
+    assert (
+        docstring_cmd_info.callback.__doc__
+        == f"{PREVIEW_PREFIX}This command uses docstring."
+    )

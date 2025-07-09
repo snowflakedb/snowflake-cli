@@ -46,6 +46,8 @@ from typer.core import TyperGroup
 
 log = logging.getLogger(__name__)
 
+PREVIEW_PREFIX = ""
+
 
 class SortedTyperGroup(TyperGroup):
     def list_commands(self, ctx: click.Context) -> List[str]:
@@ -92,6 +94,7 @@ class SnowTyper(typer.Typer):
         requires_connection: bool = False,
         is_enabled: Callable[[], bool] | None = None,
         require_warehouse: bool = False,
+        preview: bool = False,
         **kwargs,
     ):
         """
@@ -106,8 +109,17 @@ class SnowTyper(typer.Typer):
 
         def custom_command(command_callable):
             """Custom command wrapper similar to Typer.command."""
-            # Sanitize doc string which is used to create help in terminal
             command_callable.__doc__ = sanitize_for_terminal(command_callable.__doc__)
+
+            if preview and command_callable.__doc__:
+                if not command_callable.__doc__.strip().startswith(PREVIEW_PREFIX):
+                    command_callable.__doc__ = (
+                        f"{PREVIEW_PREFIX}{command_callable.__doc__.strip()}"
+                    )
+
+            if preview and "help" in kwargs and kwargs["help"]:
+                if not kwargs["help"].strip().startswith(PREVIEW_PREFIX):
+                    kwargs["help"] = f"{PREVIEW_PREFIX}{kwargs['help'].strip()}"
 
             if requires_connection:
                 command_callable = global_options_with_connection(command_callable)
@@ -228,6 +240,7 @@ class SnowTyperFactory:
         short_help: Optional[str] = None,
         is_hidden: Optional[Callable[[], bool]] = None,
         deprecated: bool = False,
+        preview: bool = False,
         subcommand_metavar: Optional[str] = None,
     ):
         self.name = name
@@ -235,15 +248,21 @@ class SnowTyperFactory:
         self.short_help = short_help
         self.is_hidden = is_hidden
         self.deprecated = deprecated
+        self.preview = preview
         self.commands_to_register: List[SnowTyperCommandData] = []
         self.subapps_to_register: List[SnowTyperFactory] = []
         self.callbacks_to_register: List[Callable] = []
         self.subcommand_metavar = subcommand_metavar
 
     def create_instance(self) -> SnowTyper:
+        help_text = self.help
+        if self.preview and help_text:
+            if not help_text.strip().startswith(PREVIEW_PREFIX):
+                help_text = f"{PREVIEW_PREFIX}{help_text.strip()}"
+
         app = SnowTyper(
             name=self.name,
-            help=self.help,
+            help=help_text,
             short_help=self.short_help,
             hidden=self.is_hidden() if self.is_hidden else False,
             deprecated=self.deprecated,
@@ -251,6 +270,8 @@ class SnowTyperFactory:
         )
         # register commands
         for command in self.commands_to_register:
+            if self.preview and "preview" not in command.kwargs:
+                command.kwargs["preview"] = True
             app.command(*command.args, **command.kwargs)(command.func)
         # register callbacks
         for callback in self.callbacks_to_register:

@@ -30,7 +30,7 @@ def sync_artifacts_with_stage(
         bundle_map=bundle_map,
         prune=prune,
         recursive=True,
-        stage_path=stage_path_parts,
+        stage_path_parts=stage_path_parts,
         print_diff=True,
     )
     project_paths.clean_up_output()

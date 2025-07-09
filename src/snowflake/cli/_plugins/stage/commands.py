@@ -48,7 +48,6 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -74,7 +73,7 @@ add_object_command_aliases(
     object_type=ObjectType.STAGE,
     name_argument=StageNameArgument,
     like_option=like_option(
-        help_example='`list --like "my%"` lists all stages that begin with “my”',
+        help_example='`list --like "my%"` lists all stages that begin with "my"',
     ),
     scope_option=scope_option(help_example="`list --in database my_db`"),
 )
@@ -98,7 +97,7 @@ def copy(
         show_default=False,
     ),
     destination_path: str = typer.Argument(
-        help="Target directory path for copy operation. Should be stage if source is local or local if source is stage.",
+        help="Target directory path for copy operation.",
         show_default=False,
     ),
     overwrite: bool = typer.Option(
@@ -117,19 +116,24 @@ def copy(
         default=False,
         help="Specifies whether Snowflake uses gzip to compress files during upload. Ignored when downloading.",
     ),
+    refresh: bool = typer.Option(
+        default=False,
+        help="Specifies whether ALTER STAGE {name} REFRESH should be executed after uploading.",
+    ),
     **options,
 ) -> CommandResult:
     """
-    Copies all files from target path to target directory. This works for both uploading
-    to and downloading files from the stage.
+    Copies all files from source path to target directory. This works for uploading
+    to and downloading files from the stage, and copying between named stages.
     """
     is_get = is_stage_path(source_path)
     is_put = is_stage_path(destination_path)
 
     if is_get and is_put:
-        raise click.ClickException(
-            "Both source and target path are remote. This operation is not supported."
+        cursor = StageManager().copy_files(
+            source_path=source_path, destination_path=destination_path
         )
+        return QueryResult(cursor)
     if not is_get and not is_put:
         raise click.ClickException(
             "Both source and target path are local. This operation is not supported."
@@ -149,6 +153,7 @@ def copy(
         parallel=parallel,
         overwrite=overwrite,
         auto_compress=auto_compress,
+        refresh=refresh,
     )
 
 
@@ -160,12 +165,19 @@ def stage_create(
         "--encryption",
         help="Type of encryption supported for all files stored on the stage.",
     ),
+    enable_directory: bool = typer.Option(
+        False,
+        "--enable-directory",
+        help="Specifies whether directory support is enabled for the stage.",
+    ),
     **options,
 ) -> CommandResult:
     """
     Creates a named stage if it does not already exist.
     """
-    cursor = StageManager().create(fqn=stage_name, encryption=encryption)
+    cursor = StageManager().create(
+        fqn=stage_name, encryption=encryption, enable_directory=enable_directory
+    )
     return SingleQueryResult(cursor)
 
 
@@ -206,7 +218,7 @@ def stage_diff(
         local_root=Path(folder_name),
         stage_path=StageManager.stage_path_parts_from_str(stage_name),  # noqa: SLF001
     )
-    if get_cli_context().output_format == OutputFormat.JSON:
+    if get_cli_context().output_format.is_json:
         return ObjectResult(diff.to_dict())
     else:
         print_diff_to_console(diff)
@@ -264,6 +276,7 @@ def _put(
     parallel: int,
     overwrite: bool,
     auto_compress: bool,
+    refresh: bool,
 ):
     if recursive and not source_path.is_file():
         cursor_generator = StageManager().put_recursive(
@@ -273,7 +286,7 @@ def _put(
             parallel=parallel,
             auto_compress=auto_compress,
         )
-        return CollectionResult(cursor_generator)
+        output = CollectionResult(cursor_generator)
     else:
         cursor = StageManager().put(
             local_path=source_path.resolve(),
@@ -282,4 +295,10 @@ def _put(
             parallel=parallel,
             auto_compress=auto_compress,
         )
-        return QueryResult(cursor)
+        output = QueryResult(cursor)
+
+    if refresh:
+        StageManager().refresh(
+            StageManager.stage_path_parts_from_str(destination_path).stage_name
+        )
+    return output

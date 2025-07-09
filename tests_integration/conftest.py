@@ -177,10 +177,18 @@ class SnowCLIRunner(CliRunner):
     def invoke_json(self, args, **kwargs) -> CommandResult:
         return self.invoke_with_config([*args, "--format", "JSON"], **kwargs)
 
+    def invoke_json_ext(self, args, **kwargs) -> CommandResult:
+        return self.invoke_with_config([*args, "--format", "JSON_EXT"], **kwargs)
+
     def invoke_with_connection_json(
         self, args, connection: str = "integration", **kwargs
     ) -> CommandResult:
         return self.invoke_json([*args, "-c", connection], **kwargs)
+
+    def invoke_with_connection_json_ext(
+        self, args, connection: str = "integration", **kwargs
+    ) -> CommandResult:
+        return self.invoke_json_ext([*args, "-c", connection], **kwargs)
 
     def invoke_with_connection(
         self, args, connection: str = "integration", **kwargs

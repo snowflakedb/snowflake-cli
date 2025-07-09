@@ -178,6 +178,8 @@ def _get_definition_version() -> str | None:
 
 
 def _get_ci_environment_type() -> str:
+    if "SF_GITHUB_ACTION" in os.environ:
+        return "SF_GITHUB_ACTION"
     if "GITHUB_ACTIONS" in os.environ:
         return "GITHUB_ACTIONS"
     if "GITLAB_CI" in os.environ:

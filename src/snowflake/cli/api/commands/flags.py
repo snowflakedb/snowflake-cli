@@ -446,6 +446,7 @@ OutputFormatOption = typer.Option(
     rich_help_panel=_CLI_BEHAVIOUR,
 )
 
+
 SilentOption = typer.Option(
     False,
     "--silent",

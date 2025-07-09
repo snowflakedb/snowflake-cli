@@ -17,6 +17,15 @@
 ## Backward incompatibility
 
 ## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
+# v3.10.0
+
+## Deprecations
 * Snowpark processor in Native Apps.
 
 ## New additions
@@ -28,10 +37,15 @@
   * legacy (`&{ ... }`), enabled by default
   * jinja (new) (`{{ ... }}`), disabled by default
 * Added packages alias for artifact_repository_packages in the snowflake.yml schema.
+* Added support for copying files between named stages using `snow stage copy @src_stage @dst_stage` command.
+* DBT commands: `deploy`, `execute` and `list` are now available in preview.
 
 ## Fixes and improvements
 * Fixed failing snow sql command when snowflake.yml is invalid and query has no templating.
 * Fix JSON serialization for `Decimal`, `time` and `binary`.
+* Added `--format=JSON_EXT` option to return JSON objects as proper JSON structures rather than strings.
+* Refactored Streamlit app deployment (using `FROM <stage>` syntax); removed deprecated Streamlit features
+
 
 # v3.9.1
 

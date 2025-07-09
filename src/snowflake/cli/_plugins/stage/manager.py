@@ -32,7 +32,7 @@ from tempfile import TemporaryDirectory
 from textwrap import dedent
 from typing import Deque, Dict, Generator, List, Optional, Union
 
-from click import ClickException, UsageError
+from click import UsageError
 from snowflake.cli._plugins.snowpark.package_utils import parse_requirements
 from snowflake.cli.api.commands.common import (
     OnErrorType,
@@ -41,6 +41,7 @@ from snowflake.cli.api.commands.common import (
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import PYTHON_3_12
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, to_string_literal
 from snowflake.cli.api.secure_path import SecurePath
@@ -58,7 +59,10 @@ log = logging.getLogger(__name__)
 
 
 UNQUOTED_FILE_URI_REGEX = r"[\w/*?\-.=&{}$#[\]\"\\!@%^+:]+"
+AT_PREFIX = "@"
 USER_STAGE_PREFIX = "@~"
+SNOW_PREFIX = "snow://"
+
 EXECUTE_SUPPORTED_FILES_FORMATS = (
     ".sql",
     ".py",
@@ -67,6 +71,17 @@ EXECUTE_SUPPORTED_FILES_FORMATS = (
 # Replace magic numbers with constants
 OMIT_FIRST = slice(1, None)
 STAGE_PATH_REGEX = rf"(?P<prefix>(@|{re.escape('snow://')}))?(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?(?P<name>{VALID_IDENTIFIER_REGEX})/?(?P<directory>([^/]*/?)*)?"
+
+# Define supported VSTAGE resource types
+VSTAGE_RESOURCE_TYPE_REGEX = r"[a-zA-Z0-9\-]+"
+VSTAGE_PATH_REGEX = (
+    rf"(?P<prefix>{re.escape(SNOW_PREFIX)})"
+    rf"(?P<resource_type>{VSTAGE_RESOURCE_TYPE_REGEX})/"
+    rf"(?:(?P<first_qualifier>{VALID_IDENTIFIER_REGEX})\.)?"
+    rf"(?:(?P<second_qualifier>{VALID_IDENTIFIER_REGEX})\.)?"
+    rf"(?P<name>{VALID_IDENTIFIER_REGEX})/?"
+    rf"(?P<directory>([^/]*/?)*)?"
+)
 
 
 class InternalStageEncryptionType(Enum):
@@ -80,6 +95,7 @@ class StagePathParts:
     stage: str
     stage_name: str
     is_directory: bool
+    is_vstage: bool = False
 
     @classmethod
     def get_directory(cls, stage_path: str) -> str:
@@ -97,13 +113,7 @@ class StagePathParts:
     def schema(self) -> str | None:
         raise NotImplementedError
 
-    def replace_stage_prefix(self, file_path: str) -> str:
-        raise NotImplementedError
-
     def add_stage_prefix(self, file_path: str) -> str:
-        raise NotImplementedError
-
-    def get_directory_from_file_path(self, file_path: str) -> List[str]:
         raise NotImplementedError
 
     def get_full_stage_path(self, path: str):
@@ -113,24 +123,13 @@ class StagePathParts:
 
     def get_standard_stage_path(self) -> str:
         path = self.get_full_stage_path(self.path)
-        return f"@{path}{'/'if self.is_directory and not path.endswith('/') else ''}"
+        return f"{AT_PREFIX}{path}{'/'if self.is_directory and not path.endswith('/') else ''}"
 
     def get_standard_stage_directory_path(self) -> str:
         path = self.get_standard_stage_path()
         if not path.endswith("/"):
             return path + "/"
         return path
-
-    def strip_stage_prefix(self, path: str):
-        raise NotImplementedError
-
-
-def _strip_standard_stage_prefix(path: str) -> str:
-    """Removes '@' or 'snow://' prefix from given string"""
-    for prefix in ["@", "snow://"]:
-        if path.startswith(prefix):
-            path = path.removeprefix(prefix)
-    return path
 
 
 @dataclass
@@ -149,10 +148,10 @@ class DefaultStagePathParts(StagePathParts):
     def __init__(self, stage_path: str):
         match = re.fullmatch(STAGE_PATH_REGEX, stage_path)
         if match is None:
-            raise ClickException("Invalid stage path")
+            raise CliError("Invalid stage path")
         self.directory = match.group("directory")
         self._schema = match.group("second_qualifier") or match.group("first_qualifier")
-        self._prefix = match.group("prefix") or "@"
+        self._prefix = match.group("prefix") or AT_PREFIX
         self.stage = stage_path.removesuffix(self.directory).rstrip("/")
 
         stage_name = FQN.from_stage(self.stage).name
@@ -180,24 +179,47 @@ class DefaultStagePathParts(StagePathParts):
     def schema(self) -> str | None:
         return self._schema
 
-    def replace_stage_prefix(self, file_path: str) -> str:
-        file_path = _strip_standard_stage_prefix(file_path)
-        file_path_without_prefix = Path(file_path).parts[OMIT_FIRST]
-        return f"{self.stage}/{'/'.join(file_path_without_prefix)}"
-
-    def strip_stage_prefix(self, file_path: str) -> str:
-        file_path = _strip_standard_stage_prefix(file_path)
-        if file_path.startswith(self.stage_name):
-            return file_path[len(self.stage_name) :]
-        return file_path
-
     def add_stage_prefix(self, file_path: str) -> str:
         stage = self.stage.rstrip("/")
         return f"{stage}/{file_path.lstrip('/')}"
 
-    def get_directory_from_file_path(self, file_path: str) -> List[str]:
-        stage_path_length = len(Path(self.directory).parts)
-        return list(Path(file_path).parts[1 + stage_path_length : -1])
+
+@dataclass
+class VStagePathParts(StagePathParts):
+    def __init__(self, stage_path: str):
+        match = re.fullmatch(VSTAGE_PATH_REGEX, stage_path)
+        if match is None or not match.group("resource_type") or not match.group("name"):
+            raise CliError(f"Invalid vstage path: {stage_path}.")
+        self.resource_type = match.group("resource_type")
+        self.directory = match.group("directory")
+        self._schema = match.group("second_qualifier") or match.group("first_qualifier")
+        self._prefix = match.group("prefix")
+        self.stage = stage_path.removesuffix(self.directory).rstrip("/")
+        self.stage_name = self.stage.removeprefix(self._prefix)
+        self.is_directory = True if stage_path.endswith("/") else False
+        self.is_vstage = True
+
+    @property
+    def path(self) -> str:
+        return f"{self._prefix}{self.stage_name.rstrip('/')}/{self.directory}".rstrip(
+            "/"
+        )
+
+    @property
+    def full_path(self) -> str:
+        return f"{self._prefix}{self.stage_name.rstrip('/')}/{self.directory}".rstrip(
+            "/"
+        )
+
+    @property
+    def schema(self) -> str | None:
+        return self._schema
+
+    def add_stage_prefix(self, file_path: str) -> str:
+        return self.full_path
+
+    def get_standard_stage_path(self) -> str:
+        return self.full_path
 
 
 @dataclass
@@ -229,17 +251,8 @@ class UserStagePathParts(StagePathParts):
     def full_path(self) -> str:
         return f"{self.stage}/{self.directory}".rstrip("/")
 
-    def replace_stage_prefix(self, file_path: str) -> str:
-        if Path(file_path).parts[0] == self.stage_name:
-            return file_path
-        return f"{self.stage}/{file_path}"
-
     def add_stage_prefix(self, file_path: str) -> str:
         return f"{self.stage}/{file_path}"
-
-    def get_directory_from_file_path(self, file_path: str) -> List[str]:
-        stage_path_length = len(Path(self.directory).parts)
-        return list(Path(file_path).parts[stage_path_length:-1])
 
 
 class StageManager(SqlExecutionMixin):
@@ -247,19 +260,20 @@ class StageManager(SqlExecutionMixin):
         super().__init__()
         self._python_exe_procedure = None
 
-    @staticmethod
-    def build_path(stage_path: str) -> StagePath:
+    def build_path(self, stage_path: Union[str, StagePath]) -> StagePath:
+        if isinstance(stage_path, StagePath):
+            return stage_path
         return StagePath.from_stage_str(stage_path)
 
     @staticmethod
     def get_standard_stage_prefix(name: str | FQN) -> str:
         if isinstance(name, FQN):
             name = name.identifier
-        # Handle embedded stages
-        if name.startswith("snow://") or name.startswith("@"):
+        # Handle vstages
+        if name.startswith(SNOW_PREFIX) or name.startswith(AT_PREFIX):
             return name
 
-        return f"@{name}"
+        return f"{AT_PREFIX}{name}"
 
     @staticmethod
     def get_stage_from_path(path: str):
@@ -275,7 +289,7 @@ class StageManager(SqlExecutionMixin):
             return name  # already quoted
 
         standard_name = StageManager.get_standard_stage_prefix(name)
-        if standard_name.startswith("@") and not re.fullmatch(
+        if standard_name.startswith(AT_PREFIX) and not re.fullmatch(
             r"@([\w./$])+", standard_name
         ):
             return to_string_literal(standard_name)
@@ -503,7 +517,7 @@ class StageManager(SqlExecutionMixin):
         destination_stage_path = StagePath.from_stage_str(destination_path)
 
         if destination_stage_path.is_user_stage():
-            raise ClickException(
+            raise CliError(
                 "Destination path cannot be a user stage. Please provide a named stage."
             )
 
@@ -534,11 +548,14 @@ class StageManager(SqlExecutionMixin):
         comment: Optional[str] = None,
         temporary: bool = False,
         encryption: InternalStageEncryptionType | None = None,
+        enable_directory: bool = False,
     ) -> SnowflakeCursor:
         temporary_str = "temporary " if temporary else ""
         query = f"create {temporary_str}stage if not exists {fqn.sql_identifier}"
         if encryption:
             query += f" encryption = (type = '{encryption.value}')"
+        if enable_directory:
+            query += f" directory = (enable = true)"
         if comment:
             query += f" comment='{comment}'"
         return self.execute_query(query)
@@ -572,7 +589,7 @@ class StageManager(SqlExecutionMixin):
 
         all_files_list = self._get_files_list_from_stage(stage_path.root_path())
         if not all_files_list:
-            raise ClickException(f"No files found on stage '{stage_path}'")
+            raise CliError(f"No files found on stage '{stage_path}'")
 
         all_files_with_stage_name_prefix = [
             stage_path_parts.get_directory(file) for file in all_files_list
@@ -584,7 +601,7 @@ class StageManager(SqlExecutionMixin):
         )
 
         if not filtered_file_list:
-            raise ClickException(f"No files matched pattern '{stage_path}'")
+            raise CliError(f"No files matched pattern '{stage_path}'")
 
         # sort filtered files in alphabetical order with directories at the end
         sorted_file_path_list = sorted(
@@ -678,7 +695,7 @@ class StageManager(SqlExecutionMixin):
             if filtered_files:
                 return filtered_files
             else:
-                raise ClickException(
+                raise CliError(
                     f"Invalid file extension, only {', '.join(EXECUTE_SUPPORTED_FILES_FORMATS)} files are allowed."
                 )
         # Filter with fnmatch if contains `*` or `?`
@@ -750,7 +767,14 @@ class StageManager(SqlExecutionMixin):
         stage_path = StageManager.get_standard_stage_prefix(stage_path)
         if stage_path.startswith(USER_STAGE_PREFIX):
             return UserStagePathParts(stage_path)
+        elif stage_path.startswith(SNOW_PREFIX):
+            return VStagePathParts(stage_path)
         return DefaultStagePathParts(stage_path)
+
+    def refresh(self, stage_name):
+        sql = f"ALTER STAGE {stage_name} REFRESH"
+        log.info("Refreshing stage %s", stage_name)
+        return self.execute_query(sql)
 
     def _check_for_requirements_file(self, stage_path: StagePath) -> List[str]:
         """Looks for requirements.txt file on stage."""
@@ -800,7 +824,7 @@ class StageManager(SqlExecutionMixin):
     def _bootstrap_snowpark_execution_environment(self, stage_path: StagePath):
         """Prepares Snowpark session for executing Python code remotely."""
         if sys.version_info >= PYTHON_3_12:
-            raise ClickException(
+            raise CliError(
                 f"Executing Python files is not supported in Python >= 3.12. Current version: {sys.version}"
             )
 

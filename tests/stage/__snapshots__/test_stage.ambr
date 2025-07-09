@@ -1,8 +1,8 @@
 # serializer version: 1
-# name: test_copy_throws_error_for_same_platform_operation[@snow/stage-@stage/snow]
+# name: test_copy_throws_error_for_same_platform_operation[@~/dir1-@~/dir2]
   '''
   +- Error ----------------------------------------------------------------------+
-  | Both source and target path are remote. This operation is not supported.     |
+  | Destination path cannot be a user stage. Please provide a named stage.       |
   +------------------------------------------------------------------------------+
   
   '''
@@ -11,14 +11,6 @@
   '''
   +- Error ----------------------------------------------------------------------+
   | Both source and target path are local. This operation is not supported.      |
-  +------------------------------------------------------------------------------+
-  
-  '''
-# ---
-# name: test_copy_throws_error_for_same_platform_operation[snow://stage-snow://stage/snow]
-  '''
-  +- Error ----------------------------------------------------------------------+
-  | Both source and target path are remote. This operation is not supported.     |
   +------------------------------------------------------------------------------+
   
   '''

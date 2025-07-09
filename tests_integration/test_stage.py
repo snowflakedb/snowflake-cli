@@ -18,6 +18,7 @@ import sys
 import tempfile
 import time
 from pathlib import Path
+
 import pytest
 
 from tests.stage.test_stage import RecursiveUploadTester, NESTED_STRUCTURE
@@ -789,6 +790,54 @@ def test_recursive_upload_glob_file_pattern(temporary_directory, runner, test_da
 
 
 @pytest.mark.integration
+def test_stage_copy_refreshes_stream(
+    runner, snowflake_session, test_database, tmp_path
+):
+    stage_name = "test_stage_stream"
+    stage_name_with_at = "@" + stage_name
+    stream_name = "test_stream"
+
+    # Create stage and stream
+    runner.invoke_with_connection_json(
+        ["stage", "create", stage_name_with_at, "--enable-directory"]
+    )
+    snowflake_session.execute_string(
+        f"CREATE OR REPLACE STREAM {stream_name} ON STAGE {stage_name}"
+    )
+
+    # Create test file
+    test_file = tmp_path / "test.txt"
+    test_file.write_text("test content")
+
+    # Initial copy without --refresh
+    result = runner.invoke_with_connection_json(
+        ["stage", "copy", str(test_file), stage_name_with_at]
+    )
+    assert result.exit_code == 0
+
+    # Check stream has no changes
+    stream_changes_cursor = snowflake_session.execute_string(
+        f"SELECT * FROM {stream_name}"
+    )
+    stream_changes = row_from_snowflake_session(stream_changes_cursor)
+    assert len(stream_changes) == 0
+
+    # Copy again with --refresh flag
+    result = runner.invoke_with_connection_json(
+        ["stage", "copy", str(test_file), stage_name_with_at, "--refresh"]
+    )
+    assert result.exit_code == 0
+
+    # Check stream has changes after --refresh was specified
+    stream_changes_cursor = snowflake_session.execute_string(
+        f"SELECT * FROM {stream_name}"
+    )
+    stream_changes = row_from_snowflake_session(stream_changes_cursor)
+    assert len(stream_changes) == 1
+    assert stream_changes[0]["RELATIVE_PATH"] == "test.txt"
+
+
+@pytest.mark.integration
 def test_recursive_upload_no_recursive_glob_pattern(
     temporary_directory, runner, test_database
 ):
@@ -820,6 +869,45 @@ def test_recursive_upload_no_recursive_glob_pattern(
 
 
 @pytest.mark.integration
+def test_stage_copy_between_stages(runner, snowflake_session, test_database, tmp_path):
+    """Test copying files between two stages"""
+    source_stage = "test_source_stage"
+    dest_stage = "test_dest_stage"
+
+    # Create source and destination stages
+    result = runner.invoke_with_connection_json(["stage", "create", source_stage])
+    assert result.exit_code == 0, result.output
+
+    result = runner.invoke_with_connection_json(["stage", "create", dest_stage])
+    assert result.exit_code == 0, result.output
+
+    # Create test files and upload to source stage
+    test_files = ["test1.txt", "test2.py", "test3.md"]
+    with tempfile.TemporaryDirectory() as td:
+        for filename in test_files:
+            file_path = Path(td) / filename
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_text(f"Content of {filename}")
+
+        result = runner.invoke_with_connection_json(
+            ["stage", "copy", td, f"@{source_stage}"]
+        )
+        assert result.exit_code == 0, result.output
+
+    # Copy all files from source stage to destination stage
+    result = runner.invoke_with_connection_json(
+        ["stage", "copy", f"@{source_stage}", f"@{dest_stage}"]
+    )
+    assert result.exit_code == 0, result.output
+
+    # Verify files are now in destination stage
+    result = runner.invoke_with_connection_json(["stage", "list-files", dest_stage])
+    assert result.exit_code == 0, result.output
+    for filename in test_files:
+        assert any(filename in row.get("name", "") for row in result.json)
+
+
+@pytest.mark.integration
 @pytest.mark.parametrize("encryption", ["SNOWFLAKE_FULL", "SNOWFLAKE_SSE"])
 def test_create_encryption(runner, test_database, encryption):
     result = runner.invoke_with_connection_json(
@@ -827,3 +915,24 @@ def test_create_encryption(runner, test_database, encryption):
     )
     assert result.exit_code == 0, result.output
     assert result.json == {"status": f"Stage area A_STAGE successfully created."}
+
+
+@pytest.mark.integration
+def test_create_directory_option(runner, test_database):
+    stage_name = "stage_with_directory"
+    result = runner.invoke_with_connection_json(
+        ["stage", "create", stage_name, "--enable-directory"]
+    )
+    assert result.exit_code == 0, result.output
+    assert result.json == {
+        "status": f"Stage area {stage_name.upper()} successfully created."
+    }
+
+    # Verify directory is enabled
+    result = runner.invoke_with_connection_json(["stage", "describe", stage_name])
+    assert result.exit_code == 0, result.output
+    assert any(
+        row.get("parent_property") == "DIRECTORY"
+        and row.get("property_value") == "true"
+        for row in result.json
+    )

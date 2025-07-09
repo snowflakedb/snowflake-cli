@@ -336,9 +336,8 @@ def test_stage_copy_local_to_remote_star(mock_execute, runner, mock_cursor):
 @pytest.mark.parametrize(
     "source, dest",
     [
-        ("@snow/stage", "@stage/snow"),
-        ("snow://stage", "snow://stage/snow"),
         ("local/path", "other/local/path"),
+        ("@~/dir1", "@~/dir2"),
     ],
 )
 def test_copy_throws_error_for_same_platform_operation(
@@ -347,6 +346,16 @@ def test_copy_throws_error_for_same_platform_operation(
     result = runner.invoke(["stage", "copy", source, dest])
     assert result.exit_code == 1
     assert result.output == os_agnostic_snapshot
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_copy_stage_to_stage(mock_execute, runner, mock_cursor):
+    mock_execute.return_value = mock_cursor(["row"], [])
+    result = runner.invoke(["stage", "copy", "@snow/stage", "@stage/snow"])
+    assert result.exit_code == 0, result.output
+    mock_execute.assert_called_once_with(
+        "copy files into @stage/snow/ from @snow/stage"
+    )
 
 
 @pytest.mark.parametrize(
@@ -1418,3 +1427,34 @@ def test_recursive_upload_with_provided_temp_directory():
         tester.prepare(structure=NESTED_STRUCTURE)
         StageManager().copy_to_tmp_dir(Path(source_directory), temp_directory_path)
         tester.execute(local_path=source_directory)
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_create_enable_directory(mock_execute, runner, mock_cursor):
+    mock_execute.return_value = mock_cursor(["row"], [])
+    result = runner.invoke(["stage", "create", "stageName", "--enable-directory"])
+    assert result.exit_code == 0, result.output
+    mock_execute.assert_called_once_with(
+        "create stage if not exists IDENTIFIER('stageName') encryption = (type = 'SNOWFLAKE_FULL') directory = (enable = true)"
+    )
+
+
+@mock.patch(f"{STAGE_MANAGER}.execute_query")
+def test_stage_create_with_encryption_and_directory_options(
+    mock_execute, runner, mock_cursor
+):
+    mock_execute.return_value = mock_cursor(["row"], [])
+    result = runner.invoke(
+        [
+            "stage",
+            "create",
+            "stageName",
+            "--encryption",
+            "SNOWFLAKE_SSE",
+            "--enable-directory",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    mock_execute.assert_called_once_with(
+        "create stage if not exists IDENTIFIER('stageName') encryption = (type = 'SNOWFLAKE_SSE') directory = (enable = true)"
+    )
