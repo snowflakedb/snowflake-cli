@@ -37,7 +37,7 @@ class ProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         dry_run: bool = False,
     ):
-        query = f"EXECUTE PROJECT {project_name.sql_identifier}"
+        query = f"EXECUTE DCM PROJECT {project_name.sql_identifier}"
         if configuration or variables:
             query += f" USING"
         if configuration:
@@ -56,7 +56,7 @@ class ProjectManager(SqlExecutionMixin):
         return self.execute_query(query=query)
 
     def _create_object(self, project_name: FQN) -> SnowflakeCursor:
-        query = dedent(f"CREATE PROJECT {project_name.sql_identifier}")
+        query = dedent(f"CREATE DCM PROJECT {project_name.sql_identifier}")
         return self.execute_query(query)
 
     def create(
@@ -74,7 +74,7 @@ class ProjectManager(SqlExecutionMixin):
         comment: str | None = None,
     ):
         stage_path = StagePath.from_stage_str(from_stage)
-        query = f"ALTER PROJECT {project_name.identifier} ADD VERSION"
+        query = f"ALTER DCM PROJECT {project_name.identifier} ADD VERSION"
         if alias:
             query += f" IF NOT EXISTS {alias}"
         query += f" FROM {stage_path.absolute_path(at_prefix=True)}"
@@ -115,7 +115,7 @@ class ProjectManager(SqlExecutionMixin):
             )
 
     def list_versions(self, project_name: FQN):
-        query = f"SHOW VERSIONS IN PROJECT {project_name.identifier}"
+        query = f"SHOW VERSIONS IN DCM PROJECT {project_name.identifier}"
         return self.execute_query(query=query)
 
     def drop_version(
@@ -127,7 +127,7 @@ class ProjectManager(SqlExecutionMixin):
         """
         Drops a version from the project.
         """
-        query = f"ALTER PROJECT {project_name.identifier} DROP VERSION"
+        query = f"ALTER DCM PROJECT {project_name.identifier} DROP VERSION"
         if if_exists:
             query += " IF EXISTS"
         query += f" {version_name}"

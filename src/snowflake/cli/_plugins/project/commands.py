@@ -53,7 +53,7 @@ app = SnowTyperFactory(
     is_hidden=FeatureFlag.ENABLE_SNOWFLAKE_PROJECTS.is_disabled,
 )
 
-project_identifier = identifier_argument(sf_object="project", example="MY_PROJECT")
+project_identifier = identifier_argument(sf_object="dcm project", example="MY_PROJECT")
 version_flag = typer.Option(
     None,
     "--version",
@@ -78,7 +78,7 @@ from_option = OverrideableOption(
 
 add_object_command_aliases(
     app=app,
-    object_type=ObjectType.PROJECT,
+    object_type=ObjectType.DCM_PROJECT,
     name_argument=project_identifier,
     like_option=like_option(
         help_example='`list --like "my%"` lists all projects that begin with "my"'
@@ -169,7 +169,7 @@ def create(
         entity_type="project",
     )
     om = ObjectManager()
-    if om.object_exists(object_type="project", fqn=project.fqn):
+    if om.object_exists(object_type="dcm-project", fqn=project.fqn):
         message = f"Project '{project.fqn}' already exists."
         if if_not_exists:
             return MessageResult(message)
@@ -221,7 +221,7 @@ def add_version(
         entity_type="project",
     )
     om = ObjectManager()
-    if not om.object_exists(object_type="project", fqn=project.fqn):
+    if not om.object_exists(object_type="dcm-project", fqn=project.fqn):
         raise CliError(
             f"Project '{project.fqn}' does not exist. Use `project create` command first."
         )
