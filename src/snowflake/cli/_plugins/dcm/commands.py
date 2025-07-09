@@ -15,13 +15,13 @@
 from typing import List, Optional
 
 import typer
+from snowflake.cli._plugins.dcm.dcm_project_entity_model import (
+    DCMProjectEntityModel,
+)
+from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
-from snowflake.cli._plugins.project.manager import ProjectManager
-from snowflake.cli._plugins.project.project_entity_model import (
-    ProjectEntityModel,
-)
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
@@ -48,16 +48,16 @@ from snowflake.cli.api.output.types import (
 )
 
 app = SnowTyperFactory(
-    name="project",
-    help="Manages projects in Snowflake.",
+    name="dcm",
+    help="Manages DCM projects in Snowflake.",
     is_hidden=FeatureFlag.ENABLE_SNOWFLAKE_PROJECTS.is_disabled,
 )
 
-project_identifier = identifier_argument(sf_object="dcm project", example="MY_PROJECT")
+dcm_identifier = identifier_argument(sf_object="DCM project", example="MY_PROJECT")
 version_flag = typer.Option(
     None,
     "--version",
-    help="Version of the project to use. If not specified default version is used. For names containing '$', use single quotes to prevent shell expansion (e.g., 'VERSION$1').",
+    help="Version of the DCM project to use. If not specified default version is used. For names containing '$', use single quotes to prevent shell expansion (e.g., 'VERSION$1').",
     show_default=False,
 )
 variables_flag = variables_option(
@@ -66,7 +66,7 @@ variables_flag = variables_option(
 configuration_flag = typer.Option(
     None,
     "--configuration",
-    help="Configuration of the project to use. If not specified default configuration is used.",
+    help="Configuration of the DCM project to use. If not specified default configuration is used.",
     show_default=False,
 )
 from_option = OverrideableOption(
@@ -79,9 +79,9 @@ from_option = OverrideableOption(
 add_object_command_aliases(
     app=app,
     object_type=ObjectType.DCM_PROJECT,
-    name_argument=project_identifier,
+    name_argument=dcm_identifier,
     like_option=like_option(
-        help_example='`list --like "my%"` lists all projects that begin with "my"'
+        help_example='`list --like "my%"` lists all DCM projects that begin with "my"'
     ),
     scope_option=scope_option(help_example="`list --in database my_db`"),
     ommit_commands=["create", "describe"],
@@ -90,22 +90,22 @@ add_object_command_aliases(
 
 @app.command(requires_connection=True)
 def execute(
-    identifier: FQN = project_identifier,
+    identifier: FQN = dcm_identifier,
     version: Optional[str] = version_flag,
     from_stage: Optional[str] = from_option(
-        help="Execute project from given stage instead of using a specific version."
+        help="Execute DCM project from given stage instead of using a specific version."
     ),
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
     **options,
 ):
     """
-    Executes a project.
+    Executes a DCM project.
     """
     if version and from_stage:
         raise CliError("--version and --from are mutually exclusive.")
 
-    result = ProjectManager().execute(
+    result = DCMProjectManager().execute(
         project_name=identifier,
         configuration=configuration,
         version=version,
@@ -117,22 +117,22 @@ def execute(
 
 @app.command(requires_connection=True)
 def dry_run(
-    identifier: FQN = project_identifier,
+    identifier: FQN = dcm_identifier,
     version: Optional[str] = version_flag,
     from_stage: Optional[str] = from_option(
-        help="Execute project from given stage instead of using a specific version."
+        help="Execute DCM project from given stage instead of using a specific version."
     ),
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
     **options,
 ):
     """
-    Validates a project.
+    Validates a DCM project.
     """
     if version and from_stage:
         raise CliError("--version and --from are mutually exclusive.")
 
-    result = ProjectManager().execute(
+    result = DCMProjectManager().execute(
         project_name=identifier,
         configuration=configuration,
         version=version,
@@ -146,11 +146,11 @@ def dry_run(
 @app.command(requires_connection=True)
 @with_project_definition()
 def create(
-    entity_id: str = entity_argument("project"),
+    entity_id: str = entity_argument("dcm"),
     no_version: bool = typer.Option(
         False,
         "--no-version",
-        help="Do not initialize project with a new version, only create the snowflake object.",
+        help="Do not initialize DCM project with a new version, only create the snowflake object.",
     ),
     if_not_exists: bool = IfNotExistsOption(
         help="Do nothing if the project already exists."
@@ -158,19 +158,19 @@ def create(
     **options,
 ):
     """
-    Creates a project in Snowflake.
-    By default, the project is initialized with a new version created from local files.
+    Creates a DCM project in Snowflake.
+    By default, the DCM project is initialized with a new version created from local files.
     """
     cli_context = get_cli_context()
-    project: ProjectEntityModel = get_entity_for_operation(
+    project: DCMProjectEntityModel = get_entity_for_operation(
         cli_context=cli_context,
         entity_id=entity_id,
         project_definition=cli_context.project_definition,
-        entity_type="project",
+        entity_type="dcm",
     )
     om = ObjectManager()
-    if om.object_exists(object_type="dcm-project", fqn=project.fqn):
-        message = f"Project '{project.fqn}' already exists."
+    if om.object_exists(object_type="dcm", fqn=project.fqn):
+        message = f"DCM project '{project.fqn}' already exists."
         if if_not_exists:
             return MessageResult(message)
         raise CliError(message)
@@ -180,21 +180,21 @@ def create(
     ):
         raise CliError(f"Stage '{project.stage}' already exists.")
 
-    pm = ProjectManager()
-    with cli_console.phase(f"Creating project '{project.fqn}'"):
-        pm.create(project=project, initialize_version_from_local_files=not no_version)
+    dpm = DCMProjectManager()
+    with cli_console.phase(f"Creating DCM project '{project.fqn}'"):
+        dpm.create(project=project, initialize_version_from_local_files=not no_version)
 
     if no_version:
-        return MessageResult(f"Project '{project.fqn}' successfully created.")
+        return MessageResult(f"DCM project '{project.fqn}' successfully created.")
     return MessageResult(
-        f"Project '{project.fqn}' successfully created and initial version is added."
+        f"DCM project '{project.fqn}' successfully created and initial version is added."
     )
 
 
 @app.command(requires_connection=True)
 @with_project_definition()
 def add_version(
-    entity_id: str = entity_argument("project"),
+    entity_id: str = entity_argument("dcm"),
     _from: Optional[str] = from_option(
         help="Create a new version using given stage instead of uploading local files."
     ),
@@ -207,25 +207,25 @@ def add_version(
     prune: bool = PruneOption(default=True),
     **options,
 ):
-    """Uploads local files to Snowflake and cerates a new project version."""
+    """Uploads local files to Snowflake and cerates a new DCM project version."""
     if _from is not None and prune:
         cli_console.warning(
             "When `--from` option is used, `--prune` option will be ignored and files from stage will be used as they are."
         )
         prune = False
     cli_context = get_cli_context()
-    project: ProjectEntityModel = get_entity_for_operation(
+    project: DCMProjectEntityModel = get_entity_for_operation(
         cli_context=cli_context,
         entity_id=entity_id,
         project_definition=cli_context.project_definition,
-        entity_type="project",
+        entity_type="dcm",
     )
     om = ObjectManager()
-    if not om.object_exists(object_type="dcm-project", fqn=project.fqn):
+    if not om.object_exists(object_type="dcm", fqn=project.fqn):
         raise CliError(
-            f"Project '{project.fqn}' does not exist. Use `project create` command first."
+            f"DCM project '{project.fqn}' does not exist. Use `dcm create` command first."
         )
-    ProjectManager().add_version(
+    DCMProjectManager().add_version(
         project=project,
         prune=prune,
         from_stage=_from,
@@ -234,26 +234,26 @@ def add_version(
     )
     alias_str = "" if _alias is None else f"'{_alias}' "
     return MessageResult(
-        f"New project version {alias_str}added to project '{project.fqn}'."
+        f"New version {alias_str}added to DCM project '{project.fqn}'."
     )
 
 
 @app.command(requires_connection=True)
 def list_versions(
-    identifier: FQN = project_identifier,
+    identifier: FQN = dcm_identifier,
     **options,
 ):
     """
-    Lists versions of given project.
+    Lists versions of given DCM project.
     """
-    pm = ProjectManager()
+    pm = DCMProjectManager()
     results = pm.list_versions(project_name=identifier)
     return QueryResult(results)
 
 
 @app.command(requires_connection=True)
 def drop_version(
-    identifier: FQN = project_identifier,
+    identifier: FQN = dcm_identifier,
     version_name: str = typer.Argument(
         help="Name or alias of the version to drop. For names containing '$', use single quotes to prevent shell expansion (e.g., 'VERSION$1').",
         show_default=False,
@@ -262,7 +262,7 @@ def drop_version(
     **options,
 ):
     """
-    Drops a version from the project.
+    Drops a version from the DCM project.
     """
     # Detect potential shell expansion issues
     if version_name and version_name.upper() == "VERSION":
@@ -271,12 +271,12 @@ def drop_version(
             f"If you meant to use a version like 'VERSION$1', try using single quotes: 'VERSION$1'."
         )
 
-    pm = ProjectManager()
-    pm.drop_version(
+    dpm = DCMProjectManager()
+    dpm.drop_version(
         project_name=identifier,
         version_name=version_name,
         if_exists=if_exists,
     )
     return MessageResult(
-        f"Version '{version_name}' dropped from project '{identifier}'."
+        f"Version '{version_name}' dropped from DCM project '{identifier}'."
     )

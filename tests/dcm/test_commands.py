@@ -3,29 +3,29 @@ from unittest import mock
 import pytest
 from snowflake.cli.api.identifiers import FQN
 
-ProjectManager = "snowflake.cli._plugins.project.commands.ProjectManager"
-ObjectManager = "snowflake.cli._plugins.project.commands.ObjectManager"
+DCMProjectManager = "snowflake.cli._plugins.dcm.commands.DCMProjectManager"
+ObjectManager = "snowflake.cli._plugins.dcm.commands.ObjectManager"
 get_entity_for_operation = (
-    "snowflake.cli._plugins.project.commands.get_entity_for_operation"
+    "snowflake.cli._plugins.dcm.commands.get_entity_for_operation"
 )
 
 
 @pytest.fixture
 def mock_project_exists():
     with mock.patch(
-        "snowflake.cli._plugins.project.commands.ObjectManager.object_exists",
+        "snowflake.cli._plugins.dcm.commands.ObjectManager.object_exists",
         return_value=True,
     ) as _fixture:
         yield _fixture
 
 
-@mock.patch(ProjectManager)
+@mock.patch(DCMProjectManager)
 @mock.patch(ObjectManager)
 @pytest.mark.parametrize("no_version", [False, True])
 def test_create(mock_om, mock_pm, runner, project_directory, no_version):
     mock_om().object_exists.return_value = False
     with project_directory("dcm_project"):
-        command = ["project", "create"]
+        command = ["dcm", "create"]
         if no_version:
             command.append("--no-version")
         result = runner.invoke(command)
@@ -37,7 +37,7 @@ def test_create(mock_om, mock_pm, runner, project_directory, no_version):
         assert create_kwargs["project"].fqn == FQN.from_string("my_project")
 
 
-@mock.patch(ProjectManager)
+@mock.patch(DCMProjectManager)
 @mock.patch(ObjectManager)
 @pytest.mark.parametrize("if_not_exists", [False, True])
 def test_create_object_exists(
@@ -45,16 +45,16 @@ def test_create_object_exists(
 ):
     mock_om().object_exists.return_value = True
     with project_directory("dcm_project"):
-        command = ["project", "create"]
+        command = ["dcm", "create"]
         if if_not_exists:
             command.append("--if-not-exists")
         result = runner.invoke(command)
         assert result.exit_code == 0 if if_not_exists else 1, result.output
-        assert "Project 'my_project' already exists." in result.output
+        assert "DCM project 'my_project' already exists." in result.output
         mock_pm().create.assert_not_called()
 
 
-@mock.patch(ProjectManager)
+@mock.patch(DCMProjectManager)
 @pytest.mark.parametrize(
     "prune,_from,expected_prune_value",
     [
@@ -77,7 +77,7 @@ def test_add_version(
 ):
     with project_directory("dcm_project") as root:
         command = [
-            "project",
+            "dcm",
             "add-version",
             "my_project",
             "--alias",
@@ -115,7 +115,7 @@ def test_add_version_raises_when_project_does_not_exist(
     mock_project_exists.return_value = False
     with project_directory("dcm_project") as root:
         command = [
-            "project",
+            "dcm",
             "add-version",
             "my_project",
             "--alias",
@@ -126,16 +126,16 @@ def test_add_version_raises_when_project_does_not_exist(
         result = runner.invoke(command)
         assert result.exit_code == 1, result.output
         assert (
-            "Project 'my_project' does not exist. Use `project create` command first"
+            "DCM project 'my_project' does not exist. Use `dcm create` command first"
             in result.output
         )
 
 
-@mock.patch(ProjectManager)
+@mock.patch(DCMProjectManager)
 def test_execute_project(mock_pm, runner, project_directory, mock_cursor):
     mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
 
-    result = runner.invoke(["project", "execute", "fooBar"])
+    result = runner.invoke(["dcm", "execute", "fooBar"])
     assert result.exit_code == 0, result.output
 
     mock_pm().execute.assert_called_once_with(
@@ -147,13 +147,13 @@ def test_execute_project(mock_pm, runner, project_directory, mock_cursor):
     )
 
 
-@mock.patch(ProjectManager)
+@mock.patch(DCMProjectManager)
 def test_execute_project_with_from_stage(
     mock_pm, runner, project_directory, mock_cursor
 ):
     mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
 
-    result = runner.invoke(["project", "execute", "fooBar", "--from", "@my_stage"])
+    result = runner.invoke(["dcm", "execute", "fooBar", "--from", "@my_stage"])
     assert result.exit_code == 0, result.output
 
     mock_pm().execute.assert_called_once_with(
@@ -165,12 +165,12 @@ def test_execute_project_with_from_stage(
     )
 
 
-@mock.patch(ProjectManager)
+@mock.patch(DCMProjectManager)
 def test_execute_project_version_and_from_stage_mutually_exclusive(
     mock_pm, runner, project_directory, mock_cursor
 ):
     result = runner.invoke(
-        ["project", "execute", "fooBar", "--version", "v1", "--from", "@my_stage"]
+        ["dcm", "execute", "fooBar", "--version", "v1", "--from", "@my_stage"]
     )
     assert result.exit_code == 1, result.output
     assert "--version and --from are mutually exclusive" in result.output
@@ -178,14 +178,14 @@ def test_execute_project_version_and_from_stage_mutually_exclusive(
     mock_pm().execute.assert_not_called()
 
 
-@mock.patch(ProjectManager)
+@mock.patch(DCMProjectManager)
 def test_execute_project_with_variables(
     mock_pm, runner, project_directory, mock_cursor
 ):
     mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
 
     result = runner.invoke(
-        ["project", "execute", "fooBar", "--version", "v1", "-D", "key=value"]
+        ["dcm", "execute", "fooBar", "--version", "v1", "-D", "key=value"]
     )
     assert result.exit_code == 0, result.output
 
@@ -198,14 +198,14 @@ def test_execute_project_with_variables(
     )
 
 
-@mock.patch(ProjectManager)
+@mock.patch(DCMProjectManager)
 def test_execute_project_with_configuration(
     mock_pm, runner, project_directory, mock_cursor
 ):
     mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
 
     result = runner.invoke(
-        ["project", "execute", "fooBar", "--configuration", "some_configuration"]
+        ["dcm", "execute", "fooBar", "--configuration", "some_configuration"]
     )
     assert result.exit_code == 0, result.output
 
@@ -218,13 +218,13 @@ def test_execute_project_with_configuration(
     )
 
 
-@mock.patch(ProjectManager)
+@mock.patch(DCMProjectManager)
 def test_validate_project(mock_pm, runner, project_directory, mock_cursor):
     mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
 
     result = runner.invoke(
         [
-            "project",
+            "dcm",
             "dry-run",
             "fooBar",
             "--version",
@@ -247,7 +247,7 @@ def test_validate_project(mock_pm, runner, project_directory, mock_cursor):
     )
 
 
-@mock.patch(ProjectManager)
+@mock.patch(DCMProjectManager)
 def test_validate_project_with_from_stage(
     mock_pm, runner, project_directory, mock_cursor
 ):
@@ -255,7 +255,7 @@ def test_validate_project_with_from_stage(
 
     result = runner.invoke(
         [
-            "project",
+            "dcm",
             "dry-run",
             "fooBar",
             "--from",
@@ -278,13 +278,13 @@ def test_validate_project_with_from_stage(
     )
 
 
-@mock.patch(ProjectManager)
+@mock.patch(DCMProjectManager)
 def test_validate_project_version_and_from_stage_mutually_exclusive(
     mock_pm, runner, project_directory, mock_cursor
 ):
     result = runner.invoke(
         [
-            "project",
+            "dcm",
             "dry-run",
             "fooBar",
             "--version",
@@ -304,7 +304,7 @@ def test_list_command_alias(mock_connect, runner):
         [
             "object",
             "list",
-            "project",
+            "dcm",
             "--like",
             "%PROJECT_NAME%",
             "--in",
@@ -315,7 +315,7 @@ def test_list_command_alias(mock_connect, runner):
 
     assert result.exit_code == 0, result.output
     result = runner.invoke(
-        ["project", "list", "--like", "%PROJECT_NAME%", "--in", "database", "my_db"],
+        ["dcm", "list", "--like", "%PROJECT_NAME%", "--in", "database", "my_db"],
         catch_exceptions=False,
     )
     assert result.exit_code == 0, result.output
@@ -325,13 +325,13 @@ def test_list_command_alias(mock_connect, runner):
     assert (
         queries[0]
         == queries[1]
-        == "show projects like '%PROJECT_NAME%' in database my_db"
+        == "show DCM projects like '%PROJECT_NAME%' in database my_db"
     )
 
 
-@mock.patch(ProjectManager)
+@mock.patch(DCMProjectManager)
 def test_list_versions(mock_pm, runner):
-    result = runner.invoke(["project", "list-versions", "fooBar"])
+    result = runner.invoke(["dcm", "list-versions", "fooBar"])
 
     assert result.exit_code == 0, result.output
 
@@ -340,17 +340,17 @@ def test_list_versions(mock_pm, runner):
     )
 
 
-@mock.patch(ProjectManager)
+@mock.patch(DCMProjectManager)
 @pytest.mark.parametrize("if_exists", [True, False])
 def test_drop_version(mock_pm, runner, if_exists):
-    command = ["project", "drop-version", "fooBar", "v1"]
+    command = ["dcm", "drop-version", "fooBar", "v1"]
     if if_exists:
         command.append("--if-exists")
 
     result = runner.invoke(command)
 
     assert result.exit_code == 0, result.output
-    assert "Version 'v1' dropped from project 'fooBar'" in result.output
+    assert "Version 'v1' dropped from DCM project 'fooBar'" in result.output
 
     mock_pm().drop_version.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
@@ -359,7 +359,7 @@ def test_drop_version(mock_pm, runner, if_exists):
     )
 
 
-@mock.patch(ProjectManager)
+@mock.patch(DCMProjectManager)
 @pytest.mark.parametrize(
     "version_name,should_warn",
     [
@@ -377,7 +377,7 @@ def test_drop_version_shell_expansion_warning(
     mock_pm, runner, version_name, should_warn
 ):
     """Test that warning is displayed for version names that look like shell expansion results."""
-    result = runner.invoke(["project", "drop-version", "fooBar", version_name])
+    result = runner.invoke(["dcm", "drop-version", "fooBar", version_name])
 
     assert result.exit_code == 0, result.output
 
@@ -399,7 +399,7 @@ def test_drop_project(mock_connect, runner):
         [
             "object",
             "drop",
-            "project",
+            "dcm",
             "my_project",
         ]
     )
@@ -407,11 +407,11 @@ def test_drop_project(mock_connect, runner):
     assert result.exit_code == 0, result.output
 
     result = runner.invoke(
-        ["project", "drop", "my_project"],
+        ["dcm", "drop", "my_project"],
         catch_exceptions=False,
     )
     assert result.exit_code == 0, result.output
 
     queries = mock_connect.mocked_ctx.get_queries()
     assert len(queries) == 2
-    assert queries[0] == queries[1] == "drop project IDENTIFIER('my_project')"
+    assert queries[0] == queries[1] == "drop DCM project IDENTIFIER('my_project')"
