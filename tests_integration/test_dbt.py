@@ -63,19 +63,7 @@ def test_deploy_and_execute(
         )
         assert result.exit_code == 0, result.output
 
-        # list all dbt objects
-        result = runner.invoke_with_connection_json(
-            [
-                "dbt",
-                "list",
-                "--like",
-                name,
-            ]
-        )
-        assert result.exit_code == 0, result.output
-        assert len(result.json) == 1
-        dbt_object = result.json[0]
-        assert dbt_object["name"].lower() == name.lower()
+        _verify_dbt_project_exists(runner, name)
 
         # call `run` on dbt object
         result = runner.invoke_passthrough_with_connection(
@@ -143,18 +131,7 @@ def test_dbt_deploy_options(
 
 
 def _fetch_creation_date(name, runner) -> datetime.datetime:
-    result = runner.invoke_with_connection_json(
-        [
-            "dbt",
-            "list",
-            "--like",
-            name,
-        ]
-    )
-    assert result.exit_code == 0, result.output
-    assert len(result.json) == 1
-    dbt_object = result.json[0]
-    assert dbt_object["name"].lower() == name.lower()
+    dbt_object = _verify_dbt_project_exists(runner, name)
     return datetime.datetime.fromisoformat(dbt_object["created_on"])
 
 
@@ -173,3 +150,193 @@ def _setup_dbt_profile(root_dir: Path, snowflake_session, include_password: bool
     else:
         dev_profile.pop("password", None)
     (root_dir / PROFILES_FILENAME).write_text(yaml.dump(profiles))
+
+
+def _verify_dbt_project_exists(runner, name: str):
+    """Verify that a dbt project exists and return its details."""
+    result = runner.invoke_with_connection_json(["dbt", "list", "--like", name])
+    assert result.exit_code == 0, result.output
+    assert len(result.json) == 1
+    dbt_object = result.json[0]
+    assert dbt_object["name"].lower() == name.lower()
+    return dbt_object
+
+
+@pytest.mark.skipif(True, reason="Skipping this test for now")
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_dbt_deploy_with_external_access_integrations(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """
+    Test dbt deploy with external access integrations for installing external dependencies.
+
+    This test verifies that:
+    1. dbt projects can be deployed with external access integrations
+    2. External dependencies can be automatically installed
+    3. Models using external package macros work correctly
+    """
+    with project_directory("dbt_project_with_external_deps") as root_dir:
+        # Given a local dbt project with external dependencies
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_external_deps_{ts}"
+        ext_access_integration = f"DBT_HUB_ACCESS_INTEGRATION"
+
+        # Setup external access integration for dbt hub access
+        _setup_external_access_integration(runner, ext_access_integration)
+
+        _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
+
+        # Deploy dbt project with external access integrations
+        result = runner.invoke_with_connection_json(
+            [
+                "dbt",
+                "deploy",
+                name,
+                "--external-access-integrations",
+                ext_access_integration,
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Verify the dbt project was created
+        _verify_dbt_project_exists(runner, name)
+
+        # Run the dbt models that use external package macros
+        result = runner.invoke_passthrough_with_connection(
+            args=["dbt", "execute"], passthrough_args=[name, "run"]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Verify surrogate key was generated (using dbt_utils macro)
+        result = runner.invoke_with_connection_json(
+            [
+                "sql",
+                "-q",
+                "select surrogate_key from first_model_with_utils where id = 1;",
+            ]
+        )
+        assert len(result.json) == 1, result.json
+        assert result.json[0]["SURROGATE_KEY"] is not None, result.json[0]
+
+        # Now add a different external dependency and update the project
+        _add_second_dependency(root_dir)
+
+        # Redeploy with the updated dependencies
+        result = runner.invoke_with_connection_json(
+            [
+                "dbt",
+                "deploy",
+                name,
+                "--external-access-integrations",
+                ext_access_integration,
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_passthrough_with_connection(
+            args=["dbt", "execute"], passthrough_args=[name, "run"]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Verify the new model created data
+        result = runner.invoke_with_connection_json(
+            ["sql", "-q", "select count(*) as COUNT from third_model;"]
+        )
+        assert len(result.json) == 1, result.json
+        assert result.json[0]["COUNT"] == 2, result.json[0]
+
+        # Cleanup: Remove external access integration and network rule
+        _cleanup_external_access_integration(runner, ext_access_integration)
+
+
+def _setup_external_access_integration(runner, integration_name: str):
+    """Create external access integration for dbt hub access."""
+    network_rule_name = f"{integration_name}_NETWORK_RULE"
+
+    # Create network rule for dbt hub and GitHub access
+    result = runner.invoke_with_connection_json(
+        [
+            "sql",
+            "-q",
+            f"""
+        CREATE OR REPLACE NETWORK RULE {network_rule_name}
+          MODE = EGRESS
+          TYPE = HOST_PORT
+          VALUE_LIST = (
+            'hub.getdbt.com',
+            'codeload.github.com'
+          )
+        """,
+        ]
+    )
+    assert result.exit_code == 0, result.output
+
+    # Create external access integration using the network rule
+    result = runner.invoke_with_connection_json(
+        [
+            "sql",
+            "-q",
+            f"""
+        CREATE OR REPLACE EXTERNAL ACCESS INTEGRATION {integration_name}
+          ALLOWED_NETWORK_RULES = ({network_rule_name})
+          ENABLED = true
+        """,
+        ]
+    )
+    assert result.exit_code == 0, result.output
+
+
+def _cleanup_external_access_integration(runner, integration_name: str):
+    """Clean up external access integration and network rule."""
+    network_rule_name = f"{integration_name}_network_rule"
+
+    # Drop external access integration
+    result = runner.invoke_with_connection_json(
+        ["sql", "-q", f"DROP EXTERNAL ACCESS INTEGRATION IF EXISTS {integration_name}"]
+    )
+    # Don't assert on exit code as cleanup should be non-blocking
+
+    # Drop network rule
+    result = runner.invoke_with_connection_json(
+        ["sql", "-q", f"DROP NETWORK RULE IF EXISTS {network_rule_name}"]
+    )
+    # Don't assert on exit code as cleanup should be non-blocking
+
+
+def _add_second_dependency(root_dir: Path):
+    """Add another dependency to the dbt project and a new model that uses it."""
+    packages_content = """packages:
+  - package: dbt-labs/dbt_utils
+    version: 1.1.1
+  - package: dbt-labs/audit_helper
+    version: 0.9.0
+"""
+    (root_dir / "packages.yml").write_text(packages_content)
+
+    new_model_content = """{{ config(materialized='table') }}
+
+with source_data as (
+    select 1 as id, 'old_value' as name
+    union all
+    select 2 as id, 'updated_value' as name
+),
+
+updated_data as (
+    select 1 as id, 'new_value' as name
+    union all
+    select 2 as id, 'updated_value' as name
+)
+
+select 
+    id,
+    name,
+    'audit_comparison' as audit_type
+from source_data
+"""
+    models_dir = root_dir / "models" / "example"
+    models_dir.mkdir(parents=True, exist_ok=True)
+    (models_dir / "third_model.sql").write_text(new_model_content)

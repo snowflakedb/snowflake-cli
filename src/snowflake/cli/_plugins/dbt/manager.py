@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import List, Optional
 
 import yaml
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
@@ -48,6 +49,7 @@ class DBTManager(SqlExecutionMixin):
         path: SecurePath,
         profiles_path: SecurePath,
         force: bool,
+        external_access_integrations: Optional[List[str]] = None,
     ) -> SnowflakeCursor:
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
@@ -64,6 +66,26 @@ class DBTManager(SqlExecutionMixin):
 
         self._validate_profiles(profiles_path, profile)
 
+        stage_name = self._upload_files(str(name), path, profiles_path)
+
+        with cli_console.phase("Creating DBT project"):
+            if force is True:
+                query = f"CREATE OR REPLACE DBT PROJECT {name}"
+            elif self.exists(name=name):
+                query = f"ALTER DBT PROJECT {name} ADD VERSION"
+            else:
+                query = f"CREATE DBT PROJECT {name}"
+            query += f"\nFROM {stage_name}"
+
+            if external_access_integrations:
+                integrations_str = ", ".join(external_access_integrations)
+                query += f"\nEXTERNAL_ACCESS_INTEGRATIONS = ({integrations_str})"
+
+            return self.execute_query(query)
+
+    def _upload_files(
+        self, name: str, path: SecurePath, profiles_path: SecurePath
+    ) -> str:
         with cli_console.phase("Creating temporary stage"):
             stage_manager = StageManager()
             stage_fqn = FQN.from_string(f"dbt_{name}_stage").using_context()
@@ -83,16 +105,7 @@ class DBTManager(SqlExecutionMixin):
                     )
                 )
                 cli_console.step(f"Copied {result_count} files")
-
-        with cli_console.phase("Creating DBT project"):
-            if force is True:
-                query = f"CREATE OR REPLACE DBT PROJECT {name}"
-            elif self.exists(name=name):
-                query = f"ALTER DBT PROJECT {name} ADD VERSION"
-            else:
-                query = f"CREATE DBT PROJECT {name}"
-            query += f"\nFROM {stage_name}"
-            return self.execute_query(query)
+        return stage_name
 
     @staticmethod
     def _validate_profiles(profiles_path: SecurePath, target_profile: str) -> None:
