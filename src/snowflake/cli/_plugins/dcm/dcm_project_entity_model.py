@@ -38,7 +38,7 @@ MANIFEST_FILE_NAME = "manifest.yml"
 class DCMProjectEntityModel(EntityModelBaseWithArtifacts):
     type: Literal["dcm"] = DiscriminatorField()  # noqa: A003
     stage: Optional[str] = Field(
-        title="Stage in which the DCM project artifacts will be stored", default=None
+        title="Stage in which the DCM Project artifacts will be stored", default=None
     )
 
     @field_validator("artifacts")

@@ -91,8 +91,8 @@ class DCMProjectManager(SqlExecutionMixin):
         comment: Optional[str] = None,
     ):
         """
-        Adds a version to DCM project. If [from_stage] is not defined,
-        uploads local files to the stage defined in DCM project definition.
+        Adds a version to DCM Project. If [from_stage] is not defined,
+        uploads local files to the stage defined in DCM Project definition.
         """
 
         if not from_stage:
@@ -106,7 +106,7 @@ class DCMProjectManager(SqlExecutionMixin):
                     prune=prune,
                 )
 
-        with cli_console.phase(f"Creating DCM project version from stage {from_stage}"):
+        with cli_console.phase(f"Creating DCM Project version from stage {from_stage}"):
             return self._create_version(
                 project_name=project.fqn,
                 from_stage=from_stage,  # type:ignore
@@ -125,7 +125,7 @@ class DCMProjectManager(SqlExecutionMixin):
         if_exists: bool = False,
     ):
         """
-        Drops a version from the DCM project.
+        Drops a version from the DCM Project.
         """
         query = f"ALTER DCM PROJECT {project_name.identifier} DROP VERSION"
         if if_exists:

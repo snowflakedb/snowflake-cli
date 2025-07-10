@@ -43,7 +43,7 @@ def test_project_deploy(
         result = runner.invoke_with_connection(["dcm", "create", entity_id])
         assert result.exit_code == 0, result.output
         assert (
-            f"DCM project '{project_name}' successfully created and initial version is added."
+            f"DCM Project '{project_name}' successfully created and initial version is added."
             in result.output
         )
         # project should be initialized with a version
@@ -152,13 +152,13 @@ def test_create_corner_cases(
         )
         result = runner.invoke_with_connection(["dcm", "create"])
         assert result.exit_code == 1, result.output
-        assert f"DCM project '{project_name}' already exists." in result.output
+        assert f"DCM Project '{project_name}' already exists." in result.output
         _assert_project_has_versions(
             runner, project_name, expected_versions={("VERSION$1", None)}
         )
         result = runner.invoke_with_connection(["dcm", "create", "--if-not-exists"])
         assert result.exit_code == 0, result.output
-        assert f"DCM project '{project_name}' already exists." in result.output
+        assert f"DCM Project '{project_name}' already exists." in result.output
         _assert_project_has_versions(
             runner, project_name, expected_versions={("VERSION$1", None)}
         )
@@ -180,14 +180,14 @@ def test_project_add_version(
         # Create a new project
         result = runner.invoke_with_connection_json(["dcm", "create", "--no-version"])
         assert result.exit_code == 0, result.output
-        assert f"DCM project '{project_name}' successfully created." in result.output
+        assert f"DCM Project '{project_name}' successfully created." in result.output
         # project should not be initialized with a new version due to --no-version flag
         _assert_project_has_versions(runner, project_name, expected_versions=set())
 
         # add version from local files
         result = runner.invoke_with_connection(["dcm", "add-version"])
         assert result.exit_code == 0, result.output
-        assert f"New version added to DCM project '{project_name}'" in result.output
+        assert f"New version added to DCM Project '{project_name}'" in result.output
         _assert_project_has_versions(
             runner, project_name, expected_versions={("VERSION$1", None)}
         )
@@ -224,7 +224,7 @@ def test_project_add_version(
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"New version 'v2' added to DCM project '{project_name}'" in result.output
+            f"New version 'v2' added to DCM Project '{project_name}'" in result.output
         )
         _assert_project_has_versions(
             runner, project_name, {("VERSION$1", None), ("VERSION$2", "V2")}
@@ -297,7 +297,7 @@ def test_project_add_version_without_create_fails(
         # call add-version first (by mistake)
         result = runner.invoke_with_connection(["dcm", "add-version"])
         assert result.exit_code == 1, result.output
-        assert f"DCM project '{project_name}' does not exist." in result.output
+        assert f"DCM Project '{project_name}' does not exist." in result.output
 
         assert does_stage_exist(runner, default_stage_name) is False
 
@@ -346,7 +346,7 @@ def test_project_drop_version(
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'VERSION$1' dropped from DCM project '{project_name}'"
+            f"Version 'VERSION$1' dropped from DCM Project '{project_name}'"
             in result.output
         )
 
@@ -356,7 +356,7 @@ def test_project_drop_version(
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'v2' dropped from DCM project '{project_name}'" in result.output
+            f"Version 'v2' dropped from DCM Project '{project_name}'" in result.output
         )
 
         _assert_project_has_versions(
@@ -369,7 +369,7 @@ def test_project_drop_version(
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'VERSION$3' dropped from DCM project '{project_name}'"
+            f"Version 'VERSION$3' dropped from DCM Project '{project_name}'"
             in result.output
         )
 
@@ -386,7 +386,7 @@ def test_project_drop_version(
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'non_existent' dropped from DCM project '{project_name}'"
+            f"Version 'non_existent' dropped from DCM Project '{project_name}'"
             in result.output
         )
 

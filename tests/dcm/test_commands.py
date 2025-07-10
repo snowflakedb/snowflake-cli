@@ -50,7 +50,7 @@ def test_create_object_exists(
             command.append("--if-not-exists")
         result = runner.invoke(command)
         assert result.exit_code == 0 if if_not_exists else 1, result.output
-        assert "DCM project 'my_project' already exists." in result.output
+        assert "DCM Project 'my_project' already exists." in result.output
         mock_pm().create.assert_not_called()
 
 
@@ -126,7 +126,7 @@ def test_add_version_raises_when_project_does_not_exist(
         result = runner.invoke(command)
         assert result.exit_code == 1, result.output
         assert (
-            "DCM project 'my_project' does not exist. Use `dcm create` command first"
+            "DCM Project 'my_project' does not exist. Use `dcm create` command first"
             in result.output
         )
 
@@ -325,7 +325,7 @@ def test_list_command_alias(mock_connect, runner):
     assert (
         queries[0]
         == queries[1]
-        == "show DCM projects like '%PROJECT_NAME%' in database my_db"
+        == "show DCM Projects like '%PROJECT_NAME%' in database my_db"
     )
 
 
@@ -350,7 +350,7 @@ def test_drop_version(mock_pm, runner, if_exists):
     result = runner.invoke(command)
 
     assert result.exit_code == 0, result.output
-    assert "Version 'v1' dropped from DCM project 'fooBar'" in result.output
+    assert "Version 'v1' dropped from DCM Project 'fooBar'" in result.output
 
     mock_pm().drop_version.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
@@ -414,4 +414,4 @@ def test_drop_project(mock_connect, runner):
 
     queries = mock_connect.mocked_ctx.get_queries()
     assert len(queries) == 2
-    assert queries[0] == queries[1] == "drop DCM project IDENTIFIER('my_project')"
+    assert queries[0] == queries[1] == "drop DCM Project IDENTIFIER('my_project')"
