@@ -213,6 +213,38 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
         assert result.exit_code == 0, result.output
         mock_put_recursive.assert_called_once()
 
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_deploys_project_with_fqn_uses_name_only_for_stage(
+        self,
+        mock_create,
+        mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_exists,
+    ):
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "MockDatabase.MockSchema.test_dbt_project",
+                f"--source={dbt_project_path}",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == """CREATE DBT PROJECT MockDatabase.MockSchema.test_dbt_project
+FROM @MockDatabase.MockSchema.dbt_test_dbt_project_stage"""
+        )
+        # Verify stage creation uses only the name part of the FQN
+        stage_fqn = FQN.from_string(f"dbt_test_dbt_project_stage").using_context()
+        mock_create.assert_called_once_with(stage_fqn, temporary=True)
+        mock_put_recursive.assert_called_once()
+
     def test_raises_when_dbt_project_yml_is_not_available(
         self, dbt_project_path, mock_connect, runner
     ):
@@ -346,6 +378,16 @@ class TestDBTExecute:
                 ],
                 "EXECUTE DBT PROJECT pipeline_name args='compile'",
                 id="with-cli-flag",
+            ),
+            pytest.param(
+                [
+                    "dbt",
+                    "execute",
+                    "database.schema.pipeline_name",
+                    "run",
+                ],
+                "EXECUTE DBT PROJECT database.schema.pipeline_name args='run'",
+                id="with-fqn",
             ),
         ],
     )
