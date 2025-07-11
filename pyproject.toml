@@ -176,7 +176,11 @@ features = ["development", "packaging"]
 build-isolated-binary = [
   "python scripts/packaging/build_isolated_binary_with_hatch.py",
 ]
+build-debug-binary = [
+  "python scripts/packaging/build_debug_binary.py",
+]
 build-binaries = ["./scripts/packaging/build_binaries.sh"]
+build-debug-binaries = ["./scripts/packaging/build_debug_binaries.sh"]
 build-packages = ["./scripts/packaging/build_packages.sh"]
 build-all = [
   "./scripts/packaging/build_binaries.sh",
