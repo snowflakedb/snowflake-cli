@@ -100,6 +100,7 @@ def recursively_generate_dependencies(
         ]
         dependencies = set()
         for line in dependencies_raw.splitlines():
+            print(line)
             match = re.fullmatch(dependency_regex, line)
             if not match or str(match.group("uv_comment")).strip() in ignored_comments:
                 continue
@@ -145,10 +146,5 @@ if __name__ == "__main__":
     # Depth limited to 2 (dependencies and their sub-dependencies) to avoid drastic changes. Can be changed later.
     generated_dependencies = recursively_generate_dependencies(dependencies, depth=2)
     join_dependencies(dependencies, generated_dependencies)
-    pyproject.write_generated_dependencies(dependencies)
-    print("\nBefore:")
-    for dep in sorted(original_dependencies):
-        print(f"  {dep}")
-    print("\nAfter:")
-    for dep in sorted(dependencies):
-        print(f"  {dep}")
+    if sorted(generated_dependencies) != sorted(original_dependencies):
+        pyproject.write_generated_dependencies(dependencies)
