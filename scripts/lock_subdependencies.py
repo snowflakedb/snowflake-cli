@@ -146,6 +146,9 @@ if __name__ == "__main__":
     generated_dependencies = recursively_generate_dependencies(dependencies, depth=2)
     join_dependencies(dependencies, generated_dependencies)
     pyproject.write_generated_dependencies(dependencies)
-    print("\nNew dependencies added:")
-    for dep in sorted(set(dependencies) - set(original_dependencies)):
+    print("\nBefore:")
+    for dep in sorted(original_dependencies):
+        print(f"  {dep}")
+    print("\nAfter:")
+    for dep in sorted(dependencies):
         print(f"  {dep}")
