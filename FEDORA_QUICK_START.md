@@ -38,7 +38,22 @@ cd ~/snowflake-cli-debug
 gdb ./dist/snow-debug/snow-debug
 ```
 
-### Option 2: Deploy Pre-built Binary (Only if architectures match)
+### Option 2: RPM Package (Professional/Enterprise)
+
+```bash
+# Build debug RPM package
+hatch -e packaging run build-debug-rpm
+
+# Install the RPM package
+sudo dnf install ~/rpmbuild/RPMS/x86_64/snowflake-cli-debug-*.rpm
+
+# Debug the installed package
+gdb /usr/bin/snow-debug
+```
+
+For complete RPM packaging instructions, see **[FEDORA_RPM_DEBUG.md](FEDORA_RPM_DEBUG.md)**.
+
+### Option 3: Deploy Pre-built Binary (Only if architectures match)
 
 ```bash
 # Only use this if your local machine and remote system have the same architecture
@@ -50,7 +65,7 @@ cd ~/snowflake-cli-debug
 gdb ./snow-debug
 ```
 
-### Option 3: Manual Setup
+### Option 4: Manual Setup
 
 ```bash
 # Deploy only the setup files
@@ -143,6 +158,177 @@ gdb ./dist/snow-debug/snow-debug
 ```
 
 ## 🛠️ Troubleshooting
+
+### Disk Space Issues During Build
+
+**Error:** `No space left on device (os error 28)` during Rust/Cargo build
+
+**Cause:** The build process requires significant temporary space for Rust compilation.
+
+**Solutions:**
+
+#### 1. Check Available Disk Space
+```bash
+# Check overall disk usage
+df -h
+
+# Check /tmp directory specifically
+df -h /tmp
+
+# Check available space in home directory
+df -h ~
+```
+
+#### 2. Clean Up Temporary Files
+```bash
+# Clean system temporary files
+sudo rm -rf /tmp/cargo-install*
+sudo rm -rf /tmp/rust*
+
+# Clean user cargo cache
+rm -rf ~/.cargo/registry/cache
+rm -rf ~/.cargo/registry/src
+rm -rf ~/.cargo/git
+
+# Clean hatch environments (if space is needed)
+rm -rf ~/.local/share/hatch/env
+```
+
+#### 3. Use Alternative Temporary Directory
+```bash
+# Create a temporary directory in your home folder (usually has more space)
+mkdir -p ~/tmp
+
+# Set TMPDIR environment variable
+export TMPDIR=~/tmp
+export CARGO_TARGET_DIR=~/tmp/cargo-target
+
+# Then retry the build
+cd ~/snowflake-cli-debug
+hatch -e packaging run build-debug-binaries
+```
+
+#### 4. Free Up System Space
+```bash
+# Remove old kernels (Fedora)
+sudo dnf remove $(dnf repoquery --installonly --latest-limit=-2 -q)
+
+# Clean package cache
+sudo dnf clean all
+
+# Remove old logs
+sudo journalctl --vacuum-time=2weeks
+
+# Clean user cache
+rm -rf ~/.cache/*
+```
+
+#### 5. Build with Limited Parallelism
+```bash
+# Reduce parallel jobs to use less temporary space
+export CARGO_BUILD_JOBS=1
+
+# Then retry the build
+cd ~/snowflake-cli-debug
+hatch -e packaging run build-debug-binaries
+```
+
+#### 6. Alternative: Build in Steps
+```bash
+# If still having issues, try building Rust separately first
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.cargo/env
+
+# Clean and retry
+cargo clean
+cd ~/snowflake-cli-debug
+hatch -e packaging run build-debug-binaries
+```
+
+### Memory Issues During Build (OOM Killer)
+
+**Error:** `process didn't exit successfully` with `(signal: 9, SIGKILL: kill)` during Rust compilation
+
+**Cause:** The system ran out of memory and the OOM killer terminated the compiler process. Debug builds with full optimization are very memory-intensive.
+
+**Solutions:**
+
+#### 1. Check Memory Usage
+```bash
+# Check available memory
+free -h
+
+# Check current memory usage
+top
+
+# Monitor memory during build (in another terminal)
+watch free -h
+```
+
+#### 2. Add Swap Space (if none exists)
+```bash
+# Check current swap
+sudo swapon --show
+
+# Create swap file if none exists (2GB example)
+sudo fallocate -l 2G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+
+# Make permanent (optional)
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+#### 3. Reduce Compilation Memory Usage
+```bash
+# Set environment variables to reduce memory usage
+export CARGO_BUILD_JOBS=1              # Single-threaded compilation
+export RUSTFLAGS="-C opt-level=1"      # Reduce optimization level
+export PYAPP_DISTRIBUTION_EMBED=1      # Reduce PyApp memory usage
+
+# Alternative: disable LTO to save memory
+export RUSTFLAGS="-C opt-level=1 -C lto=off"
+
+# Then retry the build
+cd ~/snowflake-cli-debug
+hatch -e packaging run build-debug-binaries
+```
+
+#### 4. Use Release Mode with Debug Symbols
+```bash
+# Build with less aggressive optimization but keep debug symbols
+export RUSTFLAGS="-C opt-level=1 -C debuginfo=2 -C lto=off"
+export CARGO_BUILD_JOBS=1
+
+cd ~/snowflake-cli-debug
+hatch -e packaging run build-debug-binaries
+```
+
+#### 5. Close Other Applications
+```bash
+# Free up memory by closing unnecessary applications
+# Check what's using memory
+ps aux --sort=-%mem | head -10
+
+# Kill unnecessary processes if needed
+```
+
+#### 6. Alternative: Build on a Machine with More RAM
+If your Fedora system has limited RAM (< 4GB), consider:
+- Building on a machine with more memory
+- Using a cloud instance with more RAM temporarily
+- Building in a container with memory limits adjusted
+
+#### 7. Monitor System Resources During Build
+```bash
+# In one terminal, start the build
+cd ~/snowflake-cli-debug
+hatch -e packaging run build-debug-binaries
+
+# In another terminal, monitor resources
+watch 'free -h && echo "--- CPU ---" && top -bn1 | head -5'
+```
 
 ### Architecture Mismatch Error
 

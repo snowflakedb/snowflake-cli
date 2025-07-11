@@ -31,6 +31,64 @@ print_header() {
     echo -e "${BLUE}=== $1 ===${NC}"
 }
 
+# Function to check disk space
+check_disk_space() {
+    local required_space_gb=5
+    local available_space_gb
+
+    print_status "Checking available disk space..."
+
+    # Check /tmp space
+    local tmp_avail=$(df /tmp | awk 'NR==2 {print $4}')
+    local tmp_avail_gb=$((tmp_avail / 1024 / 1024))
+
+    # Check home directory space
+    local home_avail=$(df ~ | awk 'NR==2 {print $4}')
+    local home_avail_gb=$((home_avail / 1024 / 1024))
+
+    print_status "Available space: /tmp: ${tmp_avail_gb}GB, ~: ${home_avail_gb}GB"
+
+    if [[ $tmp_avail_gb -lt $required_space_gb && $home_avail_gb -lt $required_space_gb ]]; then
+        print_error "Insufficient disk space for build process."
+        print_error "Required: ${required_space_gb}GB, Available: /tmp: ${tmp_avail_gb}GB, ~: ${home_avail_gb}GB"
+        print_warning "Please free up disk space or use the cleanup commands in the troubleshooting guide."
+        return 1
+    fi
+
+    # If /tmp is low but home has space, configure to use home for temporary files
+    if [[ $tmp_avail_gb -lt $required_space_gb && $home_avail_gb -ge $required_space_gb ]]; then
+        print_warning "/tmp has limited space. Configuring to use home directory for temporary files."
+        mkdir -p ~/tmp
+        echo 'export TMPDIR=~/tmp' >> ~/.bashrc
+        echo 'export CARGO_TARGET_DIR=~/tmp/cargo-target' >> ~/.bashrc
+        export TMPDIR=~/tmp
+        export CARGO_TARGET_DIR=~/tmp/cargo-target
+    fi
+}
+
+# Function to clean up space
+cleanup_space() {
+    print_status "Cleaning up to free disk space..."
+
+    # Clean cargo cache if it exists
+    if [[ -d ~/.cargo ]]; then
+        print_status "Cleaning cargo cache..."
+        rm -rf ~/.cargo/registry/cache || true
+        rm -rf ~/.cargo/registry/src || true
+    fi
+
+    # Clean system temporary files
+    print_status "Cleaning system temporary files..."
+    sudo rm -rf /tmp/cargo-install* || true
+    sudo rm -rf /tmp/rust* || true
+
+    # Clean user cache
+    print_status "Cleaning user cache..."
+    rm -rf ~/.cache/* || true
+
+    print_status "Cleanup completed."
+}
+
 # Check if running on Fedora
 if ! grep -q "Fedora" /etc/os-release 2>/dev/null; then
     print_warning "This script is designed for Fedora. You may need to adapt it for your distribution."
@@ -40,6 +98,19 @@ fi
 if [[ $EUID -eq 0 ]]; then
     print_error "This script should not be run as root. Please run as a regular user."
     exit 1
+fi
+
+print_header "Checking System Requirements"
+
+# Check disk space
+if ! check_disk_space; then
+    print_warning "Attempting to clean up space..."
+    cleanup_space
+    if ! check_disk_space; then
+        print_error "Still insufficient disk space after cleanup."
+        print_error "Please manually free up space using the commands in FEDORA_QUICK_START.md"
+        exit 1
+    fi
 fi
 
 print_header "Installing System Dependencies"
@@ -133,7 +204,12 @@ export RUST_BACKTRACE=full
 export PYTHONDEVMODE=1
 export PYTHONDONTWRITEBYTECODE=1
 export SNOWFLAKE_CLI_DEBUG=1
+# Reduce parallel jobs to save space and memory
+export CARGO_BUILD_JOBS=2
 EOF
+
+# Source the updated bashrc
+source ~/.bashrc
 
 print_header "Checking SELinux Configuration"
 
@@ -164,6 +240,11 @@ print_status "GCC version: $(gcc --version | head -1)"
 if command -v rustc &> /dev/null; then
     print_status "Rust version: $(rustc --version)"
 fi
+
+# Final disk space check
+print_status "Final disk space check:"
+df -h / | tail -1
+df -h ~ | tail -1
 
 print_header "Verification"
 
@@ -223,5 +304,11 @@ print_status "4. Build the debug binary: hatch -e packaging run build-debug-bina
 print_status "5. Debug with GDB: gdb ./dist/snow-debug/snow-debug"
 echo
 print_status "For more information, see DEBUG_BUILD.md"
+echo
+print_status "💡 If you encounter 'No space left on device' errors during build:"
+print_status "   - Check available space: df -h"
+print_status "   - Clean temporary files: rm -rf /tmp/cargo-install*"
+print_status "   - Use home directory for builds: export TMPDIR=~/tmp"
+print_status "   - See FEDORA_QUICK_START.md for detailed troubleshooting"
 echo
 print_warning "Note: You may need to restart your shell or run 'source ~/.bashrc' for all changes to take effect."

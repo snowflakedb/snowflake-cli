@@ -179,6 +179,10 @@ build-isolated-binary = [
 build-debug-binary = [
   "python scripts/packaging/build_debug_binary.py",
 ]
+build-debug-binary-low-memory = [
+  "python scripts/packaging/build_debug_binary_low_memory.py",
+]
+build-debug-rpm = ["./scripts/packaging/build_debug_rpm.sh"]
 build-binaries = ["./scripts/packaging/build_binaries.sh"]
 build-debug-binaries = ["./scripts/packaging/build_debug_binaries.sh"]
 build-packages = ["./scripts/packaging/build_packages.sh"]
