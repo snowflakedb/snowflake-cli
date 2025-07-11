@@ -142,6 +142,10 @@ if __name__ == "__main__":
         sys.exit(0)
     pyproject = PyprojectToml()
     dependencies = pyproject.read_base_dependencies()
+    print("DEPS")
+    for dep in dependencies:
+        print(dep)
+    print("/DEPS")
     original_dependencies = pyproject.read_project_dependencies()
     # Depth limited to 2 (dependencies and their sub-dependencies) to avoid drastic changes. Can be changed later.
     generated_dependencies = recursively_generate_dependencies(dependencies, depth=2)
