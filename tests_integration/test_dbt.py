@@ -16,9 +16,9 @@ import os
 from pathlib import Path
 
 import pytest
-from snowflake.cli.api.identifiers import FQN
 import yaml
 
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
 
 
