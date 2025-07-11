@@ -14,7 +14,7 @@
 from textwrap import dedent
 from typing import List, Optional
 
-from snowflake.cli._plugins.project.project_entity_model import ProjectEntityModel
+from snowflake.cli._plugins.dcm.dcm_project_entity_model import DCMProjectEntityModel
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.cli_global_context import get_cli_context
@@ -27,7 +27,7 @@ from snowflake.cli.api.stage_path import StagePath
 from snowflake.connector.cursor import SnowflakeCursor
 
 
-class ProjectManager(SqlExecutionMixin):
+class DCMProjectManager(SqlExecutionMixin):
     def execute(
         self,
         project_name: FQN,
@@ -37,7 +37,11 @@ class ProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         dry_run: bool = False,
     ):
-        query = f"EXECUTE PROJECT {project_name.sql_identifier}"
+        query = f"EXECUTE DCM PROJECT {project_name.sql_identifier}"
+        if dry_run:
+            query += " PLAN"
+        else:
+            query += " DEPLOY"
         if configuration or variables:
             query += f" USING"
         if configuration:
@@ -51,16 +55,14 @@ class ProjectManager(SqlExecutionMixin):
         elif from_stage:
             stage_path = StagePath.from_stage_str(from_stage)
             query += f" FROM {stage_path.absolute_path()}"
-        if dry_run:
-            query += " DRY_RUN=TRUE"
         return self.execute_query(query=query)
 
     def _create_object(self, project_name: FQN) -> SnowflakeCursor:
-        query = dedent(f"CREATE PROJECT {project_name.sql_identifier}")
+        query = dedent(f"CREATE DCM PROJECT {project_name.sql_identifier}")
         return self.execute_query(query)
 
     def create(
-        self, project: ProjectEntityModel, initialize_version_from_local_files: bool
+        self, project: DCMProjectEntityModel, initialize_version_from_local_files: bool
     ) -> None:
         self._create_object(project.fqn)
         if initialize_version_from_local_files:
@@ -74,7 +76,7 @@ class ProjectManager(SqlExecutionMixin):
         comment: str | None = None,
     ):
         stage_path = StagePath.from_stage_str(from_stage)
-        query = f"ALTER PROJECT {project_name.identifier} ADD VERSION"
+        query = f"ALTER DCM PROJECT {project_name.identifier} ADD VERSION"
         if alias:
             query += f" IF NOT EXISTS {alias}"
         query += f" FROM {stage_path.absolute_path(at_prefix=True)}"
@@ -84,15 +86,15 @@ class ProjectManager(SqlExecutionMixin):
 
     def add_version(
         self,
-        project: ProjectEntityModel,
+        project: DCMProjectEntityModel,
         prune: bool = False,
         from_stage: Optional[str] = None,
         alias: Optional[str] = None,
         comment: Optional[str] = None,
     ):
         """
-        Adds a version to project. If [from_stage] is not defined,
-        uploads local files to the stage defined in project definition.
+        Adds a version to DCM Project. If [from_stage] is not defined,
+        uploads local files to the stage defined in DCM Project definition.
         """
 
         if not from_stage:
@@ -106,7 +108,7 @@ class ProjectManager(SqlExecutionMixin):
                     prune=prune,
                 )
 
-        with cli_console.phase(f"Creating project version from stage {from_stage}"):
+        with cli_console.phase(f"Creating DCM Project version from stage {from_stage}"):
             return self._create_version(
                 project_name=project.fqn,
                 from_stage=from_stage,  # type:ignore
@@ -115,7 +117,7 @@ class ProjectManager(SqlExecutionMixin):
             )
 
     def list_versions(self, project_name: FQN):
-        query = f"SHOW VERSIONS IN PROJECT {project_name.identifier}"
+        query = f"SHOW VERSIONS IN DCM PROJECT {project_name.identifier}"
         return self.execute_query(query=query)
 
     def drop_version(
@@ -125,9 +127,9 @@ class ProjectManager(SqlExecutionMixin):
         if_exists: bool = False,
     ):
         """
-        Drops a version from the project.
+        Drops a version from the DCM Project.
         """
-        query = f"ALTER PROJECT {project_name.identifier} DROP VERSION"
+        query = f"ALTER DCM PROJECT {project_name.identifier} DROP VERSION"
         if if_exists:
             query += " IF EXISTS"
         query += f" {version_name}"

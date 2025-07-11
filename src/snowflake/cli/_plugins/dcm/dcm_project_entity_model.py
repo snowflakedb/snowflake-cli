@@ -35,10 +35,10 @@ T = TypeVar("T")
 MANIFEST_FILE_NAME = "manifest.yml"
 
 
-class ProjectEntityModel(EntityModelBaseWithArtifacts):
-    type: Literal["project"] = DiscriminatorField()  # noqa: A003
+class DCMProjectEntityModel(EntityModelBaseWithArtifacts):
+    type: Literal["dcm"] = DiscriminatorField()  # noqa: A003
     stage: Optional[str] = Field(
-        title="Stage in which the project artifacts will be stored", default=None
+        title="Stage in which the DCM Project artifacts will be stored", default=None
     )
 
     @field_validator("artifacts")
@@ -54,6 +54,6 @@ class ProjectEntityModel(EntityModelBaseWithArtifacts):
         return super().transform_artifacts(orig_artifacts)
 
 
-@attach_spans_to_entity_actions(entity_name="project")
-class ProjectEntity(EntityBase[ProjectEntityModel]):
+@attach_spans_to_entity_actions(entity_name="dcm")
+class DCMProjectEntity(EntityBase[DCMProjectEntityModel]):
     """Placeholder for project entity"""
