@@ -157,15 +157,18 @@ def test_deploy_notebook_with_runtime_environment_version(
         assert result.exit_code == 0, result.output
         assert "Notebook successfully deployed and available under" in result.output
 
-        # Verify describe notebook shows runtime_environment_version is set
-        result = runner.invoke_with_connection(
-            ["object", "describe", "notebook", "warehouse_notebook"]
+        # Verify describe notebook shows runtime_environment_version is set using direct SQL
+        result = runner.invoke_with_connection_json(
+            ["sql", "-q", "DESCRIBE NOTEBOOK warehouse_notebook"]
         )
         assert result.exit_code == 0, result.output
         # Check that runtime_environment_version appears in the describe result
+        describe_output = (
+            str(result.json).lower() if result.json else result.output.lower()
+        )
         assert (
-            "runtime_environment_version" in result.output.lower()
+            "runtime_environment_version" in describe_output
         ), f"runtime_environment_version not found in describe output: {result.output}"
         assert (
-            "WH-RUNTIME-2.0" in result.output
+            "wh-runtime-2.0" in describe_output
         ), f"Expected runtime version 'WH-RUNTIME-2.0' not found in describe output: {result.output}"
