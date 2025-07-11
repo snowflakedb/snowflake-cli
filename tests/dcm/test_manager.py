@@ -110,7 +110,7 @@ def test_execute_project(mock_execute_query):
     )
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION some_configuration"
         " (key=>value, aaa=>bbb) WITH VERSION v42"
     )
 
@@ -126,7 +126,7 @@ def test_execute_project_with_from_stage(mock_execute_query):
     )
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION some_configuration"
         " (key=>value, aaa=>bbb) FROM @my_stage"
     )
 
@@ -142,7 +142,7 @@ def test_execute_project_with_from_stage_without_prefix(mock_execute_query):
     )
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION some_configuration"
         " (key=>value, aaa=>bbb) FROM @my_stage"
     )
 
@@ -154,7 +154,7 @@ def test_execute_project_with_default_version(mock_execute_query, project_direct
     mgr.execute(project_name=TEST_PROJECT, version=None)
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project')"
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY"
     )
 
 
@@ -169,8 +169,8 @@ def test_validate_project(mock_execute_query, project_directory):
     )
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
-        " WITH VERSION v42 DRY_RUN=TRUE"
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration"
+        " WITH VERSION v42"
     )
 
 
@@ -185,8 +185,8 @@ def test_validate_project_with_from_stage(mock_execute_query, project_directory)
     )
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
-        " FROM @my_stage DRY_RUN=TRUE"
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration"
+        " FROM @my_stage"
     )
 
 

@@ -89,18 +89,18 @@ add_object_command_aliases(
 
 
 @app.command(requires_connection=True)
-def execute(
+def deploy(
     identifier: FQN = dcm_identifier,
     version: Optional[str] = version_flag,
     from_stage: Optional[str] = from_option(
-        help="Execute DCM Project from given stage instead of using a specific version."
+        help="Apply changes defined in given stage instead of using a specific project version."
     ),
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
     **options,
 ):
     """
-    Executes a DCM Project.
+    Applies changes defined in DCM Project to Snowflake.
     """
     if version and from_stage:
         raise CliError("--version and --from are mutually exclusive.")
@@ -116,18 +116,18 @@ def execute(
 
 
 @app.command(requires_connection=True)
-def dry_run(
+def plan(
     identifier: FQN = dcm_identifier,
     version: Optional[str] = version_flag,
     from_stage: Optional[str] = from_option(
-        help="Execute DCM Project from given stage instead of using a specific version."
+        help="Plan DCM Project deployment from given stage instead of using a specific version."
     ),
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
     **options,
 ):
     """
-    Validates a DCM Project.
+    Plans a DCM Project deployment (validates without executing).
     """
     if version and from_stage:
         raise CliError("--version and --from are mutually exclusive.")

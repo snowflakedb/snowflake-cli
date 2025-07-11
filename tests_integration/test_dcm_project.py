@@ -54,7 +54,7 @@ def test_project_deploy(
         result = runner.invoke_with_connection(
             [
                 "dcm",
-                "dry-run",
+                "plan",
                 project_name,
                 "--version",
                 "last",
@@ -67,7 +67,7 @@ def test_project_deploy(
         result = runner.invoke_with_connection(
             [
                 "dcm",
-                "execute",
+                "deploy",
                 project_name,
                 "-D",
                 f"table_name='{test_database}.PUBLIC.MyTable'",
@@ -91,7 +91,7 @@ def test_project_deploy(
 
 @pytest.mark.qa_only
 @pytest.mark.integration
-def test_execute_multiple_configurations(
+def test_deploy_multiple_configurations(
     runner,
     test_database,
     project_directory,
@@ -103,7 +103,7 @@ def test_execute_multiple_configurations(
         assert result.exit_code == 0, result.output
 
         for configuration in ["test", "dev", "prod"]:
-            for command in ["dry-run", "execute"]:
+            for command in ["plan", "deploy"]:
                 result = runner.invoke_with_connection_json(
                     [
                         "dcm",
@@ -393,7 +393,7 @@ def test_project_drop_version(
 
 @pytest.mark.qa_only
 @pytest.mark.integration
-def test_project_execute_from_stage(
+def test_project_deploy_from_stage(
     runner,
     test_database,
     project_directory,
@@ -428,11 +428,11 @@ def test_project_execute_from_stage(
         )
         assert result.exit_code == 0, result.output
 
-        # Test dry-run from stage
+        # Test plan from stage
         result = runner.invoke_with_connection_json(
             [
                 "dcm",
-                "dry-run",
+                "plan",
                 project_name,
                 "--from",
                 f"@{other_stage_name}",
@@ -446,7 +446,7 @@ def test_project_execute_from_stage(
         assert f"{test_database}.PUBLIC.MYTABLE".upper() in output_str.upper()
         assert f"{test_database}.PUBLIC.MYTABLE_SECOND".upper() in output_str.upper()
 
-        # Verify that the second table does not exist after dry-run
+        # Verify that the second table does not exist after plan
         table_check_result = runner.invoke_with_connection_json(
             [
                 "object",
@@ -460,13 +460,13 @@ def test_project_execute_from_stage(
             ]
         )
         assert table_check_result.exit_code == 0
-        assert len(table_check_result.json) == 0, "Table should not exist after dry-run"
+        assert len(table_check_result.json) == 0, "Table should not exist after plan"
 
-        # Test execute from stage
+        # Test deploy from stage
         result = runner.invoke_with_connection_json(
             [
                 "dcm",
-                "execute",
+                "deploy",
                 project_name,
                 "--from",
                 f"@{other_stage_name}",
@@ -480,7 +480,7 @@ def test_project_execute_from_stage(
         assert f"{test_database}.PUBLIC.MYTABLE".upper() in output_str.upper()
         assert f"{test_database}.PUBLIC.MYTABLE_SECOND".upper() in output_str.upper()
 
-        # Verify that the second table actually exists after execute
+        # Verify that the second table actually exists after deploy
         table_check_result = runner.invoke_with_connection_json(
             [
                 "object",
@@ -496,4 +496,4 @@ def test_project_execute_from_stage(
         assert table_check_result.exit_code == 0
         assert (
             "MYTABLE_SECOND" == table_check_result.json[0]["name"]
-        ), "Table should exist after execute"
+        ), "Table should exist after deploy"
