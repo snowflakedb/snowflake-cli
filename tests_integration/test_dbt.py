@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
 
 
@@ -92,6 +93,51 @@ def test_deploy_and_execute(
 
         result = runner.invoke_with_connection_json(
             ["sql", "-q", "select count(*) as COUNT from my_second_dbt_model;"]
+        )
+        assert len(result.json) == 1, result.json
+        assert result.json[0]["COUNT"] == 1, result.json[0]
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_and_execute_with_full_fqn(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+    snapshot,
+):
+    with project_directory("dbt_project") as root_dir:
+        # Given a local dbt project
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_{ts}"
+        fqn = FQN.from_string(
+            f"{snowflake_session.database}.{snowflake_session.schema}.{name}"
+        )
+
+        _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
+        result = runner.invoke_with_connection_json(["dbt", "deploy", str(fqn)])
+        assert result.exit_code == 0, result.output
+
+        # call `run` on dbt object
+        result = runner.invoke_passthrough_with_connection(
+            args=[
+                "dbt",
+                "execute",
+            ],
+            passthrough_args=[str(fqn), "run"],
+        )
+
+        # a successful execution should produce data in my_second_dbt_model and
+        assert result.exit_code == 0, result.output
+        assert "Done. PASS=2 WARN=0 ERROR=0 SKIP=0 TOTAL=2" in result.output
+
+        result = runner.invoke_with_connection_json(
+            [
+                "sql",
+                "-q",
+                f"select count(*) as COUNT from {fqn.database}.{fqn.schema}.my_second_dbt_model;",
+            ]
         )
         assert len(result.json) == 1, result.json
         assert result.json[0]["COUNT"] == 1, result.json[0]

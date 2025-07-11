@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Fixed DBT deploy command to properly handle fully qualified names
 
 
 # v3.10.0
