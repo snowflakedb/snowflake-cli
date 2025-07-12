@@ -36,7 +36,7 @@ pytz==2025.2
 requests==2.32.4
 requirements-parser==0.13.0
 rich==14.0.0
-setuptools==80.8.0
+setuptools==80.9.0
 shellingham==1.5.4
 snowflake-connector-python[secure-local-storage]==3.15.0
 snowflake-core==1.5.1
