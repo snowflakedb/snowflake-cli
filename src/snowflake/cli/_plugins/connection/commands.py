@@ -62,7 +62,9 @@ from snowflake.cli.api.config import (
     get_all_connections,
     get_connection_dict,
     get_default_connection_name,
+    remove_connection_from_proper_file,
     set_config_value,
+    unset_config_value,
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
@@ -425,6 +427,38 @@ def generate_jwt(
         return MessageResult(token)
     except (ValueError, TypeError) as err:
         raise ClickException(str(err))
+
+
+@app.command(requires_connection=False)
+def remove(
+    connection_name: str = typer.Argument(
+        help="Name of the connection to remove.",
+        show_default=False,
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        is_flag=True,
+        help="Force removal of the connection even if it is set as default.",
+    ),
+    **options,
+):
+    """Removes a connection from configuration file."""
+    if not connection_exists(connection_name):
+        raise UsageError(f"Connection {connection_name} does not exist")
+
+    if connection_name == get_default_connection_name():
+        if not force:
+            raise UsageError(
+                f"Connection {connection_name} is set as default. "
+                "Use --force to remove it anyway."
+            )
+        unset_config_value(path=["default_connection_name"])
+
+    connections_file = remove_connection_from_proper_file(
+        connection_name
+    )
+    return MessageResult(f"Connection {connection_name} removed from {connections_file}")
 
 
 def _extend_add_with_key_pair(
