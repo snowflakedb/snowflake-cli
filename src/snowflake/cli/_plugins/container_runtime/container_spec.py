@@ -31,6 +31,8 @@ DEFAULT_CPU_LIMIT = 2
 DEFAULT_MEMORY_LIMIT = 8
 DEFAULT_STAGE_VOLUME_NAME = "stage-volume"
 DEFAULT_STAGE_VOLUME_MOUNT_PATH = "/mnt/stage"
+DEFAULT_USER_STAGE_VOLUME_NAME = constants.USER_STAGE_VOLUME_NAME
+DEFAULT_USER_STAGE_VOLUME_MOUNT_PATH = constants.USER_STAGE_VOLUME_MOUNT_PATH
 
 
 def _get_node_resources(
@@ -132,6 +134,8 @@ def generate_service_spec(
     storage_size: int = 10,
     environment_vars: Optional[Dict[str, str]] = None,
     enable_metrics: bool = False,
+    stage: Optional[str] = None,
+    stage_mount_path: str = DEFAULT_USER_STAGE_VOLUME_MOUNT_PATH,
 ) -> Dict[str, Any]:
     """
     Generate a service specification for a container service.
@@ -144,6 +148,8 @@ def generate_service_spec(
         storage_size: Size of persistent storage in GB
         environment_vars: Environment variables to set in the container
         enable_metrics: Enable platform metrics for the job
+        stage: Optional internal Snowflake stage to mount (e.g., @my_stage)
+        stage_mount_path: Path where the user stage will be mounted
 
     Returns:
         Service specification
@@ -232,6 +238,22 @@ def generate_service_spec(
         }
     )
 
+    # Mount user stage as volume if provided
+    if stage:
+        user_stage_mount = PurePath(stage_mount_path)
+        volume_mounts.append(
+            {
+                "name": constants.USER_STAGE_VOLUME_NAME,
+                "mountPath": user_stage_mount.as_posix(),
+            }
+        )
+        volumes.append(
+            {
+                "name": constants.USER_STAGE_VOLUME_NAME,
+                "source": stage,  # Double quotes required per documentation
+            }
+        )
+
     # Setup environment variables
     env_vars = {
         constants.PAYLOAD_DIR_ENV_VAR: stage_mount.as_posix(),
@@ -295,6 +317,15 @@ def generate_service_spec(
         {
             "name": "websocket-ssh",
             "port": DEFAULT_WEBSOCKET_PORT,
+            "public": True,
+        }
+    )
+
+    # Add ray dashboard endpoint
+    endpoints.append(
+        {
+            "name": "ray-dashboard",
+            "port": int(constants.RAY_PORTS["HEAD_DASHBOARD_PORT"]),
             "public": True,
         }
     )

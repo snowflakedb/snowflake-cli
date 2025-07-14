@@ -18,6 +18,7 @@ import time
 from typing import List, Optional
 
 import typer
+from snowflake.cli._plugins.container_runtime import constants
 from snowflake.cli._plugins.container_runtime.manager import ContainerRuntimeManager
 from snowflake.cli.api.commands.flags import identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
@@ -80,6 +81,18 @@ ExtensionsOption = typer.Option(
     help="Comma-separated list of VS Code extensions to pre-install",
 )
 
+StageOption = typer.Option(
+    None,
+    "--stage",
+    help="Internal Snowflake stage to mount (e.g., @my_stage or @my_stage/folder). Maximum 5 stage volumes per service.",
+)
+
+StageMountPathOption = typer.Option(
+    constants.USER_STAGE_VOLUME_MOUNT_PATH,
+    "--stage-mount-path",
+    help="Path where the stage will be mounted in the container",
+)
+
 
 @app.command("create", requires_connection=True)
 def create(
@@ -90,6 +103,8 @@ def create(
     external_access: bool = ExternalAccessOption,
     timeout: int = TimeoutOption,
     extensions: Optional[List[str]] = ExtensionsOption,
+    stage: Optional[str] = StageOption,
+    stage_mount_path: str = StageMountPathOption,
     **options,
 ) -> None:
     """
@@ -118,6 +133,8 @@ def create(
             external_access=external_access,
             timeout=timeout,
             extensions=ext_list,
+            stage=stage,
+            stage_mount_path=stage_mount_path,
         )
 
         # Display success message with the endpoint URL
@@ -125,6 +142,8 @@ def create(
         cc.step(f"Access your VS Code Server at: {url}")
         cc.step(f"Default password: password")
         cc.step(f"Session timeout: {timeout} minutes")
+        if stage:
+            cc.step(f"Stage '{stage}' mounted at: {stage_mount_path}")
     except Exception as e:
         cc.step(f"Error: {str(e)}")
         raise typer.Exit(code=1)
