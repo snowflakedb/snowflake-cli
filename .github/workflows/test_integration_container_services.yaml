@@ -12,6 +12,8 @@ on:
       - features/*
   repository_dispatch:
     types: [ok-to-test-command]
+  workflow_dispatch:
+
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
