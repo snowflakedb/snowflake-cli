@@ -15604,8 +15604,8 @@
   +- Options --------------------------------------------------------------------+
   | --upgrade                Updates the existing service. Can update            |
   |                          min_instances, max_instances, query_warehouse,      |
-  |                          auto_resume, external_access_integrations and       |
-  |                          comment.                                            |
+  |                          auto_resume, auto_suspend_secs,                     |
+  |                          external_access_integrations and comment.           |
   | --project  -p      TEXT  Path where the Snowflake project is stored.         |
   |                          Defaults to the current working directory.          |
   | --env              TEXT  String in the format key=value. Overrides variables |
@@ -17227,6 +17227,13 @@
   |                                                             service function |
   |                                                             or ingress is    |
   |                                                             called.          |
+  | --auto-suspend-s…                         INTEGER RANGE     Number of        |
+  |                                           [x>=0]            seconds of       |
+  |                                                             inactivity after |
+  |                                                             which the        |
+  |                                                             service will be  |
+  |                                                             automatically    |
+  |                                                             suspended.       |
   | --eai-name                                TEXT              Identifies       |
   |                                                             external access  |
   |                                                             integrations     |
@@ -17634,20 +17641,24 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --min-instances              Reset the MIN_INSTANCES property - Minimum      |
-  |                              number of service instances to run.             |
-  | --max-instances              Reset the MAX_INSTANCES property - Maximum      |
-  |                              number of service instances to run.             |
-  | --query-warehouse            Reset the QUERY_WAREHOUSE property - Warehouse  |
-  |                              to use if a service container connects to       |
-  |                              Snowflake to execute a query without explicitly |
-  |                              specifying a warehouse to use.                  |
-  | --auto-resume                Reset the AUTO_RESUME property - The service    |
-  |                              will automatically resume when a service        |
-  |                              function or ingress is called.                  |
-  | --comment                    Reset the COMMENT property - Comment for the    |
-  |                              service.                                        |
-  | --help             -h        Show this message and exit.                     |
+  | --min-instances                Reset the MIN_INSTANCES property - Minimum    |
+  |                                number of service instances to run.           |
+  | --max-instances                Reset the MAX_INSTANCES property - Maximum    |
+  |                                number of service instances to run.           |
+  | --query-warehouse              Reset the QUERY_WAREHOUSE property -          |
+  |                                Warehouse to use if a service container       |
+  |                                connects to Snowflake to execute a query      |
+  |                                without explicitly specifying a warehouse to  |
+  |                                use.                                          |
+  | --auto-resume                  Reset the AUTO_RESUME property - The service  |
+  |                                will automatically resume when a service      |
+  |                                function or ingress is called.                |
+  | --auto-suspend-secs            Reset the AUTO_SUSPEND_SECS property - Number |
+  |                                of seconds of inactivity after which the      |
+  |                                service will be automatically suspended.      |
+  | --comment                      Reset the COMMENT property - Comment for the  |
+  |                                service.                                      |
+  | --help               -h        Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
