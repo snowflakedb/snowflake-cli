@@ -109,17 +109,17 @@ class TestGitHubOidcProvider:
             with pytest.raises(CliError, match="No OIDC credentials detected"):
                 provider.get_token()
 
-    def test_get_token_success(self):
+    @patch(
+        "snowflake.cli._plugins.auth.workload_identity.oidc_providers.oidc_id.detect_credential"
+    )
+    def test_get_token_success(self, mock_detect_credential):
         """Test get_token returns token when credentials are available."""
-        mock_id_module = Mock()
-        mock_credentials = Mock()
-        mock_credentials.token = "mock_token_value"
-        mock_id_module.detect_credentials.return_value = mock_credentials
+        mock_detect_credential.return_value = "mock_token_value"
 
-        with patch("builtins.__import__", return_value=mock_id_module):
-            provider = GitHubOidcProvider()
-            token = provider.get_token()
-            assert token == "mock_token_value"
+        provider = GitHubOidcProvider()
+        token = provider.get_token()
+        assert token == "mock_token_value"
+        mock_detect_credential.assert_called_once_with("https://snowflake.com")
 
     def test_get_token_exception(self):
         """Test get_token raises CliError when exception occurs."""
