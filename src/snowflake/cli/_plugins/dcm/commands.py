@@ -84,7 +84,7 @@ add_object_command_aliases(
         help_example='`list --like "my%"` lists all DCM Projects that begin with "my"'
     ),
     scope_option=scope_option(help_example="`list --in database my_db`"),
-    ommit_commands=["create", "describe"],
+    ommit_commands=["create"],
 )
 
 

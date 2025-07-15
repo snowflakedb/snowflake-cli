@@ -46,6 +46,11 @@ def test_project_deploy(
             f"DCM Project '{project_name}' successfully created and initial version is added."
             in result.output
         )
+
+        result = runner.invoke_with_connection_json(["dcm", "describe", project_name])
+        assert result.exit_code == 0, result.output
+        assert result.json[0]["name"].lower() == project_name.lower()
+
         # project should be initialized with a version
         _assert_project_has_versions(
             runner, project_name, expected_versions={("VERSION$1", None)}

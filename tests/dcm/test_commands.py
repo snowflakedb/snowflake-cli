@@ -411,3 +411,25 @@ def test_drop_project(mock_connect, runner):
     queries = mock_connect.mocked_ctx.get_queries()
     assert len(queries) == 2
     assert queries[0] == queries[1] == "drop DCM Project IDENTIFIER('my_project')"
+
+
+def test_describe_command_alias(mock_connect, runner):
+    result = runner.invoke(
+        [
+            "object",
+            "describe",
+            "dcm",
+            "PROJECT_NAME",
+        ]
+    )
+
+    assert result.exit_code == 0, result.output
+    result = runner.invoke(
+        ["dcm", "describe", "PROJECT_NAME"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+
+    queries = mock_connect.mocked_ctx.get_queries()
+    assert len(queries) == 2
+    assert queries[0] == queries[1] == "describe DCM Project IDENTIFIER('PROJECT_NAME')"
