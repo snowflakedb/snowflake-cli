@@ -20,6 +20,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Dict, List, Optional, Type
 
+import id as oidc_id
 from snowflake.cli.api.exceptions import CliError
 
 logger = logging.getLogger(__name__)
@@ -103,17 +104,12 @@ class GitHubOidcProvider(OidcTokenProvider):
             return False
 
         try:
-            logger.debug("Attempting to import 'id' package for OIDC detection")
-            import id as oidc_id
-
             logger.debug("Detecting OIDC credentials")
-            credentials = oidc_id.detect_credentials()
-            available = credentials is not None
+            # Use Snowflake as the audience for workload identity
+            token = oidc_id.detect_credential("https://snowflake.com")
+            available = token is not None
             logger.debug("OIDC credentials available: %s", available)
             return available
-        except ImportError:
-            logger.debug("'id' package not available")
-            return False
         except Exception as e:
             logger.debug("Exception during credential detection: %s", e)
             return False
@@ -125,25 +121,16 @@ class GitHubOidcProvider(OidcTokenProvider):
         logger.debug("Retrieving OIDC token from GitHub Actions")
 
         try:
-            logger.debug("Importing 'id' package for token retrieval")
-            import id as oidc_id
-        except ImportError:
-            logger.error("'id' package not available for token retrieval")
-            raise CliError(
-                "The 'id' package is required for GitHub OIDC token detection. "
-                "Please install it with: pip install id"
-            )
-
-        try:
             logger.debug("Detecting OIDC credentials for token retrieval")
-            credentials = oidc_id.detect_credentials()
-            if not credentials:
+            # Use Snowflake as the audience for workload identity
+            token = oidc_id.detect_credential("https://snowflake.com")
+            if not token:
                 logger.error("No OIDC credentials detected")
                 raise CliError(
                     "No OIDC credentials detected. This command should be run in a GitHub Actions environment."
                 )
             logger.info("Successfully retrieved OIDC token")
-            return credentials.token
+            return token
         except Exception as e:
             logger.error("Failed to detect OIDC credentials: %s", str(e))
             raise CliError("Failed to detect OIDC credentials: %s" % str(e))
@@ -155,11 +142,10 @@ class GitHubOidcProvider(OidcTokenProvider):
         logger.debug("Retrieving GitHub Actions token information")
 
         try:
-            import id as oidc_id
-
             logger.debug("Detecting credentials for token info")
-            credentials = oidc_id.detect_credentials()
-            if credentials:
+            # Use Snowflake as the audience for workload identity
+            token = oidc_id.detect_credential("https://snowflake.com")
+            if token:
                 token_info = {
                     "issuer": "https://token.actions.githubusercontent.com",
                     "provider": "github",
