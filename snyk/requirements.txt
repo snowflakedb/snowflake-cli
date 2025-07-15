@@ -14,7 +14,8 @@ colorama==0.4.6 ; sys_platform == 'win32'
 cryptography==45.0.5
 filelock==3.18.0
 gitdb==4.0.12
-gitpython==3.1.44
+id==1.5.0
+identify==2.6.12
 idna==3.10
 importlib-metadata==8.7.0 ; python_full_version < '3.12'
 jaraco-classes==3.4.0
