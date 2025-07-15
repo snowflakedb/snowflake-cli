@@ -62,7 +62,7 @@ class WorkloadIdentityManager(SqlExecutionMixin):
             provider_type: Type of provider ('auto' for auto-detection or specific provider name)
 
         Returns:
-            Success message with token information
+            The OIDC token string
 
         Raises:
             CliError: If token cannot be retrieved or provider is not available
@@ -81,7 +81,7 @@ class WorkloadIdentityManager(SqlExecutionMixin):
         Auto-detects and reads OIDC token from available providers.
 
         Returns:
-            Success message with token information
+            The OIDC token string
 
         Raises:
             CliError: If no providers are available or token cannot be retrieved
@@ -97,10 +97,10 @@ class WorkloadIdentityManager(SqlExecutionMixin):
             if available_providers:
                 providers_list = ", ".join(available_providers)
                 error_msg = (
-                    f"No OIDC provider detected in current environment. "
-                    f"Available providers: {providers_list}. "
-                    f"Use --type <provider> to specify a provider explicitly."
-                )
+                    "No OIDC provider detected in current environment. "
+                    "Available providers: %s. "
+                    "Use --type <provider> to specify a provider explicitly."
+                ) % providers_list
                 logger.error(error_msg)
                 raise CliError(error_msg)
             else:
@@ -126,11 +126,10 @@ class WorkloadIdentityManager(SqlExecutionMixin):
                 )
                 info_str += " (%s)" % info_details
 
-            result = "OIDC token detected. %s" % info_str
             logger.info(
                 "Successfully retrieved OIDC token via auto-detection: %s", info_str
             )
-            return result
+            return token
         except Exception as e:
             error_msg = "Failed to retrieve token from %s: %s" % (
                 provider.provider_name,
@@ -147,7 +146,7 @@ class WorkloadIdentityManager(SqlExecutionMixin):
             provider_name: Name of the provider to use
 
         Returns:
-            Success message with token information
+            The OIDC token string
 
         Raises:
             CliError: If provider is unknown, unavailable, or token cannot be retrieved
@@ -192,11 +191,10 @@ class WorkloadIdentityManager(SqlExecutionMixin):
                 )
                 info_str += " (%s)" % info_details
 
-            result = "OIDC token retrieved. %s" % info_str
             logger.info(
                 "Successfully retrieved OIDC token from %s: %s", provider_name, info_str
             )
-            return result
+            return token
         except Exception as e:
             error_msg = "Failed to retrieve token from %s: %s" % (provider_name, str(e))
             logger.error(error_msg)
