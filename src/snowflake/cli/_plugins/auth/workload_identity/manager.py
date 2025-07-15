@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
 
 from snowflake.cli._plugins.auth.workload_identity.oidc_providers import (
     auto_detect_oidc_provider,
@@ -20,6 +21,8 @@ from snowflake.cli._plugins.auth.workload_identity.oidc_providers import (
 )
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+
+logger = logging.getLogger(__name__)
 
 
 class WorkloadIdentityManager(SqlExecutionMixin):
@@ -40,6 +43,13 @@ class WorkloadIdentityManager(SqlExecutionMixin):
         Raises:
             NotImplementedError: Setup functionality is not yet implemented
         """
+        logger.info(
+            "Attempting to set up GitHub workload identity federation for repository: %s",
+            github_repository,
+        )
+        logger.warning(
+            "GitHub workload identity federation setup is not yet implemented"
+        )
         raise NotImplementedError(
             "GitHub workload identity federation setup is not yet implemented"
         )
@@ -57,9 +67,13 @@ class WorkloadIdentityManager(SqlExecutionMixin):
         Raises:
             CliError: If token cannot be retrieved or provider is not available
         """
+        logger.info("Reading OIDC token with provider type: %s", provider_type)
+
         if provider_type == "auto":
+            logger.debug("Using auto-detection for OIDC token")
             return self._read_auto_detect_token()
         else:
+            logger.debug("Using specific provider for OIDC token: %s", provider_type)
             return self._read_specific_token(provider_type)
 
     def _read_auto_detect_token(self) -> str:
@@ -72,33 +86,58 @@ class WorkloadIdentityManager(SqlExecutionMixin):
         Raises:
             CliError: If no providers are available or token cannot be retrieved
         """
+        logger.debug("Starting auto-detection of OIDC providers")
         provider = auto_detect_oidc_provider()
+
         if not provider:
+            logger.warning("No OIDC provider detected in current environment")
             available_providers = list_oidc_providers()
+            logger.debug("Available providers: %s", available_providers)
+
             if available_providers:
                 providers_list = ", ".join(available_providers)
-                raise CliError(
+                error_msg = (
                     f"No OIDC provider detected in current environment. "
                     f"Available providers: {providers_list}. "
                     f"Use --type <provider> to specify a provider explicitly."
                 )
+                logger.error(error_msg)
+                raise CliError(error_msg)
             else:
-                raise CliError("No OIDC providers are registered.")
+                error_msg = "No OIDC providers are registered."
+                logger.error(error_msg)
+                raise CliError(error_msg)
+
+        logger.info("Auto-detected OIDC provider: %s", provider.provider_name)
 
         try:
+            logger.debug("Retrieving token from provider: %s", provider.provider_name)
             token = provider.get_token()
+
+            logger.debug(
+                "Retrieving token info from provider: %s", provider.provider_name
+            )
             token_info = provider.get_token_info()
 
-            info_str = f"Provider: {provider.provider_name}"
+            info_str = "Provider: %s" % provider.provider_name
             if token_info:
-                info_details = ", ".join([f"{k}: {v}" for k, v in token_info.items()])
-                info_str += f" ({info_details})"
+                info_details = ", ".join(
+                    ["%s: %s" % (k, v) for k, v in token_info.items()]
+                )
+                info_str += " (%s)" % info_details
 
-            return f"OIDC token detected. {info_str}"
-        except Exception as e:
-            raise CliError(
-                f"Failed to retrieve token from {provider.provider_name}: {str(e)}"
+            result = "OIDC token detected. %s" % info_str
+            logger.info(
+                "Successfully retrieved OIDC token via auto-detection: %s", info_str
             )
+            return result
+        except Exception as e:
+            error_msg = "Failed to retrieve token from %s: %s" % (
+                provider.provider_name,
+                str(e),
+            )
+            logger.error(error_msg)
+            raise CliError(error_msg)
 
     def _read_specific_token(self, provider_name: str) -> str:
         """
@@ -113,29 +152,52 @@ class WorkloadIdentityManager(SqlExecutionMixin):
         Raises:
             CliError: If provider is unknown, unavailable, or token cannot be retrieved
         """
+        logger.debug("Reading OIDC token from specific provider: %s", provider_name)
         provider = get_oidc_provider(provider_name)
-        if not provider:
-            available_providers = list_oidc_providers()
-            providers_list = ", ".join(available_providers)
-            raise CliError(
-                f"Unknown provider '{provider_name}'. "
-                f"Available providers: {providers_list}"
-            )
 
-        if not provider.is_available:
-            raise CliError(
-                f"Provider '{provider_name}' is not available in the current environment."
+        if not provider:
+            logger.warning("Provider '%s' not found", provider_name)
+            available_providers = list_oidc_providers()
+            logger.debug("Available providers: %s", available_providers)
+            providers_list = ", ".join(available_providers)
+            error_msg = "Unknown provider '%s'. Available providers: %s" % (
+                provider_name,
+                providers_list,
             )
+            logger.error(error_msg)
+            raise CliError(error_msg)
+
+        logger.debug("Checking availability of provider: %s", provider_name)
+        if not provider.is_available:
+            error_msg = (
+                "Provider '%s' is not available in the current environment."
+                % provider_name
+            )
+            logger.error(error_msg)
+            raise CliError(error_msg)
+
+        logger.info("Using provider: %s", provider_name)
 
         try:
+            logger.debug("Retrieving token from provider: %s", provider_name)
             token = provider.get_token()
+
+            logger.debug("Retrieving token info from provider: %s", provider_name)
             token_info = provider.get_token_info()
 
-            info_str = f"Provider: {provider.provider_name}"
+            info_str = "Provider: %s" % provider.provider_name
             if token_info:
-                info_details = ", ".join([f"{k}: {v}" for k, v in token_info.items()])
-                info_str += f" ({info_details})"
+                info_details = ", ".join(
+                    ["%s: %s" % (k, v) for k, v in token_info.items()]
+                )
+                info_str += " (%s)" % info_details
 
-            return f"OIDC token retrieved. {info_str}"
+            result = "OIDC token retrieved. %s" % info_str
+            logger.info(
+                "Successfully retrieved OIDC token from %s: %s", provider_name, info_str
+            )
+            return result
         except Exception as e:
-            raise CliError(f"Failed to retrieve token from {provider_name}: {str(e)}")
+            error_msg = "Failed to retrieve token from %s: %s" % (provider_name, str(e))
+            logger.error(error_msg)
+            raise CliError(error_msg)
