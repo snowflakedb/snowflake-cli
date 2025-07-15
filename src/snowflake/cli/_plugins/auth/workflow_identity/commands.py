@@ -16,21 +16,20 @@ import typer
 from snowflake.cli._plugins.auth.workflow_identity.manager import (
     WorkflowIdentityManager,
 )
-from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.output.types import (
-    CommandResult,
-    MessageResult,
-    SingleQueryResult,
+from snowflake.cli._plugins.auth.workflow_identity.oidc_providers import (
+    OidcProviderType,
 )
+from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.output.types import MessageResult
 
-# Main workflow-identity app
 app = SnowTyperFactory(
     name="workflow-identity",
     help="Manages GitHub workflow identity federation authentication.",
 )
 
 
-def _setup_command(
+@app.command("setup", requires_connection=True)
+def setup(
     github_repository: str = typer.Option(
         ...,
         "--github-repository",
@@ -42,44 +41,22 @@ def _setup_command(
     """
     Sets up GitHub workflow identity federation for authentication.
     """
-    WorkflowIdentityManager().setup(github_repository=github_repository)
-    return MessageResult("GitHub workflow identity federation setup completed.")
+    result = WorkflowIdentityManager().setup(github_repository=github_repository)
+    return MessageResult(result)
 
 
-def _status_command(**options) -> CommandResult:
-    """
-    Shows the status of GitHub workflow identity federation configuration.
-    """
-    result = WorkflowIdentityManager().status()
-    return MessageResult(f"GitHub workflow identity federation status: {result}")
-
-
-def _remove_command(**options) -> CommandResult:
-    """
-    Removes the GitHub workflow identity federation configuration.
-    """
-    return SingleQueryResult(WorkflowIdentityManager().remove())
-
-
-# Register commands on both apps
-@app.command("setup", requires_connection=True)
-def setup(
-    github_repository: str = typer.Option(
-        ...,
-        "--github-repository",
-        help="GitHub repository in format 'owner/repo'",
-        prompt="Enter GitHub repository (owner/repo)",
+@app.command("read", requires_connection=False)
+def read(
+    _type: str = typer.Option(
+        "auto",
+        "--type",
+        help=f"Type of read operation to perform (e.g., '{OidcProviderType.GITHUB.value}', 'auto')",
     ),
     **options,
 ):
-    return _setup_command(github_repository=github_repository, **options)
-
-
-@app.command("status", requires_connection=True)
-def status(**options):
-    return _status_command(**options)
-
-
-@app.command("remove", requires_connection=True)
-def remove(**options):
-    return _remove_command(**options)
+    """
+    Reads OIDC token based on the specified type.
+    Use 'auto' to auto-detect available providers.
+    """
+    result = WorkflowIdentityManager().read(provider_type=_type)
+    return MessageResult(result)
