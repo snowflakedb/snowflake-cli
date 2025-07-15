@@ -13,18 +13,18 @@
 # limitations under the License.
 
 import typer
-from snowflake.cli._plugins.auth.workflow_identity.manager import (
-    WorkflowIdentityManager,
+from snowflake.cli._plugins.auth.workload_identity.manager import (
+    WorkloadIdentityManager,
 )
-from snowflake.cli._plugins.auth.workflow_identity.oidc_providers import (
+from snowflake.cli._plugins.auth.workload_identity.oidc_providers import (
     OidcProviderType,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import MessageResult
 
 app = SnowTyperFactory(
-    name="workflow-identity",
-    help="Manages GitHub workflow identity federation authentication.",
+    name="workload-identity",
+    help="Manages GitHub workload identity federation authentication.",
 )
 
 
@@ -39,9 +39,9 @@ def setup(
     **options,
 ):
     """
-    Sets up GitHub workflow identity federation for authentication.
+    Sets up GitHub workload identity federation for authentication.
     """
-    result = WorkflowIdentityManager().setup(github_repository=github_repository)
+    result = WorkloadIdentityManager().setup(github_repository=github_repository)
     return MessageResult(result)
 
 
@@ -58,5 +58,5 @@ def read(
     Reads OIDC token based on the specified type.
     Use 'auto' to auto-detect available providers.
     """
-    result = WorkflowIdentityManager().read(provider_type=_type)
+    result = WorkloadIdentityManager().read(provider_type=_type)
     return MessageResult(result)

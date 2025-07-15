@@ -16,7 +16,7 @@ import os
 from unittest.mock import Mock, patch
 
 import pytest
-from snowflake.cli._plugins.auth.workflow_identity.oidc_providers import (
+from snowflake.cli._plugins.auth.workload_identity.oidc_providers import (
     GitHubOidcProvider,
     OidcProviderRegistry,
     OidcProviderType,
@@ -38,7 +38,7 @@ class TestGitHubOidcProvider:
 
     @patch.dict(os.environ, {"GITHUB_ACTIONS": "true"})
     @patch(
-        "snowflake.cli._plugins.auth.workflow_identity.oidc_providers.importlib.import_module"
+        "snowflake.cli._plugins.auth.workload_identity.oidc_providers.importlib.import_module"
     )
     def test_is_available_success(self, mock_import):
         """Test is_available returns True when in GitHub Actions with credentials."""
@@ -89,7 +89,7 @@ class TestGitHubOidcProvider:
             assert provider.is_available is False
 
     @patch(
-        "snowflake.cli._plugins.auth.workflow_identity.oidc_providers.importlib.import_module"
+        "snowflake.cli._plugins.auth.workload_identity.oidc_providers.importlib.import_module"
     )
     def test_get_token_import_error(self, mock_import_module):
         """Test get_token raises CliError when id package is not available."""
