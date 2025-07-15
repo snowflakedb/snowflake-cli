@@ -84,8 +84,7 @@ class TestWorkloadIdentityManager:
         mock_provider.get_token.assert_called_once()
         mock_provider.get_token_info.assert_called_once()
 
-        expected_result = f"OIDC token detected. Provider: {OidcProviderType.GITHUB.value} (issuer: https://token.actions.githubusercontent.com, provider: {OidcProviderType.GITHUB.value})"
-        assert result == expected_result
+        assert result == "mock_token"
 
     @patch(
         "snowflake.cli._plugins.auth.workload_identity.manager.auto_detect_oidc_provider"
@@ -103,10 +102,7 @@ class TestWorkloadIdentityManager:
         manager = WorkloadIdentityManager()
         result = manager._read_auto_detect_token()  # noqa: SLF001
 
-        expected_result = (
-            f"OIDC token detected. Provider: {OidcProviderType.GITHUB.value}"
-        )
-        assert result == expected_result
+        assert result == "mock_token"
 
     @patch("snowflake.cli._plugins.auth.workload_identity.manager.list_oidc_providers")
     @patch(
@@ -191,8 +187,7 @@ class TestWorkloadIdentityManager:
         mock_provider.get_token.assert_called_once()
         mock_provider.get_token_info.assert_called_once()
 
-        expected_result = f"OIDC token retrieved. Provider: {OidcProviderType.GITHUB.value} (issuer: https://token.actions.githubusercontent.com, provider: {OidcProviderType.GITHUB.value})"
-        assert result == expected_result
+        assert result == "mock_token"
 
     @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
     def test_read_specific_token_success_no_info(self, mock_get_provider):
@@ -210,10 +205,7 @@ class TestWorkloadIdentityManager:
             OidcProviderType.GITHUB.value
         )  # noqa: SLF001
 
-        expected_result = (
-            f"OIDC token retrieved. Provider: {OidcProviderType.GITHUB.value}"
-        )
-        assert result == expected_result
+        assert result == "mock_token"
 
     @patch("snowflake.cli._plugins.auth.workload_identity.manager.list_oidc_providers")
     @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
