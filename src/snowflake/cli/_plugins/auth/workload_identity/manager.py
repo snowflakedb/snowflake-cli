@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-from snowflake.cli._plugins.auth.workflow_identity.oidc_providers import (
+from snowflake.cli._plugins.auth.workload_identity.oidc_providers import (
     auto_detect_oidc_provider,
     get_oidc_provider,
     list_oidc_providers,
@@ -22,14 +22,14 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
 
-class WorkflowIdentityManager(SqlExecutionMixin):
+class WorkloadIdentityManager(SqlExecutionMixin):
     """
-    Manager for GitHub workflow identity federation authentication.
+    Manager for GitHub workload identity federation authentication.
     """
 
     def setup(self, github_repository: str) -> str:
         """
-        Sets up GitHub workflow identity federation for the specified repository.
+        Sets up GitHub workload identity federation for the specified repository.
 
         Args:
             github_repository: GitHub repository in format 'owner/repo'
@@ -41,7 +41,7 @@ class WorkflowIdentityManager(SqlExecutionMixin):
             NotImplementedError: Setup functionality is not yet implemented
         """
         raise NotImplementedError(
-            "GitHub workflow identity federation setup is not yet implemented"
+            "GitHub workload identity federation setup is not yet implemented"
         )
 
     def read(self, provider_type: str) -> str:

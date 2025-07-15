@@ -15,31 +15,31 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from snowflake.cli._plugins.auth.workflow_identity.manager import (
-    WorkflowIdentityManager,
+from snowflake.cli._plugins.auth.workload_identity.manager import (
+    WorkloadIdentityManager,
 )
-from snowflake.cli._plugins.auth.workflow_identity.oidc_providers import (
+from snowflake.cli._plugins.auth.workload_identity.oidc_providers import (
     OidcProviderType,
 )
 from snowflake.cli.api.exceptions import CliError
 
 
-class TestWorkflowIdentityManager:
-    """Test cases for WorkflowIdentityManager."""
+class TestWorkloadIdentityManager:
+    """Test cases for WorkloadIdentityManager."""
 
     def test_setup_not_implemented(self):
         """Test that setup method raises NotImplementedError."""
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
 
         with pytest.raises(
             NotImplementedError,
-            match="GitHub workflow identity federation setup is not yet implemented",
+            match="GitHub workload identity federation setup is not yet implemented",
         ):
             manager.setup("owner/repo")
 
     def test_read_with_auto_type(self):
         """Test read method with 'auto' type delegates to _read_auto_detect_token."""
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
 
         with patch.object(
             manager, "_read_auto_detect_token", return_value="auto detect result"
@@ -51,7 +51,7 @@ class TestWorkflowIdentityManager:
 
     def test_read_with_specific_type(self):
         """Test read method with specific provider type delegates to _read_specific_token."""
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
 
         with patch.object(
             manager, "_read_specific_token", return_value="specific result"
@@ -62,7 +62,7 @@ class TestWorkflowIdentityManager:
             assert result == "specific result"
 
     @patch(
-        "snowflake.cli._plugins.auth.workflow_identity.manager.auto_detect_oidc_provider"
+        "snowflake.cli._plugins.auth.workload_identity.manager.auto_detect_oidc_provider"
     )
     def test_read_auto_detect_token_success(self, mock_auto_detect):
         """Test _read_auto_detect_token when provider is available and working."""
@@ -77,7 +77,7 @@ class TestWorkflowIdentityManager:
 
         mock_auto_detect.return_value = mock_provider
 
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
         result = manager._read_auto_detect_token()  # noqa: SLF001
 
         mock_auto_detect.assert_called_once()
@@ -88,7 +88,7 @@ class TestWorkflowIdentityManager:
         assert result == expected_result
 
     @patch(
-        "snowflake.cli._plugins.auth.workflow_identity.manager.auto_detect_oidc_provider"
+        "snowflake.cli._plugins.auth.workload_identity.manager.auto_detect_oidc_provider"
     )
     def test_read_auto_detect_token_success_no_info(self, mock_auto_detect):
         """Test _read_auto_detect_token when provider works but has no token info."""
@@ -100,7 +100,7 @@ class TestWorkflowIdentityManager:
 
         mock_auto_detect.return_value = mock_provider
 
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
         result = manager._read_auto_detect_token()  # noqa: SLF001
 
         expected_result = (
@@ -108,9 +108,9 @@ class TestWorkflowIdentityManager:
         )
         assert result == expected_result
 
-    @patch("snowflake.cli._plugins.auth.workflow_identity.manager.list_oidc_providers")
+    @patch("snowflake.cli._plugins.auth.workload_identity.manager.list_oidc_providers")
     @patch(
-        "snowflake.cli._plugins.auth.workflow_identity.manager.auto_detect_oidc_provider"
+        "snowflake.cli._plugins.auth.workload_identity.manager.auto_detect_oidc_provider"
     )
     def test_read_auto_detect_token_no_provider_with_available_providers(
         self, mock_auto_detect, mock_list_providers
@@ -122,7 +122,7 @@ class TestWorkflowIdentityManager:
             "other_provider",
         ]
 
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
 
         with pytest.raises(
             CliError, match="No OIDC provider detected in current environment"
@@ -132,9 +132,9 @@ class TestWorkflowIdentityManager:
         mock_auto_detect.assert_called_once()
         mock_list_providers.assert_called_once()
 
-    @patch("snowflake.cli._plugins.auth.workflow_identity.manager.list_oidc_providers")
+    @patch("snowflake.cli._plugins.auth.workload_identity.manager.list_oidc_providers")
     @patch(
-        "snowflake.cli._plugins.auth.workflow_identity.manager.auto_detect_oidc_provider"
+        "snowflake.cli._plugins.auth.workload_identity.manager.auto_detect_oidc_provider"
     )
     def test_read_auto_detect_token_no_provider_no_providers_registered(
         self, mock_auto_detect, mock_list_providers
@@ -143,13 +143,13 @@ class TestWorkflowIdentityManager:
         mock_auto_detect.return_value = None
         mock_list_providers.return_value = []
 
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
 
         with pytest.raises(CliError, match="No OIDC providers are registered"):
             manager._read_auto_detect_token()  # noqa: SLF001
 
     @patch(
-        "snowflake.cli._plugins.auth.workflow_identity.manager.auto_detect_oidc_provider"
+        "snowflake.cli._plugins.auth.workload_identity.manager.auto_detect_oidc_provider"
     )
     def test_read_auto_detect_token_provider_fails(self, mock_auto_detect):
         """Test _read_auto_detect_token when provider fails to get token."""
@@ -159,7 +159,7 @@ class TestWorkflowIdentityManager:
 
         mock_auto_detect.return_value = mock_provider
 
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
 
         with pytest.raises(
             CliError,
@@ -167,7 +167,7 @@ class TestWorkflowIdentityManager:
         ):
             manager._read_auto_detect_token()  # noqa: SLF001
 
-    @patch("snowflake.cli._plugins.auth.workflow_identity.manager.get_oidc_provider")
+    @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
     def test_read_specific_token_success(self, mock_get_provider):
         """Test _read_specific_token when provider exists and works."""
         # Create mock provider
@@ -182,7 +182,7 @@ class TestWorkflowIdentityManager:
 
         mock_get_provider.return_value = mock_provider
 
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
         result = manager._read_specific_token(  # noqa: SLF001
             OidcProviderType.GITHUB.value
         )  # noqa: SLF001
@@ -194,7 +194,7 @@ class TestWorkflowIdentityManager:
         expected_result = f"OIDC token retrieved. Provider: {OidcProviderType.GITHUB.value} (issuer: https://token.actions.githubusercontent.com, provider: {OidcProviderType.GITHUB.value})"
         assert result == expected_result
 
-    @patch("snowflake.cli._plugins.auth.workflow_identity.manager.get_oidc_provider")
+    @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
     def test_read_specific_token_success_no_info(self, mock_get_provider):
         """Test _read_specific_token when provider works but has no token info."""
         mock_provider = Mock()
@@ -205,7 +205,7 @@ class TestWorkflowIdentityManager:
 
         mock_get_provider.return_value = mock_provider
 
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
         result = manager._read_specific_token(  # noqa: SLF001
             OidcProviderType.GITHUB.value
         )  # noqa: SLF001
@@ -215,8 +215,8 @@ class TestWorkflowIdentityManager:
         )
         assert result == expected_result
 
-    @patch("snowflake.cli._plugins.auth.workflow_identity.manager.list_oidc_providers")
-    @patch("snowflake.cli._plugins.auth.workflow_identity.manager.get_oidc_provider")
+    @patch("snowflake.cli._plugins.auth.workload_identity.manager.list_oidc_providers")
+    @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
     def test_read_specific_token_provider_not_found(
         self, mock_get_provider, mock_list_providers
     ):
@@ -227,7 +227,7 @@ class TestWorkflowIdentityManager:
             "other_provider",
         ]
 
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
 
         with pytest.raises(CliError, match="Unknown provider 'unknown_provider'"):
             manager._read_specific_token("unknown_provider")  # noqa: SLF001
@@ -235,7 +235,7 @@ class TestWorkflowIdentityManager:
         mock_get_provider.assert_called_once_with("unknown_provider")
         mock_list_providers.assert_called_once()
 
-    @patch("snowflake.cli._plugins.auth.workflow_identity.manager.get_oidc_provider")
+    @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
     def test_read_specific_token_provider_not_available(self, mock_get_provider):
         """Test _read_specific_token when provider exists but is not available."""
         mock_provider = Mock()
@@ -244,7 +244,7 @@ class TestWorkflowIdentityManager:
 
         mock_get_provider.return_value = mock_provider
 
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
 
         with pytest.raises(
             CliError,
@@ -254,7 +254,7 @@ class TestWorkflowIdentityManager:
 
         mock_get_provider.assert_called_once_with(OidcProviderType.GITHUB.value)
 
-    @patch("snowflake.cli._plugins.auth.workflow_identity.manager.get_oidc_provider")
+    @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
     def test_read_specific_token_provider_fails(self, mock_get_provider):
         """Test _read_specific_token when provider exists but fails to get token."""
         mock_provider = Mock()
@@ -264,7 +264,7 @@ class TestWorkflowIdentityManager:
 
         mock_get_provider.return_value = mock_provider
 
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
 
         with pytest.raises(
             CliError,
@@ -273,15 +273,15 @@ class TestWorkflowIdentityManager:
             manager._read_specific_token(OidcProviderType.GITHUB.value)  # noqa: SLF001
 
     def test_manager_inherits_from_sql_execution_mixin(self):
-        """Test that WorkflowIdentityManager inherits from SqlExecutionMixin."""
+        """Test that WorkloadIdentityManager inherits from SqlExecutionMixin."""
         from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
         assert isinstance(manager, SqlExecutionMixin)
 
     def test_read_method_parameter_validation(self):
         """Test read method with different parameter types."""
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
 
         # Test with empty string (should be treated as specific provider)
         with patch.object(
@@ -292,7 +292,7 @@ class TestWorkflowIdentityManager:
             assert result == "empty result"
 
     @patch(
-        "snowflake.cli._plugins.auth.workflow_identity.manager.auto_detect_oidc_provider"
+        "snowflake.cli._plugins.auth.workload_identity.manager.auto_detect_oidc_provider"
     )
     def test_read_auto_detect_token_provider_get_token_info_fails(
         self, mock_auto_detect
@@ -305,7 +305,7 @@ class TestWorkflowIdentityManager:
 
         mock_auto_detect.return_value = mock_provider
 
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
 
         # The method should still fail because the exception is caught in the outer try/except
         with pytest.raises(
@@ -314,7 +314,7 @@ class TestWorkflowIdentityManager:
         ):
             manager._read_auto_detect_token()  # noqa: SLF001
 
-    @patch("snowflake.cli._plugins.auth.workflow_identity.manager.get_oidc_provider")
+    @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
     def test_read_specific_token_provider_get_token_info_fails(self, mock_get_provider):
         """Test _read_specific_token when get_token_info fails but get_token succeeds."""
         mock_provider = Mock()
@@ -325,7 +325,7 @@ class TestWorkflowIdentityManager:
 
         mock_get_provider.return_value = mock_provider
 
-        manager = WorkflowIdentityManager()
+        manager = WorkloadIdentityManager()
 
         # The method should still fail because the exception is caught in the outer try/except
         with pytest.raises(
