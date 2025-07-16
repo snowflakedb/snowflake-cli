@@ -12,10 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import base64
 import importlib
 import inspect
-import json
 import logging
 import os
 from abc import ABC, abstractmethod
@@ -28,53 +26,6 @@ from snowflake.cli.api.exceptions import CliError
 logger = logging.getLogger(__name__)
 
 SNOWFLAKE_AUDIENCE_ENV = "SNOWFLAKE_AUDIENCE"
-
-
-def _decode_jwt_for_debug(token: str) -> str:
-    """
-    Decode JWT token and extract claims for debugging purposes.
-
-    Args:
-        token: JWT token string
-
-    Returns:
-        Formatted string with token claims for debugging
-    """
-    try:
-        # Split JWT token into parts
-        parts = token.split(".")
-        if len(parts) != 3:
-            return "Invalid JWT token format"
-
-        # Decode payload (second part)
-        payload = parts[1]
-        # Add padding if needed for base64 decoding
-        payload += "=" * (4 - len(payload) % 4)
-
-        # Decode base64 and parse JSON
-        decoded_bytes = base64.urlsafe_b64decode(payload)
-        claims = json.loads(decoded_bytes)
-
-        # Helper function to safely get claims
-        def _g(claim_name: str) -> str:
-            return claims.get(claim_name, "N/A")
-
-        # Format token info for debugging
-        token_info = f"""
-              sub={_g("sub")},
-              repository={_g("repository")},
-              repository_owner={_g("repository_owner")},
-              workflow_ref={_g("workflow_ref")},
-              job_workflow_ref={_g("job_workflow_ref")},
-              ref={_g("ref")},
-              environment={_g("environment")},
-              """
-
-        return token_info.strip()
-
-    except Exception as e:
-        logger.debug("Failed to decode JWT token for debugging: %s", e)
-        return f"Failed to decode token: {e}"
 
 
 class OidcProviderType(Enum):
@@ -162,10 +113,6 @@ class GitHubOidcProvider(OidcTokenProvider):
                 raise CliError(
                     "No OIDC credentials detected. This command should be run in a GitHub Actions environment."
                 )
-
-            # Decode token for debugging purposes
-            token_claims = _decode_jwt_for_debug(token)
-            logger.debug("Retrieved token claims: %s", token_claims)
 
             logger.info("Successfully retrieved OIDC token")
             return token
