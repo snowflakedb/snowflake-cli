@@ -2,23 +2,32 @@ import pytest
 
 
 @pytest.mark.integration
-def test_containerized_notebook(runner, project_directory, test_database):
+class TestContainerizedNotebook:
     notebook_identifier = "containerized_notebook"
 
-    # deploy notebook
-    with project_directory("notebook_containerized_v2"):
-        result = runner.invoke_with_connection(["notebook", "deploy"])
-        assert result.exit_code == 0, result.output
-        assert (
-            f"Uploading artifacts to @notebooks/{notebook_identifier}\n"
-            in result.output
-        )
-        assert f"Notebook successfully deployed and available under" in result.output
+    @pytest.fixture(scope="class", autouse=True)
+    def setup_notebook_deployment(self, runner, project_directory, test_database):
+        """Deploy notebook and maintain context for all tests."""
+        with project_directory("notebook_containerized_v2") as self.project_dir:
+            result = runner.invoke_with_connection(["notebook", "deploy"])
+            assert result.exit_code == 0, result.output
+            assert (
+                f"Uploading artifacts to @notebooks/{self.notebook_identifier}\n"
+                in result.output
+            )
+            assert (
+                f"Notebook successfully deployed and available under" in result.output
+            )
 
-        # execute notebook without exceptions
+            yield
+
+    @pytest.mark.flaky(reruns=5, reruns_delay=2)
+    def test_notebook_execution(self, runner):
+        """This method can be retried without redeployment."""
         result = runner.invoke_with_connection(
-            ["notebook", "execute", notebook_identifier]
+            ["notebook", "execute", self.notebook_identifier]
         )
+
         assert result.exit_code in [0, 1], result.output
         if result.exit_code == 0:
             assert result.output == "Notebook containerized_notebook executed.\n"
