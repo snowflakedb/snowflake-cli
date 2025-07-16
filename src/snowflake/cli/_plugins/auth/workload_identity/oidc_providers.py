@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import base64
 import importlib
 import inspect
+import json
 import logging
 import os
 from abc import ABC, abstractmethod
@@ -24,6 +26,55 @@ import id as oidc_id
 from snowflake.cli.api.exceptions import CliError
 
 logger = logging.getLogger(__name__)
+
+SNOWFLAKE_AUDIENCE_ENV = "SNOWFLAKE_AUDIENCE"
+
+
+def _decode_jwt_for_debug(token: str) -> str:
+    """
+    Decode JWT token and extract claims for debugging purposes.
+
+    Args:
+        token: JWT token string
+
+    Returns:
+        Formatted string with token claims for debugging
+    """
+    try:
+        # Split JWT token into parts
+        parts = token.split(".")
+        if len(parts) != 3:
+            return "Invalid JWT token format"
+
+        # Decode payload (second part)
+        payload = parts[1]
+        # Add padding if needed for base64 decoding
+        payload += "=" * (4 - len(payload) % 4)
+
+        # Decode base64 and parse JSON
+        decoded_bytes = base64.urlsafe_b64decode(payload)
+        claims = json.loads(decoded_bytes)
+
+        # Helper function to safely get claims
+        def _g(claim_name: str) -> str:
+            return claims.get(claim_name, "N/A")
+
+        # Format token info for debugging
+        token_info = f"""
+              sub={_g("sub")},
+              repository={_g("repository")},
+              repository_owner={_g("repository_owner")},
+              workflow_ref={_g("workflow_ref")},
+              job_workflow_ref={_g("job_workflow_ref")},
+              ref={_g("ref")},
+              environment={_g("environment")},
+              """
+
+        return token_info.strip()
+
+    except Exception as e:
+        logger.debug("Failed to decode JWT token for debugging: %s", e)
+        return f"Failed to decode token: {e}"
 
 
 class OidcProviderType(Enum):
@@ -68,21 +119,14 @@ class OidcTokenProvider(ABC):
         """
         pass
 
-    @abstractmethod
-    def get_token_info(self) -> Dict[str, str]:
-        """
-        Retrieves additional token information if available.
-
-        Returns:
-            Dictionary with token metadata (issuer, subject, etc.)
-        """
-        pass
-
 
 class GitHubOidcProvider(OidcTokenProvider):
     """
     OIDC token provider for GitHub Actions.
     """
+
+    # Audience URL - configurable via environment variable
+    AUDIENCE = os.getenv(SNOWFLAKE_AUDIENCE_ENV, "snowflakecomputing.com")
 
     @property
     def provider_name(self) -> str:
@@ -95,24 +139,13 @@ class GitHubOidcProvider(OidcTokenProvider):
         """
         logger.debug("Checking if GitHub Actions environment is available")
 
-        # First check if we're in a GitHub Actions environment
+        # Check if we're in a GitHub Actions environment
         github_actions_env = os.getenv("GITHUB_ACTIONS")
         logger.debug("GITHUB_ACTIONS environment variable: %s", github_actions_env)
 
-        if github_actions_env != "true":
-            logger.debug("Not in GitHub Actions environment")
-            return False
-
-        try:
-            logger.debug("Detecting OIDC credentials")
-            # Use Snowflake as the audience for workload identity
-            token = oidc_id.detect_credential("https://snowflake.com")
-            available = token is not None
-            logger.debug("OIDC credentials available: %s", available)
-            return available
-        except Exception as e:
-            logger.debug("Exception during credential detection: %s", e)
-            return False
+        is_github_actions = github_actions_env == "true"
+        logger.debug("Running in GitHub Actions: %s", is_github_actions)
+        return is_github_actions
 
     def get_token(self) -> str:
         """
@@ -122,42 +155,23 @@ class GitHubOidcProvider(OidcTokenProvider):
 
         try:
             logger.debug("Detecting OIDC credentials for token retrieval")
-            # Use Snowflake as the audience for workload identity
-            token = oidc_id.detect_credential("https://snowflake.com")
+            # Use configurable audience for workload identity
+            token = oidc_id.detect_credential(self.AUDIENCE)
             if not token:
                 logger.error("No OIDC credentials detected")
                 raise CliError(
                     "No OIDC credentials detected. This command should be run in a GitHub Actions environment."
                 )
+
+            # Decode token for debugging purposes
+            token_claims = _decode_jwt_for_debug(token)
+            logger.debug("Retrieved token claims: %s", token_claims)
+
             logger.info("Successfully retrieved OIDC token")
             return token
         except Exception as e:
             logger.error("Failed to detect OIDC credentials: %s", str(e))
             raise CliError("Failed to detect OIDC credentials: %s" % str(e))
-
-    def get_token_info(self) -> Dict[str, str]:
-        """
-        Retrieves GitHub Actions token information.
-        """
-        logger.debug("Retrieving GitHub Actions token information")
-
-        try:
-            logger.debug("Detecting credentials for token info")
-            # Use Snowflake as the audience for workload identity
-            token = oidc_id.detect_credential("https://snowflake.com")
-            if token:
-                token_info = {
-                    "issuer": "https://token.actions.githubusercontent.com",
-                    "provider": "github",
-                    "token_present": "true",
-                }
-                logger.debug("Token info retrieved: %s", token_info)
-                return token_info
-            logger.debug("No credentials found for token info")
-            return {}
-        except Exception as e:
-            logger.debug("Exception during token info retrieval: %s", e)
-            return {}
 
 
 class OidcProviderRegistry:

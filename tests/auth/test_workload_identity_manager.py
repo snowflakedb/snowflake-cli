@@ -70,10 +70,6 @@ class TestWorkloadIdentityManager:
         mock_provider = Mock()
         mock_provider.provider_name = OidcProviderType.GITHUB.value
         mock_provider.get_token.return_value = "mock_token"
-        mock_provider.get_token_info.return_value = {
-            "issuer": "https://token.actions.githubusercontent.com",
-            "provider": OidcProviderType.GITHUB.value,
-        }
 
         mock_auto_detect.return_value = mock_provider
 
@@ -82,7 +78,6 @@ class TestWorkloadIdentityManager:
 
         mock_auto_detect.assert_called_once()
         mock_provider.get_token.assert_called_once()
-        mock_provider.get_token_info.assert_called_once()
 
         assert result == "mock_token"
 
@@ -171,10 +166,6 @@ class TestWorkloadIdentityManager:
         mock_provider.provider_name = OidcProviderType.GITHUB.value
         mock_provider.is_available = True
         mock_provider.get_token.return_value = "mock_token"
-        mock_provider.get_token_info.return_value = {
-            "issuer": "https://token.actions.githubusercontent.com",
-            "provider": OidcProviderType.GITHUB.value,
-        }
 
         mock_get_provider.return_value = mock_provider
 
@@ -185,25 +176,6 @@ class TestWorkloadIdentityManager:
 
         mock_get_provider.assert_called_once_with(OidcProviderType.GITHUB.value)
         mock_provider.get_token.assert_called_once()
-        mock_provider.get_token_info.assert_called_once()
-
-        assert result == "mock_token"
-
-    @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
-    def test_read_specific_token_success_no_info(self, mock_get_provider):
-        """Test _read_specific_token when provider works but has no token info."""
-        mock_provider = Mock()
-        mock_provider.provider_name = OidcProviderType.GITHUB.value
-        mock_provider.is_available = True
-        mock_provider.get_token.return_value = "mock_token"
-        mock_provider.get_token_info.return_value = {}
-
-        mock_get_provider.return_value = mock_provider
-
-        manager = WorkloadIdentityManager()
-        result = manager._read_specific_token(  # noqa: SLF001
-            OidcProviderType.GITHUB.value
-        )  # noqa: SLF001
 
         assert result == "mock_token"
 
@@ -282,46 +254,3 @@ class TestWorkloadIdentityManager:
             result = manager.read("")
             mock_specific.assert_called_once_with("")
             assert result == "empty result"
-
-    @patch(
-        "snowflake.cli._plugins.auth.workload_identity.manager.auto_detect_oidc_provider"
-    )
-    def test_read_auto_detect_token_provider_get_token_info_fails(
-        self, mock_auto_detect
-    ):
-        """Test _read_auto_detect_token when get_token_info fails but get_token succeeds."""
-        mock_provider = Mock()
-        mock_provider.provider_name = OidcProviderType.GITHUB.value
-        mock_provider.get_token.return_value = "mock_token"
-        mock_provider.get_token_info.side_effect = Exception("Info retrieval failed")
-
-        mock_auto_detect.return_value = mock_provider
-
-        manager = WorkloadIdentityManager()
-
-        # The method should still fail because the exception is caught in the outer try/except
-        with pytest.raises(
-            CliError,
-            match=f"Failed to retrieve token from {OidcProviderType.GITHUB.value}: Info retrieval failed",
-        ):
-            manager._read_auto_detect_token()  # noqa: SLF001
-
-    @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
-    def test_read_specific_token_provider_get_token_info_fails(self, mock_get_provider):
-        """Test _read_specific_token when get_token_info fails but get_token succeeds."""
-        mock_provider = Mock()
-        mock_provider.provider_name = OidcProviderType.GITHUB.value
-        mock_provider.is_available = True
-        mock_provider.get_token.return_value = "mock_token"
-        mock_provider.get_token_info.side_effect = Exception("Info retrieval failed")
-
-        mock_get_provider.return_value = mock_provider
-
-        manager = WorkloadIdentityManager()
-
-        # The method should still fail because the exception is caught in the outer try/except
-        with pytest.raises(
-            CliError,
-            match=f"Failed to retrieve token from {OidcProviderType.GITHUB.value}: Info retrieval failed",
-        ):
-            manager._read_specific_token(OidcProviderType.GITHUB.value)  # noqa: SLF001
