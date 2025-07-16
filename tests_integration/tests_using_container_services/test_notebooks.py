@@ -21,7 +21,7 @@ class TestContainerizedNotebook:
 
             yield
 
-    @pytest.mark.flaky(reruns=5, reruns_delay=2)
+    @pytest.mark.flaky(retries=5, delay=2, backoff_factor=2, max_delay=30)
     def test_notebook_execution(self, runner):
         """This method can be retried without redeployment."""
         result = runner.invoke_with_connection(
