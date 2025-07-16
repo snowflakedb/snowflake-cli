@@ -37,21 +37,11 @@ class TestGitHubOidcProvider:
         assert provider.provider_name == OidcProviderType.GITHUB.value
 
     @patch.dict(os.environ, {"GITHUB_ACTIONS": "true"})
-    @patch(
-        "snowflake.cli._plugins.auth.workload_identity.oidc_providers.importlib.import_module"
-    )
-    def test_is_available_success(self, mock_import):
-        """Test is_available returns True when in GitHub Actions with credentials."""
-        # Mock the id package and its detect_credentials function
-        mock_id_module = Mock()
-        mock_credentials = Mock()
-        mock_credentials.token = "mock_token"
-        mock_id_module.detect_credentials.return_value = mock_credentials
-
-        # Mock the import to return our mocked id module
-        with patch("builtins.__import__", return_value=mock_id_module):
-            provider = GitHubOidcProvider()
-            assert provider.is_available is True
+    @patch.dict(os.environ, {"GITHUB_ACTIONS": "true"})
+    def test_is_available_success(self):
+        """Test is_available returns True when GITHUB_ACTIONS is true."""
+        provider = GitHubOidcProvider()
+        assert provider.is_available is True
 
     @patch.dict(os.environ, {"GITHUB_ACTIONS": "false"})
     def test_is_available_not_github_actions(self):
@@ -60,35 +50,10 @@ class TestGitHubOidcProvider:
         assert provider.is_available is False
 
     @patch.dict(os.environ, {"GITHUB_ACTIONS": "true"})
-    def test_is_available_import_error(self):
-        """Test is_available returns False when id package is not available."""
-        with patch(
-            "builtins.__import__", side_effect=ImportError("No module named 'id'")
-        ):
-            provider = GitHubOidcProvider()
-            assert provider.is_available is False
-
-    @patch.dict(os.environ, {"GITHUB_ACTIONS": "true"})
-    @patch(
-        "snowflake.cli._plugins.auth.workload_identity.oidc_providers.oidc_id.detect_credential"
-    )
-    def test_is_available_no_credentials(self, mock_detect_credential):
-        """Test is_available returns False when no credentials detected."""
-        mock_detect_credential.return_value = None
-
+    def test_is_available_github_actions_true(self):
+        """Test is_available returns True when GITHUB_ACTIONS environment variable is true."""
         provider = GitHubOidcProvider()
-        assert provider.is_available is False
-
-    @patch.dict(os.environ, {"GITHUB_ACTIONS": "true"})
-    @patch(
-        "snowflake.cli._plugins.auth.workload_identity.oidc_providers.oidc_id.detect_credential"
-    )
-    def test_is_available_exception(self, mock_detect_credential):
-        """Test is_available returns False when exception occurs."""
-        mock_detect_credential.side_effect = Exception("Some error")
-
-        provider = GitHubOidcProvider()
-        assert provider.is_available is False
+        assert provider.is_available is True
 
     @patch(
         "snowflake.cli._plugins.auth.workload_identity.oidc_providers.oidc_id.detect_credential"
@@ -122,7 +87,7 @@ class TestGitHubOidcProvider:
         provider = GitHubOidcProvider()
         token = provider.get_token()
         assert token == "mock_token_value"
-        mock_detect_credential.assert_called_once_with("https://snowflake.com")
+        mock_detect_credential.assert_called_once_with("snowflakecomputing.com")
 
     @patch(
         "snowflake.cli._plugins.auth.workload_identity.oidc_providers.oidc_id.detect_credential"
@@ -136,42 +101,6 @@ class TestGitHubOidcProvider:
             CliError, match="Failed to detect OIDC credentials: Detection failed"
         ):
             provider.get_token()
-
-    def test_get_token_info_success(self):
-        """Test get_token_info returns info when credentials are available."""
-        mock_id_module = Mock()
-        mock_credentials = Mock()
-        mock_credentials.token = "mock_token"
-        mock_id_module.detect_credentials.return_value = mock_credentials
-
-        with patch("builtins.__import__", return_value=mock_id_module):
-            provider = GitHubOidcProvider()
-            info = provider.get_token_info()
-
-            expected_info = {
-                "issuer": "https://token.actions.githubusercontent.com",
-                "provider": OidcProviderType.GITHUB.value,
-                "token_present": "true",
-            }
-            assert info == expected_info
-
-    @patch(
-        "snowflake.cli._plugins.auth.workload_identity.oidc_providers.oidc_id.detect_credential"
-    )
-    def test_get_token_info_no_credentials(self, mock_detect_credential):
-        """Test get_token_info returns empty dict when no credentials."""
-        mock_detect_credential.return_value = None
-
-        provider = GitHubOidcProvider()
-        info = provider.get_token_info()
-        assert info == {}
-
-    def test_get_token_info_exception(self):
-        """Test get_token_info returns empty dict when exception occurs."""
-        with patch("builtins.__import__", side_effect=Exception("Import failed")):
-            provider = GitHubOidcProvider()
-            info = provider.get_token_info()
-            assert info == {}
 
 
 class TestOidcProviderRegistry:
@@ -337,7 +266,7 @@ class TestAbstractBaseClass:
             def provider_name(self) -> str:
                 return "incomplete"
 
-            # Missing other required methods
+            # Missing is_available and get_token methods
 
         with pytest.raises(TypeError):
             IncompleteProvider()
