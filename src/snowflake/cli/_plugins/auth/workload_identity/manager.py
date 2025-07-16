@@ -114,20 +114,9 @@ class WorkloadIdentityManager(SqlExecutionMixin):
             logger.debug("Retrieving token from provider: %s", provider.provider_name)
             token = provider.get_token()
 
-            logger.debug(
-                "Retrieving token info from provider: %s", provider.provider_name
-            )
-            token_info = provider.get_token_info()
-
-            info_str = "Provider: %s" % provider.provider_name
-            if token_info:
-                info_details = ", ".join(
-                    ["%s: %s" % (k, v) for k, v in token_info.items()]
-                )
-                info_str += " (%s)" % info_details
-
             logger.info(
-                "Successfully retrieved OIDC token via auto-detection: %s", info_str
+                "Successfully retrieved OIDC token via auto-detection from provider: %s",
+                provider.provider_name,
             )
             return token
         except Exception as e:
@@ -181,18 +170,8 @@ class WorkloadIdentityManager(SqlExecutionMixin):
             logger.debug("Retrieving token from provider: %s", provider_name)
             token = provider.get_token()
 
-            logger.debug("Retrieving token info from provider: %s", provider_name)
-            token_info = provider.get_token_info()
-
-            info_str = "Provider: %s" % provider.provider_name
-            if token_info:
-                info_details = ", ".join(
-                    ["%s: %s" % (k, v) for k, v in token_info.items()]
-                )
-                info_str += " (%s)" % info_details
-
             logger.info(
-                "Successfully retrieved OIDC token from %s: %s", provider_name, info_str
+                "Successfully retrieved OIDC token from provider: %s", provider_name
             )
             return token
         except Exception as e:
