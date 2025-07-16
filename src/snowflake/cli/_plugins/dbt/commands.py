@@ -83,8 +83,13 @@ def deploy_dbt(
         show_default=False,
         default=None,
     ),
+    project_root: Optional[str] = typer.Option(
+        help=f"Path to directory containing dbt_profiles.yml. Must be the same as --source or a subdirectory of --source. Defaults to directory provided in --source.",
+        show_default=False,
+        default=None,
+    ),
     profiles_dir: Optional[str] = typer.Option(
-        help=f"Path to directory containing {PROFILES_FILENAME}. Defaults to directory provided in --source or current working directory",
+        help=f"Path to directory containing {PROFILES_FILENAME}. Defaults to directory provided in --project-root",
         show_default=False,
         default=None,
     ),
@@ -99,12 +104,16 @@ def deploy_dbt(
     provided; or create a new one if it doesn't exist; or update files and
     create a new version if it exists.
     """
-    project_path = SecurePath(source) if source is not None else SecurePath.cwd()
-    profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
+    source_path = SecurePath(source) if source is not None else SecurePath.cwd()
+    project_root_path = (
+        SecurePath(project_root) if project_root is not None else source_path
+    )
+    profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_root_path
     return QueryResult(
         DBTManager().deploy(
             name,
-            project_path.resolve(),
+            source_path.resolve(),
+            project_root_path.resolve(),
             profiles_dir_path.resolve(),
             force=force,
         )
