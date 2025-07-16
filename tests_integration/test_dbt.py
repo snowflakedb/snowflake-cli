@@ -204,7 +204,9 @@ def _fetch_creation_date(name, runner) -> datetime.datetime:
     return datetime.datetime.fromisoformat(dbt_object["created_on"])
 
 
-def _setup_dbt_profile(root_dir: Path, snowflake_session, include_password: bool):
+def _setup_dbt_profile(
+    root_dir: Path, snowflake_session, include_password: bool = False
+):
     with open((root_dir / PROFILES_FILENAME), "r") as f:
         profiles = yaml.safe_load(f)
     dev_profile = profiles["dbt_integration_project"]["outputs"]["dev"]
@@ -219,3 +221,47 @@ def _setup_dbt_profile(root_dir: Path, snowflake_session, include_password: bool
     else:
         dev_profile.pop("password", None)
     (root_dir / PROFILES_FILENAME).write_text(yaml.dump(profiles))
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_with_project_root_monorepo_scenario(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """Test deploying dbt project using --project-root flag in a monorepo scenario."""
+    with project_directory("dbt_monorepo") as monorepo_root:
+        dbt_project_dir = monorepo_root / "analytics"
+        _setup_dbt_profile(dbt_project_dir, snowflake_session)
+
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_monorepo_test_{ts}"
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dbt",
+                "deploy",
+                name,
+                f"--source={monorepo_root}",
+                f"--project-root={dbt_project_dir}",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(["dbt", "list"])
+
+        assert result.exit_code == 0
+        assert name.upper() in result.output
+
+        result = runner.invoke_passthrough_with_connection(
+            args=[
+                "dbt",
+                "execute",
+            ],
+            passthrough_args=[name, "run"],
+        )
+
+        assert result.exit_code == 0, result.output

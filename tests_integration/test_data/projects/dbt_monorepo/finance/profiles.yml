@@ -1,0 +1,6 @@
+finance_project:
+  target: dev
+  outputs: 
+    dev:
+      type: snowflake
+      threads: 2 

@@ -4882,10 +4882,14 @@
   | --source                          TEXT  Path to directory containing dbt     |
   |                                         files to deploy. Defaults to current |
   |                                         working directory.                   |
+  | --project-root                    TEXT  Path to directory containing         |
+  |                                         dbt_profiles.yml. Must be the same   |
+  |                                         as --source or a subdirectory of     |
+  |                                         --source. Defaults to directory      |
+  |                                         provided in --source.                |
   | --profiles-dir                    TEXT  Path to directory containing         |
   |                                         profiles.yml. Defaults to directory  |
-  |                                         provided in --source or current      |
-  |                                         working directory                    |
+  |                                         provided in --project-root           |
   | --force             --no-force          Overwrites conflicting files in the  |
   |                                         project, if any.                     |
   |                                         [default: no-force]                  |

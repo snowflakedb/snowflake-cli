@@ -45,14 +45,25 @@ class DBTManager(SqlExecutionMixin):
     def deploy(
         self,
         fqn: FQN,
-        path: SecurePath,
+        source_path: SecurePath,
+        project_root_path: SecurePath,
         profiles_path: SecurePath,
         force: bool,
     ) -> SnowflakeCursor:
-        dbt_project_path = path / "dbt_project.yml"
+        # Validate that project_root is the same as source or a subdirectory of source
+        try:
+            project_root_path.resolve().path.relative_to(source_path.resolve().path)
+        except ValueError:
+            raise CliError(
+                f"""Project root directory  must be the same as or a subdirectory of source directory.
+                Source directory: {source_path.path.absolute()}
+                Project root directory {project_root_path.path.absolute()}"""
+            )
+
+        dbt_project_path = project_root_path / "dbt_project.yml"
         if not dbt_project_path.exists():
             raise CliError(
-                f"dbt_project.yml does not exist in directory {path.path.absolute()}."
+                f"dbt_project.yml does not exist in directory {project_root_path.path.absolute()}."
             )
 
         with dbt_project_path.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
@@ -73,12 +84,12 @@ class DBTManager(SqlExecutionMixin):
         with cli_console.phase("Copying project files to stage"):
             with TemporaryDirectory() as tmp:
                 tmp_path = Path(tmp)
-                stage_manager.copy_to_tmp_dir(path.path, tmp_path)
+                stage_manager.copy_to_tmp_dir(source_path.path, tmp_path)
                 self._prepare_profiles_file(profiles_path.path, tmp_path)
                 result_count = len(
                     list(
                         stage_manager.put_recursive(
-                            path.path, stage_name, temp_directory=tmp_path
+                            source_path.path, stage_name, temp_directory=tmp_path
                         )
                     )
                 )
@@ -92,6 +103,8 @@ class DBTManager(SqlExecutionMixin):
             else:
                 query = f"CREATE DBT PROJECT {fqn}"
             query += f"\nFROM {stage_name}"
+            if project_root_path != source_path:
+                query += f"\nPROJECT_ROOT = '{project_root_path.path.relative_to(source_path.path).as_posix()}'"
             return self.execute_query(query)
 
     @staticmethod

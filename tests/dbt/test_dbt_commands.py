@@ -298,7 +298,7 @@ FROM @MockDatabase.MockSchema.dbt_test_dbt_project_stage"""
         )
 
         assert result.exit_code == 1, result.output
-        assert f"profiles.yml does not exist in directory" in result.output
+        assert f"{PROFILES_FILENAME} does not exist in directory" in result.output
         assert mock_connect.mocked_ctx.get_query() == ""
 
     def test_raises_when_profiles_yml_does_not_contain_selected_profile(
@@ -319,6 +319,77 @@ FROM @MockDatabase.MockSchema.dbt_test_dbt_project_stage"""
         assert result.exit_code == 1, result.output
         assert "profile dev is not defined in profiles.yml" in result.output
         assert mock_connect.mocked_ctx.get_query() == ""
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_deploys_project_with_project_root_subdirectory(
+        self,
+        mock_create,
+        mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_exists,
+    ):
+        monorepo_root = dbt_project_path
+        project_dir_path = monorepo_root / "analytics" / "dbt_project"
+        project_dir_path.mkdir(parents=True)
+        for file in monorepo_root.iterdir():
+            if file.is_file():
+                file.rename(project_dir_path / file.name)
+
+        (monorepo_root / "other_project").mkdir()
+        (monorepo_root / "shared_utils").mkdir()
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={monorepo_root}",
+                f"--project-root={project_dir_path}",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == """CREATE DBT PROJECT TEST_PIPELINE
+FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage
+PROJECT_ROOT = 'analytics/dbt_project'"""
+        )
+        stage_fqn = FQN.from_string(f"dbt_TEST_PIPELINE_stage").using_context()
+        mock_create.assert_called_once_with(stage_fqn, temporary=True)
+        mock_put_recursive.assert_called_once()
+
+        # Verify that put_recursive was called with the monorepo root (source), not the project root
+        put_recursive_args = mock_put_recursive.call_args[0]
+        assert str(put_recursive_args[0]) == str(monorepo_root)
+
+    def test_raises_when_project_root_not_subdirectory_of_source(
+        self, tmp_path_factory, mock_connect, runner
+    ):
+        """Test that error is raised when --project-root is not a subdirectory of --source."""
+        # Create two separate directories
+        source_dir = tmp_path_factory.mktemp("source")
+        project_root_dir = tmp_path_factory.mktemp("project_root")
+
+        # Create dbt_project.yml in project_root_dir
+        dbt_project_file = project_root_dir / "dbt_project.yml"
+        dbt_project_file.write_text(yaml.dump({"profile": "dev"}))
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={source_dir}",
+                f"--project-root={project_root_dir}",
+            ]
+        )
+
+        assert result.exit_code == 1, result.output
+        assert "must be the same as or a subdirectory of source" in result.output
 
 
 class TestDBTExecute:
