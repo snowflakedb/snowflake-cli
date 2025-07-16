@@ -33,6 +33,7 @@ def setup(
     github_repository: str = typer.Option(
         ...,
         "--github-repository",
+        show_default=False,
         help="GitHub repository in format 'owner/repo'",
         prompt="Enter GitHub repository (owner/repo)",
     ),
