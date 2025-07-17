@@ -123,7 +123,8 @@ class GitHubOidcProvider(OidcTokenProvider):
 
 class OidcProviderRegistry:
     """
-    Registry for auto-discovering and managing OIDC token providers.
+    Registry for managing OIDC token providers.
+    Handles registration, storage, and retrieval of providers.
     """
 
     def __init__(self):
@@ -170,63 +171,99 @@ class OidcProviderRegistry:
             return provider_class()
         return None
 
-    def get_available_providers(self) -> List[OidcTokenProvider]:
-        """
-        Get all providers that are available in the current environment.
-        """
-        logger.debug("Checking for available OIDC providers")
-        available = []
-        for provider_class in self._providers.values():
-            provider = provider_class()
-            provider_name = provider.provider_name
-            logger.debug("Checking availability of provider: %s", provider_name)
-            if provider.is_available:
-                logger.debug("Provider %s is available", provider_name)
-                available.append(provider)
-            else:
-                logger.debug("Provider %s is not available", provider_name)
-
-        available_names = [p.provider_name for p in available]
-        logger.info(
-            "Found %d available provider(s): %s", len(available), available_names
-        )
-        return available
-
-    def auto_detect_provider(self) -> Optional[OidcTokenProvider]:
-        """
-        Auto-detect the first available provider in the current environment.
-        """
-        for provider in self.get_available_providers():
-            return provider
-        return None
-
-    def list_provider_names(self) -> List[str]:
+    @property
+    def provider_names(self) -> List[str]:
         """
         List all registered provider names.
         """
         return list(self._providers.keys())
+
+    @property
+    def all_providers(self) -> List[OidcTokenProvider]:
+        """
+        Get instances of all registered providers.
+        """
+        return [provider_class() for provider_class in self._providers.values()]
 
 
 # Global registry instance
 _registry = OidcProviderRegistry()
 
 
-def get_oidc_provider(provider_name: str) -> Optional[OidcTokenProvider]:
+def get_oidc_provider(provider_name: str) -> OidcTokenProvider:
     """
     Get a specific OIDC provider by name.
+
+    Args:
+        provider_name: Name of the provider to get
+
+    Returns:
+        The requested OIDC provider instance
+
+    Raises:
+        CliError: If provider is unknown or not available
     """
-    return _registry.get_provider(provider_name)
+    provider = _registry.get_provider(provider_name)
+
+    if not provider:
+        providers_list = ", ".join(_registry.provider_names)
+        raise CliError(
+            "Unknown provider '%s'. Available providers: %s"
+            % (
+                provider_name,
+                providers_list,
+            )
+        )
+
+    if not provider.is_available:
+        raise CliError(
+            "Provider '%s' is not available in the current environment." % provider_name
+        )
+
+    return provider
 
 
-def auto_detect_oidc_provider() -> Optional[OidcTokenProvider]:
+def auto_detect_oidc_provider() -> OidcTokenProvider:
     """
-    Auto-detect the first available OIDC provider in the current environment.
-    """
-    return _registry.auto_detect_provider()
+    Auto-detect a single available OIDC provider in the current environment.
 
+    Returns:
+        The single available OIDC provider
 
-def list_oidc_providers() -> List[str]:
+    Raises:
+        CliError: If no providers are available or multiple providers are available
     """
-    List all registered OIDC provider names.
-    """
-    return _registry.list_provider_names()
+    available = [
+        provider for provider in _registry.all_providers if provider.is_available
+    ]
+    available_names = [p.provider_name for p in available]
+
+    if not available:
+        logger.warning("No OIDC provider detected in current environment")
+        all_providers = _registry.provider_names
+
+        if all_providers:
+            providers_list = ", ".join(all_providers)
+            error_msg = (
+                "No OIDC provider detected in current environment. "
+                "Available providers: %s. "
+                "Use --type <provider> to specify a provider explicitly."
+            ) % providers_list
+            logger.error(error_msg)
+            raise CliError(error_msg)
+        else:
+            error_msg = "No OIDC providers are registered."
+            logger.error(error_msg)
+            raise CliError(error_msg)
+    elif len(available) == 1:
+        logger.info("Found 1 available provider: %s", available_names[0])
+        return available[0]
+    else:
+        # Multiple providers available - raise error
+        providers_list = ", ".join(available_names)
+        error_msg = (
+            "Multiple OIDC providers detected: %s. "
+            "Please specify which provider to use with --type <provider>."
+        ) % providers_list
+        logger.error(error_msg)
+        raise CliError(error_msg)

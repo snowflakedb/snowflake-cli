@@ -38,34 +38,46 @@ class TestWorkloadIdentityManager:
             manager.setup("owner/repo")
 
     def test_read_with_auto_type(self):
-        """Test read method with 'auto' type delegates to _read_auto_detect_token."""
+        """Test read method with auto type delegates to auto_detect_oidc_provider."""
         manager = WorkloadIdentityManager()
 
-        with patch.object(
-            manager, "_read_auto_detect_token", return_value="auto detect result"
-        ) as mock_auto:
+        with patch(
+            "snowflake.cli._plugins.auth.workload_identity.manager.auto_detect_oidc_provider"
+        ) as mock_auto_detect:
+            mock_provider = Mock()
+            mock_provider.provider_name = "github"
+            mock_provider.get_token.return_value = "auto detect result"
+            mock_auto_detect.return_value = mock_provider
+
             result = manager.read("auto")
 
-            mock_auto.assert_called_once()
+            mock_auto_detect.assert_called_once()
+            mock_provider.get_token.assert_called_once()
             assert result == "auto detect result"
 
     def test_read_with_specific_type(self):
-        """Test read method with specific provider type delegates to _read_specific_token."""
+        """Test read method with specific provider type delegates to get_oidc_provider."""
         manager = WorkloadIdentityManager()
 
-        with patch.object(
-            manager, "_read_specific_token", return_value="specific result"
-        ) as mock_specific:
+        with patch(
+            "snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider"
+        ) as mock_get_provider:
+            mock_provider = Mock()
+            mock_provider.provider_name = "github"
+            mock_provider.get_token.return_value = "specific result"
+            mock_get_provider.return_value = mock_provider
+
             result = manager.read(OidcProviderType.GITHUB.value)
 
-            mock_specific.assert_called_once_with(OidcProviderType.GITHUB.value)
+            mock_get_provider.assert_called_once_with(OidcProviderType.GITHUB.value)
+            mock_provider.get_token.assert_called_once()
             assert result == "specific result"
 
     @patch(
         "snowflake.cli._plugins.auth.workload_identity.manager.auto_detect_oidc_provider"
     )
     def test_read_auto_detect_token_success(self, mock_auto_detect):
-        """Test _read_auto_detect_token when provider is available and working."""
+        """Test read with auto when provider is available and working."""
         # Create mock provider
         mock_provider = Mock()
         mock_provider.provider_name = OidcProviderType.GITHUB.value
@@ -74,18 +86,17 @@ class TestWorkloadIdentityManager:
         mock_auto_detect.return_value = mock_provider
 
         manager = WorkloadIdentityManager()
-        result = manager._read_auto_detect_token()  # noqa: SLF001
+        result = manager.read("auto")
 
         mock_auto_detect.assert_called_once()
         mock_provider.get_token.assert_called_once()
-
         assert result == "mock_token"
 
     @patch(
         "snowflake.cli._plugins.auth.workload_identity.manager.auto_detect_oidc_provider"
     )
     def test_read_auto_detect_token_success_no_info(self, mock_auto_detect):
-        """Test _read_auto_detect_token when provider works but has no token info."""
+        """Test read with auto when provider works but has no token info."""
         # Create mock provider with no token info
         mock_provider = Mock()
         mock_provider.provider_name = OidcProviderType.GITHUB.value
@@ -95,55 +106,35 @@ class TestWorkloadIdentityManager:
         mock_auto_detect.return_value = mock_provider
 
         manager = WorkloadIdentityManager()
-        result = manager._read_auto_detect_token()  # noqa: SLF001
+        result = manager.read("auto")
 
+        mock_auto_detect.assert_called_once()
+        mock_provider.get_token.assert_called_once()
         assert result == "mock_token"
 
-    @patch("snowflake.cli._plugins.auth.workload_identity.manager.list_oidc_providers")
     @patch(
         "snowflake.cli._plugins.auth.workload_identity.manager.auto_detect_oidc_provider"
     )
     def test_read_auto_detect_token_no_provider_with_available_providers(
-        self, mock_auto_detect, mock_list_providers
+        self, mock_auto_detect
     ):
-        """Test _read_auto_detect_token when no provider detected but providers are registered."""
-        mock_auto_detect.return_value = None
-        mock_list_providers.return_value = [
-            OidcProviderType.GITHUB.value,
-            "other_provider",
-        ]
+        """Test read with auto when no provider detected but providers are registered."""
+        mock_auto_detect.side_effect = CliError(
+            "No OIDC provider detected in current environment. Available providers: github, other_provider. Use --type <provider> to specify a provider explicitly."
+        )
 
         manager = WorkloadIdentityManager()
 
         with pytest.raises(
             CliError, match="No OIDC provider detected in current environment"
         ):
-            manager._read_auto_detect_token()  # noqa: SLF001
-
-        mock_auto_detect.assert_called_once()
-        mock_list_providers.assert_called_once()
-
-    @patch("snowflake.cli._plugins.auth.workload_identity.manager.list_oidc_providers")
-    @patch(
-        "snowflake.cli._plugins.auth.workload_identity.manager.auto_detect_oidc_provider"
-    )
-    def test_read_auto_detect_token_no_provider_no_providers_registered(
-        self, mock_auto_detect, mock_list_providers
-    ):
-        """Test _read_auto_detect_token when no provider detected and no providers registered."""
-        mock_auto_detect.return_value = None
-        mock_list_providers.return_value = []
-
-        manager = WorkloadIdentityManager()
-
-        with pytest.raises(CliError, match="No OIDC providers are registered"):
-            manager._read_auto_detect_token()  # noqa: SLF001
+            manager.read("auto")
 
     @patch(
         "snowflake.cli._plugins.auth.workload_identity.manager.auto_detect_oidc_provider"
     )
     def test_read_auto_detect_token_provider_fails(self, mock_auto_detect):
-        """Test _read_auto_detect_token when provider fails to get token."""
+        """Test read with auto when provider fails to get token."""
         mock_provider = Mock()
         mock_provider.provider_name = OidcProviderType.GITHUB.value
         mock_provider.get_token.side_effect = Exception("Token retrieval failed")
@@ -156,11 +147,11 @@ class TestWorkloadIdentityManager:
             CliError,
             match=f"Failed to retrieve token from {OidcProviderType.GITHUB.value}: Token retrieval failed",
         ):
-            manager._read_auto_detect_token()  # noqa: SLF001
+            manager.read("auto")
 
     @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
     def test_read_specific_token_success(self, mock_get_provider):
-        """Test _read_specific_token when provider exists and works."""
+        """Test read with specific provider when provider exists and works."""
         # Create mock provider
         mock_provider = Mock()
         mock_provider.provider_name = OidcProviderType.GITHUB.value
@@ -170,43 +161,30 @@ class TestWorkloadIdentityManager:
         mock_get_provider.return_value = mock_provider
 
         manager = WorkloadIdentityManager()
-        result = manager._read_specific_token(  # noqa: SLF001
-            OidcProviderType.GITHUB.value
-        )  # noqa: SLF001
+        result = manager.read(OidcProviderType.GITHUB.value)
 
         mock_get_provider.assert_called_once_with(OidcProviderType.GITHUB.value)
         mock_provider.get_token.assert_called_once()
-
         assert result == "mock_token"
 
-    @patch("snowflake.cli._plugins.auth.workload_identity.manager.list_oidc_providers")
     @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
-    def test_read_specific_token_provider_not_found(
-        self, mock_get_provider, mock_list_providers
-    ):
-        """Test _read_specific_token when provider doesn't exist."""
-        mock_get_provider.return_value = None
-        mock_list_providers.return_value = [
-            OidcProviderType.GITHUB.value,
-            "other_provider",
-        ]
+    def test_read_specific_token_provider_not_found(self, mock_get_provider):
+        """Test read with specific provider when provider doesn't exist."""
+        mock_get_provider.side_effect = CliError(
+            "Unknown provider 'unknown_provider'. Available providers: github, other_provider"
+        )
 
         manager = WorkloadIdentityManager()
 
         with pytest.raises(CliError, match="Unknown provider 'unknown_provider'"):
-            manager._read_specific_token("unknown_provider")  # noqa: SLF001
-
-        mock_get_provider.assert_called_once_with("unknown_provider")
-        mock_list_providers.assert_called_once()
+            manager.read("unknown_provider")
 
     @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
     def test_read_specific_token_provider_not_available(self, mock_get_provider):
-        """Test _read_specific_token when provider exists but is not available."""
-        mock_provider = Mock()
-        mock_provider.provider_name = OidcProviderType.GITHUB.value
-        mock_provider.is_available = False
-
-        mock_get_provider.return_value = mock_provider
+        """Test read with specific provider when provider exists but is not available."""
+        mock_get_provider.side_effect = CliError(
+            f"Provider '{OidcProviderType.GITHUB.value}' is not available in the current environment."
+        )
 
         manager = WorkloadIdentityManager()
 
@@ -214,13 +192,11 @@ class TestWorkloadIdentityManager:
             CliError,
             match=f"Provider '{OidcProviderType.GITHUB.value}' is not available in the current environment",
         ):
-            manager._read_specific_token(OidcProviderType.GITHUB.value)  # noqa: SLF001
-
-        mock_get_provider.assert_called_once_with(OidcProviderType.GITHUB.value)
+            manager.read(OidcProviderType.GITHUB.value)
 
     @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
     def test_read_specific_token_provider_fails(self, mock_get_provider):
-        """Test _read_specific_token when provider exists but fails to get token."""
+        """Test read with specific provider when provider exists but fails to get token."""
         mock_provider = Mock()
         mock_provider.provider_name = OidcProviderType.GITHUB.value
         mock_provider.is_available = True
@@ -234,7 +210,7 @@ class TestWorkloadIdentityManager:
             CliError,
             match=f"Failed to retrieve token from {OidcProviderType.GITHUB.value}: Token retrieval failed",
         ):
-            manager._read_specific_token(OidcProviderType.GITHUB.value)  # noqa: SLF001
+            manager.read(OidcProviderType.GITHUB.value)
 
     def test_manager_inherits_from_sql_execution_mixin(self):
         """Test that WorkloadIdentityManager inherits from SqlExecutionMixin."""
@@ -248,9 +224,15 @@ class TestWorkloadIdentityManager:
         manager = WorkloadIdentityManager()
 
         # Test with empty string (should be treated as specific provider)
-        with patch.object(
-            manager, "_read_specific_token", return_value="empty result"
-        ) as mock_specific:
+        with patch(
+            "snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider"
+        ) as mock_get_provider:
+            mock_provider = Mock()
+            mock_provider.provider_name = "empty"
+            mock_provider.get_token.return_value = "empty result"
+            mock_get_provider.return_value = mock_provider
+
             result = manager.read("")
-            mock_specific.assert_called_once_with("")
+            mock_get_provider.assert_called_once_with("")
+            mock_provider.get_token.assert_called_once()
             assert result == "empty result"
