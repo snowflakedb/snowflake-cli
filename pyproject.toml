@@ -27,7 +27,7 @@ readme = "README.md"
 dependencies = [
   # Actual project dependencies, from which we generate [project.dependencies] section serving as a lockfile for PyPi
   "click==8.1.8",
-  "cryptography<45.0.5",
+  "cryptography<=45.0.3",
   "GitPython==3.1.44",
   "PyYAML==6.0.2",
   "id==1.5.0",
@@ -70,7 +70,7 @@ dependencies = [
   'cfgv==3.4.0',
   'charset-normalizer==3.4.2',
   'click==8.1.8',
-  'cryptography<45.0.5',
+  'cryptography<=45.0.3',
   'execnet==2.1.1',
   'faker==37.4.0',
   'filelock==3.18.0',
