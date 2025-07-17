@@ -14,7 +14,7 @@
 
 import logging
 
-from snowflake.cli._plugins.auth.workload_identity.oidc_providers import (
+from snowflake.cli._app.auth.oidc_providers import (
     auto_detect_oidc_provider,
     get_oidc_provider,
 )
