@@ -17,7 +17,6 @@ import logging
 from snowflake.cli._plugins.auth.workload_identity.oidc_providers import (
     auto_detect_oidc_provider,
     get_oidc_provider,
-    list_oidc_providers,
 )
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -70,52 +69,17 @@ class WorkloadIdentityManager(SqlExecutionMixin):
         logger.info("Reading OIDC token with provider type: %s", provider_type)
 
         if provider_type == "auto":
-            logger.debug("Using auto-detection for OIDC token")
-            return self._read_auto_detect_token()
+            provider = auto_detect_oidc_provider()
         else:
             logger.debug("Using specific provider for OIDC token: %s", provider_type)
-            return self._read_specific_token(provider_type)
+            provider = get_oidc_provider(provider_type)
 
-    def _read_auto_detect_token(self) -> str:
-        """
-        Auto-detects and reads OIDC token from available providers.
-
-        Returns:
-            The OIDC token string
-
-        Raises:
-            CliError: If no providers are available or token cannot be retrieved
-        """
-        logger.debug("Starting auto-detection of OIDC providers")
-        provider = auto_detect_oidc_provider()
-
-        if not provider:
-            logger.warning("No OIDC provider detected in current environment")
-            available_providers = list_oidc_providers()
-            logger.debug("Available providers: %s", available_providers)
-
-            if available_providers:
-                providers_list = ", ".join(available_providers)
-                error_msg = (
-                    "No OIDC provider detected in current environment. "
-                    "Available providers: %s. "
-                    "Use --type <provider> to specify a provider explicitly."
-                ) % providers_list
-                logger.error(error_msg)
-                raise CliError(error_msg)
-            else:
-                error_msg = "No OIDC providers are registered."
-                logger.error(error_msg)
-                raise CliError(error_msg)
-
-        logger.info("Auto-detected OIDC provider: %s", provider.provider_name)
-
+        # Read token from provider with exception handling
         try:
             logger.debug("Retrieving token from provider: %s", provider.provider_name)
             token = provider.get_token()
-
             logger.info(
-                "Successfully retrieved OIDC token via auto-detection from provider: %s",
+                "Successfully retrieved OIDC token from provider: %s",
                 provider.provider_name,
             )
             return token
@@ -124,57 +88,5 @@ class WorkloadIdentityManager(SqlExecutionMixin):
                 provider.provider_name,
                 str(e),
             )
-            logger.error(error_msg)
-            raise CliError(error_msg)
-
-    def _read_specific_token(self, provider_name: str) -> str:
-        """
-        Reads OIDC token from a specific provider.
-
-        Args:
-            provider_name: Name of the provider to use
-
-        Returns:
-            The OIDC token string
-
-        Raises:
-            CliError: If provider is unknown, unavailable, or token cannot be retrieved
-        """
-        logger.debug("Reading OIDC token from specific provider: %s", provider_name)
-        provider = get_oidc_provider(provider_name)
-
-        if not provider:
-            logger.warning("Provider '%s' not found", provider_name)
-            available_providers = list_oidc_providers()
-            logger.debug("Available providers: %s", available_providers)
-            providers_list = ", ".join(available_providers)
-            error_msg = "Unknown provider '%s'. Available providers: %s" % (
-                provider_name,
-                providers_list,
-            )
-            logger.error(error_msg)
-            raise CliError(error_msg)
-
-        logger.debug("Checking availability of provider: %s", provider_name)
-        if not provider.is_available:
-            error_msg = (
-                "Provider '%s' is not available in the current environment."
-                % provider_name
-            )
-            logger.error(error_msg)
-            raise CliError(error_msg)
-
-        logger.info("Using provider: %s", provider_name)
-
-        try:
-            logger.debug("Retrieving token from provider: %s", provider_name)
-            token = provider.get_token()
-
-            logger.info(
-                "Successfully retrieved OIDC token from provider: %s", provider_name
-            )
-            return token
-        except Exception as e:
-            error_msg = "Failed to retrieve token from %s: %s" % (provider_name, str(e))
             logger.error(error_msg)
             raise CliError(error_msg)
