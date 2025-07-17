@@ -16,7 +16,7 @@ import os
 from unittest.mock import Mock, patch
 
 import pytest
-from snowflake.cli._plugins.auth.workload_identity.oidc_providers import (
+from snowflake.cli._app.auth.oidc_providers import (
     GitHubOidcProvider,
     OidcProviderRegistry,
     OidcProviderType,
@@ -54,7 +54,7 @@ class TestGitHubOidcProvider:
         provider = GitHubOidcProvider()
         assert provider.is_available is False
 
-    @patch("snowflake.cli._plugins.auth.workload_identity.oidc_providers.oidc_id")
+    @patch("snowflake.cli._app.auth.oidc_providers.oidc_id")
     def test_get_token_success(self, mock_oidc_id):
         """Test get_token when credentials are available."""
         mock_oidc_id.detect_credential.return_value = "mock_token"
@@ -65,7 +65,7 @@ class TestGitHubOidcProvider:
         assert token == "mock_token"
         mock_oidc_id.detect_credential.assert_called_once_with("snowflakecomputing.com")
 
-    @patch("snowflake.cli._plugins.auth.workload_identity.oidc_providers.oidc_id")
+    @patch("snowflake.cli._app.auth.oidc_providers.oidc_id")
     def test_get_token_no_credentials(self, mock_oidc_id):
         """Test get_token when no credentials are detected."""
         mock_oidc_id.detect_credential.return_value = None
@@ -75,7 +75,7 @@ class TestGitHubOidcProvider:
         with pytest.raises(CliError, match="No OIDC credentials detected"):
             provider.get_token()
 
-    @patch("snowflake.cli._plugins.auth.workload_identity.oidc_providers.oidc_id")
+    @patch("snowflake.cli._app.auth.oidc_providers.oidc_id")
     def test_get_token_exception(self, mock_oidc_id):
         """Test get_token when an exception occurs."""
         mock_oidc_id.detect_credential.side_effect = Exception("Detection failed")
@@ -85,7 +85,7 @@ class TestGitHubOidcProvider:
         with pytest.raises(CliError, match="Failed to detect OIDC credentials"):
             provider.get_token()
 
-    @patch("snowflake.cli._plugins.auth.workload_identity.oidc_providers.oidc_id")
+    @patch("snowflake.cli._app.auth.oidc_providers.oidc_id")
     def test_get_token_import_error(self, mock_oidc_id):
         """Test get_token when import fails."""
         mock_oidc_id.detect_credential.side_effect = ImportError("Module not found")
@@ -230,9 +230,7 @@ class TestModuleFunctions:
                 return "mock_token"
 
         # Mock the registry to return multiple available providers
-        with patch(
-            "snowflake.cli._plugins.auth.workload_identity.oidc_providers._registry"
-        ) as mock_registry:
+        with patch("snowflake.cli._app.auth.oidc_providers._registry") as mock_registry:
             # Create mock providers
             github_provider = Mock()
             github_provider.provider_name = "github"
