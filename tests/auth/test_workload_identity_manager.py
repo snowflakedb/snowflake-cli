@@ -15,11 +15,11 @@
 from unittest.mock import Mock, patch
 
 import pytest
+from snowflake.cli._app.auth.oidc_providers import (
+    OidcProviderType,
+)
 from snowflake.cli._plugins.auth.workload_identity.manager import (
     WorkloadIdentityManager,
-)
-from snowflake.cli._plugins.auth.workload_identity.oidc_providers import (
-    OidcProviderType,
 )
 from snowflake.cli.api.exceptions import CliError
 

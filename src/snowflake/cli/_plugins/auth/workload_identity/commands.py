@@ -13,11 +13,11 @@
 # limitations under the License.
 
 import typer
+from snowflake.cli._app.auth.oidc_providers import (
+    OidcProviderType,
+)
 from snowflake.cli._plugins.auth.workload_identity.manager import (
     WorkloadIdentityManager,
-)
-from snowflake.cli._plugins.auth.workload_identity.oidc_providers import (
-    OidcProviderType,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import MessageResult
