@@ -68,9 +68,13 @@ class ContainerRuntimeManager(SqlExecutionMixin):
         else:
             name = f"{self.DEFAULT_SERVICE_PREFIX}_{name}"
 
+        cc.step(f"Using service name: {name}")
+
         # Use default compute pool if not provided
         if not compute_pool:
             compute_pool = self.DEFAULT_COMPUTE_POOL
+
+        cc.step(f"Using compute pool: {compute_pool}")
 
         # Use current warehouse if not provided
         if not warehouse:
@@ -95,6 +99,7 @@ class ContainerRuntimeManager(SqlExecutionMixin):
 
         # Generate a service specification
         spec = self._generate_service_spec(
+            compute_pool=compute_pool,
             persistent_storage=persistent_storage,
             storage_size=storage_size,
             external_access=external_access,
@@ -152,6 +157,7 @@ QUERY_WAREHOUSE = {warehouse}
 
     def _generate_service_spec(
         self,
+        compute_pool: str,
         persistent_storage: bool = False,
         storage_size: int = DEFAULT_STORAGE_SIZE_GB,
         external_access: bool = False,
@@ -187,7 +193,7 @@ QUERY_WAREHOUSE = {warehouse}
         # Generate service spec
         spec = generate_service_spec(
             session=session,
-            compute_pool=self.DEFAULT_COMPUTE_POOL,  # This will be overridden in the create method
+            compute_pool=compute_pool,
             payload=uploaded_payload,
             persistent_storage=persistent_storage,
             storage_size=storage_size,
@@ -210,13 +216,14 @@ QUERY_WAREHOUSE = {warehouse}
             cc.step(f"Service status for {service_name}: {status_row}")
             if status_row:
                 status_dict = json.loads(status_row[0])
-                status = status_dict[0]["status"]
-                if status == "READY":
-                    return True
-                elif status in ["FAILED", "UNKNOWN"]:
-                    raise RuntimeError(
-                        f"Service {service_name} failed to start with status: {status}"
-                    )
+                if status_dict:
+                    status = status_dict[0]["status"]
+                    if status == "READY":
+                        return True
+                    elif status in ["FAILED", "UNKNOWN"]:
+                        raise RuntimeError(
+                            f"Service {service_name} failed to start with status: {status}"
+                        )
 
             # Wait before checking again
             time.sleep(5)
@@ -237,6 +244,22 @@ QUERY_WAREHOUSE = {warehouse}
     def get_service_endpoint_url(self, service_name: str) -> str:
         """Get the public URL for the VS Code endpoint of a service."""
         return self._get_service_endpoint_url(service_name)
+
+    def get_public_endpoint_urls(self, service_name: str) -> dict:
+        """Get all public endpoint URLs for a service."""
+        service_manager = ServiceManager()
+        endpoints_cursor = service_manager.list_endpoints(service_name)
+
+        public_endpoints = {}
+        for endpoint in endpoints_cursor:
+            endpoint_name = endpoint[0]
+            endpoint_url = endpoint[5] if len(endpoint) > 5 else None
+
+            # Only include endpoints that have URLs (public endpoints)
+            if endpoint_url:
+                public_endpoints[endpoint_name] = endpoint_url
+
+        return public_endpoints
 
     def list_services(self):
         """List all container runtime services."""

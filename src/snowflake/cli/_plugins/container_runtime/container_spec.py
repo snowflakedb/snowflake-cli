@@ -157,13 +157,14 @@ def generate_service_spec(
     image_spec = _get_image_spec(session, compute_pool)
 
     # Set resource requests/limits
+    # TODO: This is a temporary fix to SPCS preprod8 bug to ensure the container has enough memory.
     resource_requests: Dict[str, Union[str, int]] = {
-        "cpu": f"{int(image_spec.resource_requests.cpu * 1000)}m",
-        "memory": f"{image_spec.resource_limits.memory}Gi",
+        "cpu": f"{int((image_spec.resource_requests.cpu - 1) * 1000)}m",
+        "memory": f"{image_spec.resource_limits.memory * 0.9}Gi",
     }
     resource_limits: Dict[str, Union[str, int]] = {
-        "cpu": f"{int(image_spec.resource_requests.cpu * 1000)}m",
-        "memory": f"{image_spec.resource_limits.memory}Gi",
+        "cpu": f"{int((image_spec.resource_requests.cpu - 1) * 1000)}m",
+        "memory": f"{image_spec.resource_limits.memory * 0.9}Gi",
     }
 
     # Add GPU resources if applicable
