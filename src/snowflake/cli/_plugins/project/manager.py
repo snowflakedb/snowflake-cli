@@ -38,6 +38,10 @@ class ProjectManager(SqlExecutionMixin):
         dry_run: bool = False,
     ):
         query = f"EXECUTE PROJECT {project_name.sql_identifier}"
+        if dry_run:
+            query += " PLAN"
+        else:
+            query += " DEPLOY"
         if configuration or variables:
             query += f" USING"
         if configuration:
@@ -51,8 +55,7 @@ class ProjectManager(SqlExecutionMixin):
         elif from_stage:
             stage_path = StagePath.from_stage_str(from_stage)
             query += f" FROM {stage_path.absolute_path()}"
-        if dry_run:
-            query += " DRY_RUN=TRUE"
+
         return self.execute_query(query=query)
 
     def _create_object(self, project_name: FQN) -> SnowflakeCursor:
