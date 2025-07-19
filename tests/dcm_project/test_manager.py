@@ -45,7 +45,7 @@ def test_add_version(
         )
 
     mock_execute_query.assert_called_once_with(
-        query=f"ALTER PROJECT project_mock_fqn ADD VERSION FROM @{expected_stage}"
+        query=f"ALTER DCM PROJECT project_mock_fqn ADD VERSION FROM @{expected_stage}"
     )
 
 
@@ -57,7 +57,7 @@ def test_create_version(mock_execute_query, stage_name):
         project_name=TEST_PROJECT, from_stage=stage_name, alias="v1", comment="fancy"
     )
     mock_execute_query.assert_called_once_with(
-        query=f"ALTER PROJECT my_project ADD VERSION IF NOT EXISTS v1 FROM @stage_foo COMMENT = 'fancy'"
+        query=f"ALTER DCM PROJECT my_project ADD VERSION IF NOT EXISTS v1 FROM @stage_foo COMMENT = 'fancy'"
     )
 
 
@@ -68,7 +68,7 @@ def test_create_version_no_alias(mock_execute_query):
         project_name=TEST_PROJECT, from_stage="@stage_foo"
     )
     mock_execute_query.assert_called_once_with(
-        query="ALTER PROJECT my_project ADD VERSION FROM @stage_foo"
+        query="ALTER DCM PROJECT my_project ADD VERSION FROM @stage_foo"
     )
 
 
@@ -87,14 +87,14 @@ def test_create(mock_sync_artifacts, mock_execute_query, initialize_version):
     if initialize_version:
         mock_sync_artifacts.assert_called_once()
         assert mock_execute_query.mock_calls == [
-            mock.call("CREATE PROJECT IDENTIFIER('project_mock_fqn')"),
+            mock.call("CREATE DCM PROJECT IDENTIFIER('project_mock_fqn')"),
             mock.call(
-                query="ALTER PROJECT project_mock_fqn ADD VERSION FROM @mock_stage_name"
+                query="ALTER DCM PROJECT project_mock_fqn ADD VERSION FROM @mock_stage_name"
             ),
         ]
     else:
         mock_execute_query.assert_called_once_with(
-            "CREATE PROJECT IDENTIFIER('project_mock_fqn')"
+            "CREATE DCM PROJECT IDENTIFIER('project_mock_fqn')"
         )
         mock_sync_artifacts.assert_not_called()
 
@@ -110,7 +110,7 @@ def test_execute_project(mock_execute_query):
     )
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
         " (key=>value, aaa=>bbb) WITH VERSION v42"
     )
 
@@ -126,7 +126,7 @@ def test_execute_project_with_from_stage(mock_execute_query):
     )
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
         " (key=>value, aaa=>bbb) FROM @my_stage"
     )
 
@@ -142,7 +142,7 @@ def test_execute_project_with_from_stage_without_prefix(mock_execute_query):
     )
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
         " (key=>value, aaa=>bbb) FROM @my_stage"
     )
 
@@ -154,7 +154,7 @@ def test_execute_project_with_default_version(mock_execute_query, project_direct
     mgr.execute(project_name=TEST_PROJECT, version=None)
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE PROJECT IDENTIFIER('my_project')"
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project')"
     )
 
 
@@ -169,7 +169,7 @@ def test_validate_project(mock_execute_query, project_directory):
     )
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
         " WITH VERSION v42 DRY_RUN=TRUE"
     )
 
@@ -185,7 +185,7 @@ def test_validate_project_with_from_stage(mock_execute_query, project_directory)
     )
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') USING CONFIGURATION some_configuration"
         " FROM @my_stage DRY_RUN=TRUE"
     )
 
@@ -196,7 +196,7 @@ def test_list_versions(mock_execute_query):
     mgr.list_versions(project_name=TEST_PROJECT)
 
     mock_execute_query.assert_called_once_with(
-        query="SHOW VERSIONS IN PROJECT my_project"
+        query="SHOW VERSIONS IN DCM PROJECT my_project"
     )
 
 
@@ -206,7 +206,7 @@ def test_drop_version(mock_execute_query, if_exists):
     mgr = ProjectManager()
     mgr.drop_version(project_name=TEST_PROJECT, version_name="v1", if_exists=if_exists)
 
-    expected_query = "ALTER PROJECT my_project DROP VERSION"
+    expected_query = "ALTER DCM PROJECT my_project DROP VERSION"
     if if_exists:
         expected_query += " IF EXISTS"
     expected_query += " v1"

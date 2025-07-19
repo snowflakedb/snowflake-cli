@@ -47,15 +47,9 @@ from snowflake.cli.api.output.types import (
     QueryResult,
 )
 
-
-def _warn_deprecated_project_command():
-    """Issue a deprecation warning for project commands."""
-    cli_console.warning("The 'project' command group is deprecated. Use 'dcm' instead.")
-
-
 app = SnowTyperFactory(
-    name="project",
-    help="Manages projects in Snowflake. (Deprecated: use 'dcm' instead)",
+    name="dcm",
+    help="Manages DCM projects in Snowflake.",
     is_hidden=FeatureFlag.ENABLE_SNOWFLAKE_PROJECTS.is_disabled,
 )
 
@@ -108,7 +102,6 @@ def execute(
     """
     Executes a project.
     """
-    _warn_deprecated_project_command()
     if version and from_stage:
         raise CliError("--version and --from are mutually exclusive.")
 
@@ -136,7 +129,6 @@ def dry_run(
     """
     Validates a project.
     """
-    _warn_deprecated_project_command()
     if version and from_stage:
         raise CliError("--version and --from are mutually exclusive.")
 
@@ -169,7 +161,6 @@ def create(
     Creates a project in Snowflake.
     By default, the project is initialized with a new version created from local files.
     """
-    _warn_deprecated_project_command()
     cli_context = get_cli_context()
     project: ProjectEntityModel = get_entity_for_operation(
         cli_context=cli_context,
@@ -217,7 +208,6 @@ def add_version(
     **options,
 ):
     """Uploads local files to Snowflake and cerates a new project version."""
-    _warn_deprecated_project_command()
     if _from is not None and prune:
         cli_console.warning(
             "When `--from` option is used, `--prune` option will be ignored and files from stage will be used as they are."
@@ -233,7 +223,7 @@ def add_version(
     om = ObjectManager()
     if not om.object_exists(object_type="project", fqn=project.fqn):
         raise CliError(
-            f"Project '{project.fqn}' does not exist. Use `project create` command first."
+            f"Project '{project.fqn}' does not exist. Use `dcm create` command first."
         )
     ProjectManager().add_version(
         project=project,
@@ -256,7 +246,6 @@ def list_versions(
     """
     Lists versions of given project.
     """
-    _warn_deprecated_project_command()
     pm = ProjectManager()
     results = pm.list_versions(project_name=identifier)
     return QueryResult(results)
@@ -275,7 +264,6 @@ def drop_version(
     """
     Drops a version from the project.
     """
-    _warn_deprecated_project_command()
     # Detect potential shell expansion issues
     if version_name and version_name.upper() == "VERSION":
         cli_console.warning(
