@@ -69,6 +69,9 @@ loginfo "---------------------------------"
 
 echo "--- build binary ---"
 
+# Set Rust compiler flags for broader CPU compatibility
+export RUSTFLAGS="-C target-cpu=generic"
+
 clean_build_workspace
 hatch -e packaging run build-isolated-binary
 create_app_template

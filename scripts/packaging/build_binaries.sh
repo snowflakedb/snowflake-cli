@@ -10,6 +10,11 @@ DIST_DIR="${ROOT_DIR}/dist"
 
 VERSION=$(hatch version)
 
+# Set Rust compiler flags for broader CPU compatibility
+# Use generic x86-64 baseline to ensure compatibility with older processors
+# This avoids newer instructions that may not be available on older CPUs
+export RUSTFLAGS="-C target-cpu=generic"
+
 install_cargo() {
   curl https://sh.rustup.rs -sSf > rustup-init.sh
   bash rustup-init.sh -y

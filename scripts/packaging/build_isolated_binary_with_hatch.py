@@ -147,6 +147,12 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_FULL_ISOLATION"] = "1"
     os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = str(python_path)
     os.environ["PYAPP_DISTRIBUTION_PIP_AVAILABLE"] = "1"
+
+    # Set Rust compiler flags for broader CPU compatibility
+    # Use generic CPU target to ensure compatibility with older processors
+    # This avoids newer instructions that may not be available on Intel Xeon E5-2680 v2 (2013)
+    os.environ["RUSTFLAGS"] = "-C target-cpu=generic"
+
     completed_proc = subprocess.run(
         ["hatch", "build", "-t", "binary"], capture_output=True
     )

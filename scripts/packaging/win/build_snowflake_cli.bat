@@ -21,6 +21,7 @@ RMDIR /S /Q dist
 DEL /Q *.wixobj
 
 @echo on
+set RUSTFLAGS=-C target-cpu=generic
 python.exe -m hatch -e packaging run build-isolated-binary
 dir dist\binary
 
