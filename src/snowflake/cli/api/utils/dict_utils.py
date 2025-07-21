@@ -82,7 +82,7 @@ def remove_key_from_nested_dict_if_exists(d: _NestedDict, keys: List[str]) -> bo
     Removes all parents that become empty.
 
     :return: True if the key was removed, False if it did not exist.
-    :raises ValueError: If a key in the path does not point to a dictionary.
+    :raises ValueError: If a key in the path, besides the last one, was present but did not point to a dictionary.
     """
     path_to_target = [d]
     for key in keys[:-1]:
