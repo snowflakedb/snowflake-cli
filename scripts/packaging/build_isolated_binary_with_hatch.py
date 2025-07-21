@@ -108,9 +108,10 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     # These older releases tend to use more conservative CPU optimizations
     if python_version == "3.10":
         # Use release from mid-2022 which should be more conservative
+        # Updated URL for Astral's python-build-standalone
         os.environ[
             "HATCH_PYTHON_SOURCE_3_10"
-        ] = "https://github.com/indygreg/python-build-standalone/releases/download/20220802/cpython-3.10.6+20220802-x86_64-unknown-linux-gnu-install_only.tar.gz"
+        ] = "https://github.com/astral-sh/python-build-standalone/releases/download/20220802/cpython-3.10.6+20220802-x86_64-unknown-linux-gnu-install_only.tar.gz"
 
     # Also try setting PY_PYTHON_INSTALL_SOURCE for additional compatibility
     os.environ["PY_PYTHON_INSTALL_SOURCE"] = "build-standalone"
