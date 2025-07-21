@@ -10,14 +10,14 @@ DIST_DIR="${ROOT_DIR}/dist"
 
 VERSION=$(hatch version)
 
-# Set Rust compiler flags for broader CPU compatibility
-# Use generic x86-64 baseline to ensure compatibility with older processors
-# This avoids newer instructions that may not be available on older CPUs
-export RUSTFLAGS="-C target-cpu=generic"
+# Set Rust compiler flags for maximum CPU compatibility
+# Use x86-64 baseline instruction set (2003+) to ensure compatibility with all x86-64 processors
+# This is the most conservative setting that avoids newer instructions like AVX, BMI, etc.
+export RUSTFLAGS="-C target-feature=-crt-static -C target-cpu=x86-64"
 
 # Configure Python distribution source for better CPU compatibility
-# Use python-build-standalone distributions which are more conservatively compiled
-export HATCH_PYTHON_SOURCE_3_10="https://github.com/indygreg/python-build-standalone/releases/download/20241002/cpython-3.10.15+20241002-x86_64-unknown-linux-gnu-install_only.tar.gz"
+# Use older python-build-standalone distributions which are more conservatively compiled
+export HATCH_PYTHON_SOURCE_3_10="https://github.com/indygreg/python-build-standalone/releases/download/20220802/cpython-3.10.6+20220802-x86_64-unknown-linux-gnu-install_only.tar.gz"
 
 install_cargo() {
   curl https://sh.rustup.rs -sSf > rustup-init.sh

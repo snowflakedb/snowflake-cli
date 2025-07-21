@@ -69,8 +69,8 @@ loginfo "---------------------------------"
 
 echo "--- build binary ---"
 
-# Set Rust compiler flags for broader CPU compatibility
-export RUSTFLAGS="-C target-cpu=generic"
+# Set Rust compiler flags for maximum CPU compatibility
+export RUSTFLAGS="-C target-feature=-crt-static -C target-cpu=x86-64"
 
 clean_build_workspace
 hatch -e packaging run build-isolated-binary

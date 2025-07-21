@@ -101,15 +101,19 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     """Install Python dist into temp dir for bundling."""
 
     # Set environment variables to use more compatible Python distributions
-    # Use Python.org distributions which are typically more conservative with CPU optimizations
+    # Use older python-build-standalone distributions that were compiled more conservatively
     python_version_env = python_version.replace(".", "_").upper()
 
-    # For Python 3.10, use the official python.org distribution
-    # These are compiled with broader CPU compatibility
+    # For Python 3.10, use an older python-build-standalone release that is more CPU-conservative
+    # These older releases tend to use more conservative CPU optimizations
     if python_version == "3.10":
+        # Use release from mid-2022 which should be more conservative
         os.environ[
             "HATCH_PYTHON_SOURCE_3_10"
-        ] = "https://github.com/indygreg/python-build-standalone/releases/download/20241002/cpython-3.10.15+20241002-x86_64-unknown-linux-gnu-install_only.tar.gz"
+        ] = "https://github.com/indygreg/python-build-standalone/releases/download/20220802/cpython-3.10.6+20220802-x86_64-unknown-linux-gnu-install_only.tar.gz"
+
+    # Also try setting PY_PYTHON_INSTALL_SOURCE for additional compatibility
+    os.environ["PY_PYTHON_INSTALL_SOURCE"] = "build-standalone"
 
     completed_proc = subprocess.run(
         [
@@ -160,10 +164,11 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = str(python_path)
     os.environ["PYAPP_DISTRIBUTION_PIP_AVAILABLE"] = "1"
 
-    # Set Rust compiler flags for broader CPU compatibility
-    # Use generic CPU target to ensure compatibility with older processors
-    # This avoids newer instructions that may not be available on Intel Xeon E5-2680 v2 (2013)
-    os.environ["RUSTFLAGS"] = "-C target-cpu=generic"
+    # Set Rust compiler flags for maximum CPU compatibility
+    # Use x86-64-v1 baseline instruction set (2003+) to ensure compatibility with all x86-64 processors
+    # This is the most conservative setting that avoids newer instructions like AVX, BMI, etc.
+    # Compatible with Intel Xeon E5-2680 v2 (2013) and virtually all x86-64 CPUs
+    os.environ["RUSTFLAGS"] = "-C target-feature=-crt-static -C target-cpu=x86-64"
 
     completed_proc = subprocess.run(
         ["hatch", "build", "-t", "binary"], capture_output=True
