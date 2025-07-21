@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import typer
 from snowflake.cli._app.auth.oidc_providers import (
     OidcProviderType,
@@ -24,35 +25,91 @@ from snowflake.cli.api.output.types import MessageResult
 
 app = SnowTyperFactory(
     name="workload-identity",
-    help="Manages GitHub workload identity federation authentication.",
+    help="Manages workload identity federation authentication.",
+)
+
+# Option definitions
+FederatedUserOption = typer.Option(
+    ...,
+    "--federated-user",
+    show_default=False,
+    help="Name for the federated user to create",
+    prompt="Enter federated user name",
+)
+
+FederatedUserDeleteOption = typer.Option(
+    ...,
+    "--federated-user",
+    show_default=False,
+    help="Name of the federated user to delete",
+    prompt="Enter federated user name to delete",
+)
+
+SubjectOption = typer.Option(
+    ...,
+    "--subject",
+    show_default=False,
+    help="OIDC subject string",
+    prompt="Enter OIDC subject string",
+)
+
+DefaultRoleOption = typer.Option(
+    ...,
+    "--default-role",
+    show_default=False,
+    help="Default role to assign to the federated user",
+    prompt="Enter default role",
+)
+
+ProviderTypeOption = typer.Option(
+    "auto",
+    "--type",
+    help=f"Type of read operation to perform (e.g., '{OidcProviderType.GITHUB.value}', 'auto')",
+)
+
+ProviderTypeSetupOption = typer.Option(
+    OidcProviderType.GITHUB.value,
+    "--type",
+    help=f"Type of OIDC provider to use for issuer (e.g., '{OidcProviderType.GITHUB.value}')",
 )
 
 
 @app.command("setup", requires_connection=True)
 def setup(
-    github_repository: str = typer.Option(
-        ...,
-        "--github-repository",
-        show_default=False,
-        help="GitHub repository in format 'owner/repo'",
-        prompt="Enter GitHub repository (owner/repo)",
-    ),
+    federated_user: str = FederatedUserOption,
+    subject: str = SubjectOption,
+    default_role: str = DefaultRoleOption,
+    provider_type: str = ProviderTypeSetupOption,
     **options,
 ):
     """
-    Sets up GitHub workload identity federation for authentication.
+    Sets up workload identity federation for authentication.
+    Creates a federated user with the specified configuration.
     """
-    result = WorkloadIdentityManager().setup(github_repository=github_repository)
+    result = WorkloadIdentityManager().setup(
+        user=federated_user,
+        subject=subject,
+        default_role=default_role,
+        provider_type=provider_type,
+    )
     return MessageResult(result)
 
 
-@app.command("read", requires_connection=False)
-def read(
-    _type: str = typer.Option(
-        "auto",
-        "--type",
-        help=f"Type of read operation to perform (e.g., '{OidcProviderType.GITHUB.value}', 'auto')",
-    ),
+@app.command("delete", requires_connection=True)
+def delete(
+    federated_user: str = FederatedUserDeleteOption,
+    **options,
+):
+    """
+    Deletes a federated user.
+    """
+    result = WorkloadIdentityManager().delete(user=federated_user)
+    return MessageResult(result)
+
+
+@app.command("read-token", requires_connection=False)
+def read_token(
+    _type: str = ProviderTypeOption,
     **options,
 ):
     """

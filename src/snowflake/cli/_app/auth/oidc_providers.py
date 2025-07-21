@@ -57,6 +57,17 @@ class OidcTokenProvider(ABC):
         """
         pass
 
+    @property
+    @abstractmethod
+    def issuer(self) -> str:
+        """
+        Returns the OIDC issuer URL for this provider.
+
+        Returns:
+            The OIDC issuer URL
+        """
+        pass
+
     @abstractmethod
     def get_token(self) -> str:
         """
@@ -70,6 +81,21 @@ class OidcTokenProvider(ABC):
         """
         pass
 
+    @staticmethod
+    @abstractmethod
+    def generate_subject(repository: str, env: str) -> str:
+        """
+        Generates the subject string for workload identity federation setup.
+
+        Args:
+            repository: Repository identifier in provider-specific format
+            env: Environment name
+
+        Returns:
+            Subject string in provider-specific format
+        """
+        pass
+
 
 class GitHubOidcProvider(OidcTokenProvider):
     """
@@ -78,6 +104,30 @@ class GitHubOidcProvider(OidcTokenProvider):
 
     # Audience URL - configurable via environment variable
     AUDIENCE = os.getenv(SNOWFLAKE_AUDIENCE_ENV, "snowflakecomputing.com")
+
+    @property
+    def issuer(self) -> str:
+        """
+        Returns the GitHub OIDC issuer URL.
+
+        Returns:
+            The GitHub OIDC issuer URL
+        """
+        return "https://token.actions.githubusercontent.com"
+
+    @staticmethod
+    def generate_subject(github_repository: str, env: str) -> str:
+        """
+        Generates the subject string for GitHub workload identity federation setup.
+
+        Args:
+            github_repository: GitHub repository in format 'org-name/repository-name'
+            env: Environment name defined in GitHub settings
+
+        Returns:
+            Subject string in format 'repo:<org-name/repo-name>:environment:<env>'
+        """
+        return f"repo:{github_repository}:environment:{env}"
 
     @property
     def provider_name(self) -> str:
@@ -171,6 +221,14 @@ class OidcProviderRegistry:
             return provider_class()
         return None
 
+    def get_provider_class(
+        self, provider_name: str
+    ) -> Optional[Type[OidcTokenProvider]]:
+        """
+        Get a specific provider class by name.
+        """
+        return self._providers.get(provider_name)
+
     @property
     def provider_names(self) -> List[str]:
         """
@@ -221,6 +279,34 @@ def get_oidc_provider(provider_name: str) -> OidcTokenProvider:
         )
 
     return provider
+
+
+def get_oidc_provider_class(provider_name: str) -> Type[OidcTokenProvider]:
+    """
+    Get a specific OIDC provider class by name.
+
+    Args:
+        provider_name: Name of the provider to get
+
+    Returns:
+        The requested OIDC provider class
+
+    Raises:
+        CliError: If provider is unknown
+    """
+    provider_class = _registry.get_provider_class(provider_name)
+
+    if not provider_class:
+        providers_list = ", ".join(_registry.provider_names)
+        raise CliError(
+            "Unknown provider '%s'. Available providers: %s"
+            % (
+                provider_name,
+                providers_list,
+            )
+        )
+
+    return provider_class
 
 
 def auto_detect_oidc_provider() -> OidcTokenProvider:
