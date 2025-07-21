@@ -15,9 +15,7 @@
 from unittest.mock import Mock, patch
 
 import pytest
-from snowflake.cli._app.auth.oidc_providers import (
-    OidcProviderType,
-)
+from snowflake.cli._app.auth.oidc_providers import OidcProviderType
 from snowflake.cli._plugins.auth.workload_identity.manager import (
     WorkloadIdentityManager,
 )
@@ -27,15 +25,185 @@ from snowflake.cli.api.exceptions import CliError
 class TestWorkloadIdentityManager:
     """Test cases for WorkloadIdentityManager."""
 
-    def test_setup_not_implemented(self):
-        """Test that setup method raises NotImplementedError."""
+    @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
+    @patch(
+        "snowflake.cli._plugins.auth.workload_identity.manager.WorkloadIdentityManager.execute_query"
+    )
+    def test_setup_creates_federated_user(self, mock_execute_query, mock_get_provider):
+        """Test that setup method creates a federated user."""
+        # Mock the provider
+        mock_provider = Mock()
+        mock_provider.issuer = "https://token.actions.githubusercontent.com"
+        mock_get_provider.return_value = mock_provider
+
         manager = WorkloadIdentityManager()
 
+        result = manager.setup(
+            user="test_user",
+            subject="repo:owner/repo:environment:prod",
+            default_role="test_role",
+            provider_type="github",
+        )
+
+        # Verify the SQL command was executed
+        mock_execute_query.assert_called_once()
+        call_args = mock_execute_query.call_args[0][0]
+
+        # Verify the SQL contains expected elements
+        assert "CREATE USER test_user" in call_args
+        assert "TYPE = 'OIDC'" in call_args
+        assert "ISSUER = 'https://token.actions.githubusercontent.com'" in call_args
+        assert "SUBJECT = 'repo:owner/repo:environment:prod'" in call_args
+        assert "DEFAULT_ROLE = test_role" in call_args
+
+        # Verify return message
+        assert "Successfully created federated user 'test_user'" in result
+
+    @patch(
+        "snowflake.cli._plugins.auth.workload_identity.manager.WorkloadIdentityManager.execute_query"
+    )
+    def test_delete_drops_federated_user(self, mock_execute_query):
+        """Test that delete method drops a federated user."""
+        manager = WorkloadIdentityManager()
+
+        result = manager.delete(user="test_user")
+
+        # Verify the SQL command was executed
+        mock_execute_query.assert_called_once_with("DROP USER test_user")
+
+        # Verify return message
+        assert "Successfully deleted federated user 'test_user'" in result
+
+    def test_setup_parameter_validation(self):
+        """Test parameter validation in setup method."""
+        manager = WorkloadIdentityManager()
+
+        with patch(
+            "snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider"
+        ) as mock_get_provider:
+            # Mock the provider
+            mock_provider = Mock()
+            mock_provider.issuer = "https://token.actions.githubusercontent.com"
+            mock_get_provider.return_value = mock_provider
+
+            # Test empty user name
+            with pytest.raises(CliError, match="Federated user name cannot be empty"):
+                manager.setup(
+                    "", "repo:owner/repo:environment:prod", "test_role", "github"
+                )
+
+            # Test invalid user name
+            with pytest.raises(CliError, match="Invalid federated user name"):
+                manager.setup(
+                    "123invalid",
+                    "repo:owner/repo:environment:prod",
+                    "test_role",
+                    "github",
+                )
+
+            # Test empty subject
+            with pytest.raises(CliError, match="Subject cannot be empty"):
+                manager.setup("test_user", "", "test_role", "github")
+
+            # Test empty role name
+            with pytest.raises(CliError, match="Default role name cannot be empty"):
+                manager.setup(
+                    "test_user", "repo:owner/repo:environment:prod", "", "github"
+                )
+
+    def test_delete_parameter_validation(self):
+        """Test parameter validation in delete method."""
+        manager = WorkloadIdentityManager()
+
+        # Test empty user name
+        with pytest.raises(CliError, match="Federated user name cannot be empty"):
+            manager.delete("")
+
+        # Test invalid user name
+        with pytest.raises(CliError, match="Invalid federated user name"):
+            manager.delete("123invalid")
+
+    @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
+    @patch(
+        "snowflake.cli._plugins.auth.workload_identity.manager.WorkloadIdentityManager.execute_query"
+    )
+    def test_setup_sql_exception_handling(self, mock_execute_query, mock_get_provider):
+        """Test that setup method handles SQL execution exceptions."""
+        # Mock the provider
+        mock_provider = Mock()
+        mock_provider.issuer = "https://token.actions.githubusercontent.com"
+        mock_get_provider.return_value = mock_provider
+
+        manager = WorkloadIdentityManager()
+        mock_execute_query.side_effect = Exception("SQL execution failed")
+
         with pytest.raises(
-            NotImplementedError,
-            match="GitHub workload identity federation setup is not yet implemented",
+            CliError,
+            match="Failed to create federated user 'test_user': SQL execution failed",
         ):
-            manager.setup("owner/repo")
+            manager.setup(
+                "test_user", "repo:owner/repo:environment:prod", "test_role", "github"
+            )
+
+    @patch(
+        "snowflake.cli._plugins.auth.workload_identity.manager.WorkloadIdentityManager.execute_query"
+    )
+    def test_delete_sql_exception_handling(self, mock_execute_query):
+        """Test that delete method handles SQL execution exceptions."""
+        manager = WorkloadIdentityManager()
+        mock_execute_query.side_effect = Exception("SQL execution failed")
+
+        with pytest.raises(
+            CliError,
+            match="Failed to delete federated user 'test_user': SQL execution failed",
+        ):
+            manager.delete("test_user")
+
+    @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
+    @patch(
+        "snowflake.cli._plugins.auth.workload_identity.manager.WorkloadIdentityManager.execute_query"
+    )
+    def test_setup_with_custom_subject(self, mock_execute_query, mock_get_provider):
+        """Test that setup method works with a custom subject."""
+        # Mock the provider
+        mock_provider = Mock()
+        mock_provider.issuer = "https://token.actions.githubusercontent.com"
+        mock_get_provider.return_value = mock_provider
+
+        manager = WorkloadIdentityManager()
+
+        custom_subject = "repo:custom/repo:environment:test"
+        result = manager.setup(
+            user="test_user",
+            subject=custom_subject,
+            default_role="test_role",
+            provider_type="github",
+        )
+
+        # Verify the SQL command was executed
+        mock_execute_query.assert_called_once()
+        call_args = mock_execute_query.call_args[0][0]
+
+        # Verify the SQL contains expected elements with custom subject
+        assert "CREATE USER test_user" in call_args
+        assert "TYPE = 'OIDC'" in call_args
+        assert "ISSUER = 'https://token.actions.githubusercontent.com'" in call_args
+        assert f"SUBJECT = '{custom_subject}'" in call_args
+        assert "DEFAULT_ROLE = test_role" in call_args
+
+        # Verify return message
+        assert "Successfully created federated user 'test_user'" in result
+
+    @patch("snowflake.cli._plugins.auth.workload_identity.manager.get_oidc_provider")
+    def test_setup_provider_not_found(self, mock_get_provider):
+        """Test setup with non-existent provider."""
+        manager = WorkloadIdentityManager()
+        mock_get_provider.side_effect = CliError("Unknown provider 'invalid'")
+
+        with pytest.raises(CliError, match="Failed to get provider 'invalid'"):
+            manager.setup(
+                "test_user", "repo:owner/repo:environment:prod", "test_role", "invalid"
+            )
 
     def test_read_with_auto_type(self):
         """Test read method with auto type delegates to auto_detect_oidc_provider."""
@@ -145,7 +313,7 @@ class TestWorkloadIdentityManager:
 
         with pytest.raises(
             CliError,
-            match=f"Failed to retrieve token from {OidcProviderType.GITHUB.value}: Token retrieval failed",
+            match="Failed to read OIDC token: Token retrieval failed",
         ):
             manager.read("auto")
 
@@ -208,7 +376,7 @@ class TestWorkloadIdentityManager:
 
         with pytest.raises(
             CliError,
-            match=f"Failed to retrieve token from {OidcProviderType.GITHUB.value}: Token retrieval failed",
+            match="Failed to read OIDC token: Token retrieval failed",
         ):
             manager.read(OidcProviderType.GITHUB.value)
 

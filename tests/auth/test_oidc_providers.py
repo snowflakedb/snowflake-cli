@@ -32,9 +32,40 @@ class TestGitHubOidcProvider:
     """Test cases for GitHubOidcProvider."""
 
     def test_provider_name(self):
-        """Test that provider returns correct name."""
+        """Test provider name property."""
         provider = GitHubOidcProvider()
         assert provider.provider_name == OidcProviderType.GITHUB.value
+
+    def test_issuer(self):
+        """Test issuer property."""
+        provider = GitHubOidcProvider()
+        assert provider.issuer == "https://token.actions.githubusercontent.com"
+
+    def test_generate_subject(self):
+        """Test generate_subject static method."""
+        result = GitHubOidcProvider.generate_subject("myorg/myrepo", "production")
+        assert result == "repo:myorg/myrepo:environment:production"
+
+    def test_generate_subject_various_formats(self):
+        """Test generate_subject with various repository and environment formats."""
+        test_cases = [
+            ("owner/repo", "prod", "repo:owner/repo:environment:prod"),
+            ("my-org/my-repo", "staging", "repo:my-org/my-repo:environment:staging"),
+            (
+                "test123/test-repo-name",
+                "dev",
+                "repo:test123/test-repo-name:environment:dev",
+            ),
+            (
+                "org/repo-with-dots.test",
+                "test.env",
+                "repo:org/repo-with-dots.test:environment:test.env",
+            ),
+        ]
+
+        for repo, env, expected in test_cases:
+            result = GitHubOidcProvider.generate_subject(repo, env)
+            assert result == expected
 
     @patch.dict(os.environ, {"GITHUB_ACTIONS": "true"})
     def test_is_available_success(self):
@@ -44,9 +75,9 @@ class TestGitHubOidcProvider:
 
     @patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}, clear=True)
     def test_is_available_github_actions_true(self):
-        """Test is_available when only GITHUB_ACTIONS is set to true."""
+        """Test is_available when GITHUB_ACTIONS is 'true'."""
         provider = GitHubOidcProvider()
-        assert provider.is_available is True
+        assert provider.is_available
 
     @patch.dict(os.environ, {"GITHUB_ACTIONS": "false"})
     def test_is_available_not_github_actions(self):
@@ -134,8 +165,16 @@ class TestOidcProviderRegistry:
             def is_available(self) -> bool:
                 return True
 
+            @property
+            def issuer(self) -> str:
+                return "https://mock.example.com"
+
             def get_token(self) -> str:
                 return "mock_token"
+
+            @staticmethod
+            def generate_subject(repository: str, env: str) -> str:
+                return f"mock:{repository}:env:{env}"
 
             def get_token_info(self) -> dict:
                 return {"provider": "mock"}
@@ -143,10 +182,10 @@ class TestOidcProviderRegistry:
         registry = OidcProviderRegistry()
         registry.register_provider(MockProvider)
 
-        # Should be able to get the registered provider
-        provider = registry.get_provider("mock")
-        assert provider is not None
-        assert provider.provider_name == "mock"
+        assert "mock" in registry.provider_names
+        mock_provider = registry.get_provider("mock")
+        assert mock_provider is not None
+        assert mock_provider.provider_name == "mock"
 
     def test_provider_names_property(self):
         """Test provider_names property returns all registered provider names."""
@@ -249,6 +288,23 @@ class TestModuleFunctions:
             ):
                 auto_detect_oidc_provider()
 
+    def test_get_oidc_provider_class_existing(self):
+        """Test get_oidc_provider_class with existing provider."""
+        from snowflake.cli._app.auth.oidc_providers import get_oidc_provider_class
+
+        provider_class = get_oidc_provider_class(OidcProviderType.GITHUB.value)
+        assert provider_class == GitHubOidcProvider
+
+    def test_get_oidc_provider_class_non_existing(self):
+        """Test get_oidc_provider_class with non-existing provider."""
+        from snowflake.cli._app.auth.oidc_providers import get_oidc_provider_class
+
+        with pytest.raises(
+            CliError,
+            match="Unknown provider 'non_existing'. Available providers: github",
+        ):
+            get_oidc_provider_class("non_existing")
+
     def test_registry_provider_names(self):
         """Test registry provider_names property."""
         provider_names = _registry.provider_names
@@ -272,7 +328,66 @@ class TestAbstractBaseClass:
             def provider_name(self) -> str:
                 return "incomplete"
 
-            # Missing is_available and get_token
+            @property
+            def is_available(self) -> bool:
+                return True
+
+            @property
+            def issuer(self) -> str:
+                return "https://example.com"
+
+            def get_token(self) -> str:
+                return "token"
+
+            # Missing: generate_subject
 
         with pytest.raises(TypeError):
             IncompleteProvider()  # type: ignore
+
+    def test_concrete_class_must_implement_issuer(self):
+        """Test that concrete classes must implement the issuer property."""
+
+        class ProviderWithoutIssuer(OidcTokenProvider):
+            @property
+            def provider_name(self) -> str:
+                return "no_issuer"
+
+            @property
+            def is_available(self) -> bool:
+                return True
+
+            def get_token(self) -> str:
+                return "token"
+
+            @staticmethod
+            def generate_subject(repository: str, env: str) -> str:
+                return f"repo:{repository}:env:{env}"
+
+            # Missing: issuer
+
+        with pytest.raises(TypeError):
+            ProviderWithoutIssuer()  # type: ignore
+
+    def test_concrete_class_must_implement_generate_subject(self):
+        """Test that concrete classes must implement generate_subject."""
+
+        class ProviderWithoutGenerateSubject(OidcTokenProvider):
+            @property
+            def provider_name(self) -> str:
+                return "no_generate_subject"
+
+            @property
+            def is_available(self) -> bool:
+                return True
+
+            @property
+            def issuer(self) -> str:
+                return "https://example.com"
+
+            def get_token(self) -> str:
+                return "token"
+
+            # Missing: generate_subject
+
+        with pytest.raises(TypeError):
+            ProviderWithoutGenerateSubject()  # type: ignore
