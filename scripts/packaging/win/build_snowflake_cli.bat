@@ -21,7 +21,7 @@ RMDIR /S /Q dist
 DEL /Q *.wixobj
 
 @echo on
-set RUSTFLAGS=-C target-feature=-crt-static -C target-cpu=x86-64
+rem Rust compiler flags are now configured in .cargo/config.toml for proper PyApp/Cargo integration
 python.exe -m hatch -e packaging run build-isolated-binary
 dir dist\binary
 

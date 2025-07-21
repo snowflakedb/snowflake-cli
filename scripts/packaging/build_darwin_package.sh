@@ -69,8 +69,7 @@ loginfo "---------------------------------"
 
 echo "--- build binary ---"
 
-# Set Rust compiler flags for maximum CPU compatibility
-export RUSTFLAGS="-C target-feature=-crt-static -C target-cpu=x86-64"
+# Rust compiler flags are now configured in .cargo/config.toml for proper PyApp/Cargo integration
 
 clean_build_workspace
 hatch -e packaging run build-isolated-binary

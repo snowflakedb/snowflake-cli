@@ -165,11 +165,8 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = str(python_path)
     os.environ["PYAPP_DISTRIBUTION_PIP_AVAILABLE"] = "1"
 
-    # Set Rust compiler flags for maximum CPU compatibility
-    # Use x86-64-v1 baseline instruction set (2003+) to ensure compatibility with all x86-64 processors
-    # This is the most conservative setting that avoids newer instructions like AVX, BMI, etc.
-    # Compatible with Intel Xeon E5-2680 v2 (2013) and virtually all x86-64 CPUs
-    os.environ["RUSTFLAGS"] = "-C target-feature=-crt-static -C target-cpu=x86-64"
+    # Rust compiler flags are now configured in .cargo/config.toml for proper PyApp/Cargo integration
+    # This ensures conservative CPU targeting (x86-64 baseline) for maximum compatibility
 
     completed_proc = subprocess.run(
         ["hatch", "build", "-t", "binary"], capture_output=True

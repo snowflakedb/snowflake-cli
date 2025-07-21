@@ -10,10 +10,7 @@ DIST_DIR="${ROOT_DIR}/dist"
 
 VERSION=$(hatch version)
 
-# Set Rust compiler flags for maximum CPU compatibility
-# Use x86-64 baseline instruction set (2003+) to ensure compatibility with all x86-64 processors
-# This is the most conservative setting that avoids newer instructions like AVX, BMI, etc.
-export RUSTFLAGS="-C target-feature=-crt-static -C target-cpu=x86-64"
+# Rust compiler flags are now configured in .cargo/config.toml for proper PyApp/Cargo integration
 
 # Configure Python distribution source for better CPU compatibility
 # Use older python-build-standalone distributions which are more conservatively compiled
