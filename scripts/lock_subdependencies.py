@@ -34,6 +34,10 @@ class PyprojectToml:
         contents = tomlkit.loads(self.PYPROJECT_TOML.read_text())
         return contents["cli"]["dependencies"]
 
+    def read_project_dependencies(self):
+        contents = tomlkit.loads(self.PYPROJECT_TOML.read_text())
+        return contents["project"]["dependencies"]
+
     def create_minimal_project_with_dependencies(
         self, dependencies: List[str], path: Path
     ):
@@ -96,6 +100,7 @@ def recursively_generate_dependencies(
         ]
         dependencies = set()
         for line in dependencies_raw.splitlines():
+            print(line)
             match = re.fullmatch(dependency_regex, line)
             if not match or str(match.group("uv_comment")).strip() in ignored_comments:
                 continue
@@ -137,7 +142,13 @@ if __name__ == "__main__":
         sys.exit(0)
     pyproject = PyprojectToml()
     dependencies = pyproject.read_base_dependencies()
+    print("DEPS")
+    for dep in dependencies:
+        print(dep)
+    print("/DEPS")
+    original_dependencies = pyproject.read_project_dependencies()
     # Depth limited to 2 (dependencies and their sub-dependencies) to avoid drastic changes. Can be changed later.
     generated_dependencies = recursively_generate_dependencies(dependencies, depth=2)
     join_dependencies(dependencies, generated_dependencies)
-    pyproject.write_generated_dependencies(dependencies)
+    if sorted(generated_dependencies) != sorted(original_dependencies):
+        pyproject.write_generated_dependencies(dependencies)
