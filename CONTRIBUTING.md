@@ -63,6 +63,7 @@ hatch run test
 ```
 or by running `pytest` inside activated environment.
 
+
 ## Integration tests
 
 Every integration test should have `integration` mark. By default, integration tests are not execute when running `pytest`.
