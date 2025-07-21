@@ -69,8 +69,6 @@ loginfo "---------------------------------"
 
 echo "--- build binary ---"
 
-# Rust compiler flags are now configured in .cargo/config.toml for proper PyApp/Cargo integration
-
 clean_build_workspace
 hatch -e packaging run build-isolated-binary
 create_app_template

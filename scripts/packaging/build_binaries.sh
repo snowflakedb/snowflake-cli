@@ -10,8 +10,6 @@ DIST_DIR="${ROOT_DIR}/dist"
 
 VERSION=$(hatch version)
 
-# Rust compiler flags are now configured in .cargo/config.toml for proper PyApp/Cargo integration
-
 install_cargo() {
   curl https://sh.rustup.rs -sSf > rustup-init.sh
   bash rustup-init.sh -y

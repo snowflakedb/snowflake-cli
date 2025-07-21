@@ -148,9 +148,6 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = str(python_path)
     os.environ["PYAPP_DISTRIBUTION_PIP_AVAILABLE"] = "1"
 
-    # Rust compiler flags are now configured in .cargo/config.toml for proper PyApp/Cargo integration
-    # This ensures conservative CPU targeting (x86-64 baseline) for maximum compatibility
-
     completed_proc = subprocess.run(
         ["hatch", "build", "-t", "binary"], capture_output=True
     )

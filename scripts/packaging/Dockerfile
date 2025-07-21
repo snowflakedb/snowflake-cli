@@ -32,8 +32,6 @@ ENV PYENV_ROOT="${HOME}/.pyenv"
 ENV PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:$PATH"
 ENV PYTHON_VERSION=3.10
 
-# Rust compiler flags are now configured in .cargo/config.toml for proper PyApp/Cargo integration
-
 RUN curl https://pyenv.run | bash
 RUN pyenv install ${PYTHON_VERSION}
 RUN pyenv rehash
