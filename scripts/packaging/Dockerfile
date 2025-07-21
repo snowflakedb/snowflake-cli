@@ -32,6 +32,10 @@ ENV PYENV_ROOT="${HOME}/.pyenv"
 ENV PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:$PATH"
 ENV PYTHON_VERSION=3.10
 
+# Set CPU compatibility flags for Rust and Python distribution
+ENV RUSTFLAGS="-C target-cpu=generic"
+ENV HATCH_PYTHON_SOURCE_3_10="https://github.com/indygreg/python-build-standalone/releases/download/20241002/cpython-3.10.15+20241002-x86_64-unknown-linux-gnu-install_only.tar.gz"
+
 RUN curl https://pyenv.run | bash
 RUN pyenv install ${PYTHON_VERSION}
 RUN pyenv rehash

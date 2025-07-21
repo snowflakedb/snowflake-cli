@@ -15,6 +15,10 @@ VERSION=$(hatch version)
 # This avoids newer instructions that may not be available on older CPUs
 export RUSTFLAGS="-C target-cpu=generic"
 
+# Configure Python distribution source for better CPU compatibility
+# Use python-build-standalone distributions which are more conservatively compiled
+export HATCH_PYTHON_SOURCE_3_10="https://github.com/indygreg/python-build-standalone/releases/download/20241002/cpython-3.10.15+20241002-x86_64-unknown-linux-gnu-install_only.tar.gz"
+
 install_cargo() {
   curl https://sh.rustup.rs -sSf > rustup-init.sh
   bash rustup-init.sh -y

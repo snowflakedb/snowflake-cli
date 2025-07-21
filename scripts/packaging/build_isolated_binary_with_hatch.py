@@ -99,6 +99,18 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
 
 def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     """Install Python dist into temp dir for bundling."""
+
+    # Set environment variables to use more compatible Python distributions
+    # Use Python.org distributions which are typically more conservative with CPU optimizations
+    python_version_env = python_version.replace(".", "_").upper()
+
+    # For Python 3.10, use the official python.org distribution
+    # These are compiled with broader CPU compatibility
+    if python_version == "3.10":
+        os.environ[
+            "HATCH_PYTHON_SOURCE_3_10"
+        ] = "https://github.com/indygreg/python-build-standalone/releases/download/20241002/cpython-3.10.15+20241002-x86_64-unknown-linux-gnu-install_only.tar.gz"
+
     completed_proc = subprocess.run(
         [
             "hatch",
