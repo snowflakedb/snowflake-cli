@@ -13,11 +13,9 @@ Run this script from the project root dir.
 import contextlib
 import json
 import os
-import shutil
 import subprocess
 import tarfile
 import tempfile
-import urllib.request
 from pathlib import Path
 
 import tomlkit
@@ -101,81 +99,6 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
 
 def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     """Install Python dist into temp dir for bundling."""
-
-    # Direct download approach for conservative Python distribution
-    # Bypass hatch python install since environment variables aren't being respected
-    if python_version == "3.10":
-        conservative_python_url = "https://github.com/astral-sh/python-build-standalone/releases/download/20220802/cpython-3.10.6+20220802-x86_64-unknown-linux-gnu-install_only.tar.gz"
-
-        print(
-            f"Downloading conservative Python distribution from {conservative_python_url}"
-        )
-
-        # Download the conservative Python distribution
-        conservative_tar_path = python_tmp_dir / "conservative_python.tar.gz"
-        try:
-            urllib.request.urlretrieve(conservative_python_url, conservative_tar_path)
-            print(f"Downloaded to {conservative_tar_path}")
-        except Exception as e:
-            print(f"Failed to download conservative Python: {e}")
-            print("Falling back to hatch python install...")
-            # Fall back to original method if download fails
-            completed_proc = subprocess.run(
-                [
-                    "hatch",
-                    "python",
-                    "install",
-                    "--private",
-                    "--dir",
-                    python_tmp_dir,
-                    python_version,
-                ]
-            )
-            return not completed_proc.returncode
-
-        # Extract the conservative Python distribution
-        try:
-            print(f"Extracting conservative Python distribution...")
-            with tarfile.open(conservative_tar_path, "r:gz") as tar:
-                tar.extractall(python_tmp_dir)
-
-            # Create the expected directory structure for hatch
-            python_dist_dir = python_tmp_dir / python_version
-            python_dist_dir.mkdir(exist_ok=True)
-
-            # Move extracted contents to expected location
-            extracted_contents = list(python_tmp_dir.glob("python*"))
-            if extracted_contents:
-                extracted_dir = extracted_contents[0]
-                if extracted_dir.is_dir() and extracted_dir != python_dist_dir:
-                    shutil.move(str(extracted_dir), str(python_dist_dir / "python"))
-
-            # Create hatch-dist.json for compatibility
-            hatch_dist_json = {"python_path": "python"}
-            with open(python_dist_dir / "hatch-dist.json", "w") as f:
-                json.dump(hatch_dist_json, f)
-
-            print(f"Successfully installed conservative Python to {python_dist_dir}")
-            return True
-
-        except Exception as e:
-            print(f"Failed to extract conservative Python: {e}")
-            print("Falling back to hatch python install...")
-            # Fall back to original method if extraction fails
-            completed_proc = subprocess.run(
-                [
-                    "hatch",
-                    "python",
-                    "install",
-                    "--private",
-                    "--dir",
-                    python_tmp_dir,
-                    python_version,
-                ]
-            )
-            return not completed_proc.returncode
-
-    # For other Python versions, use the original method
     completed_proc = subprocess.run(
         [
             "hatch",

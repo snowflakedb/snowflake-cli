@@ -33,7 +33,6 @@ ENV PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:$PATH"
 ENV PYTHON_VERSION=3.10
 
 # Rust compiler flags are now configured in .cargo/config.toml for proper PyApp/Cargo integration
-ENV HATCH_PYTHON_SOURCE_3_10="https://github.com/astral-sh/python-build-standalone/releases/download/20220802/cpython-3.10.6+20220802-x86_64-unknown-linux-gnu-install_only.tar.gz"
 
 RUN curl https://pyenv.run | bash
 RUN pyenv install ${PYTHON_VERSION}

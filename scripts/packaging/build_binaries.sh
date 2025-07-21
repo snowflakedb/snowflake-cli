@@ -12,10 +12,6 @@ VERSION=$(hatch version)
 
 # Rust compiler flags are now configured in .cargo/config.toml for proper PyApp/Cargo integration
 
-# Configure Python distribution source for better CPU compatibility
-# Use older python-build-standalone distributions which are more conservatively compiled
-export HATCH_PYTHON_SOURCE_3_10="https://github.com/astral-sh/python-build-standalone/releases/download/20220802/cpython-3.10.6+20220802-x86_64-unknown-linux-gnu-install_only.tar.gz"
-
 install_cargo() {
   curl https://sh.rustup.rs -sSf > rustup-init.sh
   bash rustup-init.sh -y
