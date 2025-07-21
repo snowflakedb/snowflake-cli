@@ -1767,8 +1767,10 @@ def _add_connection(runner, tmp_file, name, is_default=False, expected_to_fail=F
     result = runner.invoke_with_config_file(tmp_file.name, args)
     if expected_to_fail:
         assert result.exit_code != 0, result.output
+        assert f"Connection {name} already exists." in result.output
     else:
         assert result.exit_code == 0, result.output
+        assert f"Wrote new connection {name} to {tmp_file.name}" in result.output
     return result
 
 
@@ -1781,6 +1783,7 @@ def _remove_connection(runner, tmp_file, name, expected_to_fail=False):
         assert f"Connection {name} does not exist." in result.output
     else:
         assert result.exit_code == 0, result.output
+        assert f"Removed connection {name} from {tmp_file.name}" in result.output
     return result
 
 
