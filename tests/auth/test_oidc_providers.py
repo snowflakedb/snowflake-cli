@@ -169,6 +169,7 @@ class TestOidcProviderRegistry:
 class TestModuleFunctions:
     """Test cases for module-level functions."""
 
+    @patch.dict(os.environ, {}, clear=True)
     def test_get_oidc_provider(self):
         """Test get_oidc_provider function when provider is not available."""
         with pytest.raises(
