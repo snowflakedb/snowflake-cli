@@ -34,6 +34,7 @@ from snowflake.cli.api.secure_utils import (
     file_permissions_are_strict,
     windows_get_not_whitelisted_users_with_access,
 )
+from snowflake.cli.api.utils.dict_utils import remove_key_from_nested_dict_if_exists
 from snowflake.cli.api.utils.types import try_cast_to_bool
 from snowflake.connector.compat import IS_WINDOWS
 from snowflake.connector.config_manager import CONFIG_MANAGER
@@ -158,6 +159,19 @@ def add_connection_to_proper_file(name: str, connection_config: ConnectionConfig
         return CONFIG_MANAGER.file_path
 
 
+def remove_connection_from_proper_file(name: str):
+    if CONNECTIONS_FILE.exists():
+        existing_connections = _read_connections_toml()
+        if name not in existing_connections:
+            raise MissingConfigurationError(f"Connection {name} is not configured")
+        del existing_connections[name]
+        _update_connections_toml(existing_connections)
+        return CONNECTIONS_FILE
+    else:
+        unset_config_value(path=[CONNECTIONS_SECTION, name])
+        return CONFIG_MANAGER.file_path
+
+
 _DEFAULT_LOGS_CONFIG = {
     "save_logs": True,
     "path": str(CONFIG_MANAGER.file_path.parent / "logs"),
@@ -226,6 +240,15 @@ def set_config_value(path: List[str], value: Any) -> None:
                 current_config_dict[key] = {}
             current_config_dict = current_config_dict[key]
         current_config_dict[path[-1]] = value
+
+
+def unset_config_value(path: List[str]) -> None:
+    """Unsets value in config.
+    For example to unset value for key "key" in section [a.b.c], call
+    unset_config_value(["a", "b", "c", "key"]).
+    """
+    with _config_file() as conf_file_cache:
+        remove_key_from_nested_dict_if_exists(conf_file_cache, path)
 
 
 def get_logs_config() -> dict:

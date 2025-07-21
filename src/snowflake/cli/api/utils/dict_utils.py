@@ -14,7 +14,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, Dict, List, Union
 
 
 def deep_merge_dicts(
@@ -71,3 +71,47 @@ def traverse(
     else:
         visit_action(element)
         return update_action(element)
+
+
+_NestedDict = Dict[str, Union[Any, "_NestedDict"]]
+
+
+def remove_key_from_nested_dict_if_exists(d: _NestedDict, keys: List[str]) -> bool:
+    """
+    Removes a key from a nested dictionary, if it exists.
+    Removes all parents that become empty.
+
+    :return: True if the key was removed, False if it did not exist.
+    :raises ValueError: If a key in the path does not point to a dictionary.
+    """
+    path_to_target = [d]
+    for key in keys[:-1]:
+        if key not in path_to_target[-1]:
+            return False
+
+        val = path_to_target[-1][key]
+        if not isinstance(val, dict):
+            raise ValueError(
+                f"Expected a dictionary at '{key}', but got {str(type(val))}."
+            )
+
+        path_to_target.append(val)
+
+    key = keys[-1]
+    if key not in path_to_target[-1]:
+        return False
+
+    del path_to_target[-1][key]
+
+    # Remove parents that become empty
+    while len(path_to_target) > 1:
+        child = path_to_target.pop()
+        parent = path_to_target[-1]
+
+        key = keys[len(path_to_target) - 1]
+        if len(child) == 0:
+            del parent[key]
+        else:
+            break
+
+    return True
