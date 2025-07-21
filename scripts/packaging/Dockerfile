@@ -44,3 +44,9 @@ RUN pyenv rehash
 RUN pyenv exec pip install -U pip uv hatch
 
 WORKDIR /snowflake-cli
+
+# Copy essential files for the build process
+COPY pyproject.toml .
+COPY .cargo/ .cargo/
+COPY src/ src/
+COPY scripts/ scripts/
