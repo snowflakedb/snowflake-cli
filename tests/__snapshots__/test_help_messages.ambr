@@ -23,6 +23,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app          Manages a Snowflake Native App                                  |
+  | auth         Manages authentication methods.                                 |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |
@@ -4547,25 +4548,106 @@
   
   '''
 # ---
-# name: test_help_messages[auth.workload-identity.get-subject]
+# name: test_help_messages[auth.workload-identity.list]
   '''
                                                                                   
-   Usage: root auth workload-identity get-subject [OPTIONS]                       
+   Usage: root auth workload-identity list [OPTIONS]                              
                                                                                   
-   Generates the subject string for workload identity federation setup.           
+   Lists users with workload identity enabled.                                    
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | *  --github-repository          TEXT  Repository in format specific to the   |
-  |                                       provider (e.g.,                        |
-  |                                       'org-name/repository-name' for GitHub) |
-  |                                       [required]                             |
-  | *  --env                        TEXT  Environment name defined in provider   |
-  |                                       settings                               |
-  |                                       [required]                             |
-  |    --type                       TEXT  OIDC provider type (available: github) |
-  |                                       [default: github]                      |
-  |    --help               -h            Show this message and exit.            |
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment    -c      TEXT     Name of the connection, as    |
+  |                                                defined in your config.toml   |
+  |                                                file. Default: default.       |
+  | --host                                TEXT     Host address for the          |
+  |                                                connection. Overrides the     |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --port                                INTEGER  Port for the connection.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --account,--accountname               TEXT     Name assigned to your         |
+  |                                                Snowflake account. Overrides  |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --user,--username                     TEXT     Username to connect to        |
+  |                                                Snowflake. Overrides the      |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --password                            TEXT     Snowflake password. Overrides |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --authenticator                       TEXT     Snowflake authenticator.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --private-key-file,--privat…          TEXT     Snowflake private key file    |
+  |                                                path. Overrides the value     |
+  |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
+  | --token-file-path                     TEXT     Path to file with an OAuth    |
+  |                                                token to use when connecting  |
+  |                                                to Snowflake.                 |
+  | --database,--dbname                   TEXT     Database to use. Overrides    |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --schema,--schemaname                 TEXT     Database schema to use.       |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --role,--rolename                     TEXT     Role to use. Overrides the    |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --warehouse                           TEXT     Warehouse to use. Overrides   |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --temporary-connection        -x               Uses a connection defined     |
+  |                                                with command line parameters, |
+  |                                                instead of one defined in     |
+  |                                                config                        |
+  | --mfa-passcode                        TEXT     Token to use for multi-factor |
+  |                                                authentication (MFA)          |
+  | --enable-diag                                  Whether to generate a         |
+  |                                                connection diagnostic report. |
+  | --diag-log-path                       TEXT     Path for the generated        |
+  |                                                report. Defaults to system    |
+  |                                                temporary directory.          |
+  | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
+  |                                                contains allowlist            |
+  |                                                parameters.                   |
+  | --oauth-client-id                     TEXT     Value of client id provided   |
+  |                                                by the Identity Provider for  |
+  |                                                Snowflake integration.        |
+  | --oauth-client-secret                 TEXT     Value of the client secret    |
+  |                                                provided by the Identity      |
+  |                                                Provider for Snowflake        |
+  |                                                integration.                  |
+  | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the authorization   |
+  |                                                code to the driver.           |
+  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the access tokens   |
+  |                                                to the driver.                |
+  | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
+  |                                                code redirection.             |
+  | --oauth-scope                         TEXT     Scope requested in the        |
+  |                                                Identity Provider             |
+  |                                                authorization request.        |
+  | --oauth-disable-pkce                           Disables Proof Key for Code   |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
+  | --oauth-enable-refresh-toke…                   Enables a silent              |
+  |                                                re-authentication when the    |
+  |                                                actual access token becomes   |
+  |                                                outdated. Default: False.     |
+  | --oauth-enable-single-use-r…                   Whether to opt-in to          |
+  |                                                single-use refresh token      |
+  |                                                semantics. Default: False.    |
+  | --client-store-temporary-cr…                   Store the temporary           |
+  |                                                credential.                   |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -4601,10 +4683,9 @@
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --type          TEXT  Type of read operation to perform (e.g., 'github',     |
-  |                       'auto')                                                |
-  |                       [default: auto]                                        |
-  | --help  -h            Show this message and exit.                            |
+  | *  --type          TEXT  Type of OIDC provider to use (e.g., 'github')       |
+  |                          [required]                                          |
+  |    --help  -h            Show this message and exit.                         |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -4640,6 +4721,9 @@
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
+  | *  --type                    TEXT  Type of OIDC provider to use (e.g.,       |
+  |                                    'github')                                 |
+  |                                    [required]                                |
   | *  --federated-user          TEXT  Name for the federated user to create     |
   |                                    [required]                                |
   | *  --subject                 TEXT  OIDC subject string                       |
@@ -4647,9 +4731,6 @@
   | *  --default-role            TEXT  Default role to assign to the federated   |
   |                                    user                                      |
   |                                    [required]                                |
-  |    --type                    TEXT  Type of OIDC provider to use for issuer   |
-  |                                    (e.g., 'github')                          |
-  |                                    [default: github]                         |
   |    --help            -h            Show this message and exit.               |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -4779,6 +4860,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | delete       Deletes a federated user.                                       |
+  | list         Lists users with workload identity enabled.                     |
   | read-token   Reads OIDC token based on the specified type. Use 'auto' to     |
   |              auto-detect available providers.                                |
   | setup        Sets up workload identity federation for authentication.        |
@@ -4800,7 +4882,6 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | keypair             Manages authentication.                                  |
   | workload-identity   Manages workload identity federation authentication.     |
   +------------------------------------------------------------------------------+
   
@@ -20928,6 +21009,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app          Manages a Snowflake Native App                                  |
+  | auth         Manages authentication methods.                                 |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |
@@ -21099,6 +21181,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | delete       Deletes a federated user.                                       |
+  | list         Lists users with workload identity enabled.                     |
   | read-token   Reads OIDC token based on the specified type. Use 'auto' to     |
   |              auto-detect available providers.                                |
   | setup        Sets up workload identity federation for authentication.        |
@@ -21120,9 +21203,7 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | keypair             Manages authentication.                                  |
-  | workload-identity   Manages GitHub workload identity federation              |
-  |                     authentication.                                          |
+  | workload-identity   Manages workload identity federation authentication.     |
   +------------------------------------------------------------------------------+
   
   

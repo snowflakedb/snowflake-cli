@@ -4,6 +4,7 @@ import typer
 from snowflake.cli._plugins.auth.keypair.manager import AuthManager, PublicKeyProperty
 from snowflake.cli.api.commands.flags import SecretTypeParser
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
@@ -16,6 +17,7 @@ from snowflake.cli.api.secure_path import SecurePath
 app = SnowTyperFactory(
     name="keypair",
     help="Manages authentication.",
+    is_hidden=lambda: FeatureFlag.ENABLE_AUTH_KEYPAIR.is_disabled(),
 )
 
 
