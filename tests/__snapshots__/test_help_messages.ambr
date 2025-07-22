@@ -4683,9 +4683,8 @@
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | *  --type          TEXT  Type of OIDC provider to use (e.g., 'github')       |
-  |                          [required]                                          |
-  |    --help  -h            Show this message and exit.                         |
+  | --type          TEXT  Type of OIDC provider to use (e.g., 'github')          |
+  | --help  -h            Show this message and exit.                            |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
