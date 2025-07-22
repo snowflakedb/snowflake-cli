@@ -99,6 +99,15 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
 
 def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     """Install Python dist into temp dir for bundling."""
+    # Force conservative Python distribution for compatibility with older CPUs
+    if python_version == "3.10":
+        os.environ[
+            "HATCH_PYTHON_SOURCE_3_10"
+        ] = "https://github.com/indygreg/python-build-standalone/releases/download/20220802/cpython-3.10.6+20220802-x86_64-unknown-linux-gnu-install_only.tar.gz"
+        print(
+            f"Using conservative Python distribution: {os.environ['HATCH_PYTHON_SOURCE_3_10']}"
+        )
+
     completed_proc = subprocess.run(
         [
             "hatch",
@@ -140,8 +149,28 @@ def pip_install_project(python_exe: str) -> bool:
     return not completed_proc.returncode
 
 
+def setup_conservative_cargo_config():
+    """Ensure cargo config is set up for conservative CPU targeting."""
+    import shutil
+
+    home_dir = Path.home()
+    cargo_dir = home_dir / ".cargo"
+    cargo_config_dest = cargo_dir / "config.toml"
+    cargo_config_src = PROJECT_ROOT / ".cargo" / "config.toml"
+
+    if cargo_config_src.exists():
+        cargo_dir.mkdir(exist_ok=True)
+        shutil.copy2(cargo_config_src, cargo_config_dest)
+        print(f"Copied conservative cargo config to {cargo_config_dest}")
+    else:
+        print(f"Warning: {cargo_config_src} not found")
+
+
 def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     """Use hatch to build the binary."""
+    # Ensure conservative cargo config is in place
+    setup_conservative_cargo_config()
+
     os.environ["PYAPP_SKIP_INSTALL"] = "1"
     os.environ["PYAPP_DISTRIBUTION_PATH"] = str(archive_path)
     os.environ["PYAPP_FULL_ISOLATION"] = "1"
