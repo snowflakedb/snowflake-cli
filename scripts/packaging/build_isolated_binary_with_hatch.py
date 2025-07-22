@@ -101,12 +101,21 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     """Install Python dist into temp dir for bundling."""
     # Force conservative Python distribution for compatibility with older CPUs
     if python_version == "3.10":
-        os.environ[
-            "HATCH_PYTHON_SOURCE_3_10"
-        ] = "https://github.com/indygreg/python-build-standalone/releases/download/20220802/cpython-3.10.6+20220802-x86_64-unknown-linux-gnu-install_only.tar.gz"
+        conservative_url = "https://github.com/indygreg/python-build-standalone/releases/download/20220802/cpython-3.10.6+20220802-x86_64-unknown-linux-gnu-install_only.tar.gz"
+        os.environ["HATCH_PYTHON_SOURCE_3_10"] = conservative_url
+        print(f"✅ Using conservative Python distribution: {conservative_url}")
         print(
-            f"Using conservative Python distribution: {os.environ['HATCH_PYTHON_SOURCE_3_10']}"
+            "✅ This Python was compiled in 2022 with older toolchain for compatibility"
         )
+    else:
+        print(
+            f"⚠️  Using default Python {python_version} distribution (may not be conservative)"
+        )
+
+    print(f"🔧 Environment variables for Python install:")
+    for key, value in os.environ.items():
+        if "HATCH_PYTHON" in key:
+            print(f"  {key}={value}")
 
     completed_proc = subprocess.run(
         [
@@ -161,9 +170,18 @@ def setup_conservative_cargo_config():
     if cargo_config_src.exists():
         cargo_dir.mkdir(exist_ok=True)
         shutil.copy2(cargo_config_src, cargo_config_dest)
-        print(f"Copied conservative cargo config to {cargo_config_dest}")
+        print(f"✅ Copied conservative cargo config to {cargo_config_dest}")
+
+        # Verify conservative settings are in place
+        config_content = cargo_config_dest.read_text()
+        if "-sse3" in config_content and "target-cpu=x86-64" in config_content:
+            print("✅ Conservative CPU targeting verified in cargo config")
+        else:
+            print("⚠️  WARNING: Conservative settings not found in cargo config!")
+            print("Config content preview:")
+            print(config_content[:500])
     else:
-        print(f"Warning: {cargo_config_src} not found")
+        print(f"❌ ERROR: {cargo_config_src} not found")
 
 
 def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
