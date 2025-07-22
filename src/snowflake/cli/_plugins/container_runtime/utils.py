@@ -1,4 +1,5 @@
 import enum
+import json
 import os
 import platform
 import re
@@ -114,7 +115,6 @@ def setup_ssh_config_with_token(
     # Prepare SSH config content - format matches the user's example
     host_name = f"{SSH_HOST_PREFIX}{service_name}"
     config_content = f"""
-# Snowflake Remote Runtime - {service_name}
 Host {host_name}
   HostName {hostname}
   Port     22
@@ -165,83 +165,95 @@ Host {host_name}
     cc.step(f"📝 SSH configuration updated in {ssh_config_path}")
 
 
-def setup_ssh_config(
-    service_name: str, ssh_endpoint_url: str, ssh_key_path: str
+def configure_vscode_settings(
+    service_name: str, server_install_path: str = "/root/user-default"
 ) -> None:
     """
-    Setup SSH configuration for the remote runtime service.
+    Configure VS Code Remote SSH settings to specify server install path.
 
     Args:
         service_name: The name of the service
-        ssh_endpoint_url: The URL of the SSH endpoint
-        ssh_key_path: Path to the SSH private key
+        server_install_path: Path where VS Code server should be installed on remote
     """
-    # Check if websocat is installed
-    if not check_websocat_installed():
-        cc.step("⚠️  websocat is required for SSH connection but not found.")
-        cc.step(install_websocat_instructions())
-        cc.step("Please install websocat and run this command again.")
-        return
+    host_identifier = f"{SSH_HOST_PREFIX}{service_name}"
 
-    # Parse the endpoint URL to extract hostname and domain
-    match = re.match(r"wss://(.*?)(?:-ssh)?\.(.*)", ssh_endpoint_url)
-    if not match:
-        raise ValueError(f"Invalid SSH endpoint URL format: {ssh_endpoint_url}")
+    # Configure both VS Code and VS Code Insiders
+    vscode_variants = [
+        {
+            "name": "VS Code",
+            "windows": "~/AppData/Roaming/Code/User/settings.json",
+            "darwin": "~/Library/Application Support/Code/User/settings.json",
+            "linux": "~/.config/Code/User/settings.json",
+        },
+        {
+            "name": "VS Code Insiders",
+            "windows": "~/AppData/Roaming/Code - Insiders/User/settings.json",
+            "darwin": "~/Library/Application Support/Code - Insiders/User/settings.json",
+            "linux": "~/.config/Code - Insiders/User/settings.json",
+        },
+    ]
 
-    hostname, domain = match.groups()
+    system = platform.system().lower()
+    configured_count = 0
 
-    # Prepare SSH config content
-    host_name = f"{SSH_HOST_PREFIX}{service_name}"
-    config_content = f"""
-# Snowflake Remote Runtime - {service_name}
-Host {host_name}
-  HostName {hostname}.{domain}
-  ProxyCommand websocat - --binary wss://{hostname}-ssh.{domain}
-  User root
-  IdentityFile {ssh_key_path}
-  StrictHostKeyChecking no
-  UserKnownHostsFile /dev/null
-"""
+    for variant in vscode_variants:
+        # Determine settings path based on OS
+        if system == "windows":
+            settings_path = os.path.expanduser(variant["windows"])
+        elif system == "darwin":
+            settings_path = os.path.expanduser(variant["darwin"])
+        else:  # Linux
+            settings_path = os.path.expanduser(variant["linux"])
 
-    # Expand the SSH config path
-    ssh_config_path = os.path.expanduser(SSH_CONFIG_PATH)
+        # Only configure if the VS Code variant directory exists (indicating it's installed)
+        settings_dir = os.path.dirname(settings_path)
+        if not os.path.exists(os.path.dirname(settings_dir)):
+            continue  # Skip this variant if not installed
 
-    # Check if the config already exists for this host
-    existing_config = ""
-    host_pattern = re.compile(f"^Host {re.escape(host_name)}$", re.MULTILINE)
+        # Create settings directory if it doesn't exist
+        os.makedirs(settings_dir, exist_ok=True)
 
-    if os.path.exists(ssh_config_path):
-        with open(ssh_config_path, "r") as f:
-            existing_config = f.read()
+        # Load existing settings or create new ones
+        settings = {}
+        if os.path.exists(settings_path):
+            try:
+                with open(settings_path, "r") as f:
+                    settings = json.load(f)
+            except (json.JSONDecodeError, IOError):
+                cc.step(
+                    f"⚠️  Could not read existing {variant['name']} settings, creating new settings"
+                )
+                settings = {}
 
-    if host_pattern.search(existing_config):
-        # Config already exists, update it
-        lines = existing_config.splitlines()
-        new_lines = []
-        skip_until_next_host = False
+        # Configure Remote SSH server install path
+        if "remote.SSH.serverInstallPath" not in settings:
+            settings["remote.SSH.serverInstallPath"] = {}
 
-        for line in lines:
-            if line.strip().startswith(f"Host {host_name}"):
-                skip_until_next_host = True
-                continue
-            elif skip_until_next_host and line.strip().startswith("Host "):
-                skip_until_next_host = False
+        # Set the server install path for this specific host
+        settings["remote.SSH.serverInstallPath"][host_identifier] = server_install_path
 
-            if not skip_until_next_host:
-                new_lines.append(line)
+        # Also configure lockfiles to use tmp (important for AFS and similar filesystems)
+        settings["remote.SSH.lockfilesInTmp"] = True
 
-        new_config = "\n".join(new_lines) + config_content
+        # Write settings back to file
+        try:
+            with open(settings_path, "w") as f:
+                json.dump(settings, f, indent=2)
+            cc.step(f"⚙️  Configured {variant['name']} settings: {settings_path}")
+            configured_count += 1
+        except IOError as e:
+            cc.step(f"⚠️  Warning: Could not update {variant['name']} settings: {e}")
+
+    if configured_count > 0:
+        cc.step(f"📁 VS Code server install path configured: {server_install_path}")
+        cc.step(f"🔧 Configured {configured_count} VS Code variant(s)")
     else:
-        # Append new config
-        new_config = (
-            existing_config + config_content if existing_config else config_content
+        cc.step(
+            f"⚠️  No VS Code installations found. Please install VS Code and run this command again."
         )
-
-    # Write the updated config
-    with open(ssh_config_path, "w") as f:
-        f.write(new_config)
-
-    cc.step(f"SSH configuration added to {ssh_config_path}")
+        cc.step(
+            f"💡 Alternatively, manually set 'remote.SSH.serverInstallPath.{host_identifier}' to '{server_install_path}' in VS Code settings"
+        )
 
 
 def validate_stage_path(path: str) -> bool:

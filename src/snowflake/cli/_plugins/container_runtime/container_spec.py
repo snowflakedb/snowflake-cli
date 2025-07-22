@@ -29,10 +29,14 @@ DEFAULT_CPU_REQUEST = 1
 DEFAULT_MEMORY_REQUEST = 4
 DEFAULT_CPU_LIMIT = 2
 DEFAULT_MEMORY_LIMIT = 8
-DEFAULT_STAGE_VOLUME_NAME = "stage-volume"
-DEFAULT_STAGE_VOLUME_MOUNT_PATH = "/mnt/stage"
 DEFAULT_USER_STAGE_VOLUME_NAME = constants.USER_STAGE_VOLUME_NAME
 DEFAULT_USER_STAGE_VOLUME_MOUNT_PATH = constants.USER_STAGE_VOLUME_MOUNT_PATH
+DEFAULT_USER_WORKSPACE_VOLUME_NAME = constants.USER_WORKSPACE_VOLUME_NAME
+DEFAULT_USER_WORKSPACE_VOLUME_MOUNT_PATH = constants.USER_WORKSPACE_VOLUME_MOUNT_PATH
+DEFAULT_USER_VSCODE_DATA_VOLUME_NAME = constants.USER_VSCODE_DATA_VOLUME_NAME
+DEFAULT_USER_VSCODE_DATA_VOLUME_MOUNT_PATH = (
+    constants.USER_VSCODE_DATA_VOLUME_MOUNT_PATH
+)
 
 
 def _get_node_resources(
@@ -129,13 +133,12 @@ def generate_spec_overrides(
 def generate_service_spec(
     session: snowpark.Session,
     compute_pool: str,
-    payload: utils.UploadedPayload,
-    persistent_storage: bool = False,
-    storage_size: int = 10,
+    # payload: utils.UploadedPayload,
+    # persistent_storage: bool = False,
+    # storage_size: int = 10,
     environment_vars: Optional[Dict[str, str]] = None,
     enable_metrics: bool = False,
     stage: Optional[str] = None,
-    stage_mount_path: str = DEFAULT_USER_STAGE_VOLUME_MOUNT_PATH,
 ) -> Dict[str, Any]:
     """
     Generate a service specification for a container service.
@@ -143,13 +146,12 @@ def generate_service_spec(
     Args:
         session: Snowflake session
         compute_pool: Compute pool for service execution
-        payload: Uploaded container service payload
-        persistent_storage: Whether to use persistent storage
-        storage_size: Size of persistent storage in GB
+        # payload: Uploaded container service payload
+        # persistent_storage: Whether to use persistent storage
+        # storage_size: Size of persistent storage in GB
         environment_vars: Environment variables to set in the container
         enable_metrics: Enable platform metrics for the job
         stage: Optional internal Snowflake stage to mount (e.g., @my_stage)
-        stage_mount_path: Path where the user stage will be mounted
 
     Returns:
         Service specification
@@ -214,51 +216,68 @@ def generate_service_spec(
     )
 
     # Add persistent or ephemeral storage
-    if persistent_storage:
-        volume_mounts.append({"name": "data-volume", "mountPath": "/mnt/data"})
-        volumes.append(
-            {"name": "data-volume", "source": "block", "size": f"{storage_size}Gi"}
-        )
-    else:
-        # Use ephemeral storage
-        volume_mounts.append({"name": "data-volume", "mountPath": "/mnt/data"})
-        volumes.append({"name": "data-volume", "source": "local"})
+    # if persistent_storage:
+    #     volume_mounts.append({"name": "data-volume", "mountPath": "/mnt/data"})
+    #     volumes.append(
+    #         {"name": "data-volume", "source": "block", "size": f"{storage_size}Gi"}
+    #     )
+    # else:
+    #     # Use ephemeral storage
+    #     volume_mounts.append({"name": "data-volume", "mountPath": "/mnt/data"})
+    #     volumes.append({"name": "data-volume", "source": "local"})
 
     # Mount stage as volume if provided
-    stage_mount = PurePath(constants.STAGE_VOLUME_MOUNT_PATH)
-    volume_mounts.append(
-        {
-            "name": constants.STAGE_VOLUME_NAME,
-            "mountPath": stage_mount.as_posix(),
-        }
-    )
-    volumes.append(
-        {
-            "name": constants.STAGE_VOLUME_NAME,
-            "source": payload.stage_path.as_posix(),
-        }
-    )
+    # stage_mount = PurePath(constants.STAGE_VOLUME_MOUNT_PATH)
+    # volume_mounts.append(
+    #     {
+    #         "name": constants.STAGE_VOLUME_NAME,
+    #         "mountPath": stage_mount.as_posix(),
+    #     }
+    # )
+    # volumes.append(
+    #     {
+    #         "name": constants.STAGE_VOLUME_NAME,
+    #         "source": payload.stage_path.as_posix(),
+    #     }
+    # )
 
     # Mount user stage as volume if provided
     if stage:
-        user_stage_mount = PurePath(stage_mount_path)
+        # Mount user workspace volume
+        user_workspace_mount = PurePath(constants.USER_WORKSPACE_VOLUME_MOUNT_PATH)
         volume_mounts.append(
             {
-                "name": constants.USER_STAGE_VOLUME_NAME,
-                "mountPath": user_stage_mount.as_posix(),
+                "name": constants.USER_WORKSPACE_VOLUME_NAME,
+                "mountPath": user_workspace_mount.as_posix(),
             }
         )
         volumes.append(
             {
-                "name": constants.USER_STAGE_VOLUME_NAME,
-                "source": stage,  # Double quotes required per documentation
+                "name": constants.USER_WORKSPACE_VOLUME_NAME,
+                "source": f"{stage}/user-default",
+            }
+        )
+
+        # Mount user vscode data volume
+        user_vscode_data_mount = PurePath(constants.USER_VSCODE_DATA_VOLUME_MOUNT_PATH)
+        volume_mounts.append(
+            {
+                "name": constants.USER_VSCODE_DATA_VOLUME_NAME,
+                "mountPath": user_vscode_data_mount.as_posix(),
+            }
+        )
+        volumes.append(
+            {
+                "name": constants.USER_VSCODE_DATA_VOLUME_NAME,
+                "source": f"{stage}/.vscode-server/data",
             }
         )
 
     # Setup environment variables
     env_vars = {
-        constants.PAYLOAD_DIR_ENV_VAR: stage_mount.as_posix(),
-        constants.RESULT_PATH_ENV_VAR: constants.RESULT_PATH_DEFAULT_VALUE,
+        # constants.PAYLOAD_DIR_ENV_VAR: stage_mount.as_posix(),
+        # constants.RESULT_PATH_ENV_VAR: constants.RESULT_PATH_DEFAULT_VALUE,
+        constants.ENABLE_REMOTE_DEV_ENV_VAR: "true",
     }
     if environment_vars:
         env_vars.update(environment_vars)
@@ -284,7 +303,7 @@ def generate_service_spec(
 
     # Update environment variables for multi-node job
     env_vars.update(ray_ports)
-    env_vars["ENABLE_HEALTH_CHECKS"] = "true"
+    env_vars["ENABLE_HEALTH_CHECKS"] = "false"
 
     # Define Ray endpoints for intra-service instance communication
     ray_endpoints = [
@@ -347,15 +366,15 @@ def generate_service_spec(
             {
                 "name": constants.DEFAULT_CONTAINER_NAME,
                 "image": image_spec.full_name,
-                "command": ["/usr/local/bin/_entrypoint.sh"],
-                "args": [
-                    (
-                        stage_mount.joinpath(v).as_posix()
-                        if isinstance(v, PurePath)
-                        else v
-                    )
-                    for v in payload.entrypoint
-                ],
+                # "command": ["/usr/local/bin/_entrypoint.sh"],
+                # "args": [
+                #     (
+                #         stage_mount.joinpath(v).as_posix()
+                #         if isinstance(v, PurePath)
+                #         else v
+                #     )
+                #     for v in payload.entrypoint
+                # ],
                 "env": env_vars,
                 "volumeMounts": volume_mounts,
                 "resources": {

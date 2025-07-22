@@ -20,10 +20,6 @@ from pathlib import Path
 from typing import List, Optional
 
 import yaml
-from snowflake.cli._plugins.container_runtime import constants
-from snowflake.cli._plugins.container_runtime.container_payload import (
-    create_container_payload,
-)
 from snowflake.cli._plugins.container_runtime.container_spec import (
     generate_service_spec,
 )
@@ -45,20 +41,18 @@ class ContainerRuntimeManager(SqlExecutionMixin):
         name: Optional[str] = None,
         compute_pool: Optional[str] = None,
         warehouse: Optional[str] = None,
-        persistent_storage: bool = False,
-        storage_size: int = DEFAULT_STORAGE_SIZE_GB,
+        # persistent_storage: bool = False,
+        # storage_size: int = DEFAULT_STORAGE_SIZE_GB,
         external_access: bool = False,
         timeout: int = DEFAULT_TIMEOUT_MIN,
         extensions: Optional[List[str]] = None,
         stage: Optional[str] = None,
-        stage_mount_path: str = constants.USER_STAGE_VOLUME_MOUNT_PATH,
     ) -> str:
         """
         Creates a new container runtime service with VS Code Server.
 
         Args:
             stage: Internal Snowflake stage to mount (e.g., @my_stage or @my_stage/folder)
-            stage_mount_path: Path where the stage will be mounted in the container
         """
         # Generate service name if not provided
         if not name:
@@ -80,16 +74,11 @@ class ContainerRuntimeManager(SqlExecutionMixin):
         if not warehouse:
             warehouse = get_cli_context().connection.warehouse
 
-        # Validate stage format if provided
+        # Validate inputs
         if stage:
             if not stage.startswith("@") and not stage.startswith("snow://"):
                 raise ValueError(
                     "Stage name must start with '@' (e.g., @my_stage) or 'snow://' (e.g., snow://notebook/db.schema.notebook_name/versions/live)"
-                )
-            # Validate stage mount path is absolute
-            if not stage_mount_path.startswith("/"):
-                raise ValueError(
-                    "Stage mount path must be an absolute path (e.g., /mnt/user-stage)"
                 )
 
         # Handle secondary roles for workspace stages
@@ -97,16 +86,19 @@ class ContainerRuntimeManager(SqlExecutionMixin):
             file_list = self.snowpark_session.sql(f"LIST {stage}").collect()
             cc.step(f"Files in the nested stage: {file_list}")
 
+        # remove trailing slash from stage
+        if stage:
+            stage = stage.rstrip("/")
+
         # Generate a service specification
         spec = self._generate_service_spec(
             compute_pool=compute_pool,
-            persistent_storage=persistent_storage,
-            storage_size=storage_size,
+            # persistent_storage=persistent_storage,
+            # storage_size=storage_size,
             external_access=external_access,
             timeout=timeout,
             extensions=extensions,
             stage=stage,
-            stage_mount_path=stage_mount_path,
         )
 
         with tempfile.NamedTemporaryFile(
@@ -158,13 +150,12 @@ QUERY_WAREHOUSE = {warehouse}
     def _generate_service_spec(
         self,
         compute_pool: str,
-        persistent_storage: bool = False,
-        storage_size: int = DEFAULT_STORAGE_SIZE_GB,
+        # persistent_storage: bool = False,
+        # storage_size: int = DEFAULT_STORAGE_SIZE_GB,
         external_access: bool = False,
         timeout: int = DEFAULT_TIMEOUT_MIN,
         extensions: Optional[List[str]] = None,
         stage: Optional[str] = None,
-        stage_mount_path: str = constants.USER_STAGE_VOLUME_MOUNT_PATH,
     ) -> dict:
         """Generate a service specification for VS Code Server using the helper modules."""
         # Create a session for spec generation
@@ -184,23 +175,22 @@ QUERY_WAREHOUSE = {warehouse}
             environment_vars["VSCODE_EXTENSIONS"] = ",".join(extensions)
 
         # Create a container payload
-        container_payload = create_container_payload(extensions=extensions)
+        # container_payload = create_container_payload(extensions=extensions)
 
         # Upload payload to stage (this is for the container payload, not user data)
-        stage_path = f"@zzhu_container"  # Use dedicated stage for container payload
-        uploaded_payload = container_payload.upload(session, stage_path)
+        # stage_path = f"@zzhu_container"  # Use dedicated stage for container payload
+        # uploaded_payload = container_payload.upload(session, stage_path)
 
         # Generate service spec
         spec = generate_service_spec(
             session=session,
             compute_pool=compute_pool,
-            payload=uploaded_payload,
-            persistent_storage=persistent_storage,
-            storage_size=storage_size,
+            # payload=uploaded_payload,
+            # persistent_storage=persistent_storage,
+            # storage_size=storage_size,
             environment_vars=environment_vars,
             enable_metrics=True,  # Enable platform metrics
             stage=stage,
-            stage_mount_path=stage_mount_path,
         )
 
         return spec

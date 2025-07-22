@@ -5,19 +5,24 @@ from snowflake.cli._plugins.container_runtime.utils import (
 
 # SPCS specification constants
 DEFAULT_CONTAINER_NAME = "main"
+ENABLE_REMOTE_DEV_ENV_VAR = "IS_REMOTE_DEV"
 PAYLOAD_DIR_ENV_VAR = "MLRS_PAYLOAD_DIR"
 RESULT_PATH_ENV_VAR = "MLRS_RESULT_PATH"
 MEMORY_VOLUME_NAME = "dshm"
 STAGE_VOLUME_NAME = "stage-volume"
 STAGE_VOLUME_MOUNT_PATH = "/mnt/app"
 USER_STAGE_VOLUME_NAME = "user-stage"
-USER_STAGE_VOLUME_MOUNT_PATH = "/mnt/user-stage"
+USER_STAGE_VOLUME_MOUNT_PATH = "/root/user-default"
+USER_WORKSPACE_VOLUME_NAME = "user-workspace"
+USER_WORKSPACE_VOLUME_MOUNT_PATH = "/root/user-default"
+USER_VSCODE_DATA_VOLUME_NAME = "user-vscode-data"
+USER_VSCODE_DATA_VOLUME_MOUNT_PATH = "/root/.vscode-server/data"
 
 # Default container image information
 DEFAULT_IMAGE_REPO = "/snowflake/images/snowflake_images"
 DEFAULT_IMAGE_CPU = "st_plat/runtime/x86/runtime_image/snowbooks"
 DEFAULT_IMAGE_GPU = "st_plat/runtime/x86/generic_gpu/runtime_image/snowbooks"
-DEFAULT_IMAGE_TAG = "zzhu_vscode"
+DEFAULT_IMAGE_TAG = "zzhu-remote-dev"
 DEFAULT_ENTRYPOINT_PATH = "func.py"
 
 # Percent of container memory to allocate for /dev/shm volume

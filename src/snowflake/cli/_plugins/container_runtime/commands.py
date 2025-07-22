@@ -22,7 +22,10 @@ from typing import List, Optional
 import typer
 from snowflake.cli._plugins.container_runtime import constants
 from snowflake.cli._plugins.container_runtime.manager import ContainerRuntimeManager
-from snowflake.cli._plugins.container_runtime.utils import setup_ssh_config_with_token
+from snowflake.cli._plugins.container_runtime.utils import (
+    configure_vscode_settings,
+    setup_ssh_config_with_token,
+)
 from snowflake.cli.api.commands.flags import identifier_argument
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console as cc
@@ -97,24 +100,17 @@ StageOption = typer.Option(
     help="Internal Snowflake stage to mount (e.g., @my_stage or @my_stage/folder). Maximum 5 stage volumes per service.",
 )
 
-StageMountPathOption = typer.Option(
-    constants.USER_STAGE_VOLUME_MOUNT_PATH,
-    "--stage-mount-path",
-    help="Path where the stage will be mounted in the container",
-)
-
 
 @app.command("create", requires_connection=True)
 def create(
     name: str = NameOption,
     compute_pool: str = ComputePoolOption,
-    persistent_storage: bool = PersistentStorageOption,
-    storage_size: int = StorageSizeOption,
+    # persistent_storage: bool = PersistentStorageOption,
+    # storage_size: int = StorageSizeOption,
     external_access: bool = ExternalAccessOption,
     timeout: int = TimeoutOption,
     extensions: Optional[List[str]] = ExtensionsOption,
     stage: Optional[str] = StageOption,
-    stage_mount_path: str = StageMountPathOption,
     **options,
 ) -> None:
     """
@@ -138,13 +134,12 @@ def create(
         url = manager.create(
             name=name,
             compute_pool=compute_pool,
-            persistent_storage=persistent_storage,
-            storage_size=storage_size,
+            # persistent_storage=persistent_storage,
+            # storage_size=storage_size,
             external_access=external_access,
             timeout=timeout,
             extensions=ext_list,
             stage=stage,
-            stage_mount_path=stage_mount_path,
         )
 
         # Display success message with the endpoint URL
@@ -153,7 +148,13 @@ def create(
         cc.step(f"Default password: password")
         cc.step(f"Session timeout: {timeout} minutes")
         if stage:
-            cc.step(f"Stage '{stage}' mounted at: {stage_mount_path}")
+            cc.step(f"Stage '{stage}' mounted:")
+            cc.step(
+                f"  - Workspace: '{stage}' → '{constants.USER_WORKSPACE_VOLUME_MOUNT_PATH}'"
+            )
+            cc.step(
+                f"  - VS Code data: '{stage}/.vscode-server/data' → '{constants.USER_VSCODE_DATA_VOLUME_MOUNT_PATH}'"
+            )
     except Exception as e:
         cc.step(f"Error: {str(e)}")
         raise typer.Exit(code=1)
@@ -260,6 +261,11 @@ def setup_ssh(
         "--refresh-interval",
         help="Token refresh interval in seconds (default: 300 seconds / 5 minutes)",
     ),
+    vscode_server_path: Optional[str] = typer.Option(
+        None,
+        "--vscode-server-path",
+        help="Path where VS Code server should be installed on the remote container (if not specified, VS Code will use default behavior)",
+    ),
     **options,
 ) -> None:
     """
@@ -270,6 +276,7 @@ def setup_ssh(
     2. Gets the websocket-ssh endpoint URL for the specified container runtime
     3. Gets the current session token and keeps it refreshed
     4. Continuously updates your SSH config with the latest token
+    5. Configures VS Code Remote SSH settings for optimal container integration
 
     This is a blocking command that keeps the session alive and refreshes tokens automatically.
     Press Ctrl+C to stop the command and terminate the SSH session management.
@@ -290,6 +297,9 @@ def setup_ssh(
     # Register signal handlers for graceful shutdown
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+
+    # TODO: Check if the container runtime is still running
+    # if not, raise an error
 
     try:
         # Get the websocket-ssh endpoint URL (this should be done once)
@@ -313,6 +323,15 @@ def setup_ssh(
 
         cc.step(f"✅ Found websocket SSH endpoint: {ssh_endpoint_url}")
 
+        # Configure VS Code settings before starting the token management loop
+        if vscode_server_path:
+            cc.step("🎨 Configuring VS Code Remote SSH settings...")
+            configure_vscode_settings(name, vscode_server_path)
+        else:
+            cc.step(
+                "🎨 VS Code Remote SSH settings are already configured or will be configured by default."
+            )
+
         # Ensure session has the correct format for token to work properly
         cc.step("🔧 Configuring session for SSH token compatibility...")
         manager.snowpark_session.sql(
@@ -321,6 +340,8 @@ def setup_ssh(
 
         cc.step(f"🚀 Starting SSH token management for container runtime '{name}'...")
         cc.step(f"🔄 Token refresh interval: {refresh_interval} seconds")
+        if vscode_server_path:
+            cc.step(f"📁 VS Code server path: {vscode_server_path}")
         cc.step(f"💡 You can now connect using: ssh snowflake-remote-runtime-{name}")
         cc.step(f"⏹️  Press Ctrl+C to stop this command and end SSH session management")
         cc.step("=" * 70)
