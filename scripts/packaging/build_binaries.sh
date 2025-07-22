@@ -39,6 +39,9 @@ build_binaries() {
     echo "Building for Darwin moved to build_darwin_package.sh"
     exit 0
   elif [[ ${SYSTEM} == "linux" ]]; then
+    # Force hatch to use a conservative Python distribution compiled for older CPUs
+    export HATCH_PYTHON_SOURCE_3_10="https://github.com/indygreg/python-build-standalone/releases/download/20220802/cpython-3.10.6+20220802-x86_64-unknown-linux-gnu-install_only.tar.gz"
+    echo "Using conservative Python distribution: $HATCH_PYTHON_SOURCE_3_10"
     hatch -e packaging run build-isolated-binary
     mkdir $DIST_DIR/snow
     mv $DIST_DIR/binary/snow-${VERSION} $DIST_DIR/snow/snow
