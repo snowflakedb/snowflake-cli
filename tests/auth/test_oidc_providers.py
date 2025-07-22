@@ -23,6 +23,7 @@ from snowflake.cli._app.auth.oidc_providers import (
     OidcTokenProvider,
     _registry,
     auto_detect_oidc_provider,
+    get_active_oidc_provider,
     get_oidc_provider,
 )
 from snowflake.cli.api.exceptions import CliError
@@ -209,13 +210,34 @@ class TestModuleFunctions:
     """Test cases for module-level functions."""
 
     @patch.dict(os.environ, {}, clear=True)
-    def test_get_oidc_provider(self):
-        """Test get_oidc_provider function when provider is not available."""
+    def test_get_active_oidc_provider(self):
+        """Test get_active_oidc_provider function when provider is not available."""
         with pytest.raises(
             CliError,
             match="Provider 'github' is not available in the current environment",
         ):
-            get_oidc_provider(OidcProviderType.GITHUB.value)
+            get_active_oidc_provider(OidcProviderType.GITHUB.value)
+
+    def test_get_active_oidc_provider_non_existing(self):
+        """Test get_active_oidc_provider with non-existing provider."""
+        with pytest.raises(
+            CliError,
+            match="Unknown provider 'non_existing'. Available providers: github",
+        ):
+            get_active_oidc_provider("non_existing")
+
+    @patch.dict(os.environ, {"GITHUB_ACTIONS": "true"})
+    def test_get_active_oidc_provider_available(self):
+        """Test get_active_oidc_provider function when provider is available."""
+        provider = get_active_oidc_provider(OidcProviderType.GITHUB.value)
+        assert provider is not None
+        assert provider.provider_name == OidcProviderType.GITHUB.value
+
+    def test_get_oidc_provider_existing(self):
+        """Test get_oidc_provider with existing provider (no availability check)."""
+        provider = get_oidc_provider(OidcProviderType.GITHUB.value)
+        assert provider is not None
+        assert provider.provider_name == OidcProviderType.GITHUB.value
 
     def test_get_oidc_provider_non_existing(self):
         """Test get_oidc_provider with non-existing provider."""
@@ -225,12 +247,15 @@ class TestModuleFunctions:
         ):
             get_oidc_provider("non_existing")
 
-    @patch.dict(os.environ, {"GITHUB_ACTIONS": "true"})
-    def test_get_oidc_provider_available(self):
-        """Test get_oidc_provider function when provider is available."""
+    @patch.dict(os.environ, {}, clear=True)
+    def test_get_oidc_provider_not_available(self):
+        """Test get_oidc_provider returns provider even when not available in environment."""
+        # This is the key difference from get_active_oidc_provider - it should succeed
         provider = get_oidc_provider(OidcProviderType.GITHUB.value)
         assert provider is not None
         assert provider.provider_name == OidcProviderType.GITHUB.value
+        # Verify the provider is actually not available in this environment
+        assert not provider.is_available
 
     @patch.dict(os.environ, {"GITHUB_ACTIONS": "true"})
     def test_auto_detect_oidc_provider_success(self):

@@ -13,13 +13,16 @@
 # limitations under the License.
 
 import logging
+from functools import cached_property
 
 from snowflake.cli._app.auth.oidc_providers import (
     auto_detect_oidc_provider,
+    get_active_oidc_provider,
     get_oidc_provider,
 )
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +49,7 @@ class WorkloadIdentityManager(SqlExecutionMixin):
             user: Name for the federated user to create
             subject: OIDC subject string
             default_role: Default role to assign to the federated user
-            provider_type: Type of OIDC provider to use for issuer
+            provider_type: Type of OIDC provider to use
 
         Returns:
             Success message string
@@ -55,13 +58,10 @@ class WorkloadIdentityManager(SqlExecutionMixin):
             CliError: If user creation fails or parameters are invalid
         """
         logger.info(
-            "Setting up workload identity federation for user: %s",
+            "Setting up workload identity federation for user: %s with provider type: %s",
             user,
+            provider_type,
         )
-
-        # Validate user name, subject, and role
-        self._validate_user_name(user)
-        self._validate_role_name(default_role)
 
         if not subject.strip():
             raise CliError("Subject cannot be empty")
@@ -69,33 +69,35 @@ class WorkloadIdentityManager(SqlExecutionMixin):
         # Get issuer from the specified provider
         try:
             provider = get_oidc_provider(provider_type)
+            if provider is None:
+                raise CliError("Provider '%s' is not available" % provider_type)
+
             issuer = provider.issuer
         except Exception as e:
-            error_msg = f"Failed to get provider '{provider_type}': {str(e)}"
+            error_msg = "Failed to get OIDC provider '%s': %s" % (provider_type, str(e))
             logger.error(error_msg)
             raise CliError(error_msg)
 
-        # Construct the CREATE USER SQL command
-        create_user_sql = f"""CREATE USER {user}
-  WORKLOAD_IDENTITY = (
-    TYPE = 'OIDC'
-    ISSUER = '{issuer}'
-    SUBJECT = '{subject}'
-  )
-  TYPE = SERVICE
-  DEFAULT_ROLE = {default_role}"""
+        # Construct the CREATE USER SQL command using WORKLOAD_IDENTITY syntax
+        logger.debug("Using WORKLOAD_IDENTITY syntax for user creation")
+        create_user_sql = (
+            f"CREATE USER {user} WORKLOAD_IDENTITY = ("
+            f" TYPE = 'OIDC' ISSUER = '{issuer}' SUBJECT = '{subject}')"
+            f" TYPE = SERVICE DEFAULT_ROLE = {default_role}"
+        )
 
         try:
             logger.debug("Executing CREATE USER command for federated user: %s", user)
             self.execute_query(create_user_sql)
 
             success_message = (
-                f"Successfully created federated user '{user}' with subject '{subject}'"
+                "Successfully created federated user '%s' with subject '%s' using provider '%s'"
+                % (user, subject, provider_type)
             )
             logger.info(success_message)
             return success_message
         except Exception as e:
-            error_msg = f"Failed to create federated user '{user}': {str(e)}"
+            error_msg = "Failed to create federated user '%s': %s" % (user, str(e))
             logger.error(error_msg)
             raise CliError(error_msg)
 
@@ -114,18 +116,24 @@ class WorkloadIdentityManager(SqlExecutionMixin):
         """
         logger.info("Deleting federated user: %s", user)
 
-        # Validate user name
-        self._validate_user_name(user)
+        if not user.strip():
+            raise CliError("Federated user name cannot be empty")
+
+        # Basic validation for user name format
+        if user.strip() and (
+            user[0].isdigit() or not user.replace("_", "").replace("-", "").isalnum()
+        ):
+            raise CliError("Invalid federated user name")
 
         try:
             logger.debug("Executing DROP USER command for federated user: %s", user)
             self.execute_query(f"DROP USER {user}")
 
-            success_message = f"Successfully deleted federated user '{user}'"
+            success_message = "Successfully deleted federated user '%s'" % user
             logger.info(success_message)
             return success_message
         except Exception as e:
-            error_msg = f"Failed to delete federated user '{user}': {str(e)}"
+            error_msg = "Failed to delete federated user '%s': %s" % (user, str(e))
             logger.error(error_msg)
             raise CliError(error_msg)
 
@@ -151,41 +159,57 @@ class WorkloadIdentityManager(SqlExecutionMixin):
                     raise CliError("No available OIDC provider found")
                 return provider.get_token()
             else:
-                provider = get_oidc_provider(provider_type)
+                provider = get_active_oidc_provider(provider_type)
                 if provider is None:
                     raise CliError(f"Provider '{provider_type}' is not available")
                 return provider.get_token()
         except Exception as e:
-            error_msg = f"Failed to read OIDC token: {str(e)}"
+            error_msg = "Failed to read OIDC token: %s" % str(e)
             logger.error(error_msg)
             raise CliError(error_msg)
 
-    def _validate_user_name(self, user_name: str) -> None:
+    @cached_property
+    def _has_workload_identity_enabled(self) -> bool:
         """
-        Validates the federated user name.
+        Checks if workload identity is enabled in the Snowflake account.
+        """
+        logger.debug("Checking ENABLE_USERS_HAS_WORKLOAD_IDENTITY parameter")
+        parameter_result = self.execute_query(
+            'show parameters ->> select "key", "value" from $1 where "key" = \'ENABLE_USERS_HAS_WORKLOAD_IDENTITY\'',
+            cursor_class=DictCursor,
+        ).fetchone()
+        return parameter_result and parameter_result.get("value", "").lower() == "true"
 
-        Args:
-            user_name: The user name to validate
+    def get_users_list(self) -> SnowflakeCursor:
+        """
+        Lists users with workload identity enabled.
+
+        Returns:
+            List of users with workload identity enabled
 
         Raises:
-            CliError: If the user name is invalid
+            CliError: If queries fail or parameters are invalid
         """
-        if not user_name or not user_name.strip():
-            raise CliError("Federated user name cannot be empty")
+        logger.info("Listing users with workload identity enabled")
 
-        # Check if user name starts with a digit (basic SQL identifier validation)
-        if user_name[0].isdigit():
-            raise CliError("Invalid federated user name: cannot start with a digit")
+        try:
+            # Determine which column to check based on parameter value
+            if self._has_workload_identity_enabled:
+                logger.debug("Using has_workload_identity column")
+                users_query = 'show terse users ->> select * from $1 where "has_workload_identity" = true'
+            else:
+                logger.debug("Using has_federated_workload_authentication column")
+                users_query = 'show terse users ->> select * from $1 where "has_federated_workload_authentication" = true'
 
-    def _validate_role_name(self, role_name: str) -> None:
-        """
-        Validates the role name.
+            # Execute the users query
+            users_result = self.execute_query(users_query, cursor_class=DictCursor)
 
-        Args:
-            role_name: The role name to validate
+            logger.info(
+                "Found %d users with workload identity enabled", users_result.rowcount
+            )
+            return users_result
 
-        Raises:
-            CliError: If the role name is invalid
-        """
-        if not role_name or not role_name.strip():
-            raise CliError("Default role name cannot be empty")
+        except Exception as e:
+            error_msg = "Failed to list users with workload identity: %s" % str(e)
+            logger.error(error_msg)
+            raise CliError(error_msg)
