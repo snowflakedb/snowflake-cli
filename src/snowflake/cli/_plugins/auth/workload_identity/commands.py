@@ -70,6 +70,14 @@ ProviderTypeOption = typer.Option(
 )
 
 
+AutoProviderTypeOption = typer.Option(
+    "auto",
+    "--type",
+    help=f"Type of OIDC provider to use (e.g., '{OidcProviderType.GITHUB.value}')",
+    show_default=False,
+)
+
+
 @app.command("setup", requires_connection=True)
 def setup(
     _type: str = ProviderTypeOption,
@@ -105,7 +113,7 @@ def delete(
 
 @app.command("read-token", requires_connection=False)
 def read_token(
-    _type: str = ProviderTypeOption,
+    _type: str = AutoProviderTypeOption,
     **options,
 ):
     """
