@@ -250,7 +250,7 @@ _registry = OidcProviderRegistry()
 
 def get_oidc_provider(provider_name: str) -> OidcTokenProvider:
     """
-    Get a specific OIDC provider by name.
+    Get a specific OIDC provider by name without checking availability.
 
     Args:
         provider_name: Name of the provider to get
@@ -259,7 +259,7 @@ def get_oidc_provider(provider_name: str) -> OidcTokenProvider:
         The requested OIDC provider instance
 
     Raises:
-        CliError: If provider is unknown or not available
+        CliError: If provider is unknown
     """
     provider = _registry.get_provider(provider_name)
 
@@ -272,6 +272,24 @@ def get_oidc_provider(provider_name: str) -> OidcTokenProvider:
                 providers_list,
             )
         )
+
+    return provider
+
+
+def get_active_oidc_provider(provider_name: str) -> OidcTokenProvider:
+    """
+    Get a specific OIDC provider by name and ensure it's available.
+
+    Args:
+        provider_name: Name of the provider to get
+
+    Returns:
+        The requested OIDC provider instance
+
+    Raises:
+        CliError: If provider is unknown or not available
+    """
+    provider = get_oidc_provider(provider_name)
 
     if not provider.is_available:
         raise CliError(

@@ -21,7 +21,7 @@ from snowflake.cli._plugins.auth.workload_identity.manager import (
     WorkloadIdentityManager,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.output.types import MessageResult
+from snowflake.cli.api.output.types import MessageResult, QueryResult
 
 app = SnowTyperFactory(
     name="workload-identity",
@@ -62,24 +62,20 @@ DefaultRoleOption = typer.Option(
 )
 
 ProviderTypeOption = typer.Option(
-    "auto",
+    ...,
     "--type",
-    help=f"Type of read operation to perform (e.g., '{OidcProviderType.GITHUB.value}', 'auto')",
-)
-
-ProviderTypeSetupOption = typer.Option(
-    OidcProviderType.GITHUB.value,
-    "--type",
-    help=f"Type of OIDC provider to use for issuer (e.g., '{OidcProviderType.GITHUB.value}')",
+    help=f"Type of OIDC provider to use (e.g., '{OidcProviderType.GITHUB.value}')",
+    prompt="Enter OIDC provider type",
+    show_default=False,
 )
 
 
 @app.command("setup", requires_connection=True)
 def setup(
+    _type: str = ProviderTypeOption,
     federated_user: str = FederatedUserOption,
     subject: str = SubjectOption,
     default_role: str = DefaultRoleOption,
-    provider_type: str = ProviderTypeSetupOption,
     **options,
 ):
     """
@@ -90,7 +86,7 @@ def setup(
         user=federated_user,
         subject=subject,
         default_role=default_role,
-        provider_type=provider_type,
+        provider_type=_type,
     )
     return MessageResult(result)
 
@@ -118,3 +114,14 @@ def read_token(
     """
     result = WorkloadIdentityManager().read(provider_type=_type)
     return MessageResult(result)
+
+
+@app.command("list", requires_connection=True)
+def list_users(
+    **options,
+):
+    """
+    Lists users with workload identity enabled.
+    """
+    result = WorkloadIdentityManager().get_users_list()
+    return QueryResult(result)
