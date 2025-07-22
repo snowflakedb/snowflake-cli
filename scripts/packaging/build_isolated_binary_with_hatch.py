@@ -99,24 +99,6 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
 
 def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     """Install Python dist into temp dir for bundling."""
-    # Force conservative Python distribution for compatibility with older CPUs
-    if python_version == "3.10":
-        conservative_url = "https://github.com/indygreg/python-build-standalone/releases/download/20220802/cpython-3.10.6+20220802-x86_64-unknown-linux-gnu-install_only.tar.gz"
-        os.environ["HATCH_PYTHON_SOURCE_3_10"] = conservative_url
-        print(f"✅ Using conservative Python distribution: {conservative_url}")
-        print(
-            "✅ This Python was compiled in 2022 with older toolchain for compatibility"
-        )
-    else:
-        print(
-            f"⚠️  Using default Python {python_version} distribution (may not be conservative)"
-        )
-
-    print(f"🔧 Environment variables for Python install:")
-    for key, value in os.environ.items():
-        if "HATCH_PYTHON" in key:
-            print(f"  {key}={value}")
-
     completed_proc = subprocess.run(
         [
             "hatch",
