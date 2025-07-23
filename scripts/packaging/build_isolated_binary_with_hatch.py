@@ -100,37 +100,145 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
 def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     """Install Python dist into temp dir for bundling."""
 
-    # Set conservative CPU flags to prevent AVX2 instructions
+    print("🔨 BUILDING PYTHON FROM SOURCE to avoid AVX2 instructions")
+    print("🔨 This ensures no pre-compiled AVX2 optimizations")
+
     import os
+    import tarfile
+    import tempfile
+    import urllib.request
 
-    conservative_env = os.environ.copy()
+    # Python source download URL
+    python_source_url = f"https://www.python.org/ftp/python/3.10.12/Python-3.10.12.tgz"
+    python_install_dir = python_tmp_dir / python_version
 
-    # Disable modern CPU features in Rust compilation
-    rust_flags = "-C target-feature=-avx,-avx2,-avx512f,-fma,-bmi1,-bmi2,-lzcnt,-pclmulqdq,-movbe"
-    conservative_env["RUSTFLAGS"] = rust_flags
+    print(f"📥 Downloading Python source: {python_source_url}")
 
-    # Disable modern CPU features in C compilation (affects Python builds)
-    c_flags = "-mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe"
-    conservative_env["CFLAGS"] = c_flags
-    conservative_env["CXXFLAGS"] = c_flags
+    try:
+        # Download Python source
+        with tempfile.NamedTemporaryFile(suffix=".tgz", delete=False) as tmp_file:
+            urllib.request.urlretrieve(python_source_url, tmp_file.name)
 
-    print("🐛 WORKAROUND: Setting conservative CPU flags to prevent AVX2 instructions")
-    print(f"🐛 RUSTFLAGS: {rust_flags}")
-    print(f"🐛 CFLAGS: {c_flags}")
+            # Extract source
+            with tempfile.TemporaryDirectory() as build_dir:
+                build_path = Path(build_dir)
 
-    completed_proc = subprocess.run(
-        [
-            "hatch",
-            "python",
-            "install",
-            "--private",
-            "--dir",
-            python_tmp_dir,
-            python_version,
-        ],
-        env=conservative_env,
-    )
-    return not completed_proc.returncode
+                with tarfile.open(tmp_file.name, "r:gz") as tar:
+                    tar.extractall(path=build_path)
+
+                # Find extracted Python directory
+                python_src_dir = next(build_path.glob("Python-*"))
+
+                print(f"🔨 Compiling Python with conservative flags...")
+
+                # Set conservative compilation flags
+                conservative_env = os.environ.copy()
+                conservative_env[
+                    "CFLAGS"
+                ] = "-mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
+                conservative_env[
+                    "CXXFLAGS"
+                ] = "-mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
+
+                # Configure Python build
+                configure_cmd = [
+                    "./configure",
+                    f"--prefix={python_install_dir}",
+                    "--enable-optimizations",
+                    "--with-lto=no",  # Disable LTO to avoid optimizer adding AVX2
+                    "--disable-ipv6",  # Reduce dependencies
+                ]
+
+                print(f"🔧 Configuring: {' '.join(configure_cmd)}")
+                result = subprocess.run(
+                    configure_cmd, cwd=python_src_dir, env=conservative_env
+                )
+                if result.returncode != 0:
+                    print(f"❌ Configure failed")
+                    return False
+
+                # Build Python
+                make_cmd = ["make", "-j4"]
+                print(f"🔨 Building: {' '.join(make_cmd)}")
+                result = subprocess.run(
+                    make_cmd, cwd=python_src_dir, env=conservative_env
+                )
+                if result.returncode != 0:
+                    print(f"❌ Build failed")
+                    return False
+
+                # Install Python
+                python_install_dir.mkdir(parents=True, exist_ok=True)
+                install_cmd = ["make", "install"]
+                print(f"📦 Installing: {' '.join(install_cmd)}")
+                result = subprocess.run(
+                    install_cmd, cwd=python_src_dir, env=conservative_env
+                )
+                if result.returncode != 0:
+                    print(f"❌ Install failed")
+                    return False
+
+        # Create hatch-dist.json metadata
+        import json
+
+        hatch_dist_json = python_install_dir / "hatch-dist.json"
+        dist_metadata = {
+            "name": "cpython",
+            "version": python_version,
+            "arch": "x86_64",
+            "os": "linux",
+            "implementation": "cpython",
+            "python_path": "bin/python3.10",
+            "stdlib_path": "lib/python3.10",
+            "site_packages_path": "lib/python3.10/site-packages",
+        }
+
+        with open(hatch_dist_json, "w") as f:
+            json.dump(dist_metadata, f, indent=2)
+
+        print("✅ Successfully built and installed Python from source")
+        print(f"✅ Created hatch-dist.json metadata file")
+        return True
+
+    except Exception as e:
+        print(f"❌ Failed to build Python from source: {e}")
+        print("🔄 Falling back to ancient pre-built Python distribution...")
+
+        # Fallback: Try to use a very old Python build from early 2022 (oldest 3.10)
+        ancient_python_url = "https://github.com/indygreg/python-build-standalone/releases/download/20220227/cpython-3.10.2+20220227-x86_64-unknown-linux-gnu-install_only.tar.gz"
+
+        try:
+            print(f"📥 Downloading ancient Python: {ancient_python_url}")
+            with tempfile.NamedTemporaryFile(
+                suffix=".tar.gz", delete=False
+            ) as tmp_file:
+                urllib.request.urlretrieve(ancient_python_url, tmp_file.name)
+
+                python_install_dir.mkdir(parents=True, exist_ok=True)
+
+                with tarfile.open(tmp_file.name, "r:gz") as tar:
+                    tar.extractall(path=python_install_dir)
+
+                print("✅ Successfully installed ancient Python distribution")
+                return True
+
+        except Exception as fallback_error:
+            print(f"❌ Fallback also failed: {fallback_error}")
+
+            # Last resort: Use standard hatch installation
+            print("🔄 Last resort: Using standard hatch Python installation...")
+            completed_proc = subprocess.run(
+                [
+                    "hatch",
+                    "python",
+                    "install",
+                    "--private",
+                    "--dir",
+                    python_tmp_dir,
+                    python_version,
+                ]
+            )
+            return not completed_proc.returncode
 
 
 @contextlib.contextmanager

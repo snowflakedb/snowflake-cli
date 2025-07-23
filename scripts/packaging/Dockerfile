@@ -28,9 +28,11 @@ RUN dnf install -y --allowerasing \
   curl \
   git \
   patch \
-  which
+  which \
+  glibc-devel \
+  kernel-headers
 
-# Install development libraries
+# Install development libraries (including Python build dependencies)
 RUN dnf install -y \
   openssl-devel \
   zlib-devel \
@@ -41,6 +43,8 @@ RUN dnf install -y \
   libxml2-devel \
   libffi-devel \
   xz-devel \
+  expat-devel \
+  uuid-devel \
   gdb \
   strace \
   binutils
