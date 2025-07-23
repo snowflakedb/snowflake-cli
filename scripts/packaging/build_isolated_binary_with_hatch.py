@@ -99,6 +99,25 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
 
 def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     """Install Python dist into temp dir for bundling."""
+
+    # Set conservative CPU flags to prevent AVX2 instructions
+    import os
+
+    conservative_env = os.environ.copy()
+
+    # Disable modern CPU features in Rust compilation
+    rust_flags = "-C target-feature=-avx,-avx2,-avx512f,-fma,-bmi1,-bmi2,-lzcnt,-pclmulqdq,-movbe"
+    conservative_env["RUSTFLAGS"] = rust_flags
+
+    # Disable modern CPU features in C compilation (affects Python builds)
+    c_flags = "-mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe"
+    conservative_env["CFLAGS"] = c_flags
+    conservative_env["CXXFLAGS"] = c_flags
+
+    print("🐛 WORKAROUND: Setting conservative CPU flags to prevent AVX2 instructions")
+    print(f"🐛 RUSTFLAGS: {rust_flags}")
+    print(f"🐛 CFLAGS: {c_flags}")
+
     completed_proc = subprocess.run(
         [
             "hatch",
@@ -108,7 +127,8 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
             "--dir",
             python_tmp_dir,
             python_version,
-        ]
+        ],
+        env=conservative_env,
     )
     return not completed_proc.returncode
 
@@ -156,7 +176,7 @@ def setup_conservative_cargo_config():
 
         # Verify conservative settings are in place
         config_content = cargo_config_dest.read_text()
-        if "-sse3" in config_content and "target-cpu=x86-64" in config_content:
+        if "-avx" in config_content and "-avx2" in config_content:
             print("✅ Conservative CPU targeting verified in cargo config")
         else:
             print("⚠️  WARNING: Conservative settings not found in cargo config!")
@@ -171,14 +191,31 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     # Ensure conservative cargo config is in place
     setup_conservative_cargo_config()
 
-    os.environ["PYAPP_SKIP_INSTALL"] = "1"
-    os.environ["PYAPP_DISTRIBUTION_PATH"] = str(archive_path)
-    os.environ["PYAPP_FULL_ISOLATION"] = "1"
-    os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = str(python_path)
-    os.environ["PYAPP_DISTRIBUTION_PIP_AVAILABLE"] = "1"
+    # Set conservative CPU flags to prevent AVX2 instructions in binary build
+    import os
+
+    conservative_env = os.environ.copy()
+
+    # Disable modern CPU features in Rust compilation
+    rust_flags = "-C target-feature=-avx,-avx2,-avx512f,-fma,-bmi1,-bmi2,-lzcnt,-pclmulqdq,-movbe"
+    conservative_env["RUSTFLAGS"] = rust_flags
+
+    # Disable modern CPU features in C compilation
+    c_flags = "-mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe"
+    conservative_env["CFLAGS"] = c_flags
+    conservative_env["CXXFLAGS"] = c_flags
+
+    print("🐛 BINARY BUILD: Setting conservative CPU flags to prevent AVX2 instructions")
+    print(f"🐛 RUSTFLAGS: {rust_flags}")
+
+    conservative_env["PYAPP_SKIP_INSTALL"] = "1"
+    conservative_env["PYAPP_DISTRIBUTION_PATH"] = str(archive_path)
+    conservative_env["PYAPP_FULL_ISOLATION"] = "1"
+    conservative_env["PYAPP_DISTRIBUTION_PYTHON_PATH"] = str(python_path)
+    conservative_env["PYAPP_DISTRIBUTION_PIP_AVAILABLE"] = "1"
 
     completed_proc = subprocess.run(
-        ["hatch", "build", "-t", "binary"], capture_output=True
+        ["hatch", "build", "-t", "binary"], capture_output=True, env=conservative_env
     )
     if completed_proc.returncode:
         print(completed_proc.stderr)

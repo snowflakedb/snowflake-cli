@@ -12,6 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Simplified config with just debug symbols for crash analysis
+# Conservative build config with debug symbols and disabled modern CPU features
 [build]
-rustflags = ["-C", "debuginfo=2"]
+rustflags = [
+    "-C", "debuginfo=2",
+    "-C", "target-feature=-avx",
+    "-C", "target-feature=-avx2",
+    "-C", "target-feature=-avx512f",
+    "-C", "target-feature=-fma",
+    "-C", "target-feature=-bmi1",
+    "-C", "target-feature=-bmi2",
+    "-C", "target-feature=-lzcnt",
+    "-C", "target-feature=-pclmulqdq",
+    "-C", "target-feature=-movbe"
+]
