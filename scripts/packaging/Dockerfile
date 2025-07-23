@@ -42,13 +42,18 @@ RUN dnf install -y \
   libgomp.x86_64 \
   libatomic.x86_64 \
   openssl-libs.x86_64 \
-  zlib.x86_64 || echo "Some additional x86_64 packages not available" \
+  zlib.x86_64 || echo "Some additional x86_64 packages not available"
+
+# Install essential tools (use --allowerasing to resolve curl conflicts)
+RUN dnf install -y --allowerasing \
   curl \
-  git \
   patch \
   which \
   glibc-devel \
   kernel-headers
+
+# Install git separately to ensure it's available for pyenv
+RUN dnf install -y git && git --version
 
 # Install development libraries (including Python build dependencies)
 # Install in multiple steps to handle package availability issues
@@ -98,6 +103,9 @@ RUN dnf install -y libnsl2-devel || dnf install -y libnsl-devel || echo "libnsl 
 ENV PYENV_ROOT="${HOME}/.pyenv"
 ENV PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:$PATH"
 ENV PYTHON_VERSION=3.10
+
+# Verify git is available before installing pyenv
+RUN which git && git --version
 
 # Install pyenv and Python
 RUN curl https://pyenv.run | bash
