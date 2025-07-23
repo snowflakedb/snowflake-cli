@@ -114,13 +114,13 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
 
     # Try multiple Python distributions in order of preference
     python_urls = [
-        # Static musl build (most self-contained)
-        ("musl-static", ancient_python_url),
-        # Original glibc build (fallback)
+        # Try glibc build first (more likely to have working pip)
         (
             "glibc",
             "https://github.com/indygreg/python-build-standalone/releases/download/20220227/cpython-3.10.2+20220227-x86_64-unknown-linux-gnu-install_only.tar.gz",
         ),
+        # Static musl build as fallback (most self-contained but might not have pip)
+        ("musl-static", ancient_python_url),
     ]
 
     for build_type, python_url in python_urls:
@@ -297,11 +297,78 @@ def override_is_installation_source_variable():
 
 def pip_install_project(python_exe: str) -> bool:
     """Install the project into the Python distribution."""
+    print(f"🐍 Installing project using Python: {python_exe}")
+
+    # First, check if the Python executable exists and works
+    if not Path(python_exe).exists():
+        print(f"❌ Python executable not found: {python_exe}")
+        return False
+
+    # Test Python executable
+    test_proc = subprocess.run(
+        [python_exe, "--version"], capture_output=True, text=True
+    )
+    if test_proc.returncode != 0:
+        print(f"❌ Python executable failed: {test_proc.stderr}")
+        return False
+    else:
+        print(f"✅ Python executable works: {test_proc.stdout.strip()}")
+
+    # Check if pip is available
+    pip_check = subprocess.run(
+        [python_exe, "-m", "pip", "--version"], capture_output=True, text=True
+    )
+    if pip_check.returncode != 0:
+        print(f"❌ pip not available: {pip_check.stderr}")
+        print("🔧 Trying to install pip...")
+
+        # Try to install pip using ensurepip
+        ensurepip_proc = subprocess.run(
+            [python_exe, "-m", "ensurepip", "--upgrade"], capture_output=True, text=True
+        )
+        if ensurepip_proc.returncode != 0:
+            print(f"❌ Failed to install pip via ensurepip: {ensurepip_proc.stderr}")
+            return False
+        else:
+            print("✅ pip installed successfully via ensurepip")
+    else:
+        print(f"✅ pip available: {pip_check.stdout.strip()}")
+
+    # Now install the project
+    print(f"📦 Installing project from: {PROJECT_ROOT}")
     completed_proc = subprocess.run(
         [python_exe, "-m", "pip", "install", "-U", str(PROJECT_ROOT)],
         capture_output=True,
+        text=True,
     )
-    return not completed_proc.returncode
+
+    if completed_proc.returncode != 0:
+        print(f"❌ Project installation failed!")
+        print(f"STDOUT: {completed_proc.stdout}")
+        print(f"STDERR: {completed_proc.stderr}")
+        return False
+    else:
+        print("✅ Project installed successfully")
+        print(f"Installation output: {completed_proc.stdout}")
+
+        # Verify the snowflake module can be imported
+        print("🔍 Verifying snowflake module can be imported...")
+        import_test = subprocess.run(
+            [
+                python_exe,
+                "-c",
+                "import snowflake.cli; print('snowflake.cli imported successfully')",
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        if import_test.returncode != 0:
+            print(f"❌ snowflake module import failed: {import_test.stderr}")
+            return False
+        else:
+            print(f"✅ snowflake module import successful: {import_test.stdout.strip()}")
+            return True
 
 
 def setup_conservative_cargo_config():
@@ -376,7 +443,13 @@ def main():
 
     print(f"Installing project into Python distribution...")
     with override_is_installation_source_variable():
-        pip_install_project(str(settings.python_dist_exe))
+        success = pip_install_project(str(settings.python_dist_exe))
+        if not success:
+            print("❌ CRITICAL: Failed to install project into Python distribution!")
+            print(
+                "This will cause the binary to fail with 'ModuleNotFoundError: No module named snowflake'"
+            )
+            raise RuntimeError("Project installation failed")
     print("-> installed")
 
     print("Making distribution archive...")
