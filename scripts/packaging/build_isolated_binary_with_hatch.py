@@ -101,16 +101,30 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
 def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     """Install Python dist into temp dir for bundling."""
 
-    print("📥 USING ANCIENT PYTHON BUILD to avoid AVX2 instructions")
-    print("📥 Skipping source compilation due to cross-compilation complexity")
+    print(
+        "🐍 Building Python from official Python.org sources to avoid AVX2 instructions"
+    )
+    print("🔨 Prioritizing source compilation for maximum compatibility")
+
+    python_install_dir = python_tmp_dir / python_version
+
+    # Option 1: Build Python from official Python.org source with static linking
+    try:
+        print("🔨 Building Python from official Python.org source...")
+        return build_static_python_from_official_source(
+            python_install_dir, python_version
+        )
+    except Exception as e:
+        print(f"❌ Failed to build Python from official source: {e}")
+
+    # Option 2: Try fallback to ancient Python distributions (for backup)
+    print("🔄 Falling back to ancient Python distributions...")
 
     import tarfile
     import tempfile
     import urllib.request
 
-    python_install_dir = python_tmp_dir / python_version
-
-    # Try ancient Python distribution first (oldest 3.10 available) - use static build to avoid dependencies
+    # Ancient Python distribution fallbacks (oldest 3.10 available)
     ancient_python_url = "https://github.com/indygreg/python-build-standalone/releases/download/20220227/cpython-3.10.2+20220227-x86_64-unknown-linux-musl-install_only.tar.gz"
 
     # Try multiple Python distributions in order of preference
@@ -179,12 +193,12 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
             print(f"❌ Failed to install {build_type} Python: {e}")
             continue
 
-    # Option 3: Try building Python from source with static linking (if we're on x86_64)
+    # Option 3: Try the old source build method as additional fallback
     try:
-        print("🔨 Trying to build Python from source with static linking...")
+        print("🔄 Trying old source build method as fallback...")
         return build_static_python_from_source(python_install_dir, python_version)
     except Exception as e:
-        print(f"❌ Failed to build static Python from source: {e}")
+        print(f"❌ Failed to build with old source method: {e}")
 
     # Last resort: Use standard hatch installation
     print(
@@ -202,6 +216,159 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
         ]
     )
     return not completed_proc.returncode
+
+
+def build_static_python_from_official_source(
+    python_install_dir: Path, python_version: str
+) -> bool:
+    """Build Python from official Python.org source with static linking to avoid shared library dependencies."""
+    import os
+    import subprocess
+    import tarfile
+    import tempfile
+    import urllib.request
+
+    # Use official Python.org FTP source - map version to exact release
+    version_map = {
+        "3.10": "3.10.12",  # Latest stable 3.10.x
+        "3.10.12": "3.10.12",
+        "3.10.2": "3.10.2",
+    }
+
+    # Get the exact Python version to download
+    exact_version = version_map.get(python_version, "3.10.12")
+    python_source_url = (
+        f"https://www.python.org/ftp/python/{exact_version}/Python-{exact_version}.tgz"
+    )
+
+    print(f"📦 Using official Python source: {python_source_url}")
+
+    with tempfile.NamedTemporaryFile(suffix=".tgz", delete=False) as tmp_file:
+        print(f"📥 Downloading Python {exact_version} from python.org...")
+        urllib.request.urlretrieve(python_source_url, tmp_file.name)
+
+        with tempfile.TemporaryDirectory() as build_dir:
+            build_path = Path(build_dir)
+
+            with tarfile.open(tmp_file.name, "r:gz") as tar:
+                tar.extractall(path=build_path)
+
+            python_src_dir = next(build_path.glob("Python-*"))
+
+            # Clear any previous installation
+            if python_install_dir.exists():
+                import shutil
+
+                shutil.rmtree(python_install_dir)
+
+            # Configure with static linking and conservative flags
+            configure_env = os.environ.copy()
+            configure_env[
+                "CFLAGS"
+            ] = "-static -mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
+            configure_env["LDFLAGS"] = "-static"
+
+            configure_cmd = [
+                "./configure",
+                f"--prefix={python_install_dir}",
+                "--disable-shared",  # No shared libraries
+                "--enable-static",  # Static linking
+                "--with-lto=no",  # Disable LTO to avoid optimizer adding AVX2
+                "--disable-ipv6",  # Reduce dependencies
+                "--without-ensurepip",  # Skip pip to reduce dependencies
+            ]
+
+            print(f"🔧 Configuring static Python build...")
+            configure_result = subprocess.run(
+                configure_cmd, cwd=python_src_dir, env=configure_env
+            )
+            if configure_result.returncode != 0:
+                return False
+
+            # Build Python
+            make_cmd = ["make", "-j4"]
+            print(f"🔨 Building static Python...")
+            make_result = subprocess.run(
+                make_cmd, cwd=python_src_dir, env=configure_env
+            )
+            if make_result.returncode != 0:
+                return False
+
+            # Install Python
+            python_install_dir.mkdir(parents=True, exist_ok=True)
+            install_cmd = ["make", "install"]
+            print(f"📦 Installing static Python...")
+            install_result = subprocess.run(
+                install_cmd, cwd=python_src_dir, env=configure_env
+            )
+            if install_result.returncode != 0:
+                return False
+
+            # Install pip manually since we used --without-ensurepip
+            python_exe = python_install_dir / "bin" / f"python{exact_version[:3]}"
+            if not python_exe.exists():
+                python_exe = python_install_dir / "bin" / "python3"
+            if not python_exe.exists():
+                python_exe = python_install_dir / "bin" / "python"
+
+            if python_exe.exists():
+                print("🔧 Installing pip into static Python build...")
+                try:
+                    result = subprocess.run(
+                        [str(python_exe), "-m", "ensurepip", "--upgrade"],
+                        capture_output=True,
+                        text=True,
+                    )
+                    if result.returncode == 0:
+                        print("✅ pip installed successfully")
+                    else:
+                        print(f"⚠️  pip installation failed: {result.stderr}")
+                        # Try to download and install pip manually
+                        print("🔧 Trying manual pip installation...")
+                        get_pip_url = "https://bootstrap.pypa.io/get-pip.py"
+                        with tempfile.NamedTemporaryFile(
+                            suffix=".py", delete=False
+                        ) as get_pip_file:
+                            urllib.request.urlretrieve(get_pip_url, get_pip_file.name)
+                            subprocess.run(
+                                [str(python_exe), get_pip_file.name],
+                                cwd=python_install_dir,
+                                capture_output=True,
+                                text=True,
+                            )
+                except Exception as e:
+                    print(f"⚠️  Failed to install pip: {e}")
+            else:
+                print("❌ Python executable not found after build")
+
+    # Create hatch-dist.json metadata for static build
+    import json
+
+    hatch_dist_json = python_install_dir / "hatch-dist.json"
+    dist_metadata = {
+        "name": "cpython",
+        "version": python_version,
+        "arch": "x86_64",
+        "os": "linux",
+        "implementation": "cpython",
+        "python_path": f"bin/python{exact_version[:3]}",
+        "stdlib_path": f"lib/python{exact_version[:3]}",
+        "site_packages_path": f"lib/python{exact_version[:3]}/site-packages",
+    }
+
+    with open(hatch_dist_json, "w") as f:
+        json.dump(dist_metadata, f, indent=2)
+
+    print(f"✅ Successfully built static Python {exact_version} from official source")
+
+    # Mark which distribution was used for debugging
+    marker_file = python_install_dir / "DISTRIBUTION_TYPE_OFFICIAL_SOURCE"
+    marker_file.write_text(
+        f"Using official Python.org source build (version {exact_version})"
+    )
+    print(f"📝 Created distribution marker: {marker_file.name}")
+
+    return True
 
 
 def build_static_python_from_source(

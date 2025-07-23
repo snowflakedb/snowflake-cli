@@ -13,20 +13,8 @@ VERSION=$(hatch version)
 install_cargo() {
   curl https://sh.rustup.rs -sSf > rustup-init.sh
   bash rustup-init.sh -y
-  . $HOME/.cargo/env
-
-  # Copy cargo config for conservative CPU targeting
   cp .cargo/config.toml $HOME/.cargo/config.toml
-
-  echo "^^^^^^DEBUG START ^^^^^^"
-  echo "Cargo home directory: $HOME/.cargo"
-  echo "Cargo binary directory: $HOME/.cargo/bin"
-  rustc --version
-  cargo --version
-  echo "Cargo config:"
-  cat $HOME/.cargo/config.toml
-  echo "^^^^^^DEBUG END ^^^^^^"
-
+  . $HOME/.cargo/env
   rm rustup-init.sh
 }
 
