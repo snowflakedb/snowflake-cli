@@ -221,35 +221,19 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     # Ensure conservative cargo config is in place
     setup_conservative_cargo_config()
 
-    # Set conservative CPU flags to prevent AVX2 instructions in binary build (x86_64 only)
+    # Set conservative CPU flags to prevent AVX2 instructions in binary build
     import os
-    import platform
 
     conservative_env = os.environ.copy()
 
-    # Check target architecture for cross-compilation
-    arch = platform.machine()
-    target_arch = conservative_env.get("CARGO_BUILD_TARGET", arch)
+    # Conservative Rust flags are now handled by .cargo/config.toml
+    # Just set C compilation flags for any native dependencies that use cc-rs
+    c_flags = "-mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe"
+    conservative_env["CFLAGS"] = c_flags
+    conservative_env["CXXFLAGS"] = c_flags
 
-    if "x86_64" in target_arch or arch == "x86_64":
-        # Disable modern CPU features in Rust compilation for x86_64
-        rust_flags = "-C target-feature=-avx,-avx2,-avx512f,-fma,-bmi1,-bmi2,-lzcnt,-pclmulqdq,-movbe"
-        conservative_env["RUSTFLAGS"] = rust_flags
-
-        # Disable modern CPU features in C compilation for x86_64
-        c_flags = "-mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe"
-        conservative_env["CFLAGS"] = c_flags
-        conservative_env["CXXFLAGS"] = c_flags
-
-        print(
-            f"🐛 BINARY BUILD: Setting conservative CPU flags for x86_64 target: {target_arch}"
-        )
-        print(f"🐛 RUSTFLAGS: {rust_flags}")
-    else:
-        print(
-            f"🐛 BINARY BUILD: Using default flags for non-x86_64 architecture: {arch}"
-        )
-        # Don't set x86-specific flags for other architectures
+    print(f"🐛 BINARY BUILD: Using conservative CPU flags for native build")
+    print(f"🐛 CFLAGS: {c_flags}")
 
     conservative_env["PYAPP_SKIP_INSTALL"] = "1"
     conservative_env["PYAPP_DISTRIBUTION_PATH"] = str(archive_path)
@@ -257,9 +241,8 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     conservative_env["PYAPP_DISTRIBUTION_PYTHON_PATH"] = str(python_path)
     conservative_env["PYAPP_DISTRIBUTION_PIP_AVAILABLE"] = "1"
 
-    # Set target to x86_64 for cross-compilation
-    conservative_env["CARGO_BUILD_TARGET"] = "x86_64-unknown-linux-gnu"
-    print(f"🎯 Building for target: x86_64-unknown-linux-gnu")
+    # Build natively for the current architecture
+    print(f"🎯 Building natively on current architecture")
 
     completed_proc = subprocess.run(
         ["hatch", "build", "-t", "binary"], capture_output=True, env=conservative_env

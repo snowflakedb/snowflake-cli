@@ -12,13 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Debug symbols for all targets
+# Conservative build config with disabled modern CPU features for native x86_64 builds
+# Apply these flags globally when building on x86_64 systems
 [build]
-rustflags = ["-C", "debuginfo=2"]
-
-# Conservative x86_64-specific build config with disabled modern CPU features
-[target.x86_64-unknown-linux-gnu]
-linker = "x86_64-linux-gnu-gcc"
 rustflags = [
     "-C", "debuginfo=2",
     "-C", "target-feature=-avx",
@@ -29,7 +25,5 @@ rustflags = [
     "-C", "target-feature=-bmi2",
     "-C", "target-feature=-lzcnt",
     "-C", "target-feature=-pclmulqdq",
-    "-C", "target-feature=-movbe",
-    "-C", "link-arg=-L/usr/lib64",
-    "-C", "link-arg=-L/lib64"
+    "-C", "target-feature=-movbe"
 ]

@@ -24,25 +24,7 @@ RUN dnf install -y --allowerasing \
   ruby \
   ruby-devel \
   rpm-build \
-  vim \
-  gcc-x86_64-linux-gnu \
-  gcc-c++-x86_64-linux-gnu
-
-# Install x86_64 sysroot libraries for cross-compilation
-RUN dnf install -y --allowerasing \
-  glibc-devel.x86_64 \
-  glibc-static.x86_64 \
-  libgcc.x86_64 \
-  glibc.x86_64 \
-  kernel-headers.x86_64 || echo "Some x86_64 packages not available"
-
-# Install additional x86_64 runtime libraries
-RUN dnf install -y \
-  libstdc++.x86_64 \
-  libgomp.x86_64 \
-  libatomic.x86_64 \
-  openssl-libs.x86_64 \
-  zlib.x86_64 || echo "Some additional x86_64 packages not available"
+  vim
 
 # Install essential tools (use --allowerasing to resolve curl conflicts)
 RUN dnf install -y --allowerasing \
@@ -119,7 +101,6 @@ RUN pyenv exec pip install -U pip uv hatch
 # Install Rust and Cargo
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN rustup target add x86_64-unknown-linux-gnu
 RUN rustc --version && cargo --version
 
 WORKDIR /snowflake-cli
