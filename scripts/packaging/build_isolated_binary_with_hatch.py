@@ -109,58 +109,172 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
 
     python_install_dir = python_tmp_dir / python_version
 
-    # Try ancient Python distribution first (oldest 3.10 available)
-    ancient_python_url = "https://github.com/indygreg/python-build-standalone/releases/download/20220227/cpython-3.10.2+20220227-x86_64-unknown-linux-gnu-install_only.tar.gz"
+    # Try ancient Python distribution first (oldest 3.10 available) - use static build to avoid dependencies
+    ancient_python_url = "https://github.com/indygreg/python-build-standalone/releases/download/20220227/cpython-3.10.2+20220227-x86_64-unknown-linux-musl-install_only.tar.gz"
 
+    # Try multiple Python distributions in order of preference
+    python_urls = [
+        # Static musl build (most self-contained)
+        ("musl-static", ancient_python_url),
+        # Original glibc build (fallback)
+        (
+            "glibc",
+            "https://github.com/indygreg/python-build-standalone/releases/download/20220227/cpython-3.10.2+20220227-x86_64-unknown-linux-gnu-install_only.tar.gz",
+        ),
+    ]
+
+    for build_type, python_url in python_urls:
+        try:
+            print(f"📥 Trying {build_type} Python build: {python_url}")
+            with tempfile.NamedTemporaryFile(
+                suffix=".tar.gz", delete=False
+            ) as tmp_file:
+                urllib.request.urlretrieve(python_url, tmp_file.name)
+
+                # Clear any previous installation
+                if python_install_dir.exists():
+                    import shutil
+
+                    shutil.rmtree(python_install_dir)
+
+                python_install_dir.mkdir(parents=True, exist_ok=True)
+
+                with tarfile.open(tmp_file.name, "r:gz") as tar:
+                    tar.extractall(path=python_install_dir)
+
+                # Create the hatch-dist.json metadata file that hatch expects
+                import json
+
+                hatch_dist_json = python_install_dir / "hatch-dist.json"
+                dist_metadata = {
+                    "name": "cpython",
+                    "version": python_version,
+                    "arch": "x86_64",
+                    "os": "linux",
+                    "implementation": "cpython",
+                    "python_path": "python/bin/python3.10",
+                    "stdlib_path": "python/lib/python3.10",
+                    "site_packages_path": "python/lib/python3.10/site-packages",
+                }
+
+                with open(hatch_dist_json, "w") as f:
+                    json.dump(dist_metadata, f, indent=2)
+
+                print(f"✅ Successfully installed {build_type} Python distribution")
+                print("✅ Created hatch-dist.json metadata file")
+                return True
+
+        except Exception as e:
+            print(f"❌ Failed to install {build_type} Python: {e}")
+            continue
+
+    # Option 3: Try building Python from source with static linking (if we're on x86_64)
     try:
-        print(f"📥 Downloading ancient Python: {ancient_python_url}")
-        with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp_file:
-            urllib.request.urlretrieve(ancient_python_url, tmp_file.name)
+        print("🔨 Trying to build Python from source with static linking...")
+        return build_static_python_from_source(python_install_dir, python_version)
+    except Exception as e:
+        print(f"❌ Failed to build static Python from source: {e}")
 
-            python_install_dir.mkdir(parents=True, exist_ok=True)
+    # Last resort: Use standard hatch installation
+    print(
+        "🔄 All ancient Python builds failed, falling back to standard hatch Python installation..."
+    )
+    completed_proc = subprocess.run(
+        [
+            "hatch",
+            "python",
+            "install",
+            "--private",
+            "--dir",
+            python_tmp_dir,
+            python_version,
+        ]
+    )
+    return not completed_proc.returncode
+
+
+def build_static_python_from_source(
+    python_install_dir: Path, python_version: str
+) -> bool:
+    """Build Python from source with static linking to avoid shared library dependencies."""
+    import os
+    import subprocess
+    import tarfile
+    import tempfile
+    import urllib.request
+
+    python_source_url = "https://www.python.org/ftp/python/3.10.12/Python-3.10.12.tgz"
+
+    with tempfile.NamedTemporaryFile(suffix=".tgz", delete=False) as tmp_file:
+        urllib.request.urlretrieve(python_source_url, tmp_file.name)
+
+        with tempfile.TemporaryDirectory() as build_dir:
+            build_path = Path(build_dir)
 
             with tarfile.open(tmp_file.name, "r:gz") as tar:
-                tar.extractall(path=python_install_dir)
+                tar.extractall(path=build_path)
 
-            # Create the hatch-dist.json metadata file that hatch expects
-            import json
+            python_src_dir = next(build_path.glob("Python-*"))
 
-            hatch_dist_json = python_install_dir / "hatch-dist.json"
-            dist_metadata = {
-                "name": "cpython",
-                "version": python_version,
-                "arch": "x86_64",
-                "os": "linux",
-                "implementation": "cpython",
-                "python_path": "python/bin/python3.10",
-                "stdlib_path": "python/lib/python3.10",
-                "site_packages_path": "python/lib/python3.10/site-packages",
-            }
+            # Configure with static linking and conservative flags
+            configure_env = os.environ.copy()
+            configure_env[
+                "CFLAGS"
+            ] = "-static -mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
+            configure_env["LDFLAGS"] = "-static"
 
-            with open(hatch_dist_json, "w") as f:
-                json.dump(dist_metadata, f, indent=2)
-
-            print("✅ Successfully installed ancient Python distribution")
-            print("✅ Created hatch-dist.json metadata file")
-            return True
-
-    except Exception as e:
-        print(f"❌ Ancient Python download failed: {e}")
-
-        # Fallback: Use standard hatch installation
-        print("🔄 Fallback: Using standard hatch Python installation...")
-        completed_proc = subprocess.run(
-            [
-                "hatch",
-                "python",
-                "install",
-                "--private",
-                "--dir",
-                python_tmp_dir,
-                python_version,
+            configure_cmd = [
+                "./configure",
+                f"--prefix={python_install_dir}",
+                "--disable-shared",  # No shared libraries
+                "--enable-static",  # Static linking
+                "--with-lto=no",  # Disable LTO to avoid optimizer adding AVX2
+                "--disable-ipv6",  # Reduce dependencies
+                "--without-ensurepip",  # Skip pip to reduce dependencies
             ]
-        )
-        return not completed_proc.returncode
+
+            print(f"🔧 Configuring static Python build...")
+            result = subprocess.run(
+                configure_cmd, cwd=python_src_dir, env=configure_env
+            )
+            if result.returncode != 0:
+                return False
+
+            # Build Python
+            make_cmd = ["make", "-j4"]
+            print(f"🔨 Building static Python...")
+            result = subprocess.run(make_cmd, cwd=python_src_dir, env=configure_env)
+            if result.returncode != 0:
+                return False
+
+            # Install Python
+            python_install_dir.mkdir(parents=True, exist_ok=True)
+            install_cmd = ["make", "install"]
+            print(f"📦 Installing static Python...")
+            result = subprocess.run(install_cmd, cwd=python_src_dir, env=configure_env)
+            if result.returncode != 0:
+                return False
+
+    # Create hatch-dist.json metadata for static build
+    import json
+
+    hatch_dist_json = python_install_dir / "hatch-dist.json"
+    dist_metadata = {
+        "name": "cpython",
+        "version": python_version,
+        "arch": "x86_64",
+        "os": "linux",
+        "implementation": "cpython",
+        "python_path": "bin/python3.10",
+        "stdlib_path": "lib/python3.10",
+        "site_packages_path": "lib/python3.10/site-packages",
+    }
+
+    with open(hatch_dist_json, "w") as f:
+        json.dump(dist_metadata, f, indent=2)
+
+    print("✅ Successfully built static Python from source")
+    return True
 
 
 @contextlib.contextmanager
