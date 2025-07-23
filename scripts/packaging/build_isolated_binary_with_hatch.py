@@ -99,47 +99,18 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
 
 def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     """Install Python dist into temp dir for bundling."""
-
-    # WORKAROUND: Force use of system Python to avoid AVX2 instruction crashes
-    # All embedded Python distributions (including hatch defaults) contain AVX2 optimizations
-    # that crash on older/virtualized environments with "vpbroadcastq" instruction
-    print("🐛 WORKAROUND: Using system Python to avoid AVX2 crashes")
-    print("🐛 Embedded Python distributions cause 'vpbroadcastq' crashes on older CPUs")
-
-    import shutil
-
-    # Find system Python 3.10
-    system_python = shutil.which("python3.10")
-    if not system_python:
-        system_python = shutil.which("python3")
-        if not system_python:
-            print("❌ ERROR: No system Python found")
-            return False
-
-    print(f"✅ Found system Python: {system_python}")
-
-    # Create the directory structure that hatch expects
-    python_install_dir = python_tmp_dir / python_version
-    python_install_dir.mkdir(parents=True, exist_ok=True)
-
-    # Create a symlink structure that mimics the hatch Python installation
-    bin_dir = python_install_dir / "bin"
-    bin_dir.mkdir(exist_ok=True)
-
-    # Link system Python as python3.10
-    python_link = bin_dir / "python3.10"
-    if python_link.exists():
-        python_link.unlink()
-    python_link.symlink_to(system_python)
-
-    # Also create a python3 link
-    python3_link = bin_dir / "python3"
-    if python3_link.exists():
-        python3_link.unlink()
-    python3_link.symlink_to(system_python)
-
-    print(f"✅ Created Python links in {bin_dir}")
-    return True
+    completed_proc = subprocess.run(
+        [
+            "hatch",
+            "python",
+            "install",
+            "--private",
+            "--dir",
+            python_tmp_dir,
+            python_version,
+        ]
+    )
+    return not completed_proc.returncode
 
 
 @contextlib.contextmanager
