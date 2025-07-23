@@ -99,14 +99,6 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
 
 def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     """Install Python dist into temp dir for bundling."""
-    # Try to use an older Python distribution without AVX2 optimizations
-    if python_version == "3.10":
-        # Use a much older Python build that doesn't have AVX2 instructions
-        conservative_url = "https://github.com/indygreg/python-build-standalone/releases/download/20220714/cpython-3.10.5+20220714-x86_64-unknown-linux-gnu-install_only.tar.gz"
-        os.environ["HATCH_PYTHON_SOURCE_3_10"] = conservative_url
-        print(f"🐛 Using older Python build to avoid AVX2 crashes: {conservative_url}")
-        print("🐛 This should resolve the vpbroadcastq instruction crash")
-
     completed_proc = subprocess.run(
         [
             "hatch",
