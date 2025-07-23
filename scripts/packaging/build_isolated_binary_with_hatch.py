@@ -418,10 +418,43 @@ def pip_install_project(python_exe: str) -> bool:
     else:
         print(f"✅ pip available: {pip_check.stdout.strip()}")
 
+    # Upgrade pip to latest version for better compatibility
+    print("🔧 Upgrading pip to latest version...")
+    pip_upgrade_proc = subprocess.run(
+        [python_exe, "-m", "pip", "install", "--upgrade", "pip"],
+        capture_output=True,
+        text=True,
+    )
+    if pip_upgrade_proc.returncode == 0:
+        print("✅ pip upgraded successfully")
+    else:
+        print(f"⚠️  pip upgrade failed (continuing anyway): {pip_upgrade_proc.stderr}")
+
+    # Install build dependencies first
+    print(f"🔧 Installing build dependencies...")
+    build_deps_proc = subprocess.run(
+        [
+            python_exe,
+            "-m",
+            "pip",
+            "install",
+            "-U",
+            "wheel",
+            "setuptools",
+            "hatch",
+            "hatchling",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if build_deps_proc.returncode != 0:
+        print(f"⚠️  Build dependencies installation failed: {build_deps_proc.stderr}")
+        # Continue anyway, might not be critical
+
     # Now install the project
     print(f"📦 Installing project from: {PROJECT_ROOT}")
     completed_proc = subprocess.run(
-        [python_exe, "-m", "pip", "install", "-U", str(PROJECT_ROOT)],
+        [python_exe, "-m", "pip", "install", "-U", "-v", str(PROJECT_ROOT)],
         capture_output=True,
         text=True,
     )
@@ -430,7 +463,44 @@ def pip_install_project(python_exe: str) -> bool:
         print(f"❌ Project installation failed!")
         print(f"STDOUT: {completed_proc.stdout}")
         print(f"STDERR: {completed_proc.stderr}")
-        return False
+
+        # Try fallback installation methods
+        print("🔄 Trying fallback installation methods...")
+
+        # Method 1: Install without build dependencies
+        print("🔄 Trying installation without build isolation...")
+        fallback1_proc = subprocess.run(
+            [
+                python_exe,
+                "-m",
+                "pip",
+                "install",
+                "-U",
+                "--no-build-isolation",
+                str(PROJECT_ROOT),
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        if fallback1_proc.returncode == 0:
+            print("✅ Fallback installation (no build isolation) succeeded!")
+        else:
+            print(f"❌ Fallback 1 failed: {fallback1_proc.stderr}")
+
+            # Method 2: Try installing as editable
+            print("🔄 Trying editable installation...")
+            fallback2_proc = subprocess.run(
+                [python_exe, "-m", "pip", "install", "-e", str(PROJECT_ROOT)],
+                capture_output=True,
+                text=True,
+            )
+
+            if fallback2_proc.returncode == 0:
+                print("✅ Fallback installation (editable) succeeded!")
+            else:
+                print(f"❌ All installation methods failed: {fallback2_proc.stderr}")
+                return False
     else:
         print("✅ Project installed successfully")
         print(f"Installation output: {completed_proc.stdout}")
@@ -457,6 +527,7 @@ def pip_install_project(python_exe: str) -> bool:
             check_shared_dependencies(python_exe)
 
             return True
+    return False
 
 
 def setup_conservative_cargo_config() -> None:
