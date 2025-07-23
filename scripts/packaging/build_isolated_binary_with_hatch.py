@@ -16,6 +16,7 @@ import os
 import subprocess
 import tarfile
 import tempfile
+import typing
 from pathlib import Path
 
 import tomlkit
@@ -26,7 +27,7 @@ INSTALLATION_SOURCE_VARIABLE = "INSTALLATION_SOURCE"
 
 
 @contextlib.contextmanager
-def contextlib_chdir(path: Path):
+def contextlib_chdir(path: Path) -> typing.Generator[None, None, None]:
     # re-implement contextlib.chdir to be available in python 3.10 (current build version)
     old_cwd = os.getcwd()
     os.chdir(path)
@@ -114,13 +115,13 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
 
     # Try multiple Python distributions in order of preference
     python_urls = [
-        # Try glibc build first (more likely to have working pip)
+        # Static musl build first (most self-contained, no shared library deps)
+        ("musl-static", ancient_python_url),
+        # Original glibc build (has shared library dependencies like libcrypt.so.1)
         (
             "glibc",
             "https://github.com/indygreg/python-build-standalone/releases/download/20220227/cpython-3.10.2+20220227-x86_64-unknown-linux-gnu-install_only.tar.gz",
         ),
-        # Static musl build as fallback (most self-contained but might not have pip)
-        ("musl-static", ancient_python_url),
     ]
 
     for build_type, python_url in python_urls:
@@ -162,6 +163,16 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
 
                 print(f"✅ Successfully installed {build_type} Python distribution")
                 print("✅ Created hatch-dist.json metadata file")
+
+                # Mark which distribution was used for debugging
+                marker_file = (
+                    python_install_dir / f"DISTRIBUTION_TYPE_{build_type.upper()}"
+                )
+                marker_file.write_text(
+                    f"Using {build_type} Python distribution from {python_url}"
+                )
+                print(f"📝 Created distribution marker: {marker_file.name}")
+
                 return True
 
         except Exception as e:
@@ -234,26 +245,62 @@ def build_static_python_from_source(
             ]
 
             print(f"🔧 Configuring static Python build...")
-            result = subprocess.run(
+            configure_result = subprocess.run(
                 configure_cmd, cwd=python_src_dir, env=configure_env
             )
-            if result.returncode != 0:
+            if configure_result.returncode != 0:
                 return False
 
             # Build Python
             make_cmd = ["make", "-j4"]
             print(f"🔨 Building static Python...")
-            result = subprocess.run(make_cmd, cwd=python_src_dir, env=configure_env)
-            if result.returncode != 0:
+            make_result = subprocess.run(
+                make_cmd, cwd=python_src_dir, env=configure_env
+            )
+            if make_result.returncode != 0:
                 return False
 
             # Install Python
             python_install_dir.mkdir(parents=True, exist_ok=True)
             install_cmd = ["make", "install"]
             print(f"📦 Installing static Python...")
-            result = subprocess.run(install_cmd, cwd=python_src_dir, env=configure_env)
-            if result.returncode != 0:
+            install_result = subprocess.run(
+                install_cmd, cwd=python_src_dir, env=configure_env
+            )
+            if install_result.returncode != 0:
                 return False
+
+            # Install pip manually since we used --without-ensurepip
+            python_exe = python_install_dir / "bin" / "python3.10"
+            if python_exe.exists():
+                print("🔧 Installing pip into static Python build...")
+                try:
+                    result = subprocess.run(
+                        [str(python_exe), "-m", "ensurepip", "--upgrade"],
+                        capture_output=True,
+                        text=True,
+                    )
+                    if result.returncode == 0:
+                        print("✅ pip installed successfully")
+                    else:
+                        print(f"⚠️  pip installation failed: {result.stderr}")
+                        # Try to download and install pip manually
+                        print("🔧 Trying manual pip installation...")
+                        get_pip_url = "https://bootstrap.pypa.io/get-pip.py"
+                        with tempfile.NamedTemporaryFile(
+                            suffix=".py", delete=False
+                        ) as get_pip_file:
+                            urllib.request.urlretrieve(get_pip_url, get_pip_file.name)
+                            subprocess.run(
+                                [str(python_exe), get_pip_file.name],
+                                cwd=python_install_dir,
+                                capture_output=True,
+                                text=True,
+                            )
+                except Exception as e:
+                    print(f"⚠️  Failed to install pip: {e}")
+            else:
+                print("❌ Python executable not found after build")
 
     # Create hatch-dist.json metadata for static build
     import json
@@ -274,11 +321,19 @@ def build_static_python_from_source(
         json.dump(dist_metadata, f, indent=2)
 
     print("✅ Successfully built static Python from source")
+
+    # Mark which distribution was used for debugging
+    marker_file = python_install_dir / "DISTRIBUTION_TYPE_STATIC_SOURCE"
+    marker_file.write_text(
+        f"Using static Python from source build (version {python_version})"
+    )
+    print(f"📝 Created distribution marker: {marker_file.name}")
+
     return True
 
 
 @contextlib.contextmanager
-def override_is_installation_source_variable():
+def override_is_installation_source_variable() -> typing.Generator[None, None, None]:
     about_file = PROJECT_ROOT / "src" / "snowflake" / "cli" / "__about__.py"
     contents = about_file.read_text()
     if INSTALLATION_SOURCE_VARIABLE not in contents:
@@ -293,6 +348,35 @@ def override_is_installation_source_variable():
     )
     yield
     subprocess.run(["git", "checkout", str(about_file)])
+
+
+def check_shared_dependencies(python_exe: str) -> None:
+    """Check what shared libraries the Python executable depends on."""
+    print(f"🔍 Checking shared library dependencies for: {python_exe}")
+    try:
+        ldd_result = subprocess.run(["ldd", python_exe], capture_output=True, text=True)
+        if ldd_result.returncode == 0:
+            lines = ldd_result.stdout.strip().split("\n")
+            shared_libs = [
+                line.strip() for line in lines if "=>" in line or "linux-vdso" in line
+            ]
+
+            if not shared_libs or ldd_result.stdout.strip() == "statically linked":
+                print(
+                    "✅ Python executable is statically linked (no shared library dependencies)"
+                )
+            else:
+                print(
+                    f"⚠️  Python executable has {len(shared_libs)} shared library dependencies:"
+                )
+                for lib in shared_libs[:5]:  # Show first 5
+                    print(f"    {lib}")
+                if len(shared_libs) > 5:
+                    print(f"    ... and {len(shared_libs) - 5} more")
+        else:
+            print(f"❌ Failed to check dependencies: {ldd_result.stderr}")
+    except Exception as e:
+        print(f"❌ Error checking dependencies: {e}")
 
 
 def pip_install_project(python_exe: str) -> bool:
@@ -368,10 +452,14 @@ def pip_install_project(python_exe: str) -> bool:
             return False
         else:
             print(f"✅ snowflake module import successful: {import_test.stdout.strip()}")
+
+            # Check shared library dependencies
+            check_shared_dependencies(python_exe)
+
             return True
 
 
-def setup_conservative_cargo_config():
+def setup_conservative_cargo_config() -> None:
     """Ensure cargo config is set up for conservative CPU targeting."""
     import shutil
 
@@ -435,10 +523,16 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     return Path(completed_proc.stderr.decode().split()[-1])
 
 
-def main():
+def main() -> None:
     settings = ProjectSettings()
     print("Installing Python distribution to TMP dir...")
     hatch_install_python(settings.python_tmp_dir, settings.python_version)
+
+    # Check which distribution type was used
+    for marker_file in settings.python_tmp_dir.glob("DISTRIBUTION_TYPE_*"):
+        print(f"🏷️  Distribution used: {marker_file.read_text()}")
+        break
+
     print("-> installed")
 
     print(f"Installing project into Python distribution...")
