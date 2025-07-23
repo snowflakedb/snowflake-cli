@@ -26,7 +26,23 @@ RUN dnf install -y --allowerasing \
   rpm-build \
   vim \
   gcc-x86_64-linux-gnu \
-  gcc-c++-x86_64-linux-gnu \
+  gcc-c++-x86_64-linux-gnu
+
+# Install x86_64 sysroot libraries for cross-compilation
+RUN dnf install -y --allowerasing \
+  glibc-devel.x86_64 \
+  glibc-static.x86_64 \
+  libgcc.x86_64 \
+  glibc.x86_64 \
+  kernel-headers.x86_64 || echo "Some x86_64 packages not available"
+
+# Install additional x86_64 runtime libraries
+RUN dnf install -y \
+  libstdc++.x86_64 \
+  libgomp.x86_64 \
+  libatomic.x86_64 \
+  openssl-libs.x86_64 \
+  zlib.x86_64 || echo "Some additional x86_64 packages not available" \
   curl \
   git \
   patch \

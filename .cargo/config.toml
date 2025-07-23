@@ -29,5 +29,7 @@ rustflags = [
     "-C", "target-feature=-bmi2",
     "-C", "target-feature=-lzcnt",
     "-C", "target-feature=-pclmulqdq",
-    "-C", "target-feature=-movbe"
+    "-C", "target-feature=-movbe",
+    "-C", "link-arg=-L/usr/lib64",
+    "-C", "link-arg=-L/lib64"
 ]
