@@ -100,145 +100,67 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
 def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     """Install Python dist into temp dir for bundling."""
 
-    print("🔨 BUILDING PYTHON FROM SOURCE to avoid AVX2 instructions")
-    print("🔨 This ensures no pre-compiled AVX2 optimizations")
+    print("📥 USING ANCIENT PYTHON BUILD to avoid AVX2 instructions")
+    print("📥 Skipping source compilation due to cross-compilation complexity")
 
-    import os
     import tarfile
     import tempfile
     import urllib.request
 
-    # Python source download URL
-    python_source_url = f"https://www.python.org/ftp/python/3.10.12/Python-3.10.12.tgz"
     python_install_dir = python_tmp_dir / python_version
 
-    print(f"📥 Downloading Python source: {python_source_url}")
+    # Try ancient Python distribution first (oldest 3.10 available)
+    ancient_python_url = "https://github.com/indygreg/python-build-standalone/releases/download/20220227/cpython-3.10.2+20220227-x86_64-unknown-linux-gnu-install_only.tar.gz"
 
     try:
-        # Download Python source
-        with tempfile.NamedTemporaryFile(suffix=".tgz", delete=False) as tmp_file:
-            urllib.request.urlretrieve(python_source_url, tmp_file.name)
+        print(f"📥 Downloading ancient Python: {ancient_python_url}")
+        with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp_file:
+            urllib.request.urlretrieve(ancient_python_url, tmp_file.name)
 
-            # Extract source
-            with tempfile.TemporaryDirectory() as build_dir:
-                build_path = Path(build_dir)
+            python_install_dir.mkdir(parents=True, exist_ok=True)
 
-                with tarfile.open(tmp_file.name, "r:gz") as tar:
-                    tar.extractall(path=build_path)
+            with tarfile.open(tmp_file.name, "r:gz") as tar:
+                tar.extractall(path=python_install_dir)
 
-                # Find extracted Python directory
-                python_src_dir = next(build_path.glob("Python-*"))
+            # Create the hatch-dist.json metadata file that hatch expects
+            import json
 
-                print(f"🔨 Compiling Python with conservative flags...")
+            hatch_dist_json = python_install_dir / "hatch-dist.json"
+            dist_metadata = {
+                "name": "cpython",
+                "version": python_version,
+                "arch": "x86_64",
+                "os": "linux",
+                "implementation": "cpython",
+                "python_path": "python/bin/python3.10",
+                "stdlib_path": "python/lib/python3.10",
+                "site_packages_path": "python/lib/python3.10/site-packages",
+            }
 
-                # Set conservative compilation flags
-                conservative_env = os.environ.copy()
-                conservative_env[
-                    "CFLAGS"
-                ] = "-mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
-                conservative_env[
-                    "CXXFLAGS"
-                ] = "-mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
+            with open(hatch_dist_json, "w") as f:
+                json.dump(dist_metadata, f, indent=2)
 
-                # Configure Python build
-                configure_cmd = [
-                    "./configure",
-                    f"--prefix={python_install_dir}",
-                    "--enable-optimizations",
-                    "--with-lto=no",  # Disable LTO to avoid optimizer adding AVX2
-                    "--disable-ipv6",  # Reduce dependencies
-                ]
-
-                print(f"🔧 Configuring: {' '.join(configure_cmd)}")
-                result = subprocess.run(
-                    configure_cmd, cwd=python_src_dir, env=conservative_env
-                )
-                if result.returncode != 0:
-                    print(f"❌ Configure failed")
-                    return False
-
-                # Build Python
-                make_cmd = ["make", "-j4"]
-                print(f"🔨 Building: {' '.join(make_cmd)}")
-                result = subprocess.run(
-                    make_cmd, cwd=python_src_dir, env=conservative_env
-                )
-                if result.returncode != 0:
-                    print(f"❌ Build failed")
-                    return False
-
-                # Install Python
-                python_install_dir.mkdir(parents=True, exist_ok=True)
-                install_cmd = ["make", "install"]
-                print(f"📦 Installing: {' '.join(install_cmd)}")
-                result = subprocess.run(
-                    install_cmd, cwd=python_src_dir, env=conservative_env
-                )
-                if result.returncode != 0:
-                    print(f"❌ Install failed")
-                    return False
-
-        # Create hatch-dist.json metadata
-        import json
-
-        hatch_dist_json = python_install_dir / "hatch-dist.json"
-        dist_metadata = {
-            "name": "cpython",
-            "version": python_version,
-            "arch": "x86_64",
-            "os": "linux",
-            "implementation": "cpython",
-            "python_path": "bin/python3.10",
-            "stdlib_path": "lib/python3.10",
-            "site_packages_path": "lib/python3.10/site-packages",
-        }
-
-        with open(hatch_dist_json, "w") as f:
-            json.dump(dist_metadata, f, indent=2)
-
-        print("✅ Successfully built and installed Python from source")
-        print(f"✅ Created hatch-dist.json metadata file")
-        return True
+            print("✅ Successfully installed ancient Python distribution")
+            print("✅ Created hatch-dist.json metadata file")
+            return True
 
     except Exception as e:
-        print(f"❌ Failed to build Python from source: {e}")
-        print("🔄 Falling back to ancient pre-built Python distribution...")
+        print(f"❌ Ancient Python download failed: {e}")
 
-        # Fallback: Try to use a very old Python build from early 2022 (oldest 3.10)
-        ancient_python_url = "https://github.com/indygreg/python-build-standalone/releases/download/20220227/cpython-3.10.2+20220227-x86_64-unknown-linux-gnu-install_only.tar.gz"
-
-        try:
-            print(f"📥 Downloading ancient Python: {ancient_python_url}")
-            with tempfile.NamedTemporaryFile(
-                suffix=".tar.gz", delete=False
-            ) as tmp_file:
-                urllib.request.urlretrieve(ancient_python_url, tmp_file.name)
-
-                python_install_dir.mkdir(parents=True, exist_ok=True)
-
-                with tarfile.open(tmp_file.name, "r:gz") as tar:
-                    tar.extractall(path=python_install_dir)
-
-                print("✅ Successfully installed ancient Python distribution")
-                return True
-
-        except Exception as fallback_error:
-            print(f"❌ Fallback also failed: {fallback_error}")
-
-            # Last resort: Use standard hatch installation
-            print("🔄 Last resort: Using standard hatch Python installation...")
-            completed_proc = subprocess.run(
-                [
-                    "hatch",
-                    "python",
-                    "install",
-                    "--private",
-                    "--dir",
-                    python_tmp_dir,
-                    python_version,
-                ]
-            )
-            return not completed_proc.returncode
+        # Fallback: Use standard hatch installation
+        print("🔄 Fallback: Using standard hatch Python installation...")
+        completed_proc = subprocess.run(
+            [
+                "hatch",
+                "python",
+                "install",
+                "--private",
+                "--dir",
+                python_tmp_dir,
+                python_version,
+            ]
+        )
+        return not completed_proc.returncode
 
 
 @contextlib.contextmanager
@@ -299,28 +221,45 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     # Ensure conservative cargo config is in place
     setup_conservative_cargo_config()
 
-    # Set conservative CPU flags to prevent AVX2 instructions in binary build
+    # Set conservative CPU flags to prevent AVX2 instructions in binary build (x86_64 only)
     import os
+    import platform
 
     conservative_env = os.environ.copy()
 
-    # Disable modern CPU features in Rust compilation
-    rust_flags = "-C target-feature=-avx,-avx2,-avx512f,-fma,-bmi1,-bmi2,-lzcnt,-pclmulqdq,-movbe"
-    conservative_env["RUSTFLAGS"] = rust_flags
+    # Check target architecture for cross-compilation
+    arch = platform.machine()
+    target_arch = conservative_env.get("CARGO_BUILD_TARGET", arch)
 
-    # Disable modern CPU features in C compilation
-    c_flags = "-mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe"
-    conservative_env["CFLAGS"] = c_flags
-    conservative_env["CXXFLAGS"] = c_flags
+    if "x86_64" in target_arch or arch == "x86_64":
+        # Disable modern CPU features in Rust compilation for x86_64
+        rust_flags = "-C target-feature=-avx,-avx2,-avx512f,-fma,-bmi1,-bmi2,-lzcnt,-pclmulqdq,-movbe"
+        conservative_env["RUSTFLAGS"] = rust_flags
 
-    print("🐛 BINARY BUILD: Setting conservative CPU flags to prevent AVX2 instructions")
-    print(f"🐛 RUSTFLAGS: {rust_flags}")
+        # Disable modern CPU features in C compilation for x86_64
+        c_flags = "-mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe"
+        conservative_env["CFLAGS"] = c_flags
+        conservative_env["CXXFLAGS"] = c_flags
+
+        print(
+            f"🐛 BINARY BUILD: Setting conservative CPU flags for x86_64 target: {target_arch}"
+        )
+        print(f"🐛 RUSTFLAGS: {rust_flags}")
+    else:
+        print(
+            f"🐛 BINARY BUILD: Using default flags for non-x86_64 architecture: {arch}"
+        )
+        # Don't set x86-specific flags for other architectures
 
     conservative_env["PYAPP_SKIP_INSTALL"] = "1"
     conservative_env["PYAPP_DISTRIBUTION_PATH"] = str(archive_path)
     conservative_env["PYAPP_FULL_ISOLATION"] = "1"
     conservative_env["PYAPP_DISTRIBUTION_PYTHON_PATH"] = str(python_path)
     conservative_env["PYAPP_DISTRIBUTION_PIP_AVAILABLE"] = "1"
+
+    # Set target to x86_64 for cross-compilation
+    conservative_env["CARGO_BUILD_TARGET"] = "x86_64-unknown-linux-gnu"
+    print(f"🎯 Building for target: x86_64-unknown-linux-gnu")
 
     completed_proc = subprocess.run(
         ["hatch", "build", "-t", "binary"], capture_output=True, env=conservative_env

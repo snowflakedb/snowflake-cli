@@ -25,6 +25,8 @@ RUN dnf install -y --allowerasing \
   ruby-devel \
   rpm-build \
   vim \
+  gcc-x86_64-linux-gnu \
+  gcc-c++-x86_64-linux-gnu \
   curl \
   git \
   patch \
@@ -33,6 +35,7 @@ RUN dnf install -y --allowerasing \
   kernel-headers
 
 # Install development libraries (including Python build dependencies)
+# Install in multiple steps to handle package availability issues
 RUN dnf install -y \
   openssl-devel \
   zlib-devel \
@@ -43,11 +46,13 @@ RUN dnf install -y \
   libxml2-devel \
   libffi-devel \
   xz-devel \
-  expat-devel \
-  uuid-devel \
   gdb \
   strace \
   binutils
+
+# Install optional packages that might have different names
+RUN dnf install -y expat-devel || echo "expat-devel not available"
+RUN dnf install -y uuid-devel || dnf install -y libuuid-devel || echo "uuid development package not available"
 
 # Install packages that may need EPEL
 RUN dnf install -y squashfs-tools || echo "squashfs-tools not available, continuing..."
@@ -90,6 +95,7 @@ RUN pyenv exec pip install -U pip uv hatch
 # Install Rust and Cargo
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup target add x86_64-unknown-linux-gnu
 RUN rustc --version && cargo --version
 
 WORKDIR /snowflake-cli

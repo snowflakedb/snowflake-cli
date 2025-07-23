@@ -12,8 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Conservative build config with debug symbols and disabled modern CPU features
+# Debug symbols for all targets
 [build]
+rustflags = ["-C", "debuginfo=2"]
+
+# Conservative x86_64-specific build config with disabled modern CPU features
+[target.x86_64-unknown-linux-gnu]
+linker = "x86_64-linux-gnu-gcc"
 rustflags = [
     "-C", "debuginfo=2",
     "-C", "target-feature=-avx",
