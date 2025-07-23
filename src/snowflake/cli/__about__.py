@@ -26,4 +26,4 @@ class CLIInstallationSource(Enum):
 
 
 # This variable is changed in binary release script
-INSTALLATION_SOURCE = CLIInstallationSource.PYPI
+INSTALLATION_SOURCE = CLIInstallationSource.BINARY

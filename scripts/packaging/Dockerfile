@@ -2,47 +2,56 @@ FROM artifactory.ci1.us-west-2.aws-dev.app.snowflake.com/docker-remote/library/u
 
 ENV HOME=/root
 
-RUN apt -y update
-RUN apt -y install -y software-properties-common binutils --fix-missing
-RUN add-apt-repository ppa:deadsnakes/ppa
-RUN apt install -y --fix-missing ruby\
-  squashfs-tools\
-  rpm\
-  vim \
-  build-essential\
-  libssl-dev\
-  zlib1g-dev\
-  libbz2-dev\
-  libreadline-dev\
-  libsqlite3-dev\
-  curl\
-  git \
-  libncursesw5-dev\
-  xz-utils \
-  libxml2-dev\
-  libxmlsec1-dev\
-  libffi-dev\
-  liblzma-dev
-RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y tk-dev
+# Update package lists and install core tools in one layer
+RUN apt update && apt install -y --no-install-recommends \
+    software-properties-common \
+    binutils \
+    curl \
+    git \
+    build-essential \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN gem install dotenv -v 2.8.1
-RUN gem install fpm
+# Install Python build dependencies in one layer
+RUN apt update && apt install -y --no-install-recommends \
+    ruby \
+    squashfs-tools \
+    rpm \
+    vim \
+    libssl-dev \
+    zlib1g-dev \
+    libbz2-dev \
+    libreadline-dev \
+    libsqlite3-dev \
+    libncursesw5-dev \
+    xz-utils \
+    libxml2-dev \
+    libxmlsec1-dev \
+    libffi-dev \
+    liblzma-dev \
+    && DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y tk-dev \
+    && apt clean \
+    && rm -rf /var/lib/apt/lists/*
 
+# Install Ruby gems (separate layer for better caching)
+RUN gem install dotenv -v 2.8.1 && gem install fpm
+
+# Install Python via pyenv (separate layer for caching)
 ENV PYENV_ROOT="${HOME}/.pyenv"
 ENV PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:$PATH"
 ENV PYTHON_VERSION=3.10
 
-RUN curl https://pyenv.run | bash
-RUN pyenv install ${PYTHON_VERSION}
-RUN pyenv rehash
-RUN pyenv global ${PYTHON_VERSION}
-RUN pyenv versions
-RUN pyenv rehash
+RUN curl -sSf https://pyenv.run | bash \
+    && pyenv install ${PYTHON_VERSION} \
+    && pyenv global ${PYTHON_VERSION} \
+    && pyenv rehash
+
+# Install Python packages (separate layer)
 RUN pyenv exec pip install -U pip uv hatch
 
-# Install Rust and Cargo
-RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
+# Install Rust and Cargo (separate layer for caching)
+RUN curl -sSf https://sh.rustup.rs | bash -s -- -y
 ENV PATH="/root/.cargo/bin:${PATH}"
-RUN rustc --version && cargo --version
 
 WORKDIR /snowflake-cli
