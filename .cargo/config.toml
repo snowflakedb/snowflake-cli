@@ -12,36 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Simplified config with just debug symbols for crash analysis
 [build]
-# Set extremely conservative CPU targeting for maximum compatibility with older processors
-# This ensures PyApp binaries work on Intel Xeon E5-2680 v2 (2013) and similar older CPUs
-rustflags = [
-    "-C", "target-cpu=x86-64",
-    "-C", "target-feature=-crt-static",
-    "-C", "target-feature=-sse3",
-    "-C", "target-feature=-ssse3",
-    "-C", "target-feature=-sse4.1",
-    "-C", "target-feature=-sse4.2",
-    "-C", "target-feature=-avx",
-    "-C", "target-feature=-avx2",
-    "-C", "debuginfo=2"
-]
-
-[target.x86_64-unknown-linux-gnu]
-rustflags = [
-    "-C", "target-cpu=x86-64",
-    "-C", "target-feature=-crt-static",
-    "-C", "target-feature=-sse3",
-    "-C", "target-feature=-ssse3",
-    "-C", "target-feature=-sse4.1",
-    "-C", "target-feature=-sse4.2",
-    "-C", "target-feature=-avx",
-    "-C", "target-feature=-avx2",
-    "-C", "debuginfo=2"
-]
-
-[target.x86_64-apple-darwin]
-rustflags = ["-C", "target-cpu=x86-64", "-C", "target-feature=-crt-static"]
-
-[target.x86_64-pc-windows-msvc]
-rustflags = ["-C", "target-cpu=x86-64", "-C", "target-feature=-crt-static"]
+rustflags = ["-C", "debuginfo=2"]

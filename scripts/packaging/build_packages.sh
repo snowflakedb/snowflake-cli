@@ -24,7 +24,14 @@ echo ${RPM_PGK_FILE_NAME}
 echo "-*-*-*- build variables -*-*-*-"
 
 cd $DIST_DIR/snow
-./snow
+
+# Skip smoke test if building for different architecture
+if [[ "${SKIP_SMOKE_TEST:-}" != "1" ]]; then
+    echo "Running smoke test..."
+    ./snow
+else
+    echo "Skipping smoke test (cross-platform build)"
+fi
 
 cd ${ROOT_DIR}
 
