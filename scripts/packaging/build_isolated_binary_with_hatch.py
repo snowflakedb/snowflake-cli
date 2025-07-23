@@ -261,21 +261,20 @@ def build_static_python_from_official_source(
 
                 shutil.rmtree(python_install_dir)
 
-            # Configure with static linking and conservative flags
+            # Configure with conservative CPU flags but allow essential modules
             configure_env = os.environ.copy()
+            # Use conservative CPU flags but don't force full static linking
             configure_env[
                 "CFLAGS"
-            ] = "-static -mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
-            configure_env["LDFLAGS"] = "-static"
+            ] = "-mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
 
             configure_cmd = [
                 "./configure",
                 f"--prefix={python_install_dir}",
-                "--disable-shared",  # No shared libraries
-                "--enable-static",  # Static linking
+                "--enable-optimizations",  # Enable optimizations for better performance
                 "--with-lto=no",  # Disable LTO to avoid optimizer adding AVX2
                 "--disable-ipv6",  # Reduce dependencies
-                "--without-ensurepip",  # Skip pip to reduce dependencies
+                "--with-ensurepip=install",  # Include pip
             ]
 
             print(f"🔧 Configuring static Python build...")
@@ -305,41 +304,66 @@ def build_static_python_from_official_source(
                 return False
 
             # Install pip manually since we used --without-ensurepip
-            python_exe = python_install_dir / "bin" / f"python{exact_version[:3]}"
-            if not python_exe.exists():
-                python_exe = python_install_dir / "bin" / "python3"
-            if not python_exe.exists():
-                python_exe = python_install_dir / "bin" / "python"
+            # Try different Python executable names in order of preference
+            python_exe_candidates = [
+                python_install_dir / "bin" / f"python{exact_version[:4]}",  # python3.10
+                python_install_dir
+                / "bin"
+                / f"python{exact_version[:3]}",  # python3.1 (wrong)
+                python_install_dir / "bin" / "python3",
+                python_install_dir / "bin" / "python",
+            ]
 
-            if python_exe.exists():
-                print("🔧 Installing pip into static Python build...")
+            python_exe = None
+            for candidate in python_exe_candidates:
+                if candidate.exists():
+                    python_exe = candidate
+                    print(f"✅ Found Python executable: {python_exe}")
+                    break
+
+            if not python_exe:
+                print("❌ No Python executable found after build")
+            else:
+                print(
+                    "🔧 Verifying pip is available (should be included via --with-ensurepip)..."
+                )
                 try:
                     result = subprocess.run(
-                        [str(python_exe), "-m", "ensurepip", "--upgrade"],
+                        [str(python_exe), "-m", "pip", "--version"],
                         capture_output=True,
                         text=True,
                     )
                     if result.returncode == 0:
-                        print("✅ pip installed successfully")
+                        print(f"✅ pip is available: {result.stdout.strip()}")
                     else:
-                        print(f"⚠️  pip installation failed: {result.stderr}")
-                        # Try to download and install pip manually
-                        print("🔧 Trying manual pip installation...")
-                        get_pip_url = "https://bootstrap.pypa.io/get-pip.py"
-                        with tempfile.NamedTemporaryFile(
-                            suffix=".py", delete=False
-                        ) as get_pip_file:
-                            urllib.request.urlretrieve(get_pip_url, get_pip_file.name)
-                            subprocess.run(
-                                [str(python_exe), get_pip_file.name],
-                                cwd=python_install_dir,
-                                capture_output=True,
-                                text=True,
-                            )
+                        print(f"⚠️  pip not found, trying to install: {result.stderr}")
+                        # Try to install pip using ensurepip
+                        result = subprocess.run(
+                            [str(python_exe), "-m", "ensurepip", "--upgrade"],
+                            capture_output=True,
+                            text=True,
+                        )
+                        if result.returncode == 0:
+                            print("✅ pip installed successfully via ensurepip")
+                        else:
+                            print(f"⚠️  ensurepip failed: {result.stderr}")
+                            # Last resort: manual pip installation
+                            print("🔧 Trying manual pip installation...")
+                            get_pip_url = "https://bootstrap.pypa.io/get-pip.py"
+                            with tempfile.NamedTemporaryFile(
+                                suffix=".py", delete=False
+                            ) as get_pip_file:
+                                urllib.request.urlretrieve(
+                                    get_pip_url, get_pip_file.name
+                                )
+                                subprocess.run(
+                                    [str(python_exe), get_pip_file.name],
+                                    cwd=python_install_dir,
+                                    capture_output=True,
+                                    text=True,
+                                )
                 except Exception as e:
-                    print(f"⚠️  Failed to install pip: {e}")
-            else:
-                print("❌ Python executable not found after build")
+                    print(f"⚠️  Failed to verify/install pip: {e}")
 
     # Create hatch-dist.json metadata for static build
     import json
@@ -351,9 +375,9 @@ def build_static_python_from_official_source(
         "arch": "x86_64",
         "os": "linux",
         "implementation": "cpython",
-        "python_path": f"bin/python{exact_version[:3]}",
-        "stdlib_path": f"lib/python{exact_version[:3]}",
-        "site_packages_path": f"lib/python{exact_version[:3]}/site-packages",
+        "python_path": f"bin/python{exact_version[:4]}",  # python3.10 not python3.1
+        "stdlib_path": f"lib/python{exact_version[:4]}",
+        "site_packages_path": f"lib/python{exact_version[:4]}/site-packages",
     }
 
     with open(hatch_dist_json, "w") as f:
