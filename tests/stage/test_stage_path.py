@@ -602,10 +602,12 @@ def test_vstage_path_parts_invalid_paths(invalid_path):
         VStagePathParts(invalid_path)
 
 
-def test_dir_with_dot_are_identified_as_dir_not_file():
+def test_local_dir_with_dot_are_identified_as_dir_not_file():
     with tempfile.TemporaryDirectory(suffix="dot.in.name") as dir_path:
         assert "." in dir_path
-        stage_path = StagePath(dir_path)
+        assert Path(dir_path).exists()
+        assert Path(dir_path).is_dir()
+        stage_path = StagePath("stageName", dir_path)
 
         assert stage_path.is_dir()
         assert not stage_path.is_file()
