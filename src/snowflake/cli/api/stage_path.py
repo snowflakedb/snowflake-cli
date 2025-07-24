@@ -220,10 +220,10 @@ class StagePath:
         return self._path.name
 
     def is_dir(self) -> bool:
-        return "." not in self.name
+        return Path(self._path).is_dir()
 
     def is_file(self) -> bool:
-        return not self.is_dir()
+        return Path(self._path).is_file()
 
     @property
     def suffix(self) -> str:
