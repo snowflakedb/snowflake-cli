@@ -221,7 +221,7 @@ class StagePath:
 
     def is_dir(self) -> bool:
         if Path(self.path).exists():
-            return Path(self.path).exists()
+            return Path(self.path).is_dir()
         return "." not in self.name
 
     def is_file(self) -> bool:
