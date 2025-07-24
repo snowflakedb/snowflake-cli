@@ -212,6 +212,9 @@ def test_remove_key_from_nested_dict_if_exists():
         }
     }
 
+    result = remove_key_from_nested_dict_if_exists(d, ["c", "c2", "non_existing"])
+    assert result is False
+
     result = remove_key_from_nested_dict_if_exists(d, ["non_existing", "key"])
     assert result is False
 

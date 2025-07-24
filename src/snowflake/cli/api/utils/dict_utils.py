@@ -76,7 +76,9 @@ def traverse(
 _NestedDict = Dict[str, Union[Any, "_NestedDict"]]
 
 
-def remove_key_from_nested_dict_if_exists(d: _NestedDict, keys: List[str]) -> bool:
+def remove_key_from_nested_dict_if_exists(
+    root_dict: _NestedDict, key_path: List[str]
+) -> bool:
     """
     Removes a key from a nested dictionary, if it exists.
     Removes all parents that become empty.
@@ -84,33 +86,28 @@ def remove_key_from_nested_dict_if_exists(d: _NestedDict, keys: List[str]) -> bo
     :return: True if the key was removed, False if it did not exist.
     :raises ValueError: If a key in the path, besides the last one, was present but did not point to a dictionary.
     """
-    path_to_target = [d]
-    for key in keys[:-1]:
-        if key not in path_to_target[-1]:
+    path = [root_dict]
+    for key in key_path:
+        curr_dict = path[-1]
+        if key not in curr_dict:
             return False
 
-        val = path_to_target[-1][key]
-        if not isinstance(val, dict):
+        child_dict = curr_dict[key]
+        if not isinstance(child_dict, dict) and len(path) < len(key_path):
             raise ValueError(
-                f"Expected a dictionary at '{key}', but got {str(type(val))}."
+                f"Expected a dictionary at key '{key}', but got {str(type(child_dict))}."
             )
 
-        path_to_target.append(val)
+        path.append(child_dict)
 
-    key = keys[-1]
-    if key not in path_to_target[-1]:
-        return False
-
-    del path_to_target[-1][key]
-
-    # Remove parents that become empty
-    while len(path_to_target) > 1:
-        child = path_to_target.pop()
-        parent = path_to_target[-1]
-
-        key = keys[len(path_to_target) - 1]
-        if len(child) == 0:
-            del parent[key]
+    # Remove the target node, and any parents that become empty
+    is_target = True
+    for curr_key, curr_dict, child_dict in zip(
+        reversed(key_path), reversed(path[:-1]), reversed(path[1:])
+    ):
+        if is_target or len(child_dict) == 0:
+            del curr_dict[curr_key]
+            is_target = False
         else:
             break
 
