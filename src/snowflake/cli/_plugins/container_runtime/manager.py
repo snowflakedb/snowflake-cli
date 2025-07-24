@@ -30,29 +30,34 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
 
 class ContainerRuntimeManager(SqlExecutionMixin):
-    DEFAULT_COMPUTE_POOL = "E2E_CPU_POOL"
     DEFAULT_TIMEOUT_MIN = 60
-    DEFAULT_STORAGE_SIZE_GB = 10
     DEFAULT_SERVICE_PREFIX = "SNOW_CR"
     DEFAULT_EAI = "ALLOW_ALL_INTEGRATION"
 
     def create(
         self,
+        compute_pool: str,
         name: Optional[str] = None,
-        compute_pool: Optional[str] = None,
         warehouse: Optional[str] = None,
-        # persistent_storage: bool = False,
-        # storage_size: int = DEFAULT_STORAGE_SIZE_GB,
-        external_access: bool = False,
+        external_access: Optional[List[str]] = None,
         timeout: int = DEFAULT_TIMEOUT_MIN,
-        extensions: Optional[List[str]] = None,
         stage: Optional[str] = None,
+        image_tag: Optional[str] = None,
     ) -> str:
         """
         Creates a new container runtime service with VS Code Server.
 
         Args:
+            compute_pool: Name of the compute pool to use
+            name: Optional custom service name
+            warehouse: Optional warehouse name (defaults to connection warehouse)
+            external_access: List of external access integration names
+            timeout: Session timeout in minutes
             stage: Internal Snowflake stage to mount (e.g., @my_stage or @my_stage/folder)
+            image_tag: Custom image tag to use
+
+        Returns:
+            The endpoint URL for the created service
         """
         # Generate service name if not provided
         if not name:
@@ -63,11 +68,6 @@ class ContainerRuntimeManager(SqlExecutionMixin):
             name = f"{self.DEFAULT_SERVICE_PREFIX}_{name}"
 
         cc.step(f"Using service name: {name}")
-
-        # Use default compute pool if not provided
-        if not compute_pool:
-            compute_pool = self.DEFAULT_COMPUTE_POOL
-
         cc.step(f"Using compute pool: {compute_pool}")
 
         # Use current warehouse if not provided
@@ -86,19 +86,17 @@ class ContainerRuntimeManager(SqlExecutionMixin):
             file_list = self.snowpark_session.sql(f"LIST {stage}").collect()
             cc.step(f"Files in the nested stage: {file_list}")
 
-        # remove trailing slash from stage
+        # Remove trailing slash from stage
         if stage:
             stage = stage.rstrip("/")
 
         # Generate a service specification
         spec = self._generate_service_spec(
             compute_pool=compute_pool,
-            # persistent_storage=persistent_storage,
-            # storage_size=storage_size,
             external_access=external_access,
             timeout=timeout,
-            extensions=extensions,
             stage=stage,
+            image_tag=image_tag,
         )
 
         with tempfile.NamedTemporaryFile(
@@ -112,11 +110,8 @@ class ContainerRuntimeManager(SqlExecutionMixin):
 
             service_manager = ServiceManager()
 
-            external_access_integrations = (
-                ["EXTERNAL_ACCESS_INTEGRATION"]
-                if external_access
-                else [self.DEFAULT_EAI]
-            )
+            # Handle external access integrations
+            external_access_integrations = external_access or [self.DEFAULT_EAI]
 
             spec_content = temp_spec_file.read_text()
             query = f"""\
@@ -150,12 +145,10 @@ QUERY_WAREHOUSE = {warehouse}
     def _generate_service_spec(
         self,
         compute_pool: str,
-        # persistent_storage: bool = False,
-        # storage_size: int = DEFAULT_STORAGE_SIZE_GB,
-        external_access: bool = False,
+        external_access: Optional[List[str]] = None,
         timeout: int = DEFAULT_TIMEOUT_MIN,
-        extensions: Optional[List[str]] = None,
         stage: Optional[str] = None,
+        image_tag: Optional[str] = None,
     ) -> dict:
         """Generate a service specification for VS Code Server using the helper modules."""
         # Create a session for spec generation
@@ -170,27 +163,14 @@ QUERY_WAREHOUSE = {warehouse}
             "VSCODE_PORT": "12020",  # Default VS Code server port
         }
 
-        # Add extensions as environment variable if provided
-        if extensions:
-            environment_vars["VSCODE_EXTENSIONS"] = ",".join(extensions)
-
-        # Create a container payload
-        # container_payload = create_container_payload(extensions=extensions)
-
-        # Upload payload to stage (this is for the container payload, not user data)
-        # stage_path = f"@zzhu_container"  # Use dedicated stage for container payload
-        # uploaded_payload = container_payload.upload(session, stage_path)
-
         # Generate service spec
         spec = generate_service_spec(
             session=session,
             compute_pool=compute_pool,
-            # payload=uploaded_payload,
-            # persistent_storage=persistent_storage,
-            # storage_size=storage_size,
             environment_vars=environment_vars,
             enable_metrics=True,  # Enable platform metrics
             stage=stage,
+            image_tag=image_tag,
         )
 
         return spec
@@ -198,7 +178,9 @@ QUERY_WAREHOUSE = {warehouse}
     def wait_for_service_ready(self, service_name: str, timeout_sec: int = 300) -> bool:
         """Wait for the service to be in READY state."""
         service_manager = ServiceManager()
+
         start_time = time.time()
+        cc.step(f"Waiting for service '{service_name}' to be ready...")
 
         while time.time() - start_time < timeout_sec:
             status_cursor = service_manager.status(service_name)
@@ -209,16 +191,19 @@ QUERY_WAREHOUSE = {warehouse}
                 if status_dict:
                     status = status_dict[0]["status"]
                     if status == "READY":
+                        cc.step(f"Service '{service_name}' is ready!")
                         return True
                     elif status in ["FAILED", "UNKNOWN"]:
                         raise RuntimeError(
                             f"Service {service_name} failed to start with status: {status}"
                         )
 
-            # Wait before checking again
-            time.sleep(5)
+                # Wait before checking again
+                time.sleep(10)
 
-        raise TimeoutError(f"Timeout waiting for service {service_name} to be ready")
+        raise Exception(
+            f"Service '{service_name}' did not become ready within {timeout_sec} seconds"
+        )
 
     def _get_service_endpoint_url(self, service_name: str) -> str:
         """Get the URL for the VS Code endpoint."""
@@ -232,11 +217,11 @@ QUERY_WAREHOUSE = {warehouse}
         raise RuntimeError(f"No VS Code endpoint found for service {service_name}")
 
     def get_service_endpoint_url(self, service_name: str) -> str:
-        """Get the public URL for the VS Code endpoint of a service."""
+        """Public method to get service endpoint URL."""
         return self._get_service_endpoint_url(service_name)
 
     def get_public_endpoint_urls(self, service_name: str) -> dict:
-        """Get all public endpoint URLs for a service."""
+        """Get all public endpoint URLs for the service."""
         service_manager = ServiceManager()
         endpoints_cursor = service_manager.list_endpoints(service_name)
 
@@ -266,19 +251,18 @@ QUERY_WAREHOUSE = {warehouse}
             FROM TABLE(RESULT_SCAN('{qid}'))
         """
         )
-        # return cur.execute(f"desc result '{qid}'")
 
-    def stop(self, name: str):
-        """Stop a container runtime service."""
+    def stop(self, service_name: str):
+        """Suspend a container runtime service."""
         service_manager = ServiceManager()
-        return service_manager.suspend(name)
+        return service_manager.suspend(service_name)
 
-    def start(self, name: str):
-        """Start a container runtime service."""
+    def start(self, service_name: str):
+        """Resume a suspended container runtime service."""
         service_manager = ServiceManager()
-        return service_manager.resume(name)
+        return service_manager.resume(service_name)
 
-    def delete(self, name: str):
+    def delete(self, service_name: str):
         """Delete a container runtime service."""
-        query = f"DROP SERVICE IF EXISTS {name}"
+        query = f"DROP SERVICE IF EXISTS {service_name}"
         return self.execute_query(query)

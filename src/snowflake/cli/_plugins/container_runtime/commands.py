@@ -49,68 +49,39 @@ ContainerRuntimeNameArgument = identifier_argument(
     example="SNOW_CR_username_20240411123456",
 )
 
-# Define command options
-NameOption = typer.Option(
-    None,
-    "--name",
-    help="Custom identifier for the service",
-)
-
-ComputePoolOption = typer.Option(
-    None,
-    "--compute-pool",
-    help="Name of the compute pool to use",
-)
-
-PersistentStorageOption = typer.Option(
-    False,
-    "--persistent-storage/--no-persistent-storage",
-    help="Enable persistent storage",
-    is_flag=True,
-)
-
-StorageSizeOption = typer.Option(
-    10,
-    "--storage-size",
-    help="Size of persistent storage (in GB)",
-)
-
-ExternalAccessOption = typer.Option(
-    False,
-    "--external-access/--no-external-access",
-    help="Allow network access to external resources",
-    is_flag=True,
-)
-
-TimeoutOption = typer.Option(
-    60,
-    "--timeout",
-    help="Session timeout in minutes",
-)
-
-ExtensionsOption = typer.Option(
-    None,
-    "--extensions",
-    help="Comma-separated list of VS Code extensions to pre-install",
-)
-
-StageOption = typer.Option(
-    None,
-    "--stage",
-    help="Internal Snowflake stage to mount (e.g., @my_stage or @my_stage/folder). Maximum 5 stage volumes per service.",
-)
-
 
 @app.command("create", requires_connection=True)
 def create(
-    name: str = NameOption,
-    compute_pool: str = ComputePoolOption,
-    # persistent_storage: bool = PersistentStorageOption,
-    # storage_size: int = StorageSizeOption,
-    external_access: bool = ExternalAccessOption,
-    timeout: int = TimeoutOption,
-    extensions: Optional[List[str]] = ExtensionsOption,
-    stage: Optional[str] = StageOption,
+    compute_pool: str = typer.Option(
+        ...,  # Required parameter
+        "--compute-pool",
+        help="Name of the compute pool to use (required)",
+    ),
+    name: Optional[str] = typer.Option(
+        None,
+        "--name",
+        help="Custom identifier for the service",
+    ),
+    external_access: Optional[List[str]] = typer.Option(
+        None,
+        "--external-access",
+        help="List of external access integration names to enable network access to external resources",
+    ),
+    timeout: int = typer.Option(
+        60,
+        "--timeout",
+        help="Session timeout in minutes",
+    ),
+    stage: Optional[str] = typer.Option(
+        None,
+        "--stage",
+        help="Internal Snowflake stage to mount (e.g., @my_stage or @my_stage/folder). Maximum 5 stage volumes per service.",
+    ),
+    image_tag: Optional[str] = typer.Option(
+        None,
+        "--image-tag",
+        help="Custom image tag to use for the container runtime environment",
+    ),
     **options,
 ) -> None:
     """
@@ -122,30 +93,19 @@ def create(
     cc.step("Creating container runtime environment...")
 
     try:
-        # Split extensions if provided as comma-separated string
-        ext_list = None
-        if extensions:
-            if isinstance(extensions, str):
-                ext_list = [ext.strip() for ext in extensions.split(",")]
-            else:
-                ext_list = extensions
-
         manager = ContainerRuntimeManager()
         url = manager.create(
             name=name,
             compute_pool=compute_pool,
-            # persistent_storage=persistent_storage,
-            # storage_size=storage_size,
             external_access=external_access,
             timeout=timeout,
-            extensions=ext_list,
             stage=stage,
+            image_tag=image_tag,
         )
 
         # Display success message with the endpoint URL
         cc.step("✓ Container Runtime Environment created successfully!")
         cc.step(f"Access your VS Code Server at: {url}")
-        cc.step(f"Default password: password")
         cc.step(f"Session timeout: {timeout} minutes")
         if stage:
             cc.step(f"Stage '{stage}' mounted:")
@@ -155,6 +115,10 @@ def create(
             cc.step(
                 f"  - VS Code data: '{stage}/.vscode-server/data' → '{constants.USER_VSCODE_DATA_VOLUME_MOUNT_PATH}'"
             )
+        if external_access:
+            cc.step(f"External access integrations: {', '.join(external_access)}")
+        if image_tag:
+            cc.step(f"Using custom image tag: {image_tag}")
     except Exception as e:
         cc.step(f"Error: {str(e)}")
         raise typer.Exit(code=1)
@@ -298,11 +262,8 @@ def setup_ssh(
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
-    # TODO: Check if the container runtime is still running
-    # if not, raise an error
-
     try:
-        # Get the websocket-ssh endpoint URL (this should be done once)
+        # Get the websocket-ssh endpoint URL
         cc.step(f"🔍 Getting endpoint information for container runtime '{name}'...")
         urls = manager.get_public_endpoint_urls(name)
 
