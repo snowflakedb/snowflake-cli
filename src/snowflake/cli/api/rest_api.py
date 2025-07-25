@@ -98,6 +98,7 @@ class RestApi:
             data=json.dumps(data if data else {}),
             no_retry=True,
             raise_raw_http_failure=True,
+            external_session_id=None,  # workaround for connector 3.16 bug, to be removed SNOW-2226816
         )
 
     def _database_exists(self, db_name: str) -> bool:

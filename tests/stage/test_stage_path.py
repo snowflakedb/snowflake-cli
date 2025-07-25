@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -599,3 +600,14 @@ def test_vstage_path_parts_properties(
 def test_vstage_path_parts_invalid_paths(invalid_path):
     with pytest.raises(CliError, match="Invalid vstage path"):
         VStagePathParts(invalid_path)
+
+
+def test_local_dir_with_dot_are_identified_as_dir_not_file():
+    with tempfile.TemporaryDirectory(suffix="dot.in.name") as dir_path:
+        assert "." in dir_path
+        assert Path(dir_path).exists()
+        assert Path(dir_path).is_dir()
+        stage_path = StagePath("stageName", dir_path)
+
+        assert stage_path.is_dir()
+        assert not stage_path.is_file()

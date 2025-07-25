@@ -44,7 +44,7 @@ class DBTManager(SqlExecutionMixin):
 
     def deploy(
         self,
-        name: FQN,
+        fqn: FQN,
         path: SecurePath,
         profiles_path: SecurePath,
         force: bool,
@@ -66,7 +66,7 @@ class DBTManager(SqlExecutionMixin):
 
         with cli_console.phase("Creating temporary stage"):
             stage_manager = StageManager()
-            stage_fqn = FQN.from_string(f"dbt_{name}_stage").using_context()
+            stage_fqn = FQN.from_string(f"dbt_{fqn.name}_stage").using_context()
             stage_name = stage_manager.get_standard_stage_prefix(stage_fqn)
             stage_manager.create(stage_fqn, temporary=True)
 
@@ -86,11 +86,11 @@ class DBTManager(SqlExecutionMixin):
 
         with cli_console.phase("Creating DBT project"):
             if force is True:
-                query = f"CREATE OR REPLACE DBT PROJECT {name}"
-            elif self.exists(name=name):
-                query = f"ALTER DBT PROJECT {name} ADD VERSION"
+                query = f"CREATE OR REPLACE DBT PROJECT {fqn}"
+            elif self.exists(name=fqn):
+                query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
             else:
-                query = f"CREATE DBT PROJECT {name}"
+                query = f"CREATE DBT PROJECT {fqn}"
             query += f"\nFROM {stage_name}"
             return self.execute_query(query)
 
@@ -174,7 +174,7 @@ class DBTManager(SqlExecutionMixin):
             yaml.safe_dump(yaml.safe_load(sfd), tfd)
 
     def execute(
-        self, dbt_command: str, name: str, run_async: bool, *dbt_cli_args
+        self, dbt_command: str, name: FQN, run_async: bool, *dbt_cli_args
     ) -> SnowflakeCursor:
         if dbt_cli_args:
             dbt_command = " ".join([dbt_command, *dbt_cli_args]).strip()
