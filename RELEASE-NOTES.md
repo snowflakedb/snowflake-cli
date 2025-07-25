@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added support for `auto_suspend_secs` parameter in SPCS service commands (`deploy`, `set`, `unset`) to configure automatic service suspension after inactivity period.
 
 ## Fixes and improvements
 * Fixed DBT deploy command to properly handle fully qualified names
