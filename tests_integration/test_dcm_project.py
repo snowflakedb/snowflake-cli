@@ -24,14 +24,13 @@ def _assert_project_has_versions(
     runner, project_name: str, expected_versions: Set[Tuple[str, Optional[str]]]
 ) -> None:
     """Check whether the project versions (in [name,alias] format) are present in Snowflake."""
-    result = runner.invoke_with_connection_json(
-        ["project", "list-versions", project_name]
-    )
+    result = runner.invoke_with_connection_json(["dcm", "list-versions", project_name])
     assert result.exit_code == 0, result.output
     versions = {(version["name"], version["alias"]) for version in result.json}
     assert versions == expected_versions
 
 
+@pytest.mark.qa_only
 @pytest.mark.integration
 def test_project_deploy(
     runner,
@@ -41,12 +40,17 @@ def test_project_deploy(
     project_name = "project_descriptive_name"
     entity_id = "my_project"
     with project_directory("dcm_project"):
-        result = runner.invoke_with_connection(["project", "create", entity_id])
+        result = runner.invoke_with_connection(["dcm", "create", entity_id])
         assert result.exit_code == 0, result.output
         assert (
-            f"Project '{project_name}' successfully created and initial version is added."
+            f"DCM Project '{project_name}' successfully created and initial version is added."
             in result.output
         )
+
+        result = runner.invoke_with_connection_json(["dcm", "describe", project_name])
+        assert result.exit_code == 0, result.output
+        assert result.json[0]["name"].lower() == project_name.lower()
+
         # project should be initialized with a version
         _assert_project_has_versions(
             runner, project_name, expected_versions={("VERSION$1", None)}
@@ -54,8 +58,8 @@ def test_project_deploy(
 
         result = runner.invoke_with_connection(
             [
-                "project",
-                "dry-run",
+                "dcm",
+                "plan",
                 project_name,
                 "--version",
                 "last",
@@ -67,8 +71,8 @@ def test_project_deploy(
 
         result = runner.invoke_with_connection(
             [
-                "project",
-                "execute",
+                "dcm",
+                "deploy",
                 project_name,
                 "-D",
                 f"table_name='{test_database}.PUBLIC.MyTable'",
@@ -78,7 +82,7 @@ def test_project_deploy(
 
         result = runner.invoke_with_connection_json(
             [
-                "project",
+                "dcm",
                 "list",
                 "--like",
                 project_name,
@@ -90,8 +94,9 @@ def test_project_deploy(
         assert project["name"].lower() == project_name.lower()
 
 
+@pytest.mark.qa_only
 @pytest.mark.integration
-def test_execute_multiple_configurations(
+def test_deploy_multiple_configurations(
     runner,
     test_database,
     project_directory,
@@ -99,14 +104,14 @@ def test_execute_multiple_configurations(
     project_name = "project_descriptive_name"
     entity_id = "my_project"
     with project_directory("dcm_project_multiple_configurations"):
-        result = runner.invoke_with_connection(["project", "create", entity_id])
+        result = runner.invoke_with_connection(["dcm", "create", entity_id])
         assert result.exit_code == 0, result.output
 
         for configuration in ["test", "dev", "prod"]:
-            for command in ["dry-run", "execute"]:
+            for command in ["plan", "deploy"]:
                 result = runner.invoke_with_connection_json(
                     [
-                        "project",
+                        "dcm",
                         command,
                         project_name,
                         "--configuration",
@@ -123,6 +128,7 @@ def test_execute_multiple_configurations(
                 )
 
 
+@pytest.mark.qa_only
 @pytest.mark.integration
 def test_create_corner_cases(
     runner,
@@ -136,7 +142,7 @@ def test_create_corner_cases(
         result = runner.invoke_with_connection(["stage", "create", stage_name])
         assert result.exit_code == 0, result.output
 
-        result = runner.invoke_with_connection(["project", "create"])
+        result = runner.invoke_with_connection(["dcm", "create"])
         assert result.exit_code == 1, result.output
         assert f"Stage '{stage_name}' already exists." in result.output
 
@@ -144,25 +150,26 @@ def test_create_corner_cases(
         assert result.exit_code == 0, result.output
 
         # case 2: project already exists
-        result = runner.invoke_with_connection(["project", "create"])
+        result = runner.invoke_with_connection(["dcm", "create"])
         assert result.exit_code == 0, result.output
         _assert_project_has_versions(
             runner, project_name, expected_versions={("VERSION$1", None)}
         )
-        result = runner.invoke_with_connection(["project", "create"])
+        result = runner.invoke_with_connection(["dcm", "create"])
         assert result.exit_code == 1, result.output
-        assert f"Project '{project_name}' already exists." in result.output
+        assert f"DCM Project '{project_name}' already exists." in result.output
         _assert_project_has_versions(
             runner, project_name, expected_versions={("VERSION$1", None)}
         )
-        result = runner.invoke_with_connection(["project", "create", "--if-not-exists"])
+        result = runner.invoke_with_connection(["dcm", "create", "--if-not-exists"])
         assert result.exit_code == 0, result.output
-        assert f"Project '{project_name}' already exists." in result.output
+        assert f"DCM Project '{project_name}' already exists." in result.output
         _assert_project_has_versions(
             runner, project_name, expected_versions={("VERSION$1", None)}
         )
 
 
+@pytest.mark.qa_only
 @pytest.mark.integration
 def test_project_add_version(
     runner,
@@ -176,18 +183,16 @@ def test_project_add_version(
 
     with project_directory("dcm_project") as root:
         # Create a new project
-        result = runner.invoke_with_connection_json(
-            ["project", "create", "--no-version"]
-        )
+        result = runner.invoke_with_connection_json(["dcm", "create", "--no-version"])
         assert result.exit_code == 0, result.output
-        assert f"Project '{project_name}' successfully created." in result.output
+        assert f"DCM Project '{project_name}' successfully created." in result.output
         # project should not be initialized with a new version due to --no-version flag
         _assert_project_has_versions(runner, project_name, expected_versions=set())
 
         # add version from local files
-        result = runner.invoke_with_connection(["project", "add-version"])
+        result = runner.invoke_with_connection(["dcm", "add-version"])
         assert result.exit_code == 0, result.output
-        assert f"New project version added to project '{project_name}'" in result.output
+        assert f"New version added to DCM Project '{project_name}'" in result.output
         _assert_project_has_versions(
             runner, project_name, expected_versions={("VERSION$1", None)}
         )
@@ -213,7 +218,7 @@ def test_project_add_version(
         # create a new version of the project
         result = runner.invoke_with_connection(
             [
-                "project",
+                "dcm",
                 "add-version",
                 entity_id,
                 "--from",
@@ -224,8 +229,7 @@ def test_project_add_version(
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"New project version 'v2' added to project '{project_name}'"
-            in result.output
+            f"New version 'v2' added to DCM Project '{project_name}'" in result.output
         )
         _assert_project_has_versions(
             runner, project_name, {("VERSION$1", None), ("VERSION$2", "V2")}
@@ -241,7 +245,7 @@ def test_project_add_version(
 
         # --no-prune - unexpected file remains
         result = runner.invoke_with_connection(
-            ["project", "add-version", "--alias", "v3_1", "--no-prune"]
+            ["dcm", "add-version", "--alias", "v3_1", "--no-prune"]
         )
         assert result.exit_code == 0, result.output
         _assert_project_has_versions(
@@ -261,7 +265,7 @@ def test_project_add_version(
 
         # prune flag - unexpected file should be removed
         result = runner.invoke_with_connection(
-            ["project", "add-version", "--alias", "v3_2"]
+            ["dcm", "add-version", "--alias", "v3_2"]
         )
         assert result.exit_code == 0, result.output
         _assert_project_has_versions(
@@ -284,6 +288,7 @@ def test_project_add_version(
         )
 
 
+@pytest.mark.qa_only
 @pytest.mark.integration
 def test_project_add_version_without_create_fails(
     runner,
@@ -295,14 +300,14 @@ def test_project_add_version_without_create_fails(
 
     with project_directory("dcm_project"):
         # call add-version first (by mistake)
-        result = runner.invoke_with_connection(["project", "add-version"])
+        result = runner.invoke_with_connection(["dcm", "add-version"])
         assert result.exit_code == 1, result.output
-        assert f"Project '{project_name}' does not exist." in result.output
+        assert f"DCM Project '{project_name}' does not exist." in result.output
 
         assert does_stage_exist(runner, default_stage_name) is False
 
         # make sure that user can still create a project and stage
-        result = runner.invoke_with_connection_json(["project", "create"])
+        result = runner.invoke_with_connection_json(["dcm", "create"])
         assert result.exit_code == 0, result.output
         assert does_stage_exist(runner, default_stage_name) is True
 
@@ -319,7 +324,7 @@ def test_project_drop_version(
 
     with project_directory("dcm_project"):
         # Create project with initial version
-        result = runner.invoke_with_connection(["project", "create", entity_id])
+        result = runner.invoke_with_connection(["dcm", "create", entity_id])
         assert result.exit_code == 0, result.output
         _assert_project_has_versions(
             runner, project_name, expected_versions={("VERSION$1", None)}
@@ -327,11 +332,11 @@ def test_project_drop_version(
 
         # Add another version with alias
         result = runner.invoke_with_connection(
-            ["project", "add-version", entity_id, "--alias", "v2"]
+            ["dcm", "add-version", entity_id, "--alias", "v2"]
         )
         assert result.exit_code == 0, result.output
         result = runner.invoke_with_connection(
-            ["project", "add-version", entity_id, "--alias", "theDefault"]
+            ["dcm", "add-version", entity_id, "--alias", "theDefault"]
         )
         assert result.exit_code == 0, result.output
         _assert_project_has_versions(
@@ -342,20 +347,22 @@ def test_project_drop_version(
 
         # Drop the version by name
         result = runner.invoke_with_connection(
-            ["project", "drop-version", project_name, "VERSION$1"]
+            ["dcm", "drop-version", project_name, "VERSION$1"]
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'VERSION$1' dropped from project '{project_name}'"
+            f"Version 'VERSION$1' dropped from DCM Project '{project_name}'"
             in result.output
         )
 
         # Drop the version by alias
         result = runner.invoke_with_connection(
-            ["project", "drop-version", project_name, "v2"]
+            ["dcm", "drop-version", project_name, "v2"]
         )
         assert result.exit_code == 0, result.output
-        assert f"Version 'v2' dropped from project '{project_name}'" in result.output
+        assert (
+            f"Version 'v2' dropped from DCM Project '{project_name}'" in result.output
+        )
 
         _assert_project_has_versions(
             runner, project_name, expected_versions={("VERSION$3", "THEDEFAULT")}
@@ -363,35 +370,35 @@ def test_project_drop_version(
 
         # Try to drop the default version
         result = runner.invoke_with_connection(
-            ["project", "drop-version", project_name, "VERSION$3"]
+            ["dcm", "drop-version", project_name, "VERSION$3"]
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'VERSION$3' dropped from project '{project_name}'"
+            f"Version 'VERSION$3' dropped from DCM Project '{project_name}'"
             in result.output
         )
 
         # Try to drop non-existent version without --if-exists (should fail)
         result = runner.invoke_with_connection(
-            ["project", "drop-version", project_name, "non_existent"]
+            ["dcm", "drop-version", project_name, "non_existent"]
         )
         assert result.exit_code == 1, result.output
         assert "Version does not exist" in result.output
 
         # Try to drop non-existent version with --if-exists (should succeed)
         result = runner.invoke_with_connection(
-            ["project", "drop-version", project_name, "non_existent", "--if-exists"]
+            ["dcm", "drop-version", project_name, "non_existent", "--if-exists"]
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'non_existent' dropped from project '{project_name}'"
+            f"Version 'non_existent' dropped from DCM Project '{project_name}'"
             in result.output
         )
 
 
 @pytest.mark.qa_only
 @pytest.mark.integration
-def test_project_execute_from_stage(
+def test_project_deploy_from_stage(
     runner,
     test_database,
     project_directory,
@@ -402,7 +409,7 @@ def test_project_execute_from_stage(
 
     with project_directory("dcm_project") as project_root:
         # Create a new project
-        result = runner.invoke_with_connection(["project", "create", entity_id])
+        result = runner.invoke_with_connection(["dcm", "create", entity_id])
         assert result.exit_code == 0, result.output
         _assert_project_has_versions(
             runner, project_name, expected_versions={("VERSION$1", None)}
@@ -426,11 +433,11 @@ def test_project_execute_from_stage(
         )
         assert result.exit_code == 0, result.output
 
-        # Test dry-run from stage
+        # Test plan from stage
         result = runner.invoke_with_connection_json(
             [
-                "project",
-                "dry-run",
+                "dcm",
+                "plan",
                 project_name,
                 "--from",
                 f"@{other_stage_name}",
@@ -444,7 +451,7 @@ def test_project_execute_from_stage(
         assert f"{test_database}.PUBLIC.MYTABLE".upper() in output_str.upper()
         assert f"{test_database}.PUBLIC.MYTABLE_SECOND".upper() in output_str.upper()
 
-        # Verify that the second table does not exist after dry-run
+        # Verify that the second table does not exist after plan
         table_check_result = runner.invoke_with_connection_json(
             [
                 "object",
@@ -458,13 +465,13 @@ def test_project_execute_from_stage(
             ]
         )
         assert table_check_result.exit_code == 0
-        assert len(table_check_result.json) == 0, "Table should not exist after dry-run"
+        assert len(table_check_result.json) == 0, "Table should not exist after plan"
 
-        # Test execute from stage
+        # Test deploy from stage
         result = runner.invoke_with_connection_json(
             [
-                "project",
-                "execute",
+                "dcm",
+                "deploy",
                 project_name,
                 "--from",
                 f"@{other_stage_name}",
@@ -478,7 +485,7 @@ def test_project_execute_from_stage(
         assert f"{test_database}.PUBLIC.MYTABLE".upper() in output_str.upper()
         assert f"{test_database}.PUBLIC.MYTABLE_SECOND".upper() in output_str.upper()
 
-        # Verify that the second table actually exists after execute
+        # Verify that the second table actually exists after deploy
         table_check_result = runner.invoke_with_connection_json(
             [
                 "object",
@@ -494,4 +501,4 @@ def test_project_execute_from_stage(
         assert table_check_result.exit_code == 0
         assert (
             "MYTABLE_SECOND" == table_check_result.json[0]["name"]
-        ), "Table should exist after execute"
+        ), "Table should exist after deploy"
