@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from snowflake.cli.api.utils.dict_utils import deep_merge_dicts, traverse
+import pytest
+from snowflake.cli.api.utils.dict_utils import (
+    deep_merge_dicts,
+    remove_key_from_nested_dict_if_exists,
+    traverse,
+)
 
 
 def test_merge_dicts_empty():
@@ -170,3 +175,57 @@ def test_traverse_with_updates():
         "map_key": {"key1": "value1_", "key3": None},
         "array_key": ["array1_", None, {"nestedKey1": "nestedVal1_"}],
     }
+
+
+def test_remove_key_from_nested_dict_if_exists():
+    d = {
+        "a": {
+            "a1": "a1_value",
+        },
+        "b": "b_value",
+        "c": {
+            "c1": "c1_value",
+            "c2": {
+                "c2a": "c2a_value",
+                "c2b": "c2b_value",
+            },
+        },
+    }
+
+    result = remove_key_from_nested_dict_if_exists(d, ["a"])
+    assert result is True
+    assert list(d.keys()) == ["b", "c"]
+
+    result = remove_key_from_nested_dict_if_exists(d, ["b"])
+    assert result is True
+    assert list(d.keys()) == ["c"]
+
+    with pytest.raises(ValueError):
+        remove_key_from_nested_dict_if_exists(d, ["c", "c1", "c1_value_is_not_a_dict"])
+
+    result = remove_key_from_nested_dict_if_exists(d, ["c", "c1"])
+    assert result is True
+    assert d["c"] == {
+        "c2": {
+            "c2a": "c2a_value",
+            "c2b": "c2b_value",
+        }
+    }
+
+    result = remove_key_from_nested_dict_if_exists(d, ["c", "c2", "non_existing"])
+    assert result is False
+
+    result = remove_key_from_nested_dict_if_exists(d, ["non_existing", "key"])
+    assert result is False
+
+    result = remove_key_from_nested_dict_if_exists(d, ["c", "c2", "c2a"])
+    assert result is True
+    assert d["c"] == {
+        "c2": {
+            "c2b": "c2b_value",
+        }
+    }
+
+    result = remove_key_from_nested_dict_if_exists(d, ["c", "c2", "c2b"])
+    assert result is True
+    assert d == {}

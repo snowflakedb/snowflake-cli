@@ -70,6 +70,16 @@ Every integration test should have `integration` mark. By default, integration t
 
 To execute only integration tests run `hatch run integration:test` or `pytest -m integration` inside environment.
 
+## Snapshot files
+
+If you added a new test, or changed behavior, you need to regenerate the Syrupy snapshots, which are stored in `.ambr` files.
+
+```bash
+hatch run pytest tests/ --snapshot-update
+```
+
+Verify your change didn't introduce anything unexpected!
+
 ### User setup
 
 Integration tests require environment variables to be set up. Parameters must use the following format:
