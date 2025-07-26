@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Add `snow connection remove` command
 
 ## Fixes and improvements
 * Fixed DBT deploy command to properly handle fully qualified names
