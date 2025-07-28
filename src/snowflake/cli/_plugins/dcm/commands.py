@@ -28,7 +28,6 @@ from snowflake.cli.api.commands.flags import (
     IfExistsOption,
     IfNotExistsOption,
     OverrideableOption,
-    PruneOption,
     entity_argument,
     identifier_argument,
     like_option,
@@ -188,53 +187,6 @@ def create(
         return MessageResult(f"DCM Project '{project.fqn}' successfully created.")
     return MessageResult(
         f"DCM Project '{project.fqn}' successfully created and initial version is added."
-    )
-
-
-@app.command(requires_connection=True)
-@with_project_definition()
-def add_version(
-    entity_id: str = entity_argument("dcm"),
-    _from: Optional[str] = from_option(
-        help="Create a new version using given stage instead of uploading local files."
-    ),
-    _alias: Optional[str] = typer.Option(
-        None, "--alias", help="Alias for the version.", show_default=False
-    ),
-    comment: Optional[str] = typer.Option(
-        None, "--comment", help="Version comment.", show_default=False
-    ),
-    prune: bool = PruneOption(default=True),
-    **options,
-):
-    """Uploads local files to Snowflake and cerates a new DCM Project version."""
-    if _from is not None and prune:
-        cli_console.warning(
-            "When `--from` option is used, `--prune` option will be ignored and files from stage will be used as they are."
-        )
-        prune = False
-    cli_context = get_cli_context()
-    project: DCMProjectEntityModel = get_entity_for_operation(
-        cli_context=cli_context,
-        entity_id=entity_id,
-        project_definition=cli_context.project_definition,
-        entity_type="dcm",
-    )
-    om = ObjectManager()
-    if not om.object_exists(object_type="dcm", fqn=project.fqn):
-        raise CliError(
-            f"DCM Project '{project.fqn}' does not exist. Use `dcm create` command first."
-        )
-    DCMProjectManager().add_version(
-        project=project,
-        prune=prune,
-        from_stage=_from,
-        alias=_alias,
-        comment=comment,
-    )
-    alias_str = "" if _alias is None else f"'{_alias}' "
-    return MessageResult(
-        f"New version {alias_str}added to DCM Project '{project.fqn}'."
     )
 
 
