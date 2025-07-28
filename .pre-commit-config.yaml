@@ -76,7 +76,6 @@ repos:
             "pylock.toml",
             "-o",
             "pylock.toml",
-            "--quiet",
           ]
         pass_filenames: false
         files: ^py(project|lock)\.toml$
@@ -93,7 +92,6 @@ repos:
             "requirements.txt",
             "-o",
             "snyk/requirements.txt",
-            "--quiet",
           ]
         pass_filenames: false
         files: ^pyproject.toml$
