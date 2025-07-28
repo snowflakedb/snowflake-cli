@@ -66,37 +66,15 @@ repos:
       - id: lock-dependencies
         name: "Lock project dependencies"
         language: system
-        entry: uv
-        args:
-          [
-            "pip",
-            "compile",
-            "pyproject.toml",
-            "--format",
-            "pylock.toml",
-            "-o",
-            "pylock.toml",
-            "-p",
-            "3.10",
-          ]
+        entry: hatch
+        args: ["run", "lock-dependencies"]
         pass_filenames: false
         files: ^py(project|lock)\.toml$
       - id: dependencies-sync
         name: "Copy dependencies from pyproject.toml to requirements.txt"
         language: system
-        entry: uv
-        args:
-          [
-            "pip",
-            "compile",
-            "pyproject.toml",
-            "--format",
-            "requirements.txt",
-            "-o",
-            "snyk/requirements.txt",
-            "-p",
-            "3.10",
-          ]
+        entry: hatch
+        args: ["run", "sync-dependencies"]
         pass_filenames: false
         files: ^pyproject.toml$
       - id: use-local-requirements-model
