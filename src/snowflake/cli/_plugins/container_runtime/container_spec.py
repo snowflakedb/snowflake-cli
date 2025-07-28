@@ -135,6 +135,7 @@ def generate_service_spec(
     environment_vars: Optional[Dict[str, str]] = None,
     enable_metrics: bool = False,
     stage: Optional[str] = None,
+    workspace_stage_path: Optional[str] = None,
     image_tag: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -146,6 +147,7 @@ def generate_service_spec(
         environment_vars: Environment variables to set in the container
         enable_metrics: Enable platform metrics for the job
         stage: Optional internal Snowflake stage to mount (e.g., @my_stage)
+        workspace_stage_path: Optional workspace stage path (for workspace parameter)
         image_tag: Optional custom image tag to use
 
     Returns:
@@ -211,7 +213,7 @@ def generate_service_spec(
     )
 
     # Mount user stage as volume if provided
-    if stage:
+    if stage or workspace_stage_path:
         # Mount user workspace volume
         user_workspace_mount = PurePath(constants.USER_WORKSPACE_VOLUME_MOUNT_PATH)
         volume_mounts.append(
@@ -220,27 +222,48 @@ def generate_service_spec(
                 "mountPath": user_workspace_mount.as_posix(),
             }
         )
+
+        # Determine the source path for the user workspace volume
+        # Priority: workspace_stage_path > stage/user-default
+        if workspace_stage_path:
+            # Use workspace_stage_path
+            workspace_source = workspace_stage_path
+        elif stage:
+            # Use stage with /user-default suffix
+            workspace_source = f"{stage}/user-default"
+        else:
+            raise ValueError(
+                "Either stage or workspace_stage_path must be provided for volume mounting"
+            )
+
         volumes.append(
             {
                 "name": constants.USER_WORKSPACE_VOLUME_NAME,
-                "source": f"{stage}/user-default",
+                "source": workspace_source,
             }
         )
 
-        # Mount user vscode data volume
-        user_vscode_data_mount = PurePath(constants.USER_VSCODE_DATA_VOLUME_MOUNT_PATH)
-        volume_mounts.append(
-            {
-                "name": constants.USER_VSCODE_DATA_VOLUME_NAME,
-                "mountPath": user_vscode_data_mount.as_posix(),
-            }
-        )
-        volumes.append(
-            {
-                "name": constants.USER_VSCODE_DATA_VOLUME_NAME,
-                "source": f"{stage}/.vscode-server/data",
-            }
-        )
+        # Mount user vscode data volume - always uses stage location if stage is provided
+        if stage:
+            user_vscode_data_mount = PurePath(
+                constants.USER_VSCODE_DATA_VOLUME_MOUNT_PATH
+            )
+            volume_mounts.append(
+                {
+                    "name": constants.USER_VSCODE_DATA_VOLUME_NAME,
+                    "mountPath": user_vscode_data_mount.as_posix(),
+                }
+            )
+
+            # VS Code data always uses stage location
+            vscode_data_source = f"{stage}/.vscode-server/data"
+
+            volumes.append(
+                {
+                    "name": constants.USER_VSCODE_DATA_VOLUME_NAME,
+                    "source": vscode_data_source,
+                }
+            )
 
     # Setup environment variables
     env_vars = {

@@ -30,7 +30,6 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
 
 class ContainerRuntimeManager(SqlExecutionMixin):
-    DEFAULT_TIMEOUT_MIN = 60
     DEFAULT_SERVICE_PREFIX = "SNOW_CR"
     DEFAULT_EAI = "ALLOW_ALL_INTEGRATION"
 
@@ -40,8 +39,8 @@ class ContainerRuntimeManager(SqlExecutionMixin):
         name: Optional[str] = None,
         warehouse: Optional[str] = None,
         external_access: Optional[List[str]] = None,
-        timeout: int = DEFAULT_TIMEOUT_MIN,
         stage: Optional[str] = None,
+        workspace: Optional[str] = None,
         image_tag: Optional[str] = None,
     ) -> str:
         """
@@ -52,13 +51,34 @@ class ContainerRuntimeManager(SqlExecutionMixin):
             name: Optional custom service name
             warehouse: Optional warehouse name (defaults to connection warehouse)
             external_access: List of external access integration names
-            timeout: Session timeout in minutes
             stage: Internal Snowflake stage to mount (e.g., @my_stage or @my_stage/folder)
+            workspace: Workspace to mount. Can be either a stage path or a Snowflake workspace name
             image_tag: Custom image tag to use
 
         Returns:
             The endpoint URL for the created service
         """
+        # Determine if workspace is a stage path or workspace name
+        is_workspace_name = False
+        workspace_stage_path = None
+
+        if workspace:
+            if workspace.startswith("@") or workspace.startswith("snow://"):
+                # Workspace is actually a stage path
+                workspace_stage_path = workspace.rstrip("/")
+                cc.step(f"Using workspace as stage path: {workspace_stage_path}")
+            else:
+                # Workspace is a workspace name - use personal database
+                is_workspace_name = True
+                workspace_stage_path = (
+                    f"snow://workspace/USER$.public.{workspace}/versions/live"
+                )
+                cc.step(f"Using Snowflake workspace: {workspace} in personal database")
+
+                # TODO: Set required session parameters for personal database, including:
+                # - ENABLE_SPCS_CREATION_IN_PERSONAL_DB
+                # - SNOWSERVICE_USE_CALLING_USER_FOR_AUTH_FOR_TESTING
+
         # Generate service name if not provided
         if not name:
             username = get_cli_context().connection.user.lower()
@@ -74,28 +94,45 @@ class ContainerRuntimeManager(SqlExecutionMixin):
         if not warehouse:
             warehouse = get_cli_context().connection.warehouse
 
-        # Validate inputs
+        # Validate stage input if provided
         if stage:
             if not stage.startswith("@") and not stage.startswith("snow://"):
                 raise ValueError(
                     "Stage name must start with '@' (e.g., @my_stage) or 'snow://' (e.g., snow://notebook/db.schema.notebook_name/versions/live)"
                 )
+            # Remove trailing slash from stage
+            stage = stage.rstrip("/")
+
+        # Validate workspace stage path if provided
+        if workspace_stage_path:
+            if not workspace_stage_path.startswith(
+                "@"
+            ) and not workspace_stage_path.startswith("snow://"):
+                raise ValueError(
+                    "Workspace stage path must start with '@' (e.g., @my_stage) or 'snow://' (e.g., snow://workspace/...)"
+                )
 
         # Handle secondary roles for workspace stages
         if stage and stage.startswith("snow://"):
             file_list = self.snowpark_session.sql(f"LIST {stage}").collect()
-            cc.step(f"Files in the nested stage: {file_list}")
+            cc.step(f"Files in the stage: {file_list}")
 
-        # Remove trailing slash from stage
-        if stage:
-            stage = stage.rstrip("/")
+        if (
+            workspace_stage_path
+            and workspace_stage_path.startswith("snow://")
+            and workspace_stage_path != stage
+        ):
+            file_list = self.snowpark_session.sql(
+                f"LIST {workspace_stage_path}"
+            ).collect()
+            cc.step(f"Files in the workspace: {file_list}")
 
         # Generate a service specification
         spec = self._generate_service_spec(
             compute_pool=compute_pool,
             external_access=external_access,
-            timeout=timeout,
             stage=stage,
+            workspace_stage_path=workspace_stage_path,
             image_tag=image_tag,
         )
 
@@ -114,6 +151,7 @@ class ContainerRuntimeManager(SqlExecutionMixin):
             external_access_integrations = external_access or [self.DEFAULT_EAI]
 
             spec_content = temp_spec_file.read_text()
+
             query = f"""\
                 CREATE SERVICE IF NOT EXISTS {name}
 IN COMPUTE POOL {compute_pool}
@@ -146,8 +184,8 @@ QUERY_WAREHOUSE = {warehouse}
         self,
         compute_pool: str,
         external_access: Optional[List[str]] = None,
-        timeout: int = DEFAULT_TIMEOUT_MIN,
         stage: Optional[str] = None,
+        workspace_stage_path: Optional[str] = None,
         image_tag: Optional[str] = None,
     ) -> dict:
         """Generate a service specification for VS Code Server using the helper modules."""
@@ -157,9 +195,6 @@ QUERY_WAREHOUSE = {warehouse}
         # Create environment variables
         environment_vars = {
             "TZ": "Etc/UTC",
-            "SESSION_TIMEOUT": str(timeout * 60)
-            if timeout
-            else "3600",  # Convert minutes to seconds
             "VSCODE_PORT": "12020",  # Default VS Code server port
         }
 
@@ -170,6 +205,7 @@ QUERY_WAREHOUSE = {warehouse}
             environment_vars=environment_vars,
             enable_metrics=True,  # Enable platform metrics
             stage=stage,
+            workspace_stage_path=workspace_stage_path,
             image_tag=image_tag,
         )
 

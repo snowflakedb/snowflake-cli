@@ -67,15 +67,15 @@ def create(
         "--external-access",
         help="List of external access integration names to enable network access to external resources",
     ),
-    timeout: int = typer.Option(
-        60,
-        "--timeout",
-        help="Session timeout in minutes",
-    ),
     stage: Optional[str] = typer.Option(
         None,
         "--stage",
         help="Internal Snowflake stage to mount (e.g., @my_stage or @my_stage/folder). Maximum 5 stage volumes per service.",
+    ),
+    workspace: Optional[str] = typer.Option(
+        None,
+        "--workspace",
+        help="[COMING SOON] Workspace to mount for user files. Can be either a stage path (e.g., @my_stage/path) or a Snowflake workspace name for personal database usage. If provided, this overrides the default stage/user-default path for the workspace volume. (This feature is not yet available)",
     ),
     image_tag: Optional[str] = typer.Option(
         None,
@@ -92,28 +92,45 @@ def create(
     """
     cc.step("Creating container runtime environment...")
 
+    # Check if workspace parameter is used (not yet available)
+    if workspace:
+        cc.step("❌ Error: The --workspace parameter is not yet available.")
+        cc.step(
+            "💡 This feature is under development and will be available in a future release."
+        )
+        cc.step("💡 For now, please use the --stage parameter for persistent storage.")
+        raise typer.Exit(code=1)
+
     try:
         manager = ContainerRuntimeManager()
         url = manager.create(
             name=name,
             compute_pool=compute_pool,
             external_access=external_access,
-            timeout=timeout,
             stage=stage,
+            workspace=workspace,
             image_tag=image_tag,
         )
 
         # Display success message with the endpoint URL
         cc.step("✓ Container Runtime Environment created successfully!")
         cc.step(f"Access your VS Code Server at: {url}")
-        cc.step(f"Session timeout: {timeout} minutes")
         if stage:
             cc.step(f"Stage '{stage}' mounted:")
-            cc.step(
-                f"  - Workspace: '{stage}' → '{constants.USER_WORKSPACE_VOLUME_MOUNT_PATH}'"
-            )
+            if workspace:
+                cc.step(
+                    f"  - Workspace: '{workspace}' → '{constants.USER_WORKSPACE_VOLUME_MOUNT_PATH}'"
+                )
+            else:
+                cc.step(
+                    f"  - Workspace: '{stage}/user-default' → '{constants.USER_WORKSPACE_VOLUME_MOUNT_PATH}'"
+                )
             cc.step(
                 f"  - VS Code data: '{stage}/.vscode-server/data' → '{constants.USER_VSCODE_DATA_VOLUME_MOUNT_PATH}'"
+            )
+        elif workspace:
+            cc.step(
+                f"Workspace '{workspace}' configured → '{constants.USER_WORKSPACE_VOLUME_MOUNT_PATH}'"
             )
         if external_access:
             cc.step(f"External access integrations: {', '.join(external_access)}")
@@ -295,33 +312,90 @@ def setup_ssh(
 
         # Ensure session has the correct format for token to work properly
         cc.step("🔧 Configuring session for SSH token compatibility...")
+
+        # Configure session format for token requests
         manager.snowpark_session.sql(
             "ALTER SESSION SET python_connector_query_result_format = 'JSON'"
         ).collect()
 
-        cc.step(f"🚀 Starting SSH token management for container runtime '{name}'...")
-        cc.step(f"🔄 Token refresh interval: {refresh_interval} seconds")
+        cc.step(f"🚀 Starting SSH session management for container runtime '{name}'...")
+        cc.step(f"🔄 Connection refresh interval: {refresh_interval} seconds")
+        cc.step(
+            "💡 Fresh connections will be created proactively every refresh cycle to ensure token validity"
+        )
         if vscode_server_path:
             cc.step(f"📁 VS Code server path: {vscode_server_path}")
         cc.step(f"💡 You can now connect using: ssh snowflake-remote-runtime-{name}")
         cc.step(f"⏹️  Press Ctrl+C to stop this command and end SSH session management")
         cc.step("=" * 70)
 
+        # Keep track of the current connection for token refresh
+        current_connection = manager.snowpark_session.connection
         token_refresh_count = 0
+
+        def get_fresh_token():
+            """Proactively create a fresh connection and get token every refresh cycle."""
+            nonlocal current_connection
+
+            try:
+                cc.step("🔄 Creating fresh connection for token refresh...")
+
+                # Import necessary modules
+                from snowflake.cli._app.snow_connector import connect_to_snowflake
+                from snowflake.cli.api.cli_global_context import get_cli_context
+
+                # Get current connection context
+                current_context = get_cli_context().connection_context
+
+                # Always create a fresh connection proactively
+                # The old connection will auto-close when it goes out of scope
+                fresh_connection = connect_to_snowflake(
+                    connection_name=current_context.connection_name,
+                    temporary_connection=current_context.temporary_connection,
+                )
+
+                # Update our current connection reference
+                current_connection = fresh_connection
+
+                current_connection.cursor().execute(
+                    "ALTER SESSION SET python_connector_query_result_format = 'JSON'"
+                )
+
+                # Get token from the fresh connection
+                token = fresh_connection.rest.token
+                if token:
+                    cc.step("✅ Fresh connection created, token obtained")
+                    return token
+                else:
+                    raise Exception("No token available from fresh connection")
+
+            except Exception as e:
+                cc.step(f"❌ Failed to create fresh connection and get token: {str(e)}")
+                return None
 
         while not shutdown_requested:
             try:
-                # Get the current session token
-                token = manager.snowpark_session.connection.rest.token
+                # Get a fresh session token
+                cc.step(
+                    f"🔑 Creating fresh connection and getting token... (refresh #{token_refresh_count + 1})"
+                )
+
+                token = get_fresh_token()
                 if not token:
                     cc.step(
-                        "❌ Unable to get session token. Please ensure you are properly authenticated."
+                        "❌ Unable to create fresh connection or get token. Please ensure you are properly authenticated."
                     )
-                    raise typer.Exit(code=1)
+                    cc.step("🔄 Will retry in 30 seconds...")
+
+                    # Wait 30 seconds before retrying, but check for shutdown every second
+                    retry_end_time = time.time() + 30
+                    while time.time() < retry_end_time and not shutdown_requested:
+                        time.sleep(1)
+                    continue
 
                 # Update SSH configuration with current token
                 cc.step(
-                    f"🔑 Updating SSH configuration with fresh token... (refresh #{token_refresh_count + 1})"
+                    f"🔧 Updating SSH configuration with fresh token... (refresh #{token_refresh_count + 1})"
                 )
                 setup_ssh_config_with_token(name, ssh_endpoint_url, token)
 
@@ -347,8 +421,8 @@ def setup_ssh(
                 shutdown_requested = True
                 break
             except Exception as e:
-                cc.step(f"⚠️  Error during token refresh: {str(e)}")
-                cc.step(f"🔄 Retrying in 30 seconds...")
+                cc.step(f"⚠️  Unexpected error during SSH setup: {str(e)}")
+                cc.step(f"🔄 Will retry in 30 seconds...")
 
                 # Wait 30 seconds before retrying, but check for shutdown every second
                 retry_end_time = time.time() + 30
