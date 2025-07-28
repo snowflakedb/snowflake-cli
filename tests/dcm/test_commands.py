@@ -30,7 +30,6 @@ def test_create(mock_om, mock_pm, runner, project_directory):
 
         mock_pm().create.assert_called_once()
         create_kwargs = mock_pm().create.mock_calls[0].kwargs
-        assert create_kwargs["initialize_version_from_local_files"] == True
         assert create_kwargs["project"].fqn == FQN.from_string("my_project")
 
 
@@ -46,86 +45,13 @@ def test_create_object_exists(
         if if_not_exists:
             command.append("--if-not-exists")
         result = runner.invoke(command)
-        assert result.exit_code == 0 if if_not_exists else 1, result.output
-        assert "DCM Project 'my_project' already exists." in result.output
+        if if_not_exists:
+            assert result.exit_code == 0, result.output
+            assert "DCM Project 'my_project' already exists." in result.output
+        else:
+            assert result.exit_code == 1, result.output
+
         mock_pm().create.assert_not_called()
-
-
-@mock.patch(DCMProjectManager)
-@pytest.mark.parametrize(
-    "prune,_from,expected_prune_value",
-    [
-        (True, True, False),
-        (True, False, True),
-        (False, True, False),
-        (False, False, False),
-        (None, True, False),
-        (None, False, True),
-    ],
-)
-def test_add_version(
-    mock_pm,
-    runner,
-    project_directory,
-    prune,
-    _from,
-    expected_prune_value,
-    mock_project_exists,
-):
-    with project_directory("dcm_project") as root:
-        command = [
-            "dcm",
-            "add-version",
-            "my_project",
-            "--alias",
-            "v1",
-            "--comment",
-            "fancy",
-        ]
-        if prune:
-            command += ["--prune"]
-        elif prune is False:
-            command += ["--no-prune"]
-
-        if _from:
-            command += ["--from", "@stage"]
-        result = runner.invoke(command)
-        assert result.exit_code == 0, result.output
-        assert not (root / "output").exists()
-
-    assert mock_pm().add_version.call_count == 1
-    kwargs = mock_pm().add_version.mock_calls[0].kwargs
-    expected_kwargs = {
-        "alias": "v1",
-        "comment": "fancy",
-        "project": kwargs["project"],
-        "prune": expected_prune_value,
-        "from_stage": "@stage" if _from else None,
-    }
-
-    assert expected_kwargs == kwargs
-
-
-def test_add_version_raises_when_project_does_not_exist(
-    runner, project_directory, mock_project_exists
-):
-    mock_project_exists.return_value = False
-    with project_directory("dcm_project") as root:
-        command = [
-            "dcm",
-            "add-version",
-            "my_project",
-            "--alias",
-            "v1",
-            "--comment",
-            "fancy",
-        ]
-        result = runner.invoke(command)
-        assert result.exit_code == 1, result.output
-        assert (
-            "DCM Project 'my_project' does not exist. Use `dcm create` command first"
-            in result.output
-        )
 
 
 @mock.patch(DCMProjectManager)

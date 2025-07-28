@@ -74,29 +74,17 @@ def test_create_version_no_alias(mock_execute_query):
 
 @mock.patch(execute_queries)
 @mock.patch(sync_artifacts_with_stage)
-@pytest.mark.parametrize("initialize_version", [True, False])
-def test_create(mock_sync_artifacts, mock_execute_query, initialize_version):
+def test_create(mock_sync_artifacts, mock_execute_query):
     project_mock = mock.MagicMock(
         fqn=FQN.from_string("project_mock_fqn"), stage="mock_stage_name"
     )
     mgr = DCMProjectManager()
-    mgr.create(
-        project=project_mock, initialize_version_from_local_files=initialize_version
-    )
+    mgr.create(project=project_mock)
 
-    if initialize_version:
-        mock_sync_artifacts.assert_called_once()
-        assert mock_execute_query.mock_calls == [
-            mock.call("CREATE DCM PROJECT IDENTIFIER('project_mock_fqn')"),
-            mock.call(
-                query="ALTER DCM PROJECT project_mock_fqn ADD VERSION FROM @mock_stage_name"
-            ),
-        ]
-    else:
-        mock_execute_query.assert_called_once_with(
-            "CREATE DCM PROJECT IDENTIFIER('project_mock_fqn')"
-        )
-        mock_sync_artifacts.assert_not_called()
+    mock_execute_query.assert_called_once_with(
+        "CREATE DCM PROJECT IDENTIFIER('project_mock_fqn')"
+    )
+    mock_sync_artifacts.assert_not_called()
 
 
 @mock.patch(execute_queries)

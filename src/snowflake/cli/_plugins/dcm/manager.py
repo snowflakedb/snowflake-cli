@@ -61,12 +61,8 @@ class DCMProjectManager(SqlExecutionMixin):
         query = dedent(f"CREATE DCM PROJECT {project_name.sql_identifier}")
         return self.execute_query(query)
 
-    def create(
-        self, project: DCMProjectEntityModel, initialize_version_from_local_files: bool
-    ) -> None:
+    def create(self, project: DCMProjectEntityModel) -> None:
         self._create_object(project.fqn)
-        if initialize_version_from_local_files:
-            self.add_version(project=project)
 
     def _create_version(
         self,
