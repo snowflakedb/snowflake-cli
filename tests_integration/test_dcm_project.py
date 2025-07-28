@@ -183,18 +183,33 @@ def test_project_add_version(
 
     with project_directory("dcm_project") as root:
         # Create a new project
-        result = runner.invoke_with_connection_json(["dcm", "create", "--no-version"])
+        result = runner.invoke_with_connection_json(["dcm", "create"])
         assert result.exit_code == 0, result.output
-        assert f"DCM Project '{project_name}' successfully created." in result.output
-        # project should not be initialized with a new version due to --no-version flag
-        _assert_project_has_versions(runner, project_name, expected_versions=set())
+        assert (
+            f"DCM Project '{project_name}' successfully created and initial version is added."
+            in result.output
+        )
+        # project should be initialized with a new version
+        _assert_project_has_versions(
+            runner, project_name, expected_versions={("VERSION$1", None)}
+        )
+        assert_stage_has_files(
+            runner,
+            default_stage_name,
+            {
+                f"{default_stage_name}/manifest.yml",
+                f"{default_stage_name}/file_a.sql",
+            },
+        )
 
-        # add version from local files
+        # add another version from local files
         result = runner.invoke_with_connection(["dcm", "add-version"])
         assert result.exit_code == 0, result.output
         assert f"New version added to DCM Project '{project_name}'" in result.output
         _assert_project_has_versions(
-            runner, project_name, expected_versions={("VERSION$1", None)}
+            runner,
+            project_name,
+            expected_versions={("VERSION$1", None), ("VERSION$2", None)},
         )
         assert_stage_has_files(
             runner,

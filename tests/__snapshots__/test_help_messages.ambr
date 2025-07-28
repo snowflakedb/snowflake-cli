@@ -7194,8 +7194,8 @@
                                                                                   
    Usage: root dcm create [OPTIONS] [ENTITY_ID]                                   
                                                                                   
-   Creates a DCM Project in Snowflake. By default, the DCM Project is initialized 
-   with a new version created from local files.                                   
+   Creates a DCM Project in Snowflake. The DCM Project is initialized with a new  
+   version created from local files.                                              
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -7203,8 +7203,6 @@
   |                               [default: None]                                |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --no-version                   Do not initialize DCM Project with a new      |
-  |                                version, only create the snowflake object.    |
   | --if-not-exists                Do nothing if the project already exists.     |
   | --project        -p      TEXT  Path where the Snowflake project is stored.   |
   |                                Defaults to the current working directory.    |
@@ -8279,9 +8277,8 @@
   +- Commands -------------------------------------------------------------------+
   | add-version     Uploads local files to Snowflake and cerates a new DCM       |
   |                 Project version.                                             |
-  | create          Creates a DCM Project in Snowflake. By default, the DCM      |
-  |                 Project is initialized with a new version created from local |
-  |                 files.                                                       |
+  | create          Creates a DCM Project in Snowflake. The DCM Project is       |
+  |                 initialized with a new version created from local files.     |
   | deploy          Applies changes defined in DCM Project to Snowflake.         |
   | describe        Provides description of DCM Project.                         |
   | drop            Drops DCM Project with given name.                           |

@@ -21,19 +21,16 @@ def mock_project_exists():
 
 @mock.patch(DCMProjectManager)
 @mock.patch(ObjectManager)
-@pytest.mark.parametrize("no_version", [False, True])
-def test_create(mock_om, mock_pm, runner, project_directory, no_version):
+def test_create(mock_om, mock_pm, runner, project_directory):
     mock_om().object_exists.return_value = False
     with project_directory("dcm_project"):
         command = ["dcm", "create"]
-        if no_version:
-            command.append("--no-version")
         result = runner.invoke(command)
         assert result.exit_code == 0, result.output
 
         mock_pm().create.assert_called_once()
         create_kwargs = mock_pm().create.mock_calls[0].kwargs
-        assert create_kwargs["initialize_version_from_local_files"] == (not no_version)
+        assert create_kwargs["initialize_version_from_local_files"] == True
         assert create_kwargs["project"].fqn == FQN.from_string("my_project")
 
 

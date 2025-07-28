@@ -147,11 +147,6 @@ def plan(
 @with_project_definition()
 def create(
     entity_id: str = entity_argument("dcm"),
-    no_version: bool = typer.Option(
-        False,
-        "--no-version",
-        help="Do not initialize DCM Project with a new version, only create the snowflake object.",
-    ),
     if_not_exists: bool = IfNotExistsOption(
         help="Do nothing if the project already exists."
     ),
@@ -159,7 +154,7 @@ def create(
 ):
     """
     Creates a DCM Project in Snowflake.
-    By default, the DCM Project is initialized with a new version created from local files.
+    The DCM Project is initialized with a new version created from local files.
     """
     cli_context = get_cli_context()
     project: DCMProjectEntityModel = get_entity_for_operation(
@@ -175,17 +170,13 @@ def create(
             return MessageResult(message)
         raise CliError(message)
 
-    if not no_version and om.object_exists(
-        object_type="stage", fqn=FQN.from_stage(project.stage)
-    ):
+    if om.object_exists(object_type="stage", fqn=FQN.from_stage(project.stage)):
         raise CliError(f"Stage '{project.stage}' already exists.")
 
     dpm = DCMProjectManager()
     with cli_console.phase(f"Creating DCM Project '{project.fqn}'"):
-        dpm.create(project=project, initialize_version_from_local_files=not no_version)
+        dpm.create(project=project, initialize_version_from_local_files=True)
 
-    if no_version:
-        return MessageResult(f"DCM Project '{project.fqn}' successfully created.")
     return MessageResult(
         f"DCM Project '{project.fqn}' successfully created and initial version is added."
     )
