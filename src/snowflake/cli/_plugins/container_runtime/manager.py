@@ -128,7 +128,7 @@ class ContainerRuntimeManager(SqlExecutionMixin):
             cc.step(f"Files in the workspace: {file_list}")
 
         # Generate a service specification
-        spec = self._generate_service_spec(
+        spec = self.generate_service_spec(
             compute_pool=compute_pool,
             external_access=external_access,
             stage=stage,
@@ -180,7 +180,7 @@ QUERY_WAREHOUSE = {warehouse}
             endpoint_url = self._get_service_endpoint_url(name)
             return endpoint_url
 
-    def _generate_service_spec(
+    def generate_service_spec(
         self,
         compute_pool: str,
         external_access: Optional[List[str]] = None,

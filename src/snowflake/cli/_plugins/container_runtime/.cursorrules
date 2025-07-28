@@ -1,0 +1,226 @@
+# Snowflake CLI Cursor Rules
+
+## General Python Rules
+- Use type hints for all function parameters and return values
+- Follow PEP 8 naming conventions
+- Use f-strings for string formatting
+- Prefer pathlib over os.path for file operations
+- Use context managers for resource management
+
+## Snowflake CLI Specific Rules
+
+### Container Runtime Plugin (`src/snowflake/cli/_plugins/container_runtime/`)
+
+#### Manager Class (`manager.py`)
+- **SQL Execution**: Always inherit from `SqlExecutionMixin` for database operations
+- **FQN Handling**: Use `FQN.from_string()` to convert string identifiers to FQN objects
+- **Service Names**: Follow pattern `SNOW_CR_{username}_{timestamp}` for auto-generated names
+- **Error Handling**: Validate stage names must start with '@' or 'snow://'
+- **Session Management**: Use `self.snowpark_session` property for Snowpark operations
+- **Method Visibility**: Make methods public if they need to be tested directly (avoid `_` prefix for testable methods)
+
+```python
+# Good: Public method that can be tested
+def generate_service_spec(self, compute_pool: str, **kwargs) -> dict:
+    return generate_service_spec(session=self.snowpark_session, ...)
+
+# Good: Proper FQN conversion
+service_fqn = FQN.from_string(service_name)
+
+# Good: Stage validation
+if not (stage.startswith('@') or stage.startswith('snow://')):
+    raise ValueError("Stage name must start with '@' or 'snow://'")
+```
+
+#### Container Spec (`container_spec.py`)
+- **Resource Queries**: Always handle empty result sets from compute pool queries
+- **Image Specification**: Use proper error handling for missing compute pools
+- **Environment Variables**: Return as dictionaries, not lists
+- **Volume Mounts**: Follow the expected structure for service specs
+
+#### Utils (`utils.py`)
+- **File Operations**: Use `os.path` functions with proper error handling
+- **SSH Config**: Handle existing configurations by parsing and updating
+- **VS Code Settings**: Support both VS Code and VS Code Insiders variants
+- **JSON Handling**: Always use try/catch for JSON parsing with fallback to empty dict
+
+```python
+# Good: Robust file operations
+def setup_ssh_config_with_token(runtime_name: str, endpoint_url: str, token: str):
+    config_path = os.path.expanduser("~/.ssh/config")
+    if os.path.exists(config_path):
+        # Read and update existing config
+    else:
+        # Create new config
+```
+
+### Container Runtime Tests (`tests/container_runtime/`)
+
+#### Test Helpers (`test_helpers.py`)
+- **Mock Decorator**: Use `@mock_cli_context_and_sql_execution` for manager tests
+- **CLI Context**: Always mock `get_cli_context`, `command_info`, and `connect_to_snowflake`
+- **SQL Execution**: Mock `SqlExecutionMixin.execute_string` to return list of cursors
+- **Service Manager**: Patch ServiceManager imports in the specific module being tested
+
+```python
+# Good: Comprehensive mocking decorator
+@mock_cli_context_and_sql_execution
+def test_manager_method(self):
+    # Test will have all necessary mocking
+```
+
+#### Manager Tests (`test_manager.py`)
+- **ServiceManager Mocking**: Always patch the import in the manager module:
+  ```python
+  with patch("snowflake.cli._plugins.container_runtime.manager.ServiceManager", mock_service_manager):
+  ```
+- **Snowpark Session**: Use `MockContainerRuntimeManager.patch_snowpark_session(manager)` for session mocking
+- **Cursor Creation**: Use `create_mock_cursor_with_description()` helper for consistent cursor mocks
+- **FQN Assertions**: Expect `FQN.from_string()` objects in method calls, not raw strings
+- **Error Testing**: Use `pytest.raises()` with regex patterns for error message validation
+
+#### Utils Tests (`test_utils.py`)
+- **File Mocking**: Use `os.path` mocks with `side_effect` for multiple path variants
+- **VS Code Variants**: Test both regular VS Code and VS Code Insiders paths
+- **JSON Mocking**: Don't assert on individual `write()` calls; focus on file operation counts
+- **Path Expansion**: Mock `expanduser` and `dirname` with realistic return values
+
+```python
+# Good: VS Code path mocking
+def expanduser_side_effect(path):
+    if "Code - Insiders" in path:
+        return "/home/user/Library/Application Support/Code - Insiders/User/settings.json"
+    else:
+        return "/home/user/Library/Application Support/Code/User/settings.json"
+mock_expanduser.side_effect = expanduser_side_effect
+```
+
+#### Container Spec Tests (`test_container_spec.py`)
+- **Session Mocking**: Mock session.sql().collect() to return objects with attributes, not raw dicts
+- **Resource Data**: Return mock objects that support attribute access (e.g., `obj.instance_family`)
+- **Spec Validation**: Test actual structure of generated specs (container names, environment variables)
+
+#### Command Tests (`test_commands.py`)
+- **Click Context**: Mock click runners with proper result objects
+- **Cursor Attributes**: Ensure mock cursors have `description`, `__iter__`, and `query` attributes
+- **Exit Codes**: Test both success (0) and error (1) exit codes
+- **Manager Integration**: Use FQN objects when mocking manager method calls
+
+## Test Patterns to Follow
+
+### 1. CLI Context Mocking Pattern
+```python
+@patch("snowflake.cli._app.telemetry.command_info")
+@patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
+@patch("snowflake.cli.api.cli_global_context.get_cli_context")
+def test_method(mock_get_context, mock_connect, mock_command_info):
+    # Setup standard mock context
+    mock_context = Mock()
+    mock_context.connection.user = "testuser"
+    mock_context.connection.warehouse = "test_warehouse"
+    mock_get_context.return_value = mock_context
+```
+
+### 2. ServiceManager Mocking Pattern
+```python
+@patch("snowflake.cli._plugins.spcs.services.manager.ServiceManager")
+def test_service_operation(mock_service_manager):
+    mock_service_instance = Mock()
+    mock_service_manager.return_value = mock_service_instance
+
+    manager = ContainerRuntimeManager()
+    with patch("snowflake.cli._plugins.container_runtime.manager.ServiceManager", mock_service_manager):
+        result = manager.some_method()
+```
+
+### 3. File Operations Mocking Pattern
+```python
+@patch("os.path.exists")
+@patch("os.path.expanduser")
+@patch("builtins.open", new_callable=mock_open)
+def test_file_operation(mock_file_open, mock_expanduser, mock_exists):
+    mock_expanduser.return_value = "/home/user/.ssh/config"
+    mock_exists.return_value = True
+```
+
+## Anti-Patterns to Avoid
+
+### ❌ Don't Do
+```python
+# Don't test private methods directly
+def test_private_method():
+    manager._private_method()  # SLF001 violation
+
+# Don't use raw strings for FQN comparisons
+manager.some_method.assert_called_with("service_name")
+
+# Don't mock pathlib operations inconsistently
+@patch("pathlib.Path.read_text")  # Incomplete mocking
+
+# Don't assert on incomplete JSON writes
+assert json.loads(mock_file().write.call_args[0][0])  # May fail
+```
+
+### ✅ Do Instead
+```python
+# Test public methods that delegate to private ones
+def test_public_method():
+    manager.public_method()  # Tests private method indirectly
+
+# Use FQN objects for comparisons
+manager.some_method.assert_called_with(FQN.from_string("service_name"))
+
+# Use comprehensive file operation mocking
+@patch("os.path.exists")
+@patch("os.makedirs")
+@patch("builtins.open", new_callable=mock_open)
+
+# Test file operation counts, not content
+assert mock_file_open.call_count >= 2
+```
+
+## Linting and Code Quality
+
+### SLF001 (Private Member Access)
+- **Rule**: Never access private members (methods/attributes starting with `_`) in tests
+- **Solution**: Make methods public if they need testing, or test through public interfaces
+- **Example**: Change `_generate_service_spec` to `generate_service_spec` if it needs direct testing
+
+### Import Organization
+- Group imports: standard library, third-party, local
+- Use absolute imports for snowflake.cli modules
+- Import test helpers relatively: `from .test_helpers import ...`
+
+### Type Safety
+- Use `Mock(spec=ClassName)` for better type checking
+- Provide type hints for test helper functions
+- Use `typing.Callable` for decorator type hints
+
+## Error Handling Patterns
+
+### Database Connection Errors
+```python
+# Always mock connection creation to avoid real database calls
+@patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
+def test_method(mock_connect):
+    mock_connect.return_value = Mock()
+```
+
+### Session Creation Errors
+```python
+# Mock snowpark session property to avoid session creation
+with MockContainerRuntimeManager.patch_snowpark_session(manager):
+    manager.some_method()
+```
+
+### File System Errors
+```python
+# Mock file operations with realistic side effects
+def exists_side_effect(path):
+    if "settings.json" in path:
+        return False  # File doesn't exist
+    return True  # Directory exists
+mock_exists.side_effect = exists_side_effect
+```
+
+This comprehensive set of rules captures all the patterns learned from fixing the container runtime tests and should prevent similar issues in future development.
