@@ -24,7 +24,7 @@ To run these tests, ensure your environment has the necessary
 SNOWFLAKE_CONNECTIONS_INTEGRATION_* environment variables set.
 
 Example:
-    pytest tests_integration/test_workload_identity.py -m integration
+    pytest tests_integration/test_oidc.py -m integration
 """
 
 import pytest
@@ -108,9 +108,9 @@ def test_federated_user(runner, snowflake_session, resource_suffix):
 
 
 @pytest.mark.integration
-def test_workload_identity_list_users(runner, test_federated_user):
+def test_oidc_list_users(runner, test_federated_user):
     """
-    Test the workload identity list command.
+    Test the OIDC federated authentication list command.
 
     This test verifies that:
     1. The list command executes successfully
@@ -149,7 +149,7 @@ def test_workload_identity_list_users(runner, test_federated_user):
 
 
 @pytest.mark.integration
-def test_workload_identity_list_users_empty_when_no_federated_users(runner):
+def test_oidc_list_users_empty_when_no_federated_users(runner):
     """
     Test the workload identity list command when no federated users exist.
 

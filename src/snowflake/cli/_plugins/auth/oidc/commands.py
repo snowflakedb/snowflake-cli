@@ -17,15 +17,15 @@ import typer
 from snowflake.cli._app.auth.oidc_providers import (
     OidcProviderType,
 )
-from snowflake.cli._plugins.auth.workload_identity.manager import (
-    WorkloadIdentityManager,
+from snowflake.cli._plugins.auth.oidc.manager import (
+    OidcManager,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import MessageResult, QueryResult
 
 app = SnowTyperFactory(
-    name="workload-identity",
-    help="Manages workload identity federation authentication.",
+    name="oidc",
+    help="Manages OIDC federated authentication.",
 )
 
 # Option definitions
@@ -87,10 +87,10 @@ def setup(
     **options,
 ):
     """
-    Sets up workload identity federation for authentication.
+    Sets up OIDC federated authentication.
     Creates a federated user with the specified configuration.
     """
-    result = WorkloadIdentityManager().setup(
+    result = OidcManager().setup(
         user=federated_user,
         subject=subject,
         default_role=default_role,
@@ -107,7 +107,7 @@ def delete(
     """
     Deletes a federated user.
     """
-    result = WorkloadIdentityManager().delete(user=federated_user)
+    result = OidcManager().delete(user=federated_user)
     return MessageResult(result)
 
 
@@ -120,7 +120,7 @@ def read_token(
     Reads OIDC token based on the specified type.
     Use 'auto' to auto-detect available providers.
     """
-    result = WorkloadIdentityManager().read(provider_type=_type)
+    result = OidcManager().read(provider_type=_type)
     return MessageResult(result)
 
 
@@ -129,7 +129,7 @@ def list_users(
     **options,
 ):
     """
-    Lists users with workload identity enabled.
+    Lists users with OIDC federated authentication enabled.
     """
-    result = WorkloadIdentityManager().get_users_list()
+    result = OidcManager().get_users_list()
     return QueryResult(result)

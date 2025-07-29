@@ -27,12 +27,12 @@ from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 logger = logging.getLogger(__name__)
 
 
-class WorkloadIdentityManager(SqlExecutionMixin):
+class OidcManager(SqlExecutionMixin):
     """
-    Manages workload identity federation for authentication.
+    Manages OIDC federated authentication.
 
-    This class provides methods to set up, delete, and read workload identity
-    configurations for federated authentication.
+    This class provides methods to set up, delete, and read OIDC federated
+    configurations for authentication.
     """
 
     def setup(
@@ -43,7 +43,7 @@ class WorkloadIdentityManager(SqlExecutionMixin):
         provider_type: str,
     ) -> str:
         """
-        Sets up workload identity federation for the specified user.
+        Sets up OIDC federated authentication for the specified user.
 
         Args:
             user: Name for the federated user to create
@@ -58,7 +58,7 @@ class WorkloadIdentityManager(SqlExecutionMixin):
             CliError: If user creation fails or parameters are invalid
         """
         logger.info(
-            "Setting up workload identity federation for user: %s with provider type: %s",
+            "Setting up OIDC federated authentication for user: %s with provider type: %s",
             user,
             provider_type,
         )
@@ -82,7 +82,9 @@ class WorkloadIdentityManager(SqlExecutionMixin):
         logger.debug("Using WORKLOAD_IDENTITY syntax for user creation")
         create_user_sql = (
             f"CREATE USER {user} WORKLOAD_IDENTITY = ("
-            f" TYPE = 'OIDC' ISSUER = '{issuer}' SUBJECT = '{subject}')"
+            f" TYPE = 'OIDC'"
+            f" ISSUER = '{issuer}'"
+            f" SUBJECT = '{subject}')"
             f" TYPE = SERVICE DEFAULT_ROLE = {default_role}"
         )
 
@@ -169,9 +171,9 @@ class WorkloadIdentityManager(SqlExecutionMixin):
             raise CliError(error_msg)
 
     @cached_property
-    def _has_workload_identity_enabled(self) -> bool:
+    def _has_oidc_enabled(self) -> bool:
         """
-        Checks if workload identity is enabled in the Snowflake account.
+        Checks if OIDC federated authentication is enabled in the Snowflake account.
         """
         logger.debug("Checking ENABLE_USERS_HAS_WORKLOAD_IDENTITY parameter")
         parameter_result = self.execute_query(
@@ -182,19 +184,19 @@ class WorkloadIdentityManager(SqlExecutionMixin):
 
     def get_users_list(self) -> SnowflakeCursor:
         """
-        Lists users with workload identity enabled.
+        Lists users with OIDC federated authentication enabled.
 
         Returns:
-            List of users with workload identity enabled
+            List of users with OIDC federated authentication enabled
 
         Raises:
             CliError: If queries fail or parameters are invalid
         """
-        logger.info("Listing users with workload identity enabled")
+        logger.info("Listing users with OIDC federated authentication enabled")
 
         try:
             # Determine which column to check based on parameter value
-            if self._has_workload_identity_enabled:
+            if self._has_oidc_enabled:
                 logger.debug("Using has_workload_identity column")
                 users_query = 'show terse users ->> select * from $1 where "has_workload_identity" = true'
             else:
@@ -205,11 +207,14 @@ class WorkloadIdentityManager(SqlExecutionMixin):
             users_result = self.execute_query(users_query, cursor_class=DictCursor)
 
             logger.info(
-                "Found %d users with workload identity enabled", users_result.rowcount
+                "Found %d users with OIDC federated authentication enabled",
+                users_result.rowcount,
             )
             return users_result
 
         except Exception as e:
-            error_msg = "Failed to list users with workload identity: %s" % str(e)
+            error_msg = (
+                "Failed to list users with OIDC federated authentication: %s" % str(e)
+            )
             logger.error(error_msg)
             raise CliError(error_msg)

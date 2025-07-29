@@ -4421,10 +4421,10 @@
   
   '''
 # ---
-# name: test_help_messages[auth.workload-identity.delete]
+# name: test_help_messages[auth.oidc.delete]
   '''
                                                                                   
-   Usage: root auth workload-identity delete [OPTIONS]                            
+   Usage: root auth oidc delete [OPTIONS]                                         
                                                                                   
    Deletes a federated user.                                                      
                                                                                   
@@ -4548,12 +4548,12 @@
   
   '''
 # ---
-# name: test_help_messages[auth.workload-identity.list]
+# name: test_help_messages[auth.oidc.list]
   '''
                                                                                   
-   Usage: root auth workload-identity list [OPTIONS]                              
+   Usage: root auth oidc list [OPTIONS]                                           
                                                                                   
-   Lists users with workload identity enabled.                                    
+   Lists users with OIDC federated authentication enabled.                        
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
@@ -4673,10 +4673,10 @@
   
   '''
 # ---
-# name: test_help_messages[auth.workload-identity.read-token]
+# name: test_help_messages[auth.oidc.read-token]
   '''
                                                                                   
-   Usage: root auth workload-identity read-token [OPTIONS]                        
+   Usage: root auth oidc read-token [OPTIONS]                                     
                                                                                   
    Reads OIDC token based on the specified type. Use 'auto' to auto-detect        
    available providers.                                                           
@@ -4710,13 +4710,13 @@
   
   '''
 # ---
-# name: test_help_messages[auth.workload-identity.setup]
+# name: test_help_messages[auth.oidc.setup]
   '''
                                                                                   
-   Usage: root auth workload-identity setup [OPTIONS]                             
+   Usage: root auth oidc setup [OPTIONS]                                          
                                                                                   
-   Sets up workload identity federation for authentication. Creates a federated   
-   user with the specified configuration.                                         
+   Sets up OIDC federated authentication. Creates a federated user with the       
+   specified configuration.                                                       
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
@@ -4846,12 +4846,12 @@
   
   '''
 # ---
-# name: test_help_messages[auth.workload-identity]
+# name: test_help_messages[auth.oidc]
   '''
                                                                                   
-   Usage: root auth workload-identity [OPTIONS] COMMAND [ARGS]...                 
+   Usage: root auth oidc [OPTIONS] COMMAND [ARGS]...                              
                                                                                   
-   Manages workload identity federation authentication.                           
+   Manages OIDC federated authentication.                                         
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
@@ -4859,11 +4859,11 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | delete       Deletes a federated user.                                       |
-  | list         Lists users with workload identity enabled.                     |
+  | list         Lists users with OIDC federated authentication enabled.         |
   | read-token   Reads OIDC token based on the specified type. Use 'auto' to     |
   |              auto-detect available providers.                                |
-  | setup        Sets up workload identity federation for authentication.        |
-  |              Creates a federated user with the specified configuration.      |
+  | setup        Sets up OIDC federated authentication. Creates a federated user |
+  |              with the specified configuration.                               |
   +------------------------------------------------------------------------------+
   
   
@@ -4881,7 +4881,7 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | workload-identity   Manages workload identity federation authentication.     |
+  | oidc   Manages OIDC federated authentication.                                |
   +------------------------------------------------------------------------------+
   
   
@@ -21167,12 +21167,12 @@
   
   '''
 # ---
-# name: test_help_messages_no_help_flag[auth.workload-identity]
+# name: test_help_messages_no_help_flag[auth.oidc]
   '''
                                                                                   
-   Usage: root auth workload-identity [OPTIONS] COMMAND [ARGS]...                 
+   Usage: root auth oidc [OPTIONS] COMMAND [ARGS]...                              
                                                                                   
-   Manages workload identity federation authentication.                           
+   Manages OIDC federated authentication.                                         
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
@@ -21180,11 +21180,11 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | delete       Deletes a federated user.                                       |
-  | list         Lists users with workload identity enabled.                     |
+  | list         Lists users with OIDC federated authentication enabled.         |
   | read-token   Reads OIDC token based on the specified type. Use 'auto' to     |
   |              auto-detect available providers.                                |
-  | setup        Sets up workload identity federation for authentication.        |
-  |              Creates a federated user with the specified configuration.      |
+  | setup        Sets up OIDC federated authentication. Creates a federated user |
+  |              with the specified configuration.                               |
   +------------------------------------------------------------------------------+
   
   
@@ -21202,7 +21202,7 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | workload-identity   Manages workload identity federation authentication.     |
+  | oidc   Manages OIDC federated authentication.                                |
   +------------------------------------------------------------------------------+
   
   
