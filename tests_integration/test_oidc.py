@@ -53,7 +53,7 @@ def test_federated_user(runner, snowflake_session, resource_suffix):
             setup_result = runner.invoke_with_connection(
                 [
                     "auth",
-                    "workload-identity",
+                    "oidc",
                     "setup",
                     "--federated-user",
                     user_name,
@@ -83,7 +83,7 @@ def test_federated_user(runner, snowflake_session, resource_suffix):
                 delete_result = runner.invoke_with_connection(
                     [
                         "auth",
-                        "workload-identity",
+                        "oidc",
                         "delete",
                         "--federated-user",
                         user_name,
@@ -118,7 +118,7 @@ def test_oidc_list_users(runner, test_federated_user):
     3. The output format is correct (JSON with user information)
     """
     # Execute the list command
-    result = runner.invoke_with_connection_json(["auth", "workload-identity", "list"])
+    result = runner.invoke_with_connection_json(["auth", "oidc", "list"])
 
     # Verify the command executed successfully
     assert result.exit_code == 0, f"Command failed with output: {result.output}"
@@ -157,7 +157,7 @@ def test_oidc_list_users_empty_when_no_federated_users(runner):
     there are no users with workload identity enabled.
     """
     # Execute the list command
-    result = runner.invoke_with_connection_json(["auth", "workload-identity", "list"])
+    result = runner.invoke_with_connection_json(["auth", "oidc", "list"])
 
     # Verify the command executed successfully
     assert result.exit_code == 0, f"Command failed with output: {result.output}"
