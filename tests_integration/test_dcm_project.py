@@ -153,6 +153,7 @@ def test_project_deploy_from_stage(
 ):
     project_name = "project_descriptive_name"
     entity_id = "my_project"
+    other_stage_name = "other_project_stage"
 
     with project_directory("dcm_project") as project_root:
         # Create a new project
@@ -160,10 +161,93 @@ def test_project_deploy_from_stage(
         assert result.exit_code == 0, result.output
         _assert_project_has_versions(runner, project_name, expected_versions=set())
 
-        # Verify project was created successfully
-        result = runner.invoke_with_connection_json(["dcm", "describe", project_name])
+        # Edit file_a.sql to add a second table definition
+        file_a_path = project_root / "file_a.sql"
+        original_content = file_a_path.read_text()
+        modified_content = (
+            original_content
+            + "\ndefine table identifier('{{ table_name }}_SECOND') (id int, name string);\n"
+        )
+        file_a_path.write_text(modified_content)
+
+        # Create another stage and upload files there
+        result = runner.invoke_with_connection(["stage", "create", other_stage_name])
         assert result.exit_code == 0, result.output
-        assert result.json[0]["name"].lower() == project_name.lower()
+
+        result = runner.invoke_with_connection(
+            ["stage", "copy", ".", f"@{other_stage_name}"]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Test plan from stage
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "plan",
+                project_name,
+                "--from",
+                f"@{other_stage_name}",
+                "-D",
+                f"table_name='{test_database}.PUBLIC.MyTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        # Assert that both tables are mentioned in the output
+        output_str = str(result.json)
+        assert f"{test_database}.PUBLIC.MYTABLE".upper() in output_str.upper()
+        assert f"{test_database}.PUBLIC.MYTABLE_SECOND".upper() in output_str.upper()
+
+        # Verify that the second table does not exist after plan
+        table_check_result = runner.invoke_with_connection_json(
+            [
+                "object",
+                "list",
+                "table",
+                "--like",
+                "MYTABLE_SECOND",
+                "--in",
+                "database",
+                test_database,
+            ]
+        )
+        assert table_check_result.exit_code == 0
+        assert len(table_check_result.json) == 0, "Table should not exist after plan"
+
+        # Test deploy from stage
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "--from",
+                f"@{other_stage_name}",
+                "-D",
+                f"table_name='{test_database}.PUBLIC.MyTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        # Assert that both tables are mentioned in the output
+        output_str = str(result.json)
+        assert f"{test_database}.PUBLIC.MYTABLE".upper() in output_str.upper()
+        assert f"{test_database}.PUBLIC.MYTABLE_SECOND".upper() in output_str.upper()
+
+        # Verify that the second table actually exists after deploy
+        table_check_result = runner.invoke_with_connection_json(
+            [
+                "object",
+                "list",
+                "table",
+                "--like",
+                "MYTABLE_SECOND",
+                "--in",
+                "database",
+                test_database,
+            ]
+        )
+        assert table_check_result.exit_code == 0
+        assert (
+            "MYTABLE_SECOND" == table_check_result.json[0]["name"]
+        ), "Table should exist after deploy"
 
         # Clean up
         result = runner.invoke_with_connection(["dcm", "drop", project_name])
