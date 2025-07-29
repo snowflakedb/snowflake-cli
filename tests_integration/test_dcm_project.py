@@ -140,6 +140,33 @@ def test_project_drop_version(
         assert result.exit_code == 1, result.output
         assert "Version does not exist" in result.output
 
+        # Add version
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.MyTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_project_has_versions(
+            runner,
+            project_name,
+            {("VERSION$1", None)},
+        )
+
+        # Drop the version by name
+        result = runner.invoke_with_connection(
+            ["dcm", "drop-version", project_name, "VERSION$1"]
+        )
+        assert result.exit_code == 0, result.output
+        assert (
+            f"Version 'VERSION$1' dropped from DCM Project '{project_name}'"
+            in result.output
+        )
+
         # Verify still no versions exist
         _assert_project_has_versions(runner, project_name, expected_versions=set())
 
