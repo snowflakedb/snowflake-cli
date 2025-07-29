@@ -104,10 +104,10 @@ test-cov = [
 ]
 legacy-pypi-build = [".compat/build_snowflake-cli-labs.sh"]
 lock-dependencies = [
-  "uv pip compile pyproject.toml -o pylock.toml -p 3.10 --no-annotate",
+  "uv pip compile pyproject.toml -o pylock.toml -p 3.10 --no-annotate --universal",
 ]
 sync-dependencies = [
-  "uv pip compile pyproject.toml -o snyk/requirements.txt -p 3.10 --no-annotate",
+  "uv pip compile pyproject.toml -o snyk/requirements.txt -p 3.10 --no-annotate --universal",
 ]
 
 [tool.hatch.envs.packaging]
