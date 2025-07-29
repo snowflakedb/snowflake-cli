@@ -4678,12 +4678,12 @@
 # ---
 # name: test_help_messages[connection.remove]
   '''
-                                                                                  
-   Usage: root connection remove [OPTIONS]                                        
-                                                                                  
-   Removes a connection from configuration file.                                  
-                                                                                  
-                                                                                  
+
+   Usage: root connection remove [OPTIONS]
+
+   Removes a connection from configuration file.
+
+
   +- Options --------------------------------------------------------------------+
   | --connection-name  -n      TEXT  Name of the connection to remove.           |
   | --help             -h            Show this message and exit.                 |
@@ -4708,8 +4708,8 @@
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
-  
-  
+
+
   '''
 # ---
 # name: test_help_messages[connection.set-default]
@@ -8038,6 +8038,8 @@
   |                                not specified default configuration is used.  |
   | --prune                        Remove unused artifacts from the stage during |
   |                                sync. Mutually exclusive with --from.         |
+  | --output-path            TEXT  Stage path where the deployment plan output   |
+  |                                will be stored.                               |
   | --help           -h            Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+

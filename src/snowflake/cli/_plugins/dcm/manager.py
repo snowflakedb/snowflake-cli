@@ -31,6 +31,7 @@ class DCMProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         dry_run: bool = False,
         alias: str | None = None,
+        output_path: str | None = None,
     ):
 
         query = f"EXECUTE DCM PROJECT {project_name.sql_identifier}"
@@ -50,6 +51,9 @@ class DCMProjectManager(SqlExecutionMixin):
             ).removeprefix(" using")
         stage_path = StagePath.from_stage_str(from_stage)
         query += f" FROM {stage_path.absolute_path()}"
+        if output_path:
+            output_stage_path = StagePath.from_stage_str(output_path)
+            query += f" OUTPUT_PATH {output_stage_path.absolute_path()}"
         return self.execute_query(query=query)
 
     def create(self, project: DCMProjectEntityModel) -> None:

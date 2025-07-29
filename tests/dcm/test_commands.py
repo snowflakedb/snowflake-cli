@@ -67,6 +67,7 @@ def test_deploy_project(mock_pm, runner, project_directory, mock_cursor):
         from_stage="@my_stage",
         variables=None,
         alias=None,
+        output_path=None,
     )
 
 
@@ -85,6 +86,7 @@ def test_deploy_project_with_from_stage(
         from_stage="@my_stage",
         variables=None,
         alias=None,
+        output_path=None,
     )
 
 
@@ -103,6 +105,7 @@ def test_deploy_project_with_variables(mock_pm, runner, project_directory, mock_
         from_stage="@my_stage",
         variables=["key=value"],
         alias=None,
+        output_path=None,
     )
 
 
@@ -131,6 +134,7 @@ def test_deploy_project_with_configuration(
         from_stage="@my_stage",
         variables=None,
         alias=None,
+        output_path=None,
     )
 
 
@@ -149,6 +153,7 @@ def test_deploy_project_with_alias(mock_pm, runner, project_directory, mock_curs
         from_stage="@my_stage",
         variables=None,
         alias="my_alias",
+        output_path=None,
     )
 
 
@@ -177,6 +182,7 @@ def test_plan_project(mock_pm, runner, project_directory, mock_cursor):
         from_stage="@my_stage",
         dry_run=True,
         variables=["key=value"],
+        output_path=None,
     )
 
 
@@ -205,6 +211,7 @@ def test_plan_project_with_from_stage(mock_pm, runner, project_directory, mock_c
         from_stage="@my_stage",
         dry_run=True,
         variables=["key=value"],
+        output_path=None,
     )
 
 
@@ -482,3 +489,61 @@ def test_plan_project_without_prune(
         mock_sync.assert_called_once()
         call_args = mock_sync.call_args
         assert call_args.kwargs["prune"] is False
+
+
+@mock.patch(DCMProjectManager)
+def test_plan_project_with_output_path(mock_pm, runner, project_directory, mock_cursor):
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
+    result = runner.invoke(
+        [
+            "dcm",
+            "plan",
+            "fooBar",
+            "--from",
+            "@my_stage",
+            "--output-path",
+            "@output_stage/results",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+
+    mock_pm().execute.assert_called_once_with(
+        project_name=FQN.from_string("fooBar"),
+        configuration=None,
+        from_stage="@my_stage",
+        dry_run=True,
+        variables=None,
+        output_path="@output_stage/results",
+    )
+
+
+@mock.patch(DCMProjectManager)
+def test_plan_project_with_output_path_and_configuration(
+    mock_pm, runner, project_directory, mock_cursor
+):
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
+    result = runner.invoke(
+        [
+            "dcm",
+            "plan",
+            "fooBar",
+            "--from",
+            "@my_stage",
+            "--configuration",
+            "some_config",
+            "--output-path",
+            "@output_stage",
+        ]
+    )
+    assert result.exit_code == 0, result.output
+
+    mock_pm().execute.assert_called_once_with(
+        project_name=FQN.from_string("fooBar"),
+        configuration="some_config",
+        from_stage="@my_stage",
+        dry_run=True,
+        variables=None,
+        output_path="@output_stage",
+    )
