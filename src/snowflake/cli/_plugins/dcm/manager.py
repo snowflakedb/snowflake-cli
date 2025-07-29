@@ -30,6 +30,7 @@ class DCMProjectManager(SqlExecutionMixin):
         configuration: str | None = None,
         variables: List[str] | None = None,
         dry_run: bool = False,
+        alias: str | None = None,
     ):
 
         query = f"EXECUTE DCM PROJECT {project_name.sql_identifier}"
@@ -37,6 +38,8 @@ class DCMProjectManager(SqlExecutionMixin):
             query += " PLAN"
         else:
             query += " DEPLOY"
+            if alias:
+                query += f" AS {alias}"
         if configuration or variables:
             query += f" USING"
         if configuration:

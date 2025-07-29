@@ -7202,6 +7202,7 @@
   |                                example: -D "<key>=<value>".                  |
   | --configuration          TEXT  Configuration of the DCM Project to use. If   |
   |                                not specified default configuration is used.  |
+  | --alias                  TEXT  Alias for the deployment.                     |
   | --help           -h            Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+

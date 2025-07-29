@@ -92,6 +92,12 @@ def deploy(
     ),
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
+    alias: Optional[str] = typer.Option(
+        None,
+        "--alias",
+        help="Alias for the deployment.",
+        show_default=False,
+    ),
     **options,
 ):
     """
@@ -108,6 +114,7 @@ def deploy(
         configuration=configuration,
         from_stage=effective_from_stage,
         variables=variables,
+        alias=alias,
     )
     return QueryJsonValueResult(result)
 

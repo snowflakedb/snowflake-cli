@@ -66,6 +66,7 @@ def test_deploy_project(mock_pm, runner, project_directory, mock_cursor):
         configuration=None,
         from_stage="@my_stage",
         variables=None,
+        alias=None,
     )
 
 
@@ -83,6 +84,7 @@ def test_deploy_project_with_from_stage(
         configuration=None,
         from_stage="@my_stage",
         variables=None,
+        alias=None,
     )
 
 
@@ -100,6 +102,7 @@ def test_deploy_project_with_variables(mock_pm, runner, project_directory, mock_
         configuration=None,
         from_stage="@my_stage",
         variables=["key=value"],
+        alias=None,
     )
 
 
@@ -127,6 +130,25 @@ def test_deploy_project_with_configuration(
         configuration="some_configuration",
         from_stage="@my_stage",
         variables=None,
+        alias=None,
+    )
+
+
+@mock.patch(DCMProjectManager)
+def test_deploy_project_with_alias(mock_pm, runner, project_directory, mock_cursor):
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
+    result = runner.invoke(
+        ["dcm", "deploy", "fooBar", "--from", "@my_stage", "--alias", "my_alias"]
+    )
+    assert result.exit_code == 0, result.output
+
+    mock_pm().execute.assert_called_once_with(
+        project_name=FQN.from_string("fooBar"),
+        configuration=None,
+        from_stage="@my_stage",
+        variables=None,
+        alias="my_alias",
     )
 
 
