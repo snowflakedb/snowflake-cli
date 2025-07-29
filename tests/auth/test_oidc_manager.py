@@ -443,7 +443,7 @@ class TestOidcManager:
 
         with pytest.raises(
             CliError,
-            match="Failed to list users with workload identity: SQL execution failed",
+            match="Failed to list users with OIDC federated authentication: SQL execution failed",
         ):
             manager.get_users_list()
 
