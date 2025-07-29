@@ -51,10 +51,26 @@ def test_project_deploy(
         # project should have no initial versions
         _assert_project_has_versions(runner, project_name, expected_versions=set())
 
-        # remove project
-        result = runner.invoke_with_connection(["dcm", "drop"])
+        # Add version
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.MyTable'",
+            ]
+        )
         assert result.exit_code == 0, result.output
-        assert f"DCM Project '{project_name}' successfully dropped." in result.output
+        _assert_project_has_versions(
+            runner,
+            project_name,
+            {("VERSION$1", None)},
+        )
+
+        # remove project
+        result = runner.invoke_with_connection(["dcm", "drop", project_name])
+        assert result.exit_code == 0, result.output
 
 
 @pytest.mark.qa_only
@@ -115,6 +131,10 @@ def test_create_corner_cases(
         assert f"DCM Project '{project_name}' already exists." in result.output
         _assert_project_has_versions(runner, project_name, expected_versions=set())
 
+        # Clean up
+        result = runner.invoke_with_connection(["dcm", "drop", project_name])
+        assert result.exit_code == 0, result.output
+
 
 @pytest.mark.qa_only
 @pytest.mark.integration
@@ -169,6 +189,10 @@ def test_project_drop_version(
 
         # Verify still no versions exist
         _assert_project_has_versions(runner, project_name, expected_versions=set())
+
+        # Clean up
+        result = runner.invoke_with_connection(["dcm", "drop", project_name])
+        assert result.exit_code == 0, result.output
 
 
 @pytest.mark.qa_only
