@@ -294,6 +294,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/c0/89/37df0b71473153574
 wheels = [{ url = "https://files.pythonhosted.org/packages/1d/9a/4114a9057db2f1462d5c8f8390ab7383925fe1ac012eaa42402ad65c2963/GitPython-3.1.44-py3-none-any.whl", upload-time = 2025-01-02T07:32:40Z, size = 207599, hashes = { sha256 = "9e0e10cda9bed1ee64bc9a6de50e7e38a9c9943241cd7f585f6df3ed28011110" } }]
 
 [[packages]]
+name = "id"
+version = "1.5.0"
+sdist = { url = "https://files.pythonhosted.org/packages/22/11/102da08f88412d875fa2f1a9a469ff7ad4c874b0ca6fed0048fe385bdb3d/id-1.5.0.tar.gz", upload-time = 2024-12-04T19:53:05Z, size = 15237, hashes = { sha256 = "292cb8a49eacbbdbce97244f47a97b4c62540169c976552e497fd57df0734c1d" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/9f/cb/18326d2d89ad3b0dd143da971e77afd1e6ca6674f1b1c3df4b6bec6279fc/id-1.5.0-py3-none-any.whl", upload-time = 2024-12-04T19:53:03Z, size = 13611, hashes = { sha256 = "f1434e1cef91f2cbb8a4ec64663d5a23b9ed43ef44c4c957d02583d61714c658" } }]
+
+[[packages]]
 name = "idna"
 version = "3.10"
 sdist = { url = "https://files.pythonhosted.org/packages/f1/70/7703c29685631f5a7590aa73f1f1d3fa9a380e654b86af429e0934a32f7d/idna-3.10.tar.gz", upload-time = 2024-09-15T18:07:39Z, size = 190490, hashes = { sha256 = "12f65c9b470abda6dc35cf8e63cc574b1c52b11df2c86030af0ac09b01b13ea9" } }
