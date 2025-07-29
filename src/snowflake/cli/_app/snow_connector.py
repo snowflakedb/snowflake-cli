@@ -27,8 +27,8 @@ from snowflake.cli._app.constants import (
     PARAM_APPLICATION_NAME,
 )
 from snowflake.cli._app.telemetry import command_info
-from snowflake.cli._plugins.auth.workload_identity.manager import (
-    WorkloadIdentityManager,
+from snowflake.cli._plugins.auth.oidc.manager import (
+    OidcManager,
 )
 from snowflake.cli.api.config import (
     get_connection_dict,
@@ -156,10 +156,10 @@ def connect_to_snowflake(
     if connection_parameters.get("authenticator") == "username_password_mfa":
         connection_parameters["client_request_mfa_token"] = True
 
-    # Handle WORKLOAD_IDENTITY authenticator
+    # Handle WORKLOAD_IDENTITY authenticator (OIDC federated authentication)
     if connection_parameters.get("authenticator") == "WORKLOAD_IDENTITY":
         try:
-            manager = WorkloadIdentityManager()
+            manager = OidcManager()
             token = manager.read("auto")  # Auto-detect the OIDC provider
             connection_parameters["token"] = token
         except Exception as e:
