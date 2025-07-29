@@ -11,10 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import logging
 from typing import List, Optional
 
 import typer
+from click import UsageError
 from snowflake.cli._plugins.dcm.dcm_project_entity_model import (
     DCMProjectEntityModel,
 )
@@ -22,6 +23,7 @@ from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
@@ -37,7 +39,7 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.exceptions import CliError, NoProjectDefinitionError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
@@ -45,6 +47,7 @@ from snowflake.cli.api.output.types import (
     QueryJsonValueResult,
     QueryResult,
 )
+from snowflake.cli.api.project.project_paths import ProjectPaths
 
 app = SnowTyperFactory(
     name="dcm",
@@ -53,12 +56,6 @@ app = SnowTyperFactory(
 )
 
 dcm_identifier = identifier_argument(sf_object="DCM Project", example="MY_PROJECT")
-version_flag = typer.Option(
-    None,
-    "--version",
-    help="Version of the DCM Project to use. If not specified default version is used. For names containing '$', use single quotes to prevent shell expansion (e.g., 'VERSION$1').",
-    show_default=False,
-)
 variables_flag = variables_option(
     'Variables for the execution context; for example: `-D "<key>=<value>"`.'
 )
@@ -90,9 +87,8 @@ add_object_command_aliases(
 @app.command(requires_connection=True)
 def deploy(
     identifier: FQN = dcm_identifier,
-    version: Optional[str] = version_flag,
     from_stage: Optional[str] = from_option(
-        help="Apply changes defined in given stage instead of using a specific project version."
+        help="Deploy DCM Project deployment from a given stage."
     ),
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
@@ -101,14 +97,16 @@ def deploy(
     """
     Applies changes defined in DCM Project to Snowflake.
     """
-    if version and from_stage:
-        raise CliError("--version and --from are mutually exclusive.")
+    effective_from_stage = from_stage if from_stage else _sync_local_files()
+    if not effective_from_stage:
+        raise CliError(
+            "Unable to deploy DCM Project. Either provide a --from stage or ensure you're in a DCM project directory."
+        )
 
     result = DCMProjectManager().execute(
         project_name=identifier,
         configuration=configuration,
-        version=version,
-        from_stage=from_stage,
+        from_stage=effective_from_stage,
         variables=variables,
     )
     return QueryJsonValueResult(result)
@@ -117,9 +115,8 @@ def deploy(
 @app.command(requires_connection=True)
 def plan(
     identifier: FQN = dcm_identifier,
-    version: Optional[str] = version_flag,
     from_stage: Optional[str] = from_option(
-        help="Plan DCM Project deployment from given stage instead of using a specific version."
+        help="Plan DCM Project deployment from a given stage."
     ),
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
@@ -128,14 +125,16 @@ def plan(
     """
     Plans a DCM Project deployment (validates without executing).
     """
-    if version and from_stage:
-        raise CliError("--version and --from are mutually exclusive.")
+    effective_from_stage = from_stage if from_stage else _sync_local_files()
+    if not effective_from_stage:
+        raise CliError(
+            "Unable to plan DCM Project. Either provide a --from stage or ensure you're in a DCM project directory."
+        )
 
     result = DCMProjectManager().execute(
         project_name=identifier,
         configuration=configuration,
-        version=version,
-        from_stage=from_stage,
+        from_stage=effective_from_stage,
         dry_run=True,
         variables=variables,
     )
@@ -220,3 +219,36 @@ def drop_version(
     return MessageResult(
         f"Version '{version_name}' dropped from DCM Project '{identifier}'."
     )
+
+
+def _sync_local_files() -> Optional[str]:
+    """
+    Get project entity for syncing files.
+
+    Returns None if project entity cannot be retrieved.
+    """
+    cli_context = get_cli_context()
+    if not cli_context.project_definition:
+        logging.warning("no project definition was found")
+        return None
+
+    try:
+        project_entity = get_entity_for_operation(
+            cli_context=cli_context,
+            entity_id=None,
+            project_definition=cli_context.project_definition,
+            entity_type="dcm",
+        )
+    except (NoProjectDefinitionError, UsageError) as e:
+        logging.warning("failed to get project entity", e)
+        return None
+
+    with cli_console.phase("Syncing local files to stage"):
+        sync_artifacts_with_stage(
+            project_paths=ProjectPaths(project_root=cli_context.project_root),
+            stage_root=project_entity.stage,
+            artifacts=project_entity.artifacts,
+            prune=False,
+        )
+
+    return project_entity.stage

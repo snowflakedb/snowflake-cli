@@ -58,15 +58,14 @@ def test_create_object_exists(
 def test_deploy_project(mock_pm, runner, project_directory, mock_cursor):
     mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
 
-    result = runner.invoke(["dcm", "deploy", "fooBar"])
+    result = runner.invoke(["dcm", "deploy", "fooBar", "--from", "@my_stage"])
     assert result.exit_code == 0, result.output
 
     mock_pm().execute.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
-        version=None,
-        from_stage=None,
-        variables=None,
         configuration=None,
+        from_stage="@my_stage",
+        variables=None,
     )
 
 
@@ -81,24 +80,10 @@ def test_deploy_project_with_from_stage(
 
     mock_pm().execute.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
-        version=None,
+        configuration=None,
         from_stage="@my_stage",
         variables=None,
-        configuration=None,
     )
-
-
-@mock.patch(DCMProjectManager)
-def test_deploy_project_version_and_from_stage_mutually_exclusive(
-    mock_pm, runner, project_directory, mock_cursor
-):
-    result = runner.invoke(
-        ["dcm", "deploy", "fooBar", "--version", "v1", "--from", "@my_stage"]
-    )
-    assert result.exit_code == 1, result.output
-    assert "--version and --from are mutually exclusive" in result.output
-
-    mock_pm().execute.assert_not_called()
 
 
 @mock.patch(DCMProjectManager)
@@ -106,16 +91,15 @@ def test_deploy_project_with_variables(mock_pm, runner, project_directory, mock_
     mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
 
     result = runner.invoke(
-        ["dcm", "deploy", "fooBar", "--version", "v1", "-D", "key=value"]
+        ["dcm", "deploy", "fooBar", "--from", "@my_stage", "-D", "key=value"]
     )
     assert result.exit_code == 0, result.output
 
     mock_pm().execute.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
-        version="v1",
-        from_stage=None,
-        variables=["key=value"],
         configuration=None,
+        from_stage="@my_stage",
+        variables=["key=value"],
     )
 
 
@@ -126,15 +110,22 @@ def test_deploy_project_with_configuration(
     mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
 
     result = runner.invoke(
-        ["dcm", "deploy", "fooBar", "--configuration", "some_configuration"]
+        [
+            "dcm",
+            "deploy",
+            "fooBar",
+            "--from",
+            "@my_stage",
+            "--configuration",
+            "some_configuration",
+        ]
     )
     assert result.exit_code == 0, result.output
 
     mock_pm().execute.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
         configuration="some_configuration",
-        version=None,
-        from_stage=None,
+        from_stage="@my_stage",
         variables=None,
     )
 
@@ -148,8 +139,8 @@ def test_plan_project(mock_pm, runner, project_directory, mock_cursor):
             "dcm",
             "plan",
             "fooBar",
-            "--version",
-            "v1",
+            "--from",
+            "@my_stage",
             "-D",
             "key=value",
             "--configuration",
@@ -160,11 +151,10 @@ def test_plan_project(mock_pm, runner, project_directory, mock_cursor):
 
     mock_pm().execute.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
-        version="v1",
-        from_stage=None,
+        configuration="some_configuration",
+        from_stage="@my_stage",
         dry_run=True,
         variables=["key=value"],
-        configuration="some_configuration",
     )
 
 
@@ -189,33 +179,11 @@ def test_plan_project_with_from_stage(mock_pm, runner, project_directory, mock_c
 
     mock_pm().execute.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
-        version=None,
+        configuration="some_configuration",
         from_stage="@my_stage",
         dry_run=True,
         variables=["key=value"],
-        configuration="some_configuration",
     )
-
-
-@mock.patch(DCMProjectManager)
-def test_plan_project_version_and_from_stage_mutually_exclusive(
-    mock_pm, runner, project_directory, mock_cursor
-):
-    result = runner.invoke(
-        [
-            "dcm",
-            "plan",
-            "fooBar",
-            "--version",
-            "v1",
-            "--from",
-            "@my_stage",
-        ]
-    )
-    assert result.exit_code == 1, result.output
-    assert "--version and --from are mutually exclusive" in result.output
-
-    mock_pm().execute.assert_not_called()
 
 
 def test_list_command_alias(mock_connect, runner):
@@ -356,3 +324,50 @@ def test_describe_command_alias(mock_connect, runner):
     queries = mock_connect.mocked_ctx.get_queries()
     assert len(queries) == 2
     assert queries[0] == queries[1] == "describe DCM Project IDENTIFIER('PROJECT_NAME')"
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")
+@mock.patch(DCMProjectManager)
+def test_deploy_project_with_sync(
+    mock_pm, mock_sync, runner, project_directory, mock_cursor
+):
+    """Test that files are synced to project stage when from_stage is not provided and project definition exists."""
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
+    with project_directory("dcm_project"):
+        result = runner.invoke(["dcm", "deploy", "my_project"])
+        assert result.exit_code == 0, result.output
+
+        # Verify that sync was called
+        mock_sync.assert_called_once()
+
+        # Verify that execute was called with the project's stage as from_stage
+        call_args = mock_pm().execute.call_args
+        assert call_args is not None
+        # Since files were synced to the project's stage, that stage should be used as from_stage
+        assert call_args.kwargs["project_name"].identifier == "my_project"
+        assert call_args.kwargs["from_stage"] == "my_project_stage"
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")
+@mock.patch(DCMProjectManager)
+def test_plan_project_with_sync(
+    mock_pm, mock_sync, runner, project_directory, mock_cursor
+):
+    """Test that files are synced to project stage when from_stage is not provided and project definition exists."""
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
+    with project_directory("dcm_project"):
+        result = runner.invoke(["dcm", "plan", "my_project"])
+        assert result.exit_code == 0, result.output
+
+        # Verify that sync was called
+        mock_sync.assert_called_once()
+
+        # Verify that execute was called with the project's stage as from_stage
+        call_args = mock_pm().execute.call_args
+        assert call_args is not None
+        # Since files were synced to the project's stage, that stage should be used as from_stage
+        assert call_args.kwargs["project_name"].identifier == "my_project"
+        assert call_args.kwargs["from_stage"] == "my_project_stage"
+        assert call_args.kwargs["dry_run"] is True

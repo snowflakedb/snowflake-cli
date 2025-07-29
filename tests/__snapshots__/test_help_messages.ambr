@@ -7196,12 +7196,8 @@
   |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --version                TEXT  Version of the DCM Project to use. If not     |
-  |                                specified default version is used. For names  |
-  |                                containing '$', use single quotes to prevent  |
-  |                                shell expansion (e.g., 'VERSION$1').          |
-  | --from                   TEXT  Apply changes defined in given stage instead  |
-  |                                of using a specific project version.          |
+  | --from                   TEXT  Deploy DCM Project deployment from a given    |
+  |                                stage.                                        |
   | --variable       -D      TEXT  Variables for the execution context; for      |
   |                                example: -D "<key>=<value>".                  |
   | --configuration          TEXT  Configuration of the DCM Project to use. If   |
@@ -7994,12 +7990,8 @@
   |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --version                TEXT  Version of the DCM Project to use. If not     |
-  |                                specified default version is used. For names  |
-  |                                containing '$', use single quotes to prevent  |
-  |                                shell expansion (e.g., 'VERSION$1').          |
-  | --from                   TEXT  Plan DCM Project deployment from given stage  |
-  |                                instead of using a specific version.          |
+  | --from                   TEXT  Plan DCM Project deployment from a given      |
+  |                                stage.                                        |
   | --variable       -D      TEXT  Variables for the execution context; for      |
   |                                example: -D "<key>=<value>".                  |
   | --configuration          TEXT  Configuration of the DCM Project to use. If   |

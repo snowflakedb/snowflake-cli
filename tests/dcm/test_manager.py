@@ -5,48 +5,8 @@ from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli.api.identifiers import FQN
 
 execute_queries = "snowflake.cli._plugins.dcm.manager.DCMProjectManager.execute_query"
-sync_artifacts_with_stage = (
-    "snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage"
-)
-projects_paths = "snowflake.cli._plugins.dcm.manager.ProjectPaths"
 TEST_STAGE = FQN.from_stage("@test_stage")
 TEST_PROJECT = FQN.from_string("my_project")
-
-
-@mock.patch(execute_queries)
-@mock.patch(sync_artifacts_with_stage)
-@mock.patch(projects_paths)
-@pytest.mark.parametrize(
-    "from_stage,prune", [("stage_foo", False), (None, False), (None, True)]
-)
-def test_add_version(
-    mock_project_paths, mock_sync_artifacts, mock_execute_query, from_stage, prune
-):
-    project_mock = mock.MagicMock(
-        fqn=FQN.from_string("project_mock_fqn"),
-        stage="stage_from_project",
-        artifacts=["project_artifacts"],
-    )
-    mock_project_paths.return_value = "mock_project_paths"
-
-    mgr = DCMProjectManager()
-    mgr.add_version(project=project_mock, prune=prune, from_stage=from_stage)
-
-    if from_stage:
-        expected_stage = from_stage
-        mock_sync_artifacts.assert_not_called()
-    else:
-        expected_stage = "stage_from_project"
-        mock_sync_artifacts.assert_called_once_with(
-            project_paths="mock_project_paths",
-            stage_root=project_mock.stage,
-            artifacts=project_mock.artifacts,
-            prune=prune,
-        )
-
-    mock_execute_query.assert_called_once_with(
-        query=f"ALTER DCM PROJECT project_mock_fqn ADD VERSION FROM @{expected_stage}"
-    )
 
 
 @mock.patch(execute_queries)
@@ -73,8 +33,7 @@ def test_create_version_no_alias(mock_execute_query):
 
 
 @mock.patch(execute_queries)
-@mock.patch(sync_artifacts_with_stage)
-def test_create(mock_sync_artifacts, mock_execute_query):
+def test_create(mock_execute_query):
     project_mock = mock.MagicMock(
         fqn=FQN.from_string("project_mock_fqn"), stage="mock_stage_name"
     )
@@ -84,7 +43,6 @@ def test_create(mock_sync_artifacts, mock_execute_query):
     mock_execute_query.assert_called_once_with(
         "CREATE DCM PROJECT IDENTIFIER('project_mock_fqn')"
     )
-    mock_sync_artifacts.assert_not_called()
 
 
 @mock.patch(execute_queries)
@@ -92,14 +50,14 @@ def test_execute_project(mock_execute_query):
     mgr = DCMProjectManager()
     mgr.execute(
         project_name=TEST_PROJECT,
-        version="v42",
+        from_stage="@test_stage",
         variables=["key=value", "aaa=bbb"],
         configuration="some_configuration",
     )
 
     mock_execute_query.assert_called_once_with(
         query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION some_configuration"
-        " (key=>value, aaa=>bbb) WITH VERSION v42"
+        " (key=>value, aaa=>bbb) FROM @test_stage"
     )
 
 
@@ -139,10 +97,10 @@ def test_execute_project_with_from_stage_without_prefix(mock_execute_query):
 def test_execute_project_with_default_version(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
 
-    mgr.execute(project_name=TEST_PROJECT, version=None)
+    mgr.execute(project_name=TEST_PROJECT, from_stage="@test_stage")
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY"
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY FROM @test_stage"
     )
 
 
@@ -151,14 +109,13 @@ def test_validate_project(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
     mgr.execute(
         project_name=TEST_PROJECT,
-        version="v42",
+        from_stage="@test_stage",
         dry_run=True,
         configuration="some_configuration",
     )
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration"
-        " WITH VERSION v42"
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration FROM @test_stage"
     )
 
 
