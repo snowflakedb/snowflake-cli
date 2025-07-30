@@ -46,6 +46,11 @@ uv tool install snowflake-cli
 snow --help
 ```
 
+Or, with a single command
+```bash
+uvx --from snowflake-cli snow --help
+```
+
 ### Install with Homebrew (Mac only)
 
 Requires [Homebrew](https://brew.sh/).
