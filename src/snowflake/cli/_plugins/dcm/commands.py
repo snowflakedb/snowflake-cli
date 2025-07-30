@@ -11,11 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import logging
 from typing import List, Optional
 
 import typer
-from click import UsageError
 from snowflake.cli._plugins.dcm.dcm_project_entity_model import (
     DCMProjectEntityModel,
 )
@@ -39,7 +37,7 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.exceptions import CliError, NoProjectDefinitionError
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
@@ -115,16 +113,10 @@ def deploy(
     """
     Applies changes defined in DCM Project to Snowflake.
     """
-    effective_from_stage = from_stage if from_stage else _sync_local_files(prune=prune)
-    if not effective_from_stage:
-        raise CliError(
-            "Unable to deploy DCM Project. Either provide a --from stage or ensure you're in a DCM project directory."
-        )
-
     result = DCMProjectManager().execute(
         project_name=identifier,
         configuration=configuration,
-        from_stage=effective_from_stage,
+        from_stage=from_stage if from_stage else _sync_local_files(prune=prune),
         variables=variables,
         alias=alias,
     )
@@ -145,16 +137,10 @@ def plan(
     """
     Plans a DCM Project deployment (validates without executing).
     """
-    effective_from_stage = from_stage if from_stage else _sync_local_files(prune=prune)
-    if not effective_from_stage:
-        raise CliError(
-            "Unable to plan DCM Project. Either provide a --from stage or ensure you're in a DCM project directory."
-        )
-
     result = DCMProjectManager().execute(
         project_name=identifier,
         configuration=configuration,
-        from_stage=effective_from_stage,
+        from_stage=from_stage if from_stage else _sync_local_files(prune=prune),
         dry_run=True,
         variables=variables,
     )
@@ -241,30 +227,14 @@ def drop_version(
     )
 
 
-def _sync_local_files(prune: bool = False) -> Optional[str]:
-    """
-    Get project entity for syncing files.
-
-    Args:
-        prune: Whether to remove unused artifacts from the stage during sync.
-
-    Returns None if project entity cannot be retrieved.
-    """
+def _sync_local_files(prune: bool = False) -> str:
     cli_context = get_cli_context()
-    if not cli_context.project_definition:
-        logging.warning("no project definition was found")
-        return None
-
-    try:
-        project_entity = get_entity_for_operation(
-            cli_context=cli_context,
-            entity_id=None,
-            project_definition=cli_context.project_definition,
-            entity_type="dcm",
-        )
-    except (NoProjectDefinitionError, UsageError) as e:
-        logging.warning("failed to get project entity", e)
-        return None
+    project_entity = get_entity_for_operation(
+        cli_context=cli_context,
+        entity_id=None,
+        project_definition=cli_context.project_definition,
+        entity_type="dcm",
+    )
 
     with cli_console.phase("Syncing local files to stage"):
         sync_artifacts_with_stage(
