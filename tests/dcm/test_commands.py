@@ -436,7 +436,7 @@ def test_deploy_prune_and_from_mutually_exclusive(runner):
         ["dcm", "deploy", "my_project", "--prune", "--from", "@my_stage"]
     )
     assert result.exit_code != 0
-    assert "--prune and --from are mutually exclusive" in result.output
+    assert "are incompatible and cannot be used" in result.output
 
 
 def test_plan_prune_and_from_mutually_exclusive(runner):
@@ -445,7 +445,7 @@ def test_plan_prune_and_from_mutually_exclusive(runner):
         ["dcm", "plan", "my_project", "--prune", "--from", "@my_stage"]
     )
     assert result.exit_code != 0
-    assert "--prune and --from are mutually exclusive" in result.output
+    assert "are incompatible and cannot be used" in result.output
 
 
 @mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")

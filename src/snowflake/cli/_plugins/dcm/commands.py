@@ -68,6 +68,22 @@ configuration_flag = typer.Option(
 from_option = OverrideableOption(
     None,
     "--from",
+    mutually_exclusive=["prune"],
+    show_default=False,
+)
+
+prune_option = OverrideableOption(
+    False,
+    "--prune",
+    help="Remove unused artifacts from the stage during sync. Mutually exclusive with --from.",
+    mutually_exclusive=["from_stage"],
+    show_default=False,
+)
+
+alias_option = typer.Option(
+    None,
+    "--alias",
+    help="Alias for the deployment.",
     show_default=False,
 )
 
@@ -92,26 +108,13 @@ def deploy(
     ),
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
-    alias: Optional[str] = typer.Option(
-        None,
-        "--alias",
-        help="Alias for the deployment.",
-        show_default=False,
-    ),
-    prune: bool = typer.Option(
-        False,
-        "--prune",
-        help="Remove unused artifacts from the stage during sync. Mutually exclusive with --from.",
-        show_default=False,
-    ),
+    alias: Optional[str] = alias_option,
+    prune: bool = prune_option(),
     **options,
 ):
     """
     Applies changes defined in DCM Project to Snowflake.
     """
-    if prune and from_stage:
-        raise UsageError("--prune and --from are mutually exclusive.")
-
     effective_from_stage = from_stage if from_stage else _sync_local_files(prune=prune)
     if not effective_from_stage:
         raise CliError(
@@ -136,20 +139,12 @@ def plan(
     ),
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
-    prune: bool = typer.Option(
-        False,
-        "--prune",
-        help="Remove unused artifacts from the stage during sync. Mutually exclusive with --from.",
-        show_default=False,
-    ),
+    prune: bool = prune_option(),
     **options,
 ):
     """
     Plans a DCM Project deployment (validates without executing).
     """
-    if prune and from_stage:
-        raise UsageError("--prune and --from are mutually exclusive.")
-
     effective_from_stage = from_stage if from_stage else _sync_local_files(prune=prune)
     if not effective_from_stage:
         raise CliError(

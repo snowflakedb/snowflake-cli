@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from textwrap import dedent
+
 from typing import List
 
 from snowflake.cli._plugins.dcm.dcm_project_entity_model import DCMProjectEntityModel
@@ -53,7 +53,7 @@ class DCMProjectManager(SqlExecutionMixin):
         return self.execute_query(query=query)
 
     def create(self, project: DCMProjectEntityModel) -> None:
-        query = dedent(f"CREATE DCM PROJECT {project.fqn.sql_identifier}")
+        query = f"CREATE DCM PROJECT {project.fqn.sql_identifier}"
         self.execute_query(query)
 
     def _create_version(
