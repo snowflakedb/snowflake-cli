@@ -101,114 +101,41 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
 def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     """Install Python dist into temp dir for bundling."""
 
-    print("🚀 Using fast pre-built Python distributions to avoid AVX2 instructions")
-    print("⚡ Prioritizing speed - source compilation as last resort only")
+    print("🚀 FORCING Conservative Source Build to eliminate CPU optimizations")
+    print(
+        "🔨 Skipping pre-built distributions - building from source with conservative CPU flags"
+    )
 
     python_install_dir = python_tmp_dir / python_version
 
-    # Option 1: Try fast pre-built ancient Python distributions first (MUCH FASTER!)
-    print("📥 Trying fast pre-built Python distributions...")
+    # Clear any previous installation
+    if python_install_dir.exists():
+        import shutil
 
-    import tarfile
-    import tempfile
-    import urllib.request
+        shutil.rmtree(python_install_dir)
 
-    # Ancient Python distribution fallbacks (oldest 3.10 available)
-    ancient_python_url = "https://github.com/indygreg/python-build-standalone/releases/download/20220227/cpython-3.10.2+20220227-x86_64-unknown-linux-musl-install_only.tar.gz"
-
-    # Try multiple Python distributions in order of preference (FASTEST FIRST!)
-    python_urls = [
-        # Static musl build first (most self-contained, no shared library deps, FASTEST!)
-        ("musl-static", ancient_python_url),
-        # Try an even older musl build as backup
-        (
-            "musl-static-backup",
-            "https://github.com/indygreg/python-build-standalone/releases/download/20220226/cpython-3.10.2+20220226-x86_64-unknown-linux-musl-install_only.tar.gz",
-        ),
-        # Original glibc build (has shared library dependencies like libcrypt.so.1)
-        (
-            "glibc",
-            "https://github.com/indygreg/python-build-standalone/releases/download/20220227/cpython-3.10.2+20220227-x86_64-unknown-linux-gnu-install_only.tar.gz",
-        ),
-    ]
-
-    for build_type, python_url in python_urls:
-        try:
-            print(f"📥 Trying {build_type} Python build: {python_url}")
-            with tempfile.NamedTemporaryFile(
-                suffix=".tar.gz", delete=False
-            ) as tmp_file:
-                urllib.request.urlretrieve(python_url, tmp_file.name)
-
-                # Clear any previous installation
-                if python_install_dir.exists():
-                    import shutil
-
-                    shutil.rmtree(python_install_dir)
-
-                python_install_dir.mkdir(parents=True, exist_ok=True)
-
-                with tarfile.open(tmp_file.name, "r:gz") as tar:
-                    tar.extractall(path=python_install_dir)
-
-                # Create the hatch-dist.json metadata file that hatch expects
-                import json
-
-                hatch_dist_json = python_install_dir / "hatch-dist.json"
-                dist_metadata = {
-                    "name": "cpython",
-                    "version": python_version,
-                    "arch": "x86_64",
-                    "os": "linux",
-                    "implementation": "cpython",
-                    "python_path": "python/bin/python3.10",
-                    "stdlib_path": "python/lib/python3.10",
-                    "site_packages_path": "python/lib/python3.10/site-packages",
-                }
-
-                with open(hatch_dist_json, "w") as f:
-                    json.dump(dist_metadata, f, indent=2)
-
-                print(f"✅ Successfully installed {build_type} Python distribution")
-                print("✅ Created hatch-dist.json metadata file")
-                print(f"⚡ Fast build completed - no slow compilation needed!")
-
-                # Mark which distribution was used for debugging
-                marker_file = (
-                    python_install_dir / f"DISTRIBUTION_TYPE_{build_type.upper()}"
-                )
-                marker_file.write_text(
-                    f"Using {build_type} Python distribution from {python_url}"
-                )
-                print(f"📝 Created distribution marker: {marker_file.name}")
-
-                return True
-
-        except Exception as e:
-            print(f"❌ Failed to install {build_type} Python: {e}")
-            continue
-
-    # Option 3: Try official Python.org source build (SLOW - only if fast options fail)
+    # Option 1: Try conservative source build method (with conservative CPU flags)
     try:
-        print(
-            "🔨 Trying official Python.org source build (this will take 10+ minutes)..."
-        )
-        return build_static_python_from_official_source(
-            python_install_dir, python_version
-        )
+        print("🔨 Building Python from source with conservative CPU flags...")
+        print("⚡ This will disable: AVX, AVX2, FMA, BMI, AVX512, LZCNT, PCLMUL, MOVBE")
+        if build_static_python_from_source(python_install_dir, python_version):
+            print("✅ Conservative source build completed successfully!")
+            return True
     except Exception as e:
-        print(f"❌ Failed to build from official source: {e}")
+        print(f"❌ Failed conservative source build: {e}")
 
-    # Option 4: Try the old source build method as additional fallback
+    # Option 2: Try official Python.org source build as fallback
     try:
-        print("🔄 Trying old source build method as fallback...")
-        return build_static_python_from_source(python_install_dir, python_version)
+        print("🔨 Trying official Python.org source build as fallback...")
+        if build_static_python_from_official_source(python_install_dir, python_version):
+            print("✅ Official source build completed successfully!")
+            return True
     except Exception as e:
-        print(f"❌ Failed to build with old source method: {e}")
+        print(f"❌ Failed official source build: {e}")
 
-    # Last resort: Use standard hatch installation
+    # Last resort: Use standard hatch installation (may still have optimizations)
     print(
-        "🔄 All ancient Python builds failed, falling back to standard hatch Python installation..."
+        "⚠️  WARNING: Falling back to standard hatch installation - may contain CPU optimizations!"
     )
     completed_proc = subprocess.run(
         [
