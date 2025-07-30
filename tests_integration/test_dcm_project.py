@@ -367,3 +367,116 @@ def test_project_deploy_from_stage(
         # Clean up
         result = runner.invoke_with_connection(["dcm", "drop", project_name])
         assert result.exit_code == 0, result.output
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_project_deploy_with_prune(
+    runner,
+    test_database,
+    project_directory,
+):
+    """Test that --prune flag removes unused artifacts from the stage."""
+    project_name = "project_descriptive_name"
+    entity_id = "my_project"
+    stage_name = "my_project_stage"
+
+    with project_directory("dcm_project") as project_root:
+        # Create a new project
+        result = runner.invoke_with_connection(["dcm", "create", entity_id])
+        assert result.exit_code == 0, result.output
+        assert f"DCM Project '{project_name}' successfully created." in result.output
+        _assert_project_has_versions(runner, project_name, expected_versions=set())
+
+        # Create an additional file that we'll remove later to test prune
+        file_b_path = project_root / "file_b.sql"
+        file_b_path.write_text(
+            "define table identifier('{{ table_name }}_B') (id int, data string);\n"
+        )
+
+        # Update snowflake.yml to include the new file
+        config_path = project_root / "snowflake.yml"
+        config_content = config_path.read_text()
+        config_content = config_content.replace(
+            "artifacts:\n      - file_a.sql",
+            "artifacts:\n      - file_a.sql\n      - file_b.sql",
+        )
+        config_path.write_text(config_content)
+
+        # Initial deploy with both files
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.MyTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_project_has_versions(
+            runner,
+            project_name,
+            {("VERSION$1", None)},
+        )
+
+        # Verify both files are in the stage
+        assert_stage_has_files(
+            runner,
+            f"@{stage_name}",
+            [
+                f"{stage_name}/file_a.sql",
+                f"{stage_name}/file_b.sql",
+                f"{stage_name}/manifest.yml",
+            ],
+        )
+
+        # Now remove file_b.sql from artifacts to test prune functionality
+        config_content = config_path.read_text()
+        config_content = config_content.replace(
+            "artifacts:\n      - file_a.sql\n      - file_b.sql",
+            "artifacts:\n      - file_a.sql",
+        )
+        config_path.write_text(config_content)
+
+        # Deploy again with --prune flag to remove unused file_b.sql
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "--prune",
+                "-D",
+                f"table_name='{test_database}.PUBLIC.MyTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_project_has_versions(
+            runner,
+            project_name,
+            {("VERSION$1", None), ("VERSION$2", None)},
+        )
+
+        # Verify that file_b.sql was removed from the stage but file_a.sql and manifest.yml remain
+        stage_files_result = runner.invoke_with_connection_json(
+            ["stage", "list-files", f"@{stage_name}"]
+        )
+        assert stage_files_result.exit_code == 0
+        stage_files = [file["name"] for file in stage_files_result.json]
+
+        # file_a.sql and manifest.yml should still be present
+        assert (
+            f"{stage_name}/file_a.sql" in stage_files
+        ), f"file_a.sql should be present in stage. Files: {stage_files}"
+        assert (
+            f"{stage_name}/manifest.yml" in stage_files
+        ), f"manifest.yml should be present in stage. Files: {stage_files}"
+
+        # file_b.sql should be removed
+        assert (
+            f"{stage_name}/file_b.sql" not in stage_files
+        ), f"file_b.sql should be removed from stage. Files: {stage_files}"
+
+        # Clean up
+        result = runner.invoke_with_connection(["dcm", "drop", project_name])
+        assert result.exit_code == 0, result.output

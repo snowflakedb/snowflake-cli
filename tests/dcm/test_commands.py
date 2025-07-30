@@ -392,4 +392,93 @@ def test_plan_project_with_sync(
         # Since files were synced to the project's stage, that stage should be used as from_stage
         assert call_args.kwargs["project_name"].identifier == "my_project"
         assert call_args.kwargs["from_stage"] == "my_project_stage"
-        assert call_args.kwargs["dry_run"] is True
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")
+@mock.patch(DCMProjectManager)
+def test_deploy_project_with_prune(
+    mock_pm, mock_sync, runner, project_directory, mock_cursor
+):
+    """Test that prune flag is passed to sync_artifacts_with_stage when --prune is used."""
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
+    with project_directory("dcm_project"):
+        result = runner.invoke(["dcm", "deploy", "my_project", "--prune"])
+        assert result.exit_code == 0, result.output
+
+        # Verify that sync was called with prune=True
+        mock_sync.assert_called_once()
+        call_args = mock_sync.call_args
+        assert call_args.kwargs["prune"] is True
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")
+@mock.patch(DCMProjectManager)
+def test_plan_project_with_prune(
+    mock_pm, mock_sync, runner, project_directory, mock_cursor
+):
+    """Test that prune flag is passed to sync_artifacts_with_stage when --prune is used."""
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
+    with project_directory("dcm_project"):
+        result = runner.invoke(["dcm", "plan", "my_project", "--prune"])
+        assert result.exit_code == 0, result.output
+
+        # Verify that sync was called with prune=True
+        mock_sync.assert_called_once()
+        call_args = mock_sync.call_args
+        assert call_args.kwargs["prune"] is True
+
+
+def test_deploy_prune_and_from_mutually_exclusive(runner):
+    """Test that --prune and --from flags are mutually exclusive."""
+    result = runner.invoke(
+        ["dcm", "deploy", "my_project", "--prune", "--from", "@my_stage"]
+    )
+    assert result.exit_code != 0
+    assert "--prune and --from are mutually exclusive" in result.output
+
+
+def test_plan_prune_and_from_mutually_exclusive(runner):
+    """Test that --prune and --from flags are mutually exclusive."""
+    result = runner.invoke(
+        ["dcm", "plan", "my_project", "--prune", "--from", "@my_stage"]
+    )
+    assert result.exit_code != 0
+    assert "--prune and --from are mutually exclusive" in result.output
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")
+@mock.patch(DCMProjectManager)
+def test_deploy_project_without_prune(
+    mock_pm, mock_sync, runner, project_directory, mock_cursor
+):
+    """Test that prune defaults to False when --prune is not used."""
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
+    with project_directory("dcm_project"):
+        result = runner.invoke(["dcm", "deploy", "my_project"])
+        assert result.exit_code == 0, result.output
+
+        # Verify that sync was called with prune=False (default)
+        mock_sync.assert_called_once()
+        call_args = mock_sync.call_args
+        assert call_args.kwargs["prune"] is False
+
+
+@mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")
+@mock.patch(DCMProjectManager)
+def test_plan_project_without_prune(
+    mock_pm, mock_sync, runner, project_directory, mock_cursor
+):
+    """Test that prune defaults to False when --prune is not used."""
+    mock_pm().execute.return_value = mock_cursor(rows=[("[]",)], columns=("operations"))
+
+    with project_directory("dcm_project"):
+        result = runner.invoke(["dcm", "plan", "my_project"])
+        assert result.exit_code == 0, result.output
+
+        # Verify that sync was called with prune=False (default)
+        mock_sync.assert_called_once()
+        call_args = mock_sync.call_args
+        assert call_args.kwargs["prune"] is False

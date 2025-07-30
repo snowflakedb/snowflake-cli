@@ -98,12 +98,21 @@ def deploy(
         help="Alias for the deployment.",
         show_default=False,
     ),
+    prune: bool = typer.Option(
+        False,
+        "--prune",
+        help="Remove unused artifacts from the stage during sync. Mutually exclusive with --from.",
+        show_default=False,
+    ),
     **options,
 ):
     """
     Applies changes defined in DCM Project to Snowflake.
     """
-    effective_from_stage = from_stage if from_stage else _sync_local_files()
+    if prune and from_stage:
+        raise UsageError("--prune and --from are mutually exclusive.")
+
+    effective_from_stage = from_stage if from_stage else _sync_local_files(prune=prune)
     if not effective_from_stage:
         raise CliError(
             "Unable to deploy DCM Project. Either provide a --from stage or ensure you're in a DCM project directory."
@@ -127,12 +136,21 @@ def plan(
     ),
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
+    prune: bool = typer.Option(
+        False,
+        "--prune",
+        help="Remove unused artifacts from the stage during sync. Mutually exclusive with --from.",
+        show_default=False,
+    ),
     **options,
 ):
     """
     Plans a DCM Project deployment (validates without executing).
     """
-    effective_from_stage = from_stage if from_stage else _sync_local_files()
+    if prune and from_stage:
+        raise UsageError("--prune and --from are mutually exclusive.")
+
+    effective_from_stage = from_stage if from_stage else _sync_local_files(prune=prune)
     if not effective_from_stage:
         raise CliError(
             "Unable to plan DCM Project. Either provide a --from stage or ensure you're in a DCM project directory."
@@ -228,9 +246,12 @@ def drop_version(
     )
 
 
-def _sync_local_files() -> Optional[str]:
+def _sync_local_files(prune: bool = False) -> Optional[str]:
     """
     Get project entity for syncing files.
+
+    Args:
+        prune: Whether to remove unused artifacts from the stage during sync.
 
     Returns None if project entity cannot be retrieved.
     """
@@ -255,7 +276,7 @@ def _sync_local_files() -> Optional[str]:
             project_paths=ProjectPaths(project_root=cli_context.project_root),
             stage_root=project_entity.stage,
             artifacts=project_entity.artifacts,
-            prune=False,
+            prune=prune,
         )
 
     return project_entity.stage
