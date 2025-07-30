@@ -307,7 +307,7 @@ def build_static_python_from_official_source(
 def build_static_python_from_source(
     python_install_dir: Path, python_version: str
 ) -> bool:
-    """Build Python from source with static linking to avoid shared library dependencies."""
+    """Build Python from source with conservative CPU flags to avoid illegal instructions."""
     import os
     import subprocess
     import tarfile
@@ -327,21 +327,22 @@ def build_static_python_from_source(
 
             python_src_dir = next(build_path.glob("Python-*"))
 
-            # Configure with static linking and conservative flags
+            # Configure with conservative CPU flags (avoid problematic static linking)
             configure_env = os.environ.copy()
             configure_env[
                 "CFLAGS"
-            ] = "-static -mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
-            configure_env["LDFLAGS"] = "-static"
+            ] = "-mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
+            configure_env[
+                "LDFLAGS"
+            ] = "-Wl,--strip-all"  # Strip for smaller size, avoid static linking issues
 
             configure_cmd = [
                 "./configure",
                 f"--prefix={python_install_dir}",
-                "--disable-shared",  # No shared libraries
-                "--enable-static",  # Static linking
+                "--enable-shared",  # Use shared libraries (more compatible than static)
                 "--with-lto=no",  # Disable LTO to avoid optimizer adding AVX2
-                "--disable-ipv6",  # Reduce dependencies
-                "--without-ensurepip",  # Skip pip to reduce dependencies
+                "--enable-optimizations",  # Enable Python optimizations (but with our conservative CFLAGS)
+                "--with-ensurepip=install",  # Include pip in build to avoid manual installation issues
             ]
 
             print(f"🔧 Configuring static Python build...")
@@ -370,37 +371,30 @@ def build_static_python_from_source(
             if install_result.returncode != 0:
                 return False
 
-            # Install pip manually since we used --without-ensurepip
+            # Verify Python executable and pip are available (pip included via --with-ensurepip=install)
             python_exe = python_install_dir / "bin" / "python3.10"
+            if not python_exe.exists():
+                python_exe = python_install_dir / "bin" / "python3"
+            if not python_exe.exists():
+                python_exe = python_install_dir / "bin" / "python"
+
             if python_exe.exists():
-                print("🔧 Installing pip into static Python build...")
+                print("✅ Python executable found, verifying pip availability...")
                 try:
                     result = subprocess.run(
-                        [str(python_exe), "-m", "ensurepip", "--upgrade"],
+                        [str(python_exe), "-c", "import pip; print('pip available')"],
                         capture_output=True,
                         text=True,
                     )
                     if result.returncode == 0:
-                        print("✅ pip installed successfully")
+                        print("✅ pip is available in the built Python")
                     else:
-                        print(f"⚠️  pip installation failed: {result.stderr}")
-                        # Try to download and install pip manually
-                        print("🔧 Trying manual pip installation...")
-                        get_pip_url = "https://bootstrap.pypa.io/get-pip.py"
-                        with tempfile.NamedTemporaryFile(
-                            suffix=".py", delete=False
-                        ) as get_pip_file:
-                            urllib.request.urlretrieve(get_pip_url, get_pip_file.name)
-                            subprocess.run(
-                                [str(python_exe), get_pip_file.name],
-                                cwd=python_install_dir,
-                                capture_output=True,
-                                text=True,
-                            )
+                        print(f"⚠️  pip verification failed: {result.stderr}")
                 except Exception as e:
-                    print(f"⚠️  Failed to install pip: {e}")
+                    print(f"⚠️  pip verification error: {e}")
             else:
                 print("❌ Python executable not found after build")
+                return False
 
     # Create hatch-dist.json metadata for static build
     import json
@@ -420,12 +414,12 @@ def build_static_python_from_source(
     with open(hatch_dist_json, "w") as f:
         json.dump(dist_metadata, f, indent=2)
 
-    print("✅ Successfully built static Python from source")
+    print("✅ Successfully built conservative Python from source")
 
     # Mark which distribution was used for debugging
-    marker_file = python_install_dir / "DISTRIBUTION_TYPE_STATIC_SOURCE"
+    marker_file = python_install_dir / "DISTRIBUTION_TYPE_CONSERVATIVE_SOURCE"
     marker_file.write_text(
-        f"Using static Python from source build (version {python_version})"
+        f"Using conservative Python from source build (version {python_version}) - no AVX/AVX2/FMA instructions"
     )
     print(f"📝 Created distribution marker: {marker_file.name}")
 
