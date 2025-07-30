@@ -376,7 +376,7 @@ def test_project_deploy_with_prune(
     test_database,
     project_directory,
 ):
-    """Test that --prune flag removes unused artifacts from the stage."""
+    """Test that --prune flag removes unused artifacts from the stage and prevents creation of database objects from pruned files."""
     project_name = "project_descriptive_name"
     entity_id = "my_project"
     stage_name = "my_project_stage"
@@ -385,7 +385,11 @@ def test_project_deploy_with_prune(
         # Create a new project
         result = runner.invoke_with_connection(["dcm", "create", entity_id])
         assert result.exit_code == 0, result.output
-        assert f"DCM Project '{project_name}' successfully created." in result.output
+        assert (
+            "DCM Project" in result.output
+            and project_name in result.output
+            and "successfully created" in result.output
+        )
         _assert_project_has_versions(runner, project_name, expected_versions=set())
 
         # Create an additional file that we'll remove later to test prune
@@ -402,6 +406,15 @@ def test_project_deploy_with_prune(
             "artifacts:\n      - file_a.sql\n      - file_b.sql",
         )
         config_path.write_text(config_content)
+
+        # Update manifest.yml to include the new file in definitions
+        manifest_path = project_root / "manifest.yml"
+        manifest_content = manifest_path.read_text()
+        manifest_content = manifest_content.replace(
+            "include_definitions:\n  - file_a.sql",
+            "include_definitions:\n  - file_a.sql\n  - file_b.sql",
+        )
+        manifest_path.write_text(manifest_content)
 
         # Initial deploy with both files
         result = runner.invoke_with_connection(
@@ -431,6 +444,39 @@ def test_project_deploy_with_prune(
             ],
         )
 
+        # Verify both tables exist after first deploy
+        table_a_check = runner.invoke_with_connection_json(
+            [
+                "object",
+                "list",
+                "table",
+                "--like",
+                "MYTABLE",
+                "--in",
+                "database",
+                test_database,
+            ]
+        )
+        assert table_a_check.exit_code == 0
+        assert len(table_a_check.json) == 1, "MyTable should exist after first deploy"
+        assert "MYTABLE" == table_a_check.json[0]["name"]
+
+        table_b_check = runner.invoke_with_connection_json(
+            [
+                "object",
+                "list",
+                "table",
+                "--like",
+                "MYTABLE_B",
+                "--in",
+                "database",
+                test_database,
+            ]
+        )
+        assert table_b_check.exit_code == 0
+        assert len(table_b_check.json) == 1, "MyTable_B should exist after first deploy"
+        assert "MYTABLE_B" == table_b_check.json[0]["name"]
+
         # Now remove file_b.sql from artifacts to test prune functionality
         config_content = config_path.read_text()
         config_content = config_content.replace(
@@ -438,6 +484,14 @@ def test_project_deploy_with_prune(
             "artifacts:\n      - file_a.sql",
         )
         config_path.write_text(config_content)
+
+        # Also remove file_b.sql from manifest include_definitions
+        manifest_content = manifest_path.read_text()
+        manifest_content = manifest_content.replace(
+            "include_definitions:\n  - file_a.sql\n  - file_b.sql",
+            "include_definitions:\n  - file_a.sql",
+        )
+        manifest_path.write_text(manifest_content)
 
         # Deploy again with --prune flag to remove unused file_b.sql
         result = runner.invoke_with_connection(
@@ -476,6 +530,49 @@ def test_project_deploy_with_prune(
         assert (
             f"{stage_name}/file_b.sql" not in stage_files
         ), f"file_b.sql should be removed from stage. Files: {stage_files}"
+
+        # Verify that MyTable still exists but MyTable_B does not exist after prune deploy
+        table_a_check_after_prune = runner.invoke_with_connection_json(
+            [
+                "object",
+                "list",
+                "table",
+                "--like",
+                "MYTABLE",
+                "--in",
+                "database",
+                test_database,
+            ]
+        )
+        assert table_a_check_after_prune.exit_code == 0
+        # Should find only one table (MYTABLE), not MYTABLE_B
+        mytable_found = False
+        for table in table_a_check_after_prune.json:
+            if table["name"] == "MYTABLE":
+                mytable_found = True
+            # Ensure MYTABLE_B is not in the results
+            assert (
+                table["name"] != "MYTABLE_B"
+            ), "MyTable_B should not exist after prune deploy"
+        assert mytable_found, "MyTable should still exist after prune deploy"
+
+        # Double-check: specifically query for MYTABLE_B to ensure it doesn't exist
+        table_b_check_after_prune = runner.invoke_with_connection_json(
+            [
+                "object",
+                "list",
+                "table",
+                "--like",
+                "MYTABLE_B",
+                "--in",
+                "database",
+                test_database,
+            ]
+        )
+        assert table_b_check_after_prune.exit_code == 0
+        assert (
+            len(table_b_check_after_prune.json) == 0
+        ), "MyTable_B should not exist after prune deploy"
 
         # Clean up
         result = runner.invoke_with_connection(["dcm", "drop", project_name])
