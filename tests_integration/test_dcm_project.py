@@ -24,7 +24,9 @@ def _assert_project_has_versions(
     runner, project_name: str, expected_versions: Set[Tuple[str, Optional[str]]]
 ) -> None:
     """Check whether the project versions (in [name,alias] format) are present in Snowflake."""
-    result = runner.invoke_with_connection_json(["dcm", "list-versions", project_name])
+    result = runner.invoke_with_connection_json(
+        ["dcm", "list-deployments", project_name]
+    )
     assert result.exit_code == 0, result.output
     versions = {(version["name"], version["alias"]) for version in result.json}
     assert versions == expected_versions

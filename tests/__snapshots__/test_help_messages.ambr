@@ -7714,12 +7714,12 @@
   
   '''
 # ---
-# name: test_help_messages[dcm.list-versions]
+# name: test_help_messages[dcm.list-deployments]
   '''
                                                                                   
-   Usage: root dcm list-versions [OPTIONS] IDENTIFIER                             
+   Usage: root dcm list-deployments [OPTIONS] IDENTIFIER                          
                                                                                   
-   Lists versions of given DCM Project.                                           
+   Lists deployments of given DCM Project.                                        
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
@@ -8129,15 +8129,15 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | create          Creates a DCM Project in Snowflake.                          |
-  | deploy          Applies changes defined in DCM Project to Snowflake.         |
-  | describe        Provides description of DCM Project.                         |
-  | drop            Drops DCM Project with given name.                           |
-  | drop-version    Drops a version from the DCM Project.                        |
-  | list            Lists all available DCM Projects.                            |
-  | list-versions   Lists versions of given DCM Project.                         |
-  | plan            Plans a DCM Project deployment (validates without            |
-  |                 executing).                                                  |
+  | create             Creates a DCM Project in Snowflake.                       |
+  | deploy             Applies changes defined in DCM Project to Snowflake.      |
+  | describe           Provides description of DCM Project.                      |
+  | drop               Drops DCM Project with given name.                        |
+  | drop-version       Drops a version from the DCM Project.                     |
+  | list               Lists all available DCM Projects.                         |
+  | list-deployments   Lists deployments of given DCM Project.                   |
+  | plan               Plans a DCM Project deployment (validates without         |
+  |                    executing).                                               |
   +------------------------------------------------------------------------------+
   
   
@@ -20776,15 +20776,15 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | create          Creates a DCM Project in Snowflake.                          |
-  | deploy          Applies changes defined in DCM Project to Snowflake.         |
-  | describe        Provides description of DCM Project.                         |
-  | drop            Drops DCM Project with given name.                           |
-  | drop-version    Drops a version from the DCM Project.                        |
-  | list            Lists all available DCM Projects.                            |
-  | list-versions   Lists versions of given DCM Project.                         |
-  | plan            Plans a DCM Project deployment (validates without            |
-  |                 executing).                                                  |
+  | create             Creates a DCM Project in Snowflake.                       |
+  | deploy             Applies changes defined in DCM Project to Snowflake.      |
+  | describe           Provides description of DCM Project.                      |
+  | drop               Drops DCM Project with given name.                        |
+  | drop-version       Drops a version from the DCM Project.                     |
+  | list               Lists all available DCM Projects.                         |
+  | list-deployments   Lists deployments of given DCM Project.                   |
+  | plan               Plans a DCM Project deployment (validates without         |
+  |                    executing).                                               |
   +------------------------------------------------------------------------------+
   
   

@@ -239,8 +239,8 @@ def test_list_command_alias(mock_connect, runner):
 
 
 @mock.patch(DCMProjectManager)
-def test_list_versions(mock_pm, runner):
-    result = runner.invoke(["dcm", "list-versions", "fooBar"])
+def test_list_deployments(mock_pm, runner):
+    result = runner.invoke(["dcm", "list-deployments", "fooBar"])
 
     assert result.exit_code == 0, result.output
 

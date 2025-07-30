@@ -203,12 +203,12 @@ def create(
 
 
 @app.command(requires_connection=True)
-def list_versions(
+def list_deployments(
     identifier: FQN = dcm_identifier,
     **options,
 ):
     """
-    Lists versions of given DCM Project.
+    Lists deployments of given DCM Project.
     """
     pm = DCMProjectManager()
     results = pm.list_versions(project_name=identifier)
