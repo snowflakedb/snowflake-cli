@@ -482,9 +482,28 @@ def pip_install_project(python_exe: str) -> bool:
         print(f"❌ Python executable not found: {python_exe}")
         return False
 
-    # Test Python executable
+    # Set up environment with library path for shared libraries
+    import os
+
+    python_path = Path(python_exe)
+    python_install_dir = python_path.parent.parent  # ../bin/python -> ..
+    lib_dir = python_install_dir / "lib"
+
+    # Create environment with LD_LIBRARY_PATH for shared library resolution
+    run_env = os.environ.copy()
+    if lib_dir.exists():
+        current_ld_path = run_env.get("LD_LIBRARY_PATH", "")
+        if current_ld_path:
+            run_env["LD_LIBRARY_PATH"] = f"{lib_dir}:{current_ld_path}"
+        else:
+            run_env["LD_LIBRARY_PATH"] = str(lib_dir)
+        print(f"🔧 Set LD_LIBRARY_PATH to include: {lib_dir}")
+    else:
+        print(f"⚠️  Library directory not found: {lib_dir}")
+
+    # Test Python executable with proper library path
     test_proc = subprocess.run(
-        [python_exe, "--version"], capture_output=True, text=True
+        [python_exe, "--version"], capture_output=True, text=True, env=run_env
     )
     if test_proc.returncode != 0:
         print(f"❌ Python executable failed: {test_proc.stderr}")
@@ -494,7 +513,10 @@ def pip_install_project(python_exe: str) -> bool:
 
     # Check if pip is available
     pip_check = subprocess.run(
-        [python_exe, "-m", "pip", "--version"], capture_output=True, text=True
+        [python_exe, "-m", "pip", "--version"],
+        capture_output=True,
+        text=True,
+        env=run_env,
     )
     if pip_check.returncode != 0:
         print(f"❌ pip not available: {pip_check.stderr}")
@@ -502,7 +524,10 @@ def pip_install_project(python_exe: str) -> bool:
 
         # Try to install pip using ensurepip
         ensurepip_proc = subprocess.run(
-            [python_exe, "-m", "ensurepip", "--upgrade"], capture_output=True, text=True
+            [python_exe, "-m", "ensurepip", "--upgrade"],
+            capture_output=True,
+            text=True,
+            env=run_env,
         )
         if ensurepip_proc.returncode != 0:
             print(f"❌ Failed to install pip via ensurepip: {ensurepip_proc.stderr}")
@@ -518,6 +543,7 @@ def pip_install_project(python_exe: str) -> bool:
         [python_exe, "-m", "pip", "install", "--upgrade", "pip"],
         capture_output=True,
         text=True,
+        env=run_env,
     )
     if pip_upgrade_proc.returncode == 0:
         print("✅ pip upgraded successfully")
@@ -540,6 +566,7 @@ def pip_install_project(python_exe: str) -> bool:
         ],
         capture_output=True,
         text=True,
+        env=run_env,
     )
     if build_deps_proc.returncode != 0:
         print(f"⚠️  Build dependencies installation failed: {build_deps_proc.stderr}")
@@ -551,6 +578,7 @@ def pip_install_project(python_exe: str) -> bool:
         [python_exe, "-m", "pip", "install", "-U", "-v", str(PROJECT_ROOT)],
         capture_output=True,
         text=True,
+        env=run_env,
     )
 
     if completed_proc.returncode != 0:
@@ -575,6 +603,7 @@ def pip_install_project(python_exe: str) -> bool:
             ],
             capture_output=True,
             text=True,
+            env=run_env,
         )
 
         if fallback1_proc.returncode == 0:
@@ -588,6 +617,7 @@ def pip_install_project(python_exe: str) -> bool:
                 [python_exe, "-m", "pip", "install", "-e", str(PROJECT_ROOT)],
                 capture_output=True,
                 text=True,
+                env=run_env,
             )
 
             if fallback2_proc.returncode == 0:
@@ -609,6 +639,7 @@ def pip_install_project(python_exe: str) -> bool:
             ],
             capture_output=True,
             text=True,
+            env=run_env,
         )
 
         if import_test.returncode != 0:
