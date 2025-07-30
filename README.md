@@ -37,12 +37,12 @@ Feel free to file an issue or submit a PR here for general cases. For official s
 
 ## Install Snowflake CLI
 
-### Install with pipx (PyPi)
+### Install with uv (PyPi)
 
-We recommend installing Snowflake CLI in isolated environment using [pipx](https://pipx.pypa.io/stable/). Requires Python >= 3.10
+We recommend installing Snowflake CLI in isolated environment using [uv](https://docs.astral.sh/uv/guides/tools/#installing-tools). Requires Python >= 3.10
 
 ```bash
-pipx install snowflake-cli
+uv tool install snowflake-cli
 snow --help
 ```
 
