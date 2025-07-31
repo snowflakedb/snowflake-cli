@@ -149,7 +149,9 @@ def test_list_versions(mock_execute_query):
 @pytest.mark.parametrize("if_exists", [True, False])
 def test_drop_version(mock_execute_query, if_exists):
     mgr = DCMProjectManager()
-    mgr.drop_version(project_name=TEST_PROJECT, version_name="v1", if_exists=if_exists)
+    mgr.drop_deployment(
+        project_name=TEST_PROJECT, version_name="v1", if_exists=if_exists
+    )
 
     expected_query = "ALTER DCM PROJECT my_project DROP VERSION"
     if if_exists:
