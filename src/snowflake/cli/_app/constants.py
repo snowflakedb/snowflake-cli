@@ -21,3 +21,13 @@ PARAM_APPLICATION_NAME: Literal["snowcli"] = "snowcli"
 # This is also defined on server side. Changing this parameter would require
 # a change in https://github.com/snowflakedb/snowflake
 INTERNAL_APPLICATION_NAME: Literal["SNOWFLAKE_CLI"] = "SNOWFLAKE_CLI"
+
+# Authenticator types
+AUTHENTICATOR_WORKLOAD_IDENTITY: Literal["WORKLOAD_IDENTITY"] = "WORKLOAD_IDENTITY"
+AUTHENTICATOR_SNOWFLAKE_JWT: Literal["SNOWFLAKE_JWT"] = "SNOWFLAKE_JWT"
+AUTHENTICATOR_USERNAME_PASSWORD_MFA: Literal[
+    "username_password_mfa"
+] = "username_password_mfa"
+AUTHENTICATOR_OAUTH_AUTHORIZATION_CODE: Literal[
+    "OAUTH_AUTHORIZATION_CODE"
+] = "OAUTH_AUTHORIZATION_CODE"
