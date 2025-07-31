@@ -7886,17 +7886,24 @@
                                                                                   
    Usage: root dcm list [OPTIONS]                                                 
                                                                                   
-   Lists Snowflake objects with support for limit and terse options.              
+   Lists all available DCM Projects.                                              
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like           TEXT     Filter objects by name pattern (supports SQL LIKE  |
-  |                           syntax)                                            |
-  |                           [default: None]                                    |
-  | --limit          INTEGER  Limits the maximum number of rows returned         |
-  |                           [default: None]                                    |
-  | --terse                   Returns only a subset of columns                   |
-  | --help   -h               Show this message and exit.                        |
+  | --like           TEXT            Filter objects by name pattern (supports    |
+  |                                  SQL LIKE syntax)                            |
+  |                                  [default: None]                             |
+  | --limit          INTEGER         Limits the maximum number of rows returned  |
+  |                                  [default: None]                             |
+  | --terse                          Returns only a subset of columns            |
+  | --in             <TEXT TEXT>...                                              |
+  |                                                                              |
+  |                                  Specifies the scope of this command using   |
+  |                                  '--in  ', for example list --in database    |
+  |                                  my_db to list DCM projects in a specific    |
+  |                                  database.                                   |
+  |                                  [default: None, None]                       |
+  | --help   -h                      Show this message and exit.                 |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8169,8 +8176,7 @@
   | describe           Provides description of DCM Project.                      |
   | drop               Drops DCM Project with given name.                        |
   | drop-version       Drops a version from the DCM Project.                     |
-  | list               Lists Snowflake objects with support for limit and terse  |
-  |                    options.                                                  |
+  | list               Lists all available DCM Projects.                         |
   | list-deployments   Lists deployments of given DCM Project.                   |
   | plan               Plans a DCM Project deployment (validates without         |
   |                    executing).                                               |

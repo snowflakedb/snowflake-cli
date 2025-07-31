@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import typer
 from snowflake.cli._plugins.dcm.dcm_project_entity_model import (
@@ -248,15 +248,18 @@ def list_(
     terse: bool = typer.Option(
         False, "--terse", help="Returns only a subset of columns"
     ),
+    scope: Tuple[str, str] = scope_option(
+        help_example="`list --in database my_db` to list DCM projects in a specific database"
+    ),
     **options,
 ):
     """
-    Lists Snowflake objects with support for limit and terse options.
+    Lists all available DCM Projects.
     """
     from snowflake.cli.api.output.types import QueryResult
 
     manager = DCMProjectManager()
-    cursor = manager.show_objects(like=like, limit=limit, terse=terse)
+    cursor = manager.show_objects(like=like, limit=limit, terse=terse, scope=scope)
     return QueryResult(cursor)
 
 
