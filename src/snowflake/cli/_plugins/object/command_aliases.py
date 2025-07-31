@@ -47,10 +47,7 @@ def add_object_command_aliases(
         if not scope_option:
 
             @app.command("list", requires_connection=True)
-            def list_cmd(
-                like: str = like_option,  # type: ignore
-                **options,
-            ):
+            def list_cmd(like: str = like_option, **options):  # type: ignore
                 return list_(
                     object_type=object_type.value.cli_name,
                     like=like,

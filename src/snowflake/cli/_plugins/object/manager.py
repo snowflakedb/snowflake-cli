@@ -46,7 +46,6 @@ class ObjectManager(SqlExecutionMixin):
         scope: Union[Tuple[str, str], Tuple[None, None]] = (None, None),
         **kwargs,
     ) -> SnowflakeCursor:
-
         object_name = _get_object_names(object_type).sf_plural_name
         query = f"show {object_name}"
         if like:
