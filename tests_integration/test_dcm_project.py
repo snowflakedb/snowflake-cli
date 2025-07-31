@@ -579,3 +579,119 @@ def test_project_deploy_with_prune(
         # Clean up
         result = runner.invoke_with_connection(["dcm", "drop", project_name])
         assert result.exit_code == 0, result.output
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_project_plan_with_output_path(
+    runner,
+    test_database,
+    project_directory,
+):
+    """Test that DCM plan command with --output-path option writes output to the specified stage."""
+    project_name = "project_descriptive_name"
+    entity_id = "my_project"
+    source_stage_name = "source_project_stage"
+    output_stage_name = "output_results_stage"
+    output_path = f"@{output_stage_name}/plan_results"
+
+    with project_directory("dcm_project") as project_root:
+        # Create a new project
+        result = runner.invoke_with_connection(["dcm", "create", entity_id])
+        assert result.exit_code == 0, result.output
+        _assert_project_has_versions(runner, project_name, expected_versions=set())
+
+        # Edit file_a.sql to add a table definition for testing
+        file_a_path = project_root / "file_a.sql"
+        original_content = file_a_path.read_text()
+        modified_content = (
+            original_content
+            + "\ndefine table identifier('{{ table_name }}_OUTPUT_TEST') (id int, name string);\n"
+        )
+        file_a_path.write_text(modified_content)
+
+        # Create source stage and upload files there
+        result = runner.invoke_with_connection(["stage", "create", source_stage_name])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(
+            ["stage", "copy", ".", f"@{source_stage_name}"]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Create output stage for plan results
+        result = runner.invoke_with_connection(["stage", "create", output_stage_name])
+        assert result.exit_code == 0, result.output
+
+        # Test plan with output-path option
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "plan",
+                project_name,
+                "--from",
+                f"@{source_stage_name}",
+                "--output-path",
+                output_path,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.OutputTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Verify that the plan was executed successfully
+        output_str = str(result.json)
+        assert (
+            f"{test_database}.PUBLIC.OUTPUTTESTTABLE_OUTPUT_TEST".upper()
+            in output_str.upper()
+        )
+
+        # Verify that the output was written to the specified stage path
+        # Check if there are files in the output stage
+        stage_list_result = runner.invoke_with_connection_json(
+            ["stage", "list-files", output_path]
+        )
+        assert stage_list_result.exit_code == 0, stage_list_result.output
+
+        # There should be at least one file in the output location
+        assert (
+            len(stage_list_result.json) > 0
+        ), "Plan output should be written to the specified stage path"
+
+        # Verify that one of the files contains plan-related content by checking file names
+        file_names = [file["name"] for file in stage_list_result.json]
+        assert any(
+            "plan" in name.lower()
+            or "result" in name.lower()
+            or name.endswith((".json", ".txt", ".sql"))
+            for name in file_names
+        ), f"Expected plan output files, but found: {file_names}"
+
+        # Verify that the table does not exist after plan (plan should not create actual objects)
+        table_check_result = runner.invoke_with_connection_json(
+            [
+                "object",
+                "list",
+                "table",
+                "--like",
+                "OUTPUTTESTTABLE_OUTPUT_TEST",
+                "--in",
+                "database",
+                test_database,
+            ]
+        )
+        assert table_check_result.exit_code == 0
+        assert (
+            len(table_check_result.json) == 0
+        ), "Table should not exist after plan operation"
+
+        # Clean up stages
+        result = runner.invoke_with_connection(["stage", "drop", source_stage_name])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(["stage", "drop", output_stage_name])
+        assert result.exit_code == 0, result.output
+
+        # Clean up project
+        result = runner.invoke_with_connection(["dcm", "drop", project_name])
+        assert result.exit_code == 0, result.output

@@ -84,6 +84,11 @@ alias_option = typer.Option(
     help="Alias for the deployment.",
     show_default=False,
 )
+output_path_option = OverrideableOption(
+    None,
+    "--output-path",
+    show_default=False,
+)
 
 
 add_object_command_aliases(
@@ -119,6 +124,7 @@ def deploy(
         from_stage=from_stage if from_stage else _sync_local_files(prune=prune),
         variables=variables,
         alias=alias,
+        output_path=None,
     )
     return QueryJsonValueResult(result)
 
@@ -132,6 +138,9 @@ def plan(
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
     prune: bool = prune_option(),
+    output_path: Optional[str] = output_path_option(
+        help="Stage path where the deployment plan output will be stored."
+    ),
     **options,
 ):
     """
@@ -143,6 +152,7 @@ def plan(
         from_stage=from_stage if from_stage else _sync_local_files(prune=prune),
         dry_run=True,
         variables=variables,
+        output_path=output_path,
     )
     return QueryJsonValueResult(result)
 

@@ -8038,6 +8038,8 @@
   |                                not specified default configuration is used.  |
   | --prune                        Remove unused artifacts from the stage during |
   |                                sync. Mutually exclusive with --from.         |
+  | --output-path            TEXT  Stage path where the deployment plan output   |
+  |                                will be stored.                               |
   | --help           -h            Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+

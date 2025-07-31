@@ -157,3 +157,55 @@ def test_drop_version(mock_execute_query, if_exists):
     expected_query += " v1"
 
     mock_execute_query.assert_called_once_with(query=expected_query)
+
+
+@mock.patch(execute_queries)
+def test_validate_project_with_output_path(mock_execute_query, project_directory):
+    mgr = DCMProjectManager()
+    mgr.execute(
+        project_name=TEST_PROJECT,
+        from_stage="@test_stage",
+        dry_run=True,
+        configuration="some_configuration",
+        output_path="@output_stage/results",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration FROM @test_stage OUTPUT_PATH @output_stage/results"
+    )
+
+
+@mock.patch(execute_queries)
+@pytest.mark.parametrize(
+    "output_stage_name", ["@output_stage/path", "output_stage/path"]
+)
+def test_validate_project_with_output_path_different_formats(
+    mock_execute_query, project_directory, output_stage_name
+):
+    mgr = DCMProjectManager()
+    mgr.execute(
+        project_name=TEST_PROJECT,
+        from_stage="@test_stage",
+        dry_run=True,
+        output_path=output_stage_name,
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN FROM @test_stage OUTPUT_PATH @output_stage/path"
+    )
+
+
+@mock.patch(execute_queries)
+def test_deploy_project_with_output_path(mock_execute_query, project_directory):
+    mgr = DCMProjectManager()
+    mgr.execute(
+        project_name=TEST_PROJECT,
+        from_stage="@test_stage",
+        dry_run=False,
+        alias="v1",
+        output_path="@output_stage",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY AS v1 FROM @test_stage OUTPUT_PATH @output_stage"
+    )
