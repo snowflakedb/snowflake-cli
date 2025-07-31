@@ -62,7 +62,9 @@ from snowflake.cli.api.config import (
     get_all_connections,
     get_connection_dict,
     get_default_connection_name,
+    remove_connection_from_proper_file,
     set_config_value,
+    unset_config_value,
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
@@ -314,6 +316,33 @@ def add(
         )
     return MessageResult(
         f"Wrote new connection {connection_name} to {connections_file}"
+    )
+
+
+@app.command()
+def remove(
+    connection_name: str = typer.Option(
+        None,
+        "--connection-name",
+        "-n",
+        help="Name of the connection to remove.",
+        show_default=False,
+    ),
+    **options,
+):
+    """Removes a connection from configuration file."""
+    if not connection_exists(connection_name):
+        raise UsageError(f"Connection {connection_name} does not exist.")
+
+    is_default = get_default_connection_name() == connection_name
+    if is_default:
+        unset_config_value(path=["default_connection_name"])
+
+    connections_file = remove_connection_from_proper_file(connection_name)
+
+    return MessageResult(
+        f"Removed connection {connection_name} from {connections_file}."
+        f"{' It was the default connection, so default connection is now unset.' if is_default else ''}"
     )
 
 

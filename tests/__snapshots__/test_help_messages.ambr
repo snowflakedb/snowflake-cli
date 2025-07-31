@@ -4676,6 +4676,42 @@
   
   '''
 # ---
+# name: test_help_messages[connection.remove]
+  '''
+                                                                                  
+   Usage: root connection remove [OPTIONS]                                        
+                                                                                  
+   Removes a connection from configuration file.                                  
+                                                                                  
+                                                                                  
+  +- Options --------------------------------------------------------------------+
+  | --connection-name  -n      TEXT  Name of the connection to remove.           |
+  | --help             -h            Show this message and exit.                 |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[connection.set-default]
   '''
                                                                                   
@@ -4857,6 +4893,7 @@
   | generate-jwt   Generate a JWT token, which will be printed out and           |
   |                displayed..                                                   |
   | list           Lists configured connections.                                 |
+  | remove         Removes a connection from configuration file.                 |
   | set-default    Changes default connection to provided value.                 |
   | test           Tests the connection to Snowflake.                            |
   +------------------------------------------------------------------------------+
@@ -20729,6 +20766,7 @@
   | generate-jwt   Generate a JWT token, which will be printed out and           |
   |                displayed..                                                   |
   | list           Lists configured connections.                                 |
+  | remove         Removes a connection from configuration file.                 |
   | set-default    Changes default connection to provided value.                 |
   | test           Tests the connection to Snowflake.                            |
   +------------------------------------------------------------------------------+
