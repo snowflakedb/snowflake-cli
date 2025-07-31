@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 from typing import List, Optional
 
 import typer
@@ -22,13 +21,13 @@ from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     IfExistsOption,
     IfNotExistsOption,
     OverrideableOption,
-    PruneOption,
     entity_argument,
     identifier_argument,
     like_option,
@@ -46,6 +45,7 @@ from snowflake.cli.api.output.types import (
     QueryJsonValueResult,
     QueryResult,
 )
+from snowflake.cli.api.project.project_paths import ProjectPaths
 
 app = SnowTyperFactory(
     name="dcm",
@@ -54,12 +54,6 @@ app = SnowTyperFactory(
 )
 
 dcm_identifier = identifier_argument(sf_object="DCM Project", example="MY_PROJECT")
-version_flag = typer.Option(
-    None,
-    "--version",
-    help="Version of the DCM Project to use. If not specified default version is used. For names containing '$', use single quotes to prevent shell expansion (e.g., 'VERSION$1').",
-    show_default=False,
-)
 variables_flag = variables_option(
     'Variables for the execution context; for example: `-D "<key>=<value>"`.'
 )
@@ -72,6 +66,22 @@ configuration_flag = typer.Option(
 from_option = OverrideableOption(
     None,
     "--from",
+    mutually_exclusive=["prune"],
+    show_default=False,
+)
+
+prune_option = OverrideableOption(
+    False,
+    "--prune",
+    help="Remove unused artifacts from the stage during sync. Mutually exclusive with --from.",
+    mutually_exclusive=["from_stage"],
+    show_default=False,
+)
+
+alias_option = typer.Option(
+    None,
+    "--alias",
+    help="Alias for the deployment.",
     show_default=False,
 )
 
@@ -91,26 +101,24 @@ add_object_command_aliases(
 @app.command(requires_connection=True)
 def deploy(
     identifier: FQN = dcm_identifier,
-    version: Optional[str] = version_flag,
     from_stage: Optional[str] = from_option(
-        help="Apply changes defined in given stage instead of using a specific project version."
+        help="Deploy DCM Project deployment from a given stage."
     ),
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
+    alias: Optional[str] = alias_option,
+    prune: bool = prune_option(),
     **options,
 ):
     """
     Applies changes defined in DCM Project to Snowflake.
     """
-    if version and from_stage:
-        raise CliError("--version and --from are mutually exclusive.")
-
     result = DCMProjectManager().execute(
         project_name=identifier,
         configuration=configuration,
-        version=version,
-        from_stage=from_stage,
+        from_stage=from_stage if from_stage else _sync_local_files(prune=prune),
         variables=variables,
+        alias=alias,
     )
     return QueryJsonValueResult(result)
 
@@ -118,25 +126,21 @@ def deploy(
 @app.command(requires_connection=True)
 def plan(
     identifier: FQN = dcm_identifier,
-    version: Optional[str] = version_flag,
     from_stage: Optional[str] = from_option(
-        help="Plan DCM Project deployment from given stage instead of using a specific version."
+        help="Plan DCM Project deployment from a given stage."
     ),
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
+    prune: bool = prune_option(),
     **options,
 ):
     """
     Plans a DCM Project deployment (validates without executing).
     """
-    if version and from_stage:
-        raise CliError("--version and --from are mutually exclusive.")
-
     result = DCMProjectManager().execute(
         project_name=identifier,
         configuration=configuration,
-        version=version,
-        from_stage=from_stage,
+        from_stage=from_stage if from_stage else _sync_local_files(prune=prune),
         dry_run=True,
         variables=variables,
     )
@@ -147,11 +151,6 @@ def plan(
 @with_project_definition()
 def create(
     entity_id: str = entity_argument("dcm"),
-    no_version: bool = typer.Option(
-        False,
-        "--no-version",
-        help="Do not initialize DCM Project with a new version, only create the snowflake object.",
-    ),
     if_not_exists: bool = IfNotExistsOption(
         help="Do nothing if the project already exists."
     ),
@@ -159,7 +158,6 @@ def create(
 ):
     """
     Creates a DCM Project in Snowflake.
-    By default, the DCM Project is initialized with a new version created from local files.
     """
     cli_context = get_cli_context()
     project: DCMProjectEntityModel = get_entity_for_operation(
@@ -175,76 +173,23 @@ def create(
             return MessageResult(message)
         raise CliError(message)
 
-    if not no_version and om.object_exists(
-        object_type="stage", fqn=FQN.from_stage(project.stage)
-    ):
+    if om.object_exists(object_type="stage", fqn=FQN.from_stage(project.stage)):
         raise CliError(f"Stage '{project.stage}' already exists.")
 
     dpm = DCMProjectManager()
     with cli_console.phase(f"Creating DCM Project '{project.fqn}'"):
-        dpm.create(project=project, initialize_version_from_local_files=not no_version)
+        dpm.create(project=project)
 
-    if no_version:
-        return MessageResult(f"DCM Project '{project.fqn}' successfully created.")
-    return MessageResult(
-        f"DCM Project '{project.fqn}' successfully created and initial version is added."
-    )
+    return MessageResult(f"DCM Project '{project.fqn}' successfully created.")
 
 
 @app.command(requires_connection=True)
-@with_project_definition()
-def add_version(
-    entity_id: str = entity_argument("dcm"),
-    _from: Optional[str] = from_option(
-        help="Create a new version using given stage instead of uploading local files."
-    ),
-    _alias: Optional[str] = typer.Option(
-        None, "--alias", help="Alias for the version.", show_default=False
-    ),
-    comment: Optional[str] = typer.Option(
-        None, "--comment", help="Version comment.", show_default=False
-    ),
-    prune: bool = PruneOption(default=True),
-    **options,
-):
-    """Uploads local files to Snowflake and cerates a new DCM Project version."""
-    if _from is not None and prune:
-        cli_console.warning(
-            "When `--from` option is used, `--prune` option will be ignored and files from stage will be used as they are."
-        )
-        prune = False
-    cli_context = get_cli_context()
-    project: DCMProjectEntityModel = get_entity_for_operation(
-        cli_context=cli_context,
-        entity_id=entity_id,
-        project_definition=cli_context.project_definition,
-        entity_type="dcm",
-    )
-    om = ObjectManager()
-    if not om.object_exists(object_type="dcm", fqn=project.fqn):
-        raise CliError(
-            f"DCM Project '{project.fqn}' does not exist. Use `dcm create` command first."
-        )
-    DCMProjectManager().add_version(
-        project=project,
-        prune=prune,
-        from_stage=_from,
-        alias=_alias,
-        comment=comment,
-    )
-    alias_str = "" if _alias is None else f"'{_alias}' "
-    return MessageResult(
-        f"New version {alias_str}added to DCM Project '{project.fqn}'."
-    )
-
-
-@app.command(requires_connection=True)
-def list_versions(
+def list_deployments(
     identifier: FQN = dcm_identifier,
     **options,
 ):
     """
-    Lists versions of given DCM Project.
+    Lists deployments of given DCM Project.
     """
     pm = DCMProjectManager()
     results = pm.list_versions(project_name=identifier)
@@ -280,3 +225,23 @@ def drop_version(
     return MessageResult(
         f"Version '{version_name}' dropped from DCM Project '{identifier}'."
     )
+
+
+def _sync_local_files(prune: bool = False) -> str:
+    cli_context = get_cli_context()
+    project_entity = get_entity_for_operation(
+        cli_context=cli_context,
+        entity_id=None,
+        project_definition=cli_context.project_definition,
+        entity_type="dcm",
+    )
+
+    with cli_console.phase("Syncing local files to stage"):
+        sync_artifacts_with_stage(
+            project_paths=ProjectPaths(project_root=cli_context.project_root),
+            stage_root=project_entity.stage,
+            artifacts=project_entity.artifacts,
+            prune=prune,
+        )
+
+    return project_entity.stage
