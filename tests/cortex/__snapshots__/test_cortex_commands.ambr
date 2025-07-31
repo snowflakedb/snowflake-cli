@@ -1,9 +1,6 @@
 # serializer version: 1
 # name: test_if_search_raises_exception_for_312
   '''
-  /Users/mraba/sources/snowflake-cli/.hatch/snowflake-cli/lib/python3.10/site-packages/pydantic/_internal/_config.py:373: UserWarning: Valid config keys have changed in V2:
-  * 'allow_population_by_field_name' has been renamed to 'validate_by_name'
-    warnings.warn(message, UserWarning)
   +- Error ----------------------------------------------------------------------+
   | Cortex Search uses Snowflake Python API that currently does not support your |
   | Python version                                                               |
