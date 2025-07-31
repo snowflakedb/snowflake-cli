@@ -23,6 +23,7 @@ import snowflake.connector
 from click.exceptions import ClickException
 from snowflake.cli import __about__
 from snowflake.cli._app.constants import (
+    AUTHENTICATOR_WORKLOAD_IDENTITY,
     INTERNAL_APPLICATION_NAME,
     PARAM_APPLICATION_NAME,
 )
@@ -36,6 +37,7 @@ from snowflake.cli.api.config import (
 )
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import (
+    CliConnectionError,
     InvalidConnectionConfigurationError,
     SnowflakeConnectionError,
 )
@@ -157,14 +159,14 @@ def connect_to_snowflake(
         connection_parameters["client_request_mfa_token"] = True
 
     # Handle WORKLOAD_IDENTITY authenticator (OIDC federated authentication)
-    if connection_parameters.get("authenticator") == "WORKLOAD_IDENTITY":
+    if connection_parameters.get("authenticator") == AUTHENTICATOR_WORKLOAD_IDENTITY:
         try:
             manager = OidcManager()
             token = manager.read("auto")  # Auto-detect the OIDC provider
             connection_parameters["token"] = token
         except Exception as e:
-            raise ClickException(
-                f"Failed to retrieve WORKLOAD_IDENTITY token: {str(e)}"
+            raise CliConnectionError(
+                f"Failed to retrieve {AUTHENTICATOR_WORKLOAD_IDENTITY} token: {str(e)}"
             )
 
     if enable_diag:
