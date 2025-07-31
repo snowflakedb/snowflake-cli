@@ -16,6 +16,7 @@ import logging
 from functools import cached_property
 
 from snowflake.cli._app.auth.oidc_providers import (
+    OidcProviderError,
     auto_detect_oidc_provider,
     get_active_oidc_provider,
     get_oidc_provider,
@@ -73,6 +74,10 @@ class OidcManager(SqlExecutionMixin):
                 raise CliError("Provider '%s' is not available" % provider_type)
 
             issuer = provider.issuer
+        except OidcProviderError as e:
+            error_msg = "OIDC provider configuration error: %s" % str(e)
+            logger.error(error_msg)
+            raise CliError(error_msg)
         except Exception as e:
             error_msg = "Failed to get OIDC provider '%s': %s" % (provider_type, str(e))
             logger.error(error_msg)
@@ -165,6 +170,10 @@ class OidcManager(SqlExecutionMixin):
                 if provider is None:
                     raise CliError(f"Provider '{provider_type}' is not available")
                 return provider.get_token()
+        except OidcProviderError as e:
+            error_msg = "OIDC provider error: %s" % str(e)
+            logger.error(error_msg)
+            raise CliError(error_msg)
         except Exception as e:
             error_msg = "Failed to read OIDC token: %s" % str(e)
             logger.error(error_msg)
@@ -196,6 +205,7 @@ class OidcManager(SqlExecutionMixin):
 
         try:
             # Determine which column to check based on parameter value
+            # TODO: This is a temporary solution to check if OIDC is enabled. SNOW-2236350
             if self._has_oidc_enabled:
                 logger.debug("Using has_workload_identity column")
                 users_query = 'show terse users ->> select * from $1 where "has_workload_identity" = true'

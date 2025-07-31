@@ -18,6 +18,7 @@ from unittest.mock import Mock, patch
 import pytest
 from snowflake.cli._app.auth.oidc_providers import (
     GitHubOidcProvider,
+    OidcProviderError,
     OidcProviderRegistry,
     OidcProviderType,
     OidcTokenProvider,
@@ -37,10 +38,23 @@ class TestGitHubOidcProvider:
         provider = GitHubOidcProvider()
         assert provider.provider_name == OidcProviderType.GITHUB.value
 
+    @patch.dict(
+        os.environ,
+        {"ACTIONS_ID_TOKEN_REQUEST_URL": "https://token.actions.githubusercontent.com"},
+    )
     def test_issuer(self):
-        """Test issuer property."""
+        """Test issuer property with environment variable set."""
         provider = GitHubOidcProvider()
         assert provider.issuer == "https://token.actions.githubusercontent.com"
+
+    def test_issuer_missing_env_var(self):
+        """Test issuer property when environment variable is not set."""
+        provider = GitHubOidcProvider()
+        with pytest.raises(
+            OidcProviderError,
+            match="ACTIONS_ID_TOKEN_REQUEST_URL environment variable is not set",
+        ):
+            _ = provider.issuer
 
     def test_generate_subject(self):
         """Test generate_subject static method."""
@@ -87,6 +101,10 @@ class TestGitHubOidcProvider:
         assert provider.is_available is False
 
     @patch("snowflake.cli._app.auth.oidc_providers.oidc_id")
+    @patch.dict(
+        os.environ,
+        {"ACTIONS_ID_TOKEN_REQUEST_URL": "https://token.actions.githubusercontent.com"},
+    )
     def test_get_token_success(self, mock_oidc_id):
         """Test get_token when credentials are available."""
         mock_oidc_id.detect_credential.return_value = "mock_token"
@@ -98,33 +116,49 @@ class TestGitHubOidcProvider:
         mock_oidc_id.detect_credential.assert_called_once_with("snowflakecomputing.com")
 
     @patch("snowflake.cli._app.auth.oidc_providers.oidc_id")
+    @patch.dict(
+        os.environ,
+        {"ACTIONS_ID_TOKEN_REQUEST_URL": "https://token.actions.githubusercontent.com"},
+    )
     def test_get_token_no_credentials(self, mock_oidc_id):
         """Test get_token when no credentials are detected."""
         mock_oidc_id.detect_credential.return_value = None
 
         provider = GitHubOidcProvider()
 
-        with pytest.raises(CliError, match="No OIDC credentials detected"):
+        with pytest.raises(OidcProviderError, match="No OIDC credentials detected"):
             provider.get_token()
 
     @patch("snowflake.cli._app.auth.oidc_providers.oidc_id")
+    @patch.dict(
+        os.environ,
+        {"ACTIONS_ID_TOKEN_REQUEST_URL": "https://token.actions.githubusercontent.com"},
+    )
     def test_get_token_exception(self, mock_oidc_id):
         """Test get_token when an exception occurs."""
         mock_oidc_id.detect_credential.side_effect = Exception("Detection failed")
 
         provider = GitHubOidcProvider()
 
-        with pytest.raises(CliError, match="Failed to detect OIDC credentials"):
+        with pytest.raises(
+            OidcProviderError, match="Failed to detect OIDC credentials"
+        ):
             provider.get_token()
 
     @patch("snowflake.cli._app.auth.oidc_providers.oidc_id")
+    @patch.dict(
+        os.environ,
+        {"ACTIONS_ID_TOKEN_REQUEST_URL": "https://token.actions.githubusercontent.com"},
+    )
     def test_get_token_import_error(self, mock_oidc_id):
         """Test get_token when import fails."""
         mock_oidc_id.detect_credential.side_effect = ImportError("Module not found")
 
         provider = GitHubOidcProvider()
 
-        with pytest.raises(CliError, match="Failed to detect OIDC credentials"):
+        with pytest.raises(
+            OidcProviderError, match="Failed to detect OIDC credentials"
+        ):
             provider.get_token()
 
 
