@@ -7890,17 +7890,20 @@
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
-  |                                 name. For example, list --like "my%" lists   |
-  |                                 all DCM Projects that begin with "my".       |
-  |                                 [default: %%]                                |
-  | --in            <TEXT TEXT>...                                               |
+  | --like           TEXT            Filter objects by name pattern (supports    |
+  |                                  SQL LIKE syntax)                            |
+  |                                  [default: None]                             |
+  | --limit          INTEGER         Limits the maximum number of rows returned  |
+  |                                  [default: None]                             |
+  | --terse                          Returns only a subset of columns            |
+  | --in             <TEXT TEXT>...                                              |
   |                                                                              |
-  |                                 Specifies the scope of this command using    |
-  |                                 '--in  ', for example list --in database     |
-  |                                 my_db.                                       |
-  |                                 [default: None, None]                        |
-  | --help  -h                      Show this message and exit.                  |
+  |                                  Specifies the scope of this command using   |
+  |                                  '--in  ', for example list --in database    |
+  |                                  my_db to list DCM projects in a specific    |
+  |                                  database.                                   |
+  |                                  [default: None, None]                       |
+  | --help   -h                      Show this message and exit.                 |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
