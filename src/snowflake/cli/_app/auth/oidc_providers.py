@@ -25,6 +25,13 @@ from snowflake.cli.api.exceptions import CliError
 
 logger = logging.getLogger(__name__)
 
+
+class OidcProviderError(Exception):
+    """Exception raised when OIDC provider configuration is invalid or missing."""
+
+    ...
+
+
 SNOWFLAKE_AUDIENCE_ENV = "SNOWFLAKE_AUDIENCE"
 
 
@@ -77,7 +84,7 @@ class OidcTokenProvider(ABC):
             The OIDC token string
 
         Raises:
-            CliError: If token cannot be retrieved
+            OidcProviderError: If token cannot be retrieved
         """
         pass
 
@@ -102,8 +109,15 @@ class GitHubOidcProvider(OidcTokenProvider):
     OIDC token provider for GitHub Actions.
     """
 
-    # Audience URL - configurable via environment variable
-    AUDIENCE = os.getenv(SNOWFLAKE_AUDIENCE_ENV, "snowflakecomputing.com")
+    @property
+    def audience(self) -> str:
+        """
+        Returns the audience URL for GitHub OIDC.
+
+        Returns:
+            The audience URL, defaults to 'snowflakecomputing.com' if SNOWFLAKE_AUDIENCE environment variable is not set
+        """
+        return os.getenv(SNOWFLAKE_AUDIENCE_ENV, "snowflakecomputing.com")
 
     @property
     def issuer(self) -> str:
@@ -112,8 +126,17 @@ class GitHubOidcProvider(OidcTokenProvider):
 
         Returns:
             The GitHub OIDC issuer URL
+
+        Raises:
+            OidcProviderError: If ACTIONS_ID_TOKEN_REQUEST_URL environment variable is not set
         """
-        return "https://token.actions.githubusercontent.com"
+        issuer_url = os.getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
+        if not issuer_url:
+            raise OidcProviderError(
+                "ACTIONS_ID_TOKEN_REQUEST_URL environment variable is not set. "
+                "This variable is required for GitHub Actions OIDC authentication."
+            )
+        return issuer_url
 
     @staticmethod
     def generate_subject(github_repository: str, env: str) -> str:
@@ -157,10 +180,10 @@ class GitHubOidcProvider(OidcTokenProvider):
         try:
             logger.debug("Detecting OIDC credentials for token retrieval")
             # Use configurable audience for workload identity
-            token = oidc_id.detect_credential(self.AUDIENCE)
+            token = oidc_id.detect_credential(self.audience)
             if not token:
                 logger.error("No OIDC credentials detected")
-                raise CliError(
+                raise OidcProviderError(
                     "No OIDC credentials detected. This command should be run in a GitHub Actions environment."
                 )
 
@@ -168,7 +191,7 @@ class GitHubOidcProvider(OidcTokenProvider):
             return token
         except Exception as e:
             logger.error("Failed to detect OIDC credentials: %s", str(e))
-            raise CliError("Failed to detect OIDC credentials: %s" % str(e))
+            raise OidcProviderError("Failed to detect OIDC credentials: %s" % str(e))
 
 
 class OidcProviderRegistry:
