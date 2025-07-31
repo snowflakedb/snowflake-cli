@@ -20,6 +20,7 @@ from snowflake.cli._app.auth.oidc_providers import (
 from snowflake.cli._plugins.auth.oidc.manager import (
     OidcManager,
 )
+from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import MessageResult, QueryResult
 
@@ -29,20 +30,12 @@ app = SnowTyperFactory(
 )
 
 # Option definitions
-FederatedUserOption = typer.Option(
+FederatedUserOption = OverrideableOption(
     ...,
     "--federated-user",
     show_default=False,
-    help="Name for the federated user to create",
+    help="Name for the federated user",
     prompt="Enter federated user name",
-)
-
-FederatedUserDeleteOption = typer.Option(
-    ...,
-    "--federated-user",
-    show_default=False,
-    help="Name of the federated user to delete",
-    prompt="Enter federated user name to delete",
 )
 
 SubjectOption = typer.Option(
@@ -81,7 +74,10 @@ AutoProviderTypeOption = typer.Option(
 @app.command("setup", requires_connection=True)
 def setup(
     _type: str = ProviderTypeOption,
-    federated_user: str = FederatedUserOption,
+    federated_user: str = FederatedUserOption(
+        help="Name for the federated user to create",
+        prompt="Enter federated user name",
+    ),
     subject: str = SubjectOption,
     default_role: str = DefaultRoleOption,
     **options,
@@ -101,7 +97,10 @@ def setup(
 
 @app.command("delete", requires_connection=True)
 def delete(
-    federated_user: str = FederatedUserDeleteOption,
+    federated_user: str = FederatedUserOption(
+        help="Name of the federated user to delete",
+        prompt="Enter federated user name to delete",
+    ),
     **options,
 ):
     """
