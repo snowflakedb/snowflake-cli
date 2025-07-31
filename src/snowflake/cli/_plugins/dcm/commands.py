@@ -237,6 +237,29 @@ def drop_version(
     )
 
 
+@app.command("list", requires_connection=True)
+def list_(
+    like: Optional[str] = typer.Option(
+        None, "--like", help="Filter objects by name pattern (supports SQL LIKE syntax)"
+    ),
+    limit: Optional[int] = typer.Option(
+        None, "--limit", help="Limits the maximum number of rows returned"
+    ),
+    terse: bool = typer.Option(
+        False, "--terse", help="Returns only a subset of columns"
+    ),
+    **options,
+):
+    """
+    Lists Snowflake objects with support for limit and terse options.
+    """
+    from snowflake.cli.api.output.types import QueryResult
+
+    manager = DCMProjectManager()
+    cursor = manager.show_objects(like=like, limit=limit, terse=terse)
+    return QueryResult(cursor)
+
+
 def _sync_local_files(prune: bool = False) -> str:
     cli_context = get_cli_context()
     project_entity = get_entity_for_operation(

@@ -29,16 +29,6 @@ from snowflake.connector.cursor import SnowflakeCursor
 from snowflake.connector.errors import BadRequest
 from snowflake.connector.vendored.requests.exceptions import HTTPError
 
-# Object types that support the TERSE keyword in their SHOW commands
-# Based on Snowflake documentation research
-TERSE_SUPPORTED_OBJECTS = {
-    "database",  # SHOW [TERSE] DATABASES
-    "schema",  # SHOW [TERSE] SCHEMAS
-    "table",  # SHOW [TERSE] TABLES
-    "view",  # SHOW [TERSE] OBJECTS (includes views)
-    # Add more as they are verified to support TERSE
-}
-
 
 def _get_object_names(object_type: str) -> ObjectNames:
     object_type = object_type.lower()
@@ -54,28 +44,15 @@ class ObjectManager(SqlExecutionMixin):
         object_type: str,
         like: Optional[str] = None,
         scope: Union[Tuple[str, str], Tuple[None, None]] = (None, None),
-        limit: Optional[int] = None,
-        terse: bool = False,
         **kwargs,
     ) -> SnowflakeCursor:
-        # Validate TERSE support for the object type
-        if terse and object_type.lower() not in TERSE_SUPPORTED_OBJECTS:
-            raise ClickException(
-                f"The --terse option is not supported for object type '{object_type}'. "
-                f"TERSE is only supported for: {', '.join(sorted(TERSE_SUPPORTED_OBJECTS))}"
-            )
 
         object_name = _get_object_names(object_type).sf_plural_name
-        query = f"show"
-        if terse:
-            query += " terse"
-        query += f" {object_name}"
+        query = f"show {object_name}"
         if like:
             query += f" like '{like}'"
         if scope[0] is not None:
             query += f" in {scope[0].replace('-', ' ')} {scope[1]}"
-        if limit:
-            query += f" limit {limit}"
         return self.execute_query(query, **kwargs)
 
     def drop(self, *, object_type: str, fqn: FQN) -> SnowflakeCursor:

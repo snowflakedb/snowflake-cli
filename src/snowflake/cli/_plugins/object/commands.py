@@ -73,18 +73,6 @@ for every object.
 LikeOption = like_option(
     help_example='`list function --like "my%"` lists all functions that begin with “my”',
 )
-LimitOption = typer.Option(
-    None,
-    "--limit",
-    help="Limits the maximum number of rows returned.",
-    show_default=False,
-)
-TerseOption = typer.Option(
-    False,
-    "--terse",
-    help="Returns only a subset of columns.",
-    show_default=False,
-)
 
 
 def _scope_validate(object_type: str, scope: Tuple[str, str]):
@@ -122,15 +110,11 @@ def list_(
     object_type: str = ObjectArgument,
     like: str = LikeOption,
     scope: Tuple[str, str] = ScopeOption,
-    limit: Optional[int] = LimitOption,
-    terse: bool = TerseOption,
     **options,
 ):
     _scope_validate(object_type, scope)
     return QueryResult(
-        ObjectManager().show(
-            object_type=object_type, like=like, scope=scope, limit=limit, terse=terse
-        )
+        ObjectManager().show(object_type=object_type, like=like, scope=scope)
     )
 
 

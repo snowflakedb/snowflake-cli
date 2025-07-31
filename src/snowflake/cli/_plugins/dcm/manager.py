@@ -80,6 +80,25 @@ class DCMProjectManager(SqlExecutionMixin):
         query = f"SHOW VERSIONS IN DCM PROJECT {project_name.identifier}"
         return self.execute_query(query=query)
 
+    def show_objects(
+        self,
+        like: str | None = None,
+        limit: int | None = None,
+        terse: bool = False,
+    ):
+        """
+        Custom show method for DCM objects with limit and terse support.
+        """
+        query = f"show"
+        if terse:
+            query += " terse"
+        query += f" dcm projects"
+        if like:
+            query += f" like '{like}'"
+        if limit:
+            query += f" limit {limit}"
+        return self.execute_query(query=query)
+
     def drop_version(
         self,
         project_name: FQN,

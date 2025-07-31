@@ -6935,19 +6935,17 @@
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like   -l      TEXT            SQL LIKE pattern for filtering objects by   |
-  |                                  name. For example, list --like "my%" lists  |
-  |                                  all dbt projects that begin with "my".      |
-  |                                  [default: %%]                               |
-  | --in             <TEXT TEXT>...                                              |
+  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
+  |                                 name. For example, list --like "my%" lists   |
+  |                                 all dbt projects that begin with "my".       |
+  |                                 [default: %%]                                |
+  | --in            <TEXT TEXT>...                                               |
   |                                                                              |
-  |                                  Specifies the scope of this command using   |
-  |                                  '--in  ', for example list --in database    |
-  |                                  my_db.                                      |
-  |                                  [default: None, None]                       |
-  | --limit          INTEGER         Limits the maximum number of rows returned. |
-  | --terse                          Returns only a subset of columns.           |
-  | --help   -h                      Show this message and exit.                 |
+  |                                 Specifies the scope of this command using    |
+  |                                 '--in  ', for example list --in database     |
+  |                                 my_db.                                       |
+  |                                 [default: None, None]                        |
+  | --help  -h                      Show this message and exit.                  |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7888,23 +7886,17 @@
                                                                                   
    Usage: root dcm list [OPTIONS]                                                 
                                                                                   
-   Lists all available DCM Projects.                                              
+   Lists Snowflake objects with support for limit and terse options.              
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like   -l      TEXT            SQL LIKE pattern for filtering objects by   |
-  |                                  name. For example, list --like "my%" lists  |
-  |                                  all DCM Projects that begin with "my".      |
-  |                                  [default: %%]                               |
-  | --in             <TEXT TEXT>...                                              |
-  |                                                                              |
-  |                                  Specifies the scope of this command using   |
-  |                                  '--in  ', for example list --in database    |
-  |                                  my_db.                                      |
-  |                                  [default: None, None]                       |
-  | --limit          INTEGER         Limits the maximum number of rows returned. |
-  | --terse                          Returns only a subset of columns.           |
-  | --help   -h                      Show this message and exit.                 |
+  | --like           TEXT     Filter objects by name pattern (supports SQL LIKE  |
+  |                           syntax)                                            |
+  |                           [default: None]                                    |
+  | --limit          INTEGER  Limits the maximum number of rows returned         |
+  |                           [default: None]                                    |
+  | --terse                   Returns only a subset of columns                   |
+  | --help   -h               Show this message and exit.                        |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -8177,7 +8169,8 @@
   | describe           Provides description of DCM Project.                      |
   | drop               Drops DCM Project with given name.                        |
   | drop-version       Drops a version from the DCM Project.                     |
-  | list               Lists all available DCM Projects.                         |
+  | list               Lists Snowflake objects with support for limit and terse  |
+  |                    options.                                                  |
   | list-deployments   Lists deployments of given DCM Project.                   |
   | plan               Plans a DCM Project deployment (validates without         |
   |                    executing).                                               |
@@ -9279,20 +9272,18 @@
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like   -l      TEXT            SQL LIKE pattern for filtering objects by   |
-  |                                  name. For example, list --like "my%" lists  |
-  |                                  all git repositories with name that begin   |
-  |                                  with “my”.                                  |
-  |                                  [default: %%]                               |
-  | --in             <TEXT TEXT>...                                              |
+  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
+  |                                 name. For example, list --like "my%" lists   |
+  |                                 all git repositories with name that begin    |
+  |                                 with “my”.                                   |
+  |                                 [default: %%]                                |
+  | --in            <TEXT TEXT>...                                               |
   |                                                                              |
-  |                                  Specifies the scope of this command using   |
-  |                                  '--in  ', for example list --in database    |
-  |                                  my_db.                                      |
-  |                                  [default: None, None]                       |
-  | --limit          INTEGER         Limits the maximum number of rows returned. |
-  | --terse                          Returns only a subset of columns.           |
-  | --help   -h                      Show this message and exit.                 |
+  |                                 Specifies the scope of this command using    |
+  |                                 '--in  ', for example list --in database     |
+  |                                 my_db.                                       |
+  |                                 [default: None, None]                        |
+  | --help  -h                      Show this message and exit.                  |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -10907,22 +10898,20 @@
   |                             [required]                                       |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --like   -l      TEXT            SQL LIKE pattern for filtering objects by   |
-  |                                  name. For example, list function --like     |
-  |                                  "my%" lists all functions that begin with   |
-  |                                  “my”.                                       |
-  |                                  [default: %%]                               |
-  | --in             <TEXT TEXT>...                                              |
+  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
+  |                                 name. For example, list function --like      |
+  |                                 "my%" lists all functions that begin with    |
+  |                                 “my”.                                        |
+  |                                 [default: %%]                                |
+  | --in            <TEXT TEXT>...                                               |
   |                                                                              |
-  |                                  Specifies the scope of this command using   |
-  |                                  '--in  ', for example list table --in       |
-  |                                  database my_db. Some object types have      |
-  |                                  specialized scopes (e.g. list service --in  |
-  |                                  compute-pool my_pool).                      |
-  |                                  [default: None, None]                       |
-  | --limit          INTEGER         Limits the maximum number of rows returned. |
-  | --terse                          Returns only a subset of columns.           |
-  | --help   -h                      Show this message and exit.                 |
+  |                                 Specifies the scope of this command using    |
+  |                                 '--in  ', for example list table --in        |
+  |                                 database my_db. Some object types have       |
+  |                                 specialized scopes (e.g. list service --in   |
+  |                                 compute-pool my_pool).                       |
+  |                                 [default: None, None]                        |
+  | --help  -h                      Show this message and exit.                  |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -13087,13 +13076,11 @@
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like   -l      TEXT     SQL LIKE pattern for filtering objects by name.    |
-  |                           For example, list --like "my%" lists all compute   |
-  |                           pools that begin with “my”..                       |
-  |                           [default: %%]                                      |
-  | --limit          INTEGER  Limits the maximum number of rows returned.        |
-  | --terse                   Returns only a subset of columns.                  |
-  | --help   -h               Show this message and exit.                        |
+  | --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    |
+  |                       example, list --like "my%" lists all compute pools     |
+  |                       that begin with “my”..                                 |
+  |                       [default: %%]                                          |
+  | --help  -h            Show this message and exit.                            |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -15142,19 +15129,17 @@
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like   -l      TEXT            SQL LIKE pattern for filtering objects by   |
-  |                                  name. For example, --like "my%" lists all   |
-  |                                  image repositories that begin with “my”..   |
-  |                                  [default: %%]                               |
-  | --in             <TEXT TEXT>...                                              |
+  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
+  |                                 name. For example, --like "my%" lists all    |
+  |                                 image repositories that begin with “my”..    |
+  |                                 [default: %%]                                |
+  | --in            <TEXT TEXT>...                                               |
   |                                                                              |
-  |                                  Specifies the scope of this command using   |
-  |                                  '--in  ', for example list --in database    |
-  |                                  my_db.                                      |
-  |                                  [default: None, None]                       |
-  | --limit          INTEGER         Limits the maximum number of rows returned. |
-  | --terse                          Returns only a subset of columns.           |
-  | --help   -h                      Show this message and exit.                 |
+  |                                 Specifies the scope of this command using    |
+  |                                 '--in  ', for example list --in database     |
+  |                                 my_db.                                       |
+  |                                 [default: None, None]                        |
+  | --help  -h                      Show this message and exit.                  |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -16685,19 +16670,17 @@
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like   -l      TEXT            SQL LIKE pattern for filtering objects by   |
-  |                                  name. For example, list --like "my%" lists  |
-  |                                  all services that begin with “my”..         |
-  |                                  [default: %%]                               |
-  | --in             <TEXT TEXT>...                                              |
+  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
+  |                                 name. For example, list --like "my%" lists   |
+  |                                 all services that begin with “my”..          |
+  |                                 [default: %%]                                |
+  | --in            <TEXT TEXT>...                                               |
   |                                                                              |
-  |                                  Specifies the scope of this command using   |
-  |                                  '--in  ', for example list --in             |
-  |                                  compute-pool my_pool.                       |
-  |                                  [default: None, None]                       |
-  | --limit          INTEGER         Limits the maximum number of rows returned. |
-  | --terse                          Returns only a subset of columns.           |
-  | --help   -h                      Show this message and exit.                 |
+  |                                 Specifies the scope of this command using    |
+  |                                 '--in  ', for example list --in compute-pool |
+  |                                 my_pool.                                     |
+  |                                 [default: None, None]                        |
+  | --help  -h                      Show this message and exit.                  |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -19161,19 +19144,17 @@
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like   -l      TEXT            SQL LIKE pattern for filtering objects by   |
-  |                                  name. For example, list --like "my%" lists  |
-  |                                  all stages that begin with "my".            |
-  |                                  [default: %%]                               |
-  | --in             <TEXT TEXT>...                                              |
+  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
+  |                                 name. For example, list --like "my%" lists   |
+  |                                 all stages that begin with "my".             |
+  |                                 [default: %%]                                |
+  | --in            <TEXT TEXT>...                                               |
   |                                                                              |
-  |                                  Specifies the scope of this command using   |
-  |                                  '--in  ', for example list --in database    |
-  |                                  my_db.                                      |
-  |                                  [default: None, None]                       |
-  | --limit          INTEGER         Limits the maximum number of rows returned. |
-  | --terse                          Returns only a subset of columns.           |
-  | --help   -h                      Show this message and exit.                 |
+  |                                 Specifies the scope of this command using    |
+  |                                 '--in  ', for example list --in database     |
+  |                                 my_db.                                       |
+  |                                 [default: None, None]                        |
+  | --help  -h                      Show this message and exit.                  |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -20128,19 +20109,17 @@
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --like   -l      TEXT            SQL LIKE pattern for filtering objects by   |
-  |                                  name. For example, list --like "my%" lists  |
-  |                                  all streamlit apps that begin with “my”.    |
-  |                                  [default: %%]                               |
-  | --in             <TEXT TEXT>...                                              |
+  | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
+  |                                 name. For example, list --like "my%" lists   |
+  |                                 all streamlit apps that begin with “my”.     |
+  |                                 [default: %%]                                |
+  | --in            <TEXT TEXT>...                                               |
   |                                                                              |
-  |                                  Specifies the scope of this command using   |
-  |                                  '--in  ', for example list --in database    |
-  |                                  my_db.                                      |
-  |                                  [default: None, None]                       |
-  | --limit          INTEGER         Limits the maximum number of rows returned. |
-  | --terse                          Returns only a subset of columns.           |
-  | --help   -h                      Show this message and exit.                 |
+  |                                 Specifies the scope of this command using    |
+  |                                 '--in  ', for example list --in database     |
+  |                                 my_db.                                       |
+  |                                 [default: None, None]                        |
+  | --help  -h                      Show this message and exit.                  |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |

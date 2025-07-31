@@ -19,9 +19,7 @@ from typing import List, Optional, Tuple
 import typer
 from click import ClickException
 from snowflake.cli._plugins.object.commands import (
-    LimitOption,
     ScopeOption,
-    TerseOption,
     describe,
     drop,
     list_,
@@ -51,16 +49,12 @@ def add_object_command_aliases(
             @app.command("list", requires_connection=True)
             def list_cmd(
                 like: str = like_option,  # type: ignore
-                limit: Optional[int] = LimitOption,
-                terse: bool = TerseOption,
                 **options,
             ):
                 return list_(
                     object_type=object_type.value.cli_name,
                     like=like,
                     scope=ScopeOption.default,
-                    limit=limit,
-                    terse=terse,
                     **options,
                 )
 
@@ -70,16 +64,12 @@ def add_object_command_aliases(
             def list_cmd(
                 like: str = like_option,  # type: ignore
                 scope: Tuple[str, str] = scope_option,  # type: ignore
-                limit: Optional[int] = LimitOption,
-                terse: bool = TerseOption,
                 **options,
             ):
                 return list_(
                     object_type=object_type.value.cli_name,
                     like=like,
                     scope=scope,
-                    limit=limit,
-                    terse=terse,
                     **options,
                 )
 
