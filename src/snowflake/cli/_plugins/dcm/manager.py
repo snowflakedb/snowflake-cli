@@ -80,7 +80,7 @@ class DCMProjectManager(SqlExecutionMixin):
         query = f"SHOW VERSIONS IN DCM PROJECT {project_name.identifier}"
         return self.execute_query(query=query)
 
-    def drop_version(
+    def drop_deployment(
         self,
         project_name: FQN,
         version_name: str,

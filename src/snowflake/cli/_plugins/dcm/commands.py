@@ -207,7 +207,7 @@ def list_deployments(
 
 
 @app.command(requires_connection=True)
-def drop_version(
+def drop_deployment(
     identifier: FQN = dcm_identifier,
     version_name: str = typer.Argument(
         help="Name or alias of the version to drop. For names containing '$', use single quotes to prevent shell expansion (e.g., 'VERSION$1').",
@@ -227,7 +227,7 @@ def drop_version(
         )
 
     dpm = DCMProjectManager()
-    dpm.drop_version(
+    dpm.drop_deployment(
         project_name=identifier,
         version_name=version_name,
         if_exists=if_exists,

@@ -157,7 +157,7 @@ def test_project_drop_version(
 
         # Drop the non-existent version (should fail without --if-exists)
         result = runner.invoke_with_connection(
-            ["dcm", "drop-version", project_name, "VERSION$1"]
+            ["dcm", "drop-deployment", project_name, "VERSION$1"]
         )
         assert result.exit_code == 1, result.output
         assert "Version does not exist" in result.output
@@ -212,7 +212,7 @@ def test_project_drop_version(
 
         # Drop the version by name
         result = runner.invoke_with_connection(
-            ["dcm", "drop-version", project_name, "VERSION$1"]
+            ["dcm", "drop-deployment", project_name, "VERSION$1"]
         )
         assert result.exit_code == 0, result.output
         assert (
@@ -222,7 +222,7 @@ def test_project_drop_version(
 
         # Drop the version by alias
         result = runner.invoke_with_connection(
-            ["dcm", "drop-version", project_name, "v2"]
+            ["dcm", "drop-deployment", project_name, "v2"]
         )
         assert result.exit_code == 0, result.output
         assert (
@@ -235,7 +235,7 @@ def test_project_drop_version(
 
         # Try to drop the default version
         result = runner.invoke_with_connection(
-            ["dcm", "drop-version", project_name, "VERSION$3"]
+            ["dcm", "drop-deployment", project_name, "VERSION$3"]
         )
         assert result.exit_code == 0, result.output
         assert (
@@ -245,14 +245,14 @@ def test_project_drop_version(
 
         # Try to drop non-existent version without --if-exists (should fail)
         result = runner.invoke_with_connection(
-            ["dcm", "drop-version", project_name, "non_existent"]
+            ["dcm", "drop-deployment", project_name, "non_existent"]
         )
         assert result.exit_code == 1, result.output
         assert "Version does not exist" in result.output
 
         # Try to drop non-existent version with --if-exists (should succeed)
         result = runner.invoke_with_connection(
-            ["dcm", "drop-version", project_name, "non_existent", "--if-exists"]
+            ["dcm", "drop-deployment", project_name, "non_existent", "--if-exists"]
         )
         assert result.exit_code == 0, result.output
         assert (

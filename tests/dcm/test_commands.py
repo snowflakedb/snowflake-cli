@@ -259,7 +259,7 @@ def test_list_deployments(mock_pm, runner):
 @mock.patch(DCMProjectManager)
 @pytest.mark.parametrize("if_exists", [True, False])
 def test_drop_version(mock_pm, runner, if_exists):
-    command = ["dcm", "drop-version", "fooBar", "v1"]
+    command = ["dcm", "drop-deployment", "fooBar", "v1"]
     if if_exists:
         command.append("--if-exists")
 
@@ -268,7 +268,7 @@ def test_drop_version(mock_pm, runner, if_exists):
     assert result.exit_code == 0, result.output
     assert "Version 'v1' dropped from DCM Project 'fooBar'" in result.output
 
-    mock_pm().drop_version.assert_called_once_with(
+    mock_pm().drop_deployment.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
         version_name="v1",
         if_exists=if_exists,
@@ -293,7 +293,7 @@ def test_drop_version_shell_expansion_warning(
     mock_pm, runner, version_name, should_warn
 ):
     """Test that warning is displayed for version names that look like shell expansion results."""
-    result = runner.invoke(["dcm", "drop-version", "fooBar", version_name])
+    result = runner.invoke(["dcm", "drop-deployment", "fooBar", version_name])
 
     assert result.exit_code == 0, result.output
 
@@ -303,7 +303,7 @@ def test_drop_version_shell_expansion_warning(
     else:
         assert "might be truncated due to shell expansion" not in result.output
 
-    mock_pm().drop_version.assert_called_once_with(
+    mock_pm().drop_deployment.assert_called_once_with(
         project_name=FQN.from_string("fooBar"),
         version_name=version_name,
         if_exists=False,
