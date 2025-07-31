@@ -4678,12 +4678,12 @@
 # ---
 # name: test_help_messages[connection.remove]
   '''
-
-   Usage: root connection remove [OPTIONS]
-
-   Removes a connection from configuration file.
-
-
+                                                                                  
+   Usage: root connection remove [OPTIONS]                                        
+                                                                                  
+   Removes a connection from configuration file.                                  
+                                                                                  
+                                                                                  
   +- Options --------------------------------------------------------------------+
   | --connection-name  -n      TEXT  Name of the connection to remove.           |
   | --help             -h            Show this message and exit.                 |
@@ -4708,8 +4708,8 @@
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
   +------------------------------------------------------------------------------+
-
-
+  
+  
   '''
 # ---
 # name: test_help_messages[connection.set-default]
