@@ -380,3 +380,70 @@ def test_object_create_if_not_exist_and_replace(runner, test_database):
     )
     assert result.exit_code == 0, result.output
     assert "successfully created" in result.output
+
+
+@pytest.mark.integration
+def test_show_with_limit(runner, test_database, snowflake_session):
+    """Test that --limit option works correctly by limiting the number of results."""
+    # Create 3 test tables to have a controlled environment
+    table_names = []
+    for i in range(3):
+        table_name = ObjectNameProvider(
+            f"Test_Limit_Table_{i}"
+        ).create_and_get_next_object_name()
+        table_names.append(table_name)
+        snowflake_session.execute_string(f"CREATE TABLE {table_name} (id NUMBER)")
+
+    try:
+        # Test without limit - should get all 3 tables
+        result_unlimited = runner.invoke_with_connection_json(
+            ["object", "list", "table", "--format", "json"]
+        )
+        assert result_unlimited.exit_code == 0
+        # Filter to only our test tables
+        test_tables = [
+            t
+            for t in result_unlimited.json
+            if any(name.lower() in t["name"].lower() for name in table_names)
+        ]
+        assert len(test_tables) == 3, f"Expected 3 test tables, got {len(test_tables)}"
+
+        # Test with limit 1 - should get only 1 table
+        result_limited_one = runner.invoke_with_connection_json(
+            ["object", "list", "table", "--limit", "1", "--format", "json"]
+        )
+        assert result_limited_one.exit_code == 0
+        assert (
+            len(result_limited_one.json) == 1
+        ), f"Expected 1 table with limit, got {len(result_limited_one.json)}"
+    finally:
+        # Clean up test tables
+        for table_name in table_names:
+            try:
+                snowflake_session.execute_string(f"DROP TABLE IF EXISTS {table_name}")
+            except Exception:
+                pass  # Ignore cleanup errors
+
+
+@pytest.mark.integration
+def test_show_with_terse(runner, test_database, snowflake_session):
+    """Test that --terse option works for supported object types."""
+    # Create a test table to ensure we have something to list
+    table_name = ObjectNameProvider(
+        "Test_Terse_Table"
+    ).create_and_get_next_object_name()
+    snowflake_session.execute_string(f"CREATE TABLE {table_name} (id NUMBER)")
+
+    try:
+        # Test with terse option - should execute successfully
+        result_terse = runner.invoke_with_connection_json(
+            ["object", "list", "table", "--terse", "--format", "json"]
+        )
+        assert result_terse.exit_code == 0
+        assert len(result_terse.json) >= 1  # Should have at least our test table
+    finally:
+        # Clean up test table
+        try:
+            snowflake_session.execute_string(f"DROP TABLE IF EXISTS {table_name}")
+        except Exception:
+            pass  # Ignore cleanup errors

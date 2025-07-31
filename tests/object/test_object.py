@@ -285,3 +285,29 @@ def test_replace_and_not_exists_cannot_be_used_together(runner, os_agnostic_snap
     )
     assert result.exit_code == 2, result.output
     assert result.output == os_agnostic_snapshot
+
+
+@mock.patch("snowflake.connector.connect")
+def test_show_with_terse(mock_connector, runner, mock_ctx):
+    """Test that TERSE is added to SQL for supported object types."""
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        ["object", "list", "table", "--terse"], catch_exceptions=False
+    )
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == ["show terse tables like '%%'"]
+
+
+@mock.patch("snowflake.connector.connect")
+def test_show_with_limit(mock_connector, runner, mock_ctx):
+    """Test that LIMIT is added to SQL for all object types."""
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+
+    result = runner.invoke(
+        ["object", "list", "database", "--limit", "10"], catch_exceptions=False
+    )
+    assert result.exit_code == 0, result.output
+    assert ctx.get_queries() == ["show databases like '%%' limit 10"]
