@@ -238,7 +238,7 @@ def build_static_python_from_official_source(
                 return False
 
             # Install pip manually since we used --without-ensurepip
-            python_exe = python_install_dir / "bin" / f"python{exact_version[:3]}"
+            python_exe = python_install_dir / "bin" / f"python{exact_version[:4]}"
             if not python_exe.exists():
                 python_exe = python_install_dir / "bin" / "python3"
             if not python_exe.exists():
@@ -284,9 +284,9 @@ def build_static_python_from_official_source(
         "arch": "x86_64",
         "os": "linux",
         "implementation": "cpython",
-        "python_path": f"bin/python{exact_version[:3]}",
-        "stdlib_path": f"lib/python{exact_version[:3]}",
-        "site_packages_path": f"lib/python{exact_version[:3]}/site-packages",
+        "python_path": f"bin/python{exact_version[:4]}",
+        "stdlib_path": f"lib/python{exact_version[:4]}",
+        "site_packages_path": f"lib/python{exact_version[:4]}/site-packages",
     }
 
     with open(hatch_dist_json, "w") as f:
@@ -355,24 +355,15 @@ _json _json.c
             configure_env = os.environ.copy()
             configure_env[
                 "CFLAGS"
-            ] = "-static -mno-avx -mno-avx2 -mno-avx512f -mno-avx512cd -mno-avx512dq -mno-avx512bw -mno-avx512vl -mno-avx512ifma -mno-avx512vbmi -mno-avx512vbmi2 -mno-avx512vnni -mno-avx512bitalg -mno-avx512vpopcntdq -mno-fma -mno-bmi -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
-            configure_env[
-                "LDFLAGS"
-            ] = "-static"  # Force static linking for all dependencies
-            configure_env[
-                "PKG_CONFIG"
-            ] = "pkg-config --static"  # Ensure static pkg-config
+            ] = "-mno-avx -mno-avx2 -mno-avx512f -mno-avx512cd -mno-avx512dq -mno-avx512bw -mno-avx512vl -mno-avx512ifma -mno-avx512vbmi -mno-avx512vbmi2 -mno-avx512vnni -mno-avx512bitalg -mno-avx512vpopcntdq -mno-fma -mno-bmi -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
 
             configure_cmd = [
                 "./configure",
                 f"--prefix={python_install_dir}",
-                "--disable-shared",  # No shared libraries - static only
-                "--enable-static",  # Force static linking
                 "--with-lto=no",  # Disable LTO to avoid optimizer adding AVX2
                 "--disable-ipv6",  # Reduce dependencies
                 "--with-ensurepip=install",  # Include pip - needed for project installation
                 "--without-readline",  # Avoid readline dependencies
-                "--disable-test-modules",  # Skip test modules to reduce size
                 "--enable-loadable-sqlite-extensions",  # Enable sqlite
                 "--with-computed-gotos",  # Performance optimization
                 "--with-system-expat",  # Use system expat
