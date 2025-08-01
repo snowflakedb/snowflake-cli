@@ -225,3 +225,72 @@ def test_deploy_project_definition_version_error(
             "This command requires project definition of version at least 2."
             in result.output
         )
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.notebook.notebook_entity.make_snowsight_url")
+@mock.patch(f"{STAGE_MANAGER}.list_files")
+def test_deploy_notebook_with_runtime_environment_version_sql(
+    mock_list_files,
+    mock_make_url,
+    mock_connector,
+    mock_ctx,
+    runner,
+    project_directory,
+):
+    """Test that runtime_environment_version field generates correct SQL for warehouse-only notebooks."""
+    ctx = mock_ctx()
+    mock_connector.return_value = ctx
+    mock_make_url.return_value = "http://the.notebook.url.mock"
+
+    with project_directory("notebook_with_runtime_env"):
+        result = runner.invoke(
+            ["notebook", "deploy", "warehouse_notebook", "--replace"]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Get the generated SQL and verify it contains RUNTIME_ENVIRONMENT_VERSION
+        query = ctx.get_query()
+        assert "RUNTIME_ENVIRONMENT_VERSION = 'WH-RUNTIME-2.0'" in query
+
+        # Verify it does NOT contain compute pool fields (should be warehouse only)
+        assert "COMPUTE_POOL" not in query
+        assert "RUNTIME_NAME" not in query
+
+        # Verify the full SQL structure is correct
+        lines = [line for line in query.split("\n") if not line.startswith("put")]
+        sql_content = "\n".join(lines)
+        assert "CREATE OR REPLACE NOTEBOOK" in sql_content
+        assert "QUERY_WAREHOUSE = 'xsmall'" in sql_content
+        assert "RUNTIME_ENVIRONMENT_VERSION = 'WH-RUNTIME-2.0'" in sql_content
+
+
+def test_deploy_notebook_validation_error_compute_pool_with_runtime_env(
+    runner, project_directory, alter_snowflake_yml
+):
+    """Test that using runtime_environment_version with compute_pool raises validation error."""
+    with project_directory("notebook_v2") as project_root:
+        # Add compute_pool, runtime_name, and runtime_environment_version to trigger validation error
+        alter_snowflake_yml(
+            project_root / "snowflake.yml",
+            parameter_path="entities.my_notebook.compute_pool",
+            value="test_compute_pool",
+        )
+        alter_snowflake_yml(
+            project_root / "snowflake.yml",
+            parameter_path="entities.my_notebook.runtime_name",
+            value="system$basic_runtime",
+        )
+        alter_snowflake_yml(
+            project_root / "snowflake.yml",
+            parameter_path="entities.my_notebook.runtime_environment_version",
+            value="WH-RUNTIME-2.0",
+        )
+
+        result = runner.invoke(["notebook", "deploy", "--replace"])
+        assert result.exit_code == 1, result.output
+        assert (
+            "runtime_environment_version is only applicable for notebooks"
+            in result.output
+        )
+        assert "using warehouse, not compute pool" in result.output

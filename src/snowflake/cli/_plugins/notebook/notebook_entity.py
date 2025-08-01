@@ -60,6 +60,8 @@ class NotebookEntity(EntityBase[NotebookEntityModel]):
             query += f"\nCOMPUTE_POOL = '{self.model.compute_pool}'"
         if self.model.runtime_name:
             query += f"\nRUNTIME_NAME = '{self.model.runtime_name}'"
+        if self.model.runtime_environment_version and not self.model.compute_pool:
+            query += f"\nRUNTIME_ENVIRONMENT_VERSION = '{self.model.runtime_environment_version}'"
 
         query += (
             ";\n// Cannot use IDENTIFIER(...)"

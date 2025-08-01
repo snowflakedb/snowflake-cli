@@ -20,6 +20,9 @@ class NotebookEntityModel(EntityModelBaseWithArtifacts):
     )
     notebook_file: Path = Field(title="Notebook file")
     query_warehouse: str = Field(title="Snowflake warehouse to execute the notebook")
+    runtime_environment_version: Optional[str] = Field(
+        title="Runtime environment version", default=None
+    )
     compute_pool: Optional[str] = Field(
         title="Compute pool to run the notebook in", default=None
     )
@@ -37,6 +40,10 @@ class NotebookEntityModel(EntityModelBaseWithArtifacts):
     def validate_container_setup(self):
         if self.compute_pool and not self.runtime_name:
             raise ValueError("compute_pool is specified without runtime_name")
-        if self.runtime_name and not self.compute_pool and not self:
+        if self.runtime_name and not self.compute_pool:
             raise ValueError("runtime_name is specified without compute_pool")
+        if self.compute_pool and self.runtime_environment_version:
+            raise ValueError(
+                "runtime_environment_version is only applicable for notebooks using warehouse, not compute pool"
+            )
         return self

@@ -20,6 +20,7 @@
 
 ## New additions
 * Add `snow connection remove` command
+* Added support for `runtime_environment_version` field in notebook entity configuration, allowing specification of runtime environment version for containerized notebooks.
 
 ## Fixes and improvements
 * Fixed DBT deploy command to properly handle fully qualified names
