@@ -128,7 +128,7 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     try:
         print("🔨 Trying official Python.org source build as fallback...")
         if build_static_python_from_official_source(python_install_dir, python_version):
-            print("✅ Official source build completed successfully!")
+            print("✅ Conservative Python build completed successfully!")
             return True
     except Exception as e:
         print(f"❌ Failed official source build: {e}")
@@ -292,12 +292,14 @@ def build_static_python_from_official_source(
     with open(hatch_dist_json, "w") as f:
         json.dump(dist_metadata, f, indent=2)
 
-    print(f"✅ Successfully built static Python {exact_version} from official source")
+    print(
+        f"✅ Successfully built conservative Python {exact_version} from official source"
+    )
 
     # Mark which distribution was used for debugging
-    marker_file = python_install_dir / "DISTRIBUTION_TYPE_OFFICIAL_SOURCE"
+    marker_file = python_install_dir / "DISTRIBUTION_TYPE_CONSERVATIVE_BUILD"
     marker_file.write_text(
-        f"Using official Python.org source build (version {exact_version})"
+        f"Using conservative Python.org source build (version {exact_version})"
     )
     print(f"📝 Created distribution marker: {marker_file.name}")
 
@@ -327,13 +329,48 @@ def build_static_python_from_source(
 
             python_src_dir = next(build_path.glob("Python-*"))
 
-            # Create Setup.local to ensure critical modules are built statically
-            setup_local_path = python_src_dir / "Modules" / "Setup.local"
-            setup_local_content = """
-# Essential modules for static Python build
+            # Modify Modules/Setup to ensure critical modules are built
+            setup_path = python_src_dir / "Modules" / "Setup"
+            if setup_path.exists():
+                print(f"📝 Modifying Modules/Setup to enable essential modules...")
+                with open(setup_path, "r") as f:
+                    setup_content = f.read()
+
+                # Uncomment essential modules by removing leading #
+                essential_modules = [
+                    "#_posixsubprocess _posixsubprocess.c",
+                    "#_subprocess _subprocess.c",
+                    "#array arraymodule.c",
+                    "#math mathmodule.c",
+                    "#_struct _struct.c",
+                    "#time timemodule.c",
+                    "#select selectmodule.c",
+                    "#_socket socketmodule.c",
+                    "#binascii binascii.c",
+                    "#unicodedata unicodedata.c",
+                    "#_datetime _datetimemodule.c",
+                    "#_random _randommodule.c",
+                    "#_pickle _pickle.c",
+                    "#_json _json.c",
+                ]
+
+                for module_line in essential_modules:
+                    if module_line in setup_content:
+                        setup_content = setup_content.replace(
+                            module_line, module_line[1:]
+                        )  # Remove #
+                        print(f"  ✅ Enabled: {module_line[1:].split()[0]}")
+
+                with open(setup_path, "w") as f:
+                    f.write(setup_content)
+                print(f"✅ Modified Setup to enable essential modules")
+            else:
+                print(f"⚠️  Modules/Setup not found, using Setup.local fallback")
+                # Fallback to Setup.local
+                setup_local_path = python_src_dir / "Modules" / "Setup.local"
+                setup_local_content = """
 _posixsubprocess _posixsubprocess.c
 _subprocess _subprocess.c
-_multiprocessing _multiprocessing/multiprocessing.c _multiprocessing/semaphore.c
 array arraymodule.c
 math mathmodule.c
 _struct _struct.c
@@ -347,15 +384,14 @@ _random _randommodule.c
 _pickle _pickle.c
 _json _json.c
 """
-            with open(setup_local_path, "w") as f:
-                f.write(setup_local_content)
-            print(f"✅ Created Setup.local with essential modules for static build")
+                with open(setup_local_path, "w") as f:
+                    f.write(setup_local_content)
 
-            # Configure with conservative CPU flags AND static linking for fully self-contained binary
+            # Configure with conservative CPU flags but allow modules to build properly
             configure_env = os.environ.copy()
-            configure_env[
-                "CFLAGS"
-            ] = "-mno-avx -mno-avx2 -mno-avx512f -mno-avx512cd -mno-avx512dq -mno-avx512bw -mno-avx512vl -mno-avx512ifma -mno-avx512vbmi -mno-avx512vbmi2 -mno-avx512vnni -mno-avx512bitalg -mno-avx512vpopcntdq -mno-fma -mno-bmi -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
+            # Use conservative CPU flags but keep them reasonable for module building
+            configure_env["CFLAGS"] = "-O2 -mno-avx -mno-avx2 -mno-avx512f -mno-fma"
+            configure_env["CXXFLAGS"] = "-O2 -mno-avx -mno-avx2 -mno-avx512f -mno-fma"
 
             configure_cmd = [
                 "./configure",
@@ -366,11 +402,11 @@ _json _json.c
                 "--without-readline",  # Avoid readline dependencies
                 "--enable-loadable-sqlite-extensions",  # Enable sqlite
                 "--with-computed-gotos",  # Performance optimization
-                "--with-system-expat",  # Use system expat
-                "--with-dbmliborder=gdbm:ndbm",  # Database modules
+                "--enable-shared",  # Allow shared libraries for extension modules
+                "--enable-optimizations",  # Enable optimizations but with our conservative CFLAGS
             ]
 
-            print(f"🔧 Configuring static Python build...")
+            print(f"🔧 Configuring conservative Python build with essential modules...")
             configure_result = subprocess.run(
                 configure_cmd, cwd=python_src_dir, env=configure_env
             )
@@ -389,7 +425,7 @@ _json _json.c
             # Install Python
             python_install_dir.mkdir(parents=True, exist_ok=True)
             install_cmd = ["make", "install"]
-            print(f"📦 Installing static Python...")
+            print(f"📦 Installing conservative Python...")
             install_result = subprocess.run(
                 install_cmd, cwd=python_src_dir, env=configure_env
             )
