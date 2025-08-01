@@ -1,4 +1,48 @@
 # serializer version: 1
+# name: test_connection_remove_some[False-False]
+  '''
+  [connections.conn1]
+  account = "account1"
+  user = "user1"
+  password = "password1"
+  
+  
+  '''
+# ---
+# name: test_connection_remove_some[False-True]
+  '''
+  default_connection_name = "conn1"
+  
+  [connections.conn1]
+  account = "account1"
+  user = "user1"
+  password = "password1"
+  
+  
+  '''
+# ---
+# name: test_connection_remove_some[True-False]
+  '''
+  
+  [connections.conn1]
+  account = "account1"
+  user = "user1"
+  password = "password1"
+  
+  
+  '''
+# ---
+# name: test_connection_remove_some[True-True]
+  '''
+  
+  [connections.conn1]
+  account = "account1"
+  user = "user1"
+  password = "password1"
+  
+  
+  '''
+# ---
 # name: test_if_whitespaces_are_stripped_from_connection_name
   '''
   [connections.whitespaceTest]

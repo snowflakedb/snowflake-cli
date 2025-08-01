@@ -16,6 +16,7 @@ from snowflake.cli._plugins.auth.keypair import plugin_spec as auth_plugin_spec
 from snowflake.cli._plugins.connection import plugin_spec as connection_plugin_spec
 from snowflake.cli._plugins.cortex import plugin_spec as cortex_plugin_spec
 from snowflake.cli._plugins.dbt import plugin_spec as dbt_plugin_spec
+from snowflake.cli._plugins.dcm import plugin_spec as dcm_project_plugin_spec
 from snowflake.cli._plugins.git import plugin_spec as git_plugin_spec
 from snowflake.cli._plugins.helpers import plugin_spec as migrate_plugin_spec
 from snowflake.cli._plugins.init import plugin_spec as init_plugin_spec
@@ -24,7 +25,6 @@ from snowflake.cli._plugins.nativeapp import plugin_spec as nativeapp_plugin_spe
 from snowflake.cli._plugins.notebook import plugin_spec as notebook_plugin_spec
 from snowflake.cli._plugins.object import plugin_spec as object_plugin_spec
 from snowflake.cli._plugins.plugin import plugin_spec as plugin_plugin_spec
-from snowflake.cli._plugins.project import plugin_spec as project_plugin_spec
 from snowflake.cli._plugins.snowpark import plugin_spec as snowpark_plugin_spec
 from snowflake.cli._plugins.spcs import plugin_spec as spcs_plugin_spec
 from snowflake.cli._plugins.sql import plugin_spec as sql_plugin_spec
@@ -42,7 +42,7 @@ def get_builtin_plugin_name_to_plugin_spec():
         "spcs": spcs_plugin_spec,
         "app": nativeapp_plugin_spec,
         "object": object_plugin_spec,
-        "project": project_plugin_spec,
+        "dcm": dcm_project_plugin_spec,
         "snowpark": snowpark_plugin_spec,
         "stage": stage_plugin_spec,
         "sql": sql_plugin_spec,

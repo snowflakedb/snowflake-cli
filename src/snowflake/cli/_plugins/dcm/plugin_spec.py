@@ -12,21 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pathlib import Path
-
-import tomlkit
-
-
-def sync():
-    pyproject = tomlkit.loads(Path("pyproject.toml").read_text())
-    dependencies = pyproject["project"]["dependencies"]
-    dev_dependencies = pyproject["project"]["optional-dependencies"]["development"]
-    with open("snyk/requirements.txt", "w") as req:
-        for dep in dependencies:
-            req.write(f"{dep}\n")
-        for dep in dev_dependencies:
-            req.write(f"{dep}\n")
+from snowflake.cli._plugins.dcm import commands
+from snowflake.cli.api.plugins.command import (
+    SNOWCLI_ROOT_COMMAND_PATH,
+    CommandSpec,
+    CommandType,
+    plugin_hook_impl,
+)
 
 
-if __name__ == "__main__":
-    sync()
+@plugin_hook_impl
+def command_spec():
+    return CommandSpec(
+        parent_command_path=SNOWCLI_ROOT_COMMAND_PATH,
+        command_type=CommandType.COMMAND_GROUP,
+        typer_instance=commands.app.create_instance(),
+    )
