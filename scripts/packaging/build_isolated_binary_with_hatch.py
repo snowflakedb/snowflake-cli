@@ -681,7 +681,9 @@ def setup_conservative_cargo_config() -> None:
         print(f"❌ ERROR: {cargo_config_src} not found")
 
 
-def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
+def hatch_build_binary(
+    archive_path: Path, python_path: Path
+) -> typing.Union[Path, None]:
     """Use hatch to build the binary."""
     # Ensure conservative cargo config is in place
     setup_conservative_cargo_config()
