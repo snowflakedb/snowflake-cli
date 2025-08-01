@@ -27,3 +27,8 @@ rustflags = [
     "-C", "target-feature=-pclmulqdq",
     "-C", "target-feature=-movbe"
 ]
+
+# Environment variables for C/C++ compilation
+[env]
+CFLAGS = "-O2 -march=x86-64 -mtune=generic"
+CXXFLAGS = "-O2 -march=x86-64 -mtune=generic"
