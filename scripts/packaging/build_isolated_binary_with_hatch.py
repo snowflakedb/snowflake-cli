@@ -327,6 +327,30 @@ def build_static_python_from_source(
 
             python_src_dir = next(build_path.glob("Python-*"))
 
+            # Create Setup.local to ensure critical modules are built statically
+            setup_local_path = python_src_dir / "Modules" / "Setup.local"
+            setup_local_content = """
+# Essential modules for static Python build
+_posixsubprocess _posixsubprocess.c
+_subprocess _subprocess.c
+_multiprocessing _multiprocessing/multiprocessing.c _multiprocessing/semaphore.c
+array arraymodule.c
+math mathmodule.c
+_struct _struct.c
+time timemodule.c
+select selectmodule.c
+_socket socketmodule.c
+binascii binascii.c
+unicodedata unicodedata.c
+_datetime _datetimemodule.c
+_random _randommodule.c
+_pickle _pickle.c
+_json _json.c
+"""
+            with open(setup_local_path, "w") as f:
+                f.write(setup_local_content)
+            print(f"✅ Created Setup.local with essential modules for static build")
+
             # Configure with conservative CPU flags AND static linking for fully self-contained binary
             configure_env = os.environ.copy()
             configure_env[
@@ -346,9 +370,13 @@ def build_static_python_from_source(
                 "--enable-static",  # Force static linking
                 "--with-lto=no",  # Disable LTO to avoid optimizer adding AVX2
                 "--disable-ipv6",  # Reduce dependencies
-                "--without-ensurepip",  # Skip pip to avoid dependency issues with static build
+                "--with-ensurepip=install",  # Include pip - needed for project installation
                 "--without-readline",  # Avoid readline dependencies
                 "--disable-test-modules",  # Skip test modules to reduce size
+                "--enable-loadable-sqlite-extensions",  # Enable sqlite
+                "--with-computed-gotos",  # Performance optimization
+                "--with-system-expat",  # Use system expat
+                "--with-dbmliborder=gdbm:ndbm",  # Database modules
             ]
 
             print(f"🔧 Configuring static Python build...")
