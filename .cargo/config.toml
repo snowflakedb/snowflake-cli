@@ -19,7 +19,7 @@ rustflags = [
     "-C", "debuginfo=2",
     "-C", "target-feature=-avx",
     "-C", "target-feature=-avx2",
-    "-C", "target-feature=-avx512f",
+    "-C", "target-feature=-avx512f,-avx512cd,-avx512dq,-avx512bw,-avx512vl,-avx512ifma,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq",
     "-C", "target-feature=-fma",
     "-C", "target-feature=-bmi1",
     "-C", "target-feature=-bmi2",
@@ -27,8 +27,3 @@ rustflags = [
     "-C", "target-feature=-pclmulqdq",
     "-C", "target-feature=-movbe"
 ]
-
-# Environment variables for C/C++ compilation
-[env]
-CFLAGS = "-O2 -march=x86-64 -mtune=generic"
-CXXFLAGS = "-O2 -march=x86-64 -mtune=generic"
