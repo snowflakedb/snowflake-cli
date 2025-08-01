@@ -327,22 +327,28 @@ def build_static_python_from_source(
 
             python_src_dir = next(build_path.glob("Python-*"))
 
-            # Configure with conservative CPU flags (avoid problematic static linking)
+            # Configure with conservative CPU flags AND static linking for fully self-contained binary
             configure_env = os.environ.copy()
             configure_env[
                 "CFLAGS"
-            ] = "-mno-avx -mno-avx2 -mno-avx512f -mno-avx512cd -mno-avx512dq -mno-avx512bw -mno-avx512vl -mno-avx512ifma -mno-avx512vbmi -mno-avx512vbmi2 -mno-avx512vnni -mno-avx512bitalg -mno-avx512vpopcntdq -mno-fma -mno-bmi -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
+            ] = "-static -mno-avx -mno-avx2 -mno-avx512f -mno-avx512cd -mno-avx512dq -mno-avx512bw -mno-avx512vl -mno-avx512ifma -mno-avx512vbmi -mno-avx512vbmi2 -mno-avx512vnni -mno-avx512bitalg -mno-avx512vpopcntdq -mno-fma -mno-bmi -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
             configure_env[
                 "LDFLAGS"
-            ] = "-Wl,--strip-all"  # Strip for smaller size, avoid static linking issues
+            ] = "-static"  # Force static linking for all dependencies
+            configure_env[
+                "PKG_CONFIG"
+            ] = "pkg-config --static"  # Ensure static pkg-config
 
             configure_cmd = [
                 "./configure",
                 f"--prefix={python_install_dir}",
-                "--enable-shared",  # Use shared libraries (more compatible than static)
+                "--disable-shared",  # No shared libraries - static only
+                "--enable-static",  # Force static linking
                 "--with-lto=no",  # Disable LTO to avoid optimizer adding AVX2
-                "--enable-optimizations",  # Enable Python optimizations (but with our conservative CFLAGS)
-                "--with-ensurepip=install",  # Include pip in build to avoid manual installation issues
+                "--disable-ipv6",  # Reduce dependencies
+                "--without-ensurepip",  # Skip pip to avoid dependency issues with static build
+                "--without-readline",  # Avoid readline dependencies
+                "--disable-test-modules",  # Skip test modules to reduce size
             ]
 
             print(f"🔧 Configuring static Python build...")
@@ -708,8 +714,25 @@ def hatch_build_binary(
     conservative_env["PYAPP_DISTRIBUTION_PYTHON_PATH"] = str(python_path)
     conservative_env["PYAPP_DISTRIBUTION_PIP_AVAILABLE"] = "1"
 
-    # Build natively for the current architecture
-    print(f"🎯 Building natively on current architecture")
+    # Force static linking for PyApp binary
+    conservative_env[
+        "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS"
+    ] = "-C target-feature=+crt-static"
+    conservative_env["RUSTFLAGS"] = "-C target-feature=+crt-static"
+    conservative_env["CC"] = "musl-gcc"
+
+    # Build statically for x86_64 using musl for better static linking
+    print(f"🎯 Building static binary for x86_64-unknown-linux-musl")
+
+    # Add musl target if not already added
+    musl_target_cmd = subprocess.run(
+        ["rustup", "target", "add", "x86_64-unknown-linux-musl"], capture_output=True
+    )
+
+    conservative_env["CARGO_BUILD_TARGET"] = "x86_64-unknown-linux-musl"
+    print(
+        f"🔧 STATIC BUILD: Targeting x86_64-unknown-linux-musl for full static linking"
+    )
 
     completed_proc = subprocess.run(
         ["hatch", "build", "-t", "binary"], capture_output=True, env=conservative_env
