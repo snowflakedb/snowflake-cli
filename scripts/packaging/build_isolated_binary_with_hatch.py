@@ -198,7 +198,7 @@ def build_static_python_from_official_source(
             configure_env = os.environ.copy()
             configure_env[
                 "CFLAGS"
-            ] = "-static -mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
+            ] = "-static -mno-avx -mno-avx2 -mno-avx512f -mno-avx512cd -mno-avx512dq -mno-avx512bw -mno-avx512vl -mno-avx512ifma -mno-avx512vbmi -mno-avx512vbmi2 -mno-avx512vnni -mno-avx512bitalg -mno-avx512vpopcntdq -mno-fma -mno-bmi -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
             configure_env["LDFLAGS"] = "-static"
 
             configure_cmd = [
