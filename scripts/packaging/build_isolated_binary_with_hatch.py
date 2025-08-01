@@ -331,7 +331,7 @@ def build_static_python_from_source(
             configure_env = os.environ.copy()
             configure_env[
                 "CFLAGS"
-            ] = "-mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
+            ] = "-mno-avx -mno-avx2 -mno-avx512f -mno-avx512cd -mno-avx512dq -mno-avx512bw -mno-avx512vl -mno-avx512ifma -mno-avx512vbmi -mno-avx512vbmi2 -mno-avx512vnni -mno-avx512bitalg -mno-avx512vpopcntdq -mno-fma -mno-bmi -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
             configure_env[
                 "LDFLAGS"
             ] = "-Wl,--strip-all"  # Strip for smaller size, avoid static linking issues
@@ -693,7 +693,7 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
 
     # Conservative Rust flags are now handled by .cargo/config.toml
     # Just set C compilation flags for any native dependencies that use cc-rs
-    c_flags = "-mno-avx -mno-avx2 -mno-fma -mno-bmi -mno-avx512f -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe"
+    c_flags = "-mno-avx -mno-avx2 -mno-avx512f -mno-avx512cd -mno-avx512dq -mno-avx512bw -mno-avx512vl -mno-avx512ifma -mno-avx512vbmi -mno-avx512vbmi2 -mno-avx512vnni -mno-avx512bitalg -mno-avx512vpopcntdq -mno-fma -mno-bmi -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe"
     conservative_env["CFLAGS"] = c_flags
     conservative_env["CXXFLAGS"] = c_flags
 
