@@ -389,9 +389,9 @@ _json _json.c
 
             # Configure with conservative CPU flags but allow modules to build properly
             configure_env = os.environ.copy()
-            # Use conservative CPU flags but keep them reasonable for module building
-            configure_env["CFLAGS"] = "-O2 -mno-avx -mno-avx2 -mno-avx512f -mno-fma"
-            configure_env["CXXFLAGS"] = "-O2 -mno-avx -mno-avx2 -mno-avx512f -mno-fma"
+            # Use basic conservative CPU flags to avoid segfaults
+            configure_env["CFLAGS"] = "-O2 -march=x86-64 -mtune=generic"
+            configure_env["CXXFLAGS"] = "-O2 -march=x86-64 -mtune=generic"
 
             configure_cmd = [
                 "./configure",
@@ -403,7 +403,6 @@ _json _json.c
                 "--enable-loadable-sqlite-extensions",  # Enable sqlite
                 "--with-computed-gotos",  # Performance optimization
                 "--enable-shared",  # Allow shared libraries for extension modules
-                "--enable-optimizations",  # Enable optimizations but with our conservative CFLAGS
             ]
 
             print(f"🔧 Configuring conservative Python build with essential modules...")

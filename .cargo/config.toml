@@ -17,57 +17,22 @@
 [build]
 rustflags = [
     "-C", "debuginfo=2",
-    "-C", "target-feature=-avx",
+    # Basic conservative targeting - only disable the most problematic features
     "-C", "target-feature=-avx2",
-    "-C", "target-feature=-avx512f",
-    "-C", "target-feature=-avx512cd",
-    "-C", "target-feature=-avx512dq",
-    "-C", "target-feature=-avx512bw",
-    "-C", "target-feature=-avx512vl",
-    "-C", "target-feature=-avx512ifma",
-    "-C", "target-feature=-avx512vbmi",
-    "-C", "target-feature=-avx512vbmi2",
-    "-C", "target-feature=-avx512vnni",
-    "-C", "target-feature=-avx512bitalg",
-    "-C", "target-feature=-avx512vpopcntdq",
-    "-C", "target-feature=-fma",
-    "-C", "target-feature=-bmi1",
-    "-C", "target-feature=-bmi2",
-    "-C", "target-feature=-lzcnt",
-    "-C", "target-feature=-pclmulqdq",
-    "-C", "target-feature=-movbe"
+    "-C", "target-feature=-avx512f"
 ]
 
 # Environment variables for C/C++ compilation
 [env]
-CFLAGS = "-mno-avx -mno-avx2 -mno-avx512f -mno-avx512cd -mno-avx512dq -mno-avx512bw -mno-avx512vl -mno-avx512ifma -mno-avx512vbmi -mno-avx512vbmi2 -mno-avx512vnni -mno-avx512bitalg -mno-avx512vpopcntdq -mno-fma -mno-bmi -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
-CXXFLAGS = "-mno-avx -mno-avx2 -mno-avx512f -mno-avx512cd -mno-avx512dq -mno-avx512bw -mno-avx512vl -mno-avx512ifma -mno-avx512vbmi -mno-avx512vbmi2 -mno-avx512vnni -mno-avx512bitalg -mno-avx512vpopcntdq -mno-fma -mno-bmi -mno-bmi2 -mno-lzcnt -mno-pclmul -mno-movbe -O2"
+CFLAGS = "-O2 -march=x86-64 -mtune=generic"
+CXXFLAGS = "-O2 -march=x86-64 -mtune=generic"
 
 # Static linking configuration for fully self-contained binaries
 [target.x86_64-unknown-linux-gnu]
 rustflags = [
-    "-C", "target-feature=+crt-static",
-    "-C", "link-arg=-static",
-    # Conservative CPU features (same as global but for static builds)
-    "-C", "target-feature=-avx",
+    # Basic conservative targeting - only disable the most problematic features
     "-C", "target-feature=-avx2",
-    "-C", "target-feature=-avx512f",
-    "-C", "target-feature=-avx512cd",
-    "-C", "target-feature=-avx512dq",
-    "-C", "target-feature=-avx512bw",
-    "-C", "target-feature=-avx512vl",
-    "-C", "target-feature=-avx512ifma",
-    "-C", "target-feature=-avx512vbmi",
-    "-C", "target-feature=-avx512vbmi2",
-    "-C", "target-feature=-avx512vnni",
-    "-C", "target-feature=-avx512bitalg",
-    "-C", "target-feature=-avx512vpopcntdq",
-    "-C", "target-feature=-fma",
-    "-C", "target-feature=-bmi1",
-    "-C", "target-feature=-bmi2",
-    "-C", "target-feature=-lzcnt",
-    "-C", "target-feature=-pclmulqdq",
-    "-C", "target-feature=-movbe"
+    "-C", "target-feature=-avx512f"
 ]
 
 [target.x86_64-unknown-linux-musl]
@@ -75,24 +40,7 @@ linker = "musl-gcc"
 rustflags = [
     "-C", "target-feature=+crt-static",
     "-C", "link-arg=-static",
-    # Conservative CPU features (same as global but for static builds)
-    "-C", "target-feature=-avx",
+    # Basic conservative targeting - only disable the most problematic features
     "-C", "target-feature=-avx2",
-    "-C", "target-feature=-avx512f",
-    "-C", "target-feature=-avx512cd",
-    "-C", "target-feature=-avx512dq",
-    "-C", "target-feature=-avx512bw",
-    "-C", "target-feature=-avx512vl",
-    "-C", "target-feature=-avx512ifma",
-    "-C", "target-feature=-avx512vbmi",
-    "-C", "target-feature=-avx512vbmi2",
-    "-C", "target-feature=-avx512vnni",
-    "-C", "target-feature=-avx512bitalg",
-    "-C", "target-feature=-avx512vpopcntdq",
-    "-C", "target-feature=-fma",
-    "-C", "target-feature=-bmi1",
-    "-C", "target-feature=-bmi2",
-    "-C", "target-feature=-lzcnt",
-    "-C", "target-feature=-pclmulqdq",
-    "-C", "target-feature=-movbe"
+    "-C", "target-feature=-avx512f"
 ]
