@@ -13,26 +13,36 @@
 # limitations under the License.
 
 from pathlib import Path
-from textwrap import dedent
 
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.notebook.exceptions import NotebookFilePathError
 from snowflake.cli._plugins.notebook.types import NotebookStagePath
 from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.sql_execution import SqlExecutionMixin
+from snowflake.cli.api.snowpy_execution import SnowpyExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
 
 
-class NotebookManager(SqlExecutionMixin):
+class NotebookManager(SnowpyExecutionMixin):
     def execute(self, notebook_name: FQN):
-        query = f"EXECUTE NOTEBOOK {notebook_name.sql_identifier}()"
-        return self.execute_query(query=query)
+        database = notebook_name.database or self.root.session.get_current_database()
+        schema = notebook_name.schema or self.root.session.get_current_schema()
+
+        notebook = (
+            self._root.databases[database].schemas[schema].notebooks[notebook_name.name]
+        )
+        from snowflake.core.exceptions import APIError
+
+        try:
+            return notebook.execute()
+        except APIError as e:
+            raise CliError(e.body)
 
     def get_url(self, notebook_name: FQN):
-        fqn = notebook_name.using_connection(self._conn)
+        fqn = notebook_name.using_connection(self.root.connection)
         return make_snowsight_url(
-            self._conn,
+            self.root.connection,
             f"/#/notebooks/{fqn.url_identifier}",
         )
 
@@ -53,21 +63,24 @@ class NotebookManager(SqlExecutionMixin):
         notebook_name: FQN,
         notebook_file: NotebookStagePath,
     ) -> str:
-        notebook_fqn = notebook_name.using_connection(self._conn)
-        stage_path = self.parse_stage_as_path(notebook_file)
+        from snowflake.core.notebook import Notebook
 
-        queries = dedent(
-            f"""
-            CREATE OR REPLACE NOTEBOOK {notebook_fqn.sql_identifier}
-            FROM '{stage_path.parent}'
-            QUERY_WAREHOUSE = '{get_cli_context().connection.warehouse}'
-            MAIN_FILE = '{stage_path.name}';
-            // Cannot use IDENTIFIER(...)
-            ALTER NOTEBOOK {notebook_fqn.identifier} ADD LIVE VERSION FROM LAST;
-            """
+        database = notebook_name.database or self.root.session.get_current_database()
+        schema = notebook_name.schema or self.root.session.get_current_schema()
+
+        notebooks = self._root.databases[database].schemas[schema].notebooks
+        stage_path = self.parse_stage_as_path(notebook_file)
+        notebook = Notebook(
+            name=notebook_name.name,
+            from_location=str(stage_path.parent),
+            query_warehouse=get_cli_context().connection.warehouse,
+            main_file=str(stage_path.name),
         )
-        self.execute_queries(queries=queries)
+        notebook_res = notebooks.create(notebook)
+        notebook_res.add_live_version(from_last=True)
+
+        notebook_fqn = notebook_name.using_connection(self.root.connection)
 
         return make_snowsight_url(
-            self._conn, f"/#/notebooks/{notebook_fqn.url_identifier}"
+            self.root.connection, f"/#/notebooks/{notebook_fqn.url_identifier}"
         )
