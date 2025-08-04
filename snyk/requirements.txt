@@ -36,7 +36,7 @@ prompt-toolkit==3.0.51
 protobuf==5.29.5 ; python_full_version < '3.12'
 pycparser==2.22
 pydantic==2.11.7
-pydantic-core==2.33.2
+pydantic-core==2.38.0
 pygments==2.19.2
 pyjwt==2.10.1
 pyopenssl==25.1.0
