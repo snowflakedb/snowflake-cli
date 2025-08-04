@@ -35,6 +35,7 @@ FederatedUserOption = typer.Option(
 FederatedUserArgument = typer.Argument(
     ...,
     help="Name for the federated user to drop",
+    show_default=False,
 )
 
 SubjectOption = typer.Option(
