@@ -1,4 +1,5 @@
-FROM python:3.10-slim-buster
+# syntax=docker/dockerfile:1.4
+FROM --platform=linux/amd64 python:3.10-slim-buster
 COPY echo_service.py ./
 RUN pip install --upgrade pip && \
     pip install flask

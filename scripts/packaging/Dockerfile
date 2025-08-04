@@ -1,4 +1,8 @@
-FROM artifactory.ci1.us-west-2.aws-dev.app.snowflake.com/docker-remote/library/ubuntu:18.04 AS base
+# syntax=docker/dockerfile:1.4
+# Multi-platform Dockerfile for Snowflake CLI
+# Use --platform linux/amd64 for consistent builds across architectures
+
+FROM --platform=linux/amd64 artifactory.ci1.us-west-2.aws-dev.app.snowflake.com/docker-remote/library/ubuntu:18.04 AS base
 
 ENV HOME=/root
 

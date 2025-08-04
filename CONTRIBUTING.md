@@ -123,6 +123,8 @@ To build and push all required Docker images, run the following script:
 ./tests_integration/tests_using_container_services/spcs/docker/build_and_push_all.sh
 ```
 
+**Note**: All Docker builds automatically use `--platform linux/amd64` for cross-platform compatibility. See [Docker Platform Guide](docs/DOCKER_PLATFORM_GUIDE.md) for details on building consistent binaries across different host architectures (Apple Silicon Mac, x86_64 Linux, etc.).
+
 ## Remote debugging with PyCharm or IntelliJ
 
 Snowflake CLI can connect to a remote debug server started in PyCharm or Intellij.
