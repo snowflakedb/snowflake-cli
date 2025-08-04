@@ -394,48 +394,6 @@ class TestOidcManager:
             assert result == "empty result"
 
     @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_list_with_oidc_enabled(self, mock_execute_query):
-        """Test list method uses has_workload_identity column."""
-        # Mock parameter check response (first call)
-        mock_parameter_cursor = Mock()
-        mock_parameter_cursor.fetchone.return_value = {
-            "key": "ENABLE_USERS_HAS_WORKLOAD_IDENTITY",
-            "value": "true",
-        }
-
-        # Mock users query response with a cursor-like object (second call)
-        mock_cursor = Mock()
-        mock_cursor.rowcount = 2
-        users_response = [
-            {"name": "user1", "has_workload_identity": True},
-            {"name": "user2", "has_workload_identity": True},
-        ]
-        # Make the cursor behave like the actual cursor for iteration/result access
-        mock_cursor.__iter__ = Mock(return_value=iter(users_response))
-
-        # Set up side effects for the two calls
-        mock_execute_query.side_effect = [mock_parameter_cursor, mock_cursor]
-
-        manager = OidcManager()
-        result = manager.get_users_list()
-
-        # Verify the correct queries were executed
-        assert mock_execute_query.call_count == 2
-
-        # Check parameter query (first call)
-        parameter_call = mock_execute_query.call_args_list[0]
-        assert "ENABLE_USERS_HAS_WORKLOAD_IDENTITY" in parameter_call[0][0]
-
-        # Check users query uses has_workload_identity column (second call)
-        users_call = mock_execute_query.call_args_list[1]
-        users_query = users_call[0][0]
-        assert "has_workload_identity" in users_query
-        assert "has_federated_workload_authentication" not in users_query
-
-        # Verify result
-        assert result == mock_cursor
-
-    @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
     def test_list_sql_exception_handling(self, mock_execute_query):
         """Test that list method handles SQL execution exceptions."""
         manager = OidcManager()
@@ -450,64 +408,17 @@ class TestOidcManager:
     @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
     def test_list_empty_results(self, mock_execute_query):
         """Test list method when no users have workload identity enabled."""
-        # Mock parameter check response (first call)
-        mock_parameter_cursor = Mock()
-        mock_parameter_cursor.fetchone.return_value = {
-            "key": "ENABLE_USERS_HAS_WORKLOAD_IDENTITY",
-            "value": "false",
-        }
-
-        # Mock empty cursor response (second call)
+        # Mock empty cursor response
         mock_cursor = Mock()
         mock_cursor.rowcount = 0
         mock_cursor.__iter__ = Mock(return_value=iter([]))
 
-        # Set up side effects for the two calls
-        mock_execute_query.side_effect = [mock_parameter_cursor, mock_cursor]
+        # Set up mock for the single call
+        mock_execute_query.return_value = mock_cursor
 
         manager = OidcManager()
         result = manager.get_users_list()
 
         # Verify result is the cursor
         assert result == mock_cursor
-        assert mock_execute_query.call_count == 2
-
-    @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_list_uses_legacy_column_when_parameter_disabled(self, mock_execute_query):
-        """Test list method uses legacy column when ENABLE_USERS_HAS_WORKLOAD_IDENTITY is false."""
-        # Mock parameter check response (first call) - parameter disabled
-        mock_parameter_cursor = Mock()
-        mock_parameter_cursor.fetchone.return_value = {
-            "key": "ENABLE_USERS_HAS_WORKLOAD_IDENTITY",
-            "value": "false",
-        }
-
-        # Mock users query response with a cursor-like object (second call)
-        mock_cursor = Mock()
-        mock_cursor.rowcount = 1
-        users_response = [
-            {"name": "legacy_user", "has_federated_workload_authentication": True},
-        ]
-        mock_cursor.__iter__ = Mock(return_value=iter(users_response))
-
-        # Set up side effects for the two calls
-        mock_execute_query.side_effect = [mock_parameter_cursor, mock_cursor]
-
-        manager = OidcManager()
-        result = manager.get_users_list()
-
-        # Verify the correct queries were executed
-        assert mock_execute_query.call_count == 2
-
-        # Check parameter query (first call)
-        parameter_call = mock_execute_query.call_args_list[0]
-        assert "ENABLE_USERS_HAS_WORKLOAD_IDENTITY" in parameter_call[0][0]
-
-        # Check users query uses legacy column (second call)
-        users_call = mock_execute_query.call_args_list[1]
-        users_query = users_call[0][0]
-        assert "has_federated_workload_authentication" in users_query
-        assert "has_workload_identity" not in users_query
-
-        # Verify result
-        assert result == mock_cursor
+        assert mock_execute_query.call_count == 1

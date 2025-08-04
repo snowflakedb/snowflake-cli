@@ -47,7 +47,8 @@ class TestGitHubOidcProvider:
         provider = GitHubOidcProvider()
         assert provider.issuer == "https://token.actions.githubusercontent.com"
 
-    def test_issuer_missing_env_var(self):
+    @patch.dict(os.environ, {"GITHUB_ACTIONS": "true"})
+    def test_issuer_missing_env_var_in_ci(self):
         """Test issuer property when environment variable is not set."""
         provider = GitHubOidcProvider()
         with pytest.raises(
@@ -56,31 +57,11 @@ class TestGitHubOidcProvider:
         ):
             _ = provider.issuer
 
-    def test_generate_subject(self):
-        """Test generate_subject static method."""
-        result = GitHubOidcProvider.generate_subject("myorg/myrepo", "production")
-        assert result == "repo:myorg/myrepo:environment:production"
-
-    def test_generate_subject_various_formats(self):
-        """Test generate_subject with various repository and environment formats."""
-        test_cases = [
-            ("owner/repo", "prod", "repo:owner/repo:environment:prod"),
-            ("my-org/my-repo", "staging", "repo:my-org/my-repo:environment:staging"),
-            (
-                "test123/test-repo-name",
-                "dev",
-                "repo:test123/test-repo-name:environment:dev",
-            ),
-            (
-                "org/repo-with-dots.test",
-                "test.env",
-                "repo:org/repo-with-dots.test:environment:test.env",
-            ),
-        ]
-
-        for repo, env, expected in test_cases:
-            result = GitHubOidcProvider.generate_subject(repo, env)
-            assert result == expected
+    @patch.dict(os.environ, clear=True)
+    def test_issuer_missing_env_var_outside_ci(self):
+        """Test issuer property when environment variable is not set."""
+        provider = GitHubOidcProvider()
+        assert provider.issuer == "https://token.actions.githubusercontent.com"
 
     @patch.dict(os.environ, {"GITHUB_ACTIONS": "true"})
     def test_is_available_success(self):
@@ -315,6 +296,7 @@ class TestModuleFunctions:
 
     def test_auto_detect_oidc_provider_multiple_providers_error(self):
         """Test auto_detect_oidc_provider raises error when multiple providers are available."""
+
         # Create a mock provider that's always available
         class AlwaysAvailableProvider(OidcTokenProvider):
             @property
@@ -388,17 +370,13 @@ class TestAbstractBaseClass:
                 return "incomplete"
 
             @property
-            def is_available(self) -> bool:
-                return True
-
-            @property
             def issuer(self) -> str:
                 return "https://example.com"
 
             def get_token(self) -> str:
                 return "token"
 
-            # Missing: generate_subject
+            # Missing: is_available
 
         with pytest.raises(TypeError):
             IncompleteProvider()  # type: ignore
@@ -426,27 +404,3 @@ class TestAbstractBaseClass:
 
         with pytest.raises(TypeError):
             ProviderWithoutIssuer()  # type: ignore
-
-    def test_concrete_class_must_implement_generate_subject(self):
-        """Test that concrete classes must implement generate_subject."""
-
-        class ProviderWithoutGenerateSubject(OidcTokenProvider):
-            @property
-            def provider_name(self) -> str:
-                return "no_generate_subject"
-
-            @property
-            def is_available(self) -> bool:
-                return True
-
-            @property
-            def issuer(self) -> str:
-                return "https://example.com"
-
-            def get_token(self) -> str:
-                return "token"
-
-            # Missing: generate_subject
-
-        with pytest.raises(TypeError):
-            ProviderWithoutGenerateSubject()  # type: ignore

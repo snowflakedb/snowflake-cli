@@ -88,26 +88,23 @@ class OidcTokenProvider(ABC):
         """
         pass
 
-    @staticmethod
-    @abstractmethod
-    def generate_subject(repository: str, env: str) -> str:
-        """
-        Generates the subject string for workload identity federation setup.
-
-        Args:
-            repository: Repository identifier in provider-specific format
-            env: Environment name
-
-        Returns:
-            Subject string in provider-specific format
-        """
-        pass
-
 
 class GitHubOidcProvider(OidcTokenProvider):
     """
     OIDC token provider for GitHub Actions.
     """
+
+    @property
+    def _is_ci(self):
+        logger.debug("Checking if GitHub Actions environment is available")
+
+        # Check if we're in a GitHub Actions environment
+        github_actions_env = os.getenv("GITHUB_ACTIONS")
+        logger.debug("GITHUB_ACTIONS environment variable: %s", github_actions_env)
+
+        is_github_actions = github_actions_env == "true"
+        logger.debug("Running in GitHub Actions: %s", is_github_actions)
+        return is_github_actions
 
     @property
     def audience(self) -> str:
@@ -125,32 +122,16 @@ class GitHubOidcProvider(OidcTokenProvider):
         Returns the GitHub OIDC issuer URL.
 
         Returns:
-            The GitHub OIDC issuer URL
-
-        Raises:
-            OidcProviderError: If ACTIONS_ID_TOKEN_REQUEST_URL environment variable is not set
+            The GitHub OIDC issuer URL from ACTIONS_ID_TOKEN_REQUEST_URL environment variable,
+            or the default GitHub issuer URL if the environment variable is not set
         """
         issuer_url = os.getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
-        if not issuer_url:
+        if not issuer_url and self._is_ci:
             raise OidcProviderError(
-                "ACTIONS_ID_TOKEN_REQUEST_URL environment variable is not set. "
-                "This variable is required for GitHub Actions OIDC authentication."
+                "ACTIONS_ID_TOKEN_REQUEST_URL environment variable is not set."
+                "This variable is requires for Github Actions OIDC authentication"
             )
-        return issuer_url
-
-    @staticmethod
-    def generate_subject(github_repository: str, env: str) -> str:
-        """
-        Generates the subject string for GitHub workload identity federation setup.
-
-        Args:
-            github_repository: GitHub repository in format 'org-name/repository-name'
-            env: Environment name defined in GitHub settings
-
-        Returns:
-            Subject string in format 'repo:<org-name/repo-name>:environment:<env>'
-        """
-        return f"repo:{github_repository}:environment:{env}"
+        return issuer_url or "https://token.actions.githubusercontent.com"
 
     @property
     def provider_name(self) -> str:
@@ -161,15 +142,7 @@ class GitHubOidcProvider(OidcTokenProvider):
         """
         Checks if GitHub Actions environment is available.
         """
-        logger.debug("Checking if GitHub Actions environment is available")
-
-        # Check if we're in a GitHub Actions environment
-        github_actions_env = os.getenv("GITHUB_ACTIONS")
-        logger.debug("GITHUB_ACTIONS environment variable: %s", github_actions_env)
-
-        is_github_actions = github_actions_env == "true"
-        logger.debug("Running in GitHub Actions: %s", is_github_actions)
-        return is_github_actions
+        return self._is_ci
 
     def get_token(self) -> str:
         """

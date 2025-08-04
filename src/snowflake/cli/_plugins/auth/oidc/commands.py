@@ -14,13 +14,8 @@
 
 
 import typer
-from snowflake.cli._app.auth.oidc_providers import (
-    OidcProviderType,
-)
-from snowflake.cli._plugins.auth.oidc.manager import (
-    OidcManager,
-)
-from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
+from snowflake.cli._app.auth.oidc_providers import OidcProviderType
+from snowflake.cli._plugins.auth.oidc.manager import OidcManager
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import MessageResult, QueryResult
 
@@ -29,13 +24,17 @@ app = SnowTyperFactory(
     help="Manages OIDC federated authentication.",
 )
 
-# Option definitions
-FederatedUserOption = OverrideableOption(
+FederatedUserOption = typer.Option(
     ...,
     "--federated-user",
     show_default=False,
-    help="Name for the federated user",
+    help="Name for the federated user to create",
     prompt="Enter federated user name",
+)
+
+FederatedUserArgument = typer.Argument(
+    ...,
+    help="Name for the federated user to drop",
 )
 
 SubjectOption = typer.Option(
@@ -62,7 +61,6 @@ ProviderTypeOption = typer.Option(
     show_default=False,
 )
 
-
 AutoProviderTypeOption = typer.Option(
     "auto",
     "--type",
@@ -73,11 +71,8 @@ AutoProviderTypeOption = typer.Option(
 
 @app.command("setup", requires_connection=True)
 def setup(
-    _type: str = ProviderTypeOption,
-    federated_user: str = FederatedUserOption(
-        help="Name for the federated user to create",
-        prompt="Enter federated user name",
-    ),
+    _type: OidcProviderType = ProviderTypeOption,
+    federated_user: str = FederatedUserOption,
     subject: str = SubjectOption,
     default_role: str = DefaultRoleOption,
     **options,
@@ -90,17 +85,14 @@ def setup(
         user=federated_user,
         subject=subject,
         default_role=default_role,
-        provider_type=_type,
+        provider_type=_type.value,
     )
     return MessageResult(result)
 
 
 @app.command("delete", requires_connection=True)
 def delete(
-    federated_user: str = FederatedUserOption(
-        help="Name of the federated user to delete",
-        prompt="Enter federated user name to delete",
-    ),
+    federated_user=FederatedUserArgument,
     **options,
 ):
     """

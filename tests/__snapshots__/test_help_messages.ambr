@@ -4424,15 +4424,18 @@
 # name: test_help_messages[auth.oidc.delete]
   '''
                                                                                   
-   Usage: root auth oidc delete [OPTIONS]                                         
+   Usage: root auth oidc delete [OPTIONS] FEDERATED_USER                          
                                                                                   
    Deletes a federated user.                                                      
                                                                                   
                                                                                   
+  +- Arguments ------------------------------------------------------------------+
+  | *    federated_user      TEXT  Name for the federated user to drop           |
+  |                                [default: None]                               |
+  |                                [required]                                    |
+  +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | *  --federated-user          TEXT  Name of the federated user to delete      |
-  |                                    [required]                                |
-  |    --help            -h            Show this message and exit.               |
+  | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -4720,17 +4723,17 @@
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | *  --type                    TEXT  Type of OIDC provider to use (e.g.,       |
-  |                                    'github')                                 |
-  |                                    [required]                                |
-  | *  --federated-user          TEXT  Name for the federated user to create     |
-  |                                    [required]                                |
-  | *  --subject                 TEXT  OIDC subject string                       |
-  |                                    [required]                                |
-  | *  --default-role            TEXT  Default role to assign to the federated   |
-  |                                    user                                      |
-  |                                    [required]                                |
-  |    --help            -h            Show this message and exit.               |
+  | *  --type                    [github]  Type of OIDC provider to use (e.g.,   |
+  |                                        'github')                             |
+  |                                        [required]                            |
+  | *  --federated-user          TEXT      Name for the federated user to create |
+  |                                        [required]                            |
+  | *  --subject                 TEXT      OIDC subject string                   |
+  |                                        [required]                            |
+  | *  --default-role            TEXT      Default role to assign to the         |
+  |                                        federated user                        |
+  |                                        [required]                            |
+  |    --help            -h                Show this message and exit.           |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |

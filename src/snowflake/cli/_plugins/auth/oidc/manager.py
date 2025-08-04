@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import logging
-from functools import cached_property
 
 from snowflake.cli._app.auth.oidc_providers import (
     OidcProviderError,
@@ -179,18 +178,6 @@ class OidcManager(SqlExecutionMixin):
             logger.error(error_msg)
             raise CliError(error_msg)
 
-    @cached_property
-    def _has_oidc_enabled(self) -> bool:
-        """
-        Checks if OIDC federated authentication is enabled in the Snowflake account.
-        """
-        logger.debug("Checking ENABLE_USERS_HAS_WORKLOAD_IDENTITY parameter")
-        parameter_result = self.execute_query(
-            'show parameters ->> select "key", "value" from $1 where "key" = \'ENABLE_USERS_HAS_WORKLOAD_IDENTITY\'',
-            cursor_class=DictCursor,
-        ).fetchone()
-        return parameter_result and parameter_result.get("value", "").lower() == "true"
-
     def get_users_list(self) -> SnowflakeCursor:
         """
         Lists users with OIDC federated authentication enabled.
@@ -204,14 +191,8 @@ class OidcManager(SqlExecutionMixin):
         logger.info("Listing users with OIDC federated authentication enabled")
 
         try:
-            # Determine which column to check based on parameter value
-            # TODO: This is a temporary solution to check if OIDC is enabled. SNOW-2236350
-            if self._has_oidc_enabled:
-                logger.debug("Using has_workload_identity column")
-                users_query = 'show terse users ->> select * from $1 where "has_workload_identity" = true'
-            else:
-                logger.debug("Using has_federated_workload_authentication column")
-                users_query = 'show terse users ->> select * from $1 where "has_federated_workload_authentication" = true'
+            logger.debug("Using has_workload_identity column")
+            users_query = 'show terse users ->> select * from $1 where "has_workload_identity" = true'
 
             # Execute the users query
             users_result = self.execute_query(users_query, cursor_class=DictCursor)
