@@ -18,7 +18,7 @@ import logging
 import os
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, List, Optional, Type
+from typing import Dict, List, Literal, Optional, Type
 
 import id as oidc_id
 from snowflake.cli.api.exceptions import CliError
@@ -32,7 +32,11 @@ class OidcProviderError(Exception):
     ...
 
 
-SNOWFLAKE_AUDIENCE_ENV = "SNOWFLAKE_AUDIENCE"
+ACTIONS_ID_TOKEN_REQUEST_URL_ENV: Literal[
+    "ACTIONS_ID_TOKEN_REQUEST_URL"
+] = "ACTIONS_ID_TOKEN_REQUEST_URL"
+GITHUB_ACTIONS_ENV: Literal["GITHUB_ACTIONS"] = "GITHUB_ACTIONS"
+SNOWFLAKE_AUDIENCE_ENV: Literal["SNOWFLAKE_AUDIENCE"] = "SNOWFLAKE_AUDIENCE"
 
 
 class OidcProviderType(Enum):
@@ -99,8 +103,12 @@ class GitHubOidcProvider(OidcTokenProvider):
         logger.debug("Checking if GitHub Actions environment is available")
 
         # Check if we're in a GitHub Actions environment
-        github_actions_env = os.getenv("GITHUB_ACTIONS")
-        logger.debug("GITHUB_ACTIONS environment variable: %s", github_actions_env)
+        github_actions_env = os.getenv(GITHUB_ACTIONS_ENV)
+        logger.debug(
+            "%s environment variable: %s",
+            GITHUB_ACTIONS_ENV,
+            github_actions_env,
+        )
 
         is_github_actions = github_actions_env == "true"
         logger.debug("Running in GitHub Actions: %s", is_github_actions)
@@ -125,10 +133,10 @@ class GitHubOidcProvider(OidcTokenProvider):
             The GitHub OIDC issuer URL from ACTIONS_ID_TOKEN_REQUEST_URL environment variable,
             or the default GitHub issuer URL if the environment variable is not set
         """
-        issuer_url = os.getenv("ACTIONS_ID_TOKEN_REQUEST_URL")
+        issuer_url = os.getenv(ACTIONS_ID_TOKEN_REQUEST_URL_ENV)
         if not issuer_url and self._is_ci:
             raise OidcProviderError(
-                "ACTIONS_ID_TOKEN_REQUEST_URL environment variable is not set."
+                f"{ACTIONS_ID_TOKEN_REQUEST_URL_ENV} environment variable is not set."
                 "This variable is requires for Github Actions OIDC authentication"
             )
         return issuer_url or "https://token.actions.githubusercontent.com"
