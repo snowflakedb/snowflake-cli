@@ -147,11 +147,17 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_FULL_ISOLATION"] = "1"
     os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = str(python_path)
     os.environ["PYAPP_DISTRIBUTION_PIP_AVAILABLE"] = "1"
-    # Force x86_64 target with baseline CPU features for broader compatibility
+    # Force x86_64 target with most conservative CPU features for maximum compatibility
     os.environ["CARGO_BUILD_TARGET"] = "x86_64-unknown-linux-gnu"
     os.environ[
         "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS"
-    ] = "-C target-cpu=x86-64"
+    ] = "-C target-cpu=core2 -C target-feature=-avx,-avx2,-bmi1,-bmi2,-fma,-avx512f,-avx512dq,-avx512ifma,-avx512pf,-avx512er,-avx512cd,-avx512bw,-avx512vl,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512bf16,-avx512fp16,-avx512vp2intersect"
+    # Additional Rust flags for compatibility
+    os.environ[
+        "RUSTFLAGS"
+    ] = "-C target-cpu=core2 -C target-feature=-avx,-avx2,-bmi1,-bmi2,-fma,-avx512f,-avx512dq,-avx512ifma,-avx512pf,-avx512er,-avx512cd,-avx512bw,-avx512vl,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512bf16,-avx512fp16,-avx512vp2intersect"
+    # Force conservative optimization
+    os.environ["CARGO_PROFILE_RELEASE_OPT_LEVEL"] = "s"
     completed_proc = subprocess.run(
         ["hatch", "build", "-t", "binary"], capture_output=True
     )

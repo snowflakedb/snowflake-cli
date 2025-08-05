@@ -74,10 +74,10 @@ loginfo "---------------------------------"
 echo "--- build binary ---"
 
 clean_build_workspace
-# Set environment variables for broader compatibility if building on x86_64
+# Set environment variables for maximum compatibility if building on x86_64
 if [[ ${MACHINE} == "x86_64" ]]; then
   export CARGO_BUILD_TARGET="x86_64-apple-darwin"
-  export CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS="-C target-cpu=x86-64"
+  export CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS="-C target-cpu=core2 -C target-feature=-avx,-avx2,-bmi1,-bmi2,-fma,-avx512f,-avx512dq,-avx512ifma,-avx512pf,-avx512er,-avx512cd,-avx512bw,-avx512vl,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512bf16,-avx512fp16,-avx512vp2intersect"
 fi
 hatch -e packaging run build-isolated-binary
 create_app_template

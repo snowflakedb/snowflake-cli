@@ -28,9 +28,9 @@ build_binaries() {
     echo "Building for Darwin moved to build_darwin_package.sh"
     exit 0
   elif [[ ${SYSTEM} == "linux" ]]; then
-    # Set environment variables for broader x86_64 compatibility
+    # Set environment variables for maximum x86_64 compatibility
     export CARGO_BUILD_TARGET="x86_64-unknown-linux-gnu"
-    export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C target-cpu=x86-64"
+    export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C target-cpu=core2 -C target-feature=-avx,-avx2,-bmi1,-bmi2,-fma,-avx512f,-avx512dq,-avx512ifma,-avx512pf,-avx512er,-avx512cd,-avx512bw,-avx512vl,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512bf16,-avx512fp16,-avx512vp2intersect"
     hatch -e packaging run build-isolated-binary
 
     # Debug: list what files are actually in the binary directory
