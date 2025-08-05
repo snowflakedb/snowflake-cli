@@ -1,0 +1,23 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Rust configuration for maximum x86_64 compatibility
+[build]
+# Target older x86_64 baseline to avoid newer CPU instructions
+target = "x86_64-unknown-linux-gnu"
+
+[target.x86_64-unknown-linux-gnu]
+# Use most conservative CPU target for maximum compatibility
+# core2 is older than x86-64 baseline and should work in most environments
+rustflags = ["-C", "target-cpu=core2", "-C", "target-feature=-avx,-avx2,-bmi1,-bmi2,-fma,-avx512f,-avx512dq,-avx512ifma,-avx512pf,-avx512er,-avx512cd,-avx512bw,-avx512vl,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512bf16,-avx512fp16,-avx512vp2intersect"]
