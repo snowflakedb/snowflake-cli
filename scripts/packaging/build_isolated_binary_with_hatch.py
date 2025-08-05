@@ -147,6 +147,11 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_FULL_ISOLATION"] = "1"
     os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = str(python_path)
     os.environ["PYAPP_DISTRIBUTION_PIP_AVAILABLE"] = "1"
+    # Force x86_64 target with baseline CPU features for broader compatibility
+    os.environ["CARGO_BUILD_TARGET"] = "x86_64-unknown-linux-gnu"
+    os.environ[
+        "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS"
+    ] = "-C target-cpu=x86-64"
     completed_proc = subprocess.run(
         ["hatch", "build", "-t", "binary"], capture_output=True
     )

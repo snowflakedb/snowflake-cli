@@ -26,6 +26,10 @@ else
   exit 1
 fi
 rustup default stable
+# Install x86_64 target for broader compatibility if building on x86_64
+if [[ ${MACHINE} == "x86_64" ]]; then
+  rustup target add x86_64-apple-darwin
+fi
 
 
 echo "--- setup variables ---"
@@ -70,6 +74,11 @@ loginfo "---------------------------------"
 echo "--- build binary ---"
 
 clean_build_workspace
+# Set environment variables for broader compatibility if building on x86_64
+if [[ ${MACHINE} == "x86_64" ]]; then
+  export CARGO_BUILD_TARGET="x86_64-apple-darwin"
+  export CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS="-C target-cpu=x86-64"
+fi
 hatch -e packaging run build-isolated-binary
 create_app_template
 mv $DIST_DIR/binary/${BINARY_NAME} ${APP_DIR}/${APP_NAME}/Contents/MacOS/snow
