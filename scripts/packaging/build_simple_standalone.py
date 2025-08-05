@@ -160,8 +160,22 @@ for candidate in python3.12 python3.11 python3.10 python3.9 python3; do
     fi
 done
 
+# If no Python found, try common installation paths
 if [ -z "$PYTHON" ]; then
-    echo "Error: No compatible Python found on system" >&2
+    for candidate in /usr/bin/python3 /usr/local/bin/python3 /opt/python*/bin/python3; do
+        if [ -x "$candidate" ]; then
+            PYTHON="$candidate"
+            break
+        fi
+    done
+fi
+
+if [ -z "$PYTHON" ]; then
+    echo "Error: No compatible Python 3.x found on system" >&2
+    echo "Please install Python 3.9 or later. On Ubuntu/Debian:" >&2
+    echo "  sudo apt update && sudo apt install python3" >&2
+    echo "On RHEL/CentOS:" >&2
+    echo "  sudo yum install python3" >&2
     exit 1
 fi
 
