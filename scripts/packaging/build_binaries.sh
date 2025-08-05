@@ -31,6 +31,12 @@ build_binaries() {
     # Set environment variables for maximum x86_64 compatibility
     export CARGO_BUILD_TARGET="x86_64-unknown-linux-gnu"
     export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C target-cpu=core2 -C target-feature=-avx,-avx2,-bmi1,-bmi2,-fma,-avx512f,-avx512dq,-avx512ifma,-avx512pf,-avx512er,-avx512cd,-avx512bw,-avx512vl,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512bf16,-avx512fp16,-avx512vp2intersect"
+
+    # Set conservative compiler flags for Python native extensions
+    export CFLAGS="-O2 -march=core2 -mtune=generic -mno-avx -mno-avx2 -mno-bmi -mno-bmi2 -mno-fma"
+    export CXXFLAGS="$CFLAGS"
+    export LDFLAGS="-Wl,-O1"
+
     hatch -e packaging run build-isolated-binary
 
     # Debug: list what files are actually in the binary directory

@@ -99,6 +99,10 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
 
 def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     """Install Python dist into temp dir for bundling."""
+    # Force use of specific Python distribution for better compatibility
+    # Use an older version that's more likely to be compatible
+    compat_version = "3.10.16"  # Use specific older version for compatibility
+
     completed_proc = subprocess.run(
         [
             "hatch",
@@ -107,7 +111,7 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
             "--private",
             "--dir",
             python_tmp_dir,
-            python_version,
+            compat_version,
         ]
     )
     return not completed_proc.returncode
@@ -133,9 +137,46 @@ def override_is_installation_source_variable():
 
 def pip_install_project(python_exe: str) -> bool:
     """Install the project into the Python distribution."""
+    # Set conservative compiler flags for any native extensions
+    env = os.environ.copy()
+    env.update(
+        {
+            "CFLAGS": "-O2 -march=core2 -mtune=generic -mno-avx -mno-avx2 -mno-bmi -mno-bmi2 -mno-fma",
+            "CXXFLAGS": "-O2 -march=core2 -mtune=generic -mno-avx -mno-avx2 -mno-bmi -mno-bmi2 -mno-fma",
+            "LDFLAGS": "-Wl,-O1",
+        }
+    )
+
+    # First install essential build tools
+    print("Installing build tools...")
+    subprocess.run(
+        [python_exe, "-m", "pip", "install", "-U", "wheel", "setuptools", "pip"],
+        capture_output=True,
+        env=env,
+    )
+
+    # Then install our project dependencies with conservative compilation
+    print("Installing dependencies with conservative CPU settings...")
+    subprocess.run(
+        [
+            python_exe,
+            "-m",
+            "pip",
+            "install",
+            "-U",
+            "--force-reinstall",
+            "--no-binary=cryptography,lxml,PyYAML,snowflake-connector-python",
+            str(PROJECT_ROOT),
+        ],
+        capture_output=True,
+        env=env,
+    )
+
+    # Then install the project itself
     completed_proc = subprocess.run(
         [python_exe, "-m", "pip", "install", "-U", str(PROJECT_ROOT)],
         capture_output=True,
+        env=env,
     )
     return not completed_proc.returncode
 
@@ -158,6 +199,17 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     ] = "-C target-cpu=core2 -C target-feature=-avx,-avx2,-bmi1,-bmi2,-fma,-avx512f,-avx512dq,-avx512ifma,-avx512pf,-avx512er,-avx512cd,-avx512bw,-avx512vl,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512bf16,-avx512fp16,-avx512vp2intersect"
     # Force conservative optimization
     os.environ["CARGO_PROFILE_RELEASE_OPT_LEVEL"] = "s"
+
+    # CRITICAL: Configure PyApp to use a more compatible Python distribution
+    # Use an older, more conservative Python build
+    os.environ["PYAPP_PYTHON_VERSION"] = "3.10.16"  # Specific older version
+    # Force PyApp to download a generic x86_64 build instead of optimized ones
+    os.environ["PYAPP_DISTRIBUTION_VARIANT"] = ""  # Use default/generic variant
+    # Enable debug for troubleshooting
+    os.environ["PYAPP_DEBUG"] = "1"
+    # Force use of the bundled distribution we created (most important)
+    os.environ["PYAPP_SKIP_INSTALL"] = "1"
+
     completed_proc = subprocess.run(
         ["hatch", "build", "-t", "binary"], capture_output=True
     )
