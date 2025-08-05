@@ -37,22 +37,18 @@ build_binaries() {
     export CXXFLAGS="$CFLAGS"
     export LDFLAGS="-Wl,-O1"
 
-    hatch -e packaging run build-isolated-binary
+    # Use simple standalone approach for maximum CPU compatibility
+    # PyApp binaries have persistent CPU instruction compatibility issues
+    echo "Building with simple standalone approach for maximum CPU compatibility..."
+    python scripts/packaging/build_simple_standalone.py
 
-    # Debug: list what files are actually in the binary directory
-    echo "Contents of $DIST_DIR/binary:"
-    ls -la $DIST_DIR/binary/ || echo "Binary directory not found"
-
-    # Find the actual binary file (it might not have the expected name)
-    BINARY_FILE=$(find $DIST_DIR/binary -name "snow*" -type f | head -1)
-    if [[ -z "$BINARY_FILE" ]]; then
-      echo "Error: No binary file found in $DIST_DIR/binary/"
-      exit 1
-    fi
-
-    echo "Found binary: $BINARY_FILE"
+    # Copy the standalone version to expected location
     mkdir -p $DIST_DIR/snow
-    mv "$BINARY_FILE" $DIST_DIR/snow/snow
+    cp -r $DIST_DIR/standalone/* $DIST_DIR/snow/
+
+    echo "Standalone build completed successfully"
+    echo "Contents of $DIST_DIR/snow:"
+    ls -la $DIST_DIR/snow/
   else
     echo "Unsupported platform: ${SYSTEM}"
     exit 1

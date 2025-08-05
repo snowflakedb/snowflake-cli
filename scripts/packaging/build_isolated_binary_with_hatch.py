@@ -259,23 +259,31 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_FULL_ISOLATION"] = "1"
     os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = str(python_path)
     os.environ["PYAPP_DISTRIBUTION_PIP_AVAILABLE"] = "1"
-    # Force x86_64 target with most conservative CPU features for maximum compatibility
-    os.environ["CARGO_BUILD_TARGET"] = "x86_64-unknown-linux-gnu"
-    os.environ[
-        "CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS"
-    ] = "-C target-cpu=core2 -C target-feature=-avx,-avx2,-bmi1,-bmi2,-fma,-avx512f,-avx512dq,-avx512ifma,-avx512pf,-avx512er,-avx512cd,-avx512bw,-avx512vl,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512bf16,-avx512fp16,-avx512vp2intersect"
-    # Additional Rust flags for compatibility
-    os.environ[
-        "RUSTFLAGS"
-    ] = "-C target-cpu=core2 -C target-feature=-avx,-avx2,-bmi1,-bmi2,-fma,-avx512f,-avx512dq,-avx512ifma,-avx512pf,-avx512er,-avx512cd,-avx512bw,-avx512vl,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512bf16,-avx512fp16,-avx512vp2intersect"
-    # Force conservative optimization
-    os.environ["CARGO_PROFILE_RELEASE_OPT_LEVEL"] = "s"
+    # CRITICAL: PyApp seems to ignore our CPU compatibility settings
+    # Try the most aggressive approach to force compatibility
 
-    # CRITICAL: Use our bundled Python distribution instead of PyApp downloading one
-    # This ensures we control the Python build with conservative CPU settings
-    # PYAPP_SKIP_INSTALL=1 means PyApp uses our bundled distribution
-    # Enable debug for troubleshooting
+    # Set all possible Rust flags for compatibility
+    conservative_flags = "-C target-cpu=core2 -C target-feature=-avx,-avx2,-bmi1,-bmi2,-fma,-avx512f,-avx512dq,-avx512ifma,-avx512pf,-avx512er,-avx512cd,-avx512bw,-avx512vl,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512bf16,-avx512fp16,-avx512vp2intersect"
+
+    # Override every possible Rust configuration
+    os.environ["CARGO_BUILD_TARGET"] = "x86_64-unknown-linux-gnu"
+    os.environ["CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS"] = conservative_flags
+    os.environ["RUSTFLAGS"] = conservative_flags
+    os.environ["CARGO_PROFILE_RELEASE_OPT_LEVEL"] = "s"
+    os.environ["CARGO_PROFILE_RELEASE_LTO"] = "false"
+    os.environ["CARGO_PROFILE_RELEASE_CODEGEN_UNITS"] = "1"
+
+    # Force PyApp to use minimal settings
     os.environ["PYAPP_DEBUG"] = "1"
+    os.environ["PYAPP_SKIP_INSTALL"] = "1"
+
+    # Try to override any potential host-specific optimizations
+    os.environ["CARGO_CFG_TARGET_FEATURE"] = "sse,sse2"  # Only basic x86_64 features
+
+    print(f"Building with conservative flags: {conservative_flags}")
+    print(f"CARGO_BUILD_TARGET: {os.environ.get('CARGO_BUILD_TARGET')}")
+    print(f"RUSTFLAGS: {os.environ.get('RUSTFLAGS')}")
+    print(f"PYAPP_DEBUG: {os.environ.get('PYAPP_DEBUG')}")
 
     completed_proc = subprocess.run(
         ["hatch", "build", "-t", "binary"], capture_output=True
