@@ -5,7 +5,6 @@ without PyApp, for maximum CPU compatibility.
 """
 
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -134,71 +133,77 @@ exec "$PYTHON_EXE" -m snowflake.cli._app.__main__ "$@"
     print("Fixing Python symlinks...")
     venv_bin = venv_dir / "bin"
 
-    # Copy the actual Python executable instead of relying on symlinks
-    print("Making Python executable portable...")
+    # Create a wrapper script that uses system Python instead of copying executable
+    print("Creating system Python wrapper...")
     try:
-        # Find the real Python executable (not a symlink)
-        real_python = Path(sys.executable).resolve()
-        print(f"Source Python: {real_python}")
-
         # Remove all existing Python files/symlinks in venv
         for py_file in venv_bin.glob("python*"):
             if py_file.is_file() or py_file.is_symlink():
                 print(f"Removing {py_file}")
                 py_file.unlink()
 
-        # Copy the actual Python binary to make it portable
+        # Create a wrapper script that uses system Python
         target_python = venv_bin / "python"
-        print(f"Copying Python: {real_python} -> {target_python}")
-        shutil.copy2(real_python, target_python)
+        with open(target_python, "w") as f:
+            f.write(
+                """#!/bin/bash
+# Wrapper script that uses system Python for maximum compatibility
+
+# Find the best available Python version
+PYTHON=""
+
+# Try Python versions in order of preference
+for candidate in python3.12 python3.11 python3.10 python3.9 python3; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+        PYTHON="$candidate"
+        break
+    fi
+done
+
+if [ -z "$PYTHON" ]; then
+    echo "Error: No compatible Python found on system" >&2
+    exit 1
+fi
+
+# Execute Python with the same arguments, setting PYTHONPATH to our venv
+# Dynamically determine the correct site-packages path
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VENV_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Find the actual site-packages directory (there should be only one python3.x directory)
+SITE_PACKAGES_DIR=$(find "$VENV_ROOT/lib" -name "python3.*" -type d 2>/dev/null | head -1)
+if [ -n "$SITE_PACKAGES_DIR" ]; then
+    SITE_PACKAGES="$SITE_PACKAGES_DIR/site-packages"
+else
+    # Fallback to common paths
+    for version in 3.12 3.11 3.10 3.9; do
+        CANDIDATE="$VENV_ROOT/lib/python$version/site-packages"
+        if [ -d "$CANDIDATE" ]; then
+            SITE_PACKAGES="$CANDIDATE"
+            break
+        fi
+    done
+fi
+
+export PYTHONPATH="$SITE_PACKAGES:$PYTHONPATH"
+exec "$PYTHON" "$@"
+"""
+            )
         target_python.chmod(0o755)  # Make executable
 
-        # Create standard symlinks to the copied executable
+        # Create symlinks to the wrapper
         python3_link = venv_bin / "python3"
         python3_link.symlink_to("python")  # Create relative symlink
 
-        # Try to determine Python version and create version-specific symlink
-        try:
-            version_output = subprocess.run(
-                [str(target_python), "--version"], capture_output=True, text=True
-            )
-            if version_output.returncode == 0:
-                version_str = version_output.stdout.strip()
-                # Extract version like "3.10" from "Python 3.10.12"
-                version_match = re.search(r"Python (\d+\.\d+)", version_str)
-                if version_match:
-                    version = version_match.group(1)
-                    version_link = venv_bin / f"python{version}"
-                    version_link.symlink_to("python")
-                    print(f"Created version-specific symlink: python{version}")
-        except Exception as e:
-            print(f"Could not create version-specific symlink: {e}")
+        # Create a version-agnostic link
+        python310_link = venv_bin / "python3.10"
+        python310_link.symlink_to("python")  # Create relative symlink
 
-        print("Successfully created portable Python executable and symlinks")
+        print("Successfully created system Python wrapper and symlinks")
 
     except Exception as e:
-        print(f"Failed to fix Python executable: {e}")
-        print("Trying alternative approach...")
-
-        # Alternative: try to find and use an existing non-symlink Python
-        python_executable = None
-        for candidate in ["python3.10", "python3.11", "python3.12", "python3.13"]:
-            candidate_path = venv_bin / candidate
-            if candidate_path.exists() and not candidate_path.is_symlink():
-                python_executable = candidate
-                break
-
-        if python_executable:
-            # Create symlinks to the found executable
-            for symlink_name in ["python", "python3"]:
-                symlink_path = venv_bin / symlink_name
-                if symlink_path.exists():
-                    symlink_path.unlink()
-                symlink_path.symlink_to(python_executable)
-            print(f"Using existing {python_executable} as Python executable")
-        else:
-            print("Warning: Could not fix Python executable, package may not work")
-            return False
+        print(f"Failed to create Python wrapper: {e}")
+        return False
 
     # Test the standalone installation
     print("Testing standalone installation...")
