@@ -96,8 +96,26 @@ def create_simple_standalone():
         f.write(
             f"""#!/bin/bash
 # Simple launcher for snowflake-cli with maximum compatibility
+
+# Determine script directory
 SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
-PYTHON_EXE="$SCRIPT_DIR/venv/bin/python"
+
+# Try different Python executable locations
+# 1. For DEB package installation (absolute path)
+PYTHON_EXE="/usr/lib/snowflake/snowflake-cli/venv/bin/python"
+if [[ ! -x "$PYTHON_EXE" ]]; then
+    # 2. For local testing (relative path)
+    PYTHON_EXE="$SCRIPT_DIR/venv/bin/python"
+fi
+
+# Verify Python executable exists
+if [[ ! -x "$PYTHON_EXE" ]]; then
+    echo "Error: Cannot find Python executable for snowflake-cli"
+    echo "Looked for:"
+    echo "  /usr/lib/snowflake/snowflake-cli/venv/bin/python"
+    echo "  $SCRIPT_DIR/venv/bin/python"
+    exit 1
+fi
 
 # Export conservative settings in case any native modules need them
 export CFLAGS="-O2 -march=core2 -mtune=generic -mno-avx -mno-avx2 -mno-bmi -mno-bmi2 -mno-fma"
