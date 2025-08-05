@@ -66,9 +66,31 @@ class ProjectSettings:
     def python_path_within_archive(self) -> Path:
         """Returns the path to the root of the Python dist that we'll bundle."""
         if self.__python_path_within_archive is None:
-            with (self.python_dist_root_version / "hatch-dist.json").open() as fp:
-                hatch_json = json.load(fp)
-            self.__python_path_within_archive = hatch_json["python_path"]
+            hatch_dist_json = self.python_dist_root_version / "hatch-dist.json"
+            if hatch_dist_json.exists():
+                with hatch_dist_json.open() as fp:
+                    hatch_json = json.load(fp)
+                self.__python_path_within_archive = hatch_json["python_path"]
+            else:
+                # Fallback: try to find python executable in common locations
+                print(f"Warning: {hatch_dist_json} not found, using fallback detection")
+                for possible_path in ["bin/python", "bin/python3", "python", "python3"]:
+                    candidate = Path(possible_path)
+                    if (self.python_dist_root_version / candidate).exists():
+                        # Use the directory containing the python executable
+                        self.__python_path_within_archive = (
+                            candidate.parent
+                            if candidate.parent != Path(".")
+                            else Path(".")
+                        )
+                        print(f"Found Python at: {candidate}")
+                        break
+                else:
+                    # Last resort: assume current directory
+                    print(
+                        "Warning: Could not find Python executable, assuming root directory"
+                    )
+                    self.__python_path_within_archive = Path(".")
         return self.__python_path_within_archive
 
     @property
@@ -99,9 +121,17 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
 
 def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     """Install Python dist into temp dir for bundling."""
-    # Force use of specific Python distribution for better compatibility
-    # Use an older version that's more likely to be compatible
-    compat_version = "3.10.16"  # Use specific older version for compatibility
+    print(f"Installing Python {python_version} to {python_tmp_dir}")
+
+    # Set conservative build flags for the Python installation itself
+    env = os.environ.copy()
+    env.update(
+        {
+            "CFLAGS": "-O2 -march=core2 -mtune=generic -mno-avx -mno-avx2 -mno-bmi -mno-bmi2 -mno-fma",
+            "CXXFLAGS": "-O2 -march=core2 -mtune=generic -mno-avx -mno-avx2 -mno-bmi -mno-bmi2 -mno-fma",
+            "LDFLAGS": "-Wl,-O1",
+        }
+    )
 
     completed_proc = subprocess.run(
         [
@@ -111,10 +141,33 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
             "--private",
             "--dir",
             python_tmp_dir,
-            compat_version,
-        ]
+            python_version,  # Use the original version parameter
+        ],
+        env=env,
+        capture_output=True,
     )
-    return not completed_proc.returncode
+
+    if completed_proc.returncode:
+        print(
+            f"Python installation failed with return code {completed_proc.returncode}"
+        )
+        print("STDOUT:", completed_proc.stdout.decode())
+        print("STDERR:", completed_proc.stderr.decode())
+        return False
+
+    # Verify the installation created the expected files
+    hatch_dist_json = python_tmp_dir / python_version / "hatch-dist.json"
+    if not hatch_dist_json.exists():
+        print(f"Warning: hatch-dist.json not found at {hatch_dist_json}")
+        # List directory contents for debugging
+        version_dir = python_tmp_dir / python_version
+        if version_dir.exists():
+            print(f"Contents of {version_dir}:")
+            for item in version_dir.iterdir():
+                print(f"  {item}")
+        return False
+
+    return True
 
 
 @contextlib.contextmanager
@@ -149,36 +202,54 @@ def pip_install_project(python_exe: str) -> bool:
 
     # First install essential build tools
     print("Installing build tools...")
-    subprocess.run(
+    build_tools_proc = subprocess.run(
         [python_exe, "-m", "pip", "install", "-U", "wheel", "setuptools", "pip"],
         capture_output=True,
         env=env,
     )
+    if build_tools_proc.returncode:
+        print("Failed to install build tools:")
+        print("STDOUT:", build_tools_proc.stdout.decode())
+        print("STDERR:", build_tools_proc.stderr.decode())
+        return False
 
     # Then install our project dependencies with conservative compilation
     print("Installing dependencies with conservative CPU settings...")
-    subprocess.run(
+    # Note: Removed --force-reinstall to avoid unnecessary rebuilds that might fail
+    deps_proc = subprocess.run(
         [
             python_exe,
             "-m",
             "pip",
             "install",
             "-U",
-            "--force-reinstall",
             "--no-binary=cryptography,lxml,PyYAML,snowflake-connector-python",
             str(PROJECT_ROOT),
         ],
         capture_output=True,
         env=env,
     )
+    if deps_proc.returncode:
+        print("Failed to install dependencies:")
+        print("STDOUT:", deps_proc.stdout.decode())
+        print("STDERR:", deps_proc.stderr.decode())
+        # Don't fail here - try installing the project anyway
 
-    # Then install the project itself
+    # Then install the project itself (this should work even if some deps failed)
+    print("Installing project...")
     completed_proc = subprocess.run(
         [python_exe, "-m", "pip", "install", "-U", str(PROJECT_ROOT)],
         capture_output=True,
         env=env,
     )
-    return not completed_proc.returncode
+    if completed_proc.returncode:
+        print("Failed to install project:")
+        print("STDOUT:", completed_proc.stdout.decode())
+        print("STDERR:", completed_proc.stderr.decode())
+        return False
+
+    print("Project installation completed successfully")
+    return True
 
 
 def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
@@ -200,15 +271,11 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     # Force conservative optimization
     os.environ["CARGO_PROFILE_RELEASE_OPT_LEVEL"] = "s"
 
-    # CRITICAL: Configure PyApp to use a more compatible Python distribution
-    # Use an older, more conservative Python build
-    os.environ["PYAPP_PYTHON_VERSION"] = "3.10.16"  # Specific older version
-    # Force PyApp to download a generic x86_64 build instead of optimized ones
-    os.environ["PYAPP_DISTRIBUTION_VARIANT"] = ""  # Use default/generic variant
+    # CRITICAL: Use our bundled Python distribution instead of PyApp downloading one
+    # This ensures we control the Python build with conservative CPU settings
+    # PYAPP_SKIP_INSTALL=1 means PyApp uses our bundled distribution
     # Enable debug for troubleshooting
     os.environ["PYAPP_DEBUG"] = "1"
-    # Force use of the bundled distribution we created (most important)
-    os.environ["PYAPP_SKIP_INSTALL"] = "1"
 
     completed_proc = subprocess.run(
         ["hatch", "build", "-t", "binary"], capture_output=True
@@ -237,12 +304,16 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
 def main():
     settings = ProjectSettings()
     print("Installing Python distribution to TMP dir...")
-    hatch_install_python(settings.python_tmp_dir, settings.python_version)
+    if not hatch_install_python(settings.python_tmp_dir, settings.python_version):
+        print("ERROR: Failed to install Python distribution")
+        return
     print("-> installed")
 
     print(f"Installing project into Python distribution...")
     with override_is_installation_source_variable():
-        pip_install_project(str(settings.python_dist_exe))
+        if not pip_install_project(str(settings.python_dist_exe)):
+            print("ERROR: Failed to install project into Python distribution")
+            return
     print("-> installed")
 
     print("Making distribution archive...")
