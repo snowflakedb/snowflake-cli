@@ -24,8 +24,9 @@ from tests_integration.tests_using_container_services.spcs.testing_utils.spcs_se
 
 @pytest.mark.integration
 def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
-
     test_steps, service_name = _test_steps
+    # warm up
+    test_steps.warmup(service_name=service_name)
 
     # test long-running service
     test_steps.create_service(service_name)
@@ -122,7 +123,6 @@ def test_service_create_from_project_definition(
 
 @pytest.mark.integration
 def test_job_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
-
     test_steps, job_service_name = _test_steps
 
     # test job service

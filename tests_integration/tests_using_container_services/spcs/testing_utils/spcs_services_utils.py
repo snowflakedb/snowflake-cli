@@ -77,7 +77,6 @@ class SnowparkServicesTestSteps:
         )
 
     def create_second_service(self, service_name: str, database: str) -> None:
-
         result = self._setup.runner.invoke_with_connection_json(
             [
                 "spcs",
@@ -341,6 +340,29 @@ class SnowparkServicesTestSteps:
                 "name": "echoendpoint",
             },
         )
+
+    def warmup(self, service_name: str):
+        instances_result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spsc",
+                "service",
+                "list-instances",
+                service_name,
+                *self._database_schema_args(),
+            ]
+        )
+        assert instances_result.exit_code == 0
+
+        services_result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spsc",
+                "service",
+                "list-containers",
+                service_name,
+                *self._database_schema_args(),
+            ]
+        )
+        assert services_result.exit_code == 0
 
     def list_instances_should_show_instances(self, service_name: str):
         result = self._setup.runner.invoke_with_connection_json(
