@@ -156,10 +156,24 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
         ["hatch", "build", "-t", "binary"], capture_output=True
     )
     if completed_proc.returncode:
-        print(completed_proc.stderr)
+        print("Build failed with stderr:")
+        print(completed_proc.stderr.decode())
         return None
-    # The binary location is the last line of stderr
-    return Path(completed_proc.stderr.decode().split()[-1])
+
+    # Parse the binary location from stderr
+    stderr_output = completed_proc.stderr.decode().strip()
+    print("Hatch build stderr:")
+    print(stderr_output)
+
+    # The binary location is typically the last line of stderr
+    lines = stderr_output.split("\n")
+    binary_path = lines[-1].strip() if lines else ""
+
+    if not binary_path:
+        print("Warning: Could not determine binary path from hatch output")
+        return None
+
+    return Path(binary_path)
 
 
 def main():
@@ -185,6 +199,15 @@ def main():
     )
     if binary_location:
         print("-> binary location:", binary_location)
+        # Debug: Check if it's a file or directory
+        if binary_location.is_file():
+            print(f"-> binary is a file: {binary_location}")
+        elif binary_location.is_dir():
+            print(f"-> binary location is a directory, listing contents:")
+            for item in binary_location.iterdir():
+                print(f"   {item}")
+        else:
+            print(f"-> binary location does not exist: {binary_location}")
 
 
 if __name__ == "__main__":

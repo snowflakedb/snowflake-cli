@@ -32,8 +32,21 @@ build_binaries() {
     export CARGO_BUILD_TARGET="x86_64-unknown-linux-gnu"
     export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C target-cpu=x86-64"
     hatch -e packaging run build-isolated-binary
-    mkdir $DIST_DIR/snow
-    mv $DIST_DIR/binary/snow-${VERSION} $DIST_DIR/snow/snow
+
+    # Debug: list what files are actually in the binary directory
+    echo "Contents of $DIST_DIR/binary:"
+    ls -la $DIST_DIR/binary/ || echo "Binary directory not found"
+
+    # Find the actual binary file (it might not have the expected name)
+    BINARY_FILE=$(find $DIST_DIR/binary -name "snow*" -type f | head -1)
+    if [[ -z "$BINARY_FILE" ]]; then
+      echo "Error: No binary file found in $DIST_DIR/binary/"
+      exit 1
+    fi
+
+    echo "Found binary: $BINARY_FILE"
+    mkdir -p $DIST_DIR/snow
+    mv "$BINARY_FILE" $DIST_DIR/snow/snow
   else
     echo "Unsupported platform: ${SYSTEM}"
     exit 1
