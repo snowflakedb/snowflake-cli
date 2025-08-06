@@ -15,8 +15,8 @@
 import logging
 from typing import TypeAlias
 
+from snowflake.cli._app.auth.errors import OidcProviderError
 from snowflake.cli._app.auth.oidc_providers import (
-    OidcProviderError,
     OidcProviderType,
     OidcProviderTypeWithAuto,
     auto_detect_oidc_provider,
@@ -80,13 +80,8 @@ class OidcManager(SqlExecutionMixin):
 
             issuer = provider.issuer
         except OidcProviderError as e:
-            error_msg = "OIDC provider configuration error: %s" % str(e)
-            logger.error(error_msg)
-            raise CliError(error_msg)
-        except Exception as e:
-            error_msg = "Failed to get OIDC provider '%s': %s" % (provider_type, str(e))
-            logger.error(error_msg)
-            raise CliError(error_msg)
+            logger.error("OIDC provider error: %s", str(e))
+            raise CliError(str(e))
 
         # Construct the CREATE USER SQL command using WORKLOAD_IDENTITY syntax
         logger.debug("Using WORKLOAD_IDENTITY syntax for user creation")
@@ -176,16 +171,11 @@ class OidcManager(SqlExecutionMixin):
             else:
                 provider = get_active_oidc_provider(provider_type.value)
                 if provider is None:
-                    raise CliError(f"Provider '{provider_type}' is not available")
+                    raise CliError("Provider '%s' is not available" % provider_type)
                 return provider.get_token()
         except OidcProviderError as e:
-            error_msg = "OIDC provider error: %s" % str(e)
-            logger.error(error_msg)
-            raise CliError(error_msg)
-        except Exception as e:
-            error_msg = "Failed to read OIDC token: %s" % str(e)
-            logger.error(error_msg)
-            raise CliError(error_msg)
+            logger.error("OIDC provider error: %s", str(e))
+            raise CliError(str(e))
 
     def get_users_list(self) -> SnowflakeCursor:
         """

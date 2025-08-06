@@ -21,15 +21,14 @@ from enum import Enum
 from typing import Dict, List, Literal, Optional, Type
 
 import id as oidc_id
-from snowflake.cli.api.exceptions import CliError
+from snowflake.cli._app.auth.errors import (
+    OidcProviderAutoDetectionError,
+    OidcProviderNotFoundError,
+    OidcProviderUnavailableError,
+    OidcTokenRetrievalError,
+)
 
 logger = logging.getLogger(__name__)
-
-
-class OidcProviderError(Exception):
-    """Exception raised when OIDC provider configuration is invalid or missing."""
-
-    ...
 
 
 ACTIONS_ID_TOKEN_REQUEST_URL_ENV: Literal[
@@ -142,9 +141,10 @@ class GitHubOidcProvider(OidcTokenProvider):
         """
         issuer_url = os.getenv(ACTIONS_ID_TOKEN_REQUEST_URL_ENV)
         if not issuer_url and self._is_ci:
-            raise OidcProviderError(
-                f"{ACTIONS_ID_TOKEN_REQUEST_URL_ENV} environment variable is not set."
-                "This variable is requires for Github Actions OIDC authentication"
+            raise OidcTokenRetrievalError(
+                "%s environment variable is not set. "
+                "This variable is required for Github Actions OIDC authentication"
+                % ACTIONS_ID_TOKEN_REQUEST_URL_ENV
             )
         return issuer_url or "https://token.actions.githubusercontent.com"
 
@@ -171,7 +171,7 @@ class GitHubOidcProvider(OidcTokenProvider):
             token = oidc_id.detect_credential(self.audience)
             if not token:
                 logger.error("No OIDC credentials detected")
-                raise OidcProviderError(
+                raise OidcTokenRetrievalError(
                     "No OIDC credentials detected. This command should be run in a GitHub Actions environment."
                 )
 
@@ -179,7 +179,9 @@ class GitHubOidcProvider(OidcTokenProvider):
             return token
         except Exception as e:
             logger.error("Failed to detect OIDC credentials: %s", str(e))
-            raise OidcProviderError("Failed to detect OIDC credentials: %s" % str(e))
+            raise OidcTokenRetrievalError(
+                "Failed to detect OIDC credentials: %s" % str(e)
+            )
 
 
 class OidcProviderRegistry:
@@ -270,13 +272,13 @@ def get_oidc_provider(provider_name: str) -> OidcTokenProvider:
         The requested OIDC provider instance
 
     Raises:
-        CliError: If provider is unknown
+        OidcProviderNotFoundError: If provider is unknown
     """
     provider = _registry.get_provider(provider_name)
 
     if not provider:
         providers_list = ", ".join(_registry.provider_names)
-        raise CliError(
+        raise OidcProviderNotFoundError(
             "Unknown provider '%s'. Available providers: %s"
             % (
                 provider_name,
@@ -298,12 +300,13 @@ def get_active_oidc_provider(provider_name: str) -> OidcTokenProvider:
         The requested OIDC provider instance
 
     Raises:
-        CliError: If provider is unknown or not available
+        OidcProviderNotFoundError: If provider is unknown
+        OidcProviderUnavailableError: If provider is not available
     """
     provider = get_oidc_provider(provider_name)
 
     if not provider.is_available:
-        raise CliError(
+        raise OidcProviderUnavailableError(
             "Provider '%s' is not available in the current environment." % provider_name
         )
 
@@ -321,13 +324,13 @@ def get_oidc_provider_class(provider_name: str) -> Type[OidcTokenProvider]:
         The requested OIDC provider class
 
     Raises:
-        CliError: If provider is unknown
+        OidcProviderNotFoundError: If provider is unknown
     """
     provider_class = _registry.get_provider_class(provider_name)
 
     if not provider_class:
         providers_list = ", ".join(_registry.provider_names)
-        raise CliError(
+        raise OidcProviderNotFoundError(
             "Unknown provider '%s'. Available providers: %s"
             % (
                 provider_name,
@@ -346,7 +349,7 @@ def auto_detect_oidc_provider() -> OidcTokenProvider:
         The single available OIDC provider
 
     Raises:
-        CliError: If no providers are available or multiple providers are available
+        OidcProviderAutoDetectionError: If no providers are available or multiple providers are available
     """
     available = [
         provider for provider in _registry.all_providers if provider.is_available
@@ -365,11 +368,11 @@ def auto_detect_oidc_provider() -> OidcTokenProvider:
                 "Use --type <provider> to specify a provider explicitly."
             ) % providers_list
             logger.error(error_msg)
-            raise CliError(error_msg)
+            raise OidcProviderAutoDetectionError(error_msg)
         else:
             error_msg = "No OIDC providers are registered."
             logger.error(error_msg)
-            raise CliError(error_msg)
+            raise OidcProviderAutoDetectionError(error_msg)
     elif len(available) == 1:
         logger.info("Found 1 available provider: %s", available_names[0])
         return available[0]
@@ -381,4 +384,4 @@ def auto_detect_oidc_provider() -> OidcTokenProvider:
             "Please specify which provider to use with --type <provider>."
         ) % providers_list
         logger.error(error_msg)
-        raise CliError(error_msg)
+        raise OidcProviderAutoDetectionError(error_msg)

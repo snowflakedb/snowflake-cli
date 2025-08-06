@@ -16,9 +16,14 @@ import os
 from unittest.mock import Mock, patch
 
 import pytest
+from snowflake.cli._app.auth.errors import (
+    OidcProviderAutoDetectionError,
+    OidcProviderError,
+    OidcProviderNotFoundError,
+    OidcProviderUnavailableError,
+)
 from snowflake.cli._app.auth.oidc_providers import (
     GitHubOidcProvider,
-    OidcProviderError,
     OidcProviderRegistry,
     OidcProviderType,
     OidcTokenProvider,
@@ -27,7 +32,6 @@ from snowflake.cli._app.auth.oidc_providers import (
     get_active_oidc_provider,
     get_oidc_provider,
 )
-from snowflake.cli.api.exceptions import CliError
 
 
 class TestGitHubOidcProvider:
@@ -228,7 +232,7 @@ class TestModuleFunctions:
     def test_get_active_oidc_provider(self):
         """Test get_active_oidc_provider function when provider is not available."""
         with pytest.raises(
-            CliError,
+            OidcProviderUnavailableError,
             match="Provider 'github' is not available in the current environment",
         ):
             get_active_oidc_provider(OidcProviderType.GITHUB.value)
@@ -236,7 +240,7 @@ class TestModuleFunctions:
     def test_get_active_oidc_provider_non_existing(self):
         """Test get_active_oidc_provider with non-existing provider."""
         with pytest.raises(
-            CliError,
+            OidcProviderNotFoundError,
             match="Unknown provider 'non_existing'. Available providers: github",
         ):
             get_active_oidc_provider("non_existing")
@@ -257,7 +261,7 @@ class TestModuleFunctions:
     def test_get_oidc_provider_non_existing(self):
         """Test get_oidc_provider with non-existing provider."""
         with pytest.raises(
-            CliError,
+            OidcProviderNotFoundError,
             match="Unknown provider 'non_existing'. Available providers: github",
         ):
             get_oidc_provider("non_existing")
@@ -290,7 +294,8 @@ class TestModuleFunctions:
     def test_auto_detect_oidc_provider_none_available(self):
         """Test auto_detect_oidc_provider raises error when no providers are available."""
         with pytest.raises(
-            CliError, match="No OIDC provider detected in current environment"
+            OidcProviderAutoDetectionError,
+            match="No OIDC provider detected in current environment",
         ):
             auto_detect_oidc_provider()
 
@@ -324,7 +329,7 @@ class TestModuleFunctions:
             mock_registry.all_providers = [github_provider, other_provider]
 
             with pytest.raises(
-                CliError,
+                OidcProviderAutoDetectionError,
                 match="Multiple OIDC providers detected: github, always_available",
             ):
                 auto_detect_oidc_provider()
@@ -341,7 +346,7 @@ class TestModuleFunctions:
         from snowflake.cli._app.auth.oidc_providers import get_oidc_provider_class
 
         with pytest.raises(
-            CliError,
+            OidcProviderNotFoundError,
             match="Unknown provider 'non_existing'. Available providers: github",
         ):
             get_oidc_provider_class("non_existing")

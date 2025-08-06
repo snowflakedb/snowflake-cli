@@ -16,6 +16,12 @@ from enum import Enum
 from unittest.mock import Mock, patch
 
 import pytest
+from snowflake.cli._app.auth.errors import (
+    OidcProviderAutoDetectionError,
+    OidcProviderNotFoundError,
+    OidcProviderUnavailableError,
+    OidcTokenRetrievalError,
+)
 from snowflake.cli._app.auth.oidc_providers import (
     OidcProviderType,
     OidcProviderTypeWithAuto,
@@ -72,13 +78,10 @@ class TestOidcManager:
     def test_setup_provider_fails(self, mock_get_provider):
         """Test setup when provider fails."""
         manager = OidcManager()
-        mock_get_provider.side_effect = CliError(
-            f"Provider '{OidcProviderType.GITHUB}' not available"
-        )
+        error_message = f"Provider '{OidcProviderType.GITHUB}' not available"
+        mock_get_provider.side_effect = OidcProviderUnavailableError(error_message)
 
-        with pytest.raises(
-            CliError, match=f"Failed to get OIDC provider '{OidcProviderType.GITHUB}'"
-        ):
+        with pytest.raises(CliError, match=error_message):
             manager.setup(
                 "test_user",
                 "repo:owner/repo:environment:prod",
@@ -174,13 +177,10 @@ class TestOidcManager:
     def test_setup_provider_not_found(self, mock_get_provider):
         """Test setup with non-existent provider."""
         manager = OidcManager()
-        mock_get_provider.side_effect = CliError(
-            f"Unknown provider '{OidcProviderType.GITHUB}'"
-        )
+        error_message = f"Unknown provider '{OidcProviderType.GITHUB}'"
+        mock_get_provider.side_effect = OidcProviderNotFoundError(error_message)
 
-        with pytest.raises(
-            CliError, match=f"Failed to get OIDC provider '{OidcProviderType.GITHUB}'"
-        ):
+        with pytest.raises(CliError, match=error_message):
             manager.setup(
                 "test_user",
                 "repo:owner/repo:environment:prod",
@@ -301,9 +301,9 @@ class TestOidcManager:
         self, mock_auto_detect
     ):
         """Test read_token with auto when no provider detected but providers are registered."""
-        mock_auto_detect.side_effect = CliError(
-            "No OIDC provider detected in current environment. Available providers: github, other_provider. Use --type <provider> to specify a provider explicitly."
-        )
+
+        error_message = "No OIDC provider detected in current environment. Available providers: github, other_provider. Use --type <provider> to specify a provider explicitly."
+        mock_auto_detect.side_effect = OidcProviderAutoDetectionError(error_message)
 
         manager = OidcManager()
 
@@ -317,16 +317,14 @@ class TestOidcManager:
         """Test read_token with auto when provider fails to get token."""
         mock_provider = Mock()
         mock_provider.provider_name = OidcProviderType.GITHUB.value
-        mock_provider.get_token.side_effect = Exception("Token retrieval failed")
+        error_message = "Token retrieval failed"
+        mock_provider.get_token.side_effect = OidcTokenRetrievalError(error_message)
 
         mock_auto_detect.return_value = mock_provider
 
         manager = OidcManager()
 
-        with pytest.raises(
-            CliError,
-            match="Failed to read OIDC token: Token retrieval failed",
-        ):
+        with pytest.raises(CliError, match=error_message):
             manager.read_token(OidcProviderTypeWithAuto.AUTO)
 
     @patch("snowflake.cli._plugins.auth.oidc.manager.get_active_oidc_provider")
@@ -354,9 +352,8 @@ class TestOidcManager:
         class InvalidProvider(Enum):
             UNKNOWN_PROVIDER = "unknown_provider"
 
-        mock_get_provider.side_effect = CliError(
-            f"Unknown provider {InvalidProvider.UNKNOWN_PROVIDER}. Available providers: github, other_provider"
-        )
+        error_message = f"Unknown provider {InvalidProvider.UNKNOWN_PROVIDER}. Available providers: github, other_provider"
+        mock_get_provider.side_effect = OidcProviderNotFoundError(error_message)
 
         manager = OidcManager()
 
@@ -368,9 +365,8 @@ class TestOidcManager:
     @patch("snowflake.cli._plugins.auth.oidc.manager.get_active_oidc_provider")
     def test_read_token_specific_token_provider_not_available(self, mock_get_provider):
         """Test read_token with specific provider when provider exists but is not available."""
-        mock_get_provider.side_effect = CliError(
-            f"Provider '{OidcProviderType.GITHUB.value}' is not available in the current environment."
-        )
+        error_message = f"Provider '{OidcProviderType.GITHUB.value}' is not available in the current environment."
+        mock_get_provider.side_effect = OidcProviderUnavailableError(error_message)
 
         manager = OidcManager()
 
@@ -386,16 +382,14 @@ class TestOidcManager:
         mock_provider = Mock()
         mock_provider.provider_name = OidcProviderType.GITHUB.value
         mock_provider.is_available = True
-        mock_provider.get_token.side_effect = Exception("Token retrieval failed")
+        error_message = "Token retrieval failed"
+        mock_provider.get_token.side_effect = OidcTokenRetrievalError(error_message)
 
         mock_get_provider.return_value = mock_provider
 
         manager = OidcManager()
 
-        with pytest.raises(
-            CliError,
-            match="Failed to read OIDC token: Token retrieval failed",
-        ):
+        with pytest.raises(CliError, match=error_message):
             manager.read_token(OidcProviderType.GITHUB)
 
     def test_manager_inherits_from_sql_execution_mixin(self):
