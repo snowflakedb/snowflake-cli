@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from enum import Enum
 
 import typer
 from snowflake.cli._app.auth.oidc_providers import OidcProviderType
@@ -23,6 +24,10 @@ app = SnowTyperFactory(
     name="oidc",
     help="Manages OIDC federated authentication.",
 )
+
+existing_providers = {p.name: p.value for p in OidcProviderType}
+existing_providers.update({"AUTO": "auto"})
+OidcProviderTypeOption = Enum("OidcProviderTypeOption", existing_providers.items())  # type: ignore
 
 FederatedUserOption = typer.Option(
     ...,
@@ -57,7 +62,7 @@ DefaultRoleOption = typer.Option(
 ProviderTypeOption = typer.Option(
     ...,
     "--type",
-    help=f"Type of OIDC provider to use (e.g., '{OidcProviderType.GITHUB.value}')",
+    help=f"Type of OIDC provider to use",
     prompt="Enter OIDC provider type",
     show_default=False,
 )
@@ -65,7 +70,7 @@ ProviderTypeOption = typer.Option(
 AutoProviderTypeOption = typer.Option(
     "auto",
     "--type",
-    help=f"Type of OIDC provider to use (e.g., '{OidcProviderType.GITHUB.value}')",
+    help=f"Type of OIDC provider to use",
     show_default=False,
 )
 
@@ -105,14 +110,14 @@ def delete(
 
 @app.command("read-token", requires_connection=False)
 def read_token(
-    _type: str = AutoProviderTypeOption,
+    _type: OidcProviderTypeOption = AutoProviderTypeOption,
     **options,
 ):
     """
     Reads OIDC token based on the specified type.
     Use 'auto' to auto-detect available providers.
     """
-    result = OidcManager().read(provider_type=_type)
+    result = OidcManager().read(provider_type=_type.value)
     return MessageResult(result)
 
 

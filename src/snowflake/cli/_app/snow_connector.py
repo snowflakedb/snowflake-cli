@@ -37,7 +37,6 @@ from snowflake.cli.api.config import (
 )
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB
 from snowflake.cli.api.exceptions import (
-    CliConnectionError,
     InvalidConnectionConfigurationError,
     SnowflakeConnectionError,
 )
@@ -160,14 +159,7 @@ def connect_to_snowflake(
 
     # Handle WORKLOAD_IDENTITY authenticator (OIDC federated authentication)
     if connection_parameters.get("authenticator") == AUTHENTICATOR_WORKLOAD_IDENTITY:
-        try:
-            manager = OidcManager()
-            token = manager.read("auto")  # Auto-detect the OIDC provider
-            connection_parameters["token"] = token
-        except Exception as e:
-            raise CliConnectionError(
-                f"Failed to retrieve {AUTHENTICATOR_WORKLOAD_IDENTITY} token: {str(e)}"
-            )
+        _maybe_update_oidc_token(connection_parameters)
 
     if enable_diag:
         connection_parameters["enable_connection_diag"] = enable_diag
@@ -351,3 +343,20 @@ def prepare_private_key(
             encryption_algorithm=NoEncryption(),
         )
     )
+
+
+def _maybe_update_oidc_token(connection_parameters: dict) -> dict:
+    """Try to obtain OIDC token automatically."""
+    try:
+        manager = OidcManager()
+        # TODO: Use enum form extended version of OidcTokenProvider
+        if token := manager.read("auto"):
+            log.info("%s token acquired automatically", AUTHENTICATOR_WORKLOAD_IDENTITY)
+            connection_parameters["token"] = token
+    except Exception as e:
+        log.info(
+            "No token found when while %s auto auto-detection: %s",
+            AUTHENTICATOR_WORKLOAD_IDENTITY,
+            str(e),
+        )
+    return connection_parameters

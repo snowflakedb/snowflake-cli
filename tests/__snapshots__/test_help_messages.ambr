@@ -4685,8 +4685,8 @@
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --type          TEXT  Type of OIDC provider to use (e.g., 'github')          |
-  | --help  -h            Show this message and exit.                            |
+  | --type          [github|auto]  Type of OIDC provider to use                  |
+  | --help  -h                     Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
@@ -4722,9 +4722,7 @@
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | *  --type                    [github]  Type of OIDC provider to use (e.g.,   |
-  |                                        'github')                             |
-  |                                        [required]                            |
+  |    ---type                   [github]  Type of OIDC provider to use          |
   | *  --federated-user          TEXT      Name for the federated user to create |
   |                                        [required]                            |
   | *  --subject                 TEXT      OIDC subject string                   |
