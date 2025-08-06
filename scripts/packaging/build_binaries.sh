@@ -29,12 +29,12 @@ build_binaries() {
     exit 0
   elif [[ ${SYSTEM} == "linux" ]]; then
     # Set environment variables for maximum x86_64 compatibility
-    # Use core2 CPU target which is more conservative than x86-64
-    export RUSTFLAGS="-C target-cpu=core2 -C target-feature=-sse3,-ssse3,-sse4.1,-sse4.2,-popcnt,-avx,-avx2,-fma,-bmi1,-bmi2,-lzcnt,-movbe -C opt-level=2 -C lto=false"
+    # Use absolute baseline x86-64 instruction set only (SSE/SSE2) for broadest compatibility
+    export RUSTFLAGS="-C target-cpu=x86-64 -C target-feature=-sse3,-ssse3,-sse4.1,-sse4.2,-popcnt,-avx,-avx2,-fma,-bmi1,-bmi2,-lzcnt,-movbe,-aes,-pclmulqdq -C opt-level=1 -C lto=false -C codegen-units=1"
 
     # Set conservative compiler flags for Python native extensions
-    export CFLAGS="-O2 -march=core2 -mtune=generic -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-popcnt -mno-avx -mno-avx2"
-    export CXXFLAGS="-O2 -march=core2 -mtune=generic -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-popcnt -mno-avx -mno-avx2"
+    export CFLAGS="-O1 -march=x86-64 -mtune=generic -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-popcnt -mno-avx -mno-avx2 -mno-aes -mno-pclmul"
+    export CXXFLAGS="-O1 -march=x86-64 -mtune=generic -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-popcnt -mno-avx -mno-avx2 -mno-aes -mno-pclmul"
     export LDFLAGS="-Wl,-O1"
 
     # Use ultra-conservative PyApp build with maximum CPU compatibility

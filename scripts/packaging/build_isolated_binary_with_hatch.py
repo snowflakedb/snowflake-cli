@@ -191,12 +191,12 @@ def override_is_installation_source_variable():
 def pip_install_project(python_exe: str) -> bool:
     """Install the project into the Python distribution."""
     # Set conservative compiler flags for any native extensions
-    # Use baseline x86_64 for maximum compatibility - use core2 as the safest option
+    # Use absolute baseline x86-64 for maximum compatibility
     env = os.environ.copy()
     env.update(
         {
-            "CFLAGS": "-O2 -march=core2 -mtune=generic -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-popcnt -mno-avx -mno-avx2",
-            "CXXFLAGS": "-O2 -march=core2 -mtune=generic -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-popcnt -mno-avx -mno-avx2",
+            "CFLAGS": "-O1 -march=x86-64 -mtune=generic -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-popcnt -mno-avx -mno-avx2 -mno-aes -mno-pclmul",
+            "CXXFLAGS": "-O1 -march=x86-64 -mtune=generic -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-popcnt -mno-avx -mno-avx2 -mno-aes -mno-pclmul",
             "LDFLAGS": "-Wl,-O1",
             "CC": "gcc",  # Explicitly set compiler
             "CXX": "g++",  # Explicitly set C++ compiler
@@ -268,8 +268,8 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     # Try the most aggressive approach to force compatibility
 
     # Set MAXIMUM compatibility Rust flags for CI x86_64 Linux environment
-    # Use core2 CPU target which is more conservative than x86-64
-    conservative_flags = "-C target-cpu=core2 -C target-feature=-sse3,-ssse3,-sse4.1,-sse4.2,-popcnt,-avx,-avx2,-fma,-bmi1,-bmi2,-lzcnt,-movbe -C opt-level=2 -C lto=false"
+    # Use x86-64 baseline (SSE/SSE2 only) - the most conservative possible
+    conservative_flags = "-C target-cpu=x86-64 -C target-feature=-sse3,-ssse3,-sse4.1,-sse4.2,-popcnt,-avx,-avx2,-fma,-bmi1,-bmi2,-lzcnt,-movbe,-aes,-pclmulqdq -C opt-level=1 -C lto=false -C codegen-units=1"
 
     # Set Rust flags for maximum compatibility (no cross-compilation needed in CI)
     os.environ["RUSTFLAGS"] = conservative_flags
@@ -287,12 +287,21 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_PIP_VERSION"] = "23.0"  # Use older pip version
     os.environ["PYAPP_UV_ENABLED"] = "false"  # Disable UV package manager
 
-    # Try to override any potential host-specific optimizations
-    os.environ[
-        "CARGO_CFG_TARGET_FEATURE"
-    ] = "sse,sse2"  # Only basic x86_64 features required
+    # Override any potential host-specific optimizations with most basic features
+    os.environ["CARGO_CFG_TARGET_FEATURE"] = "sse,sse2"  # Only basic x86_64 features
     os.environ["CARGO_CFG_TARGET_ARCH"] = "x86_64"
     os.environ["CARGO_CFG_TARGET_OS"] = "linux"
+
+    # Force specific PyApp build environment for maximum compatibility
+    os.environ["PYAPP_DISTRIBUTION_EMBED"] = "false"  # Don't embed, use external
+    os.environ["PYAPP_EXPOSE_METADATA"] = "true"  # Enable debugging
+
+    # Ensure no CPU feature detection at runtime
+    os.environ["CARGO_CFG_TARGET_HAS_ATOMIC"] = "8,16,32,64,ptr"
+    os.environ["CARGO_FEATURE_STD"] = "1"
+
+    # Force Rust to use oldest compatible codegen
+    os.environ["CARGO_PROFILE_RELEASE_PANIC"] = "abort"
 
     print(f"Building with conservative flags: {conservative_flags}")
     print(f"RUSTFLAGS: {os.environ.get('RUSTFLAGS')}")
