@@ -308,7 +308,7 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
         "PYAPP_DISTRIBUTION_SOURCE"
     ] = "github"  # Use GitHub releases (more generic)
     os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Use minimum required Python version
-    os.environ["PYAPP_DISTRIBUTION_FORMAT"] = "tar.xz"  # Use generic format
+    # NOTE: Removed PYAPP_DISTRIBUTION_FORMAT - let PyApp choose the best format automatically
 
     # Force PyApp to build all packages from source to avoid optimized wheels
     os.environ[
@@ -330,6 +330,9 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     print(f"PYAPP_DISTRIBUTION_VARIANT: {os.environ.get('PYAPP_DISTRIBUTION_VARIANT')}")
     print(f"PYAPP_SKIP_INSTALL: {os.environ.get('PYAPP_SKIP_INSTALL')}")
     print(f"PYAPP_PIP_EXTRA_ARGS: {os.environ.get('PYAPP_PIP_EXTRA_ARGS')}")
+    print(
+        f"PYAPP_DISTRIBUTION_FORMAT: {os.environ.get('PYAPP_DISTRIBUTION_FORMAT', 'NOT SET - using PyApp default')}"
+    )
 
     # Debug: Print all environment variables starting with CARGO or PYAPP
     print("=== All CARGO/PYAPP Environment Variables ===")
