@@ -356,9 +356,12 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_DISTRIBUTION_EMBED"] = "true"  # EMBED Python in binary
     os.environ["PYAPP_DISTRIBUTION_SOURCE"] = basic_python_url
 
-    # Install ONLY our project wheel, skip all dependencies (they should be bundled in the wheel)
-    # This ensures our project is available but doesn't try to download external dependencies
-    os.environ["PYAPP_PIP_EXTRA_ARGS"] = "--no-deps"
+    # Allow PyApp to install our project AND its dependencies at BUILD TIME
+    # Since Python is embedded, dependencies will be installed into the embedded environment
+    # This happens during the build process, NOT at runtime, so it's still self-contained
+    os.environ[
+        "PYAPP_PIP_EXTRA_ARGS"
+    ] = "--only-binary=pip,setuptools,wheel,hatch,cython,numpy,cryptography,cffi,pycparser,markupsafe,pyyaml --no-cache-dir"
 
     # Ensure no CPU feature detection at runtime
     os.environ["CARGO_CFG_TARGET_HAS_ATOMIC"] = "8,16,32,64,ptr"
