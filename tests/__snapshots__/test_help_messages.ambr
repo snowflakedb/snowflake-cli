@@ -4685,7 +4685,7 @@
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | --type          [github|auto]  Type of OIDC provider to use                  |
+  | --type          [auto|github]  Type of OIDC provider to use                  |
   | --help  -h                     Show this message and exit.                   |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
