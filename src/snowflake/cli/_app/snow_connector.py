@@ -352,7 +352,6 @@ def _maybe_update_oidc_token(connection_parameters: dict) -> dict:
     """Try to obtain OIDC token automatically."""
     try:
         manager = OidcManager()
-        # TODO: Use enum form extended version of OidcTokenProvider
         if token := manager.read_token(OidcProviderTypeWithAuto.AUTO):
             log.info("%s token acquired automatically", AUTHENTICATOR_WORKLOAD_IDENTITY)
             connection_parameters.update(
