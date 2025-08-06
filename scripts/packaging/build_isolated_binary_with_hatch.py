@@ -303,8 +303,9 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     # Use only the most basic PyApp settings for maximum compatibility
     os.environ["PYAPP_EXPOSE_METADATA"] = "true"  # Enable debugging
     os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Use minimum required Python version
-    # CRITICAL: Tell PyApp to install from local source, not PyPI
-    os.environ["PYAPP_PROJECT_PATH"] = str(PROJECT_ROOT)  # Install from local source
+    # CRITICAL: Don't set PYAPP_PROJECT_PATH - let PyApp build the project automatically from current directory
+    # PyApp expects PYAPP_PROJECT_PATH to be a file (wheel/tarball), not a directory
+    # Instead, we rely on PyApp detecting the project from the current working directory
     # Let PyApp use all default settings for distribution (no custom variants/sources/formats)
 
     # Force PyApp to build all packages from source to avoid optimized wheels
@@ -323,9 +324,9 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     print(f"RUSTFLAGS: {os.environ.get('RUSTFLAGS')}")
     print(f"PYAPP_DEBUG: {os.environ.get('PYAPP_DEBUG')}")
     print(f"PYAPP_PYTHON_VERSION: {os.environ.get('PYAPP_PYTHON_VERSION')}")
-    print(f"PYAPP_PROJECT_PATH: {os.environ.get('PYAPP_PROJECT_PATH')}")
     print(f"PYAPP_SKIP_INSTALL: {os.environ.get('PYAPP_SKIP_INSTALL')}")
     print(f"PYAPP_PIP_EXTRA_ARGS: {os.environ.get('PYAPP_PIP_EXTRA_ARGS')}")
+    print("Project detection: Using PyApp auto-detection from current directory")
     print(
         "All distribution settings: Using PyApp defaults (no custom source/variant/format)"
     )
