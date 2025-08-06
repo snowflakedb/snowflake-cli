@@ -90,6 +90,20 @@ output_path_option = OverrideableOption(
     show_default=False,
 )
 
+terse_option = typer.Option(
+    False,
+    "--terse",
+    help="Returns only a subset of output columns.",
+    show_default=False,
+)
+
+limit_option = typer.Option(
+    None,
+    "--limit",
+    help="Limits the maximum number of rows returned.",
+    show_default=False,
+)
+
 
 add_object_command_aliases(
     app=app,
@@ -100,6 +114,8 @@ add_object_command_aliases(
     ),
     scope_option=scope_option(help_example="`list --in database my_db`"),
     ommit_commands=["create"],
+    terse_option=terse_option,
+    limit_option=limit_option,
 )
 
 

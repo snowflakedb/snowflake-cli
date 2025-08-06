@@ -245,6 +245,60 @@ def test_list_command_alias(mock_connect, runner):
     )
 
 
+@pytest.mark.parametrize(
+    "terse, limit, expected_query_suffix",
+    [
+        (True, None, "show terse DCM Projects like '%%'"),
+        (False, 10, "show DCM Projects like '%%' limit 10"),
+        (False, 5, "show DCM Projects like '%%' limit 5"),
+        (True, 10, "show terse DCM Projects like '%%' limit 10"),
+    ],
+)
+def test_dcm_list_with_terse_and_limit_options(
+    mock_connect, terse, limit, expected_query_suffix, runner
+):
+    """Test DCM list command with TERSE and LIMIT options."""
+    cmd = ["dcm", "list"]
+
+    if terse:
+        cmd.extend(["--terse"])
+    if limit is not None:
+        cmd.extend(["--limit", str(limit)])
+
+    result = runner.invoke(cmd, catch_exceptions=False)
+    assert result.exit_code == 0, result.output
+
+    queries = mock_connect.mocked_ctx.get_queries()
+    assert len(queries) == 1
+    assert queries[0] == expected_query_suffix
+
+
+def test_dcm_list_with_all_options_combined(mock_connect, runner):
+    """Test DCM list command with all options (like, scope, terse, limit) combined."""
+    result = runner.invoke(
+        [
+            "dcm",
+            "list",
+            "--like",
+            "test%",
+            "--in",
+            "database",
+            "my_db",
+            "--terse",
+            "--limit",
+            "20",
+        ],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0, result.output
+
+    queries = mock_connect.mocked_ctx.get_queries()
+    assert len(queries) == 1
+    expected_query = "show terse DCM Projects like 'test%' in database my_db limit 20"
+    assert queries[0] == expected_query
+
+
 @mock.patch(DCMProjectManager)
 def test_list_deployments(mock_pm, runner):
     result = runner.invoke(["dcm", "list-deployments", "fooBar"])

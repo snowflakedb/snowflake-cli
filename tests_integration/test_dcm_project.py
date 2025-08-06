@@ -14,10 +14,8 @@
 
 import pytest
 
-from snowflake.cli.api.secure_path import SecurePath
-
 from typing import Set, Optional, Tuple
-from tests_integration.test_utils import assert_stage_has_files, does_stage_exist
+from tests_integration.test_utils import assert_stage_has_files
 
 
 def _assert_project_has_versions(
