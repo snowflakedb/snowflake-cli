@@ -279,26 +279,13 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
 
     # Force PyApp to use the most compatible settings possible
     os.environ["PYAPP_DEBUG"] = "1"
-    os.environ["PYAPP_SKIP_INSTALL"] = "1"
+    # NOTE: PYAPP_SKIP_INSTALL already set above - don't duplicate
 
-    # Force PyApp to use older, more compatible Python version and build settings
-    os.environ[
-        "PYAPP_PYTHON_VERSION"
-    ] = "3.10"  # Use older Python version for compatibility
-    os.environ[
-        "PYAPP_DISTRIBUTION_VARIANT"
-    ] = ""  # Use default/generic variant, not optimized builds
+    # When using PYAPP_DISTRIBUTION_PATH, do NOT set PYAPP_PYTHON_VERSION
+    # as that creates a conflict between custom distribution and PyApp downloading Python
+    # Use conservative PyApp settings for maximum compatibility
     os.environ["PYAPP_PIP_VERSION"] = "23.0"  # Use older pip version
-    os.environ[
-        "PYAPP_UV_ENABLED"
-    ] = "false"  # Disable UV package manager (newer, might be optimized)
-
-    # Try to force PyApp to use the most compatible Python distribution
-    # Use 'install_only' variant which has minimal optimizations
-    os.environ[
-        "PYAPP_DISTRIBUTION_SOURCE"
-    ] = "github"  # Use GitHub release instead of python.org (may be more conservative)
-    os.environ["PYAPP_DISTRIBUTION_FORMAT"] = "tar.xz"  # Use specific format
+    os.environ["PYAPP_UV_ENABLED"] = "false"  # Disable UV package manager
 
     # Try to override any potential host-specific optimizations
     os.environ[
@@ -310,8 +297,8 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     print(f"Building with conservative flags: {conservative_flags}")
     print(f"RUSTFLAGS: {os.environ.get('RUSTFLAGS')}")
     print(f"PYAPP_DEBUG: {os.environ.get('PYAPP_DEBUG')}")
-    print(f"PYAPP_PYTHON_VERSION: {os.environ.get('PYAPP_PYTHON_VERSION')}")
-    print(f"PYAPP_DISTRIBUTION_VARIANT: {os.environ.get('PYAPP_DISTRIBUTION_VARIANT')}")
+    print(f"PYAPP_DISTRIBUTION_PATH: {os.environ.get('PYAPP_DISTRIBUTION_PATH')}")
+    print(f"PYAPP_SKIP_INSTALL: {os.environ.get('PYAPP_SKIP_INSTALL')}")
 
     # Debug: Print all environment variables starting with CARGO or PYAPP
     print("=== All CARGO/PYAPP Environment Variables ===")
