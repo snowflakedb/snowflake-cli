@@ -14,7 +14,6 @@ import contextlib
 import json
 import os
 import subprocess
-import sys
 import tarfile
 import tempfile
 from pathlib import Path
@@ -299,97 +298,16 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     # Remove custom distribution settings to force PyApp to use generic Python
     if "PYAPP_DISTRIBUTION_PATH" in os.environ:
         del os.environ["PYAPP_DISTRIBUTION_PATH"]
-    os.environ[
-        "PYAPP_SKIP_INSTALL"
-    ] = "1"  # Skip ALL installations - everything must be pre-embedded
-
-    # CRITICAL: Use "Single project embedded" approach with wheel file
-    # This embeds the project locally without trying to download from PyPI
-
-    # Create a complete Python environment with ALL dependencies pre-installed
-    # This will be embedded entirely in the PyApp binary
-
-    print("Creating self-contained Python environment with all dependencies...")
-    wheel_dir = PROJECT_ROOT / "dist" / "wheel_with_deps"
-    wheel_dir.mkdir(parents=True, exist_ok=True)
-
-    # Download ALL wheels (our project + all dependencies) to a local directory
-    print("Downloading project and all dependencies as wheels...")
-    pip_wheel_result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "wheel",
-            ".",
-            "--wheel-dir",
-            str(wheel_dir),
-            "--only-binary=pip,setuptools,wheel,hatch,cython,numpy,cryptography,cffi,pycparser,markupsafe,pyyaml",
-            "--no-cache-dir",
-        ],
-        cwd=PROJECT_ROOT,
-        capture_output=True,
-        text=True,
-    )
-
-    if pip_wheel_result.returncode != 0:
-        print(f"Pip wheel failed: {pip_wheel_result.stderr}")
-        return None
-
-    print("Creating temporary virtual environment...")
-    venv_dir = PROJECT_ROOT / "dist" / "temp_venv"
-    if venv_dir.exists():
-        import shutil
-
-        shutil.rmtree(venv_dir)
-
-    subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
-    venv_python = venv_dir / "bin" / "python"
-
-    print("Installing all wheels into temporary environment...")
-    install_result = subprocess.run(
-        [
-            str(venv_python),
-            "-m",
-            "pip",
-            "install",
-            "--find-links",
-            str(wheel_dir),
-            "--no-index",
-            "--no-deps",
-            str(wheel_dir / "*.whl"),
-        ],
-        capture_output=True,
-        text=True,
-    )
-
-    if install_result.returncode != 0:
-        # Try installing our project specifically
-        our_wheel = list(wheel_dir.glob("snowflake_cli-*.whl"))[0]
-        subprocess.run(
-            [
-                str(venv_python),
-                "-m",
-                "pip",
-                "install",
-                "--find-links",
-                str(wheel_dir),
-                "--no-index",
-                str(our_wheel),
-            ],
-            check=True,
-        )
-
-    print("Creating distribution archive from complete environment...")
-    dist_archive = PROJECT_ROOT / "dist" / "python_complete.tar.gz"
-
-    # Create a tar.gz with the complete Python environment
-    import tarfile
-
-    with tarfile.open(dist_archive, "w:gz") as tar:
-        tar.add(venv_dir, arcname="python", recursive=True)
+    # Don't skip installation - we want PyApp to install our project into the embedded Python
+    if "PYAPP_SKIP_INSTALL" in os.environ:
+        del os.environ["PYAPP_SKIP_INSTALL"]
 
     # Use embedded Python distribution with fat binary approach
+    # PyApp will handle downloading Python and installing our project with dependencies
+    print(
+        "Configuring PyApp for embedded Python with build-time dependency installation..."
+    )
+
     basic_python_url = "https://github.com/astral-sh/python-build-standalone/releases/download/20241016/cpython-3.10.15+20241016-x86_64-unknown-linux-gnu-install_only.tar.gz"
 
     # Configure PyApp to embed Python and install our project WITH dependencies at build time
@@ -405,9 +323,9 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_EXPOSE_METADATA"] = "true"  # Enable debugging
     os.environ["PYAPP_DEBUG"] = "1"  # Enable debugging output
 
-    # No additional configuration needed - we've provided a complete Python environment
+    # PyApp will handle the rest - embedding Python and installing our project with dependencies
     print(
-        "Complete Python environment with all dependencies created and configured for PyApp"
+        "PyApp configured for embedded Python with build-time dependency installation"
     )
 
     # Ensure no CPU feature detection at runtime
