@@ -345,12 +345,13 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_DEBUG"] = "1"  # Enable debugging output
     os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Use minimum required Python version
 
+    # EMBED the Python distribution directly in the binary for TRUE self-containment
+    # This makes the binary larger but eliminates any runtime downloads
     # Force the basic x86-64 Python distribution for maximum CPU compatibility
     # NOTE: PyApp automatically chooses x86_64_v3 (requires AVX/BMI) by default
     # We need to force it to use the basic x86-64 distribution without modern CPU features
-    # This must be done via explicit URL override since PyApp doesn't have a "basic x86-64" option
-    # Use the most recent release that contains Python 3.10 from the new astral-sh repository
     basic_python_url = "https://github.com/astral-sh/python-build-standalone/releases/download/20250604/cpython-3.10.18%2B20250604-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
+    os.environ["PYAPP_DISTRIBUTION_EMBED"] = "true"  # EMBED Python in binary
     os.environ["PYAPP_DISTRIBUTION_SOURCE"] = basic_python_url
 
     # Force PyApp to build all packages from source to avoid optimized wheels
