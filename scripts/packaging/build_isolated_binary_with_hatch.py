@@ -297,9 +297,18 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["CARGO_CFG_TARGET_OS"] = "linux"
 
     print(f"Building with conservative flags: {conservative_flags}")
-    print(f"CARGO_BUILD_TARGET: {os.environ.get('CARGO_BUILD_TARGET')}")
     print(f"RUSTFLAGS: {os.environ.get('RUSTFLAGS')}")
     print(f"PYAPP_DEBUG: {os.environ.get('PYAPP_DEBUG')}")
+    print(f"PYAPP_PYTHON_VERSION: {os.environ.get('PYAPP_PYTHON_VERSION')}")
+    print(f"PYAPP_DISTRIBUTION_VARIANT: {os.environ.get('PYAPP_DISTRIBUTION_VARIANT')}")
+
+    # Debug: Print all environment variables starting with CARGO or PYAPP
+    print("=== All CARGO/PYAPP Environment Variables ===")
+    for key, value in sorted(os.environ.items()):
+        if key.startswith(("CARGO_", "PYAPP_", "RUST")):
+            print(f"{key}: {value}")
+    print("=== End Environment Variables ===")
+    print()
 
     completed_proc = subprocess.run(
         ["hatch", "build", "-t", "binary"], capture_output=True
