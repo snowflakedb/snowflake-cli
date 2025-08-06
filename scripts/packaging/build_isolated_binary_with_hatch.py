@@ -300,13 +300,10 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
         del os.environ["PYAPP_DISTRIBUTION_PATH"]
     os.environ["PYAPP_SKIP_INSTALL"] = "0"  # Let PyApp install Python itself
 
-    # Force the most generic Python distribution settings
-    os.environ["PYAPP_DISTRIBUTION_EMBED"] = "false"  # Don't embed distribution
+    # Use only the most basic PyApp settings for maximum compatibility
     os.environ["PYAPP_EXPOSE_METADATA"] = "true"  # Enable debugging
-    os.environ["PYAPP_DISTRIBUTION_VARIANT"] = "install_only"  # Use minimal variant
-    # NOTE: Removed PYAPP_DISTRIBUTION_SOURCE - let PyApp use default distribution source
     os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Use minimum required Python version
-    # NOTE: Removed PYAPP_DISTRIBUTION_FORMAT - let PyApp choose the best format automatically
+    # Let PyApp use all default settings for distribution (no custom variants/sources/formats)
 
     # Force PyApp to build all packages from source to avoid optimized wheels
     os.environ[
@@ -324,14 +321,10 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     print(f"RUSTFLAGS: {os.environ.get('RUSTFLAGS')}")
     print(f"PYAPP_DEBUG: {os.environ.get('PYAPP_DEBUG')}")
     print(f"PYAPP_PYTHON_VERSION: {os.environ.get('PYAPP_PYTHON_VERSION')}")
-    print(
-        f"PYAPP_DISTRIBUTION_SOURCE: {os.environ.get('PYAPP_DISTRIBUTION_SOURCE', 'NOT SET - using PyApp default')}"
-    )
-    print(f"PYAPP_DISTRIBUTION_VARIANT: {os.environ.get('PYAPP_DISTRIBUTION_VARIANT')}")
     print(f"PYAPP_SKIP_INSTALL: {os.environ.get('PYAPP_SKIP_INSTALL')}")
     print(f"PYAPP_PIP_EXTRA_ARGS: {os.environ.get('PYAPP_PIP_EXTRA_ARGS')}")
     print(
-        f"PYAPP_DISTRIBUTION_FORMAT: {os.environ.get('PYAPP_DISTRIBUTION_FORMAT', 'NOT SET - using PyApp default')}"
+        "All distribution settings: Using PyApp defaults (no custom source/variant/format)"
     )
 
     # Debug: Print all environment variables starting with CARGO or PYAPP
@@ -372,7 +365,7 @@ def main():
     # Skip custom Python distribution - let PyApp download its own generic one
     print("Using PyApp's built-in Python distribution management...")
     print(
-        "PyApp will download Python 3.10 with generic 'install_only' variant for maximum compatibility"
+        "PyApp will download Python 3.10 with default settings for maximum compatibility"
     )
 
     # Create dummy paths for compatibility with function signature
