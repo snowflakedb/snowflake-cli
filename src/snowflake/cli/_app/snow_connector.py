@@ -45,6 +45,8 @@ from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secret import SecretType
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import SnowflakeConnection
+
+# from snowflake.connector.wif_util import OidcProviderType  # Not available in current connector version
 from snowflake.connector.errors import DatabaseError, ForbiddenError
 
 log = logging.getLogger(__name__)
@@ -353,7 +355,11 @@ def _maybe_update_oidc_token(connection_parameters: dict) -> dict:
         # TODO: Use enum form extended version of OidcTokenProvider
         if token := manager.read_token(OidcProviderTypeWithAuto.AUTO):
             log.info("%s token acquired automatically", AUTHENTICATOR_WORKLOAD_IDENTITY)
-            connection_parameters["token"] = token
+            connection_parameters.update(
+                {
+                    "token": token,
+                }
+            )
     except Exception as e:
         log.info(
             "No token found when while %s auto auto-detection: %s",
