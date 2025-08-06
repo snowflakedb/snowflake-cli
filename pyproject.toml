@@ -91,6 +91,10 @@ exclude = ["/.github", "/.compat"]
 [tool.hatch.build.targets.wheel]
 packages = ["src/snowflake"]
 
+[tool.hatch.build.targets.binary]
+# PyApp binary configuration for standalone executable
+# This tells Hatch to build the project as a binary using PyApp
+
 [tool.hatch.envs.default]
 python = "3.10"
 features = ["development"]
