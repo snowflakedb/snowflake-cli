@@ -347,9 +347,11 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     # Let PyApp use all default settings for distribution (no custom variants/sources/formats)
 
     # Force PyApp to build all packages from source to avoid optimized wheels
+    # Allow critical packages to use pre-built wheels to avoid compilation issues
+    # Build only the most CPU-sensitive packages from source with conservative settings
     os.environ[
         "PYAPP_PIP_EXTRA_ARGS"
-    ] = "--no-binary=:all: --only-binary=pip,setuptools,wheel,hatch"
+    ] = "--only-binary=pip,setuptools,wheel,hatch,cython,numpy,cryptography,cffi,pycparser,markupsafe,pyyaml"
 
     # Ensure no CPU feature detection at runtime
     os.environ["CARGO_CFG_TARGET_HAS_ATOMIC"] = "8,16,32,64,ptr"
