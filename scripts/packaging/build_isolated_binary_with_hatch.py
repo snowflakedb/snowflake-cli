@@ -389,15 +389,19 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     with tarfile.open(dist_archive, "w:gz") as tar:
         tar.add(venv_dir, arcname="python", recursive=True)
 
-    # Point PyApp to our complete Python distribution
-    os.environ["PYAPP_DISTRIBUTION_PATH"] = str(dist_archive)
-    os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = "python/bin/python"
+    # Use embedded Python distribution with fat binary approach
+    basic_python_url = "https://github.com/astral-sh/python-build-standalone/releases/download/20241016/cpython-3.10.15+20241016-x86_64-unknown-linux-gnu-install_only.tar.gz"
 
-    # Remove the embedded distribution settings since we're providing our own
-    if "PYAPP_DISTRIBUTION_EMBED" in os.environ:
-        del os.environ["PYAPP_DISTRIBUTION_EMBED"]
-    if "PYAPP_DISTRIBUTION_SOURCE" in os.environ:
-        del os.environ["PYAPP_DISTRIBUTION_SOURCE"]
+    # Configure PyApp to embed Python and install our project WITH dependencies at build time
+    os.environ["PYAPP_DISTRIBUTION_EMBED"] = "true"  # EMBED Python in binary
+    os.environ["PYAPP_DISTRIBUTION_SOURCE"] = basic_python_url
+
+    # Allow PyApp to install our project AND its dependencies at BUILD TIME
+    # Since Python is embedded, dependencies will be installed into the embedded environment
+    # This happens during the build process, NOT at runtime, so it's still self-contained
+    os.environ[
+        "PYAPP_PIP_EXTRA_ARGS"
+    ] = "--only-binary=pip,setuptools,wheel,hatch,cython,numpy,cryptography,cffi,pycparser,markupsafe,pyyaml --no-cache-dir"
     os.environ["PYAPP_EXPOSE_METADATA"] = "true"  # Enable debugging
     os.environ["PYAPP_DEBUG"] = "1"  # Enable debugging output
 
