@@ -41,7 +41,6 @@ fpm \
   --prefix /usr/lib/snowflake/snowflake-cli \
   --after-install ${THIS_DIR}/ubuntu/after_install.sh \
   --after-remove ${THIS_DIR}/ubuntu/after_remove.sh \
-  -d "python3 >= 3.9" \
   --force
 
 echo "-----------------"
@@ -60,5 +59,4 @@ fpm \
   --prefix /usr/lib/snowflake/snowflake-cli \
   --after-install ${THIS_DIR}/centos/after_install.sh \
   --after-remove ${THIS_DIR}/centos/after_remove.sh \
-  -d "python3 >= 3.9" \
   --force
