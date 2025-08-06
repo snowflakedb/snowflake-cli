@@ -12,12 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Rust configuration for maximum x86_64 compatibility
+# Rust configuration for MAXIMUM x86_64 compatibility
+# Use the most conservative settings possible to avoid "Illegal instruction" errors
+# This is for CI x86_64 Linux builds, not cross-compilation
+
 [build]
-# Target older x86_64 baseline to avoid newer CPU instructions
-target = "x86_64-unknown-linux-gnu"
+# Let cargo use the native target but with conservative flags
 
 [target.x86_64-unknown-linux-gnu]
-# Use most conservative CPU target for maximum compatibility
-# core2 is older than x86-64 baseline and should work in most environments
-rustflags = ["-C", "target-cpu=core2", "-C", "target-feature=-avx,-avx2,-bmi1,-bmi2,-fma,-avx512f,-avx512dq,-avx512ifma,-avx512pf,-avx512er,-avx512cd,-avx512bw,-avx512vl,-avx512vbmi,-avx512vbmi2,-avx512vnni,-avx512bitalg,-avx512vpopcntdq,-avx512bf16,-avx512fp16,-avx512vp2intersect"]
+# Use only baseline x86_64 instruction set (SSE/SSE2 only)
+# Disable all optional/newer instruction sets for maximum compatibility
+rustflags = [
+    "-C", "target-cpu=x86-64",
+    "-C", "target-feature=-sse3,-ssse3,-sse4.1,-sse4.2,-popcnt,-avx,-avx2,-fma,-bmi1,-bmi2,-lzcnt,-movbe",
+    "-C", "opt-level=2",
+    "-C", "lto=false"
+]
