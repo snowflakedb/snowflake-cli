@@ -191,13 +191,15 @@ def override_is_installation_source_variable():
 def pip_install_project(python_exe: str) -> bool:
     """Install the project into the Python distribution."""
     # Set conservative compiler flags for any native extensions
-    # Use baseline x86_64 for maximum compatibility
+    # Use baseline x86_64 for maximum compatibility - use core2 as the safest option
     env = os.environ.copy()
     env.update(
         {
-            "CFLAGS": "-O2 -march=x86-64 -mtune=generic",
-            "CXXFLAGS": "-O2 -march=x86-64 -mtune=generic",
+            "CFLAGS": "-O2 -march=core2 -mtune=generic -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-popcnt -mno-avx -mno-avx2",
+            "CXXFLAGS": "-O2 -march=core2 -mtune=generic -mno-sse3 -mno-ssse3 -mno-sse4.1 -mno-sse4.2 -mno-popcnt -mno-avx -mno-avx2",
             "LDFLAGS": "-Wl,-O1",
+            "CC": "gcc",  # Explicitly set compiler
+            "CXX": "g++",  # Explicitly set C++ compiler
         }
     )
 
@@ -216,7 +218,8 @@ def pip_install_project(python_exe: str) -> bool:
 
     # Then install our project dependencies with conservative compilation
     print("Installing dependencies with conservative CPU settings...")
-    # Note: Removed --force-reinstall to avoid unnecessary rebuilds that might fail
+    # Strategy: Install binary wheels for packages that have OpenSSL/C++ compilation issues,
+    # but force source builds for packages where we can control CPU optimizations
     deps_proc = subprocess.run(
         [
             python_exe,
@@ -224,7 +227,8 @@ def pip_install_project(python_exe: str) -> bool:
             "pip",
             "install",
             "-U",
-            "--no-binary=cryptography,lxml,PyYAML,snowflake-connector-python",
+            "--no-binary=lxml,PyYAML",  # Build these from source with our conservative flags
+            "--only-binary=cryptography,cffi,snowflake-connector-python",  # Use binary wheels for OpenSSL-dependent packages
             str(PROJECT_ROOT),
         ],
         capture_output=True,
@@ -264,8 +268,8 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     # Try the most aggressive approach to force compatibility
 
     # Set MAXIMUM compatibility Rust flags for CI x86_64 Linux environment
-    # Use only baseline x86_64 instruction set (SSE/SSE2 only)
-    conservative_flags = "-C target-cpu=x86-64 -C target-feature=-sse3,-ssse3,-sse4.1,-sse4.2,-popcnt,-avx,-avx2,-fma,-bmi1,-bmi2,-lzcnt,-movbe -C opt-level=2 -C lto=false"
+    # Use core2 CPU target which is more conservative than x86-64
+    conservative_flags = "-C target-cpu=core2 -C target-feature=-sse3,-ssse3,-sse4.1,-sse4.2,-popcnt,-avx,-avx2,-fma,-bmi1,-bmi2,-lzcnt,-movbe -C opt-level=2 -C lto=false"
 
     # Set Rust flags for maximum compatibility (no cross-compilation needed in CI)
     os.environ["RUSTFLAGS"] = conservative_flags
@@ -288,6 +292,13 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ[
         "PYAPP_UV_ENABLED"
     ] = "false"  # Disable UV package manager (newer, might be optimized)
+
+    # Try to force PyApp to use the most compatible Python distribution
+    # Use 'install_only' variant which has minimal optimizations
+    os.environ[
+        "PYAPP_DISTRIBUTION_SOURCE"
+    ] = "github"  # Use GitHub release instead of python.org (may be more conservative)
+    os.environ["PYAPP_DISTRIBUTION_FORMAT"] = "tar.xz"  # Use specific format
 
     # Try to override any potential host-specific optimizations
     os.environ[

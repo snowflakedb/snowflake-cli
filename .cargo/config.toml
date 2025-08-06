@@ -23,7 +23,7 @@
 # Use only baseline x86_64 instruction set (SSE/SSE2 only)
 # Disable all optional/newer instruction sets for maximum compatibility
 rustflags = [
-    "-C", "target-cpu=x86-64",
+    "-C", "target-cpu=core2",
     "-C", "target-feature=-sse3,-ssse3,-sse4.1,-sse4.2,-popcnt,-avx,-avx2,-fma,-bmi1,-bmi2,-lzcnt,-movbe",
     "-C", "opt-level=2",
     "-C", "lto=false"
