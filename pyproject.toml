@@ -95,6 +95,11 @@ packages = ["src/snowflake"]
 # PyApp binary configuration for standalone executable
 # This tells Hatch to build the project as a binary using PyApp
 
+# Force PyApp to build from current project instead of downloading from PyPI
+installer = "hatch_build"
+# Build from local source - do not try to download from PyPI
+source = "."
+
 [tool.hatch.envs.default]
 python = "3.10"
 features = ["development"]
