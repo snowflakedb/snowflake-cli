@@ -22,6 +22,7 @@ from typing import Dict, Optional
 import snowflake.connector
 from click.exceptions import ClickException
 from snowflake.cli import __about__
+from snowflake.cli._app.auth.oidc_providers import OidcProviderTypeWithAuto
 from snowflake.cli._app.constants import (
     AUTHENTICATOR_WORKLOAD_IDENTITY,
     INTERNAL_APPLICATION_NAME,
@@ -350,7 +351,7 @@ def _maybe_update_oidc_token(connection_parameters: dict) -> dict:
     try:
         manager = OidcManager()
         # TODO: Use enum form extended version of OidcTokenProvider
-        if token := manager.read("auto"):
+        if token := manager.read_token(OidcProviderTypeWithAuto.AUTO):
             log.info("%s token acquired automatically", AUTHENTICATOR_WORKLOAD_IDENTITY)
             connection_parameters["token"] = token
     except Exception as e:

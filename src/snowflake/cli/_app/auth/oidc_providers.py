@@ -45,6 +45,13 @@ class OidcProviderType(Enum):
     GITHUB = "github"
 
 
+class OidcProviderTypeWithAuto(Enum):
+    """Extended version of OidcProviderType with AUTO."""
+
+    AUTO = "auto"
+    GITHUB = "github"
+
+
 class OidcTokenProvider(ABC):
     """
     Abstract base class for OIDC token providers.

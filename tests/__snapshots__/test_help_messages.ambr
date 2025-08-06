@@ -4722,7 +4722,8 @@
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  |    ---type                   [github]  Type of OIDC provider to use          |
+  | *  --type                    [github]  Type of OIDC provider to use          |
+  |                                        [required]                            |
   | *  --federated-user          TEXT      Name for the federated user to create |
   |                                        [required]                            |
   | *  --subject                 TEXT      OIDC subject string                   |

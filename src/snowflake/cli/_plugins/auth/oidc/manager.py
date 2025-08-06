@@ -13,9 +13,12 @@
 # limitations under the License.
 
 import logging
+from typing import TypeAlias
 
 from snowflake.cli._app.auth.oidc_providers import (
     OidcProviderError,
+    OidcProviderType,
+    OidcProviderTypeWithAuto,
     auto_detect_oidc_provider,
     get_active_oidc_provider,
     get_oidc_provider,
@@ -25,6 +28,9 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 logger = logging.getLogger(__name__)
+
+
+Providers: TypeAlias = OidcProviderType | OidcProviderTypeWithAuto
 
 
 class OidcManager(SqlExecutionMixin):
@@ -40,7 +46,7 @@ class OidcManager(SqlExecutionMixin):
         user: str,
         subject: str,
         default_role: str,
-        provider_type: str,
+        provider_type: OidcProviderType,
     ) -> str:
         """
         Sets up OIDC federated authentication for the specified user.
@@ -68,7 +74,7 @@ class OidcManager(SqlExecutionMixin):
 
         # Get issuer from the specified provider
         try:
-            provider = get_oidc_provider(provider_type)
+            provider = get_oidc_provider(provider_type.value)
             if provider is None:
                 raise CliError("Provider '%s' is not available" % provider_type)
 
@@ -143,7 +149,10 @@ class OidcManager(SqlExecutionMixin):
             logger.error(error_msg)
             raise CliError(error_msg)
 
-    def read(self, provider_type: str = "auto") -> str:
+    def read_token(
+        self,
+        provider_type: Providers = OidcProviderTypeWithAuto.AUTO,
+    ) -> str:
         """
         Reads OIDC token based on the specified provider type.
 
@@ -159,13 +168,13 @@ class OidcManager(SqlExecutionMixin):
         logger.info("Reading OIDC token with provider type: %s", provider_type)
 
         try:
-            if provider_type == "auto":
+            if provider_type == OidcProviderTypeWithAuto.AUTO:
                 provider = auto_detect_oidc_provider()
                 if provider is None:
                     raise CliError("No available OIDC provider found")
                 return provider.get_token()
             else:
-                provider = get_active_oidc_provider(provider_type)
+                provider = get_active_oidc_provider(provider_type.value)
                 if provider is None:
                     raise CliError(f"Provider '{provider_type}' is not available")
                 return provider.get_token()
