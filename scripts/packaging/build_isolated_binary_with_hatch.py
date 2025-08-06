@@ -304,9 +304,7 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_DISTRIBUTION_EMBED"] = "false"  # Don't embed distribution
     os.environ["PYAPP_EXPOSE_METADATA"] = "true"  # Enable debugging
     os.environ["PYAPP_DISTRIBUTION_VARIANT"] = "install_only"  # Use minimal variant
-    os.environ[
-        "PYAPP_DISTRIBUTION_SOURCE"
-    ] = "github"  # Use GitHub releases (more generic)
+    # NOTE: Removed PYAPP_DISTRIBUTION_SOURCE - let PyApp use default distribution source
     os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Use minimum required Python version
     # NOTE: Removed PYAPP_DISTRIBUTION_FORMAT - let PyApp choose the best format automatically
 
@@ -326,7 +324,9 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     print(f"RUSTFLAGS: {os.environ.get('RUSTFLAGS')}")
     print(f"PYAPP_DEBUG: {os.environ.get('PYAPP_DEBUG')}")
     print(f"PYAPP_PYTHON_VERSION: {os.environ.get('PYAPP_PYTHON_VERSION')}")
-    print(f"PYAPP_DISTRIBUTION_SOURCE: {os.environ.get('PYAPP_DISTRIBUTION_SOURCE')}")
+    print(
+        f"PYAPP_DISTRIBUTION_SOURCE: {os.environ.get('PYAPP_DISTRIBUTION_SOURCE', 'NOT SET - using PyApp default')}"
+    )
     print(f"PYAPP_DISTRIBUTION_VARIANT: {os.environ.get('PYAPP_DISTRIBUTION_VARIANT')}")
     print(f"PYAPP_SKIP_INSTALL: {os.environ.get('PYAPP_SKIP_INSTALL')}")
     print(f"PYAPP_PIP_EXTRA_ARGS: {os.environ.get('PYAPP_PIP_EXTRA_ARGS')}")
