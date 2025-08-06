@@ -22,8 +22,10 @@ from snowflake.cli._plugins.object.commands import (
     ScopeOption,
     describe,
     drop,
+    limit_option_,
     list_,
     scope_option,  # noqa: F401
+    terse_option_,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
@@ -37,6 +39,8 @@ def add_object_command_aliases(
     like_option: Optional[typer.Option],
     scope_option: Optional[typer.Option],
     ommit_commands: Optional[List[str]] = None,
+    terse_option: Optional[typer.Option] = None,
+    limit_option: Optional[typer.Option] = None,
 ):
     if ommit_commands is None:
         ommit_commands = list()
@@ -47,11 +51,18 @@ def add_object_command_aliases(
         if not scope_option:
 
             @app.command("list", requires_connection=True)
-            def list_cmd(like: str = like_option, **options):  # type: ignore
+            def list_cmd(
+                like: str = like_option,  # type: ignore
+                terse: bool = terse_option if terse_option else terse_option_(),  # type: ignore
+                limit: Optional[int] = limit_option if limit_option else limit_option_(),  # type: ignore
+                **options,
+            ):
                 return list_(
                     object_type=object_type.value.cli_name,
                     like=like,
                     scope=ScopeOption.default,
+                    terse=terse,
+                    limit=limit,
                     **options,
                 )
 
@@ -61,12 +72,16 @@ def add_object_command_aliases(
             def list_cmd(
                 like: str = like_option,  # type: ignore
                 scope: Tuple[str, str] = scope_option,  # type: ignore
+                terse: bool = terse_option if terse_option else terse_option_(),  # type: ignore
+                limit: Optional[int] = limit_option if limit_option else limit_option_(),  # type: ignore
                 **options,
             ):
                 return list_(
                     object_type=object_type.value.cli_name,
                     like=like,
                     scope=scope,
+                    terse=terse,
+                    limit=limit,
                     **options,
                 )
 

@@ -94,6 +94,24 @@ def scope_option(help_example: str):
     )
 
 
+def terse_option_():
+    return typer.Option(
+        None,
+        "--terse",
+        help=f"Returns only a subset of available columns.",
+        hidden=True,
+    )
+
+
+def limit_option_():
+    return typer.Option(
+        None,
+        "--limit",
+        help=f"Limits the maximum number of rows returned.",
+        hidden=True,
+    )
+
+
 ScopeOption = scope_option(
     help_example="`list table --in database my_db`. Some object types have specialized scopes (e.g. list service --in compute-pool my_pool)"
 )
@@ -110,11 +128,19 @@ def list_(
     object_type: str = ObjectArgument,
     like: str = LikeOption,
     scope: Tuple[str, str] = ScopeOption,
+    terse: Optional[bool] = terse_option_(),
+    limit: Optional[int] = limit_option_(),
     **options,
 ):
     _scope_validate(object_type, scope)
     return QueryResult(
-        ObjectManager().show(object_type=object_type, like=like, scope=scope)
+        ObjectManager().show(
+            object_type=object_type,
+            like=like,
+            scope=scope,
+            terse=terse,
+            limit=limit,
+        )
     )
 
 

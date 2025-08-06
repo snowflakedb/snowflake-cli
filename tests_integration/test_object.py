@@ -112,6 +112,42 @@ def test_list_with_scope(runner, test_database, snowflake_session):
 
 
 @pytest.mark.integration
+def test_list_terse(runner, test_database, snowflake_session):
+    table_name = ObjectNameProvider("Public_Table").create_and_get_next_object_name()
+    snowflake_session.execute_string(f"create table {table_name} (some_number NUMBER)")
+
+    regular_results = runner.invoke_with_connection_json(["object", "list", "table"])
+    assert regular_results.exit_code == 0, regular_results.output
+
+    terse_results = runner.invoke_with_connection_json(
+        ["object", "list", "table", "--terse"]
+    )
+    assert terse_results.exit_code == 0, terse_results.output
+
+    assert set(terse_results.json[0].keys()) < set(regular_results.json[0].keys())
+
+
+@pytest.mark.integration
+def test_list_limit(runner, test_database, snowflake_session):
+    tables = []
+    for _ in range(5):
+        table_name = ObjectNameProvider(
+            "Public_Table"
+        ).create_and_get_next_object_name()
+        snowflake_session.execute_string(
+            f"create table {table_name} (some_number NUMBER)"
+        )
+        tables.append(table_name.lower())
+
+    results = runner.invoke_with_connection_json(
+        ["object", "list", "table", "--limit", "3"]
+    )
+    assert results.exit_code == 0, results.output
+    fetched_table_names = sorted([x["name"].lower() for x in results.json])
+    assert fetched_table_names == tables[:3]
+
+
+@pytest.mark.integration
 def test_show_drop_image_repository(runner, test_database, snowflake_session):
     repo_name = "TEST_REPO"
 

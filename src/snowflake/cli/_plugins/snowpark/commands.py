@@ -448,7 +448,14 @@ def list_(
     **options,
 ):
     """Lists all available procedures or functions."""
-    return object_list(object_type=object_type.value, like=like, scope=scope, **options)
+    return object_list(
+        object_type=object_type.value,
+        like=like,
+        scope=scope,
+        terse=None,
+        limit=None,
+        **options,
+    )
 
 
 @app.command("drop", requires_connection=True)

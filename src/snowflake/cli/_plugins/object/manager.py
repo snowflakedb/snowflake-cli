@@ -44,14 +44,25 @@ class ObjectManager(SqlExecutionMixin):
         object_type: str,
         like: Optional[str] = None,
         scope: Union[Tuple[str, str], Tuple[None, None]] = (None, None),
+        terse: Optional[bool] = False,
+        limit: Optional[int] = None,
         **kwargs,
     ) -> SnowflakeCursor:
         object_name = _get_object_names(object_type).sf_plural_name
-        query = f"show {object_name}"
+        query_parts = ["show"]
+
+        if terse:
+            query_parts.append("terse")
+
+        query_parts.append(object_name)
+        query = " ".join(query_parts)
+
         if like:
             query += f" like '{like}'"
         if scope[0] is not None:
             query += f" in {scope[0].replace('-', ' ')} {scope[1]}"
+        if limit is not None:
+            query += f" limit {limit}"
         return self.execute_query(query, **kwargs)
 
     def drop(self, *, object_type: str, fqn: FQN) -> SnowflakeCursor:
