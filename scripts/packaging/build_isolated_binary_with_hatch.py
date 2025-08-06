@@ -301,7 +301,7 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
         del os.environ["PYAPP_DISTRIBUTION_PATH"]
     os.environ[
         "PYAPP_SKIP_INSTALL"
-    ] = "1"  # Skip installation - both Python and project are embedded
+    ] = "0"  # Allow installation of our project wheel only
 
     # CRITICAL: Use "Single project embedded" approach with wheel file
     # This embeds the project locally without trying to download from PyPI
@@ -356,8 +356,9 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_DISTRIBUTION_EMBED"] = "true"  # EMBED Python in binary
     os.environ["PYAPP_DISTRIBUTION_SOURCE"] = basic_python_url
 
-    # NOTE: PYAPP_PIP_EXTRA_ARGS not needed since PYAPP_SKIP_INSTALL=1
-    # The project and all dependencies are pre-embedded in the wheel file
+    # Install ONLY our project wheel, skip all dependencies (they should be bundled in the wheel)
+    # This ensures our project is available but doesn't try to download external dependencies
+    os.environ["PYAPP_PIP_EXTRA_ARGS"] = "--no-deps"
 
     # Ensure no CPU feature detection at runtime
     os.environ["CARGO_CFG_TARGET_HAS_ATOMIC"] = "8,16,32,64,ptr"
