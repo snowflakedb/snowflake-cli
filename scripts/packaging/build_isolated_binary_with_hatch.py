@@ -259,11 +259,12 @@ def pip_install_project(python_exe: str) -> bool:
 
 def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     """Use hatch to build the binary."""
-    os.environ["PYAPP_SKIP_INSTALL"] = "1"
-    os.environ["PYAPP_DISTRIBUTION_PATH"] = str(archive_path)
+    # NOTE: Removed custom distribution settings - we'll let PyApp download its own generic Python
+    # os.environ["PYAPP_SKIP_INSTALL"] = "1"
+    # os.environ["PYAPP_DISTRIBUTION_PATH"] = str(archive_path)
+    # os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = str(python_path)
+    # os.environ["PYAPP_DISTRIBUTION_PIP_AVAILABLE"] = "1"
     os.environ["PYAPP_FULL_ISOLATION"] = "1"
-    os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = str(python_path)
-    os.environ["PYAPP_DISTRIBUTION_PIP_AVAILABLE"] = "1"
     # CRITICAL: PyApp seems to ignore our CPU compatibility settings
     # Try the most aggressive approach to force compatibility
 
@@ -292,9 +293,27 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["CARGO_CFG_TARGET_ARCH"] = "x86_64"
     os.environ["CARGO_CFG_TARGET_OS"] = "linux"
 
-    # Force specific PyApp build environment for maximum compatibility
-    os.environ["PYAPP_DISTRIBUTION_EMBED"] = "false"  # Don't embed, use external
+    # Force PyApp to use the most generic Python distribution possible
+    # CRITICAL: Don't use our custom distribution, let PyApp download its own generic one
+    # Remove custom distribution settings to force PyApp to use generic Python
+    if "PYAPP_DISTRIBUTION_PATH" in os.environ:
+        del os.environ["PYAPP_DISTRIBUTION_PATH"]
+    os.environ["PYAPP_SKIP_INSTALL"] = "0"  # Let PyApp install Python itself
+
+    # Force the most generic Python distribution settings
+    os.environ["PYAPP_DISTRIBUTION_EMBED"] = "false"  # Don't embed distribution
     os.environ["PYAPP_EXPOSE_METADATA"] = "true"  # Enable debugging
+    os.environ["PYAPP_DISTRIBUTION_VARIANT"] = "install_only"  # Use minimal variant
+    os.environ[
+        "PYAPP_DISTRIBUTION_SOURCE"
+    ] = "github"  # Use GitHub releases (more generic)
+    os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Use minimum required Python version
+    os.environ["PYAPP_DISTRIBUTION_FORMAT"] = "tar.xz"  # Use generic format
+
+    # Force PyApp to build all packages from source to avoid optimized wheels
+    os.environ[
+        "PYAPP_PIP_EXTRA_ARGS"
+    ] = "--no-binary=:all: --only-binary=pip,setuptools,wheel,hatch"
 
     # Ensure no CPU feature detection at runtime
     os.environ["CARGO_CFG_TARGET_HAS_ATOMIC"] = "8,16,32,64,ptr"
@@ -306,8 +325,11 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     print(f"Building with conservative flags: {conservative_flags}")
     print(f"RUSTFLAGS: {os.environ.get('RUSTFLAGS')}")
     print(f"PYAPP_DEBUG: {os.environ.get('PYAPP_DEBUG')}")
-    print(f"PYAPP_DISTRIBUTION_PATH: {os.environ.get('PYAPP_DISTRIBUTION_PATH')}")
+    print(f"PYAPP_PYTHON_VERSION: {os.environ.get('PYAPP_PYTHON_VERSION')}")
+    print(f"PYAPP_DISTRIBUTION_SOURCE: {os.environ.get('PYAPP_DISTRIBUTION_SOURCE')}")
+    print(f"PYAPP_DISTRIBUTION_VARIANT: {os.environ.get('PYAPP_DISTRIBUTION_VARIANT')}")
     print(f"PYAPP_SKIP_INSTALL: {os.environ.get('PYAPP_SKIP_INSTALL')}")
+    print(f"PYAPP_PIP_EXTRA_ARGS: {os.environ.get('PYAPP_PIP_EXTRA_ARGS')}")
 
     # Debug: Print all environment variables starting with CARGO or PYAPP
     print("=== All CARGO/PYAPP Environment Variables ===")
@@ -343,29 +365,22 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
 
 def main():
     settings = ProjectSettings()
-    print("Installing Python distribution to TMP dir...")
-    if not hatch_install_python(settings.python_tmp_dir, settings.python_version):
-        print("ERROR: Failed to install Python distribution")
-        return
-    print("-> installed")
 
-    print(f"Installing project into Python distribution...")
-    with override_is_installation_source_variable():
-        if not pip_install_project(str(settings.python_dist_exe)):
-            print("ERROR: Failed to install project into Python distribution")
-            return
-    print("-> installed")
-
-    print("Making distribution archive...")
-    archive_path = make_dist_archive(
-        settings.python_tmp_dir, settings.python_dist_root_version
+    # Skip custom Python distribution - let PyApp download its own generic one
+    print("Using PyApp's built-in Python distribution management...")
+    print(
+        "PyApp will download Python 3.10 with generic 'install_only' variant for maximum compatibility"
     )
-    print("->", archive_path)
 
-    print(f"Building '{settings.project_name}' binary...")
-    binary_location = hatch_build_binary(
-        archive_path, settings.python_path_within_archive
+    # Create dummy paths for compatibility with function signature
+    # These won't be used since we removed PYAPP_DISTRIBUTION_PATH
+    dummy_archive_path = Path("/tmp/dummy_archive.tar.gz")
+    dummy_python_path = Path("/tmp/dummy_python")
+
+    print(
+        f"Building '{settings.project_name}' binary with generic PyApp distribution..."
     )
+    binary_location = hatch_build_binary(dummy_archive_path, dummy_python_path)
     if binary_location:
         print("-> binary location:", binary_location)
         # Debug: Check if it's a file or directory
