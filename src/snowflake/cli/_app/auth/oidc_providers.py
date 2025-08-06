@@ -190,7 +190,7 @@ class OidcProviderRegistry:
     Handles registration, storage, and retrieval of providers.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._providers: Dict[str, Type[OidcTokenProvider]] = {}
         self._auto_discover_providers()
 
@@ -356,12 +356,16 @@ def auto_detect_oidc_provider() -> OidcTokenProvider:
     ]
     available_names = [p.provider_name for p in available]
 
-    if not available:
-        logger.warning("No OIDC provider detected in current environment")
-        all_providers = _registry.provider_names
-
-        if all_providers:
-            providers_list = ", ".join(all_providers)
+    all_providers = _registry.provider_names
+    match (len(available), all_providers):
+        case (1, _):
+            # Happy path - single provider found
+            logger.info("Found 1 available provider: %s", available_names[0])
+            return available[0]
+        case (0, providers) if providers:
+            # No providers available but some are registered
+            logger.warning("No OIDC provider detected in current environment")
+            providers_list = ", ".join(providers)
             error_msg = (
                 "No OIDC provider detected in current environment. "
                 "Available providers: %s. "
@@ -369,19 +373,23 @@ def auto_detect_oidc_provider() -> OidcTokenProvider:
             ) % providers_list
             logger.error(error_msg)
             raise OidcProviderAutoDetectionError(error_msg)
-        else:
+        case (0, _):
+            # No providers available and none are registered
+            logger.warning("No OIDC provider detected in current environment")
             error_msg = "No OIDC providers are registered."
             logger.error(error_msg)
             raise OidcProviderAutoDetectionError(error_msg)
-    elif len(available) == 1:
-        logger.info("Found 1 available provider: %s", available_names[0])
-        return available[0]
-    else:
-        # Multiple providers available - raise error
-        providers_list = ", ".join(available_names)
-        error_msg = (
-            "Multiple OIDC providers detected: %s. "
-            "Please specify which provider to use with --type <provider>."
-        ) % providers_list
-        logger.error(error_msg)
-        raise OidcProviderAutoDetectionError(error_msg)
+        case _:
+            # Multiple providers available - raise error
+            providers_list = ", ".join(available_names)
+            error_msg = (
+                "Multiple OIDC providers detected: %s. "
+                "Please specify which provider to use with --type <provider>."
+            ) % providers_list
+            logger.error(error_msg)
+            raise OidcProviderAutoDetectionError(error_msg)
+
+    # This line should never be reached, but helps mypy understand all paths are covered
+    raise OidcProviderAutoDetectionError(
+        "Unexpected state in auto_detect_oidc_provider"
+    )
