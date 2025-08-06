@@ -165,10 +165,9 @@ class OidcManager(SqlExecutionMixin):
         try:
             if provider_type == OidcProviderTypeWithAuto.AUTO:
                 provider = auto_detect_oidc_provider()
-                return provider.get_token()
             else:
                 provider = get_active_oidc_provider(provider_type.value)
-                return provider.get_token()
+            return provider.get_token()
         except OidcProviderError as e:
             logger.error("OIDC provider error: %s", str(e))
             raise CliError(str(e))
