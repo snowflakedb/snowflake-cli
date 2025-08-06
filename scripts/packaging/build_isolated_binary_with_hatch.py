@@ -303,12 +303,14 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     # Use only the most basic PyApp settings for maximum compatibility
     os.environ["PYAPP_EXPOSE_METADATA"] = "true"  # Enable debugging
     os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Use minimum required Python version
-    # CRITICAL: Set PyApp to embed the project properly (not just detect it)
+    # CRITICAL: Force PyApp to install from current directory, not PyPI
     os.environ["PYAPP_PROJECT_NAME"] = "snowflake-cli"  # Explicit project name
     os.environ[
         "PYAPP_PROJECT_VERSION"
     ] = "3.11.0.dev0"  # Explicit version to avoid PyPI lookup
-    # Let PyApp detect project from current directory but embed it properly
+    os.environ["PYAPP_PROJECT_DEPENDENCY_FILE"] = str(
+        PROJECT_ROOT / "pyproject.toml"
+    )  # Force local install
     # Let PyApp use all default settings for distribution (no custom variants/sources/formats)
 
     # Force PyApp to build all packages from source to avoid optimized wheels
@@ -329,9 +331,12 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     print(f"PYAPP_PYTHON_VERSION: {os.environ.get('PYAPP_PYTHON_VERSION')}")
     print(f"PYAPP_PROJECT_NAME: {os.environ.get('PYAPP_PROJECT_NAME')}")
     print(f"PYAPP_PROJECT_VERSION: {os.environ.get('PYAPP_PROJECT_VERSION')}")
+    print(
+        f"PYAPP_PROJECT_DEPENDENCY_FILE: {os.environ.get('PYAPP_PROJECT_DEPENDENCY_FILE')}"
+    )
     print(f"PYAPP_SKIP_INSTALL: {os.environ.get('PYAPP_SKIP_INSTALL')}")
     print(f"PYAPP_PIP_EXTRA_ARGS: {os.environ.get('PYAPP_PIP_EXTRA_ARGS')}")
-    print("Project embedding: Using explicit project name/version to avoid PyPI lookup")
+    print("Project embedding: Using explicit project file to force local installation")
     print(
         "All distribution settings: Using PyApp defaults (no custom source/variant/format)"
     )
