@@ -14,6 +14,7 @@ import contextlib
 import json
 import os
 import subprocess
+import sys
 import tarfile
 import tempfile
 from pathlib import Path
@@ -300,15 +301,38 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
         del os.environ["PYAPP_DISTRIBUTION_PATH"]
     os.environ["PYAPP_SKIP_INSTALL"] = "0"  # Let PyApp install Python itself
 
-    # Use only the most basic PyApp settings for maximum compatibility
+    # CRITICAL: Use "Single project embedded" approach with wheel file
+    # This embeds the project locally without trying to download from PyPI
+
+    # First, build a wheel file that PyApp can embed
+    print("Building wheel file for PyApp embedding...")
+    wheel_result = subprocess.run(
+        [sys.executable, "-m", "build", "--wheel", "--outdir", "dist/wheel"],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    if wheel_result.returncode != 0:
+        print(f"Wheel build failed: {wheel_result.stderr}")
+        return None
+
+    # Find the generated wheel file
+    wheel_files = list(Path(PROJECT_ROOT / "dist" / "wheel").glob("*.whl"))
+    if not wheel_files:
+        print("No wheel file found after build")
+        return None
+
+    wheel_path = wheel_files[0]
+    print(f"Found wheel file: {wheel_path}")
+
+    # Use PyApp "Single project embedded" configuration
+    os.environ["PYAPP_PROJECT_PATH"] = str(
+        wheel_path
+    )  # Point to wheel file for embedding
     os.environ["PYAPP_EXPOSE_METADATA"] = "true"  # Enable debugging
+    os.environ["PYAPP_DEBUG"] = "1"  # Enable debugging output
     os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Use minimum required Python version
-    # CRITICAL: Force PyApp to install from current directory, not PyPI
-    # PyApp should auto-detect the project from the working directory context
-    os.environ["PYAPP_PROJECT_NAME"] = "snowflake-cli"  # Explicit project name
-    os.environ[
-        "PYAPP_PROJECT_VERSION"
-    ] = "3.11.0.dev0"  # Explicit version to avoid PyPI lookup
     # Let PyApp use all default settings for distribution (no custom variants/sources/formats)
 
     # Force PyApp to build all packages from source to avoid optimized wheels
@@ -325,19 +349,12 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
 
     print(f"Building with conservative flags: {conservative_flags}")
     print(f"RUSTFLAGS: {os.environ.get('RUSTFLAGS')}")
-    print(f"PYAPP_DEBUG: {os.environ.get('PYAPP_DEBUG')}")
+    print(f"PYAPP_PROJECT_PATH: {os.environ.get('PYAPP_PROJECT_PATH')}")
+    print(f"PYAPP_EXPOSE_METADATA: {os.environ.get('PYAPP_EXPOSE_METADATA')}")
     print(f"PYAPP_PYTHON_VERSION: {os.environ.get('PYAPP_PYTHON_VERSION')}")
-    print(f"PYAPP_PROJECT_NAME: {os.environ.get('PYAPP_PROJECT_NAME')}")
-    print(f"PYAPP_PROJECT_VERSION: {os.environ.get('PYAPP_PROJECT_VERSION')}")
-
-    print(f"PYAPP_SKIP_INSTALL: {os.environ.get('PYAPP_SKIP_INSTALL')}")
     print(f"PYAPP_PIP_EXTRA_ARGS: {os.environ.get('PYAPP_PIP_EXTRA_ARGS')}")
-    print(
-        "Project detection: Using explicit project name/version with working directory context"
-    )
-    print(
-        "All distribution settings: Using PyApp defaults (no custom source/variant/format)"
-    )
+    print("Project embedding: Using 'Single project embedded' approach with wheel file")
+    print("This should prevent PyPI downloads and use the embedded project directly")
 
     # Debug: Print all environment variables starting with CARGO or PYAPP
     print("=== All CARGO/PYAPP Environment Variables ===")
