@@ -299,7 +299,9 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     # Remove custom distribution settings to force PyApp to use generic Python
     if "PYAPP_DISTRIBUTION_PATH" in os.environ:
         del os.environ["PYAPP_DISTRIBUTION_PATH"]
-    os.environ["PYAPP_SKIP_INSTALL"] = "0"  # Let PyApp install Python itself
+    os.environ[
+        "PYAPP_SKIP_INSTALL"
+    ] = "1"  # Skip installation - both Python and project are embedded
 
     # CRITICAL: Use "Single project embedded" approach with wheel file
     # This embeds the project locally without trying to download from PyPI
@@ -354,12 +356,8 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_DISTRIBUTION_EMBED"] = "true"  # EMBED Python in binary
     os.environ["PYAPP_DISTRIBUTION_SOURCE"] = basic_python_url
 
-    # Force PyApp to build all packages from source to avoid optimized wheels
-    # Allow critical packages to use pre-built wheels to avoid compilation issues
-    # Build only the most CPU-sensitive packages from source with conservative settings
-    os.environ[
-        "PYAPP_PIP_EXTRA_ARGS"
-    ] = "--only-binary=pip,setuptools,wheel,hatch,cython,numpy,cryptography,cffi,pycparser,markupsafe,pyyaml"
+    # NOTE: PYAPP_PIP_EXTRA_ARGS not needed since PYAPP_SKIP_INSTALL=1
+    # The project and all dependencies are pre-embedded in the wheel file
 
     # Ensure no CPU feature detection at runtime
     os.environ["CARGO_CFG_TARGET_HAS_ATOMIC"] = "8,16,32,64,ptr"
