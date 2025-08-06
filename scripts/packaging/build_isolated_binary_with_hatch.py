@@ -304,7 +304,18 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     # CRITICAL: Use "Single project embedded" approach with wheel file
     # This embeds the project locally without trying to download from PyPI
 
-    # First, build a wheel file that PyApp can embed
+    # First, ensure build module is available and build a wheel file that PyApp can embed
+    print("Installing build module...")
+    install_build_result = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "build"],
+        capture_output=True,
+        text=True,
+    )
+
+    if install_build_result.returncode != 0:
+        print(f"Failed to install build module: {install_build_result.stderr}")
+        return None
+
     print("Building wheel file for PyApp embedding...")
     wheel_result = subprocess.run(
         [sys.executable, "-m", "build", "--wheel", "--outdir", "dist/wheel"],
