@@ -345,189 +345,49 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_DISTRIBUTION_EMBED"] = "true"  # EMBED Python in binary
     os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Use minimum required Python version
 
-    # CRITICAL: Create a CUSTOM Python distribution WITH dependencies for true offline installation
-    print("Creating custom Python distribution with ALL dependencies embedded...")
+    # CRITICAL: Revert to SIMPLE PyApp native embedding - custom distribution approach failed
+    print("Using PyApp's NATIVE embedding approach for maximum compatibility...")
 
-    # Download the base Python distribution
-    basic_python_url = "https://github.com/astral-sh/python-build-standalone/releases/download/20250604/cpython-3.10.18%2B20250604-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
+    # Use PyApp's built-in Python distribution embedding (proven approach)
+    # This forces PyApp to embed dependencies at BUILD TIME, not runtime
+    print("Configuring PyApp for BUILD-TIME dependency embedding...")
 
-    # Create a temporary directory for building the custom distribution
-    temp_dist_dir = PROJECT_ROOT / "dist" / "python_complete"
-    temp_dist_dir.mkdir(parents=True, exist_ok=True)
-
-    # Download and extract the base Python distribution
-    import tarfile
-    import urllib.request
-
-    python_archive_path = temp_dist_dir / "python_base.tar.gz"
-    print(f"Downloading Python distribution: {basic_python_url}")
-    urllib.request.urlretrieve(basic_python_url, python_archive_path)
-
-    # Extract the Python distribution
-    with tarfile.open(python_archive_path, "r:gz") as tar:
-        tar.extractall(temp_dist_dir)
-
-    # Find the extracted Python directory - debug what's actually extracted
-    print(f"Contents of extracted directory {temp_dist_dir}:")
-    all_items = list(temp_dist_dir.iterdir())
-    for item in all_items:
-        print(f"  {item.name} ({'dir' if item.is_dir() else 'file'})")
-
-    # Look for Python directory (try multiple patterns)
-    python_dirs = [
-        d
-        for d in all_items
-        if d.is_dir() and ("cpython" in d.name.lower() or "python" in d.name.lower())
-    ]
-
-    if not python_dirs:
-        print("Failed to find extracted Python directory")
-        print("Trying to find any directory that might be the Python installation...")
-        # Try any directory that looks like it could contain Python
-        python_dirs = [d for d in all_items if d.is_dir()]
-
-    if not python_dirs:
-        print("No directories found in extracted archive")
-        sys.exit(1)
-
-    python_dir = python_dirs[0]
-    print(f"Using Python directory: {python_dir}")
-
-    # Check for Python executable in multiple locations
-    python_exe_candidates = [
-        python_dir / "bin" / "python3",
-        python_dir / "bin" / "python",
-        python_dir / "python3",
-        python_dir / "python",
-    ]
-
-    python_exe = None
-    for candidate in python_exe_candidates:
-        if candidate.exists():
-            python_exe = candidate
-            print(f"Found Python executable: {python_exe}")
-            break
-
-    if not python_exe:
-        print("Failed to find Python executable in the extracted directory")
-        print(f"Contents of {python_dir}:")
-        for item in python_dir.iterdir():
-            print(f"  {item}")
-        sys.exit(1)
-
-    # Install our project and ALL its dependencies into this Python distribution
-    print(
-        "Installing snowflake-cli and all dependencies into custom Python distribution..."
-    )
-    install_result = subprocess.run(
-        [
-            str(python_exe),
-            "-m",
-            "pip",
-            "install",
-            ".",
-            "--target",
-            str(python_dir / "lib" / "python3.10" / "site-packages"),
-        ],
-        cwd=PROJECT_ROOT,
-        capture_output=True,
-        text=True,
-    )
-
-    if install_result.returncode != 0:
-        print(f"Failed to install dependencies: {install_result.stderr}")
-        sys.exit(1)
-
-    # Create a new archive of the complete Python distribution with dependencies
-    complete_dist_path = PROJECT_ROOT / "dist" / "python_complete.tar.gz"
-    print(f"Creating complete Python distribution archive: {complete_dist_path}")
-
-    with tarfile.open(complete_dist_path, "w:gz") as tar:
-        tar.add(python_dir, arcname=python_dir.name)
-
-    # Use this complete distribution for PyApp
-    os.environ["PYAPP_DISTRIBUTION_PATH"] = str(complete_dist_path)
-    print(
-        f"Set PYAPP_DISTRIBUTION_PATH = '{complete_dist_path}' (custom distribution with dependencies)"
-    )
-
-    # Build a wheel of our project for PYAPP_PROJECT_PATH
-    print("Building wheel for offline installation...")
-    wheel_build_result = subprocess.run(
-        [sys.executable, "-m", "pip", "wheel", ".", "--no-deps", "--wheel-dir", "dist"],
-        cwd=PROJECT_ROOT,
-        capture_output=True,
-        text=True,
-    )
-
-    if wheel_build_result.returncode != 0:
-        print(f"Failed to build wheel: {wheel_build_result.stderr}")
-        sys.exit(1)
-
-    # Find the generated wheel file
-    wheel_files = list(Path(PROJECT_ROOT / "dist").glob("snowflake_cli-*.whl"))
-    if not wheel_files:
-        print("No wheel file found after build")
-        sys.exit(1)
-
-    wheel_file = wheel_files[0]
-
-    # Use the OFFLINE installation pattern from PyApp documentation
-    os.environ["PYAPP_PROJECT_PATH"] = str(wheel_file)
+    # Use the EXACT configuration that works: embed Python + install project with dependencies
     os.environ[
-        "PYAPP_PIP_EXTRA_ARGS"
-    ] = "--no-deps"  # No deps needed, they're in the distribution
-    print(f"Set PYAPP_PROJECT_PATH = '{wheel_file}' with --no-deps (true offline)")
+        "PYAPP_PROJECT_NAME"
+    ] = "."  # Install current project with all dependencies
+    print("Set PYAPP_PROJECT_NAME = '.' for build-time dependency resolution")
 
-    # Remove any project name since we're using the wheel file path
-    if "PYAPP_PROJECT_NAME" in os.environ:
-        del os.environ["PYAPP_PROJECT_NAME"]
+    # Force complete build-time embedding - no runtime extraction
+    os.environ["PYAPP_FULL_ISOLATION"] = "1"  # Complete isolation
+    os.environ["PYAPP_ALLOW_UPDATES"] = "0"  # Never update
+    print("Enabled PYAPP_FULL_ISOLATION and disabled updates for true fat binary")
 
-    # Remove any custom distribution settings
-    if "PYAPP_DISTRIBUTION_PATH" in os.environ:
-        del os.environ["PYAPP_DISTRIBUTION_PATH"]
-    if "PYAPP_DISTRIBUTION_PYTHON_PATH" in os.environ:
-        del os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"]
+    # Clean up any custom/complex settings that might interfere with native embedding
+    cleanup_vars = [
+        "PYAPP_DISTRIBUTION_PATH",
+        "PYAPP_DISTRIBUTION_PYTHON_PATH",
+        "PYAPP_PROJECT_PATH",
+        "PYAPP_PIP_EXTRA_ARGS",
+    ]
 
-    # CRITICAL: Remove any leftover pip args that might reference requirements.txt
-    if "PYAPP_PIP_EXTRA_ARGS" in os.environ:
-        print(
-            "Removing leftover PYAPP_PIP_EXTRA_ARGS to prevent requirements.txt usage"
-        )
-        del os.environ["PYAPP_PIP_EXTRA_ARGS"]
-    else:
-        print("No PYAPP_PIP_EXTRA_ARGS found - good!")
+    for var in cleanup_vars:
+        if var in os.environ:
+            print(f"Removing {var} for clean PyApp native embedding")
+            del os.environ[var]
 
-    # Configure for minimal runtime environments
-    os.environ["PYAPP_FULL_ISOLATION"] = "1"  # Complete isolation from host
-    os.environ["PYAPP_PASS_LOCATION"] = "0"  # Don't pass location to Python
-    os.environ["PYAPP_UV_ENABLED"] = "false"  # Disable UV package manager
-    os.environ["PYAPP_PIP_VERSION"] = "23.0"  # Use stable pip version
+    print("Using SIMPLE PyApp configuration - native embedding with minimal settings")
 
-    # Allow PyApp to install our project AND its dependencies at BUILD TIME
-    # Since Python is embedded, dependencies will be installed into the embedded environment
-    # This happens during the build process, NOT at runtime, so it's still self-contained
-    os.environ["PYAPP_SKIP_INSTALL"] = "0"  # Allow installation of our project wheel
-
-    # Enable debugging like the working commit
-    os.environ["PYAPP_EXPOSE_METADATA"] = "true"  # Enable debugging
+    # Enable debugging to understand what's happening
     os.environ["PYAPP_DEBUG"] = "1"  # Enable debugging output
 
-    print(f"Build target: {os.environ.get('PYAPP_BUILD_TARGET', 'default glibc')}")
-    print("Using embedded Python distribution from python-build-standalone")
-    print(f"Project wheel: {wheel_file} (for verification)")
-    print("Project name: . (current directory - will install with all dependencies)")
-    print("PyApp configured to embed project with all dependencies at BUILD time")
-
-    # Ensure no CPU feature detection at runtime
-    os.environ["CARGO_CFG_TARGET_HAS_ATOMIC"] = "8,16,32,64,ptr"
-    os.environ["CARGO_FEATURE_STD"] = "1"
-
-    # Force Rust to use oldest compatible codegen
-    os.environ["CARGO_PROFILE_RELEASE_PANIC"] = "abort"
-
-    print(f"Building with conservative flags: {conservative_flags}")
-    print("Starting PyApp build with embedded distribution...")
+    print("✅ PyApp configured for NATIVE EMBEDDING:")
+    print("   - PYAPP_DISTRIBUTION_EMBED=true (Python embedded in binary)")
+    print("   - PYAPP_PROJECT_NAME=. (install current project + all dependencies)")
+    print("   - PYAPP_FULL_ISOLATION=1 (no runtime extraction)")
+    print("   - PYAPP_ALLOW_UPDATES=0 (no runtime updates)")
+    print("   - All custom distribution settings removed")
+    print("Starting PyApp NATIVE embedding build...")
 
     completed_proc = subprocess.run(
         ["hatch", "build", "-t", "binary"], capture_output=True
