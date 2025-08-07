@@ -319,12 +319,9 @@ def add(
     )
 
 
-@app.command()
+@app.command(requires_connection=False)
 def remove(
-    connection_name: str = typer.Option(
-        None,
-        "--connection-name",
-        "-n",
+    connection_name: str = typer.Argument(
         help="Name of the connection to remove.",
         show_default=False,
     ),
