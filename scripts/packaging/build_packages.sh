@@ -41,10 +41,7 @@ fpm \
   --prefix /usr/lib/snowflake/snowflake-cli \
   --after-install ${THIS_DIR}/ubuntu/after_install.sh \
   --after-remove ${THIS_DIR}/ubuntu/after_remove.sh \
-  --depends libc6 \
-  --depends libgcc-s1 \
-  --depends libm6 \
-  --depends libdl2 \
+
   --force
 
 echo "-----------------"
