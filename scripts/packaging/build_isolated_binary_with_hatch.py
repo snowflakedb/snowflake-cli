@@ -363,19 +363,13 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_UV_ENABLED"] = "false"  # Disable UV package manager
     os.environ["PYAPP_PIP_VERSION"] = "23.0"  # Use stable pip version
 
-    # Force complete embedding - NO runtime installation/extraction whatsoever
-    os.environ[
-        "PYAPP_SKIP_INSTALL"
-    ] = "1"  # Skip ALL runtime installation - everything pre-embedded
-    os.environ["PYAPP_OFFLINE"] = "1"  # Force offline mode - no runtime downloads
+    # Allow PyApp to handle dependency installation normally - don't force complete embedding
+    # The original working approach didn't use PYAPP_SKIP_INSTALL
+    # os.environ["PYAPP_SKIP_INSTALL"] = "1"  # Let PyApp install our project normally
+
+    # Keep basic runtime configuration but remove aggressive offline/isolation settings
     os.environ["PYAPP_ALLOW_UPDATES"] = "0"  # No runtime updates
     os.environ["PYAPP_SELF_COMMAND"] = "snow"  # Set explicit command name
-
-    # Disable all runtime operations that might cause Python extraction
-    os.environ["PYAPP_PIP_EXTERNAL"] = "false"  # Don't use external pip
-    os.environ[
-        "PYAPP_EXPOSE_METADATA"
-    ] = "false"  # Don't expose metadata that triggers extraction
 
     print(f"Build target: {os.environ.get('PYAPP_BUILD_TARGET', 'default glibc')}")
     print("Using embedded Python distribution from python-build-standalone")
