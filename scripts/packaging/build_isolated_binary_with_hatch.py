@@ -349,14 +349,19 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     basic_python_url = "https://github.com/astral-sh/python-build-standalone/releases/download/20250604/cpython-3.10.18%2B20250604-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
     os.environ["PYAPP_DISTRIBUTION_SOURCE"] = basic_python_url
 
-    # CRITICAL: For true fat binary, we need to use PyApp's PYAPP_PROJECT_NAME approach
+    # CRITICAL: For true fat binary, we need to use PyApp to install our LOCAL source directory
     # This will make PyApp install our project AND its dependencies during BUILD time
-    print("Configuring PyApp to install project with dependencies at BUILD time...")
+    print(
+        "Configuring PyApp to install LOCAL project source with dependencies at BUILD time..."
+    )
 
-    # Instead of pointing to wheel file, use project name so PyApp resolves dependencies
-    # PyApp will install the current project (.) with all its dependencies during build
-    os.environ["PYAPP_PROJECT_NAME"] = "."
-    print("Set PYAPP_PROJECT_NAME = '.' for dependency resolution")
+    # Use the absolute path to current source directory to avoid PyPI confusion
+    # This forces PyApp to install from source dir, not try to download from PyPI
+    current_source_dir = str(PROJECT_ROOT.absolute())
+    os.environ["PYAPP_PROJECT_NAME"] = current_source_dir
+    print(
+        f"Set PYAPP_PROJECT_NAME = '{current_source_dir}' for local source installation"
+    )
 
     # Remove wheel file reference since we're using project name
     if "PYAPP_PROJECT_PATH" in os.environ:
