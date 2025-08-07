@@ -1776,7 +1776,7 @@ def _add_connection(runner, tmp_file, name, is_default=False, expected_to_fail=F
 
 def _remove_connection(runner, tmp_file, name, expected_to_fail=False):
     result = runner.invoke_with_config_file(
-        tmp_file.name, ["connection", "remove", "--connection-name", name]
+        tmp_file.name, ["connection", "remove", name]
     )
     if expected_to_fail:
         assert result.exit_code != 0, result.output
