@@ -341,15 +341,21 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
         "Configuring PyApp for embedded Python distribution with wheel installation..."
     )
 
-    # Use embedded Python distribution - stable version for maximum compatibility
-    os.environ["PYAPP_DISTRIBUTION_EMBED"] = "1"
-    os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Explicit Python version
-    os.environ[
-        "PYAPP_DISTRIBUTION_SOURCE"
-    ] = "https://github.com/indygreg/python-build-standalone/releases/download/20240415/cpython-3.10.14+20240415-x86_64-unknown-linux-gnu-install_only.tar.gz"
+    # Use the EXACT configuration from the working commit 709e081e
+    os.environ["PYAPP_DISTRIBUTION_EMBED"] = "true"  # EMBED Python in binary
+    os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Use minimum required Python version
+
+    # Use the EXACT stripped Python distribution that was working
+    basic_python_url = "https://github.com/astral-sh/python-build-standalone/releases/download/20250604/cpython-3.10.18%2B20250604-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
+    os.environ["PYAPP_DISTRIBUTION_SOURCE"] = basic_python_url
 
     # Install our project from the wheel file
     os.environ["PYAPP_PROJECT_PATH"] = str(wheel_file)
+
+    # CRITICAL: Install dependencies at BUILD TIME (not runtime) - this is the key difference
+    os.environ[
+        "PYAPP_PIP_EXTRA_ARGS"
+    ] = "--only-binary=pip,setuptools,wheel,hatch,cython,numpy,cryptography,cffi,pycparser,markupsafe,pyyaml --no-cache-dir"
 
     # Remove any custom distribution settings
     if "PYAPP_DISTRIBUTION_PATH" in os.environ:
@@ -363,13 +369,14 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_UV_ENABLED"] = "false"  # Disable UV package manager
     os.environ["PYAPP_PIP_VERSION"] = "23.0"  # Use stable pip version
 
-    # Allow PyApp to handle dependency installation normally - don't force complete embedding
-    # The original working approach didn't use PYAPP_SKIP_INSTALL
-    # os.environ["PYAPP_SKIP_INSTALL"] = "1"  # Let PyApp install our project normally
+    # Allow PyApp to install our project AND its dependencies at BUILD TIME
+    # Since Python is embedded, dependencies will be installed into the embedded environment
+    # This happens during the build process, NOT at runtime, so it's still self-contained
+    os.environ["PYAPP_SKIP_INSTALL"] = "0"  # Allow installation of our project wheel
 
-    # Keep basic runtime configuration but remove aggressive offline/isolation settings
-    os.environ["PYAPP_ALLOW_UPDATES"] = "0"  # No runtime updates
-    os.environ["PYAPP_SELF_COMMAND"] = "snow"  # Set explicit command name
+    # Enable debugging like the working commit
+    os.environ["PYAPP_EXPOSE_METADATA"] = "true"  # Enable debugging
+    os.environ["PYAPP_DEBUG"] = "1"  # Enable debugging output
 
     print(f"Build target: {os.environ.get('PYAPP_BUILD_TARGET', 'default glibc')}")
     print("Using embedded Python distribution from python-build-standalone")
