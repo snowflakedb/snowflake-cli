@@ -349,37 +349,33 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     basic_python_url = "https://github.com/astral-sh/python-build-standalone/releases/download/20250604/cpython-3.10.18%2B20250604-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
     os.environ["PYAPP_DISTRIBUTION_SOURCE"] = basic_python_url
 
-    # Install our project from the wheel file - source directory compilation fails
-    # We need to find another way to embed dependencies
-    os.environ["PYAPP_PROJECT_PATH"] = str(wheel_file)
+    # CRITICAL: For true fat binary, we need to use PyApp's PYAPP_PROJECT_NAME approach
+    # This will make PyApp install our project AND its dependencies during BUILD time
+    print("Configuring PyApp to install project with dependencies at BUILD time...")
 
-    # CRITICAL: Since wheel doesn't include dependencies, create a requirements file
-    # This will force PyApp to install dependencies along with our wheel
-    print("Creating requirements.txt with all dependencies...")
+    # Instead of pointing to wheel file, use project name so PyApp resolves dependencies
+    # PyApp will install the current project (.) with all its dependencies during build
+    os.environ["PYAPP_PROJECT_NAME"] = "."
+    print("Set PYAPP_PROJECT_NAME = '.' for dependency resolution")
 
-    # Create requirements.txt with all major dependencies that snowflake-cli needs
-    requirements_file = PROJECT_ROOT / "requirements.txt"
-    with open(requirements_file, "w") as f:
-        # Write key dependencies that we know snowflake-cli needs
-        f.write("click>=8.0.0\n")
-        f.write("typer>=0.9.0\n")
-        f.write("rich>=12.0.0\n")
-        f.write("pyyaml>=6.0\n")
-        f.write("requests>=2.28.0\n")
-        f.write("jinja2>=3.0.0\n")
-        f.write("toml>=0.10.0\n")
-        f.write("packaging>=21.0\n")
-
-    # Point PyApp to the requirements file for dependency installation
-    os.environ[
-        "PYAPP_PIP_EXTRA_ARGS"
-    ] = f"--requirement {requirements_file} --no-compile --no-cache-dir"
+    # Remove wheel file reference since we're using project name
+    if "PYAPP_PROJECT_PATH" in os.environ:
+        del os.environ["PYAPP_PROJECT_PATH"]
 
     # Remove any custom distribution settings
     if "PYAPP_DISTRIBUTION_PATH" in os.environ:
         del os.environ["PYAPP_DISTRIBUTION_PATH"]
     if "PYAPP_DISTRIBUTION_PYTHON_PATH" in os.environ:
         del os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"]
+
+    # CRITICAL: Remove any leftover pip args that might reference requirements.txt
+    if "PYAPP_PIP_EXTRA_ARGS" in os.environ:
+        print(
+            "Removing leftover PYAPP_PIP_EXTRA_ARGS to prevent requirements.txt usage"
+        )
+        del os.environ["PYAPP_PIP_EXTRA_ARGS"]
+    else:
+        print("No PYAPP_PIP_EXTRA_ARGS found - good!")
 
     # Configure for minimal runtime environments
     os.environ["PYAPP_FULL_ISOLATION"] = "1"  # Complete isolation from host
@@ -398,9 +394,9 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
 
     print(f"Build target: {os.environ.get('PYAPP_BUILD_TARGET', 'default glibc')}")
     print("Using embedded Python distribution from python-build-standalone")
-    print(f"Project wheel: {wheel_file}")
-    print(f"Requirements file: {requirements_file}")
-    print("PyApp configured to install wheel + dependencies from requirements.txt")
+    print(f"Project wheel: {wheel_file} (for verification)")
+    print("Project name: . (current directory - will install with all dependencies)")
+    print("PyApp configured to embed project with all dependencies at BUILD time")
 
     # Ensure no CPU feature detection at runtime
     os.environ["CARGO_CFG_TARGET_HAS_ATOMIC"] = "8,16,32,64,ptr"
