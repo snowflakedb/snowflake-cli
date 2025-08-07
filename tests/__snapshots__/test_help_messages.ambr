@@ -5135,7 +5135,7 @@
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    connection_name      TEXT  Name of the connection to remove to remove.  |
+  | *    connection_name      TEXT  Name of the connection to remove.            |
   |                                 [required]                                   |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
