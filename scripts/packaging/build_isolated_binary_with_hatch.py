@@ -271,13 +271,21 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
 
     # Set MAXIMUM compatibility Rust flags for CI x86_64 Linux environment
     # Use x86-64 baseline (SSE/SSE2 only) - the most conservative possible
-    conservative_flags = "-C target-cpu=x86-64 -C target-feature=-sse3,-ssse3,-sse4.1,-sse4.2,-popcnt,-avx,-avx2,-fma,-bmi1,-bmi2,-lzcnt,-movbe,-aes,-pclmulqdq -C opt-level=1 -C lto=false -C codegen-units=1"
+    # CRITICAL: Add static linking flags for truly portable binary
+    conservative_flags = "-C target-cpu=x86-64 -C target-feature=-sse3,-ssse3,-sse4.1,-sse4.2,-popcnt,-avx,-avx2,-fma,-bmi1,-bmi2,-lzcnt,-movbe,-aes,-pclmulqdq -C opt-level=1 -C lto=false -C codegen-units=1 -C target-feature=+crt-static"
 
-    # Set Rust flags for maximum compatibility (no cross-compilation needed in CI)
+    # Set Rust flags for maximum compatibility with static linking
     os.environ["RUSTFLAGS"] = conservative_flags
+
+    # Use musl target for static linking - this creates truly portable binaries
+    os.environ["PYAPP_BUILD_TARGET"] = "x86_64-unknown-linux-musl"
     os.environ["CARGO_PROFILE_RELEASE_OPT_LEVEL"] = "s"
     os.environ["CARGO_PROFILE_RELEASE_LTO"] = "false"
     os.environ["CARGO_PROFILE_RELEASE_CODEGEN_UNITS"] = "1"
+
+    # Additional static linking environment variables
+    os.environ["CC_x86_64_unknown_linux_musl"] = "musl-gcc"
+    os.environ["CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER"] = "musl-gcc"
 
     # Force PyApp to use the most compatible settings possible
     os.environ["PYAPP_DEBUG"] = "1"
@@ -404,8 +412,10 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     with tarfile.open(dist_archive, "w:gz") as tar:
         tar.add(venv_dir, arcname="python", recursive=True)
 
-    # Use the complete distribution instead of embedded approach
-    print("Configuring PyApp to use complete Python distribution...")
+    # Use the complete distribution with static linking for maximum portability
+    print(
+        "Configuring PyApp to use complete Python distribution with static linking..."
+    )
     os.environ["PYAPP_DISTRIBUTION_PATH"] = str(dist_archive)
     os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = "python/bin/python"
 
@@ -419,6 +429,10 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_SKIP_INSTALL"] = "1"
     os.environ["PYAPP_EXPOSE_METADATA"] = "true"  # Enable debugging
     os.environ["PYAPP_DEBUG"] = "1"  # Enable debugging output
+
+    print(f"Static linking target: {os.environ.get('PYAPP_BUILD_TARGET', 'default')}")
+    print(f"Distribution path: {dist_archive}")
+    print(f"Archive size: {dist_archive.stat().st_size / (1024*1024):.1f} MB")
 
     # PyApp will handle the rest - embedding Python and installing our project with dependencies
     print(
