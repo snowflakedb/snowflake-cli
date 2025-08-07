@@ -14,6 +14,7 @@ import contextlib
 import json
 import os
 import subprocess
+import sys
 import tarfile
 import tempfile
 from pathlib import Path
@@ -302,19 +303,52 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     if "PYAPP_SKIP_INSTALL" in os.environ:
         del os.environ["PYAPP_SKIP_INSTALL"]
 
-    # Use simple embedded distribution approach for maximum reliability
-    print(
-        "Configuring PyApp for embedded Python distribution with project installation..."
+    # Build wheel first, then configure PyApp to use it
+    print("Creating wheel for project installation...")
+
+    wheel_dir = PROJECT_ROOT / "dist" / "wheel"
+    wheel_dir.mkdir(parents=True, exist_ok=True)
+
+    # Build wheel for our project only (no dependencies)
+    print("Building project wheel...")
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "wheel",
+            ".",
+            "--wheel-dir",
+            str(wheel_dir),
+            "--no-deps",  # Don't include dependencies in wheel
+            "--no-cache-dir",
+        ],
+        cwd=PROJECT_ROOT,
+        check=True,
     )
 
-    # Use embedded Python distribution from official source - much more reliable
+    # Find the wheel file
+    wheel_files = list(wheel_dir.glob("snowflake_cli-*.whl"))
+    if not wheel_files:
+        print("Error: No wheel file created")
+        return None
+
+    wheel_file = wheel_files[0]
+    print(f"Created wheel: {wheel_file}")
+
+    # Configure PyApp with embedded distribution and wheel project
+    print(
+        "Configuring PyApp for embedded Python distribution with wheel installation..."
+    )
+
+    # Use embedded Python distribution
     os.environ["PYAPP_DISTRIBUTION_EMBED"] = "1"
     os.environ[
         "PYAPP_DISTRIBUTION_SOURCE"
     ] = "https://github.com/indygreg/python-build-standalone/releases/download/20240415/cpython-3.10.14+20240415-x86_64-unknown-linux-gnu-install_only.tar.gz"
 
-    # Install our project from the current directory
-    os.environ["PYAPP_PROJECT_PATH"] = "."
+    # Install our project from the wheel file
+    os.environ["PYAPP_PROJECT_PATH"] = str(wheel_file)
 
     # Remove any custom distribution settings
     if "PYAPP_DISTRIBUTION_PATH" in os.environ:
@@ -330,7 +364,7 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
 
     print(f"Build target: {os.environ.get('PYAPP_BUILD_TARGET', 'default glibc')}")
     print("Using embedded Python distribution from python-build-standalone")
-    print("Project will be installed from current directory")
+    print(f"Project wheel: {wheel_file}")
     print(
         "PyApp configured for maximum compatibility with minimal runtime dependencies"
     )
