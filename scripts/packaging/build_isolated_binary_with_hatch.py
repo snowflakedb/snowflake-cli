@@ -357,16 +357,7 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     # This will force PyApp to install dependencies along with our wheel
     print("Creating requirements.txt with all dependencies...")
 
-    # Extract dependencies from pyproject.toml and create requirements.txt
-    import subprocess
-
-    result = subprocess.run(
-        [sys.executable, "-m", "pip", "show", "--files", str(wheel_file)],
-        capture_output=True,
-        text=True,
-    )
-
-    # Use a simpler approach: create requirements.txt from current environment
+    # Create requirements.txt with all major dependencies that snowflake-cli needs
     requirements_file = PROJECT_ROOT / "requirements.txt"
     with open(requirements_file, "w") as f:
         # Write key dependencies that we know snowflake-cli needs
