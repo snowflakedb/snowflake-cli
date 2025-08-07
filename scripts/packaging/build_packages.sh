@@ -41,7 +41,6 @@ fpm \
   --prefix /usr/lib/snowflake/snowflake-cli \
   --after-install ${THIS_DIR}/ubuntu/after_install.sh \
   --after-remove ${THIS_DIR}/ubuntu/after_remove.sh \
-
   --force
 
 echo "-----------------"
