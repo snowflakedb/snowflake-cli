@@ -14,7 +14,6 @@ import contextlib
 import json
 import os
 import subprocess
-import sys
 import tarfile
 import tempfile
 from pathlib import Path
@@ -303,145 +302,38 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     if "PYAPP_SKIP_INSTALL" in os.environ:
         del os.environ["PYAPP_SKIP_INSTALL"]
 
-    # Bundle everything together using a complete Python distribution approach
-    # Create a complete environment with ALL dependencies and bundle it
-    print("Creating complete Python environment with all dependencies...")
-
-    # Create wheel directory with ALL dependencies
-    wheel_dir = PROJECT_ROOT / "dist" / "wheel_with_deps"
-    wheel_dir.mkdir(parents=True, exist_ok=True)
-
-    # Download ALL wheels (our project + all dependencies) to a local directory
-    print("Downloading project and all dependencies as wheels...")
-    pip_wheel_result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "wheel",
-            ".",
-            "--wheel-dir",
-            str(wheel_dir),
-            "--only-binary=:all:",  # Force binary wheels for everything
-            "--no-cache-dir",
-        ],
-        cwd=PROJECT_ROOT,
-        capture_output=True,
-        text=True,
+    # Use simple embedded distribution approach for maximum reliability
+    print(
+        "Configuring PyApp for embedded Python distribution with project installation..."
     )
 
-    if pip_wheel_result.returncode != 0:
-        print(f"Pip wheel failed: {pip_wheel_result.stderr}")
-        # Try with less restrictive settings
-        pip_wheel_result = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "pip",
-                "wheel",
-                ".",
-                "--wheel-dir",
-                str(wheel_dir),
-                "--no-cache-dir",
-            ],
-            cwd=PROJECT_ROOT,
-            capture_output=True,
-            text=True,
-        )
-        if pip_wheel_result.returncode != 0:
-            print(f"Pip wheel failed again: {pip_wheel_result.stderr}")
-            return None
+    # Use embedded Python distribution from official source - much more reliable
+    os.environ["PYAPP_DISTRIBUTION_EMBED"] = "1"
+    os.environ[
+        "PYAPP_DISTRIBUTION_SOURCE"
+    ] = "https://github.com/indygreg/python-build-standalone/releases/download/20240415/cpython-3.10.14+20240415-x86_64-unknown-linux-gnu-install_only.tar.gz"
 
-    print("Creating temporary virtual environment...")
-    venv_dir = PROJECT_ROOT / "dist" / "temp_venv"
-    if venv_dir.exists():
-        import shutil
+    # Install our project from the current directory
+    os.environ["PYAPP_PROJECT_PATH"] = "."
 
-        shutil.rmtree(venv_dir)
+    # Remove any custom distribution settings
+    if "PYAPP_DISTRIBUTION_PATH" in os.environ:
+        del os.environ["PYAPP_DISTRIBUTION_PATH"]
+    if "PYAPP_DISTRIBUTION_PYTHON_PATH" in os.environ:
+        del os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"]
 
-    subprocess.run([sys.executable, "-m", "venv", str(venv_dir)], check=True)
-    venv_python = venv_dir / "bin" / "python"
-
-    print("Installing all wheels into temporary environment...")
-    install_result = subprocess.run(
-        [
-            str(venv_python),
-            "-m",
-            "pip",
-            "install",
-            "--find-links",
-            str(wheel_dir),
-            "--no-index",
-            "--force-reinstall",
-            "snowflake-cli",
-        ],
-        capture_output=True,
-        text=True,
-    )
-
-    if install_result.returncode != 0:
-        print(f"Installation failed: {install_result.stderr}")
-        # Try installing just our wheel
-        our_wheels = list(wheel_dir.glob("snowflake_cli-*.whl"))
-        if our_wheels:
-            subprocess.run(
-                [
-                    str(venv_python),
-                    "-m",
-                    "pip",
-                    "install",
-                    str(our_wheels[0]),
-                ],
-                check=True,
-            )
-
-    print("Creating distribution archive from complete environment...")
-    dist_archive = PROJECT_ROOT / "dist" / "python_complete.tar.gz"
-
-    # Create a tar.gz with the complete Python environment
-    import tarfile
-
-    with tarfile.open(dist_archive, "w:gz") as tar:
-        tar.add(venv_dir, arcname="python", recursive=True)
-
-    # Use the complete distribution for maximum compatibility in minimal environments
-    print("Configuring PyApp for complete Python distribution...")
-    os.environ["PYAPP_DISTRIBUTION_PATH"] = str(dist_archive)
-    os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = "python/bin/python"
-
-    # Don't use embedded approach since we're providing complete environment
-    if "PYAPP_DISTRIBUTION_EMBED" in os.environ:
-        del os.environ["PYAPP_DISTRIBUTION_EMBED"]
-    if "PYAPP_DISTRIBUTION_SOURCE" in os.environ:
-        del os.environ["PYAPP_DISTRIBUTION_SOURCE"]
-
-    # Critical: Configure PyApp for minimal runtime environments with maximum static embedding
-    os.environ["PYAPP_SKIP_INSTALL"] = "1"  # Everything pre-installed in embedded dist
+    # Configure for minimal runtime environments
     os.environ["PYAPP_FULL_ISOLATION"] = "1"  # Complete isolation from host
     os.environ["PYAPP_PASS_LOCATION"] = "0"  # Don't pass location to Python
     os.environ["PYAPP_UV_ENABLED"] = "false"  # Disable UV package manager
-    os.environ["PYAPP_ALLOW_UPDATES"] = "0"  # No runtime updates
-    os.environ["PYAPP_OFFLINE"] = "1"  # Force offline mode - no network access
-    os.environ["PYAPP_SELF_COMMAND"] = "snow"  # Set explicit command name
-
-    # Disable debugging features that might need external tools
-    if "PYAPP_EXPOSE_METADATA" in os.environ:
-        del os.environ["PYAPP_EXPOSE_METADATA"]
-    if "PYAPP_DEBUG" in os.environ:
-        del os.environ["PYAPP_DEBUG"]
-
-    # Ensure PyApp uses only embedded resources
     os.environ["PYAPP_PIP_VERSION"] = "23.0"  # Use stable pip version
-    os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Explicit Python version
-    os.environ["PYAPP_INSECURE"] = "false"  # Secure mode only
 
     print(f"Build target: {os.environ.get('PYAPP_BUILD_TARGET', 'default glibc')}")
-    print(f"Distribution path: {dist_archive}")
-    print(f"Archive size: {dist_archive.stat().st_size / (1024*1024):.1f} MB")
+    print("Using embedded Python distribution from python-build-standalone")
+    print("Project will be installed from current directory")
     print(
-        "PyApp configured for complete distribution with minimal runtime dependencies"
+        "PyApp configured for maximum compatibility with minimal runtime dependencies"
     )
-    print("All Python dependencies bundled for maximum portability")
 
     # Ensure no CPU feature detection at runtime
     os.environ["CARGO_CFG_TARGET_HAS_ATOMIC"] = "8,16,32,64,ptr"
@@ -451,21 +343,7 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["CARGO_PROFILE_RELEASE_PANIC"] = "abort"
 
     print(f"Building with conservative flags: {conservative_flags}")
-    print(f"RUSTFLAGS: {os.environ.get('RUSTFLAGS')}")
-    print(f"PYAPP_PROJECT_PATH: {os.environ.get('PYAPP_PROJECT_PATH')}")
-    print(f"PYAPP_EXPOSE_METADATA: {os.environ.get('PYAPP_EXPOSE_METADATA')}")
-    print(f"PYAPP_PYTHON_VERSION: {os.environ.get('PYAPP_PYTHON_VERSION')}")
-    print(f"PYAPP_PIP_EXTRA_ARGS: {os.environ.get('PYAPP_PIP_EXTRA_ARGS')}")
-    print("Project embedding: Using 'Single project embedded' approach with wheel file")
-    print("This should prevent PyPI downloads and use the embedded project directly")
-
-    # Debug: Print all environment variables starting with CARGO or PYAPP
-    print("=== All CARGO/PYAPP Environment Variables ===")
-    for key, value in sorted(os.environ.items()):
-        if key.startswith(("CARGO_", "PYAPP_", "RUST")):
-            print(f"{key}: {value}")
-    print("=== End Environment Variables ===")
-    print()
+    print("Starting PyApp build with embedded distribution...")
 
     completed_proc = subprocess.run(
         ["hatch", "build", "-t", "binary"], capture_output=True
