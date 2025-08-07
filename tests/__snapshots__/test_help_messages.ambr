@@ -5129,14 +5129,17 @@
 # name: test_help_messages[connection.remove]
   '''
                                                                                   
-   Usage: root connection remove [OPTIONS]                                        
+   Usage: root connection remove [OPTIONS] CONNECTION_NAME                        
                                                                                   
    Removes a connection from configuration file.                                  
                                                                                   
                                                                                   
+  +- Arguments ------------------------------------------------------------------+
+  | *    connection_name      TEXT  Name of the connection to remove.            |
+  |                                 [required]                                   |
+  +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --connection-name  -n      TEXT  Name of the connection to remove.           |
-  | --help             -h            Show this message and exit.                 |
+  | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+
   | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
