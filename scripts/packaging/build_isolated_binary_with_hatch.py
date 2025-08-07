@@ -391,7 +391,13 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     # Force Rust to use oldest compatible codegen
     os.environ["CARGO_PROFILE_RELEASE_PANIC"] = "abort"
 
+    # Ensure completely static binary without any dynamic dependencies
+    os.environ["CARGO_PROFILE_RELEASE_LTO"] = "fat"
+    os.environ["CARGO_PROFILE_RELEASE_CODEGEN_UNITS"] = "1"
+    os.environ["CARGO_PROFILE_RELEASE_OPT_LEVEL"] = "z"
+
     print(f"Building with conservative flags: {conservative_flags}")
+    print("Building with maximum static optimization for standalone execution...")
     print("Starting PyApp build with embedded distribution...")
 
     completed_proc = subprocess.run(
