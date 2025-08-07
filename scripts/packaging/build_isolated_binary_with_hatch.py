@@ -404,18 +404,16 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     with tarfile.open(dist_archive, "w:gz") as tar:
         tar.add(venv_dir, arcname="python", recursive=True)
 
-    # Force complete embedding for maximum compatibility in minimal environments
-    print("Configuring PyApp for complete static embedding...")
+    # Use the complete distribution for maximum compatibility in minimal environments
+    print("Configuring PyApp for complete Python distribution...")
+    os.environ["PYAPP_DISTRIBUTION_PATH"] = str(dist_archive)
+    os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = "python/bin/python"
 
-    # Use embedded distribution instead of path-based approach
-    os.environ["PYAPP_DISTRIBUTION_EMBED"] = "1"
-    os.environ["PYAPP_DISTRIBUTION_SOURCE"] = f"file://{dist_archive}"
-
-    # Remove path-based approach to force embedding
-    if "PYAPP_DISTRIBUTION_PATH" in os.environ:
-        del os.environ["PYAPP_DISTRIBUTION_PATH"]
-    if "PYAPP_DISTRIBUTION_PYTHON_PATH" in os.environ:
-        del os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"]
+    # Don't use embedded approach since we're providing complete environment
+    if "PYAPP_DISTRIBUTION_EMBED" in os.environ:
+        del os.environ["PYAPP_DISTRIBUTION_EMBED"]
+    if "PYAPP_DISTRIBUTION_SOURCE" in os.environ:
+        del os.environ["PYAPP_DISTRIBUTION_SOURCE"]
 
     # Critical: Configure PyApp for minimal runtime environments with maximum static embedding
     os.environ["PYAPP_SKIP_INSTALL"] = "1"  # Everything pre-installed in embedded dist
@@ -438,10 +436,12 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_INSECURE"] = "false"  # Secure mode only
 
     print(f"Build target: {os.environ.get('PYAPP_BUILD_TARGET', 'default glibc')}")
-    print(f"Embedded distribution: {dist_archive}")
+    print(f"Distribution path: {dist_archive}")
     print(f"Archive size: {dist_archive.stat().st_size / (1024*1024):.1f} MB")
-    print("PyApp configured for complete static embedding (no runtime dependencies)")
-    print("All Python dependencies embedded at build time for maximum portability")
+    print(
+        "PyApp configured for complete distribution with minimal runtime dependencies"
+    )
+    print("All Python dependencies bundled for maximum portability")
 
     # Ensure no CPU feature detection at runtime
     os.environ["CARGO_CFG_TARGET_HAS_ATOMIC"] = "8,16,32,64,ptr"
