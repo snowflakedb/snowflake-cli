@@ -341,8 +341,9 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
         "Configuring PyApp for embedded Python distribution with wheel installation..."
     )
 
-    # Use embedded Python distribution
+    # Use embedded Python distribution - stable version for maximum compatibility
     os.environ["PYAPP_DISTRIBUTION_EMBED"] = "1"
+    os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Explicit Python version
     os.environ[
         "PYAPP_DISTRIBUTION_SOURCE"
     ] = "https://github.com/indygreg/python-build-standalone/releases/download/20240415/cpython-3.10.14+20240415-x86_64-unknown-linux-gnu-install_only.tar.gz"
@@ -361,6 +362,10 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_PASS_LOCATION"] = "0"  # Don't pass location to Python
     os.environ["PYAPP_UV_ENABLED"] = "false"  # Disable UV package manager
     os.environ["PYAPP_PIP_VERSION"] = "23.0"  # Use stable pip version
+
+    # Force offline installation - ensure everything is embedded at build time
+    os.environ["PYAPP_OFFLINE"] = "1"  # Force offline mode - no runtime downloads
+    os.environ["PYAPP_ALLOW_UPDATES"] = "0"  # No runtime updates
 
     print(f"Build target: {os.environ.get('PYAPP_BUILD_TARGET', 'default glibc')}")
     print("Using embedded Python distribution from python-build-standalone")
