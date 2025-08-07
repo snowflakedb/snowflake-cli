@@ -367,16 +367,53 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     with tarfile.open(python_archive_path, "r:gz") as tar:
         tar.extractall(temp_dist_dir)
 
-    # Find the extracted Python directory
+    # Find the extracted Python directory - debug what's actually extracted
+    print(f"Contents of extracted directory {temp_dist_dir}:")
+    all_items = list(temp_dist_dir.iterdir())
+    for item in all_items:
+        print(f"  {item.name} ({'dir' if item.is_dir() else 'file'})")
+
+    # Look for Python directory (try multiple patterns)
     python_dirs = [
-        d for d in temp_dist_dir.iterdir() if d.is_dir() and "cpython" in d.name
+        d
+        for d in all_items
+        if d.is_dir() and ("cpython" in d.name.lower() or "python" in d.name.lower())
     ]
+
     if not python_dirs:
         print("Failed to find extracted Python directory")
+        print("Trying to find any directory that might be the Python installation...")
+        # Try any directory that looks like it could contain Python
+        python_dirs = [d for d in all_items if d.is_dir()]
+
+    if not python_dirs:
+        print("No directories found in extracted archive")
         sys.exit(1)
 
     python_dir = python_dirs[0]
-    python_exe = python_dir / "bin" / "python3"
+    print(f"Using Python directory: {python_dir}")
+
+    # Check for Python executable in multiple locations
+    python_exe_candidates = [
+        python_dir / "bin" / "python3",
+        python_dir / "bin" / "python",
+        python_dir / "python3",
+        python_dir / "python",
+    ]
+
+    python_exe = None
+    for candidate in python_exe_candidates:
+        if candidate.exists():
+            python_exe = candidate
+            print(f"Found Python executable: {python_exe}")
+            break
+
+    if not python_exe:
+        print("Failed to find Python executable in the extracted directory")
+        print(f"Contents of {python_dir}:")
+        for item in python_dir.iterdir():
+            print(f"  {item}")
+        sys.exit(1)
 
     # Install our project and ALL its dependencies into this Python distribution
     print(
