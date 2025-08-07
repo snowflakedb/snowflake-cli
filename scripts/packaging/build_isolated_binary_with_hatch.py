@@ -404,22 +404,27 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     with tarfile.open(dist_archive, "w:gz") as tar:
         tar.add(venv_dir, arcname="python", recursive=True)
 
-    # Use the complete distribution for maximum compatibility in minimal environments
-    print("Configuring PyApp for minimal runtime environments...")
-    os.environ["PYAPP_DISTRIBUTION_PATH"] = str(dist_archive)
-    os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = "python/bin/python"
+    # Force complete embedding for maximum compatibility in minimal environments
+    print("Configuring PyApp for complete static embedding...")
 
-    # Don't use embedded approach since we're providing complete environment
-    if "PYAPP_DISTRIBUTION_EMBED" in os.environ:
-        del os.environ["PYAPP_DISTRIBUTION_EMBED"]
-    if "PYAPP_DISTRIBUTION_SOURCE" in os.environ:
-        del os.environ["PYAPP_DISTRIBUTION_SOURCE"]
+    # Use embedded distribution instead of path-based approach
+    os.environ["PYAPP_DISTRIBUTION_EMBED"] = "1"
+    os.environ["PYAPP_DISTRIBUTION_SOURCE"] = f"file://{dist_archive}"
 
-    # Critical: Configure PyApp for minimal runtime environments
-    os.environ["PYAPP_SKIP_INSTALL"] = "1"  # Everything pre-installed
+    # Remove path-based approach to force embedding
+    if "PYAPP_DISTRIBUTION_PATH" in os.environ:
+        del os.environ["PYAPP_DISTRIBUTION_PATH"]
+    if "PYAPP_DISTRIBUTION_PYTHON_PATH" in os.environ:
+        del os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"]
+
+    # Critical: Configure PyApp for minimal runtime environments with maximum static embedding
+    os.environ["PYAPP_SKIP_INSTALL"] = "1"  # Everything pre-installed in embedded dist
     os.environ["PYAPP_FULL_ISOLATION"] = "1"  # Complete isolation from host
     os.environ["PYAPP_PASS_LOCATION"] = "0"  # Don't pass location to Python
     os.environ["PYAPP_UV_ENABLED"] = "false"  # Disable UV package manager
+    os.environ["PYAPP_ALLOW_UPDATES"] = "0"  # No runtime updates
+    os.environ["PYAPP_OFFLINE"] = "1"  # Force offline mode - no network access
+    os.environ["PYAPP_SELF_COMMAND"] = "snow"  # Set explicit command name
 
     # Disable debugging features that might need external tools
     if "PYAPP_EXPOSE_METADATA" in os.environ:
@@ -433,16 +438,10 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_INSECURE"] = "false"  # Secure mode only
 
     print(f"Build target: {os.environ.get('PYAPP_BUILD_TARGET', 'default glibc')}")
-    print(f"Distribution path: {dist_archive}")
+    print(f"Embedded distribution: {dist_archive}")
     print(f"Archive size: {dist_archive.stat().st_size / (1024*1024):.1f} MB")
-    print(
-        "PyApp configured for minimal runtime environments (no external dependencies)"
-    )
-
-    # PyApp will handle the rest - embedding Python and installing our project with dependencies
-    print(
-        "PyApp configured for embedded Python with build-time dependency installation"
-    )
+    print("PyApp configured for complete static embedding (no runtime dependencies)")
+    print("All Python dependencies embedded at build time for maximum portability")
 
     # Ensure no CPU feature detection at runtime
     os.environ["CARGO_CFG_TARGET_HAS_ATOMIC"] = "8,16,32,64,ptr"
