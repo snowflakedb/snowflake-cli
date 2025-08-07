@@ -19,6 +19,15 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v3.11.0
+
+## Deprecations
+
+## New additions
 * Add `snow connection remove` command
 * Added support for `runtime_environment_version` field in notebook entity configuration, allowing specification of runtime environment version for containerized notebooks.
 * Added `snow auth workload-identity` command group for managing workload identity federation authentication:
