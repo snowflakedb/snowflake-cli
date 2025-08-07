@@ -345,27 +345,106 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_DISTRIBUTION_EMBED"] = "true"  # EMBED Python in binary
     os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Use minimum required Python version
 
-    # Use the EXACT stripped Python distribution that was working
+    # CRITICAL: Create a CUSTOM Python distribution WITH dependencies for true offline installation
+    print("Creating custom Python distribution with ALL dependencies embedded...")
+
+    # Download the base Python distribution
     basic_python_url = "https://github.com/astral-sh/python-build-standalone/releases/download/20250604/cpython-3.10.18%2B20250604-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
-    os.environ["PYAPP_DISTRIBUTION_SOURCE"] = basic_python_url
 
-    # CRITICAL: For true fat binary, we need to use PyApp to install our LOCAL source directory
-    # This will make PyApp install our project AND its dependencies during BUILD time
+    # Create a temporary directory for building the custom distribution
+    temp_dist_dir = PROJECT_ROOT / "dist" / "python_complete"
+    temp_dist_dir.mkdir(parents=True, exist_ok=True)
+
+    # Download and extract the base Python distribution
+    import tarfile
+    import urllib.request
+
+    python_archive_path = temp_dist_dir / "python_base.tar.gz"
+    print(f"Downloading Python distribution: {basic_python_url}")
+    urllib.request.urlretrieve(basic_python_url, python_archive_path)
+
+    # Extract the Python distribution
+    with tarfile.open(python_archive_path, "r:gz") as tar:
+        tar.extractall(temp_dist_dir)
+
+    # Find the extracted Python directory
+    python_dirs = [
+        d for d in temp_dist_dir.iterdir() if d.is_dir() and "cpython" in d.name
+    ]
+    if not python_dirs:
+        print("Failed to find extracted Python directory")
+        sys.exit(1)
+
+    python_dir = python_dirs[0]
+    python_exe = python_dir / "bin" / "python3"
+
+    # Install our project and ALL its dependencies into this Python distribution
     print(
-        "Configuring PyApp to install LOCAL project source with dependencies at BUILD time..."
+        "Installing snowflake-cli and all dependencies into custom Python distribution..."
+    )
+    install_result = subprocess.run(
+        [
+            str(python_exe),
+            "-m",
+            "pip",
+            "install",
+            ".",
+            "--target",
+            str(python_dir / "lib" / "python3.10" / "site-packages"),
+        ],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
     )
 
-    # Use the absolute path to current source directory to avoid PyPI confusion
-    # This forces PyApp to install from source dir, not try to download from PyPI
-    current_source_dir = str(PROJECT_ROOT.absolute())
-    os.environ["PYAPP_PROJECT_NAME"] = current_source_dir
+    if install_result.returncode != 0:
+        print(f"Failed to install dependencies: {install_result.stderr}")
+        sys.exit(1)
+
+    # Create a new archive of the complete Python distribution with dependencies
+    complete_dist_path = PROJECT_ROOT / "dist" / "python_complete.tar.gz"
+    print(f"Creating complete Python distribution archive: {complete_dist_path}")
+
+    with tarfile.open(complete_dist_path, "w:gz") as tar:
+        tar.add(python_dir, arcname=python_dir.name)
+
+    # Use this complete distribution for PyApp
+    os.environ["PYAPP_DISTRIBUTION_PATH"] = str(complete_dist_path)
     print(
-        f"Set PYAPP_PROJECT_NAME = '{current_source_dir}' for local source installation"
+        f"Set PYAPP_DISTRIBUTION_PATH = '{complete_dist_path}' (custom distribution with dependencies)"
     )
 
-    # Remove wheel file reference since we're using project name
-    if "PYAPP_PROJECT_PATH" in os.environ:
-        del os.environ["PYAPP_PROJECT_PATH"]
+    # Build a wheel of our project for PYAPP_PROJECT_PATH
+    print("Building wheel for offline installation...")
+    wheel_build_result = subprocess.run(
+        [sys.executable, "-m", "pip", "wheel", ".", "--no-deps", "--wheel-dir", "dist"],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    if wheel_build_result.returncode != 0:
+        print(f"Failed to build wheel: {wheel_build_result.stderr}")
+        sys.exit(1)
+
+    # Find the generated wheel file
+    wheel_files = list(Path(PROJECT_ROOT / "dist").glob("snowflake_cli-*.whl"))
+    if not wheel_files:
+        print("No wheel file found after build")
+        sys.exit(1)
+
+    wheel_file = wheel_files[0]
+
+    # Use the OFFLINE installation pattern from PyApp documentation
+    os.environ["PYAPP_PROJECT_PATH"] = str(wheel_file)
+    os.environ[
+        "PYAPP_PIP_EXTRA_ARGS"
+    ] = "--no-deps"  # No deps needed, they're in the distribution
+    print(f"Set PYAPP_PROJECT_PATH = '{wheel_file}' with --no-deps (true offline)")
+
+    # Remove any project name since we're using the wheel file path
+    if "PYAPP_PROJECT_NAME" in os.environ:
+        del os.environ["PYAPP_PROJECT_NAME"]
 
     # Remove any custom distribution settings
     if "PYAPP_DISTRIBUTION_PATH" in os.environ:
