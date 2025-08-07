@@ -352,10 +352,15 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     # Install our project from the wheel file
     os.environ["PYAPP_PROJECT_PATH"] = str(wheel_file)
 
-    # CRITICAL: Install dependencies at BUILD TIME (not runtime) - this is the key difference
-    os.environ[
-        "PYAPP_PIP_EXTRA_ARGS"
-    ] = "--only-binary=pip,setuptools,wheel,hatch,cython,numpy,cryptography,cffi,pycparser,markupsafe,pyyaml --no-cache-dir"
+    # CRITICAL: Force PyApp to install ALL dependencies at BUILD TIME
+    # Use aggressive caching and offline-friendly installation
+    os.environ["PYAPP_PIP_EXTRA_ARGS"] = "--prefer-binary --no-compile --no-cache-dir"
+
+    # Force offline mode to prevent runtime downloads
+    os.environ["PYAPP_OFFLINE"] = "1"
+
+    # Ensure full dependency resolution at build time
+    os.environ["PYAPP_ALLOW_UPDATES"] = "0"
 
     # Remove any custom distribution settings
     if "PYAPP_DISTRIBUTION_PATH" in os.environ:
