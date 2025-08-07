@@ -404,8 +404,8 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     with tarfile.open(dist_archive, "w:gz") as tar:
         tar.add(venv_dir, arcname="python", recursive=True)
 
-    # Use the complete distribution for maximum compatibility
-    print("Configuring PyApp to use complete Python distribution...")
+    # Use the complete distribution for maximum compatibility in minimal environments
+    print("Configuring PyApp for minimal runtime environments...")
     os.environ["PYAPP_DISTRIBUTION_PATH"] = str(dist_archive)
     os.environ["PYAPP_DISTRIBUTION_PYTHON_PATH"] = "python/bin/python"
 
@@ -415,14 +415,29 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     if "PYAPP_DISTRIBUTION_SOURCE" in os.environ:
         del os.environ["PYAPP_DISTRIBUTION_SOURCE"]
 
-    # Skip installation since everything is already installed in our distribution
-    os.environ["PYAPP_SKIP_INSTALL"] = "1"
-    os.environ["PYAPP_EXPOSE_METADATA"] = "true"  # Enable debugging
-    os.environ["PYAPP_DEBUG"] = "1"  # Enable debugging output
+    # Critical: Configure PyApp for minimal runtime environments
+    os.environ["PYAPP_SKIP_INSTALL"] = "1"  # Everything pre-installed
+    os.environ["PYAPP_FULL_ISOLATION"] = "1"  # Complete isolation from host
+    os.environ["PYAPP_PASS_LOCATION"] = "0"  # Don't pass location to Python
+    os.environ["PYAPP_UV_ENABLED"] = "false"  # Disable UV package manager
+
+    # Disable debugging features that might need external tools
+    if "PYAPP_EXPOSE_METADATA" in os.environ:
+        del os.environ["PYAPP_EXPOSE_METADATA"]
+    if "PYAPP_DEBUG" in os.environ:
+        del os.environ["PYAPP_DEBUG"]
+
+    # Ensure PyApp uses only embedded resources
+    os.environ["PYAPP_PIP_VERSION"] = "23.0"  # Use stable pip version
+    os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Explicit Python version
+    os.environ["PYAPP_INSECURE"] = "false"  # Secure mode only
 
     print(f"Build target: {os.environ.get('PYAPP_BUILD_TARGET', 'default glibc')}")
     print(f"Distribution path: {dist_archive}")
     print(f"Archive size: {dist_archive.stat().st_size / (1024*1024):.1f} MB")
+    print(
+        "PyApp configured for minimal runtime environments (no external dependencies)"
+    )
 
     # PyApp will handle the rest - embedding Python and installing our project with dependencies
     print(
