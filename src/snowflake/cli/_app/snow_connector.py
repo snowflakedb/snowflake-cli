@@ -22,11 +22,16 @@ from typing import Dict, Optional
 import snowflake.connector
 from click.exceptions import ClickException
 from snowflake.cli import __about__
+from snowflake.cli._app.auth.oidc_providers import OidcProviderTypeWithAuto
 from snowflake.cli._app.constants import (
+    AUTHENTICATOR_WORKLOAD_IDENTITY,
     INTERNAL_APPLICATION_NAME,
     PARAM_APPLICATION_NAME,
 )
 from snowflake.cli._app.telemetry import command_info
+from snowflake.cli._plugins.auth.oidc.manager import (
+    OidcManager,
+)
 from snowflake.cli.api.config import (
     get_connection_dict,
     get_env_value,
@@ -152,6 +157,10 @@ def connect_to_snowflake(
 
     if connection_parameters.get("authenticator") == "username_password_mfa":
         connection_parameters["client_request_mfa_token"] = True
+
+    # Handle WORKLOAD_IDENTITY authenticator (OIDC federated authentication)
+    if connection_parameters.get("authenticator") == AUTHENTICATOR_WORKLOAD_IDENTITY:
+        _maybe_update_oidc_token(connection_parameters)
 
     if enable_diag:
         connection_parameters["enable_connection_diag"] = enable_diag
@@ -335,3 +344,23 @@ def prepare_private_key(
             encryption_algorithm=NoEncryption(),
         )
     )
+
+
+def _maybe_update_oidc_token(connection_parameters: dict) -> dict:
+    """Try to obtain OIDC token automatically."""
+    try:
+        manager = OidcManager()
+        if token := manager.read_token(OidcProviderTypeWithAuto.AUTO):
+            log.info("%s token acquired automatically", AUTHENTICATOR_WORKLOAD_IDENTITY)
+            connection_parameters.update(
+                {
+                    "token": token,
+                }
+            )
+    except Exception as e:
+        log.info(
+            "No token found when while %s auto auto-detection: %s",
+            AUTHENTICATOR_WORKLOAD_IDENTITY,
+            str(e),
+        )
+    return connection_parameters

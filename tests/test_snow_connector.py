@@ -256,3 +256,127 @@ def test_internal_application_data_is_sent_if_feature_flag_is_set(
         result = runner.invoke(["sql", "-q", "select 1"])
     assert result.exit_code == 0
     mock_connect.assert_called_once_with(**expected_kwargs)
+
+
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+@mock.patch("snowflake.connector.connect")
+def test_maybe_update_oidc_token_sets_token_when_token_available(
+    mock_connect, mock_oidc_manager_class, test_snowcli_config
+):
+    """Test that _maybe_update_oidc_token properly sets token value."""
+    from snowflake.cli._app.snow_connector import _maybe_update_oidc_token
+
+    # Setup mock
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_token = "test-oidc-token-123"
+    mock_manager.read_token.return_value = mock_token
+
+    # Test connection parameters
+    connection_parameters = {
+        "authenticator": "WORKLOAD_IDENTITY",
+        "account": "test_account",
+        "user": "test_user",
+    }
+
+    # Call the function
+    result = _maybe_update_oidc_token(connection_parameters)
+
+    # Verify the token is set correctly
+    assert connection_parameters["token"] == mock_token
+    assert result == connection_parameters
+
+
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+@mock.patch("snowflake.connector.connect")
+def test_maybe_update_oidc_token_handles_exception_gracefully(
+    mock_connect, mock_oidc_manager_class, test_snowcli_config
+):
+    """Test that _maybe_update_oidc_token handles exceptions without failing."""
+    from snowflake.cli._app.snow_connector import _maybe_update_oidc_token
+
+    # Setup mock to raise exception
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_manager.read_token.side_effect = Exception("Token fetch failed")
+
+    # Test connection parameters
+    connection_parameters = {
+        "authenticator": "WORKLOAD_IDENTITY",
+        "account": "test_account",
+        "user": "test_user",
+    }
+    original_params = connection_parameters.copy()
+
+    # Call the function
+    result = _maybe_update_oidc_token(connection_parameters)
+
+    # Verify parameters are unchanged when exception occurs
+    assert connection_parameters == original_params
+    assert result == connection_parameters
+    assert "token" not in connection_parameters
+
+
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+@mock.patch("snowflake.connector.connect")
+def test_maybe_update_oidc_token_no_update_when_no_token(
+    mock_connect, mock_oidc_manager_class, test_snowcli_config
+):
+    """Test that _maybe_update_oidc_token doesn't update when no token is returned."""
+    from snowflake.cli._app.snow_connector import _maybe_update_oidc_token
+
+    # Setup mock to return None (no token)
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_manager.read_token.return_value = None
+
+    # Test connection parameters
+    connection_parameters = {
+        "authenticator": "WORKLOAD_IDENTITY",
+        "account": "test_account",
+        "user": "test_user",
+    }
+    original_params = connection_parameters.copy()
+
+    # Call the function
+    result = _maybe_update_oidc_token(connection_parameters)
+
+    # Verify parameters are unchanged when no token is returned
+    assert connection_parameters == original_params
+    assert result == connection_parameters
+    assert "token" not in connection_parameters
+
+
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+@mock.patch("snowflake.connector.connect")
+def test_oidc_token_integration_in_connect_to_snowflake(
+    mock_connect, mock_oidc_manager_class, mock_command_info, test_snowcli_config
+):
+    """Test that OIDC token is properly integrated in the full connect_to_snowflake flow."""
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    # Setup mocks
+    mock_command_info.return_value = "SNOWCLI.TEST"
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_token = "integration-test-token-456"
+    mock_manager.read_token.return_value = mock_token
+
+    # Use temporary connection with WORKLOAD_IDENTITY authenticator
+    connect_to_snowflake(
+        temporary_connection=True,
+        authenticator="WORKLOAD_IDENTITY",
+        account="test_account",
+        user="test_user",
+    )
+
+    # Verify snowflake.connector.connect was called with the token
+    mock_connect.assert_called_once()
+    call_kwargs = mock_connect.call_args[1]
+
+    assert call_kwargs["token"] == mock_token
+    assert call_kwargs["authenticator"] == "WORKLOAD_IDENTITY"
