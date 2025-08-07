@@ -349,18 +349,16 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     basic_python_url = "https://github.com/astral-sh/python-build-standalone/releases/download/20250604/cpython-3.10.18%2B20250604-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
     os.environ["PYAPP_DISTRIBUTION_SOURCE"] = basic_python_url
 
-    # Install our project from the wheel file
-    os.environ["PYAPP_PROJECT_PATH"] = str(wheel_file)
+    # Install our project from source directory so PyApp can resolve dependencies
+    # Instead of pointing to wheel, point to current directory so PyApp installs with deps
+    os.environ["PYAPP_PROJECT_PATH"] = "."
 
-    # CRITICAL: Force PyApp to install ALL dependencies at BUILD TIME
-    # Use aggressive caching and offline-friendly installation
-    os.environ["PYAPP_PIP_EXTRA_ARGS"] = "--prefer-binary --no-compile --no-cache-dir"
+    # CRITICAL: PyApp needs to embed dependencies, not just the wheel
+    # We need to force PyApp to install our project WITH its dependencies at build time
+    # The key is PYAPP_SKIP_INSTALL="0" allows installation but we need to embed deps too
 
-    # Force offline mode to prevent runtime downloads
-    os.environ["PYAPP_OFFLINE"] = "1"
-
-    # Ensure full dependency resolution at build time
-    os.environ["PYAPP_ALLOW_UPDATES"] = "0"
+    # Method 1: Force dependency installation during PyApp build
+    os.environ["PYAPP_PIP_EXTRA_ARGS"] = "--no-compile --no-cache-dir"
 
     # Remove any custom distribution settings
     if "PYAPP_DISTRIBUTION_PATH" in os.environ:
@@ -385,9 +383,10 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
 
     print(f"Build target: {os.environ.get('PYAPP_BUILD_TARGET', 'default glibc')}")
     print("Using embedded Python distribution from python-build-standalone")
-    print(f"Project wheel: {wheel_file}")
+    print("Project source: . (current directory - will install with all dependencies)")
+    print(f"Wheel created: {wheel_file} (for verification)")
     print(
-        "PyApp configured for maximum compatibility with minimal runtime dependencies"
+        "PyApp configured to install project from source with all dependencies embedded"
     )
 
     # Ensure no CPU feature detection at runtime
