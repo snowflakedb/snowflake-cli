@@ -103,12 +103,46 @@ def copy_and_relocate_system_python(python_tmp_dir: Path, python_version: str) -
     import shutil
     import sys
 
-    # Use the current system Python (our conservatively compiled one)
-    system_python = sys.executable
-    system_python_dir = Path(sys.executable).parent.parent
+    # Use the actual system Python we built, not the hatch virtual environment
+    # Check if we're in a virtual environment and find the real system Python
+    if hasattr(sys, "real_prefix") or (
+        hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix
+    ):
+        # We're in a virtual environment, use the actual system Python
+        system_python = "/usr/local/bin/python"
+        system_python_dir = Path("/usr/local")
+        print("Detected virtual environment, using actual system Python")
+    else:
+        system_python = sys.executable
+        system_python_dir = Path(sys.executable).parent.parent
 
     print(f"Using conservatively compiled system Python: {system_python}")
     print(f"System Python directory: {system_python_dir}")
+
+    # Verify we're using the right Python before copying
+    if not Path(system_python).exists():
+        raise RuntimeError(f"System Python not found at {system_python}")
+
+    # Check if this is our conservatively compiled Python
+    import subprocess
+
+    result = subprocess.run(
+        [
+            system_python,
+            "-c",
+            "import sysconfig; print('CFLAGS:', sysconfig.get_config_var('CFLAGS'))",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        print(f"Source Python verification: {result.stdout.strip()}")
+        if "march=x86-64" in result.stdout and "mno-avx" in result.stdout:
+            print("✅ Confirmed: Using conservatively compiled Python")
+        else:
+            print("⚠️  Warning: Python may not have conservative CPU flags")
+    else:
+        print(f"Warning: Could not verify source Python: {result.stderr}")
 
     # Create target directory structure
     target_python_dir = python_tmp_dir / python_version
