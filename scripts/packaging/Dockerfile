@@ -30,7 +30,12 @@ RUN apt install -y --fix-missing ruby\
   libnss3-dev\
   libsqlite3-dev\
   libssl-dev\
-  openssl
+  openssl\
+  libssl1.1\
+  zlib1g\
+  libbz2-1.0\
+  liblzma5\
+  libffi6
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y tk-dev
 
 RUN gem install dotenv -v 2.8.1

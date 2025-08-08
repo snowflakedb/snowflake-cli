@@ -152,6 +152,48 @@ def copy_and_relocate_system_python(python_tmp_dir: Path, python_version: str) -
     try:
         shutil.copytree(system_python_dir, target_python_dir, dirs_exist_ok=True)
 
+        # Copy essential system libraries that Python needs
+        lib_dir = target_python_dir / "lib"
+        lib_dir.mkdir(exist_ok=True)
+
+        # Copy essential system libraries that Python and packages need
+        essential_libs = [
+            # OpenSSL libraries for ssl module
+            "/usr/lib/x86_64-linux-gnu/libssl.so.1.1",
+            "/usr/lib/x86_64-linux-gnu/libcrypto.so.1.1",
+            "/lib/x86_64-linux-gnu/libssl.so.1.1",
+            "/lib/x86_64-linux-gnu/libcrypto.so.1.1",
+            # Zlib for compression (needed by cryptography)
+            "/usr/lib/x86_64-linux-gnu/libz.so.1",
+            "/lib/x86_64-linux-gnu/libz.so.1",
+            # FFI library
+            "/usr/lib/x86_64-linux-gnu/libffi.so.6",
+            "/lib/x86_64-linux-gnu/libffi.so.6",
+            # Other commonly needed libraries
+            "/usr/lib/x86_64-linux-gnu/libbz2.so.1.0",
+            "/lib/x86_64-linux-gnu/libbz2.so.1.0",
+            "/usr/lib/x86_64-linux-gnu/liblzma.so.5",
+            "/lib/x86_64-linux-gnu/liblzma.so.5",
+        ]
+
+        copied_libs = []
+        for lib_path in essential_libs:
+            if Path(lib_path).exists():
+                lib_name = Path(lib_path).name
+                shutil.copy2(lib_path, lib_dir / lib_name)
+                copied_libs.append(lib_name)
+                print(f"Copied essential library: {lib_name}")
+
+        print(f"Total essential libraries copied: {len(copied_libs)}")
+        if not copied_libs:
+            print("⚠️  Warning: No essential libraries were found to copy")
+
+        # Create lib64 symlink if needed (some systems expect this)
+        lib64_dir = target_python_dir / "lib64"
+        if not lib64_dir.exists():
+            lib64_dir.symlink_to("lib")
+            print("Created lib64 -> lib symlink")
+
         # Create a wrapper script that sets PYTHONHOME correctly
         python_exe = target_python_dir / "bin" / "python"
         python_wrapper = target_python_dir / "bin" / "python_wrapper"
@@ -163,6 +205,7 @@ SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
 PYTHON_HOME="$(dirname "$SCRIPT_DIR")"
 export PYTHONHOME="$PYTHON_HOME"
 export PYTHONPATH="$PYTHON_HOME/lib/python3.10:$PYTHON_HOME/lib/python3.10/lib-dynload:$PYTHON_HOME/lib/python3.10/site-packages"
+export LD_LIBRARY_PATH="$PYTHON_HOME/lib:$PYTHON_HOME/lib64:$LD_LIBRARY_PATH"
 exec "$SCRIPT_DIR/python" "$@"
 """
 
