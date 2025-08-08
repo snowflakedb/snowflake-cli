@@ -61,7 +61,7 @@ validate_from_whl() {
   python -m venv cli_whl_venv
   source cli_whl_venv/bin/activate
 
-  pip install --no-binary=:all: $1
+  pip install --only-binary=cryptography,cffi,pycparser,setuptools-rust $1
   test_version "./cli_whl_venv/bin/snow"
 
   deactivate
@@ -71,7 +71,7 @@ validate_from_tag() {
   python -m venv cli_tag_venv
   source cli_tag_venv/bin/activate
 
-  pip install --no-binary=:all: git+https://github.com/snowflakedb/snowflake-cli.git@v${VERSION}
+  pip install --only-binary=cryptography,cffi,pycparser,setuptools-rust git+https://github.com/snowflakedb/snowflake-cli.git@v${VERSION}
 
   test_version ./cli_tag_venv/bin/snow
   deactivate
