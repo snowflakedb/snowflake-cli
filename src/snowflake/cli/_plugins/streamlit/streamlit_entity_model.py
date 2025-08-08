@@ -23,9 +23,7 @@ from snowflake.cli.api.project.schemas.entities.common import (
     GrantBaseModel,
     ImportsBaseModel,
 )
-from snowflake.cli.api.project.schemas.updatable_model import (
-    DiscriminatorField,
-)
+from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
 
 
 class StreamlitEntityModel(
@@ -53,4 +51,10 @@ class StreamlitEntityModel(
     artifacts: Optional[Artifacts] = Field(
         title="List of paths or file source/destination pairs to add to the deploy root",
         default=None,
+    )
+    runtime_name: Optional[str] = Field(
+        title="Runtime name for SPCS-based Streamlit apps", default=None
+    )
+    compute_pool: Optional[str] = Field(
+        title="Compute pool for SPCS-based Streamlit apps", default=None
     )
