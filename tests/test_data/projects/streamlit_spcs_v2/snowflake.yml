@@ -1,0 +1,19 @@
+definition_version: '2'
+entities:
+  streamlit_app:
+    type: "streamlit"
+    identifier:
+      name: streamlit_spcs_v2_app
+      database: streamlit_test
+      schema: streamlit_schema
+    title: "SPCS V2 Streamlit App"
+    external_access_integrations:
+      - PYPI_ACCESS_INTEGRATION
+    query_warehouse: REGRESS
+    runtime_name: SYSTEM$ST_CONTAINER_RUNTIME_PY3_11
+    compute_pool: MYPOOL
+    main_file: streamlit_app.py
+    artifacts:
+      - streamlit_app.py
+      - utils/utils.py
+      - pages/
