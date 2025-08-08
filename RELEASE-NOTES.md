@@ -21,11 +21,11 @@
 ## New additions
 * Add `snow connection remove` command
 * Added support for `runtime_environment_version` field in notebook entity configuration, allowing specification of runtime environment version for containerized notebooks.
-* Added `snow auth workload-identity` command group for managing workload identity federation authentication:
-  * `snow auth workload-identity setup` - Creates federated users with OIDC authentication configuration
-  * `snow auth workload-identity delete` - Removes existing federated users
-  * `snow auth workload-identity read-token` - Reads and displays OIDC tokens from CI/CD environments
-  * `snow auth workload-identity list` - Lists all users with workload identity federation enabled
+* Added `snow auth oidc` command group for managing workload identity federation authentication:
+  * `snow auth oidc setup` - Creates federated users with OIDC authentication configuration
+  * `snow auth oidc delete` - Removes existing federated users
+  * `snow auth oidc read-token` - Reads and displays OIDC tokens from CI/CD environments
+  * `snow auth oidc list` - Lists all users with workload identity federation enabled
   * Supports GitHub Actions OIDC provider for passwordless authentication in CI/CD pipelines
 
 ## Fixes and improvements
