@@ -53,8 +53,9 @@ class StreamlitEntityModel(
         default=None,
     )
     runtime_name: Optional[str] = Field(
-        title="Runtime name for SPCS-based Streamlit apps", default=None
+        title="The runtime name to run the streamlit app on", default=None
     )
     compute_pool: Optional[str] = Field(
-        title="Compute pool for SPCS-based Streamlit apps", default=None
+        title="The compute pool name of the snowservices running the streamlit app",
+        default=None,
     )
