@@ -116,16 +116,7 @@ RUN python -m pip install \
     -U uv hatch
 
 # Test that Python itself runs with conservative CPU instructions
-RUN python -c "
-import sys
-print('Python executable path:', sys.executable)
-print('Python can import basic modules successfully')
-try:
-    import json, os, subprocess
-    print('Core modules import successfully')
-except Exception as e:
-    print('Error importing core modules:', e)
-"
+RUN python -c "import sys; print('Python executable path:', sys.executable); print('Python can import basic modules successfully'); import json, os, subprocess; print('Core modules import successfully')"
 
 # Test our Python in a minimal environment (similar to your test)
 RUN echo '#!/bin/bash' > /tmp/test_python.sh && \
