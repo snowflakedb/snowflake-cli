@@ -97,20 +97,39 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
     return archive
 
 
-def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
-    """Install Python dist into temp dir for bundling."""
-    completed_proc = subprocess.run(
-        [
-            "hatch",
-            "python",
-            "install",
-            "--private",
-            "--dir",
-            python_tmp_dir,
-            python_version,
-        ]
-    )
-    return not completed_proc.returncode
+def copy_system_python(python_tmp_dir: Path, python_version: str) -> bool:
+    """Copy our conservatively compiled system Python instead of downloading a new one."""
+    import shutil
+    import sys
+
+    # Use the current system Python (our conservatively compiled one)
+    system_python = sys.executable
+    system_python_dir = Path(sys.executable).parent.parent
+
+    print(f"Using conservatively compiled system Python: {system_python}")
+    print(f"System Python directory: {system_python_dir}")
+
+    # Create target directory structure
+    target_python_dir = python_tmp_dir / python_version
+    target_python_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy the entire Python installation
+    try:
+        shutil.copytree(system_python_dir, target_python_dir, dirs_exist_ok=True)
+
+        # Create hatch-dist.json to match expected format
+        import json
+
+        hatch_dist_info = {"python_path": "bin/python"}
+
+        with open(target_python_dir / "hatch-dist.json", "w") as f:
+            json.dump(hatch_dist_info, f)
+
+        print(f"Successfully copied conservative Python to {target_python_dir}")
+        return True
+    except Exception as e:
+        print(f"Error copying system Python: {e}")
+        return False
 
 
 @contextlib.contextmanager
@@ -168,11 +187,30 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
 
 def main():
     settings = ProjectSettings()
-    print("Installing Python distribution to TMP dir...")
-    hatch_install_python(settings.python_tmp_dir, settings.python_version)
-    print("-> installed")
+    print("Copying conservatively compiled system Python to TMP dir...")
+    copy_system_python(settings.python_tmp_dir, settings.python_version)
+    print("-> copied")
 
     print(f"Installing project into Python distribution...")
+    print(f"Target Python executable: {settings.python_dist_exe}")
+
+    # Verify we're using our conservative Python
+    import subprocess
+
+    result = subprocess.run(
+        [
+            str(settings.python_dist_exe),
+            "-c",
+            "import sysconfig; print('Using Python with CFLAGS:', sysconfig.get_config_var('CFLAGS'))",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        print(f"Python verification: {result.stdout.strip()}")
+    else:
+        print(f"Warning: Could not verify Python flags: {result.stderr}")
+
     with override_is_installation_source_variable():
         pip_install_project(str(settings.python_dist_exe))
     print("-> installed")
