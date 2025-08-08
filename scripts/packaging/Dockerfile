@@ -97,8 +97,14 @@ RUN echo "${PYTHON_PREFIX}/lib" > /etc/ld.so.conf.d/python.conf && ldconfig
 RUN python -c "import sysconfig; print('Python built with CFLAGS:', sysconfig.get_config_var('CFLAGS'))"
 RUN python -c "import sys; print('Python version:', sys.version)"
 
-# Use --no-binary to avoid upstream wheels that might use modern CPU instructions
-RUN python -m pip install --no-binary=:all: -U pip
-RUN python -m pip install --no-binary=:all: -U uv hatch
+# Install pip first
+RUN python -m pip install -U pip
+
+# Install packages with selective binary policy
+# Allow binaries for complex packages like cryptography but build others from source
+RUN python -m pip install \
+    --only-binary=cryptography,cffi,pycparser,setuptools-rust \
+    --no-binary=uv,hatch \
+    -U uv hatch
 
 WORKDIR /snowflake-cli

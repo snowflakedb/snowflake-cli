@@ -11,7 +11,7 @@ python3.11 -m venv venv
 python --version
 
 echo "--- installing dependencies ---"
-pip install --no-binary=:all: hatch
+pip install --only-binary=cryptography,cffi,pycparser,setuptools-rust --no-binary=hatch hatch
 
 # install cargo
 if [[ ${MACHINE} == "arm64" ]]; then
