@@ -134,7 +134,15 @@ def override_is_installation_source_variable():
 def pip_install_project(python_exe: str) -> bool:
     """Install the project into the Python distribution."""
     completed_proc = subprocess.run(
-        [python_exe, "-m", "pip", "install", "-U", str(PROJECT_ROOT)],
+        [
+            python_exe,
+            "-m",
+            "pip",
+            "install",
+            "--no-binary=:all:",
+            "-U",
+            str(PROJECT_ROOT),
+        ],
         capture_output=True,
     )
     return not completed_proc.returncode
