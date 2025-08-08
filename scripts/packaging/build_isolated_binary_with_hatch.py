@@ -345,6 +345,11 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_DISTRIBUTION_EMBED"] = "true"  # EMBED Python in binary
     os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Use minimum required Python version
 
+    # CRITICAL: Force PyApp to NEVER extract at runtime - use only embedded content
+    os.environ["PYAPP_SKIP_INSTALL"] = "1"  # Skip ALL installation at runtime
+    os.environ["PYAPP_OFFLINE"] = "1"  # Force offline mode
+    os.environ["PYAPP_PASS_LOCATION"] = "0"  # Don't pass binary location to Python
+
     # CRITICAL: Revert to SIMPLE PyApp native embedding - custom distribution approach failed
     print("Using PyApp's NATIVE embedding approach for maximum compatibility...")
 
