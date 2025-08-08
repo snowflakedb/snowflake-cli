@@ -345,9 +345,10 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     os.environ["PYAPP_DISTRIBUTION_EMBED"] = "true"  # EMBED Python in binary
     os.environ["PYAPP_PYTHON_VERSION"] = "3.10"  # Use minimum required Python version
 
-    # CRITICAL: Force PyApp to NEVER extract at runtime - use only embedded content
-    os.environ["PYAPP_SKIP_INSTALL"] = "1"  # Skip ALL installation at runtime
-    os.environ["PYAPP_OFFLINE"] = "1"  # Force offline mode
+    # CRITICAL: Allow project installation but prevent runtime downloads/extraction
+    os.environ["PYAPP_SKIP_INSTALL"] = "0"  # Allow installation of our project
+    os.environ["PYAPP_OFFLINE"] = "1"  # Force offline mode (no downloads)
+    os.environ["PYAPP_ALLOW_UPDATES"] = "0"  # Never update anything
     os.environ["PYAPP_PASS_LOCATION"] = "0"  # Don't pass binary location to Python
 
     # CRITICAL: Revert to SIMPLE PyApp native embedding - custom distribution approach failed
@@ -365,8 +366,7 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
 
     # Force complete build-time embedding - no runtime extraction
     os.environ["PYAPP_FULL_ISOLATION"] = "1"  # Complete isolation
-    os.environ["PYAPP_ALLOW_UPDATES"] = "0"  # Never update
-    print("Enabled PYAPP_FULL_ISOLATION and disabled updates for true fat binary")
+    print("Enabled PYAPP_FULL_ISOLATION for complete embedding")
 
     # Clean up any custom/complex settings that might interfere with native embedding
     cleanup_vars = [
