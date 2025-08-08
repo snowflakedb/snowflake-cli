@@ -7,7 +7,7 @@ entities:
     title: "SPCS V2 Streamlit App"
     query_warehouse: xsmall
     runtime_name: SYSTEM$ST_CONTAINER_RUNTIME_PY3_11
-    compute_pool: MYPOOL
+    compute_pool: TEST_COMPUTE_POOL
     main_file: streamlit_app.py
     artifacts:
       - streamlit_app.py

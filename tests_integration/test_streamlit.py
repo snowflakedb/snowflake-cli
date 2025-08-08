@@ -207,7 +207,7 @@ def test_streamlit_spcs_runtime_v2_flow(
             assert (
                 "compute_pool" in streamlit_info
             ), "compute_pool field missing from describe output"
-            assert streamlit_info["compute_pool"] == "MYPOOL"
+            assert streamlit_info["compute_pool"] == "TEST_COMPUTE_POOL"
             _streamlit_test_steps.get_url_should_give_proper_url(
                 deployed_name, snowflake_session
             )
