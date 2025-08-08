@@ -97,8 +97,9 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
     return archive
 
 
-def copy_system_python(python_tmp_dir: Path, python_version: str) -> bool:
-    """Copy our conservatively compiled system Python instead of downloading a new one."""
+def copy_and_relocate_system_python(python_tmp_dir: Path, python_version: str) -> bool:
+    """Copy our conservatively compiled system Python and make it relocatable."""
+    import os
     import shutil
     import sys
 
@@ -117,30 +118,60 @@ def copy_system_python(python_tmp_dir: Path, python_version: str) -> bool:
     try:
         shutil.copytree(system_python_dir, target_python_dir, dirs_exist_ok=True)
 
-        # Ensure shared libraries are properly linked and findable
-        lib_dir = target_python_dir / "lib"
-        if lib_dir.exists():
-            print(f"Found Python lib directory: {lib_dir}")
-            # List shared libraries for debugging
-            for lib_file in lib_dir.glob("libpython*.so*"):
-                print(f"Found Python shared library: {lib_file}")
+        # Create a wrapper script that sets PYTHONHOME correctly
+        python_exe = target_python_dir / "bin" / "python"
+        python_wrapper = target_python_dir / "bin" / "python_wrapper"
 
-        # Create hatch-dist.json to match expected format
+        # Create wrapper script
+        wrapper_content = f"""#!/bin/bash
+# Auto-generated wrapper for relocatable Python
+SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
+PYTHON_HOME="$(dirname "$SCRIPT_DIR")"
+export PYTHONHOME="$PYTHON_HOME"
+export PYTHONPATH="$PYTHON_HOME/lib/python3.10:$PYTHON_HOME/lib/python3.10/lib-dynload:$PYTHON_HOME/lib/python3.10/site-packages"
+exec "$SCRIPT_DIR/python" "$@"
+"""
+
+        with open(python_wrapper, "w") as f:
+            f.write(wrapper_content)
+
+        os.chmod(python_wrapper, 0o755)
+        print(f"Created Python wrapper: {python_wrapper}")
+
+        # Test the wrapper
+        import subprocess
+
+        test_result = subprocess.run(
+            [
+                str(python_wrapper),
+                "-c",
+                "import sys; print('Wrapper test successful - Python:', sys.version[:20])",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if test_result.returncode == 0:
+            print(f"Python wrapper test: {test_result.stdout.strip()}")
+        else:
+            print(f"Python wrapper test failed: {test_result.stderr}")
+
+        # Create hatch-dist.json to use our wrapper
         import json
 
-        hatch_dist_info = {
-            "python_path": "bin/python",
-            # Add library path for runtime linking
-            "library_path": "lib",
-        }
+        hatch_dist_info = {"python_path": "bin/python_wrapper"}
 
         with open(target_python_dir / "hatch-dist.json", "w") as f:
             json.dump(hatch_dist_info, f)
 
-        print(f"Successfully copied conservative Python to {target_python_dir}")
+        print(
+            f"Successfully copied and configured conservative Python to {target_python_dir}"
+        )
         return True
     except Exception as e:
         print(f"Error copying system Python: {e}")
+        import traceback
+
+        traceback.print_exc()
         return False
 
 
@@ -199,9 +230,9 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
 
 def main():
     settings = ProjectSettings()
-    print("Copying conservatively compiled system Python to TMP dir...")
-    copy_system_python(settings.python_tmp_dir, settings.python_version)
-    print("-> copied")
+    print("Copying and configuring conservatively compiled system Python...")
+    copy_and_relocate_system_python(settings.python_tmp_dir, settings.python_version)
+    print("-> configured")
 
     print(f"Installing project into Python distribution...")
     print(f"Target Python executable: {settings.python_dist_exe}")
