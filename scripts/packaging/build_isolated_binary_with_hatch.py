@@ -117,10 +117,22 @@ def copy_system_python(python_tmp_dir: Path, python_version: str) -> bool:
     try:
         shutil.copytree(system_python_dir, target_python_dir, dirs_exist_ok=True)
 
+        # Ensure shared libraries are properly linked and findable
+        lib_dir = target_python_dir / "lib"
+        if lib_dir.exists():
+            print(f"Found Python lib directory: {lib_dir}")
+            # List shared libraries for debugging
+            for lib_file in lib_dir.glob("libpython*.so*"):
+                print(f"Found Python shared library: {lib_file}")
+
         # Create hatch-dist.json to match expected format
         import json
 
-        hatch_dist_info = {"python_path": "bin/python"}
+        hatch_dist_info = {
+            "python_path": "bin/python",
+            # Add library path for runtime linking
+            "library_path": "lib",
+        }
 
         with open(target_python_dir / "hatch-dist.json", "w") as f:
             json.dump(hatch_dist_info, f)
