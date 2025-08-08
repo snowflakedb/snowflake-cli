@@ -358,21 +358,43 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
     # This forces PyApp to embed dependencies at BUILD TIME, not runtime
     print("Configuring PyApp for BUILD-TIME dependency embedding...")
 
-    # Use the EXACT configuration that works: embed Python + install project with dependencies
-    os.environ[
-        "PYAPP_PROJECT_NAME"
-    ] = "."  # Install current project with all dependencies
-    print("Set PYAPP_PROJECT_NAME = '.' for build-time dependency resolution")
+    # Use wheel-based installation to avoid PyPI confusion
+    print("Building wheel for PyApp installation...")
+    wheel_build_result = subprocess.run(
+        [sys.executable, "-m", "pip", "wheel", ".", "--no-deps", "--wheel-dir", "dist"],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    if wheel_build_result.returncode != 0:
+        print(f"Failed to build wheel: {wheel_build_result.stderr}")
+        sys.exit(1)
+
+    # Find the generated wheel file
+    wheel_files = list(Path(PROJECT_ROOT / "dist").glob("snowflake_cli-*.whl"))
+    if not wheel_files:
+        print("No wheel file found after build")
+        sys.exit(1)
+
+    wheel_file = wheel_files[0]
+
+    # Use wheel file instead of project name to avoid PyPI lookup
+    os.environ["PYAPP_PROJECT_PATH"] = str(wheel_file)
+    print(f"Set PYAPP_PROJECT_PATH = '{wheel_file}' for local wheel installation")
+
+    # Remove project name since we're using wheel path
+    if "PYAPP_PROJECT_NAME" in os.environ:
+        del os.environ["PYAPP_PROJECT_NAME"]
 
     # Force complete build-time embedding - no runtime extraction
     os.environ["PYAPP_FULL_ISOLATION"] = "1"  # Complete isolation
     print("Enabled PYAPP_FULL_ISOLATION for complete embedding")
 
-    # Clean up any custom/complex settings that might interfere with native embedding
+    # Clean up any custom distribution settings that might interfere
     cleanup_vars = [
         "PYAPP_DISTRIBUTION_PATH",
         "PYAPP_DISTRIBUTION_PYTHON_PATH",
-        "PYAPP_PROJECT_PATH",
         "PYAPP_PIP_EXTRA_ARGS",
     ]
 
