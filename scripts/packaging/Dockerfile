@@ -65,7 +65,7 @@ RUN cd /tmp/Python-${PYTHON_VERSION} && \
     echo "CXXFLAGS: $CXXFLAGS" && \
     ./configure \
         --prefix=${PYTHON_PREFIX} \
-        --enable-shared \
+        --disable-shared \
         --with-system-ffi \
         --with-computed-gotos \
         --enable-loadable-sqlite-extensions \
