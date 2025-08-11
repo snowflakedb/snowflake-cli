@@ -191,17 +191,37 @@ class TestOidcManager:
     @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
     def test_delete_drops_federated_user(self, mock_execute_query):
         """Test that delete method drops a federated user."""
-        manager = OidcManager()
+        # Mock search results - return one user found
+        mock_search_cursor = Mock()
+        mock_search_cursor.fetchall.return_value = [("test_user", True)]
 
+        # Mock second call for DROP USER
+        mock_drop_cursor = Mock()
+
+        # Set up mock to return different results for each call
+        mock_execute_query.side_effect = [mock_search_cursor, mock_drop_cursor]
+
+        manager = OidcManager()
         result = manager.delete(user="test_user")
 
-        # Verify the SQL command was executed
-        mock_execute_query.assert_called_once_with("DROP USER test_user")
+        # Verify the SQL commands were executed
+        assert mock_execute_query.call_count == 2
+
+        # Check search query
+        search_call = mock_execute_query.call_args_list[0][0][0]
+        assert "show terse users" in search_call
+        assert "has_workload_identity" in search_call
+        assert "test_user" in search_call
+
+        # Check drop query
+        drop_call = mock_execute_query.call_args_list[1][0][0]
+        assert 'DROP USER "test_user"' in drop_call
 
         # Verify return message
         assert "Successfully deleted federated user 'test_user'" in result
 
-    def test_delete_parameter_validation(self):
+    @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
+    def test_delete_parameter_validation(self, mock_execute_query):
         """Test parameter validation in delete method."""
         manager = OidcManager()
 
@@ -209,9 +229,9 @@ class TestOidcManager:
         with pytest.raises(CliError, match="Federated user name cannot be empty"):
             manager.delete("")
 
-        # Test invalid user name
-        with pytest.raises(CliError, match="Invalid federated user name"):
-            manager.delete("123invalid")
+        # Test whitespace only user name
+        with pytest.raises(CliError, match="Federated user name cannot be empty"):
+            manager.delete("   ")
 
     @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
     def test_delete_sql_exception_handling(self, mock_execute_query):
@@ -219,11 +239,52 @@ class TestOidcManager:
         manager = OidcManager()
         mock_execute_query.side_effect = Exception("SQL execution failed")
 
+        # The new implementation should let the exception bubble up from execute_query
+        with pytest.raises(Exception, match="SQL execution failed"):
+            manager.delete("test_user")
+
+    @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
+    def test_delete_user_not_found(self, mock_execute_query):
+        """Test delete when user is not found."""
+        # Mock search results - return no users found
+        mock_search_cursor = Mock()
+        mock_search_cursor.fetchall.return_value = []
+
+        mock_execute_query.return_value = mock_search_cursor
+
+        manager = OidcManager()
+
+        with pytest.raises(CliError, match="Federated 'test_user' user not found"):
+            manager.delete("test_user")
+
+        # Verify only search query was executed
+        assert mock_execute_query.call_count == 1
+        search_call = mock_execute_query.call_args_list[0][0][0]
+        assert "show terse users" in search_call
+
+    @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
+    def test_delete_multiple_users_found(self, mock_execute_query):
+        """Test delete when multiple users are found."""
+        # Mock search results - return multiple users found
+        mock_search_cursor = Mock()
+        mock_search_cursor.fetchall.return_value = [
+            ("test_user_1", True),
+            ("test_user_2", True),
+        ]
+
+        mock_execute_query.return_value = mock_search_cursor
+
+        manager = OidcManager()
+
         with pytest.raises(
-            CliError,
-            match="Failed to delete federated user 'test_user': SQL execution failed",
+            CliError, match="Error searching for federated user 'test_user'"
         ):
             manager.delete("test_user")
+
+        # Verify only search query was executed
+        assert mock_execute_query.call_count == 1
+        search_call = mock_execute_query.call_args_list[0][0][0]
+        assert "show terse users" in search_call
 
     def test_read_token_with_auto_type(self):
         """Test read_token method with auto type delegates to auto_detect_oidc_provider."""
