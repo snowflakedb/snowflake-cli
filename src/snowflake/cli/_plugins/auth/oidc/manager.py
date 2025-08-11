@@ -121,28 +121,42 @@ class OidcManager(SqlExecutionMixin):
         Raises:
             CliError: If user deletion fails or parameters are invalid
         """
-        logger.info("Deleting federated user: %s", user)
+        logger.info("Deleting federated user: %r", user)
 
-        if not user.strip():
+        _user = user.strip()
+        if not _user:
             raise CliError("Federated user name cannot be empty")
 
-        # Basic validation for user name format
-        if user.strip() and (
-            user[0].isdigit() or not user.replace("_", "").replace("-", "").isalnum()
-        ):
-            raise CliError("Invalid federated user name")
+        logger.debug("Searching for federated user %r", _user)
 
-        try:
-            logger.debug("Executing DROP USER command for federated user: %s", user)
-            self.execute_query(f"DROP USER {user}")
+        _search_stmt = (
+            f'show terse users ->> select "name", "has_workload_identity" '
+            f'from $1 where "has_workload_identity" = true and "name" ILIKE \'{_user}\''
+        )
+        logger.debug("Search statement: %r", _search_stmt)
 
-            success_message = "Successfully deleted federated user '%s'" % user
-            logger.info(success_message)
-            return success_message
-        except Exception as e:
-            error_msg = "Failed to delete federated user '%s': %s" % (user, str(e))
-            logger.error(error_msg)
-            raise CliError(error_msg)
+        _search_res = self.execute_query(_search_stmt).fetchall()
+        logger.debug("Seaerch results: %r", _search_res)
+
+        _search_count = len(_search_res)
+        match _search_count:
+            case 1:
+                _user_name = _search_res[0][0]
+                logger.debug(
+                    "Executing DROP USER command for federated user: %r", _user_name
+                )
+                self.execute_query(f'DROP USER "{_user_name}"')
+                success_message = f"Successfully deleted federated user {_user!r}"
+                logger.info(success_message)
+                return success_message
+            case 0:
+                msg = f"Federated {_user!r} user not found"
+                logger.debug(msg)
+                raise CliError(msg)
+            case _:
+                msg = f"Error searching for federated user {_user!r}"
+                logger.debug(msg)
+                raise CliError(msg)
 
     def read_token(
         self,
