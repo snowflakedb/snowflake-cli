@@ -136,7 +136,7 @@ class OidcManager(SqlExecutionMixin):
         logger.debug("Search statement: %r", _search_stmt)
 
         _search_res = self.execute_query(_search_stmt).fetchall()
-        logger.debug("Seaerch results: %r", _search_res)
+        logger.debug("Search results: %r", _search_res)
 
         _search_count = len(_search_res)
         match _search_count:
