@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+import logging
 import tempfile
 import time
 from datetime import datetime
@@ -25,13 +26,27 @@ from snowflake.cli._plugins.container_runtime.container_spec import (
 )
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
+
+log = logging.getLogger(__name__)
 
 
 class ContainerRuntimeManager(SqlExecutionMixin):
     DEFAULT_SERVICE_PREFIX = "SNOW_CR"
     DEFAULT_EAI = "ALLOW_ALL_INTEGRATION"
+
+    def service_exists(self, service_name: str) -> bool:
+        """Check if a service exists."""
+        try:
+            # Try to get service status - if it succeeds, service exists
+            from snowflake.cli._plugins.spcs.services.manager import ServiceManager
+
+            service_manager = ServiceManager()
+            service_manager.status(service_name)
+            return True
+        except Exception:
+            # Service doesn't exist or is inaccessible
+            return False
 
     def create(
         self,
@@ -42,7 +57,7 @@ class ContainerRuntimeManager(SqlExecutionMixin):
         stage: Optional[str] = None,
         workspace: Optional[str] = None,
         image_tag: Optional[str] = None,
-    ) -> str:
+    ) -> tuple[str, str, bool]:  # Returns (service_name, url, was_created)
         """
         Creates a new container runtime service with VS Code Server.
 
@@ -56,7 +71,7 @@ class ContainerRuntimeManager(SqlExecutionMixin):
             image_tag: Custom image tag to use
 
         Returns:
-            The endpoint URL for the created service
+            Tuple of (service_name, endpoint_url, was_created)
         """
         # Determine if workspace is a stage path or workspace name
         is_workspace_name = False
@@ -66,14 +81,16 @@ class ContainerRuntimeManager(SqlExecutionMixin):
             if workspace.startswith("@") or workspace.startswith("snow://"):
                 # Workspace is actually a stage path
                 workspace_stage_path = workspace.rstrip("/")
-                cc.step(f"Using workspace as stage path: {workspace_stage_path}")
+                log.debug("Using workspace as stage path: %s", workspace_stage_path)
             else:
                 # Workspace is a workspace name - use personal database
                 is_workspace_name = True
                 workspace_stage_path = (
                     f"snow://workspace/USER$.public.{workspace}/versions/live"
                 )
-                cc.step(f"Using Snowflake workspace: {workspace} in personal database")
+                log.debug(
+                    "Using Snowflake workspace: %s in personal database", workspace
+                )
 
                 # TODO: Set required session parameters for personal database, including:
                 # - ENABLE_SPCS_CREATION_IN_PERSONAL_DB
@@ -87,8 +104,15 @@ class ContainerRuntimeManager(SqlExecutionMixin):
         else:
             name = f"{self.DEFAULT_SERVICE_PREFIX}_{name}"
 
-        cc.step(f"Using service name: {name}")
-        cc.step(f"Using compute pool: {compute_pool}")
+        log.debug("Using service name: %s", name)
+        log.debug("Using compute pool: %s", compute_pool)
+
+        # Check if service already exists
+        if self.service_exists(name):
+            log.debug("Service %s already exists, getting endpoint URL", name)
+            # Service exists, just get the URL
+            endpoint_url = self._get_service_endpoint_url(name)
+            return name, endpoint_url, False
 
         # Use current warehouse if not provided
         if not warehouse:
@@ -102,6 +126,7 @@ class ContainerRuntimeManager(SqlExecutionMixin):
                 )
             # Remove trailing slash from stage
             stage = stage.rstrip("/")
+            log.debug("Using stage: %s", stage)
 
         # Validate workspace stage path if provided
         if workspace_stage_path:
@@ -115,7 +140,7 @@ class ContainerRuntimeManager(SqlExecutionMixin):
         # Handle secondary roles for workspace stages
         if stage and stage.startswith("snow://"):
             file_list = self.snowpark_session.sql(f"LIST {stage}").collect()
-            cc.step(f"Files in the stage: {file_list}")
+            log.debug("Files in the stage: %s", file_list)
 
         if (
             workspace_stage_path
@@ -125,7 +150,7 @@ class ContainerRuntimeManager(SqlExecutionMixin):
             file_list = self.snowpark_session.sql(
                 f"LIST {workspace_stage_path}"
             ).collect()
-            cc.step(f"Files in the workspace: {file_list}")
+            log.debug("Files in the workspace: %s", file_list)
 
         # Generate a service specification
         spec = self.generate_service_spec(
@@ -140,10 +165,10 @@ class ContainerRuntimeManager(SqlExecutionMixin):
             suffix=".yaml", mode="w+", delete=False
         ) as tmp:
             # Write spec to a temporary file
-            cc.step(f"Writing service spec to {tmp.name}")
+            log.debug("Writing service spec to %s", tmp.name)
             yaml.dump(spec, tmp)
             temp_spec_file = Path(tmp.name)
-            cc.step(f"Created service spec file: {temp_spec_file}")
+            log.debug("Created service spec file: %s", temp_spec_file)
 
             service_manager = ServiceManager()
 
@@ -171,14 +196,14 @@ QUERY_WAREHOUSE = {warehouse}
                 query += f" EXTERNAL_ACCESS_INTEGRATIONS = ({external_access_integration_list})"
 
             res = self.snowpark_session.sql(query).collect()
-            cc.step(f"Created service {name}: {res}")
+            log.debug("Created service %s: %s", name, res)
 
             # Wait for service to be ready
             self.wait_for_service_ready(name)
 
             # Get service endpoint
             endpoint_url = self._get_service_endpoint_url(name)
-            return endpoint_url
+            return name, endpoint_url, True
 
     def generate_service_spec(
         self,
@@ -216,18 +241,18 @@ QUERY_WAREHOUSE = {warehouse}
         service_manager = ServiceManager()
 
         start_time = time.time()
-        cc.step(f"Waiting for service '{service_name}' to be ready...")
+        log.debug("Waiting for service '%s' to be ready...", service_name)
 
         while time.time() - start_time < timeout_sec:
             status_cursor = service_manager.status(service_name)
             status_row = status_cursor.fetchone()
-            cc.step(f"Service status for {service_name}: {status_row}")
+            log.debug("Service status for %s: %s", service_name, status_row)
             if status_row:
                 status_dict = json.loads(status_row[0])
                 if status_dict:
                     status = status_dict[0]["status"]
                     if status == "READY":
-                        cc.step(f"Service '{service_name}' is ready!")
+                        log.debug("Service '%s' is ready!", service_name)
                         return True
                     elif status in ["FAILED", "UNKNOWN"]:
                         raise RuntimeError(

@@ -36,15 +36,22 @@ def test_create_container_runtime_minimal_params(mock_manager_class, runner):
     """Test creating container runtime with minimal required parameters."""
     mock_manager = Mock()
     mock_manager_class.return_value = mock_manager
-    mock_manager.create.return_value = "https://example.com/vscode"
+    mock_manager.create.return_value = (
+        "SNOW_CR_test_service",
+        "https://example.com/vscode",
+        True,
+    )
 
     result = runner.invoke(
         ["container-runtime", "create", "--compute-pool", "test_pool"]
     )
 
     assert result.exit_code == 0, result.output
-    assert "✓ Container Runtime Environment created successfully!" in result.output
-    assert "Access your VS Code Server at: https://example.com/vscode" in result.output
+    assert (
+        "✓ Container Runtime Environment SNOW_CR_test_service created successfully!"
+        in result.output
+    )
+    assert "VS Code Server URL: https://example.com/vscode" in result.output
 
     mock_manager.create.assert_called_once_with(
         name=None,
@@ -61,7 +68,11 @@ def test_create_container_runtime_all_params(mock_manager_class, runner):
     """Test creating container runtime with all parameters."""
     mock_manager = Mock()
     mock_manager_class.return_value = mock_manager
-    mock_manager.create.return_value = "https://example.com/vscode"
+    mock_manager.create.return_value = (
+        "SNOW_CR_custom_name",
+        "https://example.com/vscode",
+        True,
+    )
 
     result = runner.invoke(
         [
@@ -71,9 +82,9 @@ def test_create_container_runtime_all_params(mock_manager_class, runner):
             "test_pool",
             "--name",
             "custom_name",
-            "--external-access",
+            "--eai-name",
             "integration1",
-            "--external-access",
+            "--eai-name",
             "integration2",
             "--stage",
             "@my_stage/folder",
@@ -90,6 +101,38 @@ def test_create_container_runtime_all_params(mock_manager_class, runner):
         stage="@my_stage/folder",
         workspace=None,
         image_tag="custom:v1.0",
+    )
+
+
+@patch("snowflake.cli._plugins.container_runtime.commands.ContainerRuntimeManager")
+def test_create_container_runtime_already_exists(mock_manager_class, runner):
+    """Test creating container runtime when service already exists."""
+    mock_manager = Mock()
+    mock_manager_class.return_value = mock_manager
+    mock_manager.create.return_value = (
+        "SNOW_CR_existing_service",
+        "https://example.com/vscode",
+        False,
+    )
+
+    result = runner.invoke(
+        ["container-runtime", "create", "--compute-pool", "test_pool"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (
+        "✓ Container Runtime Environment SNOW_CR_existing_service already exists!"
+        in result.output
+    )
+    assert "VS Code Server URL: https://example.com/vscode" in result.output
+
+    mock_manager.create.assert_called_once_with(
+        name=None,
+        compute_pool="test_pool",
+        external_access=None,
+        stage=None,
+        workspace=None,
+        image_tag=None,
     )
 
 

@@ -62,9 +62,9 @@ def create(
         "--name",
         help="Custom identifier for the service",
     ),
-    external_access: Optional[List[str]] = typer.Option(
+    eai_name: Optional[List[str]] = typer.Option(
         None,
-        "--external-access",
+        "--eai-name",
         help="List of external access integration names to enable network access to external resources",
     ),
     stage: Optional[str] = typer.Option(
@@ -103,39 +103,42 @@ def create(
 
     try:
         manager = ContainerRuntimeManager()
-        url = manager.create(
+        service_name, url, was_created = manager.create(
             name=name,
             compute_pool=compute_pool,
-            external_access=external_access,
+            external_access=eai_name,
             stage=stage,
             workspace=workspace,
             image_tag=image_tag,
         )
 
-        # Display success message with the endpoint URL
-        cc.step("✓ Container Runtime Environment created successfully!")
-        cc.step(f"Access your VS Code Server at: {url}")
+        # Display essential information only
+        if was_created:
+            cc.step(
+                f"✓ Container Runtime Environment {service_name} created successfully!"
+            )
+        else:
+            cc.step(f"✓ Container Runtime Environment {service_name} already exists!")
+
+        cc.step(f"VS Code Server URL: {url}")
+
+        # Log detailed information at debug level
         if stage:
-            cc.step(f"Stage '{stage}' mounted:")
-            if workspace:
-                cc.step(
-                    f"  - Workspace: '{workspace}' → '{constants.USER_WORKSPACE_VOLUME_MOUNT_PATH}'"
-                )
-            else:
-                cc.step(
-                    f"  - Workspace: '{stage}/user-default' → '{constants.USER_WORKSPACE_VOLUME_MOUNT_PATH}'"
-                )
-            cc.step(
-                f"  - VS Code data: '{stage}/.vscode-server/data' → '{constants.USER_VSCODE_DATA_VOLUME_MOUNT_PATH}'"
+            log.debug("Stage '%s' mounted:", stage)
+            log.debug(
+                "  - Workspace: '%s/user-default' → '%s'",
+                stage,
+                constants.USER_WORKSPACE_VOLUME_MOUNT_PATH,
             )
-        elif workspace:
-            cc.step(
-                f"Workspace '{workspace}' configured → '{constants.USER_WORKSPACE_VOLUME_MOUNT_PATH}'"
+            log.debug(
+                "  - VS Code data: '%s/.vscode-server/data' → '%s'",
+                stage,
+                constants.USER_VSCODE_DATA_VOLUME_MOUNT_PATH,
             )
-        if external_access:
-            cc.step(f"External access integrations: {', '.join(external_access)}")
+        if eai_name:
+            log.debug("External access integrations: %s", ", ".join(eai_name))
         if image_tag:
-            cc.step(f"Using custom image tag: {image_tag}")
+            log.debug("Using custom image tag: %s", image_tag)
     except Exception as e:
         cc.step(f"Error: {str(e)}")
         raise typer.Exit(code=1)
