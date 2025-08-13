@@ -65,28 +65,6 @@ class TestOidcManager:
         # Verify return message
         assert "Successfully created OIDC user 'test_user'" in result
 
-    def test_create_user_parameter_validation(self):
-        """Test parameter validation in create_user method."""
-        manager = OidcManager()
-
-        # Test empty subject
-        with pytest.raises(CliError, match="Subject cannot be empty"):
-            manager.create_user(
-                user_name="test_user",
-                issuer="https://token.actions.githubusercontent.com",
-                subject="",
-                default_role="test_role",
-            )
-
-        # Test whitespace-only subject
-        with pytest.raises(CliError, match="Subject cannot be empty"):
-            manager.create_user(
-                user_name="test_user",
-                issuer="https://token.actions.githubusercontent.com",
-                subject="   ",
-                default_role="test_role",
-            )
-
     @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
     def test_create_user_sql_exception_handling(self, mock_execute_query):
         """Test that create_user method handles SQL execution exceptions."""

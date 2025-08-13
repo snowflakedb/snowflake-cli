@@ -74,9 +74,6 @@ class OidcManager(SqlExecutionMixin):
             default_role,
         )
 
-        if not subject.strip():
-            raise CliError("Subject cannot be empty")
-
         create_user_sql = (
             f"CREATE USER {user_name} WORKLOAD_IDENTITY = ("
             f" TYPE = 'OIDC'"
