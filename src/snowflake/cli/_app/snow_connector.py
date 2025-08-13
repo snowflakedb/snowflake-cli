@@ -45,6 +45,7 @@ from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secret import SecretType
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import SnowflakeConnection
+from snowflake.connector.auth.workload_identity import ApiFederatedAuthenticationType
 from snowflake.connector.errors import DatabaseError, ForbiddenError
 
 log = logging.getLogger(__name__)
@@ -160,7 +161,11 @@ def connect_to_snowflake(
         connection_parameters["client_request_mfa_token"] = True
 
     # Handle WORKLOAD_IDENTITY authenticator (OIDC authentication)
-    if connection_parameters.get("authenticator") == AUTHENTICATOR_WORKLOAD_IDENTITY:
+    if (
+        connection_parameters.get("authenticator") == AUTHENTICATOR_WORKLOAD_IDENTITY
+        and connection_parameters.get("workload_identity_provider")
+        == ApiFederatedAuthenticationType.OIDC.value
+    ):
         _maybe_update_oidc_token(connection_parameters)
 
     if enable_diag:
