@@ -137,6 +137,7 @@ def generate_service_spec(
     stage: Optional[str] = None,
     workspace_stage_path: Optional[str] = None,
     image_tag: Optional[str] = None,
+    ssh_public_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Generate a service specification for a container service.
@@ -149,6 +150,7 @@ def generate_service_spec(
         stage: Optional internal Snowflake stage to mount (e.g., @my_stage)
         workspace_stage_path: Optional workspace stage path (for workspace parameter)
         image_tag: Optional custom image tag to use
+        ssh_public_key: Optional SSH public key to inject for secure authentication
 
     Returns:
         Service specification
@@ -271,6 +273,10 @@ def generate_service_spec(
     }
     if environment_vars:
         env_vars.update(environment_vars)
+
+    # Inject SSH public key for secure authentication
+    if ssh_public_key:
+        env_vars["SSH_PUBLIC_KEY"] = ssh_public_key
 
     cc.step(f"env vars: {env_vars}")
 

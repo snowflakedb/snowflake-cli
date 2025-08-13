@@ -5,11 +5,12 @@ import platform
 import re
 import subprocess
 from dataclasses import dataclass
-from pathlib import PurePath
+from pathlib import Path, PurePath
 from typing import (
     Dict,
     List,
     Optional,
+    Tuple,
     TypedDict,
     Union,
     cast,
@@ -22,6 +23,7 @@ from typing_extensions import NotRequired, Required
 # Constants for SSH configuration
 SSH_CONFIG_PATH = "~/.ssh/config"
 SSH_HOST_PREFIX = "snowflake-remote-runtime-"
+SSH_KEY_DIR = "~/.ssh/snowflake-container-runtime"
 
 
 def check_websocat_installed() -> bool:
@@ -51,6 +53,102 @@ def install_websocat_instructions() -> str:
         return "Install websocat from: https://github.com/vi/websocat/releases"
 
 
+def generate_ssh_key_pair(
+    service_name: str, key_type: str = "ed25519"
+) -> Tuple[str, str]:
+    """
+    Generate SSH key pair for the container runtime service.
+
+    Args:
+        service_name: The name of the service
+        key_type: Type of SSH key to generate (ed25519, rsa, ecdsa)
+
+    Returns:
+        Tuple of (private_key_path, public_key_content)
+    """
+    # Create SSH key directory if it doesn't exist
+    ssh_key_dir = Path(os.path.expanduser(SSH_KEY_DIR))
+    ssh_key_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+
+    # Define key file paths
+    private_key_path = ssh_key_dir / f"{service_name}"
+    public_key_path = ssh_key_dir / f"{service_name}.pub"
+
+    # Remove existing keys if they exist
+    if private_key_path.exists():
+        private_key_path.unlink()
+    if public_key_path.exists():
+        public_key_path.unlink()
+
+    # Generate the SSH key pair
+    try:
+        cmd = [
+            "ssh-keygen",
+            "-t",
+            key_type,
+            "-f",
+            str(private_key_path),
+            "-N",
+            "",  # No passphrase
+            "-C",
+            f"snowflake-container-runtime-{service_name}",
+        ]
+
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+            text=True,
+        )
+
+        # Set proper permissions
+        private_key_path.chmod(0o600)
+        public_key_path.chmod(0o644)
+
+        # Read the public key content
+        with open(public_key_path, "r") as f:
+            public_key_content = f.read().strip()
+
+        cc.step(f"🔑 Generated SSH key pair for service '{service_name}'")
+        cc.step(f"   Private key: {private_key_path}")
+        cc.step(f"   Public key: {public_key_path}")
+
+        return str(private_key_path), public_key_content
+
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Failed to generate SSH key pair: {e.stderr}")
+    except FileNotFoundError:
+        raise RuntimeError(
+            "ssh-keygen command not found. Please install OpenSSH client."
+        )
+
+
+def get_existing_ssh_key(service_name: str) -> Optional[Tuple[str, str]]:
+    """
+    Get existing SSH key pair for the service if it exists.
+
+    Args:
+        service_name: The name of the service
+
+    Returns:
+        Tuple of (private_key_path, public_key_content) or None if not found
+    """
+    ssh_key_dir = Path(os.path.expanduser(SSH_KEY_DIR))
+    private_key_path = ssh_key_dir / f"{service_name}"
+    public_key_path = ssh_key_dir / f"{service_name}.pub"
+
+    if private_key_path.exists() and public_key_path.exists():
+        try:
+            with open(public_key_path, "r") as f:
+                public_key_content = f.read().strip()
+            return str(private_key_path), public_key_content
+        except IOError:
+            return None
+
+    return None
+
+
 def install_websocat_macos() -> bool:
     """Install websocat on macOS using Homebrew."""
     try:
@@ -73,7 +171,10 @@ def install_websocat_macos() -> bool:
 
 
 def setup_ssh_config_with_token(
-    service_name: str, ssh_endpoint_url: str, token: str
+    service_name: str,
+    ssh_endpoint_url: str,
+    token: str,
+    private_key_path: Optional[str] = None,
 ) -> None:
     """
     Setup SSH configuration for the remote runtime service using token authentication.
@@ -82,6 +183,7 @@ def setup_ssh_config_with_token(
         service_name: The name of the service
         ssh_endpoint_url: The URL of the SSH endpoint
         token: The Snowflake authentication token
+        private_key_path: Optional path to SSH private key for key-based authentication
     """
     # Check if websocat is installed
     if not check_websocat_installed():
@@ -114,14 +216,36 @@ def setup_ssh_config_with_token(
 
     # Prepare SSH config content - format matches the user's example
     host_name = f"{SSH_HOST_PREFIX}{service_name}"
-    config_content = f"""
-Host {host_name}
-  HostName {hostname}
-  Port     22
-  User     root
-  ProxyCommand websocat --binary wss://{hostname}/ -H "Authorization: Snowflake Token=\\"{token}\\""
-  StrictHostKeyChecking no
-"""
+
+    # Build SSH config with optional key authentication
+    config_lines = [
+        f"Host {host_name}",
+        f"  HostName {hostname}",
+        f"  Port     22",
+        f"  User     root",
+        f'  ProxyCommand websocat --binary wss://{hostname}/ -H "Authorization: Snowflake Token=\\"{token}\\""',
+    ]
+
+    if private_key_path:
+        config_lines.extend(
+            [
+                f"  IdentityFile {private_key_path}",
+                f"  IdentitiesOnly yes",
+                f"  PubkeyAuthentication yes",
+                f"  PasswordAuthentication no",
+                f"  StrictHostKeyChecking no",
+                f"  UserKnownHostsFile /dev/null",
+            ]
+        )
+    else:
+        config_lines.extend(
+            [
+                f"  StrictHostKeyChecking no",
+                f"  UserKnownHostsFile /dev/null",
+            ]
+        )
+
+    config_content = "\n" + "\n".join(config_lines) + "\n"
 
     # Expand the SSH config path
     ssh_config_path = os.path.expanduser(SSH_CONFIG_PATH)

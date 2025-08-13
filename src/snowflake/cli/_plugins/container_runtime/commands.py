@@ -24,6 +24,8 @@ from snowflake.cli._plugins.container_runtime import constants
 from snowflake.cli._plugins.container_runtime.manager import ContainerRuntimeManager
 from snowflake.cli._plugins.container_runtime.utils import (
     configure_vscode_settings,
+    generate_ssh_key_pair,
+    get_existing_ssh_key,
     setup_ssh_config_with_token,
 )
 from snowflake.cli.api.commands.flags import identifier_argument
@@ -82,6 +84,11 @@ def create(
         "--image-tag",
         help="Custom image tag to use for the container runtime environment",
     ),
+    generate_ssh_key: bool = typer.Option(
+        False,
+        "--generate-ssh-key",
+        help="Generate SSH key pair for secure authentication (recommended for production)",
+    ),
     **options,
 ) -> None:
     """
@@ -102,6 +109,29 @@ def create(
         raise typer.Exit(code=1)
 
     try:
+        # Handle SSH key generation if requested
+        ssh_public_key = None
+        if generate_ssh_key:
+            cc.step("🔐 Generating SSH key pair for secure authentication...")
+
+            # Generate a unique service name to determine final key name
+            temp_manager = ContainerRuntimeManager()
+            if not name:
+                from datetime import datetime
+
+                from snowflake.cli.api.cli_global_context import get_cli_context
+
+                username = get_cli_context().connection.user.lower()
+                timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+                temp_name = f"SNOW_CR_{username}_{timestamp}"
+            else:
+                temp_name = f"SNOW_CR_{name}"
+
+            # Generate SSH key pair
+            private_key_path, ssh_public_key = generate_ssh_key_pair(temp_name)
+            cc.step(f"🔑 SSH key pair generated successfully")
+            cc.step(f"   Service will be configured for secure SSH key authentication")
+
         manager = ContainerRuntimeManager()
         service_name, url, was_created = manager.create(
             name=name,
@@ -110,6 +140,7 @@ def create(
             stage=stage,
             workspace=workspace,
             image_tag=image_tag,
+            ssh_public_key=ssh_public_key,
         )
 
         # Display essential information only
@@ -304,6 +335,20 @@ def setup_ssh(
 
         cc.step(f"✅ Found websocket SSH endpoint: {ssh_endpoint_url}")
 
+        # Handle SSH key authentication setup
+        private_key_path = None
+        ssh_key_result = get_existing_ssh_key(name)
+
+        if ssh_key_result:
+            private_key_path, public_key = ssh_key_result
+            cc.step(f"🔑 Found existing SSH key pair for service '{name}'")
+            cc.step(f"   Using SSH key authentication for enhanced security")
+        else:
+            cc.step(f"💡 Using token-only authentication (less secure)")
+            cc.step(
+                f"💡 For enhanced security, recreate the container with --generate-ssh-key"
+            )
+
         # Configure VS Code settings before starting the token management loop
         if vscode_server_path:
             cc.step("🎨 Configuring VS Code Remote SSH settings...")
@@ -397,10 +442,17 @@ def setup_ssh(
                     continue
 
                 # Update SSH configuration with current token
-                cc.step(
-                    f"🔧 Updating SSH configuration with fresh token... (refresh #{token_refresh_count + 1})"
+                if private_key_path:
+                    cc.step(
+                        f"🔧 Updating SSH configuration with fresh token and SSH key... (refresh #{token_refresh_count + 1})"
+                    )
+                else:
+                    cc.step(
+                        f"🔧 Updating SSH configuration with fresh token... (refresh #{token_refresh_count + 1})"
+                    )
+                setup_ssh_config_with_token(
+                    name, ssh_endpoint_url, token, private_key_path
                 )
-                setup_ssh_config_with_token(name, ssh_endpoint_url, token)
 
                 token_refresh_count += 1
                 next_refresh_time = time.time() + refresh_interval

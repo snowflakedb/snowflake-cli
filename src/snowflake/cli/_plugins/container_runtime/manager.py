@@ -57,6 +57,7 @@ class ContainerRuntimeManager(SqlExecutionMixin):
         stage: Optional[str] = None,
         workspace: Optional[str] = None,
         image_tag: Optional[str] = None,
+        ssh_public_key: Optional[str] = None,
     ) -> tuple[str, str, bool]:  # Returns (service_name, url, was_created)
         """
         Creates a new container runtime service with VS Code Server.
@@ -69,6 +70,7 @@ class ContainerRuntimeManager(SqlExecutionMixin):
             stage: Internal Snowflake stage to mount (e.g., @my_stage or @my_stage/folder)
             workspace: Workspace to mount. Can be either a stage path or a Snowflake workspace name
             image_tag: Custom image tag to use
+            ssh_public_key: SSH public key to inject for secure authentication
 
         Returns:
             Tuple of (service_name, endpoint_url, was_created)
@@ -159,6 +161,7 @@ class ContainerRuntimeManager(SqlExecutionMixin):
             stage=stage,
             workspace_stage_path=workspace_stage_path,
             image_tag=image_tag,
+            ssh_public_key=ssh_public_key,
         )
 
         with tempfile.NamedTemporaryFile(
@@ -212,6 +215,7 @@ QUERY_WAREHOUSE = {warehouse}
         stage: Optional[str] = None,
         workspace_stage_path: Optional[str] = None,
         image_tag: Optional[str] = None,
+        ssh_public_key: Optional[str] = None,
     ) -> dict:
         """Generate a service specification for VS Code Server using the helper modules."""
         # Create a session for spec generation
@@ -232,6 +236,7 @@ QUERY_WAREHOUSE = {warehouse}
             stage=stage,
             workspace_stage_path=workspace_stage_path,
             image_tag=image_tag,
+            ssh_public_key=ssh_public_key,
         )
 
         return spec
