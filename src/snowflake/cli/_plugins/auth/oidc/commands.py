@@ -88,11 +88,11 @@ def create_user(
     Sets up OIDC authentication.
     Creates a user with the specified configuration.
     """
-    if not (user := user_name.strip()):
+    if user_name is None or not (user := user_name.strip()):
         raise CliError("User cannot be empty")
-    if not (issuer := issuer.strip()):
+    if issuer is None or not (issuer := issuer.strip()):
         raise CliError("Issuer cannot be empty")
-    if not (subject := subject.strip()):
+    if subject is None or not (subject := subject.strip()):
         raise CliError("Subject cannot be empty")
     if default_role is not None and not (default_role := default_role.strip()):
         raise CliError("Default role cannot be empty")
