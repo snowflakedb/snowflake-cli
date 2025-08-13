@@ -53,7 +53,7 @@ from snowflake.cli.api.commands.flags import (
     TokenFilePathOption,
     UserOption,
     WarehouseOption,
-    WorkloadIdentiyProviderOption,
+    WorkloadIdentityProviderOption,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.config import (
@@ -226,7 +226,7 @@ def add(
     workload_identity_provider: Optional[str] = typer.Option(
         None,
         "-w",
-        *WorkloadIdentiyProviderOption.param_decls,
+        *WorkloadIdentityProviderOption.param_decls,
         help="Workload identity provider type",
     ),
     private_key_file: Optional[str] = typer.Option(
