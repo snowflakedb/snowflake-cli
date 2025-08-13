@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import logging
+from textwrap import dedent
 from typing import TypeAlias
 
 from snowflake.cli._app.auth.errors import OidcProviderError
@@ -21,11 +22,9 @@ from snowflake.cli._app.auth.oidc_providers import (
     OidcProviderTypeWithAuto,
     auto_detect_oidc_provider,
     get_active_oidc_provider,
-    get_oidc_provider,
 )
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
-from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +40,13 @@ class OidcManager(SqlExecutionMixin):
     configurations for authentication.
     """
 
-    def setup(
+    def create_user(
         self,
-        user: str,
+        *,
+        federated_user: str,
+        issuer: str,
         subject: str,
         default_role: str,
-        provider_type: OidcProviderType,
     ) -> str:
         """
         Sets up OIDC federated authentication for the specified user.
@@ -64,47 +64,46 @@ class OidcManager(SqlExecutionMixin):
             CliError: If user creation fails or parameters are invalid
         """
         logger.info(
-            "Setting up OIDC federated authentication for user: %s with provider type: %s",
-            user,
-            provider_type,
+            (
+                "Setting up OIDC federated authentication for user: %r "
+                "with issuer: %r, subject: %r and default_role: %r"
+            ),
+            federated_user,
+            issuer,
+            subject,
+            default_role,
         )
 
         if not subject.strip():
             raise CliError("Subject cannot be empty")
 
-        # Get issuer from the specified provider
-        try:
-            provider = get_oidc_provider(provider_type.value)
-            if provider is None:
-                raise CliError("Provider '%s' is not available" % provider_type)
-
-            issuer = provider.issuer
-        except OidcProviderError as e:
-            logger.error("OIDC provider error: %s", str(e))
-            raise CliError(str(e))
-
-        # Construct the CREATE USER SQL command using WORKLOAD_IDENTITY syntax
-        logger.debug("Using WORKLOAD_IDENTITY syntax for user creation")
         create_user_sql = (
-            f"CREATE USER {user} WORKLOAD_IDENTITY = ("
+            f"CREATE USER {federated_user} WORKLOAD_IDENTITY = ("
             f" TYPE = 'OIDC'"
             f" ISSUER = '{issuer}'"
             f" SUBJECT = '{subject}')"
-            f" TYPE = SERVICE DEFAULT_ROLE = {default_role}"
+            f" TYPE = SERVICE"
         )
+        if default_role:
+            create_user_sql = f"{create_user_sql} DEFAULT_ROLE = {default_role}"
 
         try:
-            logger.debug("Executing CREATE USER command for federated user: %s", user)
+            logger.debug(
+                "Executing CREATE USER command for federated user: %s", federated_user
+            )
             self.execute_query(create_user_sql)
 
             success_message = (
-                "Successfully created federated user '%s' with subject '%s' using provider '%s'"
-                % (user, subject, provider_type)
+                "Successfully created OIDC federated user '%s' with subject '%s' and issuer '%s'"
+                % (federated_user, subject, issuer)
             )
             logger.info(success_message)
             return success_message
         except Exception as e:
-            error_msg = "Failed to create federated user '%s': %s" % (user, str(e))
+            error_msg = "Failed to create federated user '%s': %s" % (
+                federated_user,
+                str(e),
+            )
             logger.error(error_msg)
             raise CliError(error_msg)
 
@@ -129,23 +128,29 @@ class OidcManager(SqlExecutionMixin):
 
         logger.debug("Searching for federated user %r", _user)
 
-        _search_stmt = (
-            f'show terse users ->> select "name", "has_workload_identity" '
-            f'from $1 where "has_workload_identity" = true and "name" ILIKE \'{_user}\''
+        _auth_types = dedent(
+            f"""
+            show user workload identity authentication methods for user {_user} ->>
+            select
+                "name",
+                "type"
+            from $1
+            where
+                "type" = 'OIDC'
+        """
         )
-        logger.debug("Search statement: %r", _search_stmt)
+        logger.debug("Search statement: %r", _auth_types)
 
-        _search_res = self.execute_query(_search_stmt).fetchall()
+        _search_res = self.execute_query(_auth_types).fetchall()
         logger.debug("Search results: %r", _search_res)
 
         _search_count = len(_search_res)
         match _search_count:
             case 1:
-                _user_name = _search_res[0][0]
                 logger.debug(
-                    "Executing DROP USER command for federated user: %r", _user_name
+                    "Executing DROP USER command for federated user: %r", _user
                 )
-                self.execute_query(f'DROP USER "{_user_name}"')
+                self.execute_query(f'DROP USER "{_user}"')
                 success_message = f"Successfully deleted federated user {_user!r}"
                 logger.info(success_message)
                 return success_message
@@ -186,34 +191,14 @@ class OidcManager(SqlExecutionMixin):
             logger.error("OIDC provider error: %s", str(e))
             raise CliError(str(e))
 
-    def get_users_list(self) -> SnowflakeCursor:
+    @property
+    def _workload_identity_enabled_users_stmt(self) -> str:
+        """SQL statement for listing users with workload identity enabled."""
+        return dedent(
+            """
+            show terse users ->>
+            select "name", "created_on", "display_name", "type", "has_workload_identity"
+            from $1
+            where "has_workload_identity" = true
         """
-        Lists users with OIDC federated authentication enabled.
-
-        Returns:
-            List of users with OIDC federated authentication enabled
-
-        Raises:
-            CliError: If queries fail or parameters are invalid
-        """
-        logger.info("Listing users with OIDC federated authentication enabled")
-
-        try:
-            logger.debug("Using has_workload_identity column")
-            users_query = 'show terse users ->> select * from $1 where "has_workload_identity" = true'
-
-            # Execute the users query
-            users_result = self.execute_query(users_query, cursor_class=DictCursor)
-
-            logger.info(
-                "Found %d users with OIDC federated authentication enabled",
-                users_result.rowcount,
-            )
-            return users_result
-
-        except Exception as e:
-            error_msg = (
-                "Failed to list users with OIDC federated authentication: %s" % str(e)
-            )
-            logger.error(error_msg)
-            raise CliError(error_msg)
+        )
