@@ -17,8 +17,10 @@ from contextlib import nullcontext
 from unittest import mock
 
 import pytest
+from snowflake.cli._app.constants import AUTHENTICATOR_WORKLOAD_IDENTITY
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secret import SecretType
+from snowflake.connector.auth.workload_identity import ApiFederatedAuthenticationType
 
 from tests_common.feature_flag_utils import with_feature_flags
 
@@ -274,7 +276,7 @@ def test_maybe_update_oidc_token_sets_token_when_token_available(
 
     # Test connection parameters
     connection_parameters = {
-        "authenticator": "WORKLOAD_IDENTITY",
+        "authenticator": AUTHENTICATOR_WORKLOAD_IDENTITY,
         "account": "test_account",
         "user": "test_user",
     }
@@ -302,7 +304,7 @@ def test_maybe_update_oidc_token_handles_exception_gracefully(
 
     # Test connection parameters
     connection_parameters = {
-        "authenticator": "WORKLOAD_IDENTITY",
+        "authenticator": AUTHENTICATOR_WORKLOAD_IDENTITY,
         "account": "test_account",
         "user": "test_user",
     }
@@ -332,7 +334,7 @@ def test_maybe_update_oidc_token_no_update_when_no_token(
 
     # Test connection parameters
     connection_parameters = {
-        "authenticator": "WORKLOAD_IDENTITY",
+        "authenticator": AUTHENTICATOR_WORKLOAD_IDENTITY,
         "account": "test_account",
         "user": "test_user",
     }
@@ -366,10 +368,11 @@ def test_oidc_token_integration_in_connect_to_snowflake(
     mock_token = "integration-test-token-456"
     mock_manager.read_token.return_value = mock_token
 
-    # Use temporary connection with WORKLOAD_IDENTITY authenticator
+    # Use temporary connection with WORKLOAD_IDENTITY authenticator and OIDC provider
     connect_to_snowflake(
         temporary_connection=True,
-        authenticator="WORKLOAD_IDENTITY",
+        authenticator=AUTHENTICATOR_WORKLOAD_IDENTITY,
+        workload_identity_provider=ApiFederatedAuthenticationType.OIDC.value,
         account="test_account",
         user="test_user",
     )
@@ -379,4 +382,86 @@ def test_oidc_token_integration_in_connect_to_snowflake(
     call_kwargs = mock_connect.call_args[1]
 
     assert call_kwargs["token"] == mock_token
-    assert call_kwargs["authenticator"] == "WORKLOAD_IDENTITY"
+    assert call_kwargs["authenticator"] == AUTHENTICATOR_WORKLOAD_IDENTITY
+
+
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+@mock.patch("snowflake.connector.connect")
+def test_oidc_token_not_set_when_workload_identity_provider_not_oidc(
+    mock_connect, mock_oidc_manager_class, mock_command_info, test_snowcli_config
+):
+    """Test that OIDC token is NOT set when workload_identity_provider is not 'OIDC'."""
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    # Setup mocks
+    mock_command_info.return_value = "SNOWCLI.TEST"
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_token = "should-not-be-set-token"
+    mock_manager.read_token.return_value = mock_token
+
+    # Use temporary connection with WORKLOAD_IDENTITY authenticator but different provider
+    connect_to_snowflake(
+        temporary_connection=True,
+        authenticator=AUTHENTICATOR_WORKLOAD_IDENTITY,
+        workload_identity_provider=ApiFederatedAuthenticationType.AWS.value,  # Not OIDC
+        account="test_account",
+        user="test_user",
+    )
+
+    # Verify snowflake.connector.connect was called without the token
+    mock_connect.assert_called_once()
+    call_kwargs = mock_connect.call_args[1]
+
+    assert "token" not in call_kwargs
+    assert call_kwargs["authenticator"] == AUTHENTICATOR_WORKLOAD_IDENTITY
+    assert (
+        call_kwargs["workload_identity_provider"]
+        == ApiFederatedAuthenticationType.AWS.value
+    )
+    # Verify that OidcManager was not called at all
+    mock_oidc_manager_class.assert_not_called()
+
+
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.cli._app.snow_connector.OidcManager")
+@mock.patch("snowflake.connector.connect")
+def test_oidc_token_not_set_when_workload_identity_provider_missing(
+    mock_connect, mock_oidc_manager_class, mock_command_info, test_snowcli_config
+):
+    """Test that OIDC token is NOT set when workload_identity_provider is not specified."""
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    # Setup mocks
+    mock_command_info.return_value = "SNOWCLI.TEST"
+    mock_manager = mock.Mock()
+    mock_oidc_manager_class.return_value = mock_manager
+    mock_token = "should-not-be-set-token"
+    mock_manager.read_token.return_value = mock_token
+
+    # Use temporary connection with WORKLOAD_IDENTITY authenticator but no provider
+    connect_to_snowflake(
+        temporary_connection=True,
+        authenticator=AUTHENTICATOR_WORKLOAD_IDENTITY,
+        # workload_identity_provider not specified
+        account="test_account",
+        user="test_user",
+    )
+
+    # Verify snowflake.connector.connect was called without the token
+    mock_connect.assert_called_once()
+    call_kwargs = mock_connect.call_args[1]
+
+    assert "token" not in call_kwargs
+    assert call_kwargs["authenticator"] == AUTHENTICATOR_WORKLOAD_IDENTITY
+    # workload_identity_provider should not be in call_kwargs since it wasn't provided
+    assert "workload_identity_provider" not in call_kwargs
+    # Verify that OidcManager was not called at all
+    mock_oidc_manager_class.assert_not_called()
