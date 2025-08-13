@@ -59,6 +59,7 @@ SUPPORTED_ENV_OVERRIDES = [
     "user",
     "password",
     "authenticator",
+    "workload_identity_provider",
     "private_key_file",
     "private_key_path",
     "private_key_raw",

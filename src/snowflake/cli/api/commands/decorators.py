@@ -57,6 +57,7 @@ from snowflake.cli.api.commands.flags import (
     UserOption,
     VerboseOption,
     WarehouseOption,
+    WorkloadIdentityProviderOption,
     experimental_option,
     project_definition_option,
     project_env_overrides_option,
@@ -261,6 +262,12 @@ GLOBAL_CONNECTION_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[str],
         default=AuthenticatorOption,
+    ),
+    inspect.Parameter(
+        "workload_identity_provider",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=WorkloadIdentityProviderOption,
     ),
     inspect.Parameter(
         "private_key_file",
