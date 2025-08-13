@@ -83,6 +83,7 @@ class ConnectionConfig:
     warehouse: Optional[str] = None
     role: Optional[str] = None
     authenticator: Optional[str] = None
+    workload_identity_provider: Optional[str] = None
     private_key_file: Optional[str] = None
     token_file_path: Optional[str] = None
     oauth_client_id: Optional[str] = None

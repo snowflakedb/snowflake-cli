@@ -186,7 +186,7 @@ def test_port_has_cannot_be_float(runner):
 
 @pytest.mark.parametrize(
     "selected_option",
-    [9, 10],  # 9 - private_key_file prompt, 10 - token_file_path prompt
+    [10, 11],  # 9 - private_key_file prompt, 10 - token_file_path prompt
 )
 def test_file_paths_have_to_exist_when_given_in_prompt(selected_option, runner):
     result = _run_connection_add_with_path_provided_as_prompt(
@@ -1453,6 +1453,7 @@ def test_connection_add_with_key_pair(
         "\n"  # port:
         "\n"  # region:
         "\n"  # authenticator:
+        "\n"  # workload identity provider:
         "\n"  # private key file:
         "\n"  # token file path:
         "y\n"  #
@@ -1478,6 +1479,7 @@ def test_connection_add_with_key_pair(
         Enter port: 
         Enter region: 
         Enter authenticator: 
+        Enter workload identity provider: 
         Enter private key file: 
         Enter token file path: 
         Do you want to configure key pair authentication? [y/N]: y
@@ -1518,6 +1520,7 @@ def test_connection_add_no_key_pair_setup_if_private_key_provided(
         "\n"  # port:
         "\n"  # region:
         "\n"  # authenticator:
+        "\n"  # workload identity provider:
         f"{key}\n"  # private key file:
         "\n",  # token file path:
     )
@@ -1536,6 +1539,7 @@ def test_connection_add_no_key_pair_setup_if_private_key_provided(
         Enter port: 
         Enter region: 
         Enter authenticator: 
+        Enter workload identity provider: 
         Enter private key file: {key.resolve()}
         Enter token file path: 
         Wrote new connection conn to {test_snowcli_config}
@@ -1604,6 +1608,7 @@ def test_connection_add_with_key_pair_saves_password_if_keypair_is_set(
         "\n"  # port:
         "\n"  # region:
         "\n"  # authenticator:
+        "\n"  # workload identity provider:
         "\n"  # private key file:
         "\n"  # token file path:
         "y\n"  #
@@ -1629,6 +1634,7 @@ def test_connection_add_with_key_pair_saves_password_if_keypair_is_set(
         Enter port: 
         Enter region: 
         Enter authenticator: 
+        Enter workload identity provider: 
         Enter private key file: 
         Enter token file path: 
         Do you want to configure key pair authentication? [y/N]: y
