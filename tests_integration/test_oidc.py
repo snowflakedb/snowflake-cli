@@ -20,16 +20,19 @@ These tests require a properly configured Snowflake environment with:
 - Permissions to create and drop users
 - An account with workload identity capabilities
 
-To run these tests, ensure your environment has the necessary 
+To run these tests, ensure your environment has the necessary
 SNOWFLAKE_CONNECTIONS_INTEGRATION_* environment variables set.
 
 Example:
     pytest tests_integration/test_oidc.py -m integration
 """
 
+import json
 import pytest
 from uuid import uuid4
 from contextlib import contextmanager
+
+GITHUB_ISSUER = "https://token.actions.githubusercontent.com"
 
 
 @pytest.fixture
@@ -42,9 +45,9 @@ def test_federated_user(runner, snowflake_session, resource_suffix):
     """
     # Generate unique user name with resource suffix to avoid conflicts
     user_name = f"test_federated_user{resource_suffix}"
+    issuer = GITHUB_ISSUER
     subject = f"test-subject-{uuid4().hex}"
     default_role = "PUBLIC"  # Use PUBLIC role as it should exist in test environments
-    provider_type = "github"  # Use github as the test provider type
 
     @contextmanager
     def _setup_and_cleanup_user():
@@ -54,15 +57,15 @@ def test_federated_user(runner, snowflake_session, resource_suffix):
                 [
                     "auth",
                     "oidc",
-                    "setup",
+                    "create-user",
                     "--federated-user",
                     user_name,
+                    "--issuer",
+                    issuer,
                     "--subject",
                     subject,
                     "--default-role",
                     default_role,
-                    "--type",
-                    provider_type,
                     "--role",
                     "accountadmin",
                 ]
@@ -108,65 +111,16 @@ def test_federated_user(runner, snowflake_session, resource_suffix):
 
 
 @pytest.mark.integration
-def test_oidc_list_users(runner, test_federated_user):
+def test_oidc_user_creation(runner, test_federated_user):
+    query = f"""show user workload identity authentication methods for user {test_federated_user} ->>
+   select "name", "type", "additional_info", PARSE_JSON("additional_info"):issuer as issuer from $1
+   ;
     """
-    Test the OIDC federated authentication list command.
+    result = runner.invoke_with_connection_json(["sql", "-q", query])
+    assert result.exit_code == 0, result
+    output = result.json[0]
+    assert output["name"] == "DEFAULT", output
+    assert output["type"] == "OIDC", output
 
-    This test verifies that:
-    1. The list command executes successfully
-    2. The test federated user appears in the results
-    3. The output format is correct (JSON with user information)
-    """
-    # Execute the list command
-    result = runner.invoke_with_connection_json(["auth", "oidc", "list"])
-
-    # Verify the command executed successfully
-    assert result.exit_code == 0, f"Command failed with output: {result.output}"
-
-    # Verify the result is a list (JSON format)
-    assert isinstance(result.json, list), "Expected list output from command"
-
-    # Verify our test federated user appears in the results
-    user_names = [user.get("name", "").upper() for user in result.json]
-    assert test_federated_user.upper() in user_names, (
-        f"Test federated user '{test_federated_user}' not found in list. "
-        f"Found users: {user_names}"
-    )
-
-    # Verify the user entries have expected structure
-    test_user_entry = next(
-        (
-            user
-            for user in result.json
-            if user.get("name", "").upper() == test_federated_user.upper()
-        ),
-        None,
-    )
-    assert test_user_entry is not None, "Test user entry not found"
-
-    # Verify essential fields are present
-    assert "name" in test_user_entry, "User entry missing 'name' field"
-
-
-@pytest.mark.integration
-def test_oidc_list_users_empty_when_no_federated_users(runner):
-    """
-    Test the workload identity list command when no federated users exist.
-
-    This test verifies that the list command works correctly even when
-    there are no users with workload identity enabled.
-    """
-    # Execute the list command
-    result = runner.invoke_with_connection_json(["auth", "oidc", "list"])
-
-    # Verify the command executed successfully
-    assert result.exit_code == 0, f"Command failed with output: {result.output}"
-
-    # Verify the result is a list (even if empty)
-    assert isinstance(result.json, list), "Expected list output from command"
-
-    # The list may be empty or contain existing federated users
-    # This test just ensures the command structure works correctly
-    for user in result.json:
-        assert isinstance(user, dict), "Each user entry should be a dictionary"
-        assert "name" in user, "Each user entry should have a 'name' field"
+    additional_info = json.loads(output["additional_info"])
+    assert additional_info["issuer"] == GITHUB_ISSUER
