@@ -45,6 +45,7 @@ class ConnectionContext:
     user: Optional[str] = None
     password: Optional[str] = field(default=None, repr=False)
     authenticator: Optional[str] = None
+    workload_identity_provider: Optional[str] = None
     private_key_file: Optional[str] = None
     warehouse: Optional[str] = None
     mfa_passcode: Optional[str] = None
