@@ -4426,20 +4426,18 @@
                                                                                   
    Usage: root auth oidc create-user [OPTIONS]                                    
                                                                                   
-   Sets up OIDC federated authentication. Creates a federated user with the       
-   specified configuration.                                                       
+   Sets up OIDC authentication. Creates a user with the specified configuration.  
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
-  | *  --federated-user          TEXT  Name for the federated user to create     |
-  |                                    [required]                                |
-  | *  --issuer                  TEXT  An issuer URL.                            |
-  |                                    [required]                                |
-  | *  --subject                 TEXT  OIDC subject string                       |
-  |                                    [required]                                |
-  |    --default-role            TEXT  Default role to assign to the federated   |
-  |                                    user                                      |
-  |    --help            -h            Show this message and exit.               |
+  | *  --user-name             TEXT  Name for the user to create                 |
+  |                                  [required]                                  |
+  | *  --issuer                TEXT  An issuer URL.                              |
+  |                                  [required]                                  |
+  | *  --subject               TEXT  OIDC subject string                         |
+  |                                  [required]                                  |
+  |    --default-role          TEXT  Default role to assign to the user          |
+  |    --help          -h            Show this message and exit.                 |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -4558,14 +4556,14 @@
 # name: test_help_messages[auth.oidc.delete]
   '''
                                                                                   
-   Usage: root auth oidc delete [OPTIONS] FEDERATED_USER                          
+   Usage: root auth oidc delete [OPTIONS] USER_NAME                               
                                                                                   
-   Deletes a federated user.                                                      
+   Deletes a user.                                                                
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    federated_user      TEXT  Name for the federated user to drop           |
-  |                                [required]                                    |
+  | *    user_name      TEXT  Name for the user to drop                          |
+  |                           [required]                                         |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -4726,16 +4724,16 @@
                                                                                   
    Usage: root auth oidc [OPTIONS] COMMAND [ARGS]...                              
                                                                                   
-   Manages OIDC federated authentication.                                         
+   Manages OIDC authentication.                                                   
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | create-user   Sets up OIDC federated authentication. Creates a federated     |
-  |               user with the specified configuration.                         |
-  | delete        Deletes a federated user.                                      |
+  | create-user   Sets up OIDC authentication. Creates a user with the specified |
+  |               configuration.                                                 |
+  | delete        Deletes a user.                                                |
   | read-token    Reads OIDC token based on the specified type. Use 'auto' to    |
   |               auto-detect available providers.                               |
   +------------------------------------------------------------------------------+
@@ -4755,7 +4753,7 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | oidc   Manages OIDC federated authentication.                                |
+  | oidc   Manages OIDC authentication.                                          |
   +------------------------------------------------------------------------------+
   
   
@@ -4802,7 +4800,7 @@
   | --authenticator                -A      TEXT     Chosen authenticator, if     |
   |                                                 other than password-based    |
   |                                                 [default: None]              |
-  | --authenticator                -w      TEXT     Workload identity provider   |
+  | --workload-identity-provider   -w      TEXT     Workload identity provider   |
   |                                                 type                         |
   |                                                 [default: None]              |
   | --private-key,--private-key-…  -k      TEXT     Path to file containing      |
@@ -20919,16 +20917,16 @@
                                                                                   
    Usage: root auth oidc [OPTIONS] COMMAND [ARGS]...                              
                                                                                   
-   Manages OIDC federated authentication.                                         
+   Manages OIDC authentication.                                                   
                                                                                   
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | create-user   Sets up OIDC federated authentication. Creates a federated     |
-  |               user with the specified configuration.                         |
-  | delete        Deletes a federated user.                                      |
+  | create-user   Sets up OIDC authentication. Creates a user with the specified |
+  |               configuration.                                                 |
+  | delete        Deletes a user.                                                |
   | read-token    Reads OIDC token based on the specified type. Use 'auto' to    |
   |               auto-detect available providers.                               |
   +------------------------------------------------------------------------------+
@@ -20948,7 +20946,7 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | oidc   Manages OIDC federated authentication.                                |
+  | oidc   Manages OIDC authentication.                                          |
   +------------------------------------------------------------------------------+
   
   

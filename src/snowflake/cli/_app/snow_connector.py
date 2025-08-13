@@ -158,7 +158,7 @@ def connect_to_snowflake(
     if connection_parameters.get("authenticator") == "username_password_mfa":
         connection_parameters["client_request_mfa_token"] = True
 
-    # Handle WORKLOAD_IDENTITY authenticator (OIDC federated authentication)
+    # Handle WORKLOAD_IDENTITY authenticator (OIDC authentication)
     if connection_parameters.get("authenticator") == AUTHENTICATOR_WORKLOAD_IDENTITY:
         _maybe_update_oidc_token(connection_parameters)
 

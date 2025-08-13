@@ -23,20 +23,20 @@ from snowflake.cli.api.output.types import MessageResult
 
 app = SnowTyperFactory(
     name="oidc",
-    help="Manages OIDC federated authentication.",
+    help="Manages OIDC authentication.",
 )
 
 
-FederatedUserOption = typer.Option(
+UserNameOption = typer.Option(
     ...,
-    "--federated-user",
+    "--user-name",
     show_default=False,
-    help="Name for the federated user to create",
+    help="Name for the user to create",
 )
 
-FederatedUserArgument = typer.Argument(
+UserNameArgument = typer.Argument(
     ...,
-    help="Name for the federated user to drop",
+    help="Name for the user to drop",
     show_default=False,
 )
 
@@ -51,7 +51,7 @@ DefaultRoleOption = typer.Option(
     None,
     "--default-role",
     show_default=False,
-    help="Default role to assign to the federated user",
+    help="Default role to assign to the user",
 )
 
 ProviderTypeOption = typer.Option(
@@ -78,17 +78,17 @@ IssuerURLOption = typer.Option(
 
 @app.command("create-user", requires_connection=True)
 def create_user(
-    federated_user: str = FederatedUserOption,
+    user_name: str = UserNameOption,
     issuer: str = IssuerURLOption,
     subject: str = SubjectOption,
     default_role: str = DefaultRoleOption,
     **options,
 ):
     """
-    Sets up OIDC federated authentication.
-    Creates a federated user with the specified configuration.
+    Sets up OIDC authentication.
+    Creates a user with the specified configuration.
     """
-    if not (user := federated_user.strip()):
+    if not (user := user_name.strip()):
         raise CliError("User cannot be empty")
     if not (issuer := issuer.strip()):
         raise CliError("Issuer cannot be empty")
@@ -98,7 +98,7 @@ def create_user(
         raise CliError("Default role cannot be empty")
 
     result = OidcManager().create_user(
-        federated_user=user,
+        user_name=user,
         issuer=issuer,
         subject=subject,
         default_role=default_role,
@@ -108,13 +108,13 @@ def create_user(
 
 @app.command("delete", requires_connection=True)
 def delete(
-    federated_user=FederatedUserArgument,
+    user_name=UserNameArgument,
     **options,
 ):
     """
-    Deletes a federated user.
+    Deletes a user.
     """
-    result = OidcManager().delete(user=federated_user)
+    result = OidcManager().delete(user=user_name)
     return MessageResult(result)
 
 
