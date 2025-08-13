@@ -34,28 +34,28 @@ Providers: TypeAlias = OidcProviderType | OidcProviderTypeWithAuto
 
 class OidcManager(SqlExecutionMixin):
     """
-    Manages OIDC federated authentication.
+    Manages OIDC authentication.
 
-    This class provides methods to set up, delete, and read OIDC federated
+    This class provides methods to set up, delete, and read OIDC
     configurations for authentication.
     """
 
     def create_user(
         self,
         *,
-        federated_user: str,
+        user_name: str,
         issuer: str,
         subject: str,
         default_role: str,
     ) -> str:
         """
-        Sets up OIDC federated authentication for the specified user.
+        Sets up OIDC authentication for the specified user.
 
         Args:
-            user: Name for the federated user to create
+            user_name: Name for the user to create
             subject: OIDC subject string
-            default_role: Default role to assign to the federated user
-            provider_type: Type of OIDC provider to use
+            default_role: Default role to assign to the user
+            issuer: OIDC issuer URL
 
         Returns:
             Success message string
@@ -65,10 +65,10 @@ class OidcManager(SqlExecutionMixin):
         """
         logger.info(
             (
-                "Setting up OIDC federated authentication for user: %r "
+                "Setting up OIDC authentication for user: %r "
                 "with issuer: %r, subject: %r and default_role: %r"
             ),
-            federated_user,
+            user_name,
             issuer,
             subject,
             default_role,
@@ -78,7 +78,7 @@ class OidcManager(SqlExecutionMixin):
             raise CliError("Subject cannot be empty")
 
         create_user_sql = (
-            f"CREATE USER {federated_user} WORKLOAD_IDENTITY = ("
+            f"CREATE USER {user_name} WORKLOAD_IDENTITY = ("
             f" TYPE = 'OIDC'"
             f" ISSUER = '{issuer}'"
             f" SUBJECT = '{subject}')"
@@ -88,20 +88,18 @@ class OidcManager(SqlExecutionMixin):
             create_user_sql = f"{create_user_sql} DEFAULT_ROLE = {default_role}"
 
         try:
-            logger.debug(
-                "Executing CREATE USER command for federated user: %s", federated_user
-            )
+            logger.debug("Executing CREATE USER command for user: %s", user_name)
             self.execute_query(create_user_sql)
 
             success_message = (
-                "Successfully created OIDC federated user '%s' with subject '%s' and issuer '%s'"
-                % (federated_user, subject, issuer)
+                "Successfully created OIDC user '%s' with subject '%s' and issuer '%s'"
+                % (user_name, subject, issuer)
             )
             logger.info(success_message)
             return success_message
         except Exception as e:
-            error_msg = "Failed to create federated user '%s': %s" % (
-                federated_user,
+            error_msg = "Failed to create user '%s': %s" % (
+                user_name,
                 str(e),
             )
             logger.error(error_msg)
@@ -109,10 +107,10 @@ class OidcManager(SqlExecutionMixin):
 
     def delete(self, user: str) -> str:
         """
-        Deletes a federated user.
+        Deletes a user.
 
         Args:
-            user: Name of the federated user to delete
+            user: Name of the user to delete
 
         Returns:
             Success message string
@@ -120,13 +118,13 @@ class OidcManager(SqlExecutionMixin):
         Raises:
             CliError: If user deletion fails or parameters are invalid
         """
-        logger.info("Deleting federated user: %r", user)
+        logger.info("Deleting user: %r", user)
 
         _user = user.strip()
         if not _user:
-            raise CliError("Federated user name cannot be empty")
+            raise CliError("User name cannot be empty")
 
-        logger.debug("Searching for federated user %r", _user)
+        logger.debug("Searching for user %r", _user)
 
         _auth_types = dedent(
             f"""
@@ -147,19 +145,17 @@ class OidcManager(SqlExecutionMixin):
         _search_count = len(_search_res)
         match _search_count:
             case 1:
-                logger.debug(
-                    "Executing DROP USER command for federated user: %r", _user
-                )
+                logger.debug("Executing DROP USER command for user: %r", _user)
                 self.execute_query(f'DROP USER "{_user}"')
-                success_message = f"Successfully deleted federated user {_user!r}"
+                success_message = f"Successfully deleted user {_user!r}"
                 logger.info(success_message)
                 return success_message
             case 0:
-                msg = f"Federated {_user!r} user not found"
+                msg = f"User {_user!r} not found"
                 logger.debug(msg)
                 raise CliError(msg)
             case _:
-                msg = f"Error searching for federated user {_user!r}"
+                msg = f"Error searching for user {_user!r}"
                 logger.debug(msg)
                 raise CliError(msg)
 

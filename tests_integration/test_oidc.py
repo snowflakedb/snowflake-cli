@@ -36,29 +36,29 @@ GITHUB_ISSUER = "https://token.actions.githubusercontent.com"
 
 
 @pytest.fixture
-def test_federated_user(runner, snowflake_session, resource_suffix):
+def test_user_creation(runner, snowflake_session, resource_suffix):
     """
-    Fixture that creates a test federated user for workload identity and cleans up after the test.
+    Fixture that creates a test user for workload identity and cleans up after the test.
 
-    This fixture sets up a federated user using the workload identity setup command
+    This fixture sets up a user using the workload identity setup command
     and ensures cleanup by dropping the user after the test completes.
     """
     # Generate unique user name with resource suffix to avoid conflicts
-    user_name = f"test_federated_user{resource_suffix}"
+    user_name = f"test_user{resource_suffix}"
     issuer = GITHUB_ISSUER
     subject = f"test-subject-{uuid4().hex}"
     default_role = "PUBLIC"  # Use PUBLIC role as it should exist in test environments
 
     @contextmanager
     def _setup_and_cleanup_user():
-        # Setup: Create the federated user using the workload identity setup command
+        # Setup: Create the user using the workload identity setup command
         try:
             setup_result = runner.invoke_with_connection(
                 [
                     "auth",
                     "oidc",
                     "create-user",
-                    "--federated-user",
+                    "--user-name",
                     user_name,
                     "--issuer",
                     issuer,
@@ -73,9 +73,7 @@ def test_federated_user(runner, snowflake_session, resource_suffix):
 
             # Verify setup was successful
             if setup_result.exit_code != 0:
-                pytest.skip(
-                    f"Could not set up test federated user: {setup_result.output}"
-                )
+                pytest.skip(f"Could not set up test user: {setup_result.output}")
 
             yield user_name
 
@@ -88,7 +86,7 @@ def test_federated_user(runner, snowflake_session, resource_suffix):
                         "auth",
                         "oidc",
                         "delete",
-                        "--federated-user",
+                        "--user-name",
                         user_name,
                     ],
                     catch_exceptions=True,
@@ -111,8 +109,8 @@ def test_federated_user(runner, snowflake_session, resource_suffix):
 
 
 @pytest.mark.integration
-def test_oidc_user_creation(runner, test_federated_user):
-    query = f"""show user workload identity authentication methods for user {test_federated_user} ->>
+def test_oidc_user_creation(runner, test_user_creation):
+    query = f"""show user workload identity authentication methods for user {test_user_creation} ->>
    select "name", "type", "additional_info", PARSE_JSON("additional_info"):issuer as issuer from $1
    ;
     """

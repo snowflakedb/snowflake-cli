@@ -34,12 +34,12 @@ class TestOidcManager:
     """Test cases for OidcManager."""
 
     @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_create_user_creates_federated_user(self, mock_execute_query):
-        """Test that create_user method creates a federated user with WORKLOAD_IDENTITY syntax."""
+    def test_create_user_creates_user(self, mock_execute_query):
+        """Test that create_user method creates a user with WORKLOAD_IDENTITY syntax."""
         manager = OidcManager()
 
         result = manager.create_user(
-            federated_user="test_user",
+            user_name="test_user",
             issuer="https://token.actions.githubusercontent.com",
             subject="repo:owner/repo:environment:prod",
             default_role="test_role",
@@ -63,7 +63,7 @@ class TestOidcManager:
         assert "DEFAULT_ROLE = test_role" in create_user_call
 
         # Verify return message
-        assert "Successfully created OIDC federated user 'test_user'" in result
+        assert "Successfully created OIDC user 'test_user'" in result
 
     def test_create_user_parameter_validation(self):
         """Test parameter validation in create_user method."""
@@ -72,7 +72,7 @@ class TestOidcManager:
         # Test empty subject
         with pytest.raises(CliError, match="Subject cannot be empty"):
             manager.create_user(
-                federated_user="test_user",
+                user_name="test_user",
                 issuer="https://token.actions.githubusercontent.com",
                 subject="",
                 default_role="test_role",
@@ -81,7 +81,7 @@ class TestOidcManager:
         # Test whitespace-only subject
         with pytest.raises(CliError, match="Subject cannot be empty"):
             manager.create_user(
-                federated_user="test_user",
+                user_name="test_user",
                 issuer="https://token.actions.githubusercontent.com",
                 subject="   ",
                 default_role="test_role",
@@ -97,10 +97,10 @@ class TestOidcManager:
 
         with pytest.raises(
             CliError,
-            match="Failed to create federated user 'test_user': SQL execution failed",
+            match="Failed to create user 'test_user': SQL execution failed",
         ):
             manager.create_user(
-                federated_user="test_user",
+                user_name="test_user",
                 issuer="https://token.actions.githubusercontent.com",
                 subject="repo:owner/repo:environment:prod",
                 default_role="test_role",
@@ -113,7 +113,7 @@ class TestOidcManager:
 
         custom_subject = "repo:custom/repo:environment:test"
         result = manager.create_user(
-            federated_user="test_user",
+            user_name="test_user",
             issuer="https://token.actions.githubusercontent.com",
             subject=custom_subject,
             default_role="test_role",
@@ -136,11 +136,11 @@ class TestOidcManager:
         assert "DEFAULT_ROLE = test_role" in create_user_call
 
         # Verify return message
-        assert "Successfully created OIDC federated user 'test_user'" in result
+        assert "Successfully created OIDC user 'test_user'" in result
 
     @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_delete_drops_federated_user(self, mock_execute_query):
-        """Test that delete method drops a federated user."""
+    def test_delete_drops_user(self, mock_execute_query):
+        """Test that delete method drops a user."""
         # Mock search results - return one user found
         mock_search_cursor = Mock()
         mock_search_cursor.fetchall.return_value = [("test_user", True)]
@@ -168,7 +168,7 @@ class TestOidcManager:
         assert 'DROP USER "test_user"' in drop_call
 
         # Verify return message
-        assert "Successfully deleted federated user 'test_user'" in result
+        assert "Successfully deleted user 'test_user'" in result
 
     @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
     def test_delete_parameter_validation(self, mock_execute_query):
@@ -176,11 +176,11 @@ class TestOidcManager:
         manager = OidcManager()
 
         # Test empty user name
-        with pytest.raises(CliError, match="Federated user name cannot be empty"):
+        with pytest.raises(CliError, match="User name cannot be empty"):
             manager.delete("")
 
         # Test whitespace only user name
-        with pytest.raises(CliError, match="Federated user name cannot be empty"):
+        with pytest.raises(CliError, match="User name cannot be empty"):
             manager.delete("   ")
 
     @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
@@ -204,7 +204,7 @@ class TestOidcManager:
 
         manager = OidcManager()
 
-        with pytest.raises(CliError, match="Federated 'test_user' user not found"):
+        with pytest.raises(CliError, match="User 'test_user' not found"):
             manager.delete("test_user")
 
         # Verify only search query was executed
@@ -226,9 +226,7 @@ class TestOidcManager:
 
         manager = OidcManager()
 
-        with pytest.raises(
-            CliError, match="Error searching for federated user 'test_user'"
-        ):
+        with pytest.raises(CliError, match="Error searching for user 'test_user'"):
             manager.delete("test_user")
 
         # Verify only search query was executed
