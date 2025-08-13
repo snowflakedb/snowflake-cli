@@ -170,10 +170,10 @@ AuthenticatorOption = typer.Option(
     rich_help_panel=_CONNECTION_SECTION,
 )
 
-WorkloadIdentiyProviderOption = typer.Option(
+WorkloadIdentityProviderOption = typer.Option(
     None,
-    "--authenticator",
-    help="Workload identity provider. Ovverides the value specified for the connection",
+    "--workload_identity_provider",
+    help="Workload identity provider. Overrides the value specified for the connection",
     hide_input=True,
     callback=_connection_callback("workload_identity_provider"),
     show_default=False,
