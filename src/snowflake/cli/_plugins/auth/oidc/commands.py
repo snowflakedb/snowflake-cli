@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from typing import Optional
+
 import typer
 from snowflake.cli._app.auth.oidc_providers import (
     OidcProviderTypeWithAuto,
@@ -36,7 +38,7 @@ UserNameOption = typer.Option(
 
 UserNameArgument = typer.Argument(
     ...,
-    help="Name for the user to drop",
+    help="Name of the user to drop",
     show_default=False,
 )
 
@@ -81,7 +83,7 @@ def create_user(
     user_name: str = UserNameOption,
     issuer: str = IssuerURLOption,
     subject: str = SubjectOption,
-    default_role: str = DefaultRoleOption,
+    default_role: Optional[str] = DefaultRoleOption,
     **options,
 ):
     """
