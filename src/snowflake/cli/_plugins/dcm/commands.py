@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import time
 from typing import List, Optional
 
 import typer
@@ -21,6 +22,7 @@ from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
+from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.decorators import with_project_definition
@@ -46,6 +48,7 @@ from snowflake.cli.api.output.types import (
     QueryResult,
 )
 from snowflake.cli.api.project.project_paths import ProjectPaths
+from snowflake.cli.api.project.util import unquote_identifier
 
 app = SnowTyperFactory(
     name="dcm",
@@ -66,15 +69,6 @@ configuration_flag = typer.Option(
 from_option = OverrideableOption(
     None,
     "--from",
-    mutually_exclusive=["prune"],
-    show_default=False,
-)
-
-prune_option = OverrideableOption(
-    False,
-    "--prune",
-    help="Remove unused artifacts from the stage during sync. Mutually exclusive with --from.",
-    mutually_exclusive=["from_stage"],
     show_default=False,
 )
 
@@ -128,7 +122,6 @@ def deploy(
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
     alias: Optional[str] = alias_option,
-    prune: bool = prune_option(),
     **options,
 ):
     """
@@ -137,7 +130,7 @@ def deploy(
     result = DCMProjectManager().execute(
         project_name=identifier,
         configuration=configuration,
-        from_stage=from_stage if from_stage else _sync_local_files(prune=prune),
+        from_stage=from_stage if from_stage else _sync_local_files(),
         variables=variables,
         alias=alias,
         output_path=None,
@@ -153,7 +146,6 @@ def plan(
     ),
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
-    prune: bool = prune_option(),
     output_path: Optional[str] = output_path_option(
         help="Stage path where the deployment plan output will be stored."
     ),
@@ -165,7 +157,7 @@ def plan(
     result = DCMProjectManager().execute(
         project_name=identifier,
         configuration=configuration,
-        from_stage=from_stage if from_stage else _sync_local_files(prune=prune),
+        from_stage=from_stage if from_stage else _sync_local_files(),
         dry_run=True,
         variables=variables,
         output_path=output_path,
@@ -198,9 +190,6 @@ def create(
         if if_not_exists:
             return MessageResult(message)
         raise CliError(message)
-
-    if om.object_exists(object_type="stage", fqn=FQN.from_stage(project.stage)):
-        raise CliError(f"Stage '{project.stage}' already exists.")
 
     dpm = DCMProjectManager()
     with cli_console.phase(f"Creating DCM Project '{project.fqn}'"):
@@ -253,7 +242,7 @@ def drop_deployment(
     )
 
 
-def _sync_local_files(prune: bool = False) -> str:
+def _sync_local_files() -> str:
     cli_context = get_cli_context()
     project_entity = get_entity_for_operation(
         cli_context=cli_context,
@@ -262,12 +251,22 @@ def _sync_local_files(prune: bool = False) -> str:
         entity_type="dcm",
     )
 
-    with cli_console.phase("Syncing local files to stage"):
+    # Create a temporary stage for this deployment session
+    stage_manager = StageManager()
+    unquoted_name = unquote_identifier(project_entity.fqn.name)
+    stage_fqn = FQN.from_string(
+        f"DCM_{unquoted_name}_{int(time.time())}_TMP_STAGE"
+    ).using_context()
+
+    with cli_console.phase("Creating temporary stage for deployment"):
+        stage_manager.create(fqn=stage_fqn, temporary=True)
+        cli_console.step(f"Created temporary stage: {stage_fqn}")
+
+    with cli_console.phase("Syncing local files to temporary stage"):
         sync_artifacts_with_stage(
             project_paths=ProjectPaths(project_root=cli_context.project_root),
-            stage_root=project_entity.stage,
+            stage_root=stage_fqn.identifier,
             artifacts=project_entity.artifacts,
-            prune=prune,
         )
 
-    return project_entity.stage
+    return stage_fqn.identifier
