@@ -71,9 +71,7 @@ def test_user_creation(runner, snowflake_session, resource_suffix):
                 ]
             )
 
-            # Verify setup was successful
-            if setup_result.exit_code != 0:
-                pytest.skip(f"Could not set up test user: {setup_result.output}")
+            assert setup_result.exit_code == 0, setup_result
 
             yield user_name
 

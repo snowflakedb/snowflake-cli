@@ -14,7 +14,7 @@
 
 import logging
 from textwrap import dedent
-from typing import TypeAlias
+from typing import Optional, TypeAlias
 
 from snowflake.cli._app.auth.errors import OidcProviderError
 from snowflake.cli._app.auth.oidc_providers import (
@@ -46,7 +46,7 @@ class OidcManager(SqlExecutionMixin):
         user_name: str,
         issuer: str,
         subject: str,
-        default_role: str,
+        default_role: Optional[str],
     ) -> str:
         """
         Sets up OIDC authentication for the specified user.
@@ -183,15 +183,3 @@ class OidcManager(SqlExecutionMixin):
         except OidcProviderError as e:
             logger.error("OIDC provider error: %s", str(e))
             raise CliError(str(e))
-
-    @property
-    def _workload_identity_enabled_users_stmt(self) -> str:
-        """SQL statement for listing users with workload identity enabled."""
-        return dedent(
-            """
-            show terse users ->>
-            select "name", "created_on", "display_name", "type", "has_workload_identity"
-            from $1
-            where "has_workload_identity" = true
-        """
-        )

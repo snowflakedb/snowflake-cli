@@ -129,7 +129,7 @@
   [connections.conn2]
   account = "account1"
   user = "user2"
-  workload_identity_provider = "SNOWFLAKE_JWT"
+  authenticator = "SNOWFLAKE_JWT"
   private_key_file = "~/private_key"
   
   '''

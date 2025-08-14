@@ -32,7 +32,7 @@
 * Added support for `runtime_environment_version` field in notebook entity configuration, allowing specification of runtime environment version for containerized notebooks.
 * Added `snow auth oidc` command group for managing workload identity federation authentication:
   * `snow auth oidc create-user` - Creates users with OIDC authentication configuration
-  * `snow auth oidc delete` - Removes existing users
+  * `snow auth oidc delete` - Removes existing users with OIDC authentication configured
   * `snow auth oidc read-token` - Reads and displays OIDC tokens from CI/CD environments
   * Supports GitHub Actions OIDC provider for passwordless authentication in CI/CD pipelines
 
