@@ -21,6 +21,15 @@
 ## New additions
 
 ## Fixes and improvements
+
+
+# v3.10.1
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
 * Fixed DBT deploy command to properly handle fully qualified names
 * Fixed DBT deploy command to properly handle local directories with dots in names
 
