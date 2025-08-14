@@ -35,6 +35,7 @@ platformdirs==4.3.8
 pluggy==1.6.0
 prompt-toolkit==3.0.51
 protobuf==5.29.5 ; python_full_version < '3.12'
+pyarrow==21.0.0
 pycparser==2.22
 pydantic==2.11.7
 pydantic-core==2.33.2
