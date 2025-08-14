@@ -105,6 +105,7 @@ def test_service_create_from_project_definition(
                 "spec_file": "spec_upgrade.yml",
                 "min_instances": 1,
                 "max_instances": 2,
+                "auto_suspend_secs": 1000,
                 "query_warehouse": "xsmall",
                 "comment": "Upgraded service",
                 "artifacts": ["spec_upgrade.yml"],
