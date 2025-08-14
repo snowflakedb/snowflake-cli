@@ -33,26 +33,17 @@ from snowflake.cli.api.exceptions import CliError
 class TestOidcManager:
     """Test cases for OidcManager."""
 
-    @patch("snowflake.cli._plugins.auth.oidc.manager.get_oidc_provider")
     @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_setup_creates_federated_user(self, mock_execute_query, mock_get_provider):
-        """Test that setup method creates a federated user with WORKLOAD_IDENTITY syntax."""
-        # Mock the provider
-        mock_provider = Mock()
-        mock_provider.issuer = "https://token.actions.githubusercontent.com"
-        mock_get_provider.return_value = mock_provider
-
+    def test_create_user_creates_user(self, mock_execute_query):
+        """Test that create_user method creates a user with WORKLOAD_IDENTITY syntax."""
         manager = OidcManager()
 
-        result = manager.setup(
-            user="test_user",
+        result = manager.create_user(
+            user_name="test_user",
+            issuer="https://token.actions.githubusercontent.com",
             subject="repo:owner/repo:environment:prod",
             default_role="test_role",
-            provider_type=OidcProviderType.GITHUB,
         )
-
-        # Verify the correct provider was requested
-        mock_get_provider.assert_called_once_with("github")
 
         # Verify the SQL command was executed once (CREATE USER only)
         mock_execute_query.assert_called_once()
@@ -72,53 +63,11 @@ class TestOidcManager:
         assert "DEFAULT_ROLE = test_role" in create_user_call
 
         # Verify return message
-        assert "Successfully created federated user 'test_user'" in result
+        assert "Successfully created OIDC user 'test_user'" in result
 
-    @patch("snowflake.cli._plugins.auth.oidc.manager.get_oidc_provider")
-    def test_setup_provider_fails(self, mock_get_provider):
-        """Test setup when provider fails."""
-        manager = OidcManager()
-        error_message = f"Provider '{OidcProviderType.GITHUB}' not available"
-        mock_get_provider.side_effect = OidcProviderUnavailableError(error_message)
-
-        with pytest.raises(CliError, match=error_message):
-            manager.setup(
-                "test_user",
-                "repo:owner/repo:environment:prod",
-                "test_role",
-                OidcProviderType.GITHUB,
-            )
-
-    def test_setup_parameter_validation(self):
-        """Test parameter validation in setup method."""
-        manager = OidcManager()
-
-        with patch(
-            "snowflake.cli._plugins.auth.oidc.manager.get_oidc_provider"
-        ) as mock_get_provider:
-            # Mock the provider
-            mock_provider = Mock()
-            mock_provider.issuer = "https://token.actions.githubusercontent.com"
-            mock_get_provider.return_value = mock_provider
-
-            # Test empty subject
-            with pytest.raises(CliError, match="Subject cannot be empty"):
-                manager.setup(
-                    "test_user",
-                    "",
-                    "test_role",
-                    OidcProviderType.GITHUB,
-                )
-
-    @patch("snowflake.cli._plugins.auth.oidc.manager.get_oidc_provider")
     @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_setup_sql_exception_handling(self, mock_execute_query, mock_get_provider):
-        """Test that setup method handles SQL execution exceptions."""
-        # Mock the provider
-        mock_provider = Mock()
-        mock_provider.issuer = "https://token.actions.githubusercontent.com"
-        mock_get_provider.return_value = mock_provider
-
+    def test_create_user_sql_exception_handling(self, mock_execute_query):
+        """Test that create_user method handles SQL execution exceptions."""
         # Mock CREATE USER to fail
         mock_execute_query.side_effect = Exception("SQL execution failed")
 
@@ -126,32 +75,26 @@ class TestOidcManager:
 
         with pytest.raises(
             CliError,
-            match="Failed to create federated user 'test_user': SQL execution failed",
+            match="Failed to create user 'test_user': SQL execution failed",
         ):
-            manager.setup(
-                "test_user",
-                "repo:owner/repo:environment:prod",
-                "test_role",
-                OidcProviderType.GITHUB,
+            manager.create_user(
+                user_name="test_user",
+                issuer="https://token.actions.githubusercontent.com",
+                subject="repo:owner/repo:environment:prod",
+                default_role="test_role",
             )
 
-    @patch("snowflake.cli._plugins.auth.oidc.manager.get_oidc_provider")
     @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_setup_with_custom_subject(self, mock_execute_query, mock_get_provider):
-        """Test that setup method works with a custom subject."""
-        # Mock the provider
-        mock_provider = Mock()
-        mock_provider.issuer = "https://token.actions.githubusercontent.com"
-        mock_get_provider.return_value = mock_provider
-
+    def test_create_user_with_custom_subject(self, mock_execute_query):
+        """Test that create_user method works with a custom subject."""
         manager = OidcManager()
 
         custom_subject = "repo:custom/repo:environment:test"
-        result = manager.setup(
-            user="test_user",
+        result = manager.create_user(
+            user_name="test_user",
+            issuer="https://token.actions.githubusercontent.com",
             subject=custom_subject,
             default_role="test_role",
-            provider_type=OidcProviderType.GITHUB,
         )
 
         # Verify the SQL command was executed once
@@ -171,26 +114,11 @@ class TestOidcManager:
         assert "DEFAULT_ROLE = test_role" in create_user_call
 
         # Verify return message
-        assert "Successfully created federated user 'test_user'" in result
-
-    @patch("snowflake.cli._plugins.auth.oidc.manager.get_oidc_provider")
-    def test_setup_provider_not_found(self, mock_get_provider):
-        """Test setup with non-existent provider."""
-        manager = OidcManager()
-        error_message = f"Unknown provider '{OidcProviderType.GITHUB}'"
-        mock_get_provider.side_effect = OidcProviderNotFoundError(error_message)
-
-        with pytest.raises(CliError, match=error_message):
-            manager.setup(
-                "test_user",
-                "repo:owner/repo:environment:prod",
-                "test_role",
-                OidcProviderType.GITHUB,
-            )
+        assert "Successfully created OIDC user 'test_user'" in result
 
     @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_delete_drops_federated_user(self, mock_execute_query):
-        """Test that delete method drops a federated user."""
+    def test_delete_drops_user(self, mock_execute_query):
+        """Test that delete method drops a user."""
         # Mock search results - return one user found
         mock_search_cursor = Mock()
         mock_search_cursor.fetchall.return_value = [("test_user", True)]
@@ -209,8 +137,8 @@ class TestOidcManager:
 
         # Check search query
         search_call = mock_execute_query.call_args_list[0][0][0]
-        assert "show terse users" in search_call
-        assert "has_workload_identity" in search_call
+        assert "show user workload identity authentication methods" in search_call
+        assert "\"type\" = 'OIDC'" in search_call
         assert "test_user" in search_call
 
         # Check drop query
@@ -218,7 +146,7 @@ class TestOidcManager:
         assert 'DROP USER "test_user"' in drop_call
 
         # Verify return message
-        assert "Successfully deleted federated user 'test_user'" in result
+        assert "Successfully deleted user 'test_user'" in result
 
     @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
     def test_delete_parameter_validation(self, mock_execute_query):
@@ -226,11 +154,11 @@ class TestOidcManager:
         manager = OidcManager()
 
         # Test empty user name
-        with pytest.raises(CliError, match="Federated user name cannot be empty"):
+        with pytest.raises(CliError, match="User name cannot be empty"):
             manager.delete("")
 
         # Test whitespace only user name
-        with pytest.raises(CliError, match="Federated user name cannot be empty"):
+        with pytest.raises(CliError, match="User name cannot be empty"):
             manager.delete("   ")
 
     @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
@@ -254,13 +182,13 @@ class TestOidcManager:
 
         manager = OidcManager()
 
-        with pytest.raises(CliError, match="Federated 'test_user' user not found"):
+        with pytest.raises(CliError, match="User 'test_user' not found"):
             manager.delete("test_user")
 
         # Verify only search query was executed
         assert mock_execute_query.call_count == 1
         search_call = mock_execute_query.call_args_list[0][0][0]
-        assert "show terse users" in search_call
+        assert "show user workload identity authentication methods" in search_call
 
     @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
     def test_delete_multiple_users_found(self, mock_execute_query):
@@ -276,15 +204,13 @@ class TestOidcManager:
 
         manager = OidcManager()
 
-        with pytest.raises(
-            CliError, match="Error searching for federated user 'test_user'"
-        ):
+        with pytest.raises(CliError, match="Error searching for user 'test_user'"):
             manager.delete("test_user")
 
         # Verify only search query was executed
         assert mock_execute_query.call_count == 1
         search_call = mock_execute_query.call_args_list[0][0][0]
-        assert "show terse users" in search_call
+        assert "show user workload identity authentication methods" in search_call
 
     def test_read_token_with_auto_type(self):
         """Test read_token method with auto type delegates to auto_detect_oidc_provider."""
@@ -459,33 +385,3 @@ class TestOidcManager:
 
         manager = OidcManager()
         assert isinstance(manager, SqlExecutionMixin)
-
-    @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_list_sql_exception_handling(self, mock_execute_query):
-        """Test that list method handles SQL execution exceptions."""
-        manager = OidcManager()
-        mock_execute_query.side_effect = Exception("SQL execution failed")
-
-        with pytest.raises(
-            CliError,
-            match="Failed to list users with OIDC federated authentication: SQL execution failed",
-        ):
-            manager.get_users_list()
-
-    @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_list_empty_results(self, mock_execute_query):
-        """Test list method when no users have workload identity enabled."""
-        # Mock empty cursor response
-        mock_cursor = Mock()
-        mock_cursor.rowcount = 0
-        mock_cursor.__iter__ = Mock(return_value=iter([]))
-
-        # Set up mock for the single call
-        mock_execute_query.return_value = mock_cursor
-
-        manager = OidcManager()
-        result = manager.get_users_list()
-
-        # Verify result is the cursor
-        assert result == mock_cursor
-        assert mock_execute_query.call_count == 1

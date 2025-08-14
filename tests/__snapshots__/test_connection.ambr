@@ -57,7 +57,7 @@
   warehouse = "some warehouse"
   role = "some role"
   authenticator = "foo"
-  private_key_file = ""
+  workload_identity_provider = ""
   
   '''
 # ---
@@ -78,7 +78,7 @@
               "warehouse": "some warehouse",
               "role": "some role",
               "authenticator": "foo",
-              "private_key_file": ""
+              "workload_identity_provider": ""
           },
           "is_default": false
       }
