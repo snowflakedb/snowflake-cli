@@ -225,7 +225,7 @@ def add(
     ),
     workload_identity_provider: Optional[str] = typer.Option(
         None,
-        "-w",
+        "-W",
         *WorkloadIdentityProviderOption.param_decls,
         help="Workload identity provider type",
     ),
