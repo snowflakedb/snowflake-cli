@@ -159,3 +159,45 @@ def format_stage_path(stage_path: str) -> str:
         raise ValueError("Stage path cannot be empty")
 
     return f"@{path}"
+
+
+def parse_image_string(image_string: str) -> tuple[str, str, str]:
+    """
+    Parse an image string to extract repository, image name, and tag.
+
+    Docker image naming rules:
+    - Repository names can contain lowercase letters, digits, and separators (., -, _)
+    - Tags can contain lowercase/uppercase letters, digits, underscores, periods, and dashes
+    - Colons (:) are only valid as tag separators, not within names
+    - Forward slashes (/) are only valid as repository separators
+
+    Args:
+        image_string: Either a full image path (repo/image:tag) or just a tag
+
+    Returns:
+        Tuple of (repo, image_name, tag)
+
+    Examples:
+        parse_image_string("1.7.1") -> ("", "", "1.7.1")  # Just a tag
+        parse_image_string("myimage:latest") -> ("", "myimage", "latest")
+        parse_image_string("myrepo/myimage:v1.0") -> ("myrepo", "myimage", "v1.0")
+        parse_image_string("registry.com/myrepo/myimage:v1.0") -> ("registry.com/myrepo", "myimage", "v1.0")
+    """
+    # Split on the last colon to separate tag (if present)
+    if ":" in image_string:
+        image_path, tag = image_string.rsplit(":", 1)
+    else:
+        image_path, tag = image_string, ""
+
+    # Split on the last slash to separate repo from image name (if present)
+    if "/" in image_path:
+        repo, image_name = image_path.rsplit("/", 1)
+    else:
+        repo, image_name = "", image_path
+
+    # Special case: if we have no repo, no slash, and no colon, treat as just a tag
+    # This handles cases like "1.7.1" which should be treated as a tag, not an image name
+    if not repo and not "/" in image_string and not ":" in image_string:
+        return "", "", image_string
+
+    return repo, image_name, tag
