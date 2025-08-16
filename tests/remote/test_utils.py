@@ -1,0 +1,269 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from unittest.mock import Mock, patch
+
+import pytest
+from snowflake.cli._plugins.remote.constants import ComputeResources, SnowflakeCloudType
+from snowflake.cli._plugins.remote.utils import (
+    ImageSpec,
+    format_stage_path,
+    get_current_region_id,
+    get_node_resources,
+    get_regions,
+    validate_stage_path,
+)
+
+
+class TestImageSpec:
+    """Test ImageSpec dataclass."""
+
+    def test_image_spec_full_name(self):
+        """Test ImageSpec full_name property."""
+        resources = ComputeResources(cpu=2, memory=8, gpu=0)
+
+        spec = ImageSpec(
+            repo="/snowflake/images/snowflake_images",
+            image_name="st_plat/runtime/x86/runtime_image/snowbooks",
+            image_tag="1.7.1",
+            resource_requests=resources,
+            resource_limits=resources,
+        )
+
+        expected_full_name = "/snowflake/images/snowflake_images/st_plat/runtime/x86/runtime_image/snowbooks:1.7.1"
+        assert spec.full_name == expected_full_name
+
+
+class TestRegionUtils:
+    """Test region-related utility functions."""
+
+    def test_get_regions_with_region_group(self):
+        """Test get_regions with region groups."""
+        mock_session = Mock()
+        mock_regions = [
+            Mock(
+                region_group="aws-us-east-1",
+                snowflake_region="us-east-1",
+                cloud="aws",
+                region="us-east-1",
+                display_name="US East (N. Virginia)",
+            ),
+            Mock(
+                region_group="azure-west-us-2",
+                snowflake_region="west-us-2",
+                cloud="azure",
+                region="west-us-2",
+                display_name="West US 2",
+            ),
+        ]
+        mock_session.sql.return_value.collect.return_value = mock_regions
+
+        with patch("snowflake.cli.api.console.cli_console") as mock_console:
+            regions = get_regions(mock_session)
+
+            assert "aws-us-east-1.us-east-1" in regions
+            assert "azure-west-us-2.west-us-2" in regions
+
+            aws_region = regions["aws-us-east-1.us-east-1"]
+            assert aws_region["region_group"] == "aws-us-east-1"
+            assert aws_region["snowflake_region"] == "us-east-1"
+            assert aws_region["cloud"] == SnowflakeCloudType.AWS
+            assert aws_region["region"] == "us-east-1"
+            assert aws_region["display_name"] == "US East (N. Virginia)"
+
+    def test_get_regions_without_region_group(self):
+        """Test get_regions without region groups."""
+        mock_session = Mock()
+        mock_regions = [
+            Mock(
+                region_group=None,
+                snowflake_region="us-central1",
+                cloud="gcp",
+                region="us-central1",
+                display_name="US Central 1",
+            )
+        ]
+        # Mock hasattr to return False for region_group
+        for region in mock_regions:
+            region.region_group = None
+
+        mock_session.sql.return_value.collect.return_value = mock_regions
+
+        with patch("snowflake.cli.api.console.cli_console") as mock_console:
+            regions = get_regions(mock_session)
+
+            assert "us-central1" in regions
+
+            gcp_region = regions["us-central1"]
+            assert gcp_region["region_group"] is None
+            assert gcp_region["snowflake_region"] == "us-central1"
+            assert gcp_region["cloud"] == SnowflakeCloudType.GCP
+            assert gcp_region["region"] == "us-central1"
+            assert gcp_region["display_name"] == "US Central 1"
+
+    def test_get_current_region_id(self):
+        """Test get_current_region_id function."""
+        mock_session = Mock()
+        mock_result = Mock()
+        mock_result.CURRENT_REGION = "us-east-1"
+        mock_session.sql.return_value.collect.return_value = [mock_result]
+
+        region_id = get_current_region_id(mock_session)
+
+        assert region_id == "us-east-1"
+        mock_session.sql.assert_called_once_with(
+            "SELECT CURRENT_REGION() AS CURRENT_REGION"
+        )
+
+
+class TestNodeResources:
+    """Test get_node_resources function."""
+
+    def test_get_node_resources_common_instance_family(self):
+        """Test get_node_resources with common instance family."""
+        mock_session = Mock()
+
+        # Mock compute pool query
+        mock_pool_result = Mock()
+        mock_pool_result.__getitem__ = (
+            lambda self, key: "CPU_X64_S" if key == "instance_family" else None
+        )
+        mock_session.sql.return_value.collect.return_value = [mock_pool_result]
+
+        with patch(
+            "snowflake.cli._plugins.remote.utils.get_regions"
+        ) as mock_get_regions:
+            with patch(
+                "snowflake.cli._plugins.remote.utils.get_current_region_id"
+            ) as mock_get_region_id:
+                with patch("snowflake.cli.api.console.cli_console") as mock_console:
+                    # Mock region data
+                    mock_get_region_id.return_value = "us-east-1"
+                    mock_get_regions.return_value = {
+                        "us-east-1": {"cloud": SnowflakeCloudType.AWS}
+                    }
+
+                    resources = get_node_resources(mock_session, "test_pool")
+
+                    # Should return common instance family resources
+                    assert isinstance(resources, ComputeResources)
+                    assert resources.cpu > 0
+                    assert resources.memory > 0
+
+    def test_get_node_resources_cloud_specific_instance_family(self):
+        """Test get_node_resources with cloud-specific instance family."""
+        mock_session = Mock()
+
+        # Mock compute pool query with cloud-specific instance family
+        mock_pool_result = Mock()
+        mock_pool_result.__getitem__ = (
+            lambda self, key: "GPU_NV_S" if key == "instance_family" else None
+        )
+        mock_session.sql.return_value.collect.return_value = [mock_pool_result]
+
+        with patch(
+            "snowflake.cli._plugins.remote.utils.get_regions"
+        ) as mock_get_regions:
+            with patch(
+                "snowflake.cli._plugins.remote.utils.get_current_region_id"
+            ) as mock_get_region_id:
+                with patch("snowflake.cli.api.console.cli_console") as mock_console:
+                    # Mock region data
+                    mock_get_region_id.return_value = "us-east-1"
+                    mock_get_regions.return_value = {
+                        "us-east-1": {"cloud": SnowflakeCloudType.AWS}
+                    }
+
+                    resources = get_node_resources(mock_session, "gpu_pool")
+
+                    # Should return cloud-specific instance family resources
+                    assert isinstance(resources, ComputeResources)
+                    assert resources.gpu > 0  # GPU instance should have GPU resources
+
+    def test_get_node_resources_compute_pool_not_found(self):
+        """Test get_node_resources when compute pool is not found."""
+        mock_session = Mock()
+        mock_session.sql.return_value.collect.return_value = []  # Empty result
+
+        with pytest.raises(
+            ValueError, match="Compute pool 'nonexistent_pool' not found"
+        ):
+            get_node_resources(mock_session, "nonexistent_pool")
+
+
+class TestStagePathUtils:
+    """Test stage path validation and formatting utilities."""
+
+    def test_validate_stage_path_valid(self):
+        """Test validate_stage_path with valid paths."""
+        valid_paths = [
+            "@my_stage",
+            "@db.schema.stage",
+            "@stage_with_underscores",
+            "@stage-with-dashes",
+            "@stage123",
+            "@UPPERCASE_STAGE",
+        ]
+
+        for path in valid_paths:
+            assert validate_stage_path(path) is True
+
+    def test_validate_stage_path_invalid(self):
+        """Test validate_stage_path with invalid paths."""
+        invalid_paths = [
+            "my_stage",  # Missing @
+            "stage",  # Missing @
+            "",  # Empty
+            "   ",  # Whitespace only
+            "db.schema.stage",  # Missing @
+        ]
+
+        for path in invalid_paths:
+            assert validate_stage_path(path) is False
+
+    def test_format_stage_path_add_prefix(self):
+        """Test format_stage_path adds @ prefix when missing."""
+        test_cases = [
+            ("my_stage", "@my_stage"),
+            ("db.schema.stage", "@db.schema.stage"),
+            ("stage_name", "@stage_name"),
+            ("UPPERCASE", "@UPPERCASE"),
+        ]
+
+        for input_path, expected in test_cases:
+            assert format_stage_path(input_path) == expected
+
+    def test_format_stage_path_remove_trailing_slash(self):
+        """Test format_stage_path removes trailing slashes."""
+        test_cases = [
+            ("@my_stage/", "@my_stage"),
+            ("@my_stage//", "@my_stage"),
+            ("my_stage/", "@my_stage"),
+            ("@db.schema.stage/", "@db.schema.stage"),
+        ]
+
+        for input_path, expected in test_cases:
+            assert format_stage_path(input_path) == expected
+
+    def test_format_stage_path_already_formatted(self):
+        """Test format_stage_path with already properly formatted paths."""
+        properly_formatted = [
+            "@my_stage",
+            "@db.schema.stage",
+            "@stage_name",
+            "@UPPERCASE_STAGE",
+        ]
+
+        for path in properly_formatted:
+            assert format_stage_path(path) == path
