@@ -114,7 +114,7 @@ class TestContainerSpec:
     def test_generate_spec_with_custom_image_tag(self, mock_session):
         """Test generating spec with custom image tag."""
         spec = generate_service_spec(
-            session=mock_session, compute_pool="test_pool", image_tag="v1.2.3"
+            session=mock_session, compute_pool="test_pool", image="v1.2.3"
         )
 
         container = spec["spec"]["containers"][0]
@@ -122,6 +122,28 @@ class TestContainerSpec:
             "/snowflake/images/snowflake_images/st_plat/runtime/x86/runtime_image/snowbooks:v1.2.3"
             in container["image"]
         )
+
+    def test_generate_spec_with_full_image_path(self, mock_session):
+        """Test generating spec with full image path."""
+        spec = generate_service_spec(
+            session=mock_session,
+            compute_pool="test_pool",
+            image="myrepo/myimage:custom",
+        )
+
+        container = spec["spec"]["containers"][0]
+        assert container["image"] == "myrepo/myimage:custom"
+
+    def test_generate_spec_with_registry_image_path(self, mock_session):
+        """Test generating spec with registry/repo/image:tag format."""
+        spec = generate_service_spec(
+            session=mock_session,
+            compute_pool="test_pool",
+            image="registry.com/myrepo/myimage:v1.0",
+        )
+
+        container = spec["spec"]["containers"][0]
+        assert container["image"] == "registry.com/myrepo/myimage:v1.0"
 
     def test_generate_spec_with_ssh_key(self, mock_session):
         """Test generating spec with SSH public key."""

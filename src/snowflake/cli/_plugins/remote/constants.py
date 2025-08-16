@@ -54,24 +54,31 @@ USER_VSCODE_DATA_VOLUME_MOUNT_PATH = "/root/.vscode-server"
 # Service naming constants
 SERVICE_NAME_PREFIX = "SNOW_REMOTE"
 
-# Service status constants
-SERVICE_STATUS_READY = "READY"
-SERVICE_STATUS_SUSPENDED = "SUSPENDED"
-SERVICE_STATUS_SUSPENDING = "SUSPENDING"
-SERVICE_STATUS_PENDING = "PENDING"
-SERVICE_STATUS_STARTING = "STARTING"
-SERVICE_STATUS_FAILED = "FAILED"
-SERVICE_STATUS_ERROR = "ERROR"
-SERVICE_STATUS_UNKNOWN = "UNKNOWN"
 
-# Service operation result constants
-SERVICE_RESULT_CREATED = "created"
-SERVICE_RESULT_RESUMED = "resumed"
-SERVICE_RESULT_RUNNING = "running"
+class ServiceStatus(enum.Enum):
+    """Service status values returned by SHOW SERVICES and SPCS_WAIT_FOR (service-level)."""
+
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    FAILED = "FAILED"
+    DONE = "DONE"
+    SUSPENDING = "SUSPENDING"
+    SUSPENDED = "SUSPENDED"
+    DELETING = "DELETING"
+    DELETED = "DELETED"
+    INTERNAL_ERROR = "INTERNAL_ERROR"
+
+
+class ServiceResult(enum.Enum):
+    """Service operation result values."""
+
+    CREATED = "created"
+    RESUMED = "resumed"
+    RUNNING = "running"
+
 
 # Default timeout for service operations
 DEFAULT_SERVICE_TIMEOUT_MINUTES = 10
-STATUS_CHECK_INTERVAL_SECONDS = 10
 
 # Default container image information
 DEFAULT_IMAGE_REPO = "/snowflake/images/snowflake_images"
