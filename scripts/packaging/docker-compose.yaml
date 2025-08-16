@@ -9,25 +9,25 @@ services:
       - ../../:/snowflake-cli
     environment:
       - RELEASE_TYPE
-    command: /bin/bash -c "pyenv exec hatch build --clean"
+    command: /bin/bash -c "hatch build --clean"
   cli-test:
     build: .
     volumes:
       - ../../:/snowflake-cli
     environment:
       - RELEASE_TYPE
-    command: /bin/bash -c "eval \"$(pyenv init -)\" && ./scripts/packaging/python/test_cli_whl.sh"
+    command: /bin/bash -c "./scripts/packaging/python/test_cli_whl.sh"
   cli-labs-builder:
     build: .
     volumes:
       - ../../:/snowflake-cli
     environment:
       - RELEASE_TYPE
-    command: /bin/bash -c "pyenv exec hatch run legacy-pypi-build"
+    command: /bin/bash -c "hatch run legacy-pypi-build"
   cli-labs-test:
     build: .
     volumes:
       - ../../:/snowflake-cli
     environment:
       - RELEASE_TYPE
-    command: /bin/bash -c "eval \"$(pyenv init -)\" && ./scripts/packaging/python/test_cli_labs_whl.sh"
+    command: /bin/bash -c "./scripts/packaging/python/test_cli_labs_whl.sh"
