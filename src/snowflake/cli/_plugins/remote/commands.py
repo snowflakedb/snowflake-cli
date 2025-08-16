@@ -25,6 +25,18 @@ app = SnowTyperFactory(
 )
 
 
+@app.command("start", requires_connection=True)
+def start_service(**options) -> None:
+    """
+    Start a remote development environment.
+
+    This is a placeholder command for the remote plugin.
+    Full functionality will be implemented in subsequent PRs.
+    """
+    log.info("Start command called - functionality coming soon!")
+    log.info("Full functionality will be available in upcoming releases.")
+
+
 @app.command("list", requires_connection=True)
 def list_services(**options) -> None:
     """
