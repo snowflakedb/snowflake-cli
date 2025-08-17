@@ -15,18 +15,31 @@
 from __future__ import annotations
 
 import logging
+import time
 from datetime import datetime
-from typing import List, NamedTuple, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from snowflake.cli._plugins.remote.constants import (
     DEFAULT_SERVICE_TIMEOUT_MINUTES,
+    DEFAULT_SSH_REFRESH_INTERVAL,
     SERVER_UI_ENDPOINT_NAME,
     SERVICE_NAME_PREFIX,
+    SSH_COUNTDOWN_INTERVAL,
+    SSH_RETRY_INTERVAL,
+    WEBSOCKET_SSH_ENDPOINT_NAME,
     ServiceResult,
     ServiceStatus,
 )
 from snowflake.cli._plugins.remote.container_spec import generate_service_spec_yaml
+from snowflake.cli._plugins.remote.utils import (
+    cleanup_ssh_config,
+    generate_ssh_key_pair,
+    get_existing_ssh_key,
+    get_ssh_key_paths,
+    setup_ssh_config_with_token,
+)
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
+from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
@@ -49,6 +62,33 @@ class RemoteManager(SqlExecutionMixin):
         """Get the current Snowflake username from the connection."""
         result = self.execute_query("SELECT CURRENT_USER()").fetchone()
         return result[0] if result else "unknown"
+
+    def _setup_ssh_key(self, service_name: str, generate_key: bool) -> Optional[str]:
+        """Set up SSH key for a service and return the public key.
+
+        Args:
+            service_name: Name of the service
+            generate_key: Whether to generate or use SSH keys for the service.
+                         If False, no SSH key operations are performed.
+
+        Returns:
+            SSH public key content if generate_key is True and either:
+            - An existing SSH key pair is found for the service, or
+            - A new SSH key pair is successfully generated
+            None if generate_key is False (no SSH key operations performed)
+        """
+        if not generate_key:
+            return None
+
+        ssh_key_result = get_existing_ssh_key(service_name)
+        if ssh_key_result:
+            _, ssh_public_key = ssh_key_result
+            log.debug("Using existing SSH key pair for service %s", service_name)
+            return ssh_public_key
+        else:
+            log.debug("Generating SSH key pair for service %s", service_name)
+            _, ssh_public_key = generate_ssh_key_pair(service_name)
+            return ssh_public_key
 
     def _get_service_status(self, service_name: str) -> Tuple[bool, Optional[str]]:
         """
@@ -176,6 +216,7 @@ class RemoteManager(SqlExecutionMixin):
         external_access: Optional[List[str]],
         stage: Optional[str],
         image: Optional[str],
+        ssh_public_key: Optional[str],
     ) -> ServiceOperationResult:
         """
         Create a new service or recreate a failed one.
@@ -195,7 +236,7 @@ class RemoteManager(SqlExecutionMixin):
             compute_pool=compute_pool,
             stage=stage,
             image=image,
-            ssh_public_key=None,  # SSH key support will be added in later PR
+            ssh_public_key=ssh_public_key,
         )
 
         # Create the service directly with spec content
@@ -224,6 +265,7 @@ class RemoteManager(SqlExecutionMixin):
         external_access: Optional[List[str]] = None,
         stage: Optional[str] = None,
         image: Optional[str] = None,
+        generate_ssh_key: bool = False,
     ) -> ServiceOperationResult:
         """
         Starts a remote development environment with VS Code Server.
@@ -248,6 +290,7 @@ class RemoteManager(SqlExecutionMixin):
             image: Custom image to use for the remote development environment.
                    Can be either a full image path (e.g., 'repo/image:tag') or just a tag (e.g., '1.7.1').
                    If not provided, uses the default image.
+            generate_ssh_key: Whether to generate a new SSH key pair for the service.
 
         Returns:
             ServiceOperationResult with:
@@ -297,6 +340,9 @@ class RemoteManager(SqlExecutionMixin):
         else:
             log.debug("Service %s does not exist, creating...", service_name)
 
+        # Handle SSH key generation if requested
+        ssh_public_key = self._setup_ssh_key(service_name, generate_ssh_key)
+
         # Create the service (either new or recreating failed one)
         return self._create_new_service(
             service_name=service_name,
@@ -304,6 +350,7 @@ class RemoteManager(SqlExecutionMixin):
             external_access=external_access,
             stage=stage,
             image=image,
+            ssh_public_key=ssh_public_key,
         )
 
     def _create_service_with_spec(
@@ -405,16 +452,231 @@ class RemoteManager(SqlExecutionMixin):
         Raises:
             RuntimeError: If no VS Code endpoint is found for the service
         """
-        service_manager = ServiceManager()
-        endpoints = service_manager.list_endpoints(service_name)
+        return self.get_endpoint_url(service_name, SERVER_UI_ENDPOINT_NAME)
 
-        # Look for the server-ui endpoint
-        for row in endpoints:
-            # Assuming the row format is [name, port, public, protocol, host, url]
-            if len(row) >= 6 and row[0] == SERVER_UI_ENDPOINT_NAME:
-                return row[5]  # Return the URL
+    def get_public_endpoint_urls(self, service_name: str) -> Dict[str, str]:
+        """Get all public endpoint URLs for a service.
 
-        raise RuntimeError(f"No VS Code endpoint found for service {service_name}")
+        Args:
+            service_name: Full name of the service to get URLs for
+
+        Returns:
+            Dictionary mapping endpoint names to URLs
+
+        Raises:
+            RuntimeError: If no endpoints are found for the service
+        """
+        endpoints_cursor = self.execute_query(
+            f"show endpoints in service {service_name}", cursor_class=DictCursor
+        )
+
+        public_endpoints = {}
+        for row in endpoints_cursor:
+            # Only include public endpoints that have an ingress URL
+            if row.get("is_public") and row.get("ingress_url"):
+                endpoint_name = row["name"]
+                url = row["ingress_url"]
+                public_endpoints[endpoint_name] = url
+                log.debug("Found public endpoint: %s -> %s", endpoint_name, url)
+            else:
+                log.debug(
+                    "Skipping endpoint %s: is_public=%s, has_url=%s",
+                    row.get("name"),
+                    row.get("is_public"),
+                    bool(row.get("ingress_url")),
+                )
+
+        log.debug("Total public endpoints found: %d", len(public_endpoints))
+        return public_endpoints
+
+    def get_endpoint_url(self, service_name: str, endpoint_name: str) -> str:
+        """Get a specific endpoint URL for a service.
+
+        Args:
+            service_name: Full name of the service
+            endpoint_name: Name of the endpoint to retrieve
+
+        Returns:
+            The endpoint URL
+
+        Raises:
+            RuntimeError: If the endpoint is not found
+        """
+        endpoints = self.get_public_endpoint_urls(service_name)
+
+        if endpoint_name not in endpoints:
+            available = ", ".join(endpoints.keys()) if endpoints else "none"
+            raise RuntimeError(
+                f"Endpoint '{endpoint_name}' not found for service {service_name}. "
+                f"Available public endpoints: {available}"
+            )
+
+        url = endpoints[endpoint_name]
+        log.debug("Retrieved endpoint URL for %s: %s", endpoint_name, url)
+        return url
+
+    def setup_ssh_connection(
+        self,
+        service_name: str,
+        refresh_interval: int = DEFAULT_SSH_REFRESH_INTERVAL,
+    ) -> None:
+        """Set up SSH connection with token refresh for a remote service.
+
+        This is a blocking operation that continuously refreshes authentication tokens.
+        Automatically detects and uses SSH keys if they exist for the service.
+
+        Args:
+            service_name: Full name of the service
+            refresh_interval: Token refresh interval in seconds
+        """
+
+        try:
+            # Get the websocket-ssh endpoint hostname
+            log.debug("Getting SSH endpoint for '%s'...", service_name)
+            ssh_hostname = self.get_endpoint_url(
+                service_name, WEBSOCKET_SSH_ENDPOINT_NAME
+            )
+
+            log.debug("Found websocket SSH hostname: %s", ssh_hostname)
+
+            # Check if SSH keys exist for this service
+            private_key_path = None
+            private_key_file, _ = get_ssh_key_paths(service_name)
+            if private_key_file.exists():
+                private_key_path = str(private_key_file)
+                log.debug(
+                    "Found SSH private key for service '%s': %s",
+                    service_name,
+                    private_key_path,
+                )
+            else:
+                log.debug(
+                    "No SSH private key found for service '%s', using token-only authentication",
+                    service_name,
+                )
+
+            # Configure session for token compatibility
+            log.debug("Configuring session for SSH token compatibility...")
+            self.snowpark_session.sql(
+                "ALTER SESSION SET python_connector_query_result_format = 'JSON'"
+            ).collect()
+
+            cc.step(f"Starting SSH session management for '{service_name}'...")
+            cc.step(f"You can now connect using: ssh {service_name}")
+            cc.step(f"Press Ctrl+C to stop SSH session management")
+
+            self._ssh_token_refresh_loop(
+                service_name, ssh_hostname, private_key_path, refresh_interval
+            )
+
+        except KeyboardInterrupt:
+            cc.step("\n🛑 SSH session management stopped.")
+        except Exception as e:
+            cc.step(f"❌ Error setting up SSH: {str(e)}")
+            raise
+        finally:
+            # Clean up SSH configuration when SSH session ends
+            cc.step("🧹 Cleaning up SSH configuration...")
+            cleanup_ssh_config(service_name)
+
+    def _ssh_token_refresh_loop(
+        self,
+        service_name: str,
+        ssh_hostname: str,
+        private_key_path: Optional[str],
+        refresh_interval: int,
+    ) -> None:
+        """Handle the SSH token refresh loop."""
+        token_refresh_count = 0
+
+        try:
+            while True:
+                log.debug("Token refresh cycle #%d", token_refresh_count + 1)
+
+                token = self._get_fresh_token()
+                if not token:
+                    cc.step("❌ Unable to get token. Retrying in 30 seconds...")
+                    self._wait_with_shutdown_check(SSH_RETRY_INTERVAL)
+                    continue
+
+                # Update SSH configuration
+                auth_method = "SSH key" if private_key_path else "token-only"
+                log.debug("Updating SSH config with %s authentication", auth_method)
+
+                setup_ssh_config_with_token(
+                    service_name, ssh_hostname, token, private_key_path
+                )
+
+                token_refresh_count += 1
+                cc.step(f"SSH configuration updated (refresh #{token_refresh_count})")
+
+                # Wait for next refresh with countdown
+                self._wait_with_countdown(refresh_interval)
+
+        except Exception as e:
+            cc.step(f"⚠️  SSH error occurred: {str(e)}")
+            raise
+
+    def _get_fresh_token(self) -> Optional[str]:
+        """Get a fresh authentication token with natural session expiration.
+
+        Creates a connection that will expire naturally according to Snowflake's
+        default session timeout, allowing proper token lifecycle management
+        without artificial keep-alive mechanisms.
+        """
+        # Import here to avoid circular dependency
+        from snowflake.cli._app.snow_connector import connect_to_snowflake
+
+        fresh_connection = None
+        try:
+            log.debug("Creating fresh connection for SSH token...")
+
+            current_context = get_cli_context().connection_context
+
+            # Create connection with natural session expiration for SSH token refresh
+            fresh_connection = connect_to_snowflake(
+                connection_name=current_context.connection_name,
+                temporary_connection=current_context.temporary_connection,
+                # Allow session to expire naturally - don't keep it alive artificially
+                using_session_keep_alive=False,
+            )
+
+            fresh_connection.cursor().execute(
+                "ALTER SESSION SET python_connector_query_result_format = 'JSON'"
+            )
+
+            token = fresh_connection.rest.token
+            if token:
+                log.debug("Fresh token obtained successfully")
+                return token
+            else:
+                log.debug("No token available from fresh connection")
+                return None
+
+        except Exception as e:
+            log.debug("Failed to create fresh connection: %s", str(e))
+            return None
+
+    def _wait_with_countdown(self, duration: int) -> None:
+        """Wait with periodic countdown messages. Raises KeyboardInterrupt if interrupted."""
+        end_time = time.time() + duration
+
+        log.debug("Next refresh in %d seconds...", duration)
+
+        while time.time() < end_time:
+            remaining = int(end_time - time.time())
+            if remaining > 0 and remaining % SSH_COUNTDOWN_INTERVAL == 0:
+                log.debug(
+                    "⏳ Next refresh in %d seconds... (Press Ctrl+C to stop)", remaining
+                )
+            time.sleep(1)
+
+    def _wait_with_shutdown_check(self, duration: int) -> None:
+        """Wait for duration. Raises KeyboardInterrupt if interrupted."""
+        end_time = time.time() + duration
+
+        while time.time() < end_time:
+            time.sleep(1)
 
     def list_services(self) -> SnowflakeCursor:
         """List all remote development environment services.
