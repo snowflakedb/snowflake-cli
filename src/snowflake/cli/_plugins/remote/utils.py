@@ -15,17 +15,30 @@
 """Utilities for the remote development environment plugin."""
 
 import logging
+import platform
+import re
+import shlex
+import shutil
+import stat
+import subprocess
 from dataclasses import dataclass
-from typing import Dict, Optional, TypedDict, cast
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, TypedDict, cast
 
 # Required is not essential for runtime, so we'll use a simpler approach
 from snowflake import snowpark
 from snowflake.cli._plugins.remote.constants import (
     CLOUD_INSTANCE_FAMILIES,
     COMMON_INSTANCE_FAMILIES,
+    SSH_CONFIG_FILENAME,
+    SSH_DEFAULT_PORT,
+    SSH_DEFAULT_USER,
+    SSH_DIR_NAME,
+    SSH_KEY_SUBDIR_NAME,
     ComputeResources,
     SnowflakeCloudType,
 )
+from snowflake.cli.api.console import cli_console as cc
 
 log = logging.getLogger(__name__)
 
@@ -201,3 +214,334 @@ def parse_image_string(image_string: str) -> tuple[str, str, str]:
         return "", "", image_string
 
     return repo, image_name, tag
+
+
+def get_ssh_key_paths(service_name: str) -> Tuple[Path, Path]:
+    """Get the SSH key file paths for a service.
+
+    Args:
+        service_name: Name of the service
+
+    Returns:
+        Tuple of (private_key_path, public_key_path)
+    """
+    # Use pathlib.Path.home() for cross-platform home directory resolution
+    ssh_key_dir = Path.home() / SSH_DIR_NAME / SSH_KEY_SUBDIR_NAME
+    private_key_path = ssh_key_dir / service_name
+    public_key_path = ssh_key_dir / f"{service_name}.pub"
+    return private_key_path, public_key_path
+
+
+def _set_secure_file_permissions(file_path: Path, is_private_key: bool = True) -> None:
+    """Set secure file permissions in a cross-platform way.
+
+    Args:
+        file_path: Path to the file
+        is_private_key: True for private keys (more restrictive), False for public keys
+    """
+
+    if platform.system() == "Windows":
+        # On Windows, ssh-keygen already sets appropriate permissions by default.
+        # We only need to ensure the file isn't world-writable, which is rarely an issue.
+        # Windows file permissions work differently than Unix, and OpenSSH on Windows
+        # handles this correctly without additional intervention.
+        try:
+            # Just ensure the file isn't read-only if it's a private key we might need to delete later
+            current_mode = file_path.stat().st_mode
+            if current_mode & stat.S_IWRITE == 0:  # If read-only
+                file_path.chmod(current_mode | stat.S_IWRITE)  # Make writable
+        except (OSError, AttributeError):
+            # If this fails, it's not critical - log debug message only
+            log.debug(
+                "Could not adjust permissions on %s (this is usually fine on Windows)",
+                file_path,
+            )
+    else:
+        # Unix-like systems: use traditional octal permissions
+        if is_private_key:
+            file_path.chmod(0o600)  # rw-------
+        else:
+            file_path.chmod(0o644)  # rw-r--r--
+
+
+def _set_secure_directory_permissions(dir_path: Path) -> None:
+    """Set secure directory permissions in a cross-platform way.
+
+    Args:
+        dir_path: Path to the directory
+    """
+
+    if platform.system() == "Windows":
+        # On Windows, default directory permissions are usually fine.
+        # The SSH directory is typically created in the user's home directory
+        # which already has appropriate access controls.
+        log.debug("Using default Windows permissions for SSH directory: %s", dir_path)
+    else:
+        # Unix-like systems: use traditional octal permissions
+        dir_path.chmod(0o700)  # rwx------
+
+
+def generate_ssh_key_pair(
+    service_name: str, key_type: str = "ed25519"
+) -> Tuple[str, str]:
+    """
+    Generate SSH key pair for the remote service.
+
+    Args:
+        service_name: The name of the service
+        key_type: Type of SSH key to generate (ed25519, rsa, ecdsa)
+
+    Returns:
+        Tuple of (private_key_path, public_key_content)
+    """
+    # Create SSH key directory if it doesn't exist
+    ssh_key_dir = Path.home() / SSH_DIR_NAME / SSH_KEY_SUBDIR_NAME
+    ssh_key_dir.mkdir(parents=True, exist_ok=True)
+
+    # Set secure permissions on the directory (cross-platform)
+    _set_secure_directory_permissions(ssh_key_dir)
+
+    # Get key file paths
+    private_key_path, public_key_path = get_ssh_key_paths(service_name)
+
+    # Remove existing keys if they exist
+    if private_key_path.exists():
+        private_key_path.unlink()
+    if public_key_path.exists():
+        public_key_path.unlink()
+
+    # Generate the SSH key pair
+    try:
+        cmd = [
+            "ssh-keygen",
+            "-t",
+            key_type,
+            "-f",
+            str(private_key_path),
+            "-N",
+            "",  # No passphrase
+            "-C",
+            f"snowflake-remote-{service_name}",
+        ]
+
+        subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=True,
+            text=True,
+        )
+
+        # Set proper permissions (cross-platform)
+        _set_secure_file_permissions(private_key_path, is_private_key=True)
+        _set_secure_file_permissions(public_key_path, is_private_key=False)
+
+        # Read the public key content
+        with open(public_key_path, "r") as f:
+            public_key_content = f.read().strip()
+
+        cc.step(f"🔑 Generated SSH key pair for service '{service_name}'")
+        log.debug("   Private key: %s", private_key_path)
+        log.debug("   Public key: %s", public_key_path)
+
+        return str(private_key_path), public_key_content
+
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"Failed to generate SSH key pair: {e.stderr}")
+    except FileNotFoundError:
+        if platform.system() == "Windows":
+            raise RuntimeError(
+                "ssh-keygen command not found. Please install OpenSSH client for Windows:\n"
+                "1. Windows 10/11: Enable 'OpenSSH Client' in Windows Features, or\n"
+                "2. Install Git for Windows (includes OpenSSH), or\n"
+                "3. Install OpenSSH from: https://github.com/PowerShell/Win32-OpenSSH/releases"
+            )
+        else:
+            raise RuntimeError(
+                "ssh-keygen command not found. Please install OpenSSH client."
+            )
+
+
+def get_existing_ssh_key(service_name: str) -> Optional[Tuple[str, str]]:
+    """
+    Get existing SSH key pair for the service if it exists.
+
+    Args:
+        service_name: The name of the service
+
+    Returns:
+        Tuple of (private_key_path, public_key_content) or None if not found
+    """
+    private_key_path, public_key_path = get_ssh_key_paths(service_name)
+
+    if private_key_path.exists() and public_key_path.exists():
+        try:
+            with open(public_key_path, "r") as f:
+                public_key_content = f.read().strip()
+            return str(private_key_path), public_key_content
+        except IOError:
+            return None
+
+    return None
+
+
+def _generate_ssh_config_lines(
+    service_name: str,
+    hostname: str,
+    websocat_path: str,
+    token: str,
+    private_key_path: Optional[str],
+) -> List[str]:
+    """Generate SSH configuration lines for a service."""
+    # Properly escape values to prevent command injection
+    escaped_websocat_path = shlex.quote(websocat_path)
+
+    # For the token, we need to escape it for shell safety but also ensure it's properly quoted
+    # within the Authorization header. We escape the token and then add quotes around it.
+    escaped_token = shlex.quote(token)
+
+    config_lines = [
+        f"Host {service_name}",
+        f"  HostName {hostname}",
+        f"  Port     {SSH_DEFAULT_PORT}",
+        f"  User     {SSH_DEFAULT_USER}",
+        f'  ProxyCommand {escaped_websocat_path} --binary wss://{hostname}/ -H "Authorization: Snowflake Token=\\"{escaped_token}\\""',
+    ]
+
+    if private_key_path:
+        config_lines.extend(
+            [
+                f"  IdentityFile {private_key_path}",
+                f"  IdentitiesOnly yes",
+                f"  PubkeyAuthentication yes",
+                f"  PasswordAuthentication no",
+                f"  StrictHostKeyChecking no",
+                f"  UserKnownHostsFile /dev/null",
+            ]
+        )
+    else:
+        config_lines.extend(
+            [
+                f"  PasswordAuthentication no",
+                f"  PubkeyAuthentication no",
+                f"  StrictHostKeyChecking no",
+                f"  UserKnownHostsFile /dev/null",
+            ]
+        )
+
+    return config_lines
+
+
+def setup_ssh_config_with_token(
+    service_name: str,
+    ssh_hostname: str,
+    token: str,
+    private_key_path: Optional[str] = None,
+) -> None:
+    """Setup SSH configuration for the remote service using token authentication.
+
+    Args:
+        service_name: The name of the service
+        ssh_hostname: The hostname of the SSH endpoint
+        token: The Snowflake authentication token
+        private_key_path: Optional path to SSH private key for key-based authentication
+    """
+    # Check if websocat is installed and get its path
+    websocat_path = shutil.which("websocat")
+    if not websocat_path:
+        cc.warning("websocat is required for SSH connections but is not installed.")
+        cc.warning("Install websocat from: https://github.com/vi/websocat/releases")
+        return
+
+    # Generate SSH configuration lines
+    config_lines = _generate_ssh_config_lines(
+        service_name, ssh_hostname, websocat_path, token, private_key_path
+    )
+
+    config_content = "\n" + "\n".join(config_lines) + "\n"
+
+    # Use pathlib for cross-platform SSH config path handling
+    ssh_config_path = Path.home() / SSH_DIR_NAME / SSH_CONFIG_FILENAME
+
+    # Check if the config already exists for this host
+    existing_config = ""
+    host_pattern = re.compile(f"^Host {re.escape(service_name)}$", re.MULTILINE)
+
+    if ssh_config_path.exists():
+        existing_config = ssh_config_path.read_text()
+
+    if host_pattern.search(existing_config):
+        # Config already exists, update it
+        lines = existing_config.splitlines()
+        new_lines = []
+        skip_until_next_host = False
+
+        for line in lines:
+            if line.strip() == f"Host {service_name}":
+                skip_until_next_host = True
+                continue
+            elif skip_until_next_host and line.strip().startswith("Host "):
+                skip_until_next_host = False
+
+            if not skip_until_next_host:
+                new_lines.append(line)
+
+        new_config = "\n".join(new_lines) + config_content
+    else:
+        # Append new config
+        new_config = (
+            existing_config + config_content if existing_config else config_content
+        )
+
+    # Write the updated config using pathlib
+    ssh_config_path.write_text(new_config)
+
+    # Log successful file operation
+    log.debug("SSH configuration written to %s", ssh_config_path)
+
+
+def cleanup_ssh_config(service_name: str) -> None:
+    """Remove SSH configuration for a service from ~/.ssh/config.
+
+    Args:
+        service_name: The name of the service to remove from SSH config
+    """
+    ssh_config_path = Path.home() / SSH_DIR_NAME / SSH_CONFIG_FILENAME
+
+    if not ssh_config_path.exists():
+        return  # Nothing to clean up
+
+    try:
+        config_content = ssh_config_path.read_text()
+
+        # Find and remove the host section for this service
+        lines = config_content.split("\n")
+        new_lines = []
+        skip_section = False
+
+        for line in lines:
+            # Check if this is the start of our service's host section
+            if line.strip() == f"Host {service_name}":
+                skip_section = True
+                continue
+
+            # Check if this is the start of a different host section
+            if line.strip().startswith("Host ") and skip_section:
+                skip_section = False
+                # Don't skip this line - it's a new host section
+                new_lines.append(line)
+                continue
+
+            # Skip lines that are part of our service's section
+            if skip_section:
+                continue
+
+            new_lines.append(line)
+
+        # Write the updated config back using pathlib
+        ssh_config_path.write_text("\n".join(new_lines))
+
+        log.debug("Removed SSH configuration for %s", service_name)
+
+    except Exception as e:
+        log.warning("Failed to clean up SSH config for %s: %s", service_name, e)
