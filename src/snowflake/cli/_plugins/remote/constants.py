@@ -47,7 +47,7 @@ DEFAULT_CONTAINER_NAME = "main"
 ENABLE_REMOTE_DEV_ENV_VAR = "IS_REMOTE_DEV"
 MEMORY_VOLUME_NAME = "dshm"
 USER_WORKSPACE_VOLUME_NAME = "user-workspace"
-USER_WORKSPACE_VOLUME_MOUNT_PATH = "/root/workspace"
+USER_WORKSPACE_VOLUME_MOUNT_PATH = "/root/user-default"
 USER_VSCODE_DATA_VOLUME_NAME = "user-vscode-data"
 USER_VSCODE_DATA_VOLUME_MOUNT_PATH = "/root/.vscode-server"
 
@@ -84,7 +84,7 @@ DEFAULT_SERVICE_TIMEOUT_MINUTES = 10
 DEFAULT_IMAGE_REPO = "/snowflake/images/snowflake_images"
 DEFAULT_IMAGE_CPU = "st_plat/runtime/x86/runtime_image/snowbooks"
 DEFAULT_IMAGE_GPU = "st_plat/runtime/x86/generic_gpu/runtime_image/snowbooks"
-DEFAULT_IMAGE_TAG = "1.7.1"
+DEFAULT_IMAGE_TAG = "1.7.2"
 
 # Percent of container memory to allocate for /dev/shm volume
 MEMORY_VOLUME_SIZE = 0.3
@@ -97,6 +97,16 @@ DEFAULT_WEBSOCKET_PORT = 12021
 SERVER_UI_ENDPOINT_NAME = "server-ui"
 WEBSOCKET_SSH_ENDPOINT_NAME = "websocket-ssh"
 RAY_DASHBOARD_ENDPOINT_NAME = "ray-dashboard"
+
+# SSH Configuration
+DEFAULT_SSH_REFRESH_INTERVAL = 300  # 5 minutes
+SSH_RETRY_INTERVAL = 30  # 30 seconds
+SSH_COUNTDOWN_INTERVAL = 30  # Show countdown every 30 seconds
+SSH_DIR_NAME = ".ssh"
+SSH_KEY_SUBDIR_NAME = "snowflake-remote"
+SSH_CONFIG_FILENAME = "config"
+SSH_DEFAULT_PORT = 22
+SSH_DEFAULT_USER = "root"
 
 # ML runtime health check settings
 ML_RUNTIME_HEALTH_CHECK_PORT = "5001"
