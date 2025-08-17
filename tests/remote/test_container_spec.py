@@ -74,7 +74,7 @@ class TestContainerSpec:
         container = spec["spec"]["containers"][0]
         assert container["name"] == "main"
         assert (
-            "/snowflake/images/snowflake_images/st_plat/runtime/x86/runtime_image/snowbooks:1.7.1"
+            "/snowflake/images/snowflake_images/st_plat/runtime/x86/runtime_image/snowbooks:1.7.2"
             in container["image"]
         )
 
@@ -147,7 +147,7 @@ class TestContainerSpec:
         workspace_mount = next(
             vm for vm in volume_mounts if vm["name"] == "user-workspace"
         )
-        assert workspace_mount["mountPath"] == "/root/workspace"
+        assert workspace_mount["mountPath"] == "/root/user-default"
 
         vscode_mount = next(
             vm for vm in volume_mounts if vm["name"] == "user-vscode-data"
@@ -262,7 +262,7 @@ class TestContainerSpec:
         container = parsed_spec["spec"]["containers"][0]
         assert container["name"] == "main"
         assert (
-            "/snowflake/images/snowflake_images/st_plat/runtime/x86/runtime_image/snowbooks:1.7.1"
+            "/snowflake/images/snowflake_images/st_plat/runtime/x86/runtime_image/snowbooks:1.7.2"
             in container["image"]
         )
 
@@ -380,7 +380,7 @@ class TestContainerSpec:
             # Check that GPU image is used (should contain "generic_gpu")
             assert "generic_gpu" in container["image"]
             assert (
-                "st_plat/runtime/x86/generic_gpu/runtime_image/snowbooks:1.7.1"
+                "st_plat/runtime/x86/generic_gpu/runtime_image/snowbooks:1.7.2"
                 in container["image"]
             )
 
