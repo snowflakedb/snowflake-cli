@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import List, Optional
 
 import yaml
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
@@ -49,6 +50,7 @@ class DBTManager(SqlExecutionMixin):
         path: SecurePath,
         profiles_path: SecurePath,
         force: bool,
+        external_access_integrations: Optional[List[str]] = None,
     ) -> SnowflakeCursor:
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
@@ -94,6 +96,11 @@ class DBTManager(SqlExecutionMixin):
             else:
                 query = f"CREATE DBT PROJECT {fqn}"
             query += f"\nFROM {stage_name}"
+
+            if external_access_integrations:
+                integrations_str = ", ".join(external_access_integrations)
+                query += f"\nEXTERNAL_ACCESS_INTEGRATIONS = ({integrations_str})"
+
             return self.execute_query(query)
 
     @staticmethod
