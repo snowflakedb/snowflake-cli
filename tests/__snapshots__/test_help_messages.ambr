@@ -4847,11 +4847,8 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | create-user   Sets up OIDC authentication. Creates a user with the specified |
-  |               configuration.                                                 |
-  | delete        Deletes a user.                                                |
-  | read-token    Reads OIDC token based on the specified type. Use 'auto' to    |
-  |               auto-detect available providers.                               |
+  | read-token   Reads OIDC token based on the specified type. Use 'auto' to     |
+  |              auto-detect available providers.                                |
   +------------------------------------------------------------------------------+
   
   
@@ -21476,11 +21473,8 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | create-user   Sets up OIDC authentication. Creates a user with the specified |
-  |               configuration.                                                 |
-  | delete        Deletes a user.                                                |
-  | read-token    Reads OIDC token based on the specified type. Use 'auto' to    |
-  |               auto-detect available providers.                               |
+  | read-token   Reads OIDC token based on the specified type. Use 'auto' to     |
+  |              auto-detect available providers.                                |
   +------------------------------------------------------------------------------+
   
   

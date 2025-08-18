@@ -13,8 +13,7 @@
 # limitations under the License.
 
 import logging
-from textwrap import dedent
-from typing import Optional, TypeAlias
+from typing import TypeAlias
 
 from snowflake.cli._app.auth.errors import OidcProviderError
 from snowflake.cli._app.auth.oidc_providers import (
@@ -24,7 +23,6 @@ from snowflake.cli._app.auth.oidc_providers import (
     get_active_oidc_provider,
 )
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.sql_execution import SqlExecutionMixin
 
 logger = logging.getLogger(__name__)
 
@@ -32,129 +30,17 @@ logger = logging.getLogger(__name__)
 Providers: TypeAlias = OidcProviderType | OidcProviderTypeWithAuto
 
 
-class OidcManager(SqlExecutionMixin):
+class OidcManager:
     """
     Manages OIDC authentication.
 
-    This class provides methods to set up, delete, and read OIDC
+    This class provides methods to read OIDC
     configurations for authentication.
     """
 
-    def create_user(
-        self,
-        *,
-        user_name: str,
-        issuer: str,
-        subject: str,
-        default_role: Optional[str],
-    ) -> str:
-        """
-        Sets up OIDC authentication for the specified user.
+    # create_user method removed as the feature is being dropped
 
-        Args:
-            user_name: Name for the user to create
-            subject: OIDC subject string
-            default_role: Default role to assign to the user
-            issuer: OIDC issuer URL
-
-        Returns:
-            Success message string
-
-        Raises:
-            CliError: If user creation fails or parameters are invalid
-        """
-        logger.info(
-            (
-                "Setting up OIDC authentication for user: %r "
-                "with issuer: %r, subject: %r and default_role: %r"
-            ),
-            user_name,
-            issuer,
-            subject,
-            default_role,
-        )
-
-        create_user_sql = (
-            f"CREATE USER {user_name} WORKLOAD_IDENTITY = ("
-            f" TYPE = 'OIDC'"
-            f" ISSUER = '{issuer}'"
-            f" SUBJECT = '{subject}')"
-            f" TYPE = SERVICE"
-        )
-        if default_role:
-            create_user_sql = f"{create_user_sql} DEFAULT_ROLE = {default_role}"
-
-        try:
-            logger.debug("Executing CREATE USER command for user: %s", user_name)
-            self.execute_query(create_user_sql)
-
-            success_message = (
-                "Successfully created OIDC user '%s' with subject '%s' and issuer '%s'"
-                % (user_name, subject, issuer)
-            )
-            logger.info(success_message)
-            return success_message
-        except Exception as e:
-            error_msg = "Failed to create user '%s': %s" % (
-                user_name,
-                str(e),
-            )
-            logger.error(error_msg)
-            raise CliError(error_msg)
-
-    def delete(self, user: str) -> str:
-        """
-        Deletes a user.
-
-        Args:
-            user: Name of the user to delete
-
-        Returns:
-            Success message string
-
-        Raises:
-            CliError: If user deletion fails or parameters are invalid
-        """
-        logger.info("Deleting user: %r", user)
-
-        _user = user.strip()
-        if not _user:
-            raise CliError("User name cannot be empty")
-
-        logger.debug("Searching for user %r", _user)
-
-        _auth_types = dedent(
-            f"""
-            show user workload identity authentication methods for user {_user} ->>
-            select
-                "name",
-                "type"
-            from $1
-            where
-                "type" = 'OIDC'
-        """
-        )
-        logger.debug("Search statement: %r", _auth_types)
-
-        _search_res = self.execute_query(_auth_types).fetchall()
-        logger.debug("Search results: %r", _search_res)
-
-        _search_count = len(_search_res)
-        match _search_count:
-            case 1:
-                logger.debug("Executing DROP USER command for user: %r", _user)
-                self.execute_query(f'DROP USER "{_user}"')
-                success_message = f"Successfully deleted user {_user!r}"
-                logger.info(success_message)
-                return success_message
-            case 0:
-                msg = f"User {_user!r} not found"
-                logger.debug(msg)
-                raise CliError(msg)
-            case _:
-                msg = f"Error searching for user {_user!r}"
-                logger.debug(msg)
-                raise CliError(msg)
+    # delete method removed as the feature is being dropped
 
     def read_token(
         self,

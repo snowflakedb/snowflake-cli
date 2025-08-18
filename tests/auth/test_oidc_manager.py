@@ -33,184 +33,15 @@ from snowflake.cli.api.exceptions import CliError
 class TestOidcManager:
     """Test cases for OidcManager."""
 
-    @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_create_user_creates_user(self, mock_execute_query):
-        """Test that create_user method creates a user with WORKLOAD_IDENTITY syntax."""
-        manager = OidcManager()
+    # test_delete_drops_user removed as delete command is being dropped
 
-        result = manager.create_user(
-            user_name="test_user",
-            issuer="https://token.actions.githubusercontent.com",
-            subject="repo:owner/repo:environment:prod",
-            default_role="test_role",
-        )
+    # test_delete_parameter_validation removed as delete command is being dropped
 
-        # Verify the SQL command was executed once (CREATE USER only)
-        mock_execute_query.assert_called_once()
+    # test_delete_sql_exception_handling removed as delete command is being dropped
 
-        # Check CREATE USER call
-        create_user_call = mock_execute_query.call_args[0][0]
+    # test_delete_user_not_found removed as delete command is being dropped
 
-        # Verify the SQL contains expected elements with WORKLOAD_IDENTITY
-        assert "CREATE USER test_user" in create_user_call
-        assert "WORKLOAD_IDENTITY = (" in create_user_call
-        assert "FEDERATED_AUTHENTICATION" not in create_user_call
-        assert "TYPE = 'OIDC'" in create_user_call
-        assert (
-            "ISSUER = 'https://token.actions.githubusercontent.com'" in create_user_call
-        )
-        assert "SUBJECT = 'repo:owner/repo:environment:prod'" in create_user_call
-        assert "DEFAULT_ROLE = test_role" in create_user_call
-
-        # Verify return message
-        assert "Successfully created OIDC user 'test_user'" in result
-
-    @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_create_user_sql_exception_handling(self, mock_execute_query):
-        """Test that create_user method handles SQL execution exceptions."""
-        # Mock CREATE USER to fail
-        mock_execute_query.side_effect = Exception("SQL execution failed")
-
-        manager = OidcManager()
-
-        with pytest.raises(
-            CliError,
-            match="Failed to create user 'test_user': SQL execution failed",
-        ):
-            manager.create_user(
-                user_name="test_user",
-                issuer="https://token.actions.githubusercontent.com",
-                subject="repo:owner/repo:environment:prod",
-                default_role="test_role",
-            )
-
-    @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_create_user_with_custom_subject(self, mock_execute_query):
-        """Test that create_user method works with a custom subject."""
-        manager = OidcManager()
-
-        custom_subject = "repo:custom/repo:environment:test"
-        result = manager.create_user(
-            user_name="test_user",
-            issuer="https://token.actions.githubusercontent.com",
-            subject=custom_subject,
-            default_role="test_role",
-        )
-
-        # Verify the SQL command was executed once
-        mock_execute_query.assert_called_once()
-
-        # Check CREATE USER call
-        create_user_call = mock_execute_query.call_args[0][0]
-
-        # Verify the SQL contains expected elements with custom subject
-        assert "CREATE USER test_user" in create_user_call
-        assert "WORKLOAD_IDENTITY = (" in create_user_call
-        assert "TYPE = 'OIDC'" in create_user_call
-        assert (
-            "ISSUER = 'https://token.actions.githubusercontent.com'" in create_user_call
-        )
-        assert f"SUBJECT = '{custom_subject}'" in create_user_call
-        assert "DEFAULT_ROLE = test_role" in create_user_call
-
-        # Verify return message
-        assert "Successfully created OIDC user 'test_user'" in result
-
-    @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_delete_drops_user(self, mock_execute_query):
-        """Test that delete method drops a user."""
-        # Mock search results - return one user found
-        mock_search_cursor = Mock()
-        mock_search_cursor.fetchall.return_value = [("test_user", True)]
-
-        # Mock second call for DROP USER
-        mock_drop_cursor = Mock()
-
-        # Set up mock to return different results for each call
-        mock_execute_query.side_effect = [mock_search_cursor, mock_drop_cursor]
-
-        manager = OidcManager()
-        result = manager.delete(user="test_user")
-
-        # Verify the SQL commands were executed
-        assert mock_execute_query.call_count == 2
-
-        # Check search query
-        search_call = mock_execute_query.call_args_list[0][0][0]
-        assert "show user workload identity authentication methods" in search_call
-        assert "\"type\" = 'OIDC'" in search_call
-        assert "test_user" in search_call
-
-        # Check drop query
-        drop_call = mock_execute_query.call_args_list[1][0][0]
-        assert 'DROP USER "test_user"' in drop_call
-
-        # Verify return message
-        assert "Successfully deleted user 'test_user'" in result
-
-    @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_delete_parameter_validation(self, mock_execute_query):
-        """Test parameter validation in delete method."""
-        manager = OidcManager()
-
-        # Test empty user name
-        with pytest.raises(CliError, match="User name cannot be empty"):
-            manager.delete("")
-
-        # Test whitespace only user name
-        with pytest.raises(CliError, match="User name cannot be empty"):
-            manager.delete("   ")
-
-    @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_delete_sql_exception_handling(self, mock_execute_query):
-        """Test that delete method handles SQL execution exceptions."""
-        manager = OidcManager()
-        mock_execute_query.side_effect = Exception("SQL execution failed")
-
-        # The new implementation should let the exception bubble up from execute_query
-        with pytest.raises(Exception, match="SQL execution failed"):
-            manager.delete("test_user")
-
-    @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_delete_user_not_found(self, mock_execute_query):
-        """Test delete when user is not found."""
-        # Mock search results - return no users found
-        mock_search_cursor = Mock()
-        mock_search_cursor.fetchall.return_value = []
-
-        mock_execute_query.return_value = mock_search_cursor
-
-        manager = OidcManager()
-
-        with pytest.raises(CliError, match="User 'test_user' not found"):
-            manager.delete("test_user")
-
-        # Verify only search query was executed
-        assert mock_execute_query.call_count == 1
-        search_call = mock_execute_query.call_args_list[0][0][0]
-        assert "show user workload identity authentication methods" in search_call
-
-    @patch("snowflake.cli._plugins.auth.oidc.manager.OidcManager.execute_query")
-    def test_delete_multiple_users_found(self, mock_execute_query):
-        """Test delete when multiple users are found."""
-        # Mock search results - return multiple users found
-        mock_search_cursor = Mock()
-        mock_search_cursor.fetchall.return_value = [
-            ("test_user_1", True),
-            ("test_user_2", True),
-        ]
-
-        mock_execute_query.return_value = mock_search_cursor
-
-        manager = OidcManager()
-
-        with pytest.raises(CliError, match="Error searching for user 'test_user'"):
-            manager.delete("test_user")
-
-        # Verify only search query was executed
-        assert mock_execute_query.call_count == 1
-        search_call = mock_execute_query.call_args_list[0][0][0]
-        assert "show user workload identity authentication methods" in search_call
+    # test_delete_multiple_users_found removed as delete command is being dropped
 
     def test_read_token_with_auto_type(self):
         """Test read_token method with auto type delegates to auto_detect_oidc_provider."""
@@ -379,9 +210,4 @@ class TestOidcManager:
         with pytest.raises(CliError, match=error_message):
             manager.read_token(OidcProviderType.GITHUB)
 
-    def test_manager_inherits_from_sql_execution_mixin(self):
-        """Test that OidcManager inherits from SqlExecutionMixin."""
-        from snowflake.cli.api.sql_execution import SqlExecutionMixin
-
-        manager = OidcManager()
-        assert isinstance(manager, SqlExecutionMixin)
+    # test_manager_inherits_from_sql_execution_mixin removed as OidcManager no longer needs SqlExecutionMixin
