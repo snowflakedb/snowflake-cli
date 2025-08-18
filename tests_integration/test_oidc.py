@@ -67,7 +67,7 @@ def test_user_creation(runner, snowflake_session, resource_suffix):
                     "--default-role",
                     default_role,
                     "--role",
-                    "accountadmin",
+                    "public",
                 ]
             )
 

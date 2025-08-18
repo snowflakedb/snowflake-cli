@@ -4674,7 +4674,7 @@
                                                                                   
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    user_name      TEXT  Name for the user to drop                          |
+  | *    user_name      TEXT  Name of the user to drop                           |
   |                           [required]                                         |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
@@ -4916,7 +4916,7 @@
   | --authenticator                -A      TEXT     Chosen authenticator, if     |
   |                                                 other than password-based    |
   |                                                 [default: None]              |
-  | --workload-identity-provider   -w      TEXT     Workload identity provider   |
+  | --workload-identity-provider   -W      TEXT     Workload identity provider   |
   |                                                 type                         |
   |                                                 [default: None]              |
   | --private-key,--private-key-…  -k      TEXT     Path to file containing      |
