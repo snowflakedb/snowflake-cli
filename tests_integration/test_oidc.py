@@ -66,8 +66,6 @@ def test_user_creation(runner, snowflake_session, resource_suffix):
                     subject,
                     "--default-role",
                     default_role,
-                    "--role",
-                    "public",
                 ]
             )
 
@@ -120,3 +118,10 @@ def test_oidc_user_creation(runner, test_user_creation):
 
     additional_info = json.loads(output["additional_info"])
     assert additional_info["issuer"] == GITHUB_ISSUER
+
+
+@pytest.mark.integration
+def test_create_user(runner):
+    query = "create user it_123456 type = service"
+    result = runner.invoke_with_connection_json(["sql", "-q", query])
+    assert result.exit_code == 0
