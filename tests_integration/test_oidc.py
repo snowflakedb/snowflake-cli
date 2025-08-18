@@ -64,8 +64,6 @@ def test_user_creation(runner, snowflake_session, resource_suffix):
                     issuer,
                     "--subject",
                     subject,
-                    "--default-role",
-                    default_role,
                 ]
             )
 
@@ -122,6 +120,10 @@ def test_oidc_user_creation(runner, test_user_creation):
 
 @pytest.mark.integration
 def test_create_user(runner):
-    query = "create user it_123456 type = service"
+    query = """create user it_123456 type = service WORKLOAD_IDENTITY = (
+    TYPE = OIDC
+    ISSUER = 'https://container.googleapis.com/v1/projects/<project_id>/locations/<region>/clusters/<cluster_name>'
+    SUBJECT = 'system:serviceaccount:<service_account_namespace>:<service_account_name>'
+  )"""
     result = runner.invoke_with_connection_json(["sql", "-q", query])
     assert result.exit_code == 0
