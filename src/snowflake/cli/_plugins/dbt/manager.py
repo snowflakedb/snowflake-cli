@@ -119,33 +119,15 @@ class DBTManager(SqlExecutionMixin):
 
         errors = defaultdict(list)
         required_fields = {
-            "account",
             "database",
             "role",
             "schema",
-            "type",
-            "user",
             "warehouse",
-        }
-        supported_fields = {
-            "threads",
         }
         for target_name, target in profiles[target_profile]["outputs"].items():
             if missing_keys := required_fields - set(target.keys()):
                 errors[target_profile].append(
                     f"Missing required fields: {', '.join(sorted(missing_keys))} in target {target_name}"
-                )
-            if (
-                unsupported_keys := set(target.keys())
-                - required_fields
-                - supported_fields
-            ):
-                errors[target_profile].append(
-                    f"Unsupported fields found: {', '.join(sorted(unsupported_keys))} in target {target_name}"
-                )
-            if "type" in target and target["type"].lower() != "snowflake":
-                errors[target_profile].append(
-                    f"Value for type field is invalid. Should be set to `snowflake` in target {target_name}"
                 )
 
         if errors:

@@ -17,13 +17,10 @@ class TestDeploy:
             "dev": {
                 "outputs": {
                     "local": {
-                        "account": "test_account",
                         "database": "testdb",
                         "role": "test_role",
                         "schema": "test_schema",
                         "threads": 4,
-                        "type": "snowflake",
-                        "user": "test_user",
                         "warehouse": "test_warehouse",
                     }
                 }
@@ -81,37 +78,6 @@ class TestDeploy:
         expected_error_message = """Found following errors in profiles.yml. Please fix them before proceeding:
 dev
  * Missing required fields: role, warehouse in target local"""
-        assert exc_info.value.message == dedent(expected_error_message)
-
-    def test_validate_profiles_raises_when_unsupported_fields_are_provided(
-        self, project_path, profile
-    ):
-        profile["dev"]["outputs"]["local"]["password"] = "very secret password"
-        self._generate_profile(project_path, profile)
-
-        with pytest.raises(CliError) as exc_info:
-            DBTManager._validate_profiles(  # noqa: SLF001
-                SecurePath(project_path), "dev"
-            )
-
-        expected_error_message = """Found following errors in profiles.yml. Please fix them before proceeding:
-dev
- * Unsupported fields found: password in target local"""
-        assert exc_info.value.message == dedent(expected_error_message)
-        assert "very secret password" not in exc_info.value.message
-
-    def test_validate_profiles_raises_when_type_is_wrong(self, project_path, profile):
-        profile["dev"]["outputs"]["local"]["type"] = "sqlite"
-        self._generate_profile(project_path, profile)
-
-        with pytest.raises(CliError) as exc_info:
-            DBTManager._validate_profiles(  # noqa: SLF001
-                SecurePath(project_path), "dev"
-            )
-
-        expected_error_message = """Found following errors in profiles.yml. Please fix them before proceeding:
-dev
- * Value for type field is invalid. Should be set to `snowflake` in target local"""
         assert exc_info.value.message == dedent(expected_error_message)
 
     def test_prepare_profiles_file_replaces_existing_symlink_with_file(

@@ -29,21 +29,14 @@ def test_deploy_and_execute(
     snowflake_session,
     test_database,
     project_directory,
-    snapshot,
 ):
     with project_directory("dbt_project") as root_dir:
         # Given a local dbt project
         ts = int(datetime.datetime.now().timestamp())
         name = f"dbt_project_{ts}"
 
-        # try to deploy, but fail since profiles.yml contains a password
+        # deploy even when profiles.yml contains a password
         _setup_dbt_profile(root_dir, snowflake_session, include_password=True)
-        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
-        assert result.exit_code == 1, result.output
-        assert result.output == snapshot
-
-        # deploy for the first time
-        _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
         result = runner.invoke_with_connection_json(["dbt", "deploy", name])
         assert result.exit_code == 0, result.output
 
@@ -209,8 +202,6 @@ def _setup_dbt_profile(root_dir: Path, snowflake_session, include_password: bool
         profiles = yaml.safe_load(f)
     dev_profile = profiles["dbt_integration_project"]["outputs"]["dev"]
     dev_profile["database"] = snowflake_session.database
-    dev_profile["account"] = snowflake_session.account
-    dev_profile["user"] = snowflake_session.user
     dev_profile["role"] = snowflake_session.role
     dev_profile["warehouse"] = snowflake_session.warehouse
     dev_profile["schema"] = snowflake_session.schema
