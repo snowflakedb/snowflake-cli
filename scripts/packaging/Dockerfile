@@ -35,10 +35,11 @@ RUN gem install dotenv:2.8.1 fpm
 ENV PYTHON_VERSION=3.10.16
 ENV PYTHON_PREFIX=/usr/local
 
-# Set conservative compilation flags for maximum CPU compatibility
+# Set conservative compilation flags optimized for size and compatibility
 # Avoid modern CPU instructions like AVX, AVX2, AVX512
-ENV CFLAGS="-O2 -march=x86-64 -mtune=generic -mno-avx -mno-avx2 -mno-avx512f"
-ENV CXXFLAGS="-O2 -march=x86-64 -mtune=generic -mno-avx -mno-avx2 -mno-avx512f"
+ENV CFLAGS="-Os -march=x86-64 -mtune=generic -mno-avx -mno-avx2 -mno-avx512f -ffunction-sections -fdata-sections"
+ENV CXXFLAGS="-Os -march=x86-64 -mtune=generic -mno-avx -mno-avx2 -mno-avx512f -ffunction-sections -fdata-sections"
+ENV LDFLAGS="-Wl,--gc-sections -s"
 
 # Download Python source
 RUN cd /tmp && \
@@ -57,7 +58,10 @@ RUN cd /tmp/Python-${PYTHON_VERSION} && \
         --disable-shared \
         --with-system-ffi \
         --with-computed-gotos \
-        --with-ensurepip=install
+        --with-ensurepip=install \
+        --without-doc-strings \
+        --disable-test-modules \
+        --without-debug-build
 
 # Build and install Python
 RUN cd /tmp/Python-${PYTHON_VERSION} && \
@@ -68,6 +72,10 @@ RUN cd /tmp/Python-${PYTHON_VERSION} && \
 
 # Clean up
 RUN rm -rf /tmp/Python-${PYTHON_VERSION}*
+
+# Strip debug symbols to reduce size
+RUN find ${PYTHON_PREFIX} -name "*.so" -exec strip {} \; 2>/dev/null || true
+RUN strip ${PYTHON_PREFIX}/bin/python3.10 2>/dev/null || true
 
 # Create symlinks for python and pip
 RUN ln -sf ${PYTHON_PREFIX}/bin/python3.10 ${PYTHON_PREFIX}/bin/python
