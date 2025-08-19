@@ -34,8 +34,7 @@ class OidcManager:
     """
     Manages OIDC authentication.
 
-    This class provides methods to read OIDC
-    configurations for authentication.
+    This class provides methods to read OIDC configurations for authentication.
     """
 
     def read_token(
