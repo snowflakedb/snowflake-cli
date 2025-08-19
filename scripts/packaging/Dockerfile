@@ -30,7 +30,7 @@ RUN apt install -y --fix-missing \
 
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y tk-dev
 
-RUN gem install dotenv -v 2.8.1 fpm
+RUN gem install dotenv:2.8.1 fpm
 
 ENV PYTHON_VERSION=3.10.16
 ENV PYTHON_PREFIX=/usr/local
