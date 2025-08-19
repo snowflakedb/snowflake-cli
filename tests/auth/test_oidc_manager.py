@@ -33,16 +33,6 @@ from snowflake.cli.api.exceptions import CliError
 class TestOidcManager:
     """Test cases for OidcManager."""
 
-    # test_delete_drops_user removed as delete command is being dropped
-
-    # test_delete_parameter_validation removed as delete command is being dropped
-
-    # test_delete_sql_exception_handling removed as delete command is being dropped
-
-    # test_delete_user_not_found removed as delete command is being dropped
-
-    # test_delete_multiple_users_found removed as delete command is being dropped
-
     def test_read_token_with_auto_type(self):
         """Test read_token method with auto type delegates to auto_detect_oidc_provider."""
         manager = OidcManager()
