@@ -156,24 +156,16 @@ def copy_and_relocate_system_python(python_tmp_dir: Path, python_version: str) -
         lib_dir = target_python_dir / "lib"
         lib_dir.mkdir(exist_ok=True)
 
-        # Copy essential system libraries that Python and packages need
+        # Copy only absolutely essential system libraries (minimal set)
         essential_libs = [
-            # OpenSSL libraries for ssl module
+            # OpenSSL libraries for ssl module (required for snowflake-connector)
             "/usr/lib/x86_64-linux-gnu/libssl.so.1.1",
             "/usr/lib/x86_64-linux-gnu/libcrypto.so.1.1",
             "/lib/x86_64-linux-gnu/libssl.so.1.1",
             "/lib/x86_64-linux-gnu/libcrypto.so.1.1",
-            # Zlib for compression (needed by cryptography)
+            # Zlib for compression (required by cryptography package)
             "/usr/lib/x86_64-linux-gnu/libz.so.1",
             "/lib/x86_64-linux-gnu/libz.so.1",
-            # FFI library
-            "/usr/lib/x86_64-linux-gnu/libffi.so.6",
-            "/lib/x86_64-linux-gnu/libffi.so.6",
-            # Other commonly needed libraries
-            "/usr/lib/x86_64-linux-gnu/libbz2.so.1.0",
-            "/lib/x86_64-linux-gnu/libbz2.so.1.0",
-            "/usr/lib/x86_64-linux-gnu/liblzma.so.5",
-            "/lib/x86_64-linux-gnu/liblzma.so.5",
         ]
 
         copied_libs = []
