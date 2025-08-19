@@ -186,7 +186,7 @@ def test_port_has_cannot_be_float(runner):
 
 @pytest.mark.parametrize(
     "selected_option",
-    [10, 11],  # 9 - private_key_file prompt, 10 - token_file_path prompt
+    [10, 11],  # 10 - private_key_file prompt, 11 - token_file_path prompt
 )
 def test_file_paths_have_to_exist_when_given_in_prompt(selected_option, runner):
     result = _run_connection_add_with_path_provided_as_prompt(

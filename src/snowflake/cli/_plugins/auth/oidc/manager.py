@@ -38,10 +38,6 @@ class OidcManager:
     configurations for authentication.
     """
 
-    # create_user method removed as the feature is being dropped
-
-    # delete method removed as the feature is being dropped
-
     def read_token(
         self,
         provider_type: Providers = OidcProviderTypeWithAuto.AUTO,
