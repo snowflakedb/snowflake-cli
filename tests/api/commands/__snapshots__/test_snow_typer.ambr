@@ -35,6 +35,10 @@
   | --authenticator                       TEXT     Snowflake authenticator.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --workload-identity-provider          TEXT     Workload identity provider    |
+  |                                                (AWS, AZURE, GCP, OIDC).      |
+  |                                                Overrides the value specified |
+  |                                                for the connection            |
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
