@@ -61,7 +61,9 @@ RUN cd /tmp/Python-${PYTHON_VERSION} && \
         --with-ensurepip=install \
         --without-doc-strings \
         --disable-test-modules \
-        --without-debug-build
+        --without-debug-build \
+        --disable-ipv6 \
+        --without-pymalloc
 
 # Build and install Python
 RUN cd /tmp/Python-${PYTHON_VERSION} && \
@@ -72,6 +74,25 @@ RUN cd /tmp/Python-${PYTHON_VERSION} && \
 
 # Clean up
 RUN rm -rf /tmp/Python-${PYTHON_VERSION}*
+
+# Aggressive size optimization
+# Remove unnecessary files and directories
+RUN rm -rf ${PYTHON_PREFIX}/lib/python3.10/test
+RUN rm -rf ${PYTHON_PREFIX}/lib/python3.10/*/test*
+RUN rm -rf ${PYTHON_PREFIX}/lib/python3.10/__pycache__
+RUN find ${PYTHON_PREFIX}/lib/python3.10 -name "*.pyc" -delete
+RUN find ${PYTHON_PREFIX}/lib/python3.10 -name "*.pyo" -delete
+RUN find ${PYTHON_PREFIX}/lib/python3.10 -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+
+# Remove unused standard library modules that are confirmed not used by snowflake-cli
+RUN cd ${PYTHON_PREFIX}/lib/python3.10 && \
+    rm -rf \
+    tkinter \
+    turtle* \
+    idlelib \
+    lib2to3 \
+    pydoc_data \
+    ensurepip/_bundled
 
 # Strip debug symbols to reduce size
 RUN find ${PYTHON_PREFIX} -name "*.so" -exec strip {} \; 2>/dev/null || true
