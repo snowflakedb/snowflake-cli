@@ -7,6 +7,7 @@
    * [ ] I've confirmed that my changes are up-to-date with the target branch.
    * [ ] I've described my changes in the release notes.
    * [ ] I've described my changes in the section below.
+   * [ ] I've described my changes in the documentation.
 
 ### Changes description
 ...
