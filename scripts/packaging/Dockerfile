@@ -94,6 +94,22 @@ RUN cd ${PYTHON_PREFIX}/lib/python3.10 && \
     pydoc_data \
     ensurepip/_bundled
 
+# Additional cleanup for smaller size
+RUN find ${PYTHON_PREFIX} -name "*.a" -delete  # Remove static libraries
+RUN find ${PYTHON_PREFIX} -name "*.la" -delete  # Remove libtool files
+RUN rm -rf ${PYTHON_PREFIX}/share/man  # Remove manual pages
+RUN rm -rf ${PYTHON_PREFIX}/include  # Remove header files
+RUN rm -rf ${PYTHON_PREFIX}/lib/pkgconfig  # Remove pkg-config files
+
+# Remove more standard library components that may not be needed
+RUN cd ${PYTHON_PREFIX}/lib/python3.10 && \
+    rm -rf \
+    ensurepip \
+    venv \
+    site-packages/pip* \
+    site-packages/setuptools* \
+    site-packages/_distutils_hack
+
 # Strip debug symbols to reduce size
 RUN find ${PYTHON_PREFIX} -name "*.so" -exec strip {} \; 2>/dev/null || true
 RUN strip ${PYTHON_PREFIX}/bin/python3.10 2>/dev/null || true
