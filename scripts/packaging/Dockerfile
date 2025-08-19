@@ -64,24 +64,22 @@ RUN cd /tmp/Python-${PYTHON_VERSION} && \
     echo "Building Python with conservative CPU flags..." && \
     make -j$(nproc) && \
     echo "Installing Python..." && \
-    make install
+    make altinstall
 
 # Clean up
 RUN rm -rf /tmp/Python-${PYTHON_VERSION}*
 
-# Create python symlink if it doesn't exist (make install sometimes doesn't create it)
-RUN if [ ! -f ${PYTHON_PREFIX}/bin/python ]; then \
-        ln -sf ${PYTHON_PREFIX}/bin/python3 ${PYTHON_PREFIX}/bin/python; \
-    fi
+# Create symlinks for python and pip
+RUN ln -sf ${PYTHON_PREFIX}/bin/python3.10 ${PYTHON_PREFIX}/bin/python
+RUN ln -sf ${PYTHON_PREFIX}/bin/python3.10 ${PYTHON_PREFIX}/bin/python3
+RUN ln -sf ${PYTHON_PREFIX}/bin/pip3.10 ${PYTHON_PREFIX}/bin/pip
+RUN ln -sf ${PYTHON_PREFIX}/bin/pip3.10 ${PYTHON_PREFIX}/bin/pip3
 
 # Update PATH to use our custom Python
 ENV PATH="${PYTHON_PREFIX}/bin:$PATH"
 
 # Update library path for shared libraries
 RUN echo "${PYTHON_PREFIX}/lib" > /etc/ld.so.conf.d/python.conf && ldconfig
-
-# Verify Python installation
-RUN python --version && python3 --version && which python && which pip
 
 # Install packages with selective binary policy
 RUN python -m pip install \
