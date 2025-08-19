@@ -13,9 +13,9 @@
 # limitations under the License.
 from __future__ import annotations
 
-from typing import List, Literal, Optional, TypeVar
+from typing import List, Literal, TypeVar
 
-from pydantic import Field, field_validator
+from pydantic import field_validator
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.entities.common import EntityBase, attach_spans_to_entity_actions
 from snowflake.cli.api.exceptions import CliError
@@ -37,9 +37,6 @@ MANIFEST_FILE_NAME = "manifest.yml"
 
 class DCMProjectEntityModel(EntityModelBaseWithArtifacts):
     type: Literal["dcm"] = DiscriminatorField()  # noqa: A003
-    stage: Optional[str] = Field(
-        title="Stage in which the DCM Project artifacts will be stored", default=None
-    )
 
     @field_validator("artifacts")
     @classmethod
