@@ -107,8 +107,7 @@ RUN cd ${PYTHON_PREFIX}/lib/python3.10 && \
     ensurepip \
     venv \
     site-packages/pip* \
-    site-packages/setuptools* \
-    site-packages/_distutils_hack
+    site-packages/setuptools*
 
 # Strip debug symbols to reduce size
 RUN find ${PYTHON_PREFIX} -name "*.so" -exec strip {} \; 2>/dev/null || true
