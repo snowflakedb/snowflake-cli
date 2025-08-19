@@ -199,5 +199,3 @@ class TestOidcManager:
 
         with pytest.raises(CliError, match=error_message):
             manager.read_token(OidcProviderType.GITHUB)
-
-    # test_manager_inherits_from_sql_execution_mixin removed as OidcManager no longer needs SqlExecutionMixin
