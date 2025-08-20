@@ -97,13 +97,10 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
     return archive
 
 
-def copy_and_relocate_system_python(python_tmp_dir: Path, python_version: str) -> bool:
-    """Copy our conservatively compiled system Python and make it relocatable."""
-    import os
-    import shutil
+def _find_system_python() -> tuple[str, Path]:
+    """Find the system Python installation (not virtual environment)."""
     import sys
 
-    # Use the actual system Python we built, not the hatch virtual environment
     # Check if we're in a virtual environment and find the real system Python
     if hasattr(sys, "real_prefix") or (
         hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix
@@ -119,12 +116,15 @@ def copy_and_relocate_system_python(python_tmp_dir: Path, python_version: str) -
     print(f"Using conservatively compiled system Python: {system_python}")
     print(f"System Python directory: {system_python_dir}")
 
-    # Verify we're using the right Python before copying
+    return system_python, system_python_dir
+
+
+def _verify_conservative_python(system_python: str) -> None:
+    """Verify the Python was compiled with conservative CPU flags."""
+    import subprocess
+
     if not Path(system_python).exists():
         raise RuntimeError(f"System Python not found at {system_python}")
-
-    # Check if this is our conservatively compiled Python
-    import subprocess
 
     result = subprocess.run(
         [
@@ -144,131 +144,157 @@ def copy_and_relocate_system_python(python_tmp_dir: Path, python_version: str) -
     else:
         print(f"Warning: Could not verify source Python: {result.stderr}")
 
-    # Create target directory structure
-    target_python_dir = python_tmp_dir / python_version
-    target_python_dir.mkdir(parents=True, exist_ok=True)
 
-    # Copy only essential parts of Python installation for runtime
-    try:
-        # Create target directory structure
-        (target_python_dir / "bin").mkdir(parents=True, exist_ok=True)
-        (target_python_dir / "lib").mkdir(parents=True, exist_ok=True)
+def _copy_python_binaries(system_python_dir: Path, target_python_dir: Path) -> None:
+    """Copy essential Python binaries."""
+    import shutil
 
-        # Copy essential binaries
-        essential_binaries = ["python3.10", "python", "python3"]
-        for binary in essential_binaries:
-            src_binary = system_python_dir / "bin" / binary
-            if src_binary.exists():
-                shutil.copy2(src_binary, target_python_dir / "bin" / binary)
-                print(f"Copied binary: {binary}")
+    (target_python_dir / "bin").mkdir(parents=True, exist_ok=True)
 
-        # Copy only runtime library directories (not development files)
-        essential_lib_dirs = [
-            "python3.10/site-packages",  # Installed packages
-            "python3.10/lib-dynload",  # Dynamic loading modules
-            "python3.10/encodings",  # Character encodings (critical)
-            "python3.10/collections",  # Collections module
-            "python3.10/importlib",  # Import machinery
-            "python3.10/json",  # JSON module
-            "python3.10/urllib",  # URL handling
-            "python3.10/email",  # Email handling
-            "python3.10/logging",  # Logging
-            "python3.10/re.py",  # Regular expressions
-            "python3.10/os.py",  # OS interface
-            "python3.10/sys.py",  # System interface
-            "python3.10/io.py",  # I/O operations
-            "python3.10/codecs.py",  # Codec registry
-            "python3.10/_collections_abc.py",  # Collections ABC
-            "python3.10/abc.py",  # Abstract base classes
-            "python3.10/typing.py",  # Type hints
-        ]
+    essential_binaries = ["python3.10", "python", "python3"]
+    for binary in essential_binaries:
+        src_binary = system_python_dir / "bin" / binary
+        if src_binary.exists():
+            shutil.copy2(src_binary, target_python_dir / "bin" / binary)
+            print(f"Copied binary: {binary}")
 
-        for lib_path in essential_lib_dirs:
-            src_path = system_python_dir / "lib" / lib_path
-            dest_path = target_python_dir / "lib" / lib_path
 
-            if src_path.exists():
-                if src_path.is_file():
-                    dest_path.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(src_path, dest_path)
-                    print(f"Copied file: {lib_path}")
+def _copy_essential_python_libs(
+    system_python_dir: Path, target_python_dir: Path
+) -> None:
+    """Copy essential Python library directories."""
+    import shutil
+
+    (target_python_dir / "lib").mkdir(parents=True, exist_ok=True)
+
+    essential_lib_dirs = [
+        "python3.10/site-packages",  # Installed packages
+        "python3.10/lib-dynload",  # Dynamic loading modules
+        "python3.10/encodings",  # Character encodings (critical)
+        "python3.10/collections",  # Collections module
+        "python3.10/importlib",  # Import machinery
+        "python3.10/json",  # JSON module
+        "python3.10/urllib",  # URL handling
+        "python3.10/email",  # Email handling
+        "python3.10/logging",  # Logging
+        "python3.10/re.py",  # Regular expressions
+        "python3.10/os.py",  # OS interface
+        "python3.10/sys.py",  # System interface
+        "python3.10/io.py",  # I/O operations
+        "python3.10/codecs.py",  # Codec registry
+        "python3.10/_collections_abc.py",  # Collections ABC
+        "python3.10/abc.py",  # Abstract base classes
+        "python3.10/typing.py",  # Type hints
+    ]
+
+    for lib_path in essential_lib_dirs:
+        src_path = system_python_dir / "lib" / lib_path
+        dest_path = target_python_dir / "lib" / lib_path
+
+        if src_path.exists():
+            if src_path.is_file():
+                dest_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src_path, dest_path)
+                print(f"Copied file: {lib_path}")
+            else:
+                shutil.copytree(src_path, dest_path, dirs_exist_ok=True)
+                print(f"Copied directory: {lib_path}")
+
+
+def _copy_remaining_stdlib(system_python_dir: Path, target_python_dir: Path) -> None:
+    """Copy the remaining standard library modules (excluding unwanted ones)."""
+    import shutil
+
+    stdlib_src = system_python_dir / "lib" / "python3.10"
+    stdlib_dest = target_python_dir / "lib" / "python3.10"
+
+    if not stdlib_src.exists():
+        return
+
+    # Copy everything except what we've already optimized out
+    skip_dirs = {
+        "tkinter",
+        "turtle.py",
+        "idlelib",
+        "lib2to3",
+        "pydoc_data",
+        "ensurepip",
+        "__pycache__",
+    }
+
+    for item in stdlib_src.iterdir():
+        if item.name not in skip_dirs and not item.name.startswith("turtle"):
+            dest_item = stdlib_dest / item.name
+            if not dest_item.exists():  # Don't overwrite what we've already copied
+                if item.is_file():
+                    dest_item.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(item, dest_item)
                 else:
-                    shutil.copytree(src_path, dest_path, dirs_exist_ok=True)
-                    print(f"Copied directory: {lib_path}")
+                    shutil.copytree(item, dest_item, dirs_exist_ok=True)
 
-        # Copy the entire standard library as a fallback (but skip what we know we don't need)
-        stdlib_src = system_python_dir / "lib" / "python3.10"
-        stdlib_dest = target_python_dir / "lib" / "python3.10"
 
-        if stdlib_src.exists():
-            # Copy everything except what we've already optimized out in Dockerfile
-            skip_dirs = {
-                "tkinter",
-                "turtle.py",
-                "idlelib",
-                "lib2to3",
-                "pydoc_data",
-                "ensurepip",
-                "__pycache__",
-            }
+def _copy_system_libraries(target_python_dir: Path) -> None:
+    """Copy essential system libraries that Python needs at runtime."""
+    import shutil
 
-            for item in stdlib_src.iterdir():
-                if item.name not in skip_dirs and not item.name.startswith("turtle"):
-                    dest_item = stdlib_dest / item.name
-                    if (
-                        not dest_item.exists()
-                    ):  # Don't overwrite what we've already copied
-                        if item.is_file():
-                            dest_item.parent.mkdir(parents=True, exist_ok=True)
-                            shutil.copy2(item, dest_item)
-                        else:
-                            shutil.copytree(item, dest_item, dirs_exist_ok=True)
+    lib_dir = target_python_dir / "lib"
+    lib_dir.mkdir(exist_ok=True)
 
-        # Copy essential system libraries that Python needs
-        lib_dir = target_python_dir / "lib"
-        lib_dir.mkdir(exist_ok=True)
+    # Copy essential system libraries (minimal but complete set)
+    essential_libs = [
+        # OpenSSL libraries for ssl module (required for snowflake-connector)
+        "/usr/lib/x86_64-linux-gnu/libssl.so.1.1",
+        "/usr/lib/x86_64-linux-gnu/libcrypto.so.1.1",
+        "/lib/x86_64-linux-gnu/libssl.so.1.1",
+        "/lib/x86_64-linux-gnu/libcrypto.so.1.1",
+        # Zlib for compression (required by cryptography package)
+        "/usr/lib/x86_64-linux-gnu/libz.so.1",
+        "/lib/x86_64-linux-gnu/libz.so.1",
+        # FFI library (required for ctypes module - Python's _ctypes)
+        "/usr/lib/x86_64-linux-gnu/libffi.so.6",
+        "/lib/x86_64-linux-gnu/libffi.so.6",
+    ]
 
-        # Copy essential system libraries (minimal but complete set)
-        essential_libs = [
-            # OpenSSL libraries for ssl module (required for snowflake-connector)
-            "/usr/lib/x86_64-linux-gnu/libssl.so.1.1",
-            "/usr/lib/x86_64-linux-gnu/libcrypto.so.1.1",
-            "/lib/x86_64-linux-gnu/libssl.so.1.1",
-            "/lib/x86_64-linux-gnu/libcrypto.so.1.1",
-            # Zlib for compression (required by cryptography package)
-            "/usr/lib/x86_64-linux-gnu/libz.so.1",
-            "/lib/x86_64-linux-gnu/libz.so.1",
-            # FFI library (required for ctypes module - Python's _ctypes)
-            "/usr/lib/x86_64-linux-gnu/libffi.so.6",
-            "/lib/x86_64-linux-gnu/libffi.so.6",
-        ]
+    copied_libs = []
+    for lib_path in essential_libs:
+        if Path(lib_path).exists():
+            lib_name = Path(lib_path).name
+            shutil.copy2(lib_path, lib_dir / lib_name)
+            copied_libs.append(lib_name)
+            print(f"Copied essential library: {lib_name}")
 
-        copied_libs = []
-        for lib_path in essential_libs:
-            if Path(lib_path).exists():
-                lib_name = Path(lib_path).name
-                shutil.copy2(lib_path, lib_dir / lib_name)
-                copied_libs.append(lib_name)
-                print(f"Copied essential library: {lib_name}")
+    print(f"Total essential libraries copied: {len(copied_libs)}")
+    if not copied_libs:
+        print("⚠️  Warning: No essential libraries were found to copy")
 
-        print(f"Total essential libraries copied: {len(copied_libs)}")
-        if not copied_libs:
-            print("⚠️  Warning: No essential libraries were found to copy")
+    # Create lib64 symlink if needed (some systems expect this)
+    lib64_dir = target_python_dir / "lib64"
+    if not lib64_dir.exists():
+        lib64_dir.symlink_to("lib")
+        print("Created lib64 -> lib symlink")
+    elif lib64_dir.is_dir() and not lib64_dir.is_symlink():
+        # lib64 exists as a directory, replace it with a symlink
+        import shutil
 
-        # Create lib64 symlink if needed (some systems expect this)
-        lib64_dir = target_python_dir / "lib64"
-        if not lib64_dir.exists():
-            lib64_dir.symlink_to("lib")
-            print("Created lib64 -> lib symlink")
+        shutil.rmtree(lib64_dir)
+        lib64_dir.symlink_to("lib")
+        print("Replaced lib64 directory with symlink to lib")
+    elif lib64_dir.is_symlink():
+        print("lib64 symlink already exists")
 
-        # Create a wrapper script that sets PYTHONHOME correctly
-        python_exe = target_python_dir / "bin" / "python"
-        python_wrapper = target_python_dir / "bin" / "python_wrapper"
 
-        # Create wrapper script
-        wrapper_content = f"""#!/bin/bash
+def _create_python_wrapper(target_python_dir: Path) -> None:
+    """Create a wrapper script that makes Python relocatable."""
+    import json
+    import os
+    import subprocess
+
+    python_wrapper = target_python_dir / "bin" / "python_wrapper"
+
+    # Create wrapper script
+    wrapper_content = """#!/bin/bash
 # Auto-generated wrapper for relocatable Python
-SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_HOME="$(dirname "$SCRIPT_DIR")"
 export PYTHONHOME="$PYTHON_HOME"
 export PYTHONPATH="$PYTHON_HOME/lib/python3.10:$PYTHON_HOME/lib/python3.10/lib-dynload:$PYTHON_HOME/lib/python3.10/site-packages"
@@ -276,41 +302,56 @@ export LD_LIBRARY_PATH="$PYTHON_HOME/lib:$PYTHON_HOME/lib64:$LD_LIBRARY_PATH"
 exec "$SCRIPT_DIR/python" "$@"
 """
 
-        with open(python_wrapper, "w") as f:
-            f.write(wrapper_content)
+    with open(python_wrapper, "w") as f:
+        f.write(wrapper_content)
 
-        os.chmod(python_wrapper, 0o755)
-        print(f"Created Python wrapper: {python_wrapper}")
+    os.chmod(python_wrapper, 0o755)
+    print(f"Created Python wrapper: {python_wrapper}")
 
-        # Test the wrapper
-        import subprocess
+    # Test the wrapper
+    test_result = subprocess.run(
+        [
+            str(python_wrapper),
+            "-c",
+            "import sys; print('Wrapper test successful - Python:', sys.version[:20])",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if test_result.returncode == 0:
+        print(f"Python wrapper test: {test_result.stdout.strip()}")
+    else:
+        print(f"Python wrapper test failed: {test_result.stderr}")
 
-        test_result = subprocess.run(
-            [
-                str(python_wrapper),
-                "-c",
-                "import sys; print('Wrapper test successful - Python:', sys.version[:20])",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if test_result.returncode == 0:
-            print(f"Python wrapper test: {test_result.stdout.strip()}")
-        else:
-            print(f"Python wrapper test failed: {test_result.stderr}")
+    # Create hatch-dist.json to use our wrapper
+    hatch_dist_info = {"python_path": "bin/python_wrapper"}
+    with open(target_python_dir / "hatch-dist.json", "w") as f:
+        json.dump(hatch_dist_info, f)
 
-        # Create hatch-dist.json to use our wrapper
-        import json
 
-        hatch_dist_info = {"python_path": "bin/python_wrapper"}
+def copy_and_relocate_system_python(python_tmp_dir: Path, python_version: str) -> bool:
+    """Copy our conservatively compiled system Python and make it relocatable."""
+    try:
+        # Find and verify the system Python
+        system_python, system_python_dir = _find_system_python()
+        _verify_conservative_python(system_python)
 
-        with open(target_python_dir / "hatch-dist.json", "w") as f:
-            json.dump(hatch_dist_info, f)
+        # Create target directory structure
+        target_python_dir = python_tmp_dir / python_version
+        target_python_dir.mkdir(parents=True, exist_ok=True)
+
+        # Copy Python components
+        _copy_python_binaries(system_python_dir, target_python_dir)
+        _copy_essential_python_libs(system_python_dir, target_python_dir)
+        _copy_remaining_stdlib(system_python_dir, target_python_dir)
+        _copy_system_libraries(target_python_dir)
+        _create_python_wrapper(target_python_dir)
 
         print(
             f"Successfully copied and configured conservative Python to {target_python_dir}"
         )
         return True
+
     except Exception as e:
         print(f"Error copying system Python: {e}")
         import traceback
