@@ -350,7 +350,6 @@ class SnowparkServicesTestSteps:
                 "spcs",
                 "service",
                 "list",
-                service_name,
                 *self._database_schema_args(),
             ]
         )
