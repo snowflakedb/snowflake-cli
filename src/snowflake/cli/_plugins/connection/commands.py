@@ -53,6 +53,7 @@ from snowflake.cli.api.commands.flags import (
     TokenFilePathOption,
     UserOption,
     WarehouseOption,
+    WorkloadIdentityProviderOption,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.config import (
@@ -222,6 +223,12 @@ def add(
         *AuthenticatorOption.param_decls,
         help="Chosen authenticator, if other than password-based",
     ),
+    workload_identity_provider: Optional[str] = typer.Option(
+        None,
+        "-W",
+        *WorkloadIdentityProviderOption.param_decls,
+        help="Workload identity provider type",
+    ),
     private_key_file: Optional[str] = typer.Option(
         None,
         "--private-key",
@@ -258,6 +265,7 @@ def add(
         "port": port,
         "region": region,
         "authenticator": authenticator,
+        "workload_identity_provider": workload_identity_provider,
         "private_key_file": private_key_file,
         "token_file_path": token_file_path,
     }
@@ -381,9 +389,9 @@ def test(
         "Host": conn.host,
         "Account": conn.account,
         "User": conn.user,
-        "Role": f'{conn.role or "not set"}',
-        "Database": f'{conn.database or "not set"}',
-        "Warehouse": f'{conn.warehouse or "not set"}',
+        "Role": f"{conn.role or 'not set'}",
+        "Database": f"{conn.database or 'not set'}",
+        "Warehouse": f"{conn.warehouse or 'not set'}",
     }
 
     if conn_ctx.enable_diag:

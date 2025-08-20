@@ -124,9 +124,9 @@ class TestDBTDeploy:
         assert (
             mock_connect.mocked_ctx.get_query()
             == """CREATE DBT PROJECT TEST_PIPELINE
-FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
+FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE"""
         )
-        stage_fqn = FQN.from_string(f"dbt_TEST_PIPELINE_stage").using_context()
+        stage_fqn = FQN.from_string(f"DBT_TEST_PIPELINE_STAGE").using_context()
         mock_create.assert_called_once_with(stage_fqn, temporary=True)
         mock_put_recursive.assert_called_once()
 
@@ -181,8 +181,39 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
         assert result.exit_code == 0, result.output
         assert mock_connect.mocked_ctx.get_query().startswith(
             """ALTER DBT PROJECT TEST_PIPELINE ADD VERSION
-FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
+FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE"""
         )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_deploys_project_with_case_sensitive_name(
+        self,
+        mock_create,
+        mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_exists,
+    ):
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                '"MockDaTaBaSe"."PuBlIc"."caseSenSITIVEnAME"',
+                f"--source={dbt_project_path}",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == """CREATE DBT PROJECT "MockDaTaBaSe"."PuBlIc"."caseSenSITIVEnAME"
+FROM @MockDatabase.MockSchema.DBT_caseSenSITIVEnAME_STAGE"""
+        )
+        stage_fqn = FQN.from_string(f"DBT_caseSenSITIVEnAME_STAGE").using_context()
+        mock_create.assert_called_once_with(stage_fqn, temporary=True)
+        mock_put_recursive.assert_called_once()
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
@@ -238,10 +269,10 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
         assert (
             mock_connect.mocked_ctx.get_query()
             == """CREATE DBT PROJECT MockDatabase.MockSchema.test_dbt_project
-FROM @MockDatabase.MockSchema.dbt_test_dbt_project_stage"""
+FROM @MockDatabase.MockSchema.DBT_TEST_DBT_PROJECT_STAGE"""
         )
         # Verify stage creation uses only the name part of the FQN
-        stage_fqn = FQN.from_string(f"dbt_test_dbt_project_stage").using_context()
+        stage_fqn = FQN.from_string(f"DBT_TEST_DBT_PROJECT_STAGE").using_context()
         mock_create.assert_called_once_with(stage_fqn, temporary=True)
         mock_put_recursive.assert_called_once()
 
