@@ -6,7 +6,6 @@ RUN apt -y update
 RUN apt -y install -y software-properties-common binutils --fix-missing
 RUN add-apt-repository ppa:deadsnakes/ppa
 
-# Essential build tools and Python compilation dependencies
 RUN apt install -y --fix-missing \
   build-essential \
   curl \
@@ -30,7 +29,8 @@ RUN apt install -y --fix-missing \
 
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y tk-dev
 
-RUN gem install dotenv:2.8.1 fpm
+RUN gem install dotenv -v 2.8.1
+RUN gem install fpm
 
 ENV PYTHON_VERSION=3.10.16
 ENV PYTHON_PREFIX=/usr/local
@@ -100,11 +100,6 @@ RUN find ${PYTHON_PREFIX} -name "*.la" -delete  # Remove libtool files
 RUN rm -rf ${PYTHON_PREFIX}/share/man  # Remove manual pages
 RUN rm -rf ${PYTHON_PREFIX}/include  # Remove header files
 RUN rm -rf ${PYTHON_PREFIX}/lib/pkgconfig  # Remove pkg-config files
-
-# Remove more standard library components that may not be needed
-RUN cd ${PYTHON_PREFIX}/lib/python3.10 && \
-    rm -rf \
-    ensurepip
 
 # Strip debug symbols to reduce size
 RUN find ${PYTHON_PREFIX} -name "*.so" -exec strip {} \; 2>/dev/null || true
