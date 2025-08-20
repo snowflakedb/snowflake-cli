@@ -354,7 +354,7 @@ class SnowparkServicesTestSteps:
                 *self._database_schema_args(),
             ]
         )
-        assert instances_result.exit_code == 0
+        assert instances_result.exit_code == 0, instances_result
 
         services_result = self._setup.runner.invoke_with_connection_json(
             [
@@ -365,7 +365,7 @@ class SnowparkServicesTestSteps:
                 *self._database_schema_args(),
             ]
         )
-        assert services_result.exit_code == 0
+        assert services_result.exit_code == 0, instances_result
 
     def list_instances_should_show_instances(self, service_name: str):
         result = self._setup.runner.invoke_with_connection_json(
