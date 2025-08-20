@@ -342,12 +342,12 @@ class SnowparkServicesTestSteps:
         )
 
     def warm_up(self, service_name: str):
-        """List spsc services and containers for warm_up before running tests.
+        """List spcs services and containers for warm_up before running tests.
         The intend is to bring spcs to life when suspended.
         """
         instances_result = self._setup.runner.invoke_with_connection_json(
             [
-                "spsc",
+                "spcs",
                 "service",
                 "list-instances",
                 service_name,
@@ -358,7 +358,7 @@ class SnowparkServicesTestSteps:
 
         services_result = self._setup.runner.invoke_with_connection_json(
             [
-                "spsc",
+                "spcs",
                 "service",
                 "list-containers",
                 service_name,
