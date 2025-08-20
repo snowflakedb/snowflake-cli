@@ -160,10 +160,29 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
 
     print(f"Total essential libraries copied: {len(copied_libs)}")
 
-    # Create hatch-dist.json to point to our Python
+    # Create a wrapper script that sets library paths
+    python_wrapper = target_python_dir / "bin" / "python_wrapper"
+    wrapper_content = f"""#!/bin/bash
+# Auto-generated wrapper for relocatable Python
+SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
+PYTHON_HOME="$(dirname "$SCRIPT_DIR")"
+export PYTHONHOME="$PYTHON_HOME"
+export LD_LIBRARY_PATH="$PYTHON_HOME/lib:$LD_LIBRARY_PATH"
+exec "$SCRIPT_DIR/python" "$@"
+"""
+
+    with open(python_wrapper, "w") as f:
+        f.write(wrapper_content)
+
+    import os
+
+    os.chmod(python_wrapper, 0o755)
+    print(f"Created Python wrapper: {python_wrapper}")
+
+    # Create hatch-dist.json to point to our wrapper
     import json
 
-    hatch_dist_info = {"python_path": "bin/python"}
+    hatch_dist_info = {"python_path": "bin/python_wrapper"}
     with open(target_python_dir / "hatch-dist.json", "w") as f:
         json.dump(hatch_dist_info, f)
 
