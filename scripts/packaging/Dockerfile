@@ -35,12 +35,6 @@ RUN gem install fpm
 ENV PYTHON_VERSION=3.10.16
 ENV PYTHON_PREFIX=/usr/local
 
-# Set conservative compilation flags optimized for size and compatibility
-# Avoid modern CPU instructions like AVX, AVX2, AVX512
-ENV CFLAGS="-Os -march=x86-64 -mtune=generic -mno-avx -mno-avx2 -mno-avx512f -ffunction-sections -fdata-sections"
-ENV CXXFLAGS="-Os -march=x86-64 -mtune=generic -mno-avx -mno-avx2 -mno-avx512f -ffunction-sections -fdata-sections"
-ENV LDFLAGS="-Wl,--gc-sections -s"
-
 # Download Python source
 RUN cd /tmp && \
     echo "Downloading Python ${PYTHON_VERSION}..." && \
@@ -48,11 +42,24 @@ RUN cd /tmp && \
     echo "Extracting Python source..." && \
     tar -xzf Python-${PYTHON_VERSION}.tgz
 
-# Configure Python build
+# Configure Python build with architecture-specific conservative flags
 RUN cd /tmp/Python-${PYTHON_VERSION} && \
-    echo "Configuring Python build with conservative flags..." && \
+    ARCH=$(uname -m) && \
+    echo "Configuring Python build for architecture: $ARCH" && \
+    if [ "$ARCH" = "x86_64" ]; then \
+        export CFLAGS="-Os -march=x86-64 -mtune=generic -mno-avx -mno-avx2 -mno-avx512f -ffunction-sections -fdata-sections" && \
+        export CXXFLAGS="-Os -march=x86-64 -mtune=generic -mno-avx -mno-avx2 -mno-avx512f -ffunction-sections -fdata-sections"; \
+    elif [ "$ARCH" = "aarch64" ]; then \
+        export CFLAGS="-Os -march=armv8-a -mtune=generic -ffunction-sections -fdata-sections" && \
+        export CXXFLAGS="-Os -march=armv8-a -mtune=generic -ffunction-sections -fdata-sections"; \
+    else \
+        export CFLAGS="-Os -mtune=generic -ffunction-sections -fdata-sections" && \
+        export CXXFLAGS="-Os -mtune=generic -ffunction-sections -fdata-sections"; \
+    fi && \
+    export LDFLAGS="-Wl,--gc-sections -s" && \
     echo "CFLAGS: $CFLAGS" && \
     echo "CXXFLAGS: $CXXFLAGS" && \
+    echo "LDFLAGS: $LDFLAGS" && \
     ./configure \
         --prefix=${PYTHON_PREFIX} \
         --disable-shared \
@@ -100,6 +107,11 @@ RUN find ${PYTHON_PREFIX} -name "*.la" -delete  # Remove libtool files
 RUN rm -rf ${PYTHON_PREFIX}/share/man  # Remove manual pages
 RUN rm -rf ${PYTHON_PREFIX}/include  # Remove header files
 RUN rm -rf ${PYTHON_PREFIX}/lib/pkgconfig  # Remove pkg-config files
+
+# Remove more standard library components that may not be needed
+RUN cd ${PYTHON_PREFIX}/lib/python3.10 && \
+    rm -rf \
+    ensurepip
 
 # Strip debug symbols to reduce size
 RUN find ${PYTHON_PREFIX} -name "*.so" -exec strip {} \; 2>/dev/null || true

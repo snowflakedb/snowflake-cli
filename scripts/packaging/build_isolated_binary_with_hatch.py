@@ -97,267 +97,78 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
     return archive
 
 
-def _find_system_python() -> tuple[str, Path]:
-    """Find the system Python installation (not virtual environment)."""
-    import sys
+def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
+    """Copy our conservatively compiled system Python for bundling."""
+    import shutil
 
-    # Check if we're in a virtual environment and find the real system Python
-    if hasattr(sys, "real_prefix") or (
-        hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix
-    ):
-        # We're in a virtual environment, use the actual system Python
-        system_python = "/usr/local/bin/python"
-        system_python_dir = Path("/usr/local")
-        print("Detected virtual environment, using actual system Python")
-    else:
-        system_python = sys.executable
-        system_python_dir = Path(sys.executable).parent.parent
+    # Use the system Python we built instead of hatch installing one
+    system_python_dir = Path("/usr/local")
+    target_python_dir = python_tmp_dir / python_version
 
-    print(f"Using conservatively compiled system Python: {system_python}")
-    print(f"System Python directory: {system_python_dir}")
+    print(f"Copying system Python from {system_python_dir} to {target_python_dir}")
 
-    return system_python, system_python_dir
-
-
-def _verify_conservative_python(system_python: str) -> None:
-    """Verify the Python was compiled with conservative CPU flags."""
-    import subprocess
-
-    if not Path(system_python).exists():
-        raise RuntimeError(f"System Python not found at {system_python}")
-
-    result = subprocess.run(
-        [
-            system_python,
-            "-c",
-            "import sysconfig; print('CFLAGS:', sysconfig.get_config_var('CFLAGS'))",
-        ],
-        capture_output=True,
-        text=True,
+    # Copy the entire system Python installation (ignore missing directories)
+    shutil.copytree(
+        system_python_dir,
+        target_python_dir,
+        dirs_exist_ok=True,
+        ignore_dangling_symlinks=True,
     )
-    if result.returncode == 0:
-        print(f"Source Python verification: {result.stdout.strip()}")
-        if "march=x86-64" in result.stdout and "mno-avx" in result.stdout:
-            print("✅ Confirmed: Using conservatively compiled Python")
-        else:
-            print("⚠️  Warning: Python may not have conservative CPU flags")
-    else:
-        print(f"Warning: Could not verify source Python: {result.stderr}")
 
-
-def _copy_python_binaries(system_python_dir: Path, target_python_dir: Path) -> None:
-    """Copy essential Python binaries."""
-    import shutil
-
-    (target_python_dir / "bin").mkdir(parents=True, exist_ok=True)
-
-    essential_binaries = ["python3.10", "python", "python3"]
-    for binary in essential_binaries:
-        src_binary = system_python_dir / "bin" / binary
-        if src_binary.exists():
-            shutil.copy2(src_binary, target_python_dir / "bin" / binary)
-            print(f"Copied binary: {binary}")
-
-
-def _copy_essential_python_libs(
-    system_python_dir: Path, target_python_dir: Path
-) -> None:
-    """Copy essential Python library directories."""
-    import shutil
-
-    (target_python_dir / "lib").mkdir(parents=True, exist_ok=True)
-
-    essential_lib_dirs = [
-        "python3.10/site-packages",  # Installed packages
-        "python3.10/lib-dynload",  # Dynamic loading modules
-        "python3.10/encodings",  # Character encodings (critical)
-        "python3.10/collections",  # Collections module
-        "python3.10/importlib",  # Import machinery
-        "python3.10/json",  # JSON module
-        "python3.10/urllib",  # URL handling
-        "python3.10/email",  # Email handling
-        "python3.10/logging",  # Logging
-        "python3.10/re.py",  # Regular expressions
-        "python3.10/os.py",  # OS interface
-        "python3.10/sys.py",  # System interface
-        "python3.10/io.py",  # I/O operations
-        "python3.10/codecs.py",  # Codec registry
-        "python3.10/_collections_abc.py",  # Collections ABC
-        "python3.10/abc.py",  # Abstract base classes
-        "python3.10/typing.py",  # Type hints
-    ]
-
-    for lib_path in essential_lib_dirs:
-        src_path = system_python_dir / "lib" / lib_path
-        dest_path = target_python_dir / "lib" / lib_path
-
-        if src_path.exists():
-            if src_path.is_file():
-                dest_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(src_path, dest_path)
-                print(f"Copied file: {lib_path}")
-            else:
-                shutil.copytree(src_path, dest_path, dirs_exist_ok=True)
-                print(f"Copied directory: {lib_path}")
-
-
-def _copy_remaining_stdlib(system_python_dir: Path, target_python_dir: Path) -> None:
-    """Copy the remaining standard library modules (excluding unwanted ones)."""
-    import shutil
-
-    stdlib_src = system_python_dir / "lib" / "python3.10"
-    stdlib_dest = target_python_dir / "lib" / "python3.10"
-
-    if not stdlib_src.exists():
-        return
-
-    # Copy everything except what we've already optimized out
-    skip_dirs = {
-        "tkinter",
-        "turtle.py",
-        "idlelib",
-        "lib2to3",
-        "pydoc_data",
-        "ensurepip",
-        "__pycache__",
-    }
-
-    for item in stdlib_src.iterdir():
-        if item.name not in skip_dirs and not item.name.startswith("turtle"):
-            dest_item = stdlib_dest / item.name
-            if not dest_item.exists():  # Don't overwrite what we've already copied
-                if item.is_file():
-                    dest_item.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(item, dest_item)
-                else:
-                    shutil.copytree(item, dest_item, dirs_exist_ok=True)
-
-
-def _copy_system_libraries(target_python_dir: Path) -> None:
-    """Copy essential system libraries that Python needs at runtime."""
-    import shutil
-
+    # Copy essential system libraries that Python needs at runtime (architecture-aware)
     lib_dir = target_python_dir / "lib"
     lib_dir.mkdir(exist_ok=True)
 
-    # Copy essential system libraries (minimal but complete set)
-    essential_libs = [
-        # OpenSSL libraries for ssl module (required for snowflake-connector)
-        "/usr/lib/x86_64-linux-gnu/libssl.so.1.1",
-        "/usr/lib/x86_64-linux-gnu/libcrypto.so.1.1",
-        "/lib/x86_64-linux-gnu/libssl.so.1.1",
-        "/lib/x86_64-linux-gnu/libcrypto.so.1.1",
-        # Zlib for compression (required by cryptography package)
-        "/usr/lib/x86_64-linux-gnu/libz.so.1",
-        "/lib/x86_64-linux-gnu/libz.so.1",
-        # FFI library (required for ctypes module - Python's _ctypes)
-        "/usr/lib/x86_64-linux-gnu/libffi.so.6",
-        "/lib/x86_64-linux-gnu/libffi.so.6",
+    # Detect architecture for library paths
+    import platform
+
+    arch = platform.machine()
+    if arch == "x86_64":
+        arch_dir = "x86_64-linux-gnu"
+    elif arch in ["aarch64", "arm64"]:
+        arch_dir = "aarch64-linux-gnu"
+    else:
+        arch_dir = f"{arch}-linux-gnu"  # fallback
+
+    print(f"Detected architecture: {arch}, using lib path: {arch_dir}")
+
+    essential_lib_names = [
+        "libssl.so.1.1",  # OpenSSL for ssl module
+        "libcrypto.so.1.1",  # Crypto for ssl module
+        "libz.so.1",  # Zlib for compression
+        "libffi.so.6",  # FFI for ctypes module
     ]
 
     copied_libs = []
-    for lib_path in essential_libs:
-        if Path(lib_path).exists():
-            lib_name = Path(lib_path).name
-            shutil.copy2(lib_path, lib_dir / lib_name)
-            copied_libs.append(lib_name)
-            print(f"Copied essential library: {lib_name}")
+    for lib_name in essential_lib_names:
+        # Try multiple possible locations
+        possible_paths = [
+            f"/usr/lib/{arch_dir}/{lib_name}",
+            f"/lib/{arch_dir}/{lib_name}",
+            f"/usr/lib/{lib_name}",
+            f"/lib/{lib_name}",
+        ]
+
+        for lib_path in possible_paths:
+            if Path(lib_path).exists():
+                shutil.copy2(lib_path, lib_dir / lib_name)
+                copied_libs.append(lib_name)
+                print(f"Copied essential library: {lib_name} from {lib_path}")
+                break
+        else:
+            print(f"Warning: Could not find {lib_name} in any standard location")
 
     print(f"Total essential libraries copied: {len(copied_libs)}")
-    if not copied_libs:
-        print("⚠️  Warning: No essential libraries were found to copy")
 
-    # Create lib64 symlink if needed (some systems expect this)
-    lib64_dir = target_python_dir / "lib64"
-    if not lib64_dir.exists():
-        lib64_dir.symlink_to("lib")
-        print("Created lib64 -> lib symlink")
-    elif lib64_dir.is_dir() and not lib64_dir.is_symlink():
-        # lib64 exists as a directory, replace it with a symlink
-        import shutil
-
-        shutil.rmtree(lib64_dir)
-        lib64_dir.symlink_to("lib")
-        print("Replaced lib64 directory with symlink to lib")
-    elif lib64_dir.is_symlink():
-        print("lib64 symlink already exists")
-
-
-def _create_python_wrapper(target_python_dir: Path) -> None:
-    """Create a wrapper script that makes Python relocatable."""
+    # Create hatch-dist.json to point to our Python
     import json
-    import os
-    import subprocess
 
-    python_wrapper = target_python_dir / "bin" / "python_wrapper"
-
-    # Create wrapper script
-    wrapper_content = """#!/bin/bash
-# Auto-generated wrapper for relocatable Python
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PYTHON_HOME="$(dirname "$SCRIPT_DIR")"
-export PYTHONHOME="$PYTHON_HOME"
-export PYTHONPATH="$PYTHON_HOME/lib/python3.10:$PYTHON_HOME/lib/python3.10/lib-dynload:$PYTHON_HOME/lib/python3.10/site-packages"
-export LD_LIBRARY_PATH="$PYTHON_HOME/lib:$PYTHON_HOME/lib64:$LD_LIBRARY_PATH"
-exec "$SCRIPT_DIR/python" "$@"
-"""
-
-    with open(python_wrapper, "w") as f:
-        f.write(wrapper_content)
-
-    os.chmod(python_wrapper, 0o755)
-    print(f"Created Python wrapper: {python_wrapper}")
-
-    # Test the wrapper
-    test_result = subprocess.run(
-        [
-            str(python_wrapper),
-            "-c",
-            "import sys; print('Wrapper test successful - Python:', sys.version[:20])",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    if test_result.returncode == 0:
-        print(f"Python wrapper test: {test_result.stdout.strip()}")
-    else:
-        print(f"Python wrapper test failed: {test_result.stderr}")
-
-    # Create hatch-dist.json to use our wrapper
-    hatch_dist_info = {"python_path": "bin/python_wrapper"}
+    hatch_dist_info = {"python_path": "bin/python"}
     with open(target_python_dir / "hatch-dist.json", "w") as f:
         json.dump(hatch_dist_info, f)
 
-
-def copy_and_relocate_system_python(python_tmp_dir: Path, python_version: str) -> bool:
-    """Copy our conservatively compiled system Python and make it relocatable."""
-    try:
-        # Find and verify the system Python
-        system_python, system_python_dir = _find_system_python()
-        _verify_conservative_python(system_python)
-
-        # Create target directory structure
-        target_python_dir = python_tmp_dir / python_version
-        target_python_dir.mkdir(parents=True, exist_ok=True)
-
-        # Copy Python components
-        _copy_python_binaries(system_python_dir, target_python_dir)
-        _copy_essential_python_libs(system_python_dir, target_python_dir)
-        _copy_remaining_stdlib(system_python_dir, target_python_dir)
-        _copy_system_libraries(target_python_dir)
-        _create_python_wrapper(target_python_dir)
-
-        print(
-            f"Successfully copied and configured conservative Python to {target_python_dir}"
-        )
-        return True
-
-    except Exception as e:
-        print(f"Error copying system Python: {e}")
-        import traceback
-
-        traceback.print_exc()
-        return False
+    print(f"Successfully copied system Python to {target_python_dir}")
+    return True
 
 
 @contextlib.contextmanager
@@ -381,16 +192,7 @@ def override_is_installation_source_variable():
 def pip_install_project(python_exe: str) -> bool:
     """Install the project into the Python distribution."""
     completed_proc = subprocess.run(
-        [
-            python_exe,
-            "-m",
-            "pip",
-            "install",
-            "--only-binary=cryptography,cffi,pycparser,setuptools-rust",
-            "--no-binary=snowflake-cli",
-            "-U",
-            str(PROJECT_ROOT),
-        ],
+        [python_exe, "-m", "pip", "install", "-U", str(PROJECT_ROOT)],
         capture_output=True,
     )
     return not completed_proc.returncode
@@ -415,30 +217,11 @@ def hatch_build_binary(archive_path: Path, python_path: Path) -> Path | None:
 
 def main():
     settings = ProjectSettings()
-    print("Copying and configuring conservatively compiled system Python...")
-    copy_and_relocate_system_python(settings.python_tmp_dir, settings.python_version)
-    print("-> configured")
+    print("Installing Python distribution to TMP dir...")
+    hatch_install_python(settings.python_tmp_dir, settings.python_version)
+    print("-> installed")
 
     print(f"Installing project into Python distribution...")
-    print(f"Target Python executable: {settings.python_dist_exe}")
-
-    # Verify we're using our conservative Python
-    import subprocess
-
-    result = subprocess.run(
-        [
-            str(settings.python_dist_exe),
-            "-c",
-            "import sysconfig; print('Using Python with CFLAGS:', sysconfig.get_config_var('CFLAGS'))",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode == 0:
-        print(f"Python verification: {result.stdout.strip()}")
-    else:
-        print(f"Warning: Could not verify Python flags: {result.stderr}")
-
     with override_is_installation_source_variable():
         pip_install_project(str(settings.python_dist_exe))
     print("-> installed")
