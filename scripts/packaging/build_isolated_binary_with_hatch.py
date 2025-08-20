@@ -107,23 +107,23 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
 
     print(f"Copying system Python from {system_python_dir} to {target_python_dir}")
 
-    try:
-        # Copy the entire system Python installation
-        shutil.copytree(system_python_dir, target_python_dir, dirs_exist_ok=True)
+    # Copy the entire system Python installation (ignore missing directories)
+    shutil.copytree(
+        system_python_dir,
+        target_python_dir,
+        dirs_exist_ok=True,
+        ignore_dangling_symlinks=True,
+    )
 
-        # Create hatch-dist.json to point to our Python
-        import json
+    # Create hatch-dist.json to point to our Python
+    import json
 
-        hatch_dist_info = {"python_path": "bin/python"}
-        with open(target_python_dir / "hatch-dist.json", "w") as f:
-            json.dump(hatch_dist_info, f)
+    hatch_dist_info = {"python_path": "bin/python"}
+    with open(target_python_dir / "hatch-dist.json", "w") as f:
+        json.dump(hatch_dist_info, f)
 
-        print(f"Successfully copied system Python to {target_python_dir}")
-        return True
-
-    except Exception as e:
-        print(f"Error copying system Python: {e}")
-        return False
+    print(f"Successfully copied system Python to {target_python_dir}")
+    return True
 
 
 @contextlib.contextmanager
