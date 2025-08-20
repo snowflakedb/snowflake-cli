@@ -123,10 +123,7 @@ ENV PATH="${PYTHON_PREFIX}/bin:$PATH"
 # Update library path for shared libraries
 RUN echo "${PYTHON_PREFIX}/lib" > /etc/ld.so.conf.d/python.conf && ldconfig
 
-# Install packages with selective binary policy
-RUN python -m pip install \
-    --only-binary=cryptography,cffi,pycparser,setuptools-rust,pyOpenSSL \
-    --no-binary=uv,hatch \
-    -U uv hatch
+# Install build tools - these are not embedded in final binary so can use pre-built wheels
+RUN python -m pip install -U uv hatch
 
 WORKDIR /snowflake-cli
