@@ -341,7 +341,10 @@ class SnowparkServicesTestSteps:
             },
         )
 
-    def warmup(self, service_name: str):
+    def warm_up(self, service_name: str):
+        """List spsc services and containers for warm_up before running tests.
+        The intend is to bring spcs to life when suspended.
+        """
         instances_result = self._setup.runner.invoke_with_connection_json(
             [
                 "spsc",

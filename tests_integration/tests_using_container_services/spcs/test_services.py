@@ -25,9 +25,6 @@ from tests_integration.tests_using_container_services.spcs.testing_utils.spcs_se
 @pytest.mark.integration
 def test_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
     test_steps, service_name = _test_steps
-    # warm up
-    test_steps.warmup(service_name=service_name)
-
     # test long-running service
     test_steps.create_service(service_name)
     test_steps.list_instances_should_show_instances(service_name)
@@ -154,6 +151,8 @@ def _test_steps(_test_setup):
     random_uuid = uuid.uuid4().hex
     service_name = f"spcs_service_{random_uuid}"
     test_steps = SnowparkServicesTestSteps(_test_setup)
+
+    test_steps.warm_up(service_name=service_name)
 
     yield test_steps, service_name
 
