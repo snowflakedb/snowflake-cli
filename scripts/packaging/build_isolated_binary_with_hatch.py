@@ -209,7 +209,6 @@ def copy_and_relocate_system_python(python_tmp_dir: Path, python_version: str) -
                 "lib2to3",
                 "pydoc_data",
                 "ensurepip",
-                "venv",
                 "__pycache__",
             }
 
