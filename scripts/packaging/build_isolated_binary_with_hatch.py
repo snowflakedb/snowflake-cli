@@ -148,9 +148,82 @@ def copy_and_relocate_system_python(python_tmp_dir: Path, python_version: str) -
     target_python_dir = python_tmp_dir / python_version
     target_python_dir.mkdir(parents=True, exist_ok=True)
 
-    # Copy the entire Python installation
+    # Copy only essential parts of Python installation for runtime
     try:
-        shutil.copytree(system_python_dir, target_python_dir, dirs_exist_ok=True)
+        # Create target directory structure
+        (target_python_dir / "bin").mkdir(parents=True, exist_ok=True)
+        (target_python_dir / "lib").mkdir(parents=True, exist_ok=True)
+
+        # Copy essential binaries
+        essential_binaries = ["python3.10", "python", "python3"]
+        for binary in essential_binaries:
+            src_binary = system_python_dir / "bin" / binary
+            if src_binary.exists():
+                shutil.copy2(src_binary, target_python_dir / "bin" / binary)
+                print(f"Copied binary: {binary}")
+
+        # Copy only runtime library directories (not development files)
+        essential_lib_dirs = [
+            "python3.10/site-packages",  # Installed packages
+            "python3.10/lib-dynload",  # Dynamic loading modules
+            "python3.10/encodings",  # Character encodings (critical)
+            "python3.10/collections",  # Collections module
+            "python3.10/importlib",  # Import machinery
+            "python3.10/json",  # JSON module
+            "python3.10/urllib",  # URL handling
+            "python3.10/email",  # Email handling
+            "python3.10/logging",  # Logging
+            "python3.10/re.py",  # Regular expressions
+            "python3.10/os.py",  # OS interface
+            "python3.10/sys.py",  # System interface
+            "python3.10/io.py",  # I/O operations
+            "python3.10/codecs.py",  # Codec registry
+            "python3.10/_collections_abc.py",  # Collections ABC
+            "python3.10/abc.py",  # Abstract base classes
+            "python3.10/typing.py",  # Type hints
+        ]
+
+        for lib_path in essential_lib_dirs:
+            src_path = system_python_dir / "lib" / lib_path
+            dest_path = target_python_dir / "lib" / lib_path
+
+            if src_path.exists():
+                if src_path.is_file():
+                    dest_path.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(src_path, dest_path)
+                    print(f"Copied file: {lib_path}")
+                else:
+                    shutil.copytree(src_path, dest_path, dirs_exist_ok=True)
+                    print(f"Copied directory: {lib_path}")
+
+        # Copy the entire standard library as a fallback (but skip what we know we don't need)
+        stdlib_src = system_python_dir / "lib" / "python3.10"
+        stdlib_dest = target_python_dir / "lib" / "python3.10"
+
+        if stdlib_src.exists():
+            # Copy everything except what we've already optimized out in Dockerfile
+            skip_dirs = {
+                "tkinter",
+                "turtle.py",
+                "idlelib",
+                "lib2to3",
+                "pydoc_data",
+                "ensurepip",
+                "venv",
+                "__pycache__",
+            }
+
+            for item in stdlib_src.iterdir():
+                if item.name not in skip_dirs and not item.name.startswith("turtle"):
+                    dest_item = stdlib_dest / item.name
+                    if (
+                        not dest_item.exists()
+                    ):  # Don't overwrite what we've already copied
+                        if item.is_file():
+                            dest_item.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(item, dest_item)
+                        else:
+                            shutil.copytree(item, dest_item, dirs_exist_ok=True)
 
         # Copy essential system libraries that Python needs
         lib_dir = target_python_dir / "lib"
