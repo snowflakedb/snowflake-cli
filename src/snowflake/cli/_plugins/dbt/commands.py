@@ -92,6 +92,11 @@ def deploy_dbt(
         False,
         help="Overwrites conflicting files in the project, if any.",
     ),
+    default_target: Optional[str] = typer.Option(
+        None,
+        help="Default target for the dbt project.",
+        hidden=FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled(),
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -99,6 +104,9 @@ def deploy_dbt(
     provided; or create a new one if it doesn't exist; or update files and
     create a new version if it exists.
     """
+    if FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled():
+        default_target = None
+
     project_path = SecurePath(source) if source is not None else SecurePath.cwd()
     profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
     return QueryResult(
@@ -107,6 +115,7 @@ def deploy_dbt(
             project_path.resolve(),
             profiles_dir_path.resolve(),
             force=force,
+            default_target=default_target,
         )
     )
 

@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Optional
 
 import yaml
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
@@ -49,6 +50,7 @@ class DBTManager(SqlExecutionMixin):
         path: SecurePath,
         profiles_path: SecurePath,
         force: bool,
+        default_target: Optional[str] = None,
     ) -> SnowflakeCursor:
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
@@ -63,7 +65,7 @@ class DBTManager(SqlExecutionMixin):
             except KeyError:
                 raise CliError("`profile` is not defined in dbt_project.yml")
 
-        self._validate_profiles(profiles_path, profile)
+        self._validate_profiles(profiles_path, profile, default_target)
 
         with cli_console.phase("Creating temporary stage"):
             stage_manager = StageManager()
@@ -94,16 +96,24 @@ class DBTManager(SqlExecutionMixin):
             else:
                 query = f"CREATE DBT PROJECT {fqn}"
             query += f"\nFROM {stage_name}"
+            if default_target:
+                # TODO: figure out what to do about ALTER case
+                query += f" DEFAULT_TARGET='{default_target}'"
             return self.execute_query(query)
 
     @staticmethod
-    def _validate_profiles(profiles_path: SecurePath, target_profile: str) -> None:
+    def _validate_profiles(
+        profiles_path: SecurePath,
+        target_profile: str,
+        default_target: str | None = None,
+    ) -> None:
         """
         Validates that:
          * profiles.yml exists
          * contain profile specified in dbt_project.yml
          * no other profiles are defined there
          * does not contain any confidential data like passwords
+         * default_target (if specified) exists in the profile's outputs
         """
         profiles_file = profiles_path / PROFILES_FILENAME
         if not profiles_file.exists():
@@ -152,6 +162,15 @@ class DBTManager(SqlExecutionMixin):
             if "type" in target and target["type"].lower() != "snowflake":
                 errors[target_profile].append(
                     f"Value for type field is invalid. Should be set to `snowflake` in target {target_name}"
+                )
+
+        if default_target is not None:
+            available_targets = set(profiles[target_profile]["outputs"].keys())
+            if default_target not in available_targets:
+                available_targets_str = ", ".join(sorted(available_targets))
+                errors["default_target"].append(
+                    f"Default target '{default_target}' is not defined in profile '{target_profile}'. "
+                    f"Available targets: {available_targets_str}"
                 )
 
         if errors:

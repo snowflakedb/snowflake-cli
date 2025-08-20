@@ -25,7 +25,17 @@ class TestDeploy:
                         "type": "snowflake",
                         "user": "test_user",
                         "warehouse": "test_warehouse",
-                    }
+                    },
+                    "prod": {
+                        "account": "test_account",
+                        "database": "testdb_prod",
+                        "role": "test_role",
+                        "schema": "test_schema",
+                        "threads": 4,
+                        "type": "snowflake",
+                        "user": "test_user",
+                        "warehouse": "test_warehouse",
+                    },
                 }
             }
         }
@@ -178,3 +188,33 @@ dev
                 assert "comment" not in line
                 assert "password" not in line
                 assert "# " not in line
+
+    def test_validate_profiles_with_valid_default_target(self, project_path, profile):
+        self._generate_profile(project_path, profile)
+
+        # Should not raise an exception
+        DBTManager._validate_profiles(  # noqa: SLF001
+            SecurePath(project_path), "dev", "prod"
+        )
+
+    def test_validate_profiles_with_invalid_default_target(self, project_path, profile):
+        self._generate_profile(project_path, profile)
+
+        with pytest.raises(CliError) as exc_info:
+            DBTManager._validate_profiles(  # noqa: SLF001
+                SecurePath(project_path), "dev", "invalid_target"
+            )
+
+        assert (
+            "Default target 'invalid_target' is not defined in profile 'dev'"
+            in exc_info.value.message
+        )
+        assert "Available targets: local, prod" in exc_info.value.message
+
+    def test_validate_profiles_without_default_target(self, project_path, profile):
+        self._generate_profile(project_path, profile)
+
+        # Should not raise an exception when default_target is None
+        DBTManager._validate_profiles(  # noqa: SLF001
+            SecurePath(project_path), "dev", None
+        )

@@ -24,7 +24,10 @@ from snowflake.cli._plugins.dbt.constants import (
     PROFILES_FILENAME,
     RESULT_COLUMN_NAME,
 )
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 class TestDBTList:
@@ -79,7 +82,17 @@ class TestDBTDeploy:
                                 "type": "snowflake",
                                 "user": "test_user",
                                 "warehouse": "test_warehouse",
-                            }
+                            },
+                            "prod": {
+                                "account": "test_account",
+                                "database": "testdb_prod",
+                                "role": "test_role",
+                                "schema": "test_schema",
+                                "threads": 2,
+                                "type": "snowflake",
+                                "user": "test_user",
+                                "warehouse": "test_warehouse",
+                            },
                         }
                     }
                 },
@@ -349,6 +362,61 @@ FROM @MockDatabase.MockSchema.DBT_TEST_DBT_PROJECT_STAGE"""
 
         assert result.exit_code == 1, result.output
         assert "profile dev is not defined in profiles.yml" in result.output
+        assert mock_connect.mocked_ctx.get_query() == ""
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_deploy_with_default_target(
+        self,
+        _mock_create,
+        _mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_exists,
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--default-target=prod",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == """CREATE DBT PROJECT TEST_PIPELINE
+FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE DEFAULT_TARGET='prod'"""
+        )
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_deploy_with_invalid_default_target(
+        self,
+        _mock_create,
+        _mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_exists,
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--default-target=invalid",
+            ]
+        )
+
+        assert result.exit_code == 1, result.output
+        assert "Default target 'invalid' is not defined" in result.output
         assert mock_connect.mocked_ctx.get_query() == ""
 
 
