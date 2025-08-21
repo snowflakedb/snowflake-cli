@@ -24,6 +24,5 @@ class CLIInstallationSource(Enum):
     BINARY = "binary"
     PYPI = "pypi"
 
-
 # This variable is changed in binary release script
 INSTALLATION_SOURCE = CLIInstallationSource.PYPI
