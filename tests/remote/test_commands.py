@@ -26,7 +26,13 @@ def create_mock_cursor(columns=None, rows=None):
         rows = [("Success",)]
 
     mock_cursor = Mock(spec=SnowflakeCursor)
-    mock_cursor.description = [Mock(name=col) for col in columns]
+    # Create proper column descriptions with name attributes
+    mock_descriptions = []
+    for col in columns:
+        desc = Mock()
+        desc.name = col
+        mock_descriptions.append(desc)
+    mock_cursor.description = mock_descriptions
     mock_cursor.fetchall.return_value = rows
     mock_cursor.__iter__ = Mock(return_value=iter(rows))
     mock_cursor.query = "MOCK QUERY"  # Add query attribute
@@ -140,6 +146,34 @@ class TestRemoteCommands:
         assert result.exit_code == 0
         mock_list.assert_called_once()
 
+    @patch.object(RemoteManager, "get_service_info")
+    def test_info_command(self, mock_info, runner):
+        """Test info command."""
+        mock_service_info = {
+            "Service Information": {
+                "Name": "SNOW_REMOTE_admin_test",
+                "Status": "RUNNING",
+                "Database": "TEST_DB",
+                "Schema": "TEST_SCHEMA",
+                "Compute Pool": "test_pool",
+            },
+            "Timestamps": {"Created": "2024-01-01 12:00:00", "Updated": "N/A"},
+            "Public Endpoints": {"VS Code Server": "https://test.url:8080"},
+        }
+        mock_info.return_value = mock_service_info
+
+        result = runner.invoke(["remote", "info", "test"])
+
+        assert result.exit_code == 0
+        mock_info.assert_called_once_with("test")
+
+        # Verify formatted output contains expected sections
+        assert "Service Information:" in result.output
+        assert "Timestamps:" in result.output
+        assert "Public Endpoints:" in result.output
+        assert "Name: SNOW_REMOTE_admin_test" in result.output
+        assert "Status: RUNNING" in result.output
+
     @patch.object(RemoteManager, "stop")
     def test_stop_command(self, mock_stop, runner):
         """Test stop command."""
@@ -149,9 +183,8 @@ class TestRemoteCommands:
         result = runner.invoke(["remote", "stop", "test_service"])
 
         assert result.exit_code == 0
-        assert (
-            "Remote environment 'test_service' suspended successfully." in result.output
-        )
+        # Success is indicated in the returned data, not console messages
+        assert "Service suspended successfully" in result.output
         mock_stop.assert_called_once_with("test_service")
 
     @patch.object(RemoteManager, "delete")
@@ -163,7 +196,6 @@ class TestRemoteCommands:
         result = runner.invoke(["remote", "delete", "test_service"])
 
         assert result.exit_code == 0
-        assert (
-            "Remote environment 'test_service' deleted successfully." in result.output
-        )
+        # Success is indicated in the returned data, not console messages
+        assert "Service deleted successfully" in result.output
         mock_delete.assert_called_once_with("test_service")

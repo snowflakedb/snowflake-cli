@@ -11761,6 +11761,332 @@
   
   '''
 # ---
+# name: test_help_messages[remote.code]
+  '''
+                                                                                  
+   Usage: root remote code [OPTIONS] [NAME]                                       
+                                                                                  
+   Start a remote development environment and open VS Code connected to it.       
+                                                                                  
+   This command creates a new VS Code Server remote development environment if it 
+   doesn't exist, or starts an existing one if it's suspended, then opens VS Code 
+   connected to the remote service over SSH. Usage examples: - Connect to         
+   existing service: snow remote code myproject - Create new service and connect: 
+   snow remote code --compute-pool my_pool --eai-name my_eai - Create named       
+   service: snow remote code myproject --compute-pool my_pool --eai-name my_eai - 
+   Connect with persistent storage: snow remote code --compute-pool my_pool       
+   --eai-name my_eai --stage @my_stage External access integration (--eai-name)   
+   is required for IDE launch to enable network access. The --compute-pool        
+   parameter is only required when creating a new service.                        
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  |   name      [NAME]  Service name to use, or leave empty to create a new      |
+  |                     service with auto-generated name                         |
+  |                     [default: None]                                          |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --compute-pool          TEXT  Name of the compute pool to use (required for  |
+  |                               new service creation)                          |
+  | --eai-name              TEXT  List of external access integration names to   |
+  |                               enable network access to external resources    |
+  |                               [default: None]                                |
+  | --stage                 TEXT  Internal Snowflake stage to mount for          |
+  |                               persistent storage. The stage will be mounted  |
+  |                               at two locations: 1) 'stage/user-default' ->   |
+  |                               '/root/user-default' (workspace files), 2)     |
+  |                               'stage/.vscode-server/data' ->                 |
+  |                               '/root/.vscode-server/data' (VS Code           |
+  |                               settings). Example: --stage @my_stage or       |
+  |                               --stage @my_stage/project                      |
+  |                               [default: None]                                |
+  | --image                 TEXT  Custom image to use (can be full path like     |
+  |                               'repo/image:tag' or just tag like '1.7.1')     |
+  |                               [default: None]                                |
+  | --no-ssh-key                  Skip SSH key generation and use token-only     |
+  |                               authentication (less secure)                   |
+  | --help          -h            Show this message and exit.                    |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment    -c      TEXT     Name of the connection, as    |
+  |                                                defined in your config.toml   |
+  |                                                file. Default: default.       |
+  | --host                                TEXT     Host address for the          |
+  |                                                connection. Overrides the     |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --port                                INTEGER  Port for the connection.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --account,--accountname               TEXT     Name assigned to your         |
+  |                                                Snowflake account. Overrides  |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --user,--username                     TEXT     Username to connect to        |
+  |                                                Snowflake. Overrides the      |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --password                            TEXT     Snowflake password. Overrides |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --authenticator                       TEXT     Snowflake authenticator.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --workload-identity-provider          TEXT     Workload identity provider    |
+  |                                                (AWS, AZURE, GCP, OIDC).      |
+  |                                                Overrides the value specified |
+  |                                                for the connection            |
+  | --private-key-file,--privat…          TEXT     Snowflake private key file    |
+  |                                                path. Overrides the value     |
+  |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
+  | --token-file-path                     TEXT     Path to file with an OAuth    |
+  |                                                token to use when connecting  |
+  |                                                to Snowflake.                 |
+  | --database,--dbname                   TEXT     Database to use. Overrides    |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --schema,--schemaname                 TEXT     Database schema to use.       |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --role,--rolename                     TEXT     Role to use. Overrides the    |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --warehouse                           TEXT     Warehouse to use. Overrides   |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --temporary-connection        -x               Uses a connection defined     |
+  |                                                with command line parameters, |
+  |                                                instead of one defined in     |
+  |                                                config                        |
+  | --mfa-passcode                        TEXT     Token to use for multi-factor |
+  |                                                authentication (MFA)          |
+  | --enable-diag                                  Whether to generate a         |
+  |                                                connection diagnostic report. |
+  | --diag-log-path                       TEXT     Path for the generated        |
+  |                                                report. Defaults to system    |
+  |                                                temporary directory.          |
+  | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
+  |                                                contains allowlist            |
+  |                                                parameters.                   |
+  | --oauth-client-id                     TEXT     Value of client id provided   |
+  |                                                by the Identity Provider for  |
+  |                                                Snowflake integration.        |
+  | --oauth-client-secret                 TEXT     Value of the client secret    |
+  |                                                provided by the Identity      |
+  |                                                Provider for Snowflake        |
+  |                                                integration.                  |
+  | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the authorization   |
+  |                                                code to the driver.           |
+  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the access tokens   |
+  |                                                to the driver.                |
+  | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
+  |                                                code redirection.             |
+  | --oauth-scope                         TEXT     Scope requested in the        |
+  |                                                Identity Provider             |
+  |                                                authorization request.        |
+  | --oauth-disable-pkce                           Disables Proof Key for Code   |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
+  | --oauth-enable-refresh-toke…                   Enables a silent              |
+  |                                                re-authentication when the    |
+  |                                                actual access token becomes   |
+  |                                                outdated. Default: False.     |
+  | --oauth-enable-single-use-r…                   Whether to opt-in to          |
+  |                                                single-use refresh token      |
+  |                                                semantics. Default: False.    |
+  | --client-store-temporary-cr…                   Store the temporary           |
+  |                                                credential.                   |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[remote.cursor]
+  '''
+                                                                                  
+   Usage: root remote cursor [OPTIONS] [NAME]                                     
+                                                                                  
+   Start a remote development environment and open Cursor connected to it.        
+                                                                                  
+   This command creates a new VS Code Server remote development environment if it 
+   doesn't exist, or starts an existing one if it's suspended, then opens Cursor  
+   connected to the remote service over SSH. Usage examples: - Connect to         
+   existing service: snow remote cursor myproject - Create new service and        
+   connect: snow remote cursor --compute-pool my_pool --eai-name my_eai - Create  
+   named service: snow remote cursor myproject --compute-pool my_pool --eai-name  
+   my_eai - Connect with persistent storage: snow remote cursor --compute-pool    
+   my_pool --eai-name my_eai --stage @my_stage External access integration        
+   (--eai-name) is required for IDE launch to enable network access. The          
+   --compute-pool parameter is only required when creating a new service.         
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  |   name      [NAME]  Service name to use, or leave empty to create a new      |
+  |                     service with auto-generated name                         |
+  |                     [default: None]                                          |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --compute-pool          TEXT  Name of the compute pool to use (required for  |
+  |                               new service creation)                          |
+  | --eai-name              TEXT  List of external access integration names to   |
+  |                               enable network access to external resources    |
+  |                               [default: None]                                |
+  | --stage                 TEXT  Internal Snowflake stage to mount for          |
+  |                               persistent storage. The stage will be mounted  |
+  |                               at two locations: 1) 'stage/user-default' ->   |
+  |                               '/root/user-default' (workspace files), 2)     |
+  |                               'stage/.vscode-server/data' ->                 |
+  |                               '/root/.vscode-server/data' (VS Code           |
+  |                               settings). Example: --stage @my_stage or       |
+  |                               --stage @my_stage/project                      |
+  |                               [default: None]                                |
+  | --image                 TEXT  Custom image to use (can be full path like     |
+  |                               'repo/image:tag' or just tag like '1.7.1')     |
+  |                               [default: None]                                |
+  | --no-ssh-key                  Skip SSH key generation and use token-only     |
+  |                               authentication (less secure)                   |
+  | --help          -h            Show this message and exit.                    |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment    -c      TEXT     Name of the connection, as    |
+  |                                                defined in your config.toml   |
+  |                                                file. Default: default.       |
+  | --host                                TEXT     Host address for the          |
+  |                                                connection. Overrides the     |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --port                                INTEGER  Port for the connection.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --account,--accountname               TEXT     Name assigned to your         |
+  |                                                Snowflake account. Overrides  |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --user,--username                     TEXT     Username to connect to        |
+  |                                                Snowflake. Overrides the      |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --password                            TEXT     Snowflake password. Overrides |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --authenticator                       TEXT     Snowflake authenticator.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --workload-identity-provider          TEXT     Workload identity provider    |
+  |                                                (AWS, AZURE, GCP, OIDC).      |
+  |                                                Overrides the value specified |
+  |                                                for the connection            |
+  | --private-key-file,--privat…          TEXT     Snowflake private key file    |
+  |                                                path. Overrides the value     |
+  |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
+  | --token-file-path                     TEXT     Path to file with an OAuth    |
+  |                                                token to use when connecting  |
+  |                                                to Snowflake.                 |
+  | --database,--dbname                   TEXT     Database to use. Overrides    |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --schema,--schemaname                 TEXT     Database schema to use.       |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --role,--rolename                     TEXT     Role to use. Overrides the    |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --warehouse                           TEXT     Warehouse to use. Overrides   |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --temporary-connection        -x               Uses a connection defined     |
+  |                                                with command line parameters, |
+  |                                                instead of one defined in     |
+  |                                                config                        |
+  | --mfa-passcode                        TEXT     Token to use for multi-factor |
+  |                                                authentication (MFA)          |
+  | --enable-diag                                  Whether to generate a         |
+  |                                                connection diagnostic report. |
+  | --diag-log-path                       TEXT     Path for the generated        |
+  |                                                report. Defaults to system    |
+  |                                                temporary directory.          |
+  | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
+  |                                                contains allowlist            |
+  |                                                parameters.                   |
+  | --oauth-client-id                     TEXT     Value of client id provided   |
+  |                                                by the Identity Provider for  |
+  |                                                Snowflake integration.        |
+  | --oauth-client-secret                 TEXT     Value of the client secret    |
+  |                                                provided by the Identity      |
+  |                                                Provider for Snowflake        |
+  |                                                integration.                  |
+  | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the authorization   |
+  |                                                code to the driver.           |
+  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the access tokens   |
+  |                                                to the driver.                |
+  | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
+  |                                                code redirection.             |
+  | --oauth-scope                         TEXT     Scope requested in the        |
+  |                                                Identity Provider             |
+  |                                                authorization request.        |
+  | --oauth-disable-pkce                           Disables Proof Key for Code   |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
+  | --oauth-enable-refresh-toke…                   Enables a silent              |
+  |                                                re-authentication when the    |
+  |                                                actual access token becomes   |
+  |                                                outdated. Default: False.     |
+  | --oauth-enable-single-use-r…                   Whether to opt-in to          |
+  |                                                single-use refresh token      |
+  |                                                semantics. Default: False.    |
+  | --client-store-temporary-cr…                   Store the temporary           |
+  |                                                credential.                   |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
 # name: test_help_messages[remote.delete]
   '''
                                                                                   
@@ -11768,6 +12094,144 @@
                                                                                   
    Deletes a remote development environment.                                      
                                                                                   
+                                                                                  
+  +- Arguments ------------------------------------------------------------------+
+  | *    name      TEXT  Remote service name. Can be either a customer name      |
+  |                      (e.g., 'myproject') or full service name (e.g.,         |
+  |                      'SNOW_REMOTE_admin_myproject')                          |
+  |                      [required]                                              |
+  +------------------------------------------------------------------------------+
+  +- Options --------------------------------------------------------------------+
+  | --help  -h        Show this message and exit.                                |
+  +------------------------------------------------------------------------------+
+  +- Connection configuration ---------------------------------------------------+
+  | --connection,--environment    -c      TEXT     Name of the connection, as    |
+  |                                                defined in your config.toml   |
+  |                                                file. Default: default.       |
+  | --host                                TEXT     Host address for the          |
+  |                                                connection. Overrides the     |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --port                                INTEGER  Port for the connection.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --account,--accountname               TEXT     Name assigned to your         |
+  |                                                Snowflake account. Overrides  |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --user,--username                     TEXT     Username to connect to        |
+  |                                                Snowflake. Overrides the      |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --password                            TEXT     Snowflake password. Overrides |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --authenticator                       TEXT     Snowflake authenticator.      |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --workload-identity-provider          TEXT     Workload identity provider    |
+  |                                                (AWS, AZURE, GCP, OIDC).      |
+  |                                                Overrides the value specified |
+  |                                                for the connection            |
+  | --private-key-file,--privat…          TEXT     Snowflake private key file    |
+  |                                                path. Overrides the value     |
+  |                                                specified for the connection. |
+  | --token                               TEXT     OAuth token to use when       |
+  |                                                connecting to Snowflake.      |
+  | --token-file-path                     TEXT     Path to file with an OAuth    |
+  |                                                token to use when connecting  |
+  |                                                to Snowflake.                 |
+  | --database,--dbname                   TEXT     Database to use. Overrides    |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --schema,--schemaname                 TEXT     Database schema to use.       |
+  |                                                Overrides the value specified |
+  |                                                for the connection.           |
+  | --role,--rolename                     TEXT     Role to use. Overrides the    |
+  |                                                value specified for the       |
+  |                                                connection.                   |
+  | --warehouse                           TEXT     Warehouse to use. Overrides   |
+  |                                                the value specified for the   |
+  |                                                connection.                   |
+  | --temporary-connection        -x               Uses a connection defined     |
+  |                                                with command line parameters, |
+  |                                                instead of one defined in     |
+  |                                                config                        |
+  | --mfa-passcode                        TEXT     Token to use for multi-factor |
+  |                                                authentication (MFA)          |
+  | --enable-diag                                  Whether to generate a         |
+  |                                                connection diagnostic report. |
+  | --diag-log-path                       TEXT     Path for the generated        |
+  |                                                report. Defaults to system    |
+  |                                                temporary directory.          |
+  | --diag-allowlist-path                 TEXT     Path to a JSON file that      |
+  |                                                contains allowlist            |
+  |                                                parameters.                   |
+  | --oauth-client-id                     TEXT     Value of client id provided   |
+  |                                                by the Identity Provider for  |
+  |                                                Snowflake integration.        |
+  | --oauth-client-secret                 TEXT     Value of the client secret    |
+  |                                                provided by the Identity      |
+  |                                                Provider for Snowflake        |
+  |                                                integration.                  |
+  | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the authorization   |
+  |                                                code to the driver.           |
+  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the access tokens   |
+  |                                                to the driver.                |
+  | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
+  |                                                code redirection.             |
+  | --oauth-scope                         TEXT     Scope requested in the        |
+  |                                                Identity Provider             |
+  |                                                authorization request.        |
+  | --oauth-disable-pkce                           Disables Proof Key for Code   |
+  |                                                Exchange (PKCE). Default:     |
+  |                                                False.                        |
+  | --oauth-enable-refresh-toke…                   Enables a silent              |
+  |                                                re-authentication when the    |
+  |                                                actual access token becomes   |
+  |                                                outdated. Default: False.     |
+  | --oauth-enable-single-use-r…                   Whether to opt-in to          |
+  |                                                single-use refresh token      |
+  |                                                semantics. Default: False.    |
+  | --client-store-temporary-cr…                   Store the temporary           |
+  |                                                credential.                   |
+  +------------------------------------------------------------------------------+
+  +- Global configuration -------------------------------------------------------+
+  | --format                       [TABLE|JSON|JSON_EXT|  Specifies the output   |
+  |                                CSV]                   format.                |
+  |                                                       [default: TABLE]       |
+  | --verbose              -v                             Displays log entries   |
+  |                                                       for log levels info    |
+  |                                                       and higher.            |
+  | --debug                                               Displays log entries   |
+  |                                                       for log levels debug   |
+  |                                                       and higher; debug logs |
+  |                                                       contain additional     |
+  |                                                       information.           |
+  | --silent                                              Turns off intermediate |
+  |                                                       output to console.     |
+  | --enhanced-exit-codes                                 Differentiate exit     |
+  |                                                       error codes based on   |
+  |                                                       failure type.          |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_ENHANCED_EX… |
+  +------------------------------------------------------------------------------+
+  
+  
+  '''
+# ---
+# name: test_help_messages[remote.info]
+  '''
+                                                                                  
+   Usage: root remote info [OPTIONS] NAME                                         
+                                                                                  
+   Shows detailed information about a remote development environment.             
+                                                                                  
+   Displays comprehensive information including service status, configuration,    
+   compute resources, external access integrations, public endpoints, and         
+   timestamps.                                                                    
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Remote service name. Can be either a customer name      |
@@ -12032,23 +12496,32 @@
                                                                                   
    Starts a remote development environment.                                       
                                                                                   
+                                                                                  
+                                                                                  
    This command creates a new VS Code Server remote development environment if it 
    doesn't exist, or starts an existing one if it's suspended. If the environment 
    is already running, it's a no-op. The environment is deployed as a Snowpark    
    Container Service that provides a web-based development environment. Usage     
    examples: - Resume existing service: snow remote start myproject - Create new  
    service: snow remote start --compute-pool my_pool - Create named service: snow 
-   remote start myproject --compute-pool my_pool - Start with SSH setup: snow     
-   remote start myproject --ssh - Start with SSH (no key): snow remote start      
-   myproject --ssh --no-ssh-key The --compute-pool parameter is only required     
-   when creating a new service. For resuming existing services, the compute pool  
-   is not needed. SSH Options: - Use --ssh to set up SSH configuration for secure 
-   terminal access - Use --no-ssh-key with --ssh for token-only authentication    
-   (less secure) - SSH setup is a blocking command that continuously refreshes    
-   authentication tokens                                                          
+   remote start myproject --compute-pool my_pool - Start with persistent storage: 
+   snow remote start --compute-pool my_pool --stage @my_stage - Start with SSH    
+   setup: snow remote start myproject --ssh - Start with SSH (no key): snow       
+   remote start myproject --ssh --no-ssh-key The --compute-pool parameter is only 
+   required when creating a new service. For resuming existing services, the      
+   compute pool is not needed. Stage Mounting: When using --stage, the specified  
+   stage is mounted at two locations for persistence: - Workspace files:          
+   @stage/user-default -> /root/user-default - VS Code settings:                  
+   @stage/.vscode-server/data -> /root/.vscode-server/data This ensures your code 
+   and VS Code configuration persist across service restarts. SSH Options: - Use  
+   --ssh to set up SSH configuration for secure terminal access - Use             
+   --no-ssh-key with --ssh for token-only authentication (less secure) - SSH      
+   setup is a blocking command that continuously refreshes authentication tokens  
+   IDE Connection: - Use 'snow remote code ' to start and connect with VS Code -  
+   Use 'snow remote cursor ' to start and connect with Cursor                     
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  |   name      [NAME]  Service name to resume, or leave empty to create a new   |
+  |   name      [NAME]  Service name to use, or leave empty to create a new      |
   |                     service with auto-generated name                         |
   |                     [default: None]                                          |
   +------------------------------------------------------------------------------+
@@ -12058,8 +12531,14 @@
   | --eai-name              TEXT  List of external access integration names to   |
   |                               enable network access to external resources    |
   |                               [default: None]                                |
-  | --stage                 TEXT  Internal Snowflake stage to mount (e.g.,       |
-  |                               @my_stage or @my_stage/folder).                |
+  | --stage                 TEXT  Internal Snowflake stage to mount for          |
+  |                               persistent storage. The stage will be mounted  |
+  |                               at two locations: 1) 'stage/user-default' ->   |
+  |                               '/root/user-default' (workspace files), 2)     |
+  |                               'stage/.vscode-server/data' ->                 |
+  |                               '/root/.vscode-server/data' (VS Code           |
+  |                               settings). Example: --stage @my_stage or       |
+  |                               --stage @my_stage/project                      |
   |                               [default: None]                                |
   | --image                 TEXT  Custom image to use (can be full path like     |
   |                               'repo/image:tag' or just tag like '1.7.1')     |
@@ -12067,9 +12546,8 @@
   | --ssh                         Set up SSH configuration for connecting to the |
   |                               remote environment. This is a blocking command |
   |                               that keeps SSH connections alive.              |
-  | --no-ssh-key                  When used with --ssh, skip SSH key generation  |
-  |                               and use token-only authentication (less        |
-  |                               secure)                                        |
+  | --no-ssh-key                  Skip SSH key generation and use token-only     |
+  |                               authentication (less secure)                   |
   | --help          -h            Show this message and exit.                    |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
@@ -12336,7 +12814,12 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
+  | code     Start a remote development environment and open VS Code connected   |
+  |          to it.                                                              |
+  | cursor   Start a remote development environment and open Cursor connected to |
+  |          it.                                                                 |
   | delete   Deletes a remote development environment.                           |
+  | info     Shows detailed information about a remote development environment.  |
   | list     Lists all remote development environments.                          |
   | start    Starts a remote development environment.                            |
   | stop     Suspends a remote development environment.                          |
@@ -22734,7 +23217,12 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
+  | code     Start a remote development environment and open VS Code connected   |
+  |          to it.                                                              |
+  | cursor   Start a remote development environment and open Cursor connected to |
+  |          it.                                                                 |
   | delete   Deletes a remote development environment.                           |
+  | info     Shows detailed information about a remote development environment.  |
   | list     Lists all remote development environments.                          |
   | start    Starts a remote development environment.                            |
   | stop     Suspends a remote development environment.                          |
