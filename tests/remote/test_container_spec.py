@@ -25,6 +25,7 @@ from snowflake.cli._plugins.remote.constants import (
 from snowflake.cli._plugins.remote.container_spec import (
     generate_service_spec,
 )
+from snowflake.cli.api.exceptions import CliError
 
 
 @pytest.fixture
@@ -175,7 +176,7 @@ class TestContainerSpec:
         vscode_mount = next(
             vm for vm in volume_mounts if vm["name"] == "user-vscode-data"
         )
-        assert vscode_mount["mountPath"] == "/root/.vscode-server"
+        assert vscode_mount["mountPath"] == "/root/.vscode-server/data"
 
         # Check volumes
         volumes = spec["spec"]["volumes"]
@@ -322,7 +323,7 @@ class TestContainerSpec:
         """Test that invalid stage paths raise ValueError."""
         # Test with empty string (should be invalid)
         with pytest.raises(
-            ValueError,
+            CliError,
             match="Stage path cannot be empty",
         ):
             generate_service_spec(
