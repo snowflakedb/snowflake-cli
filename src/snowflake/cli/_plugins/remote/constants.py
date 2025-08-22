@@ -49,7 +49,7 @@ MEMORY_VOLUME_NAME = "dshm"
 USER_WORKSPACE_VOLUME_NAME = "user-workspace"
 USER_WORKSPACE_VOLUME_MOUNT_PATH = "/root/user-default"
 USER_VSCODE_DATA_VOLUME_NAME = "user-vscode-data"
-USER_VSCODE_DATA_VOLUME_MOUNT_PATH = "/root/.vscode-server"
+USER_VSCODE_DATA_VOLUME_MOUNT_PATH = "/root/.vscode-server/data"
 
 # Service naming constants
 SERVICE_NAME_PREFIX = "SNOW_REMOTE"
@@ -111,6 +111,11 @@ SSH_DEFAULT_USER = "root"
 # ML runtime health check settings
 ML_RUNTIME_HEALTH_CHECK_PORT = "5001"
 ENABLE_HEALTH_CHECKS = "false"
+
+# Endpoint readiness validation settings
+DEFAULT_ENDPOINT_TIMEOUT_MINUTES = 5  # Maximum time to wait for endpoint readiness
+ENDPOINT_CHECK_INTERVAL_SECONDS = 5  # Interval between endpoint health checks
+ENDPOINT_REQUEST_TIMEOUT_SECONDS = 10  # HTTP request timeout for individual checks
 
 # Ray environment variables
 RAY_ENV_VARS = {
