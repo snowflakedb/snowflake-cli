@@ -21,6 +21,8 @@
 ## New additions
 
 ## Fixes and improvements
+* Improved parsing `!<commands>` with trailing comments
+
 
 
 # v3.11.0
