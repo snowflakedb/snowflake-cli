@@ -21,7 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
-* Improved parsing `!<commands>` with trailing comments
+* Improved parsing `!source` with trailing comments
 
 
 
