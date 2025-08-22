@@ -91,9 +91,13 @@ class ParsedStatement:
     @classmethod
     def from_url(cls, path_part: str, raw_source: str) -> "ParsedStatement":
         """Constructor for loading from URL."""
+        stripped_comments_path_part, _ = next(
+            split_statements(io.StringIO(path_part), remove_comments=True)
+        )
+
         try:
-            payload = urlopen(path_part, timeout=10.0).read().decode()
-            return cls(payload, StatementType.URL, path_part)
+            payload = urlopen(stripped_comments_path_part, timeout=10.0).read().decode()
+            return cls(payload, StatementType.URL, stripped_comments_path_part)
 
         except urllib.error.HTTPError as err:
             error = f"Could not fetch {path_part}: {err}"
@@ -112,7 +116,12 @@ class ParsedStatement:
             return cls(payload, StatementType.FILE, path.as_posix())
 
         error_msg = f"Could not read: {path_part}"
-        return cls(path_part, StatementType.FILE, raw_source, error_msg)
+        return cls(
+            stripped_comments_path_part,
+            StatementType.FILE,
+            raw_source,
+            error_msg,
+        )
 
 
 RecursiveStatementReader = Generator[ParsedStatement, Any, Any]
