@@ -102,7 +102,10 @@ class ParsedStatement:
     @classmethod
     def from_file(cls, path_part: str, raw_source: str) -> "ParsedStatement":
         """Constructor for loading from file."""
-        path = SecurePath(path_part)
+        stripped_comments_path_part, _ = next(
+            split_statements(io.StringIO(path_part), remove_comments=True)
+        )
+        path = SecurePath(stripped_comments_path_part)
 
         if path.is_file():
             payload = path.read_text(file_size_limit_mb=UNLIMITED)

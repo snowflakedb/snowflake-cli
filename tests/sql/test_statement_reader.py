@@ -318,6 +318,19 @@ def test_parse_source_invalid_file(tmp_path_factory: pytest.TempPathFactory):
     assert source.error and source.error.startswith("Could not read")
 
 
+def test_allow_comments_at_source(tmp_path_factory: pytest.TempPathFactory):
+    expected_content = "select 73"
+
+    f1 = tmp_path_factory.mktemp("a") / "f1.sql"
+    f1.write_text(expected_content)
+
+    source_with_comment = f"!source {f1.as_posix()} --noqa: XXX"
+    source = parse_statement(source_with_comment, WORKING_OPERATOR_FUNCS)
+    assert source.statement_type == StatementType.FILE
+    assert source.statement.read() == expected_content
+    assert not source.error
+
+
 @pytest.mark.parametrize("command", ["source", "load"])
 def test_parse_source_default_fallback(command):
     path = "s3://bucket/path/file.sql"
