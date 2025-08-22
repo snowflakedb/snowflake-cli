@@ -88,13 +88,18 @@ class ParsedStatement:
     def __repr__(self):
         return f"{self.__class__.__name__}(statement_type={self.statement_type}, source_path={self.source_path}, error={self.error})"
 
+    @staticmethod
+    def drop_comments_from_path_parts(path_part: str) -> str:
+        """Clean up path_part from trailing comments."""
+        uncommented, _ = next(
+            split_statements(io.StringIO(path_part), remove_comments=True)
+        )
+        return uncommented
+
     @classmethod
     def from_url(cls, path_part: str, raw_source: str) -> "ParsedStatement":
         """Constructor for loading from URL."""
-        stripped_comments_path_part, _ = next(
-            split_statements(io.StringIO(path_part), remove_comments=True)
-        )
-
+        stripped_comments_path_part = cls.drop_comments_from_path_parts(path_part)
         try:
             payload = urlopen(stripped_comments_path_part, timeout=10.0).read().decode()
             return cls(payload, StatementType.URL, stripped_comments_path_part)
@@ -106,9 +111,7 @@ class ParsedStatement:
     @classmethod
     def from_file(cls, path_part: str, raw_source: str) -> "ParsedStatement":
         """Constructor for loading from file."""
-        stripped_comments_path_part, _ = next(
-            split_statements(io.StringIO(path_part), remove_comments=True)
-        )
+        stripped_comments_path_part = cls.drop_comments_from_path_parts(path_part)
         path = SecurePath(stripped_comments_path_part)
 
         if path.is_file():
@@ -117,7 +120,7 @@ class ParsedStatement:
 
         error_msg = f"Could not read: {path_part}"
         return cls(
-            stripped_comments_path_part,
+            path_part,
             StatementType.FILE,
             raw_source,
             error_msg,
