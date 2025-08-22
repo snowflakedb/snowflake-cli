@@ -21,8 +21,10 @@ import typer
 from snowflake.cli._plugins.remote.manager import RemoteManager
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.output.types import (
     CommandResult,
+    MessageResult,
     QueryResult,
     SingleQueryResult,
 )
@@ -62,7 +64,11 @@ def start(
     stage: Optional[str] = typer.Option(
         None,
         "--stage",
-        help="Internal Snowflake stage to mount (e.g., @my_stage or @my_stage/folder).",
+        help="Internal Snowflake stage to mount for persistent storage. "
+        "The stage will be mounted at two locations: "
+        "1) 'stage/user-default' -> '/root/user-default' (workspace files), "
+        "2) 'stage/.vscode-server/data' -> '/root/.vscode-server/data' (VS Code settings). "
+        "Example: --stage @my_stage or --stage @my_stage/project",
     ),
     image: Optional[str] = typer.Option(
         None,
@@ -73,6 +79,16 @@ def start(
         False,
         "--ssh",
         help="Set up SSH configuration for connecting to the remote environment. This is a blocking command that keeps SSH connections alive.",
+    ),
+    code: bool = typer.Option(
+        False,
+        "--code",
+        help="Open VS Code connected to the remote service over SSH (mutually exclusive with --ssh and --cursor)",
+    ),
+    cursor: bool = typer.Option(
+        False,
+        "--cursor",
+        help="Open Cursor connected to the remote service over SSH (mutually exclusive with --ssh and --code)",
     ),
     no_ssh_key: bool = typer.Option(
         False,
@@ -93,11 +109,18 @@ def start(
     - Resume existing service: snow remote start myproject
     - Create new service: snow remote start --compute-pool my_pool
     - Create named service: snow remote start myproject --compute-pool my_pool
+    - Start with persistent storage: snow remote start --compute-pool my_pool --stage @my_stage
     - Start with SSH setup: snow remote start myproject --ssh
     - Start with SSH (no key): snow remote start myproject --ssh --no-ssh-key
 
     The --compute-pool parameter is only required when creating a new service. For resuming
     existing services, the compute pool is not needed.
+
+    Stage Mounting:
+    When using --stage, the specified stage is mounted at two locations for persistence:
+    - Workspace files: @stage/user-default -> /root/user-default
+    - VS Code settings: @stage/.vscode-server/data -> /root/.vscode-server/data
+    This ensures your code and VS Code configuration persist across service restarts.
 
     SSH Options:
     - Use --ssh to set up SSH configuration for secure terminal access
@@ -107,15 +130,25 @@ def start(
     try:
         manager = RemoteManager()
 
+        # Enforce mutual exclusivity: only one of ssh/code/cursor
+        chosen = sum([1 if ssh else 0, 1 if code else 0, 1 if cursor else 0])
+        if chosen > 1:
+            raise CliError(
+                "Options --ssh, --code, and --cursor are mutually exclusive. Choose only one."
+            )
+
+        # If launching IDE and creating a new service, enforce EAI
+        launching_ide = code or cursor
+        if launching_ide:
+            manager.validate_ide_requirements(name, eai_name)
+
         service_name, url, status = manager.start(
             name=name,
             compute_pool=compute_pool,
             external_access=eai_name,
             stage=stage,
             image=image,
-            generate_ssh_key=(
-                ssh and not no_ssh_key
-            ),  # Only generate SSH key if --ssh and not --no-ssh-key
+            generate_ssh_key=((ssh or launching_ide) and not no_ssh_key),
         )
 
         # Display appropriate success message based on what happened
@@ -138,12 +171,12 @@ def start(
         if stage:
             log.debug("Stage '%s' mounted:", stage)
             log.debug(
-                "  - Workspace: '%s/user-default' → '%s'",
+                "  - Workspace: '%s/user-default' -> '%s'",
                 stage,
                 "/home/user/workspace",
             )
             log.debug(
-                "  - VS Code data: '%s/.vscode-server/data' → '%s'",
+                "  - VS Code data: '%s/.vscode-server/data' -> '%s'",
                 stage,
                 "/home/user/.vscode-server",
             )
@@ -152,16 +185,17 @@ def start(
         if image:
             log.debug("Using custom image: %s", image)
 
-        # Handle SSH setup if requested - this is a blocking operation
+        # Handle SSH/IDE setup if requested - this is a blocking operation
         if ssh:
             manager.setup_ssh_connection(service_name)
+        elif launching_ide:
+            ide = "code" if code else "cursor"
+            manager.setup_ssh_connection(service_name, ide=ide)
 
     except ValueError as e:
-        cc.warning(f"Error: {e}")
-        raise typer.Exit(code=1)
+        raise CliError(f"Error: {e}")
     except Exception as e:
-        cc.warning(f"Error starting remote environment: {e}")
-        raise typer.Exit(code=1)
+        raise CliError(f"Error starting remote environment: {e}")
 
 
 @app.command("list", requires_connection=True)
@@ -171,6 +205,38 @@ def list_services(**options) -> CommandResult:
     """
     cursor = RemoteManager().list_services()
     return QueryResult(cursor)
+
+
+@app.command("info", requires_connection=True)
+def info(
+    name: str = RemoteNameArgument,
+    **options,
+) -> CommandResult:
+    """
+    Shows detailed information about a remote development environment.
+
+    Displays comprehensive information including service status, configuration,
+    compute resources, external access integrations, public endpoints, and timestamps.
+    """
+    service_info = RemoteManager().get_service_info(name)
+
+    # Format the information for display
+    output_lines = []
+
+    for section_name, section_data in service_info.items():
+        output_lines.append(f"\n{section_name}:")
+        output_lines.append("=" * (len(section_name) + 1))
+
+        for key, value in section_data.items():
+            # Format the value for better display
+            if value is None or value == "":
+                formatted_value = "N/A"
+            else:
+                formatted_value = str(value)
+
+            output_lines.append(f"  {key}: {formatted_value}")
+
+    return MessageResult("\n".join(output_lines))
 
 
 @app.command("stop", requires_connection=True)
@@ -183,7 +249,6 @@ def stop(
     """
     manager = RemoteManager()
     cursor = manager.stop(name)
-    cc.message(f"Remote environment '{name}' suspended successfully.")
     return SingleQueryResult(cursor)
 
 
@@ -197,5 +262,4 @@ def delete(
     """
     manager = RemoteManager()
     cursor = manager.delete(name)
-    cc.message(f"Remote environment '{name}' deleted successfully.")
     return SingleQueryResult(cursor)

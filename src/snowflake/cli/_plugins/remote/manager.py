@@ -27,6 +27,7 @@ from snowflake.cli._plugins.remote.constants import (
     SERVICE_NAME_PREFIX,
     SSH_COUNTDOWN_INTERVAL,
     SSH_RETRY_INTERVAL,
+    USER_WORKSPACE_VOLUME_MOUNT_PATH,
     WEBSOCKET_SSH_ENDPOINT_NAME,
     ServiceResult,
     ServiceStatus,
@@ -37,11 +38,14 @@ from snowflake.cli._plugins.remote.utils import (
     generate_ssh_key_pair,
     get_existing_ssh_key,
     get_ssh_key_paths,
+    launch_ide,
     setup_ssh_config_with_token,
+    validate_service_name,
 )
 from snowflake.cli._plugins.spcs.services.manager import ServiceManager
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import DictCursor, SnowflakeCursor
 
@@ -147,13 +151,55 @@ class RemoteManager(SqlExecutionMixin):
         # Convert to uppercase to match Snowflake service naming convention
         return f"{SERVICE_NAME_PREFIX}_{snowflake_username}_{name_input}".upper()
 
+    def _warn_about_config_changes(
+        self,
+        service_name: str,
+        stage: Optional[str] = None,
+        image: Optional[str] = None,
+        external_access: Optional[List[str]] = None,
+        compute_pool: Optional[str] = None,
+        **kwargs,
+    ) -> None:
+        """
+        Warn user if they provided configuration options that cannot be applied to existing service.
+
+        Args:
+            service_name: Name of the existing service
+            stage: Stage mount option provided by user
+            image: Custom image option provided by user
+            external_access: External access integrations provided by user
+            compute_pool: Compute pool option provided by user
+            **kwargs: Other configuration options
+        """
+        has_modifying_options = any(
+            option is not None
+            for option in (
+                stage,
+                image,
+                external_access,
+                compute_pool,
+            )
+        )
+
+        if has_modifying_options:
+            cc.warning(
+                f"Service '{service_name}' is already running. "
+                "Configuration changes provided to 'snow remote start' will be ignored for existing services. "
+                f"To apply changes, delete the service first with 'snow remote delete {service_name}' and then start it again with the new configuration."
+            )
+
     def _handle_existing_service(
-        self, service_name: str, current_status: str
+        self, service_name: str, current_status: str, **config_options
     ) -> Optional[ServiceOperationResult]:
         """
         Handle an existing service based on its current service status.
 
         Note: current_status is always service status (from DESC SERVICE).
+
+        Args:
+            service_name: Name of the service
+            current_status: Current service status from DESC SERVICE
+            **config_options: Configuration options provided by user (stage, image, external_access, etc.)
 
         Returns:
             ServiceOperationResult with service details, or None if service needs recreation
@@ -161,6 +207,10 @@ class RemoteManager(SqlExecutionMixin):
         # Handle service statuses (from DESC SERVICE)
         if current_status == ServiceStatus.RUNNING.value:
             log.debug("Service %s is already running", service_name)
+
+            # Check if user provided configuration options that would modify the service
+            self._warn_about_config_changes(service_name, **config_options)
+
             url = self.get_server_ui_url(service_name)
             return ServiceOperationResult(
                 service_name, url, ServiceResult.RUNNING.value
@@ -173,6 +223,10 @@ class RemoteManager(SqlExecutionMixin):
                 "Service %s is suspended/suspending, resuming...",
                 service_name,
             )
+
+            # Check if user provided configuration options that would modify the service
+            self._warn_about_config_changes(service_name, **config_options)
+
             service_manager = ServiceManager()
             service_manager.resume(service_name)
             self.wait_for_service_ready(service_name)
@@ -185,6 +239,10 @@ class RemoteManager(SqlExecutionMixin):
                 "Service %s is pending, waiting for it to be ready...",
                 service_name,
             )
+
+            # Check if user provided configuration options that would modify the service
+            self._warn_about_config_changes(service_name, **config_options)
+
             self.wait_for_service_ready(service_name)
             url = self.get_server_ui_url(service_name)
             return ServiceOperationResult(
@@ -227,7 +285,7 @@ class RemoteManager(SqlExecutionMixin):
         """
         # Validate compute pool is provided for service creation
         if not compute_pool:
-            raise ValueError("compute_pool is required for creating a new service")
+            raise CliError("compute_pool is required for creating a new service")
 
         cc.step(f"Creating remote development environment '{service_name}'...")
 
@@ -320,26 +378,37 @@ class RemoteManager(SqlExecutionMixin):
         """
         # Validate that either name (for resume) or compute_pool (for creation) is provided
         if not name and not compute_pool:
-            raise ValueError(
+            raise CliError(
                 "Either 'name' (for service resumption) or 'compute_pool' (for service creation) must be provided"
             )
 
         # Resolve service name (handles both custom names and existing service names)
         if not name:
             name = datetime.now().strftime("%y%m%d%H%M")
+
         service_name = self._resolve_service_name(name)
+
+        # Validate final resolved service name to prevent CREATE SERVICE failures
+        validate_service_name(service_name)
 
         # Check if service already exists and its status
         service_exists, current_status = self._get_service_status(service_name)
 
         # Handle existing service based on status
         if service_exists and current_status:
-            result = self._handle_existing_service(service_name, current_status)
+            result = self._handle_existing_service(
+                service_name,
+                current_status,
+                stage=stage,
+                image=image,
+                external_access=external_access,
+                compute_pool=compute_pool,
+            )
             if result is not None:  # Service was handled successfully
                 return result
             # If result is None, service needs recreation - continue to creation
         else:
-            log.debug("Service %s does not exist, creating...", service_name)
+            cc.step(f"Service {service_name} does not exist, creating...")
 
         # Handle SSH key generation if requested
         ssh_public_key = self._setup_ssh_key(service_name, generate_ssh_key)
@@ -432,12 +501,12 @@ class RemoteManager(SqlExecutionMixin):
 
             # Re-raise with a more user-friendly message
             if "timeout" in error_msg.lower():
-                raise RuntimeError(
+                raise CliError(
                     f"Service {service_name} did not become ready within {timeout_minutes} minutes. "
                     f"Check service status with 'snow remote list' for more details."
                 ) from e
             else:
-                raise RuntimeError(
+                raise CliError(
                     f"Service {service_name} failed to start. Error: {error_msg}"
                 ) from e
 
@@ -507,7 +576,7 @@ class RemoteManager(SqlExecutionMixin):
 
         if endpoint_name not in endpoints:
             available = ", ".join(endpoints.keys()) if endpoints else "none"
-            raise RuntimeError(
+            raise CliError(
                 f"Endpoint '{endpoint_name}' not found for service {service_name}. "
                 f"Available public endpoints: {available}"
             )
@@ -516,10 +585,41 @@ class RemoteManager(SqlExecutionMixin):
         log.debug("Retrieved endpoint URL for %s: %s", endpoint_name, url)
         return url
 
+    def validate_ide_requirements(
+        self, name: Optional[str], eai_name: Optional[List[str]]
+    ) -> bool:
+        """Validate that EAI is provided when creating a new service for IDE launch.
+
+        Args:
+            name: Service name (if provided)
+            eai_name: External access integration names
+
+        Returns:
+            True if creating a new service, False if using existing service
+
+        Raises:
+            CliError: If EAI is required but not provided
+        """
+        creating = False
+        if not name:
+            creating = True
+        else:
+            resolved_name = self._resolve_service_name(name)
+            exists, _status = self._get_service_status(resolved_name)
+            creating = not exists
+
+        if creating and not eai_name:
+            raise CliError(
+                "External access integration is required for IDE launch. Provide --eai-name."
+            )
+
+        return creating
+
     def setup_ssh_connection(
         self,
         service_name: str,
         refresh_interval: int = DEFAULT_SSH_REFRESH_INTERVAL,
+        ide: Optional[str] = None,
     ) -> None:
         """Set up SSH connection with token refresh for a remote service.
 
@@ -529,15 +629,17 @@ class RemoteManager(SqlExecutionMixin):
         Args:
             service_name: Full name of the service
             refresh_interval: Token refresh interval in seconds
+            ide: Optional IDE to launch ("code" or "cursor"). If provided, the IDE will be
+                launched after the initial SSH configuration is written.
         """
 
         try:
+            # Step 1: Do all preparation work
             # Get the websocket-ssh endpoint hostname
             log.debug("Getting SSH endpoint for '%s'...", service_name)
             ssh_hostname = self.get_endpoint_url(
                 service_name, WEBSOCKET_SSH_ENDPOINT_NAME
             )
-
             log.debug("Found websocket SSH hostname: %s", ssh_hostname)
 
             # Check if SSH keys exist for this service
@@ -562,19 +664,36 @@ class RemoteManager(SqlExecutionMixin):
                 "ALTER SESSION SET python_connector_query_result_format = 'JSON'"
             ).collect()
 
-            cc.step(f"Starting SSH session management for '{service_name}'...")
-            cc.step(f"You can now connect using: ssh {service_name}")
-            cc.step(f"Press Ctrl+C to stop SSH session management")
+            # Step 2: Refresh token and write SSH config for the first time
+            token = self._get_fresh_token()
+            setup_ssh_config_with_token(
+                service_name, ssh_hostname, token, private_key_path
+            )
 
+            # Step 3: Launch IDE if requested
+            if ide:
+                cc.step(
+                    f"Starting {ide} and managing SSH session. Press Ctrl+C to stop."
+                )
+                launch_ide(ide, service_name, USER_WORKSPACE_VOLUME_MOUNT_PATH)
+            else:
+                cc.step(f"Starting SSH session management for '{service_name}'...")
+                cc.step(f"You can now connect using: ssh {service_name}")
+                cc.step(f"Press Ctrl+C to stop SSH session management")
+
+            # Step 4: Start refresh loop (delay first refresh since we just wrote config)
             self._ssh_token_refresh_loop(
-                service_name, ssh_hostname, private_key_path, refresh_interval
+                service_name,
+                ssh_hostname,
+                private_key_path,
+                refresh_interval,
+                delay_first_refresh=True,
             )
 
         except KeyboardInterrupt:
             cc.step("\n🛑 SSH session management stopped.")
         except Exception as e:
-            cc.step(f"❌ Error setting up SSH: {str(e)}")
-            raise
+            raise CliError(f"Error setting up SSH: {str(e)}")
         finally:
             # Clean up SSH configuration when SSH session ends
             cc.step("🧹 Cleaning up SSH configuration...")
@@ -586,18 +705,43 @@ class RemoteManager(SqlExecutionMixin):
         ssh_hostname: str,
         private_key_path: Optional[str],
         refresh_interval: int,
+        delay_first_refresh: bool = False,
     ) -> None:
-        """Handle the SSH token refresh loop."""
+        """Handle the SSH token refresh loop.
+
+        Args:
+            service_name: Name of the service
+            ssh_hostname: SSH hostname for the service
+            private_key_path: Path to private key file (if any)
+            refresh_interval: Interval between token refreshes in seconds
+            delay_first_refresh: If True, wait before first refresh (useful when SSH config was just written)
+        """
         token_refresh_count = 0
 
         try:
+            # If delay is requested, wait before first refresh
+            if delay_first_refresh:
+                log.debug(
+                    "Delaying first token refresh by %d seconds", refresh_interval
+                )
+                self._interruptible_sleep(refresh_interval)
+
             while True:
                 log.debug("Token refresh cycle #%d", token_refresh_count + 1)
 
-                token = self._get_fresh_token()
+                # Get fresh token with proper interrupt handling
+                try:
+                    token = self._get_fresh_token()
+                except KeyboardInterrupt:
+                    # Re-raise KeyboardInterrupt immediately to allow clean exit
+                    raise
+                except Exception as e:
+                    log.debug("Failed to get fresh token: %s", str(e))
+                    token = None
+
                 if not token:
                     cc.step("❌ Unable to get token. Retrying in 30 seconds...")
-                    self._wait_with_shutdown_check(SSH_RETRY_INTERVAL)
+                    self._interruptible_sleep(SSH_RETRY_INTERVAL)
                     continue
 
                 # Update SSH configuration
@@ -614,46 +758,44 @@ class RemoteManager(SqlExecutionMixin):
                 # Wait for next refresh with countdown
                 self._wait_with_countdown(refresh_interval)
 
-        except Exception as e:
-            cc.step(f"⚠️  SSH error occurred: {str(e)}")
+        except KeyboardInterrupt:
+            # Re-raise KeyboardInterrupt to be handled by the outer method
             raise
+        except Exception as e:
+            raise CliError(f"SSH error occurred: {str(e)}")
 
-    def _get_fresh_token(self) -> Optional[str]:
+    def _get_fresh_token(self) -> str:
         """Get a fresh authentication token with natural session expiration.
 
         Creates a connection that will expire naturally according to Snowflake's
         default session timeout, allowing proper token lifecycle management
         without artificial keep-alive mechanisms.
+
+        Returns:
+            Authentication token
+
+        Raises:
+            Exception: If token cannot be obtained
         """
-        fresh_connection = None
-        try:
-            log.debug("Creating fresh connection for SSH token...")
+        current_context = get_cli_context().connection_context
 
-            current_context = get_cli_context().connection_context
+        # Create connection with natural session expiration for SSH token refresh
+        fresh_connection = connect_to_snowflake(
+            connection_name=current_context.connection_name,
+            temporary_connection=current_context.temporary_connection,
+            # Allow session to expire naturally - don't keep it alive artificially
+            using_session_keep_alive=False,
+        )
 
-            # Create connection with natural session expiration for SSH token refresh
-            fresh_connection = connect_to_snowflake(
-                connection_name=current_context.connection_name,
-                temporary_connection=current_context.temporary_connection,
-                # Allow session to expire naturally - don't keep it alive artificially
-                using_session_keep_alive=False,
-            )
+        fresh_connection.cursor().execute(
+            "ALTER SESSION SET python_connector_query_result_format = 'JSON'"
+        )
 
-            fresh_connection.cursor().execute(
-                "ALTER SESSION SET python_connector_query_result_format = 'JSON'"
-            )
+        token = fresh_connection.rest.token
+        if not token:
+            raise RuntimeError("No token available from fresh connection")
 
-            token = fresh_connection.rest.token
-            if token:
-                log.debug("Fresh token obtained successfully")
-                return token
-            else:
-                log.debug("No token available from fresh connection")
-                return None
-
-        except Exception as e:
-            log.debug("Failed to create fresh connection: %s", str(e))
-            return None
+        return token
 
     def _wait_with_countdown(self, duration: int) -> None:
         """Wait with periodic countdown messages. Raises KeyboardInterrupt if interrupted."""
@@ -669,8 +811,15 @@ class RemoteManager(SqlExecutionMixin):
                 )
             time.sleep(1)
 
-    def _wait_with_shutdown_check(self, duration: int) -> None:
-        """Wait for duration. Raises KeyboardInterrupt if interrupted."""
+    def _interruptible_sleep(self, duration: int) -> None:
+        """Sleep for the specified duration while allowing KeyboardInterrupt.
+
+        This method sleeps in 1-second intervals, allowing for clean interruption
+        via Ctrl+C (KeyboardInterrupt) at any point during the wait period.
+
+        Args:
+            duration: Number of seconds to sleep
+        """
         end_time = time.time() + duration
 
         while time.time() < end_time:
@@ -680,10 +829,10 @@ class RemoteManager(SqlExecutionMixin):
         """List all remote development environment services.
 
         Returns:
-            Cursor containing service information including name, status, database,
-            schema, compute pool, external access integrations, and timestamps.
+            Cursor containing essential service information: name, status,
+            compute pool, and creation date (ordered by most recent first).
         """
-        # Use SQL to list services with the SNOW_CR prefix
+        # Use SQL to list services with the SNOW_REMOTE prefix
         query = f"""
         SHOW SERVICES EXCLUDE JOBS
         LIKE '{SERVICE_NAME_PREFIX}_%';
@@ -692,10 +841,83 @@ class RemoteManager(SqlExecutionMixin):
         qid = cur.sfqid
         return cur.execute(
             f"""
-            select "name", "status", "database_name", "schema_name", "compute_pool", "external_access_integrations", "created_on", "updated_on", "resumed_on", "suspended_on", "comment"
+            select "name", "status", "compute_pool", "created_on"
             FROM TABLE(RESULT_SCAN('{qid}'))
+            ORDER BY "created_on" DESC
         """
         )
+
+    def get_service_info(self, name_input: str) -> dict:
+        """Get detailed information about a specific remote development service.
+
+        Args:
+            name_input: Service name (can be short name or full service name)
+
+        Returns:
+            Dictionary containing formatted service information including service
+            details, public endpoints, and URLs for easy display.
+
+        Raises:
+            CliError: If service is not found or query fails
+        """
+        service_name = self._resolve_service_name(name_input)
+        validate_service_name(service_name)
+
+        # Use DESC SERVICE to get detailed service information
+        try:
+            desc_cursor = self.execute_query(
+                f"DESC SERVICE {service_name}", cursor_class=DictCursor
+            )
+            # DESC SERVICE returns exactly one row with service details, or none if service doesn't exist
+            service_details = desc_cursor.fetchone()
+
+            if not service_details:
+                raise CliError(f"Remote service '{name_input}' not found.")
+
+        except Exception as e:
+            if "does not exist" in str(e).lower():
+                raise CliError(f"Remote service '{name_input}' not found.")
+            raise CliError(f"Failed to retrieve service information: {e}")
+
+        # Get public endpoints if service is running
+        endpoints = {}
+        if service_details.get("status") == "RUNNING":
+            try:
+                endpoint_urls = self.get_public_endpoint_urls(service_name)
+                if endpoint_urls:
+                    endpoints = endpoint_urls
+            except Exception:
+                # Don't fail if we can't get endpoints, just continue without them
+                pass
+
+        # Format the information for display
+        info = {
+            "Service Information": {
+                "Name": service_details.get("name", service_name),
+                "Status": service_details.get("status", "Unknown"),
+                "Database": service_details.get("database_name", "N/A"),
+                "Schema": service_details.get("schema_name", "N/A"),
+                "Compute Pool": service_details.get("compute_pool", "N/A"),
+                "External Access Integrations": service_details.get(
+                    "external_access_integrations", "None"
+                ),
+                "Comment": service_details.get("comment", "None"),
+            },
+            "Timestamps": {
+                "Created": service_details.get("created_on", "N/A"),
+                "Updated": service_details.get("updated_on", "N/A"),
+                "Resumed": service_details.get("resumed_on", "N/A"),
+                "Suspended": service_details.get("suspended_on", "N/A"),
+            },
+        }
+
+        # Add endpoints section if available
+        if endpoints:
+            info["Public Endpoints"] = {}
+            for endpoint_name, endpoint_url in endpoints.items():
+                info["Public Endpoints"][endpoint_name] = endpoint_url
+
+        return info
 
     def stop(self, name_input: str) -> SnowflakeCursor:
         """Stop (suspend) a remote development service.

@@ -23,7 +23,7 @@ import stat
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, TypedDict, cast
+from typing import Dict, List, Optional, Tuple, cast
 
 # Required is not essential for runtime, so we'll use a simpler approach
 from snowflake import snowpark
@@ -39,8 +39,56 @@ from snowflake.cli._plugins.remote.constants import (
     SnowflakeCloudType,
 )
 from snowflake.cli.api.console import cli_console as cc
+from snowflake.cli.api.exceptions import CliError
+from typing_extensions import TypedDict
 
 log = logging.getLogger(__name__)
+
+
+def validate_service_name(service_name: str) -> None:
+    """
+    Validate service name according to Snowflake CREATE SERVICE requirements.
+
+    Based on Snowflake documentation (https://docs.snowflake.com/en/sql-reference/sql/create-service#required-parameters):
+    - Quoted names for special characters or case-sensitive names are not supported
+    - Service names must be valid SQL identifiers without quotes
+
+    Args:
+        service_name: The service name to validate
+
+    Raises:
+        CliError: If the service name is invalid
+    """
+    if not service_name:
+        raise CliError("Service name cannot be empty")
+
+    # Check for quotes (not allowed)
+    if '"' in service_name or "'" in service_name or "`" in service_name:
+        raise CliError(
+            f"Invalid service name '{service_name}': quoted names are not supported. "
+            "Service names cannot contain quotes."
+        )
+
+    # Check for invalid characters (only alphanumeric, underscores allowed)
+    # Snowflake identifiers can contain letters, digits, and underscores
+    if not re.match(r"^[A-Za-z0-9_]+$", service_name):
+        raise CliError(
+            f"Invalid service name '{service_name}': only alphanumeric characters and underscores are allowed. "
+            "Special characters and spaces are not supported."
+        )
+
+    # Check if it starts with a letter or underscore (SQL identifier requirement)
+    if not re.match(r"^[A-Za-z_]", service_name):
+        raise CliError(
+            f"Invalid service name '{service_name}': service name must start with a letter or underscore."
+        )
+
+    # Check length (Snowflake identifier limit is 255 characters)
+    if len(service_name) > 255:
+        raise CliError(
+            f"Invalid service name '{service_name}': service name cannot exceed 255 characters. "
+            f"Current length: {len(service_name)}"
+        )
 
 
 class SnowflakeRegion(TypedDict):
@@ -105,7 +153,7 @@ def get_node_resources(
     # Get the instance family
     rows = session.sql(f"show compute pools like '{compute_pool}'").collect()
     if not rows:
-        raise ValueError(f"Compute pool '{compute_pool}' not found")
+        raise CliError(f"Compute pool '{compute_pool}' not found")
 
     instance_family: str = rows[0]["instance_family"]
     log.debug("get instance family %s resources", instance_family)
@@ -143,7 +191,7 @@ def format_stage_path(stage_path: str) -> str:
         ValueError: If the stage path is invalid
     """
     if not stage_path or not stage_path.strip():
-        raise ValueError("Stage path cannot be empty")
+        raise CliError("Stage path cannot be empty")
 
     # Remove whitespace first
     path = stage_path.strip()
@@ -151,7 +199,7 @@ def format_stage_path(stage_path: str) -> str:
     # Handle SnowURL paths - check prefix before removing trailing slashes
     if path.startswith("snow://"):
         if len(path) <= len("snow://"):
-            raise ValueError(
+            raise CliError(
                 f"Invalid SnowURL stage path: '{stage_path}' - missing content after snow://"
             )
         return path.rstrip("/")
@@ -162,14 +210,14 @@ def format_stage_path(stage_path: str) -> str:
     # Handle @ prefixed paths
     if path.startswith("@"):
         if len(path) <= 1:
-            raise ValueError(
+            raise CliError(
                 f"Invalid @ prefixed stage path: '{stage_path}' - missing stage name after @"
             )
         return path
 
     # For paths without prefix, add @ prefix
     if not path:
-        raise ValueError("Stage path cannot be empty")
+        raise CliError("Stage path cannot be empty")
 
     return f"@{path}"
 
@@ -347,17 +395,17 @@ def generate_ssh_key_pair(
         return str(private_key_path), public_key_content
 
     except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"Failed to generate SSH key pair: {e.stderr}")
+        raise CliError(f"Failed to generate SSH key pair: {e.stderr}")
     except FileNotFoundError:
         if platform.system() == "Windows":
-            raise RuntimeError(
+            raise CliError(
                 "ssh-keygen command not found. Please install OpenSSH client for Windows:\n"
                 "1. Windows 10/11: Enable 'OpenSSH Client' in Windows Features, or\n"
                 "2. Install Git for Windows (includes OpenSSH), or\n"
                 "3. Install OpenSSH from: https://github.com/PowerShell/Win32-OpenSSH/releases"
             )
         else:
-            raise RuntimeError(
+            raise CliError(
                 "ssh-keygen command not found. Please install OpenSSH client."
             )
 
@@ -449,9 +497,10 @@ def setup_ssh_config_with_token(
     # Check if websocat is installed and get its path
     websocat_path = shutil.which("websocat")
     if not websocat_path:
-        cc.warning("websocat is required for SSH connections but is not installed.")
-        cc.warning("Install websocat from: https://github.com/vi/websocat/releases")
-        return
+        raise CliError(
+            "websocat is required for SSH connections but is not installed. "
+            "Install websocat from: https://github.com/vi/websocat/releases"
+        )
 
     # Generate SSH configuration lines
     config_lines = _generate_ssh_config_lines(
@@ -545,3 +594,39 @@ def cleanup_ssh_config(service_name: str) -> None:
 
     except Exception as e:
         log.warning("Failed to clean up SSH config for %s: %s", service_name, e)
+
+
+def ensure_binary_exists(binary_name: str) -> None:
+    """Check if a binary exists in PATH and raise CliError if not found.
+
+    Args:
+        binary_name: Name of the binary to check
+
+    Raises:
+        CliError: If binary is not found in PATH
+    """
+    if shutil.which(binary_name) is None:
+        raise CliError(
+            f"'{binary_name}' is not installed or not found in PATH. "
+            "Please install it and try again."
+        )
+
+
+def launch_ide(binary_name: str, service_name: str, remote_path: str) -> None:
+    """Launch an IDE connected to the remote service over SSH.
+
+    Args:
+        binary_name: IDE binary name ("code" or "cursor")
+        service_name: Name of the remote service
+        remote_path: Remote path to open in the IDE
+
+    Raises:
+        CliError: If IDE binary is not found or launch fails
+    """
+    ensure_binary_exists(binary_name)
+
+    folder_uri = f"vscode-remote://ssh-remote+{service_name}{remote_path}"
+    try:
+        subprocess.run([binary_name, "--folder-uri", folder_uri], check=False)
+    except Exception as e:
+        raise CliError(f"Failed to launch {binary_name}: {e}")
