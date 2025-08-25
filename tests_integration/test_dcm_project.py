@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import time
 
 import pytest
 
@@ -32,7 +31,6 @@ def _assert_project_has_deployments(
     assert deployments == expected_deployments
 
 
-#
 @pytest.mark.qa_only
 @pytest.mark.integration
 def test_project_deploy(
@@ -135,7 +133,6 @@ def test_create_corner_cases(
         assert result.exit_code == 0, result.output
 
 
-#
 @pytest.mark.qa_only
 @pytest.mark.integration
 def test_project_drop_deployment(
