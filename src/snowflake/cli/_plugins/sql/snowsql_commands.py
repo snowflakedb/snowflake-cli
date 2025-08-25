@@ -21,7 +21,7 @@ class CommandType(enum.Enum):
     URL = "url"
 
 
-class SnowSQLCommand:
+class ReplCommand:
     def execute(self, connection: SnowflakeConnection):
         """Executes command and prints the result."""
         raise NotImplementedError
@@ -41,12 +41,12 @@ def _print_result_to_stdout(headers: Iterable[str], rows: Iterable[Iterable[Any]
 
 @dataclass
 class CompileCommandResult:
-    command: SnowSQLCommand | None = None
+    command: ReplCommand | None = None
     error_message: str | None = None
 
 
 @dataclass
-class QueriesCommand(SnowSQLCommand):
+class QueriesCommand(ReplCommand):
     help_mode: bool = False
     from_current_session: bool = False
     amount: int = 25
@@ -272,7 +272,7 @@ def _validate_only_arg_is_query_id(
 
 
 @dataclass
-class ResultCommand(SnowSQLCommand):
+class ResultCommand(ReplCommand):
     query_id: str
 
     def execute(self, connection: SnowflakeConnection):
@@ -289,7 +289,7 @@ class ResultCommand(SnowSQLCommand):
 
 
 @dataclass
-class AbortCommand(SnowSQLCommand):
+class AbortCommand(ReplCommand):
     query_id: str
 
     def execute(self, connection: SnowflakeConnection):
@@ -305,7 +305,7 @@ class AbortCommand(SnowSQLCommand):
         return CompileCommandResult(command=cls(args[0]))
 
 
-def compile_snowsql_command(command: str, cmd_args: List[str]):
+def compile_repl_command(command: str, cmd_args: List[str]):
     """Parses command into SQL query"""
     args = []
     kwargs = {}
@@ -321,6 +321,9 @@ def compile_snowsql_command(command: str, cmd_args: List[str]):
             kwargs[key] = val
 
     match command.lower():
+        case "!edit":
+            raise RuntimeError("You shall no pass")
+            raise NotImplementedError()
         case "!queries":
             return QueriesCommand.from_args(args, kwargs)
         case "!result":
