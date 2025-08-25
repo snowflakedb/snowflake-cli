@@ -790,9 +790,9 @@ wheels = [
 
 [[packages]]
 name = "snowflake-core"
-version = "1.6.0"
-sdist = { url = "https://files.pythonhosted.org/packages/b2/24/c90e26e92a51a87e97ac8f7550802bcdb0299aadff13f39c26779607e1b3/snowflake_core-1.6.0.tar.gz", upload-time = 2025-06-26T10:37:46Z, size = 1347093, hashes = { sha256 = "5ba8ad99cc8945d4809532f18f66ac623aea1888e686975c461f86a7c3970229" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/ca/28/e5e2335ec585c3eeb8665d309bfd6aba9d8b60b74b33508ec96792894960/snowflake_core-1.6.0-py3-none-any.whl", upload-time = 2025-06-26T10:37:48Z, size = 1986771, hashes = { sha256 = "f52d0be654860ffa647ff654f15dc7bfc2d3a9dbaa8f9adf70a06e4487a68058" } }]
+version = "1.7.0"
+sdist = { url = "https://files.pythonhosted.org/packages/a1/72/3daea26f941512e2a2d18eda62eb2fc67ffc1be33027b1e74f4c4430a2e2/snowflake_core-1.7.0.tar.gz", upload-time = 2025-08-01T09:57:52Z, size = 1314443, hashes = { sha256 = "8655a94c211ae04d1d803dbc876249de6d3f8021cc5738d689aea842d1b66a7f" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/c9/40/a08e639e8215a8c8832befb0d30266c465000adebb9eab7d8eb608361255/snowflake_core-1.7.0-py3-none-any.whl", upload-time = 2025-08-01T09:57:49Z, size = 1949343, hashes = { sha256 = "f67340f2d2baafd03b34e24b07bf67f7844f09dfb05d0ad22ea1818cfa7b35d4" } }]
 
 [[packages]]
 name = "snowflake-snowpark-python"
