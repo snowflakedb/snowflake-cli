@@ -55,7 +55,7 @@ shellingham==1.5.4
 six==1.17.0
 smmap==5.0.2
 snowflake-connector-python==3.17.2
-snowflake-core==1.6.0
+snowflake-core==1.7.0
 snowflake-snowpark-python==1.33.0 ; python_full_version < '3.12'
 sortedcontainers==2.4.0
 tomlkit==0.13.3
