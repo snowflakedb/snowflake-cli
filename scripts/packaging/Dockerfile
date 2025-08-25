@@ -32,102 +32,12 @@ RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y tk-dev
 RUN gem install dotenv -v 2.8.1
 RUN gem install fpm
 
-ENV PYTHON_VERSION=3.10.16
-ENV PYTHON_PREFIX=/usr/local
-
-# Download Python source
-RUN cd /tmp && \
-    echo "Downloading Python ${PYTHON_VERSION}..." && \
-    curl -O https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz && \
-    echo "Extracting Python source..." && \
-    tar -xzf Python-${PYTHON_VERSION}.tgz
-
-# Configure Python build with architecture-specific conservative flags
-RUN cd /tmp/Python-${PYTHON_VERSION} && \
-    ARCH=$(uname -m) && \
-    echo "Configuring Python build for architecture: $ARCH" && \
-    if [ "$ARCH" = "x86_64" ]; then \
-        export CFLAGS="-Os -march=x86-64 -mtune=generic -mno-avx -mno-avx2 -mno-avx512f -ffunction-sections -fdata-sections" && \
-        export CXXFLAGS="-Os -march=x86-64 -mtune=generic -mno-avx -mno-avx2 -mno-avx512f -ffunction-sections -fdata-sections"; \
-    elif [ "$ARCH" = "aarch64" ]; then \
-        export CFLAGS="-Os -march=armv8-a -mtune=generic -ffunction-sections -fdata-sections" && \
-        export CXXFLAGS="-Os -march=armv8-a -mtune=generic -ffunction-sections -fdata-sections"; \
-    else \
-        export CFLAGS="-Os -mtune=generic -ffunction-sections -fdata-sections" && \
-        export CXXFLAGS="-Os -mtune=generic -ffunction-sections -fdata-sections"; \
-    fi && \
-    export LDFLAGS="-Wl,--gc-sections -s" && \
-    echo "CFLAGS: $CFLAGS" && \
-    echo "CXXFLAGS: $CXXFLAGS" && \
-    echo "LDFLAGS: $LDFLAGS" && \
-    ./configure \
-        --prefix=${PYTHON_PREFIX} \
-        --disable-shared \
-        --with-system-ffi \
-        --with-computed-gotos \
-        --with-ensurepip=install \
-        --without-doc-strings \
-        --disable-test-modules \
-        --without-debug-build \
-        --disable-ipv6 \
-        --without-pymalloc
-
-# Build and install Python
-RUN cd /tmp/Python-${PYTHON_VERSION} && \
-    echo "Building Python with conservative CPU flags..." && \
-    make -j$(nproc) && \
-    echo "Installing Python..." && \
-    make altinstall
-
-# Clean up
-RUN rm -rf /tmp/Python-${PYTHON_VERSION}*
-
-# Aggressive size optimization
-# Remove unnecessary files and directories
-RUN rm -rf ${PYTHON_PREFIX}/lib/python3.10/test
-RUN rm -rf ${PYTHON_PREFIX}/lib/python3.10/*/test*
-RUN rm -rf ${PYTHON_PREFIX}/lib/python3.10/__pycache__
-RUN find ${PYTHON_PREFIX}/lib/python3.10 -name "*.pyc" -delete
-RUN find ${PYTHON_PREFIX}/lib/python3.10 -name "*.pyo" -delete
-RUN find ${PYTHON_PREFIX}/lib/python3.10 -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
-
-# Remove unused standard library modules that are confirmed not used by snowflake-cli
-RUN cd ${PYTHON_PREFIX}/lib/python3.10 && \
-    rm -rf \
-    tkinter \
-    turtle* \
-    idlelib \
-    lib2to3 \
-    pydoc_data \
-    ensurepip/_bundled
-
-# Additional cleanup for smaller size
-RUN find ${PYTHON_PREFIX} -name "*.a" -delete  # Remove static libraries
-RUN find ${PYTHON_PREFIX} -name "*.la" -delete  # Remove libtool files
-RUN rm -rf ${PYTHON_PREFIX}/share/man  # Remove manual pages
-RUN rm -rf ${PYTHON_PREFIX}/include  # Remove header files
-RUN rm -rf ${PYTHON_PREFIX}/lib/pkgconfig  # Remove pkg-config files
-
-# Remove more standard library components that may not be needed
-RUN cd ${PYTHON_PREFIX}/lib/python3.10 && \
-    rm -rf \
-    ensurepip
-
-# Strip debug symbols to reduce size
-RUN find ${PYTHON_PREFIX} -name "*.so" -exec strip {} \; 2>/dev/null || true
-RUN strip ${PYTHON_PREFIX}/bin/python3.10 2>/dev/null || true
-
-# Create symlinks for python and pip
-RUN ln -sf ${PYTHON_PREFIX}/bin/python3.10 ${PYTHON_PREFIX}/bin/python
-RUN ln -sf ${PYTHON_PREFIX}/bin/python3.10 ${PYTHON_PREFIX}/bin/python3
-RUN ln -sf ${PYTHON_PREFIX}/bin/pip3.10 ${PYTHON_PREFIX}/bin/pip
-RUN ln -sf ${PYTHON_PREFIX}/bin/pip3.10 ${PYTHON_PREFIX}/bin/pip3
+# Copy and run Python build script
+COPY scripts/packaging/build_python.sh /tmp/build_python.sh
+RUN chmod +x /tmp/build_python.sh && /tmp/build_python.sh && rm /tmp/build_python.sh
 
 # Update PATH to use our custom Python
-ENV PATH="${PYTHON_PREFIX}/bin:$PATH"
-
-# Update library path for shared libraries
-RUN echo "${PYTHON_PREFIX}/lib" > /etc/ld.so.conf.d/python.conf && ldconfig
+ENV PATH="/usr/local/bin:$PATH"
 
 # Install build tools - these are not embedded in final binary so can use pre-built wheels
 RUN python -m pip install -U uv hatch
