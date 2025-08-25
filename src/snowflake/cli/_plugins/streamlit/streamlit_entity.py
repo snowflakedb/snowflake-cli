@@ -6,9 +6,7 @@ from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import build_bundle
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
-    StreamlitEntityModel,
-)
+from snowflake.cli._plugins.streamlit.streamlit_entity_model import StreamlitEntityModel
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.entities.common import EntityBase
@@ -62,6 +60,15 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         name = self._entity_model.fqn.using_connection(self._conn)
         return make_snowsight_url(
             self._conn, f"/#/streamlit-apps/{name.url_identifier}"
+        )
+
+    def _is_spcs_runtime_v2_mode(self) -> bool:
+        """Check if SPCS runtime v2 mode is enabled"""
+        return (
+            GlobalFeatureFlag.ENABLE_STREAMLIT_SPCS_RUNTIME_V2.is_enabled()
+            and GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled()  # SPCS Runtime V2 also requires Versioned Stages to be enabled
+            and self.model.runtime_name
+            and self.model.compute_pool
         )
 
     def bundle(self, output_dir: Optional[Path] = None) -> BundleMap:
@@ -198,6 +205,10 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         if self.model.secrets:
             query += "\n" + self.model.get_secrets_sql()
+
+        if self._is_spcs_runtime_v2_mode():
+            query += f"\nRUNTIME_NAME = '{self.model.runtime_name}'"
+            query += f"\nCOMPUTE_POOL = '{self.model.compute_pool}'"
 
         return query + ";"
 
