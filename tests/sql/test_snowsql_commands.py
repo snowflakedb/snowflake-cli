@@ -5,9 +5,9 @@ from snowflake.cli._plugins.sql.snowsql_commands import (
     AbortCommand,
     CompileCommandResult,
     QueriesCommand,
+    ReplCommand,
     ResultCommand,
-    SnowSQLCommand,
-    compile_snowsql_command,
+    compile_repl_command,
 )
 
 _FAKE_QID = "00000000-0000-0000-0000-000000000000"
@@ -298,9 +298,9 @@ def test_queries_execute_help(mock_print, mock_ctx):
     ],
 )
 def test_compile_commands(command, args, expected):
-    if isinstance(expected, SnowSQLCommand):
+    if isinstance(expected, ReplCommand):
         expected_result = CompileCommandResult(command=expected)
     else:
         expected_result = CompileCommandResult(error_message=expected)
 
-    assert compile_snowsql_command(command=command, cmd_args=args) == expected_result
+    assert compile_repl_command(command=command, cmd_args=args) == expected_result
