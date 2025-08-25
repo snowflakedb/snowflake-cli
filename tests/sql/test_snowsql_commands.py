@@ -1,18 +1,18 @@
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.sql.snowsql_commands import (
+from snowflake.cli._plugins.sql.repl_commands import (
     AbortCommand,
     CompileCommandResult,
     QueriesCommand,
+    ReplCommand,
     ResultCommand,
-    SnowSQLCommand,
-    compile_snowsql_command,
+    compile_repl_command,
 )
 
 _FAKE_QID = "00000000-0000-0000-0000-000000000000"
 
-PRINT_RESULT = "snowflake.cli._plugins.sql.snowsql_commands.print_result"
+PRINT_RESULT = "snowflake.cli._plugins.sql.repl_commands.print_result"
 
 
 def test_result_from_args():
@@ -298,9 +298,23 @@ def test_queries_execute_help(mock_print, mock_ctx):
     ],
 )
 def test_compile_commands(command, args, expected):
-    if isinstance(expected, SnowSQLCommand):
+    if isinstance(expected, ReplCommand):
         expected_result = CompileCommandResult(command=expected)
     else:
         expected_result = CompileCommandResult(error_message=expected)
 
-    assert compile_snowsql_command(command=command, cmd_args=args) == expected_result
+    # Construct the full command string as it would appear in real usage
+    if args:
+        full_command = f"{command} {' '.join(args)}"
+    else:
+        full_command = command
+
+    if expected == "Unknown command '!unknown'":
+        # For unknown commands, we expect an UnknownCommandError to be raised
+        try:
+            compile_repl_command(full_command)
+            assert False, "Expected UnknownCommandError to be raised"
+        except Exception as e:
+            assert str(e) == expected
+    else:
+        assert compile_repl_command(full_command) == expected_result

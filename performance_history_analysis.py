@@ -21,7 +21,7 @@ from typing import List, Optional, Tuple
 
 import typer
 from git import Commit, Repo
-from rich import print
+from rich import print  # noqa:  A004
 
 
 def _reinstall_snowcli() -> None:
