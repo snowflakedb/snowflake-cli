@@ -471,7 +471,7 @@ class TestDCMListDeployments:
 
         assert result.exit_code == 0, result.output
 
-        mock_pm().list_versions.assert_called_once_with(
+        mock_pm().list_deployments.assert_called_once_with(
             project_name=FQN.from_string("fooBar")
         )
 
@@ -479,7 +479,7 @@ class TestDCMListDeployments:
 class TestDCMDropDeployment:
     @mock.patch(DCMProjectManager)
     @pytest.mark.parametrize("if_exists", [True, False])
-    def test_drop_version(self, mock_pm, runner, if_exists):
+    def test_drop_deployment(self, mock_pm, runner, if_exists):
         command = ["dcm", "drop-deployment", "fooBar", "v1"]
         if if_exists:
             command.append("--if-exists")
@@ -487,33 +487,33 @@ class TestDCMDropDeployment:
         result = runner.invoke(command)
 
         assert result.exit_code == 0, result.output
-        assert "Version 'v1' dropped from DCM Project 'fooBar'" in result.output
+        assert "Deployment 'v1' dropped from DCM Project 'fooBar'" in result.output
 
         mock_pm().drop_deployment.assert_called_once_with(
             project_name=FQN.from_string("fooBar"),
-            version_name="v1",
+            deployment_name="v1",
             if_exists=if_exists,
         )
 
     @mock.patch(DCMProjectManager)
     @pytest.mark.parametrize(
-        "version_name,should_warn",
+        "deployment_name,should_warn",
         [
-            ("version", True),
-            ("VERSION", True),
-            ("Version", True),
-            ("VERSION$1", False),
+            ("deployment", True),
+            ("DEPLOYMENT", True),
+            ("Deployment", True),
+            ("DEPLOYMENT$1", False),
             ("v1", False),
-            ("my_version", False),
-            ("version1", False),
-            ("actual_version", False),
+            ("my_deployment", False),
+            ("deployment1", False),
+            ("actual_deployment", False),
         ],
     )
-    def test_drop_version_shell_expansion_warning(
-        self, mock_pm, runner, version_name, should_warn
+    def test_drop_deployment_shell_expansion_warning(
+        self, mock_pm, runner, deployment_name, should_warn
     ):
-        """Test that warning is displayed for version names that look like shell expansion results."""
-        result = runner.invoke(["dcm", "drop-deployment", "fooBar", version_name])
+        """Test that warning is displayed for deployment names that look like shell expansion results."""
+        result = runner.invoke(["dcm", "drop-deployment", "fooBar", deployment_name])
 
         assert result.exit_code == 0, result.output
 
@@ -525,7 +525,7 @@ class TestDCMDropDeployment:
 
         mock_pm().drop_deployment.assert_called_once_with(
             project_name=FQN.from_string("fooBar"),
-            version_name=version_name,
+            deployment_name=deployment_name,
             if_exists=False,
         )
 
