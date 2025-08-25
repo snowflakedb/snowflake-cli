@@ -13,22 +13,22 @@ TEST_PROJECT = FQN.from_string("my_project")
 @pytest.mark.parametrize("stage_name", ["@stage_foo", "stage_foo"])
 def test_create_version(mock_execute_query, stage_name):
     mgr = DCMProjectManager()
-    mgr._create_version(  # noqa: SLF001
+    mgr._create_deployment(  # noqa: SLF001
         project_name=TEST_PROJECT, from_stage=stage_name, alias="v1", comment="fancy"
     )
     mock_execute_query.assert_called_once_with(
-        query=f"ALTER DCM PROJECT my_project ADD VERSION IF NOT EXISTS v1 FROM @stage_foo COMMENT = 'fancy'"
+        query=f"ALTER DCM PROJECT my_project ADD DEPLOYMENT IF NOT EXISTS v1 FROM @stage_foo COMMENT = 'fancy'"
     )
 
 
 @mock.patch(execute_queries)
-def test_create_version_no_alias(mock_execute_query):
+def test_create_deployment_no_alias(mock_execute_query):
     mgr = DCMProjectManager()
-    mgr._create_version(  # noqa: SLF001
+    mgr._create_deployment(  # noqa: SLF001
         project_name=TEST_PROJECT, from_stage="@stage_foo"
     )
     mock_execute_query.assert_called_once_with(
-        query="ALTER DCM PROJECT my_project ADD VERSION FROM @stage_foo"
+        query="ALTER DCM PROJECT my_project ADD DEPLOYMENT FROM @stage_foo"
     )
 
 
@@ -94,7 +94,7 @@ def test_execute_project_with_from_stage_without_prefix(mock_execute_query):
 
 
 @mock.patch(execute_queries)
-def test_execute_project_with_default_version(mock_execute_query, project_directory):
+def test_execute_project_with_default_deployment(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
 
     mgr.execute(project_name=TEST_PROJECT, from_stage="@test_stage")
@@ -136,24 +136,24 @@ def test_validate_project_with_from_stage(mock_execute_query, project_directory)
 
 
 @mock.patch(execute_queries)
-def test_list_versions(mock_execute_query):
+def test_list_deployments(mock_execute_query):
     mgr = DCMProjectManager()
-    mgr.list_versions(project_name=TEST_PROJECT)
+    mgr.list_deployments(project_name=TEST_PROJECT)
 
     mock_execute_query.assert_called_once_with(
-        query="SHOW VERSIONS IN DCM PROJECT my_project"
+        query="SHOW DEPLOYMENTS IN DCM PROJECT my_project"
     )
 
 
 @mock.patch(execute_queries)
 @pytest.mark.parametrize("if_exists", [True, False])
-def test_drop_version(mock_execute_query, if_exists):
+def test_drop_deployment(mock_execute_query, if_exists):
     mgr = DCMProjectManager()
     mgr.drop_deployment(
-        project_name=TEST_PROJECT, version_name="v1", if_exists=if_exists
+        project_name=TEST_PROJECT, deployment_name="v1", if_exists=if_exists
     )
 
-    expected_query = "ALTER DCM PROJECT my_project DROP VERSION"
+    expected_query = "ALTER DCM PROJECT my_project DROP DEPLOYMENT"
     if if_exists:
         expected_query += " IF EXISTS"
     expected_query += " v1"

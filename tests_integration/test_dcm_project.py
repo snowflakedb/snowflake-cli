@@ -11,25 +11,28 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import time
 
 import pytest
 
 from typing import Set, Optional, Tuple
-from tests_integration.test_utils import assert_stage_has_files
 
 
-def _assert_project_has_versions(
-    runner, project_name: str, expected_versions: Set[Tuple[str, Optional[str]]]
+def _assert_project_has_deployments(
+    runner, project_name: str, expected_deployments: Set[Tuple[str, Optional[str]]]
 ) -> None:
-    """Check whether the project versions (in [name,alias] format) are present in Snowflake."""
+    """Check whether the project deployments (in [name,alias] format) are present in Snowflake."""
     result = runner.invoke_with_connection_json(
         ["dcm", "list-deployments", project_name]
     )
     assert result.exit_code == 0, result.output
-    versions = {(version["name"], version["alias"]) for version in result.json}
-    assert versions == expected_versions
+    deployments = {
+        (deployment["name"], deployment["alias"]) for deployment in result.json
+    }
+    assert deployments == expected_deployments
 
 
+#
 @pytest.mark.qa_only
 @pytest.mark.integration
 def test_project_deploy(
@@ -48,10 +51,12 @@ def test_project_deploy(
         assert result.exit_code == 0, result.output
         assert result.json[0]["name"].lower() == project_name.lower()
 
-        # project should have no initial versions
-        _assert_project_has_versions(runner, project_name, expected_versions=set())
+        # project should have no initial deployments
+        _assert_project_has_deployments(
+            runner, project_name, expected_deployments=set()
+        )
 
-        # Add version
+        # Add deployment
         result = runner.invoke_with_connection(
             [
                 "dcm",
@@ -62,10 +67,10 @@ def test_project_deploy(
             ]
         )
         assert result.exit_code == 0, result.output
-        _assert_project_has_versions(
+        _assert_project_has_deployments(
             runner,
             project_name,
-            {("VERSION$1", None)},
+            {("DEPLOYMENT$1", None)},
         )
 
         # remove project
@@ -109,24 +114,31 @@ def test_create_corner_cases(
         # case 1: project already exists
         result = runner.invoke_with_connection(["dcm", "create"])
         assert result.exit_code == 0, result.output
-        _assert_project_has_versions(runner, project_name, expected_versions=set())
+        _assert_project_has_deployments(
+            runner, project_name, expected_deployments=set()
+        )
         result = runner.invoke_with_connection(["dcm", "create"])
         assert result.exit_code == 1, result.output
         assert f"DCM Project '{project_name}' already exists." in result.output
-        _assert_project_has_versions(runner, project_name, expected_versions=set())
+        _assert_project_has_deployments(
+            runner, project_name, expected_deployments=set()
+        )
         result = runner.invoke_with_connection(["dcm", "create", "--if-not-exists"])
         assert result.exit_code == 0, result.output
         assert f"DCM Project '{project_name}' already exists." in result.output
-        _assert_project_has_versions(runner, project_name, expected_versions=set())
+        _assert_project_has_deployments(
+            runner, project_name, expected_deployments=set()
+        )
 
         # Clean up
         result = runner.invoke_with_connection(["dcm", "drop", project_name])
         assert result.exit_code == 0, result.output
 
 
+#
 @pytest.mark.qa_only
 @pytest.mark.integration
-def test_project_drop_version(
+def test_project_drop_deployment(
     runner,
     test_database,
     project_directory,
@@ -135,20 +147,22 @@ def test_project_drop_version(
     entity_id = "my_project"
 
     with project_directory("dcm_project"):
-        # Create project with initial version
+        # Create project
         result = runner.invoke_with_connection(["dcm", "create", entity_id])
         assert result.exit_code == 0, result.output
         assert f"DCM Project '{project_name}' successfully created." in result.output
-        _assert_project_has_versions(runner, project_name, expected_versions=set())
+        _assert_project_has_deployments(
+            runner, project_name, expected_deployments=set()
+        )
 
-        # Drop the non-existent version (should fail without --if-exists)
+        # Drop the non-existent deployment (should fail without --if-exists)
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "VERSION$1"]
+            ["dcm", "drop-deployment", project_name, "DEPLOYMENT$1"]
         )
         assert result.exit_code == 1, result.output
-        assert "Version does not exist" in result.output
+        assert "Deployment does not exist" in result.output
 
-        # Add version
+        # Add deployment
         result = runner.invoke_with_connection(
             [
                 "dcm",
@@ -159,13 +173,13 @@ def test_project_drop_version(
             ]
         )
         assert result.exit_code == 0, result.output
-        _assert_project_has_versions(
+        _assert_project_has_deployments(
             runner,
             project_name,
-            {("VERSION$1", None)},
+            {("DEPLOYMENT$1", None)},
         )
 
-        # Add another version with alias
+        # Add another deployment with alias
         result = runner.invoke_with_connection(
             [
                 "dcm",
@@ -190,59 +204,63 @@ def test_project_drop_version(
             ]
         )
         assert result.exit_code == 0, result.output
-        _assert_project_has_versions(
+        _assert_project_has_deployments(
             runner,
             project_name,
-            {("VERSION$1", None), ("VERSION$2", "V2"), ("VERSION$3", "THEDEFAULT")},
+            {
+                ("DEPLOYMENT$1", None),
+                ("DEPLOYMENT$2", "V2"),
+                ("DEPLOYMENT$3", "THEDEFAULT"),
+            },
         )
-
-        # Drop the version by name
+        # Drop the deployment by name
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "VERSION$1"]
+            ["dcm", "drop-deployment", project_name, "DEPLOYMENT$1"]
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'VERSION$1' dropped from DCM Project '{project_name}'"
+            f"Deployment 'DEPLOYMENT$1' dropped from DCM Project '{project_name}'"
             in result.output
         )
 
-        # Drop the version by alias
+        # Drop the deployment by alias
         result = runner.invoke_with_connection(
             ["dcm", "drop-deployment", project_name, "v2"]
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'v2' dropped from DCM Project '{project_name}'" in result.output
-        )
-
-        _assert_project_has_versions(
-            runner, project_name, expected_versions={("VERSION$3", "THEDEFAULT")}
-        )
-
-        # Try to drop the default version
-        result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "VERSION$3"]
-        )
-        assert result.exit_code == 0, result.output
-        assert (
-            f"Version 'VERSION$3' dropped from DCM Project '{project_name}'"
+            f"Deployment 'v2' dropped from DCM Project '{project_name}'"
             in result.output
         )
 
-        # Try to drop non-existent version without --if-exists (should fail)
+        _assert_project_has_deployments(
+            runner, project_name, expected_deployments={("DEPLOYMENT$3", "THEDEFAULT")}
+        )
+
+        # Try to drop the default deployment
+        result = runner.invoke_with_connection(
+            ["dcm", "drop-deployment", project_name, "DEPLOYMENT$3"]
+        )
+        assert result.exit_code == 0, result.output
+        assert (
+            f"Deployment 'DEPLOYMENT$3' dropped from DCM Project '{project_name}'"
+            in result.output
+        )
+
+        # Try to drop non-existent deployment without --if-exists (should fail)
         result = runner.invoke_with_connection(
             ["dcm", "drop-deployment", project_name, "non_existent"]
         )
         assert result.exit_code == 1, result.output
-        assert "Version does not exist" in result.output
+        assert "Deployment does not exist" in result.output
 
-        # Try to drop non-existent version with --if-exists (should succeed)
+        # Try to drop non-existent deployment with --if-exists (should succeed)
         result = runner.invoke_with_connection(
             ["dcm", "drop-deployment", project_name, "non_existent", "--if-exists"]
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'non_existent' dropped from DCM Project '{project_name}'"
+            f"Deployment 'non_existent' dropped from DCM Project '{project_name}'"
             in result.output
         )
 
@@ -262,7 +280,9 @@ def test_project_deploy_from_stage(
         # Create a new project
         result = runner.invoke_with_connection(["dcm", "create", entity_id])
         assert result.exit_code == 0, result.output
-        _assert_project_has_versions(runner, project_name, expected_versions=set())
+        _assert_project_has_deployments(
+            runner, project_name, expected_deployments=set()
+        )
 
         # Edit file_a.sql to add a second table definition
         file_a_path = project_root / "file_a.sql"
@@ -375,7 +395,9 @@ def test_project_plan_with_output_path(
         # Create a new project
         result = runner.invoke_with_connection(["dcm", "create", entity_id])
         assert result.exit_code == 0, result.output
-        _assert_project_has_versions(runner, project_name, expected_versions=set())
+        _assert_project_has_deployments(
+            runner, project_name, expected_deployments=set()
+        )
 
         # Edit file_a.sql to add a table definition for testing
         file_a_path = project_root / "file_a.sql"
