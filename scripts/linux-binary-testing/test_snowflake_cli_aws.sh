@@ -167,6 +167,12 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# Global array to track launched instances (for cleanup from trap handler)
+instances=()
+
+# Global flag to control automatic cleanup (prevents race condition with user choice)
+auto_cleanup_enabled=true
+
 # Logging functions
 log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
@@ -490,6 +496,11 @@ test_instance() {
 
 # Cleanup function
 cleanup_instances() {
+    # Respect user's choice - don't cleanup if explicitly disabled
+    if [ "$auto_cleanup_enabled" = false ]; then
+        return 0
+    fi
+
     if [ ${#instances[@]} -eq 0 ]; then
         return 0
     fi
@@ -512,7 +523,8 @@ cleanup_instances() {
 main() {
     check_prerequisites
 
-    local instances=()
+    instances=()
+    auto_cleanup_enabled=true
     local failed_launches=()
     local failed_tests=()
     local successful_tests=()
@@ -584,6 +596,8 @@ main() {
     if [[ ! $REPLY =~ ^[Nn]$ ]]; then
         cleanup_instances
     else
+        # User chose not to cleanup - disable automatic cleanup to prevent race condition
+        auto_cleanup_enabled=false
         warning "Instances left running. Clean up manually to avoid charges:"
         warning "aws ec2 terminate-instances --instance-ids \$(aws ec2 describe-instances --region $REGION --filters \"Name=tag:Name,Values=$INSTANCE_TAG-*\" \"Name=instance-state-name,Values=running\" --output text --query 'Reservations[].Instances[].InstanceId')"
     fi

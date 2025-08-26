@@ -151,10 +151,13 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
 
         for lib_path in possible_paths:
             if Path(lib_path).exists():
-                shutil.copy2(lib_path, lib_dir / lib_name)
-                copied_libs.append(lib_name)
-                print(f"Copied essential library: {lib_name} from {lib_path}")
-                break
+                try:
+                    shutil.copy2(lib_path, lib_dir / lib_name)
+                    copied_libs.append(lib_name)
+                    print(f"Copied essential library: {lib_name} from {lib_path}")
+                    break
+                except (OSError, IOError, PermissionError) as e:
+                    print(f"Warning: Failed to copy {lib_name} from {lib_path}: {e}")
         else:
             print(f"Warning: Could not find {lib_name} in any standard location")
 
