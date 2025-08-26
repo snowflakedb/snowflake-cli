@@ -97,10 +97,6 @@ rm -rf ${PYTHON_PREFIX}/share/man  # Remove manual pages
 rm -rf ${PYTHON_PREFIX}/include  # Remove header files
 rm -rf ${PYTHON_PREFIX}/lib/pkgconfig  # Remove pkg-config files
 
-# Remove more standard library components that may not be needed
-echo "Removing additional unnecessary components..."
-cd ${PYTHON_PREFIX}/lib/python3.10
-rm -rf ensurepip
 
 # Strip debug symbols to reduce size
 echo "Stripping debug symbols..."
