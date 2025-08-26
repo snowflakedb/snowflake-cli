@@ -256,7 +256,6 @@ class CliAppFactory:
                 "--commands-registration",
                 help="Commands registration",
                 hidden=True,
-                is_eager=True,
                 callback=self._commands_registration_callback(),
             ),
         ) -> None:
