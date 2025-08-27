@@ -19,6 +19,7 @@ from typing import Optional
 
 from rich import get_console
 from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.style import Style
 from rich.text import Text
 from snowflake.cli.api.console.abc import AbstractConsole
@@ -97,6 +98,24 @@ class CliConsole(AbstractConsole):
             yield
         finally:
             self._extra_indent -= 1
+
+    @contextmanager
+    def spinner(self):
+        """
+        A context manager for displaying a spinner while executing a long-running operation.
+
+        Usage:
+            with cli_console.spinner("Processing data") as spinner:
+                spinner.add_task(description="Long operation", total=None)
+                # Long running operation here
+                result = some_operation()
+        """
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            transient=True,
+        ) as progress:
+            yield progress
 
     def step(self, message: str):
         """Displays a message to output.

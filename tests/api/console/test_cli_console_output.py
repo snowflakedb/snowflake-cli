@@ -181,3 +181,14 @@ def test_indented_cleans_up_on_exception(cli_console, capsys):
     cli_console.message("Not indented message")
 
     assert_output_matches("Not indented message\n", capsys)
+
+
+def test_spinner_returns_progress_object(cli_console):
+    with cli_console.spinner() as progress:
+        from rich.progress import Progress
+
+        assert isinstance(progress, Progress)
+
+        task_id = progress.add_task(description="Test task", total=None)
+        assert isinstance(task_id, int)
+        assert task_id >= 0
