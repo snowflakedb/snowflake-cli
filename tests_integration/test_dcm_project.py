@@ -38,9 +38,8 @@ def test_project_deploy(
     project_directory,
 ):
     project_name = "project_descriptive_name"
-    entity_id = "my_project"
     with project_directory("dcm_project"):
-        result = runner.invoke_with_connection(["dcm", "create", entity_id])
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
         assert f"DCM Project '{project_name}' successfully created." in result.output
 
@@ -65,7 +64,7 @@ def test_project_deploy(
         _assert_project_has_versions(
             runner,
             project_name,
-            {("VERSION$1", None)},
+            {("DEPLOYMENT$1", None)},
         )
 
         # remove project
@@ -81,9 +80,8 @@ def test_deploy_multiple_configurations(
     project_directory,
 ):
     project_name = "project_descriptive_name"
-    entity_id = "my_project"
     with project_directory("dcm_project_multiple_configurations"):
-        result = runner.invoke_with_connection(["dcm", "create", entity_id])
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
         assert f"DCM Project '{project_name}' successfully created." in result.output
 
@@ -107,14 +105,16 @@ def test_create_corner_cases(
     project_name = "project_descriptive_name"
     with project_directory("dcm_project"):
         # case 1: project already exists
-        result = runner.invoke_with_connection(["dcm", "create"])
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
         _assert_project_has_versions(runner, project_name, expected_versions=set())
-        result = runner.invoke_with_connection(["dcm", "create"])
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 1, result.output
         assert f"DCM Project '{project_name}' already exists." in result.output
         _assert_project_has_versions(runner, project_name, expected_versions=set())
-        result = runner.invoke_with_connection(["dcm", "create", "--if-not-exists"])
+        result = runner.invoke_with_connection(
+            ["dcm", "create", project_name, "--if-not-exists"]
+        )
         assert result.exit_code == 0, result.output
         assert f"DCM Project '{project_name}' already exists." in result.output
         _assert_project_has_versions(runner, project_name, expected_versions=set())
@@ -132,21 +132,20 @@ def test_project_drop_version(
     project_directory,
 ):
     project_name = "project_descriptive_name"
-    entity_id = "my_project"
 
     with project_directory("dcm_project"):
         # Create project with initial version
-        result = runner.invoke_with_connection(["dcm", "create", entity_id])
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
         assert f"DCM Project '{project_name}' successfully created." in result.output
         _assert_project_has_versions(runner, project_name, expected_versions=set())
 
         # Drop the non-existent version (should fail without --if-exists)
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "VERSION$1"]
+            ["dcm", "drop-deployment", project_name, "DEPLOYMENT$1"]
         )
         assert result.exit_code == 1, result.output
-        assert "Version does not exist" in result.output
+        assert "Deployment does not exist" in result.output
 
         # Add version
         result = runner.invoke_with_connection(
@@ -162,7 +161,7 @@ def test_project_drop_version(
         _assert_project_has_versions(
             runner,
             project_name,
-            {("VERSION$1", None)},
+            {("DEPLOYMENT$1", None)},
         )
 
         # Add another version with alias
@@ -193,16 +192,20 @@ def test_project_drop_version(
         _assert_project_has_versions(
             runner,
             project_name,
-            {("VERSION$1", None), ("VERSION$2", "V2"), ("VERSION$3", "THEDEFAULT")},
+            {
+                ("DEPLOYMENT$1", None),
+                ("DEPLOYMENT$2", "V2"),
+                ("DEPLOYMENT$3", "THEDEFAULT"),
+            },
         )
 
         # Drop the version by name
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "VERSION$1"]
+            ["dcm", "drop-deployment", project_name, "DEPLOYMENT$1"]
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'VERSION$1' dropped from DCM Project '{project_name}'"
+            f" 'DEPLOYMENT$1' dropped from DCM Project '{project_name}'"
             in result.output
         )
 
@@ -216,16 +219,16 @@ def test_project_drop_version(
         )
 
         _assert_project_has_versions(
-            runner, project_name, expected_versions={("VERSION$3", "THEDEFAULT")}
+            runner, project_name, expected_versions={("DEPLOYMENT$3", "THEDEFAULT")}
         )
 
         # Try to drop the default version
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "VERSION$3"]
+            ["dcm", "drop-deployment", project_name, "DEPLOYMENT$3"]
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'VERSION$3' dropped from DCM Project '{project_name}'"
+            f"Version 'DEPLOYMENT$3' dropped from DCM Project '{project_name}'"
             in result.output
         )
 
@@ -234,7 +237,7 @@ def test_project_drop_version(
             ["dcm", "drop-deployment", project_name, "non_existent"]
         )
         assert result.exit_code == 1, result.output
-        assert "Version does not exist" in result.output
+        assert "Deployment does not exist" in result.output
 
         # Try to drop non-existent version with --if-exists (should succeed)
         result = runner.invoke_with_connection(
@@ -255,12 +258,11 @@ def test_project_deploy_from_stage(
     project_directory,
 ):
     project_name = "project_descriptive_name"
-    entity_id = "my_project"
     other_stage_name = "other_project_stage"
 
     with project_directory("dcm_project") as project_root:
         # Create a new project
-        result = runner.invoke_with_connection(["dcm", "create", entity_id])
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
         _assert_project_has_versions(runner, project_name, expected_versions=set())
 
@@ -278,7 +280,7 @@ def test_project_deploy_from_stage(
         assert result.exit_code == 0, result.output
 
         result = runner.invoke_with_connection(
-            ["stage", "copy", ".", f"@{other_stage_name}"]
+            ["stage", "copy", ".", f"@{other_stage_name}/project"]
         )
         assert result.exit_code == 0, result.output
 
@@ -289,7 +291,7 @@ def test_project_deploy_from_stage(
                 "plan",
                 project_name,
                 "--from",
-                f"@{other_stage_name}",
+                f"{other_stage_name}/project",
                 "-D",
                 f"table_name='{test_database}.PUBLIC.MyTable'",
             ]
@@ -323,7 +325,7 @@ def test_project_deploy_from_stage(
                 "deploy",
                 project_name,
                 "--from",
-                f"@{other_stage_name}",
+                f"{other_stage_name}/project",
                 "-D",
                 f"table_name='{test_database}.PUBLIC.MyTable'",
             ]
@@ -366,14 +368,13 @@ def test_project_plan_with_output_path(
 ):
     """Test that DCM plan command with --output-path option writes output to the specified stage."""
     project_name = "project_descriptive_name"
-    entity_id = "my_project"
     source_stage_name = "source_project_stage"
     output_stage_name = "output_results_stage"
     output_path = f"@{output_stage_name}/plan_results"
 
     with project_directory("dcm_project") as project_root:
         # Create a new project
-        result = runner.invoke_with_connection(["dcm", "create", entity_id])
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
         _assert_project_has_versions(runner, project_name, expected_versions=set())
 
@@ -391,7 +392,7 @@ def test_project_plan_with_output_path(
         assert result.exit_code == 0, result.output
 
         result = runner.invoke_with_connection(
-            ["stage", "copy", ".", f"@{source_stage_name}"]
+            ["stage", "copy", ".", f"@{source_stage_name}/project"]
         )
         assert result.exit_code == 0, result.output
 
@@ -406,7 +407,7 @@ def test_project_plan_with_output_path(
                 "plan",
                 project_name,
                 "--from",
-                f"@{source_stage_name}",
+                f"{source_stage_name}/project",
                 "--output-path",
                 output_path,
                 "-D",
