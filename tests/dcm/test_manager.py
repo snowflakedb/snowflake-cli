@@ -11,11 +11,9 @@ TEST_PROJECT = FQN.from_string("my_project")
 
 @mock.patch(execute_queries)
 def test_create(mock_execute_query):
-    project_mock = mock.MagicMock(
-        fqn=FQN.from_string("project_mock_fqn"), stage="mock_stage_name"
-    )
+    project_identifier = FQN.from_string("project_mock_fqn")
     mgr = DCMProjectManager()
-    mgr.create(project=project_mock)
+    mgr.create(project_identifier=project_identifier)
 
     mock_execute_query.assert_called_once_with(
         "CREATE DCM PROJECT IDENTIFIER('project_mock_fqn')"
@@ -26,7 +24,7 @@ def test_create(mock_execute_query):
 def test_execute_project(mock_execute_query):
     mgr = DCMProjectManager()
     mgr.execute(
-        project_name=TEST_PROJECT,
+        project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
         variables=["key=value", "aaa=bbb"],
         configuration="some_configuration",
@@ -42,7 +40,7 @@ def test_execute_project(mock_execute_query):
 def test_execute_project_with_from_stage(mock_execute_query):
     mgr = DCMProjectManager()
     mgr.execute(
-        project_name=TEST_PROJECT,
+        project_identifier=TEST_PROJECT,
         from_stage="@my_stage",
         variables=["key=value", "aaa=bbb"],
         configuration="some_configuration",
@@ -58,7 +56,7 @@ def test_execute_project_with_from_stage(mock_execute_query):
 def test_execute_project_with_from_stage_without_prefix(mock_execute_query):
     mgr = DCMProjectManager()
     mgr.execute(
-        project_name=TEST_PROJECT,
+        project_identifier=TEST_PROJECT,
         from_stage="my_stage",
         variables=["key=value", "aaa=bbb"],
         configuration="some_configuration",
@@ -74,7 +72,7 @@ def test_execute_project_with_from_stage_without_prefix(mock_execute_query):
 def test_execute_project_with_default_deployment(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
 
-    mgr.execute(project_name=TEST_PROJECT, from_stage="@test_stage")
+    mgr.execute(project_identifier=TEST_PROJECT, from_stage="@test_stage")
 
     mock_execute_query.assert_called_once_with(
         query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY FROM @test_stage"
@@ -85,7 +83,7 @@ def test_execute_project_with_default_deployment(mock_execute_query, project_dir
 def test_validate_project(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
     mgr.execute(
-        project_name=TEST_PROJECT,
+        project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
         dry_run=True,
         configuration="some_configuration",
@@ -100,7 +98,7 @@ def test_validate_project(mock_execute_query, project_directory):
 def test_validate_project_with_from_stage(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
     mgr.execute(
-        project_name=TEST_PROJECT,
+        project_identifier=TEST_PROJECT,
         from_stage="@my_stage",
         dry_run=True,
         configuration="some_configuration",
@@ -115,7 +113,7 @@ def test_validate_project_with_from_stage(mock_execute_query, project_directory)
 @mock.patch(execute_queries)
 def test_list_deployments(mock_execute_query):
     mgr = DCMProjectManager()
-    mgr.list_deployments(project_name=TEST_PROJECT)
+    mgr.list_deployments(project_identifier=TEST_PROJECT)
 
     mock_execute_query.assert_called_once_with(
         query="SHOW DEPLOYMENTS IN DCM PROJECT my_project"
@@ -127,7 +125,7 @@ def test_list_deployments(mock_execute_query):
 def test_drop_deployment(mock_execute_query, if_exists):
     mgr = DCMProjectManager()
     mgr.drop_deployment(
-        project_name=TEST_PROJECT, deployment_name="v1", if_exists=if_exists
+        project_identifier=TEST_PROJECT, deployment_name="v1", if_exists=if_exists
     )
 
     expected_query = "ALTER DCM PROJECT my_project DROP DEPLOYMENT"
@@ -142,7 +140,7 @@ def test_drop_deployment(mock_execute_query, if_exists):
 def test_validate_project_with_output_path(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
     mgr.execute(
-        project_name=TEST_PROJECT,
+        project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
         dry_run=True,
         configuration="some_configuration",
@@ -163,7 +161,7 @@ def test_validate_project_with_output_path_different_formats(
 ):
     mgr = DCMProjectManager()
     mgr.execute(
-        project_name=TEST_PROJECT,
+        project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
         dry_run=True,
         output_path=output_stage_name,
@@ -178,7 +176,7 @@ def test_validate_project_with_output_path_different_formats(
 def test_deploy_project_with_output_path(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
     mgr.execute(
-        project_name=TEST_PROJECT,
+        project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
         dry_run=False,
         alias="v1",

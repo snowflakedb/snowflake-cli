@@ -15,9 +15,6 @@ import time
 from typing import List, Optional
 
 import typer
-from snowflake.cli._plugins.dcm.dcm_project_entity_model import (
-    DCMProjectEntityModel,
-)
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
@@ -25,12 +22,10 @@ from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     IfExistsOption,
     IfNotExistsOption,
     OverrideableOption,
-    entity_argument,
     identifier_argument,
     like_option,
     variables_option,
@@ -49,6 +44,8 @@ from snowflake.cli.api.output.types import (
 )
 from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.project.util import unquote_identifier
+
+MANIFEST_FILE_NAME = "manifest.yml"
 
 app = SnowTyperFactory(
     name="dcm",
@@ -128,7 +125,7 @@ def deploy(
     Applies changes defined in DCM Project to Snowflake.
     """
     result = DCMProjectManager().execute(
-        project_name=identifier,
+        project_identifier=identifier,
         configuration=configuration,
         from_stage=from_stage if from_stage else _sync_local_files(),
         variables=variables,
@@ -155,7 +152,7 @@ def plan(
     Plans a DCM Project deployment (validates without executing).
     """
     result = DCMProjectManager().execute(
-        project_name=identifier,
+        project_identifier=identifier,
         configuration=configuration,
         from_stage=from_stage if from_stage else _sync_local_files(),
         dry_run=True,
@@ -166,9 +163,8 @@ def plan(
 
 
 @app.command(requires_connection=True)
-@with_project_definition()
 def create(
-    entity_id: str = entity_argument("dcm"),
+    identifier: FQN = dcm_identifier,
     if_not_exists: bool = IfNotExistsOption(
         help="Do nothing if the project already exists."
     ),
@@ -177,25 +173,18 @@ def create(
     """
     Creates a DCM Project in Snowflake.
     """
-    cli_context = get_cli_context()
-    project: DCMProjectEntityModel = get_entity_for_operation(
-        cli_context=cli_context,
-        entity_id=entity_id,
-        project_definition=cli_context.project_definition,
-        entity_type="dcm",
-    )
     om = ObjectManager()
-    if om.object_exists(object_type="dcm", fqn=project.fqn):
-        message = f"DCM Project '{project.fqn}' already exists."
+    if om.object_exists(object_type="dcm", fqn=identifier):
+        message = f"DCM Project '{identifier}' already exists."
         if if_not_exists:
             return MessageResult(message)
         raise CliError(message)
 
     dpm = DCMProjectManager()
-    with cli_console.phase(f"Creating DCM Project '{project.fqn}'"):
-        dpm.create(project=project)
+    with cli_console.phase(f"Creating DCM Project '{identifier}'"):
+        dpm.create(project_identifier=identifier)
 
-    return MessageResult(f"DCM Project '{project.fqn}' successfully created.")
+    return MessageResult(f"DCM Project '{identifier}' successfully created.")
 
 
 @app.command(requires_connection=True)
@@ -207,7 +196,7 @@ def list_deployments(
     Lists deployments of given DCM Project.
     """
     pm = DCMProjectManager()
-    results = pm.list_deployments(project_name=identifier)
+    results = pm.list_deployments(project_identifier=identifier)
     return QueryResult(results)
 
 
@@ -235,7 +224,7 @@ def drop_deployment(
 
     dpm = DCMProjectManager()
     dpm.drop_deployment(
-        project_name=identifier,
+        project_identifier=identifier,
         deployment_name=deployment_name,
         if_exists=if_exists,
     )

@@ -39,9 +39,8 @@ def test_project_deploy(
     project_directory,
 ):
     project_name = "project_descriptive_name"
-    entity_id = "my_project"
     with project_directory("dcm_project"):
-        result = runner.invoke_with_connection(["dcm", "create", entity_id])
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
         assert f"DCM Project '{project_name}' successfully created." in result.output
 
@@ -84,9 +83,8 @@ def test_deploy_multiple_configurations(
     project_directory,
 ):
     project_name = "project_descriptive_name"
-    entity_id = "my_project"
     with project_directory("dcm_project_multiple_configurations"):
-        result = runner.invoke_with_connection(["dcm", "create", entity_id])
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
         assert f"DCM Project '{project_name}' successfully created." in result.output
 
@@ -110,18 +108,18 @@ def test_create_corner_cases(
     project_name = "project_descriptive_name"
     with project_directory("dcm_project"):
         # case 1: project already exists
-        result = runner.invoke_with_connection(["dcm", "create"])
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
         _assert_project_has_deployments(
             runner, project_name, expected_deployments=set()
         )
-        result = runner.invoke_with_connection(["dcm", "create"])
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 1, result.output
         assert f"DCM Project '{project_name}' already exists." in result.output
         _assert_project_has_deployments(
             runner, project_name, expected_deployments=set()
         )
-        result = runner.invoke_with_connection(["dcm", "create", "--if-not-exists"])
+        result = runner.invoke_with_connection(["dcm", "create", project_name, "--if-not-exists"])
         assert result.exit_code == 0, result.output
         assert f"DCM Project '{project_name}' already exists." in result.output
         _assert_project_has_deployments(
@@ -141,7 +139,6 @@ def test_project_drop_deployment(
     project_directory,
 ):
     project_name = "project_descriptive_name"
-    entity_id = "my_project"
 
     with project_directory("dcm_project"):
         # Create project
@@ -270,12 +267,11 @@ def test_project_deploy_from_stage(
     project_directory,
 ):
     project_name = "project_descriptive_name"
-    entity_id = "my_project"
     other_stage_name = "other_project_stage"
 
     with project_directory("dcm_project") as project_root:
         # Create a new project
-        result = runner.invoke_with_connection(["dcm", "create", entity_id])
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
         _assert_project_has_deployments(
             runner, project_name, expected_deployments=set()
@@ -295,7 +291,7 @@ def test_project_deploy_from_stage(
         assert result.exit_code == 0, result.output
 
         result = runner.invoke_with_connection(
-            ["stage", "copy", ".", f"@{other_stage_name}"]
+            ["stage", "copy", ".", f"@{other_stage_name}/project"]
         )
         assert result.exit_code == 0, result.output
 
@@ -306,7 +302,7 @@ def test_project_deploy_from_stage(
                 "plan",
                 project_name,
                 "--from",
-                f"@{other_stage_name}",
+                f"{other_stage_name}/project",
                 "-D",
                 f"table_name='{test_database}.PUBLIC.MyTable'",
             ]
@@ -340,7 +336,7 @@ def test_project_deploy_from_stage(
                 "deploy",
                 project_name,
                 "--from",
-                f"@{other_stage_name}",
+                f"{other_stage_name}/project",
                 "-D",
                 f"table_name='{test_database}.PUBLIC.MyTable'",
             ]
@@ -383,14 +379,13 @@ def test_project_plan_with_output_path(
 ):
     """Test that DCM plan command with --output-path option writes output to the specified stage."""
     project_name = "project_descriptive_name"
-    entity_id = "my_project"
     source_stage_name = "source_project_stage"
     output_stage_name = "output_results_stage"
     output_path = f"@{output_stage_name}/plan_results"
 
     with project_directory("dcm_project") as project_root:
         # Create a new project
-        result = runner.invoke_with_connection(["dcm", "create", entity_id])
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
         _assert_project_has_deployments(
             runner, project_name, expected_deployments=set()
@@ -410,7 +405,7 @@ def test_project_plan_with_output_path(
         assert result.exit_code == 0, result.output
 
         result = runner.invoke_with_connection(
-            ["stage", "copy", ".", f"@{source_stage_name}"]
+            ["stage", "copy", ".", f"@{source_stage_name}/project"]
         )
         assert result.exit_code == 0, result.output
 
@@ -425,7 +420,7 @@ def test_project_plan_with_output_path(
                 "plan",
                 project_name,
                 "--from",
-                f"@{source_stage_name}",
+                f"{source_stage_name}/project",
                 "--output-path",
                 output_path,
                 "-D",

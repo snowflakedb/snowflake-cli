@@ -25,13 +25,13 @@ class TestDCMCreate:
     def test_create(self, mock_om, mock_pm, runner, project_directory):
         mock_om().object_exists.return_value = False
         with project_directory("dcm_project"):
-            command = ["dcm", "create"]
+            command = ["dcm", "create", "my_project"]
             result = runner.invoke(command)
             assert result.exit_code == 0, result.output
 
-            mock_pm().create.assert_called_once()
-            create_kwargs = mock_pm().create.mock_calls[0].kwargs
-            assert create_kwargs["project"].fqn == FQN.from_string("my_project")
+            mock_pm().create.assert_called_once_with(
+                project_identifier=FQN.from_string("my_project")
+            )
 
     @mock.patch(DCMProjectManager)
     @mock.patch(ObjectManager)
@@ -41,7 +41,7 @@ class TestDCMCreate:
     ):
         mock_om().object_exists.return_value = True
         with project_directory("dcm_project"):
-            command = ["dcm", "create"]
+            command = ["dcm", "create", "my_project"]
             if if_not_exists:
                 command.append("--if-not-exists")
             result = runner.invoke(command)
@@ -80,7 +80,7 @@ class TestDCMDeploy:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="MockDatabase.MockSchema.DCM_MY_PROJECT_1234567890_TMP_STAGE",
             variables=None,
@@ -100,7 +100,7 @@ class TestDCMDeploy:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="@my_stage",
             variables=None,
@@ -122,7 +122,7 @@ class TestDCMDeploy:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="@my_stage",
             variables=["key=value"],
@@ -152,7 +152,7 @@ class TestDCMDeploy:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration="some_configuration",
             from_stage="@my_stage",
             variables=None,
@@ -174,7 +174,7 @@ class TestDCMDeploy:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="@my_stage",
             variables=None,
@@ -247,7 +247,7 @@ class TestDCMPlan:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration="some_configuration",
             from_stage="MockDatabase.MockSchema.DCM_MY_PROJECT_1234567890_TMP_STAGE",
             dry_run=True,
@@ -279,7 +279,7 @@ class TestDCMPlan:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration="some_configuration",
             from_stage="@my_stage",
             dry_run=True,
@@ -309,7 +309,7 @@ class TestDCMPlan:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="@my_stage",
             dry_run=True,
@@ -341,7 +341,7 @@ class TestDCMPlan:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration="some_config",
             from_stage="@my_stage",
             dry_run=True,
@@ -472,7 +472,7 @@ class TestDCMListDeployments:
         assert result.exit_code == 0, result.output
 
         mock_pm().list_deployments.assert_called_once_with(
-            project_name=FQN.from_string("fooBar")
+            project_identifier=FQN.from_string("fooBar")
         )
 
 
@@ -490,7 +490,7 @@ class TestDCMDropDeployment:
         assert "Deployment 'v1' dropped from DCM Project 'fooBar'" in result.output
 
         mock_pm().drop_deployment.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             deployment_name="v1",
             if_exists=if_exists,
         )
@@ -524,7 +524,7 @@ class TestDCMDropDeployment:
             assert "might be truncated due to shell expansion" not in result.output
 
         mock_pm().drop_deployment.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             deployment_name=deployment_name,
             if_exists=False,
         )

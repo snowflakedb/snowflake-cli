@@ -5,7 +5,7 @@
    Usage: root [OPTIONS] COMMAND [ARGS]...                                        
                                                                                   
    Snowflake CLI tool for developers [v0.0.0-test_patched]                        
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
@@ -47,7 +47,7 @@
    Usage: root app bundle [OPTIONS]                                               
                                                                                   
    Prepares a local folder with configured app artifacts.                         
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --package-entity-id          TEXT  The ID of the package entity on which to  |
   |                                    operate when the definition_version is 2  |
@@ -96,7 +96,7 @@
    changes to the stage without creating or updating the application. Running     
    this command with no arguments at all, as in snow app deploy, is a shorthand   
    for snow app deploy --prune --recursive.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   |   paths      [PATHS]...  Paths, relative to the project root, of files or    |
   |                          directories you want to upload to a stage. If a     |
@@ -295,7 +295,7 @@
    Usage: root app diff [OPTIONS]                                                 
                                                                                   
    Performs a diff between the app's source stage and the local deploy root.      
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --package-entity-id          TEXT  The ID of the package entity on which to  |
   |                                    operate when the definition_version is 2  |
@@ -631,7 +631,7 @@
                                                                                   
    Opens the Snowflake Native App inside of your browser, once it has been        
    installed in your account.                                                     
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --package-entity-id          TEXT  The ID of the package entity on which to  |
   |                                    operate when the definition_version is 2  |
@@ -772,7 +772,7 @@
                                                                                   
    Adds the version to the release channel and updates the release directive with 
    the new version and patch.                                                     
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --version                                    TEXT     The version to publish |
   |                                                       to the provided        |
@@ -998,7 +998,7 @@
    Usage: root app release-channel add-accounts [OPTIONS] CHANNEL                 
                                                                                   
    Adds accounts to a release channel.                                            
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    channel      TEXT  The release channel to add accounts to.              |
   |                         [required]                                           |
@@ -1146,7 +1146,7 @@
    Usage: root app release-channel add-version [OPTIONS] CHANNEL                  
                                                                                   
    Adds a version to a release channel.                                           
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    channel      TEXT  The release channel to add a version to.             |
   |                         [required]                                           |
@@ -1293,7 +1293,7 @@
    Usage: root app release-channel list [OPTIONS] [CHANNEL]                       
                                                                                   
    Lists the release channels available for an application package.               
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   |   channel      [CHANNEL]  The release channel to list. If not provided, all  |
   |                           release channels are listed.                       |
@@ -1437,7 +1437,7 @@
    Usage: root app release-channel remove-accounts [OPTIONS] CHANNEL              
                                                                                   
    Removes accounts from a release channel.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    channel      TEXT  The release channel to remove accounts from.         |
   |                         [required]                                           |
@@ -1585,7 +1585,7 @@
    Usage: root app release-channel remove-version [OPTIONS] CHANNEL               
                                                                                   
    Removes a version from a release channel.                                      
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    channel      TEXT  The release channel to remove a version from.        |
   |                         [required]                                           |
@@ -1732,7 +1732,7 @@
    Usage: root app release-channel set-accounts [OPTIONS] CHANNEL                 
                                                                                   
    Sets accounts for a release channel.                                           
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    channel      TEXT  The release channel to set accounts for.             |
   |                         [required]                                           |
@@ -1874,7 +1874,7 @@
    Usage: root app release-channel [OPTIONS] COMMAND [ARGS]...                    
                                                                                   
    Manages release channels of an application package                             
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -1897,7 +1897,7 @@
    Usage: root app release-directive add-accounts [OPTIONS] DIRECTIVE             
                                                                                   
    Adds accounts to a release directive.                                          
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    directive      TEXT  Name of the release directive                      |
   |                           [required]                                         |
@@ -2202,7 +2202,7 @@
    Usage: root app release-directive remove-accounts [OPTIONS] DIRECTIVE          
                                                                                   
    Removes accounts from a release directive.                                     
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    directive      TEXT  Name of the release directive                      |
   |                           [required]                                         |
@@ -2511,7 +2511,7 @@
    Usage: root app release-directive unset [OPTIONS] DIRECTIVE                    
                                                                                   
    Unsets a release directive.                                                    
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    directive      TEXT  Name of the release directive                      |
   |                           [required]                                         |
@@ -2657,7 +2657,7 @@
    Usage: root app release-directive [OPTIONS] COMMAND [ARGS]...                  
                                                                                   
    Manages release directives of an application package                           
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -2683,7 +2683,7 @@
    Creates an application package in your Snowflake account, uploads code files   
    to its stage, then creates or upgrades an application object from the          
    application package.                                                           
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --version                                     TEXT     The version defined   |
   |                                                        in an existing        |
@@ -2917,7 +2917,7 @@
                                                                                   
    Attempts to drop both the application object and application package as        
    defined in the project definition file.                                        
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --force                                            When enabled, this option |
   |                                                    causes the command to     |
@@ -3083,7 +3083,7 @@
    Usage: root app validate [OPTIONS]                                             
                                                                                   
    Validates a deployed Snowflake Native App's setup script.                      
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --package-entity-id          TEXT  The ID of the package entity on which to  |
   |                                    operate when the definition_version is 2  |
@@ -3224,7 +3224,7 @@
                                                                                   
    Adds a new patch to the provided version defined in your application package.  
    If the version does not exist, creates a version with patch 0.                 
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   |   version      [VERSION]  Version to define in your application package. If  |
   |                           the version already exists, an auto-incremented    |
@@ -3438,7 +3438,7 @@
    Drops a version defined in your application package. Versions can either be    
    passed in as an argument to the command or read from the manifest.yml file.    
    Dropping patches is not allowed.                                               
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   |   version      [VERSION]  Version defined in an application package that you |
   |                           want to drop. Defaults to the version specified in |
@@ -3609,7 +3609,7 @@
    Usage: root app version list [OPTIONS]                                         
                                                                                   
    Lists all versions defined in an application package.                          
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --package-entity-id          TEXT  The ID of the package entity on which to  |
   |                                    operate when the definition_version is 2  |
@@ -3749,7 +3749,7 @@
    Usage: root app version [OPTIONS] COMMAND [ARGS]...                            
                                                                                   
    Manages versions defined in an application package                             
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -3772,7 +3772,7 @@
    Usage: root app [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
    Manages a Snowflake Native App                                                 
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -3812,7 +3812,7 @@
    Usage: root auth keypair list [OPTIONS]                                        
                                                                                   
    Lists the public keys set for the user.                                        
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -3940,7 +3940,7 @@
    Usage: root auth keypair remove [OPTIONS]                                      
                                                                                   
    Removes the public key for the user.                                           
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | *  --key-id          [RSA_PUBLIC_KEY|RSA_PUBLIC  Local path to the template  |
   |                      _KEY_2]                     directory or a URL to Git   |
@@ -4073,7 +4073,7 @@
                                                                                   
    Rotates the key for the connection. Generates the key pair, sets the public    
    key for the user in Snowflake, and creates or updates the connection.          
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --key-length                      INTEGER  The RSA key length.               |
   |                                            [default: 2048]                   |
@@ -4208,7 +4208,7 @@
                                                                                   
    Generates the key pair, sets the public key for the user in Snowflake, and     
    creates or updates the connection.                                             
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --key-length                      INTEGER  The RSA key length.               |
   |                                            [default: 2048]                   |
@@ -4342,7 +4342,7 @@
    Usage: root auth keypair status [OPTIONS]                                      
                                                                                   
    Verifies the key pair configuration and tests the connection.                  
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -4470,7 +4470,7 @@
    Usage: root auth keypair [OPTIONS] COMMAND [ARGS]...                           
                                                                                   
    Manages authentication.                                                        
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -4495,7 +4495,7 @@
                                                                                   
    Reads OIDC token based on the specified type. Use 'auto' to auto-detect        
    available providers.                                                           
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --type          [auto|github]  Type of OIDC provider to use                  |
   | --help  -h                     Show this message and exit.                   |
@@ -4530,7 +4530,7 @@
    Usage: root auth oidc [OPTIONS] COMMAND [ARGS]...                              
                                                                                   
    Manages OIDC authentication.                                                   
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -4548,7 +4548,7 @@
    Usage: root auth [OPTIONS] COMMAND [ARGS]...                                   
                                                                                   
    Manages authentication methods.                                                
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -4565,7 +4565,7 @@
    Usage: root connection add [OPTIONS]                                           
                                                                                   
    Adds a connection to configuration file.                                       
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --connection-name              -n      TEXT     Name of the new connection.  |
   | --account,--accountname        -a      TEXT     Account name to use when     |
@@ -4633,7 +4633,7 @@
    Usage: root connection generate-jwt [OPTIONS]                                  
                                                                                   
    Generate a JWT token, which will be printed out and displayed..                
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -4761,7 +4761,7 @@
    Usage: root connection list [OPTIONS]                                          
                                                                                   
    Lists configured connections.                                                  
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -4795,7 +4795,7 @@
    Usage: root connection remove [OPTIONS] CONNECTION_NAME                        
                                                                                   
    Removes a connection from configuration file.                                  
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    connection_name      TEXT  Name of the connection to remove.            |
   |                                 [required]                                   |
@@ -4833,7 +4833,7 @@
    Usage: root connection set-default [OPTIONS] NAME                              
                                                                                   
    Changes default connection to provided value.                                  
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Name of the connection, as defined in your config.toml  |
   |                      file                                                    |
@@ -4872,7 +4872,7 @@
    Usage: root connection test [OPTIONS]                                          
                                                                                   
    Tests the connection to Snowflake.                                             
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -5000,7 +5000,7 @@
    Usage: root connection [OPTIONS] COMMAND [ARGS]...                             
                                                                                   
    Manages connections to Snowflake.                                              
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -5025,7 +5025,7 @@
    Copy dbt files and either recreate dbt on Snowflake if --force flag is         
    provided; or create a new one if it doesn't exist; or update files and create  
    a new version if it exists.                                                    
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
   |                      [required]                                              |
@@ -5168,7 +5168,7 @@
                                                                                   
    Execute a dbt command on Snowflake. Subcommand name and all parameters         
    following it will be passed over to dbt.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
   |                      [required]                                              |
@@ -5328,7 +5328,7 @@
                                                                                   
    Execute a dbt command on Snowflake. Subcommand name and all parameters         
    following it will be passed over to dbt.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
   |                      [required]                                              |
@@ -5488,7 +5488,7 @@
                                                                                   
    Execute a dbt command on Snowflake. Subcommand name and all parameters         
    following it will be passed over to dbt.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
   |                      [required]                                              |
@@ -5648,7 +5648,7 @@
                                                                                   
    Execute a dbt command on Snowflake. Subcommand name and all parameters         
    following it will be passed over to dbt.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
   |                      [required]                                              |
@@ -5808,7 +5808,7 @@
                                                                                   
    Execute a dbt command on Snowflake. Subcommand name and all parameters         
    following it will be passed over to dbt.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
   |                      [required]                                              |
@@ -5968,7 +5968,7 @@
                                                                                   
    Execute a dbt command on Snowflake. Subcommand name and all parameters         
    following it will be passed over to dbt.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
   |                      [required]                                              |
@@ -6128,7 +6128,7 @@
                                                                                   
    Execute a dbt command on Snowflake. Subcommand name and all parameters         
    following it will be passed over to dbt.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
   |                      [required]                                              |
@@ -6288,7 +6288,7 @@
                                                                                   
    Execute a dbt command on Snowflake. Subcommand name and all parameters         
    following it will be passed over to dbt.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
   |                      [required]                                              |
@@ -6448,7 +6448,7 @@
                                                                                   
    Execute a dbt command on Snowflake. Subcommand name and all parameters         
    following it will be passed over to dbt.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
   |                      [required]                                              |
@@ -6608,7 +6608,7 @@
                                                                                   
    Execute a dbt command on Snowflake. Subcommand name and all parameters         
    following it will be passed over to dbt.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
   |                      [required]                                              |
@@ -6768,7 +6768,7 @@
                                                                                   
    Execute a dbt command on Snowflake. Subcommand name and all parameters         
    following it will be passed over to dbt.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
   |                      [required]                                              |
@@ -6928,7 +6928,7 @@
                                                                                   
    Execute a dbt command on Snowflake. Subcommand name and all parameters         
    following it will be passed over to dbt.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
   |                      [required]                                              |
@@ -7087,7 +7087,7 @@
    Usage: root dbt list [OPTIONS]                                                 
                                                                                   
    Lists all available dbt projects.                                              
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
   |                                 name. For example, list --like "my%" lists   |
@@ -7225,7 +7225,7 @@
    Usage: root dbt [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
    Manages dbt on Snowflake projects.                                             
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -7244,21 +7244,18 @@
 # name: test_help_messages[dcm.create]
   '''
                                                                                   
-   Usage: root dcm create [OPTIONS] [ENTITY_ID]                                   
+   Usage: root dcm create [OPTIONS] IDENTIFIER
                                                                                   
    Creates a DCM Project in Snowflake.                                            
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
-  |   entity_id      [ENTITY_ID]  ID of dcm entity.                              |
+  | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
+  |                            MY_PROJECT                                        |
+  |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --if-not-exists                Do nothing if the project already exists.     |
-  | --project        -p      TEXT  Path where the Snowflake project is stored.   |
-  |                                Defaults to the current working directory.    |
-  | --env                    TEXT  String in the format key=value. Overrides     |
-  |                                variables from the env section used for       |
-  |                                templates.                                    |
-  | --help           -h            Show this message and exit.                   |
+  | --if-not-exists            Do nothing if the project already exists.         |
+  | --help           -h        Show this message and exit.                       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7384,7 +7381,7 @@
    Usage: root dcm deploy [OPTIONS] IDENTIFIER                                    
                                                                                   
    Applies changes defined in DCM Project to Snowflake.                           
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
   |                            MY_PROJECT                                        |
@@ -7524,7 +7521,7 @@
    Usage: root dcm describe [OPTIONS] NAME                                        
                                                                                   
    Provides description of DCM Project.                                           
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DCM Project; for example: MY_PROJECT  |
   |                      [required]                                              |
@@ -7653,9 +7650,9 @@
 # name: test_help_messages[dcm.drop-deployment]
   '''
                                                                                   
-   Usage: root dcm drop-deployment [OPTIONS] IDENTIFIER DEPLOYMENT_NAME           
+   Usage: root dcm drop-deployment [OPTIONS] IDENTIFIER DEPLOYMENT_NAME
                                                                                   
-   Drops a deployment from the DCM Project.                                       
+   Drops a deployment from the DCM Project.
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    identifier           TEXT  Identifier of the DCM Project; for example:  |
@@ -7795,7 +7792,7 @@
    Usage: root dcm drop [OPTIONS] NAME                                            
                                                                                   
    Drops DCM Project with given name.                                             
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DCM Project; for example: MY_PROJECT  |
   |                      [required]                                              |
@@ -7927,7 +7924,7 @@
    Usage: root dcm list-deployments [OPTIONS] IDENTIFIER                          
                                                                                   
    Lists deployments of given DCM Project.                                        
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
   |                            MY_PROJECT                                        |
@@ -8060,7 +8057,7 @@
    Usage: root dcm list [OPTIONS]                                                 
                                                                                   
    Lists all available DCM Projects.                                              
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --like   -l      TEXT            SQL LIKE pattern for filtering objects by   |
   |                                  name. For example, list --like "my%" lists  |
@@ -8200,7 +8197,7 @@
    Usage: root dcm plan [OPTIONS] IDENTIFIER                                      
                                                                                   
    Plans a DCM Project deployment (validates without executing).                  
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
   |                            MY_PROJECT                                        |
@@ -8341,7 +8338,7 @@
    Usage: root dcm [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
    Manages DCM Projects in Snowflake.                                             
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -8512,7 +8509,7 @@
    Usage: root git describe [OPTIONS] NAME                                        
                                                                                   
    Provides description of git repository.                                        
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the git repository; for example: my_repo  |
   |                      [required]                                              |
@@ -8644,7 +8641,7 @@
    Usage: root git drop [OPTIONS] NAME                                            
                                                                                   
    Drops git repository with given name.                                          
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the git repository; for example: my_repo  |
   |                      [required]                                              |
@@ -8779,7 +8776,7 @@
    with a glob-like pattern, e.g. @my_repo/branches/main/*.sql,                   
    @my_repo/branches/main/dev/*. Only files with .sql or .py extension will be    
    executed.                                                                      
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    repository_path      TEXT  Path to git repository stage with scope      |
   |                                 provided. Path to the repository root must   |
@@ -8930,7 +8927,7 @@
    Usage: root git fetch [OPTIONS] REPOSITORY_NAME                                
                                                                                   
    Fetch changes from origin to Snowflake repository.                             
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    repository_name      TEXT  Identifier of the git repository; for        |
   |                                 example: my_repo                             |
@@ -9063,7 +9060,7 @@
    Usage: root git list-branches [OPTIONS] REPOSITORY_NAME                        
                                                                                   
    List all branches in the repository.                                           
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    repository_name      TEXT  Identifier of the git repository; for        |
   |                                 example: my_repo                             |
@@ -9200,7 +9197,7 @@
    Usage: root git list-files [OPTIONS] REPOSITORY_PATH                           
                                                                                   
    List files from given state of git repository.                                 
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    repository_path      TEXT  Path to git repository stage with scope      |
   |                                 provided. Path to the repository root must   |
@@ -9338,7 +9335,7 @@
    Usage: root git list-tags [OPTIONS] REPOSITORY_NAME                            
                                                                                   
    List all tags in the repository.                                               
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    repository_name      TEXT  Identifier of the git repository; for        |
   |                                 example: my_repo                             |
@@ -9475,7 +9472,7 @@
    Usage: root git list [OPTIONS]                                                 
                                                                                   
    Lists all available git repositories.                                          
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
   |                                 name. For example, list --like "my%" lists   |
@@ -9759,7 +9756,7 @@
    Usage: root git [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
    Manages git repositories in Snowflake.                                         
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -9789,7 +9786,7 @@
    Usage: root init [OPTIONS] PATH                                                
                                                                                   
    Creates project directory from template.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    path      TEXT  Directory to be initialized with the project. This      |
   |                      directory must not already exist                        |
@@ -9839,7 +9836,7 @@
    Usage: root logs [OPTIONS] OBJECT_TYPE OBJECT_NAME                             
                                                                                   
    Retrieves logs for a given object.                                             
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    object_type      TEXT  Type of object. For example table, database,     |
   |                             compute-pool.                                    |
@@ -9985,7 +9982,7 @@
    Usage: root notebook create [OPTIONS] IDENTIFIER                               
                                                                                   
    Creates notebook from stage.                                                   
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    identifier      TEXT  Identifier of the notebook; for example:          |
   |                            MY_NOTEBOOK                                       |
@@ -10122,7 +10119,7 @@
                                                                                   
    Uploads a notebook and required files to a stage and creates a Snowflake       
    notebook.                                                                      
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   |   entity_id      [ENTITY_ID]  ID of notebook entity.                         |
   +------------------------------------------------------------------------------+
@@ -10266,7 +10263,7 @@
    Usage: root notebook execute [OPTIONS] IDENTIFIER                              
                                                                                   
    Executes a notebook in a headless mode.                                        
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    identifier      TEXT  Identifier of the notebook; for example:          |
   |                            MY_NOTEBOOK                                       |
@@ -10399,7 +10396,7 @@
    Usage: root notebook get-url [OPTIONS] IDENTIFIER                              
                                                                                   
    Return a url to a notebook.                                                    
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    identifier      TEXT  Identifier of the notebook; for example:          |
   |                            MY_NOTEBOOK                                       |
@@ -10532,7 +10529,7 @@
    Usage: root notebook open [OPTIONS] IDENTIFIER                                 
                                                                                   
    Opens a notebook in default browser                                            
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    identifier      TEXT  Identifier of the notebook; for example:          |
   |                            MY_NOTEBOOK                                       |
@@ -10665,7 +10662,7 @@
    Usage: root notebook [OPTIONS] COMMAND [ARGS]...                               
                                                                                   
    Manages notebooks in Snowflake.                                                
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -10688,7 +10685,7 @@
                                                                                   
    Create an object of a given type. Check documentation for the list of          
    supported objects and parameters.                                              
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    object_type            TEXT                    Type of object. For      |
   |                                                     example table, database, |
@@ -11271,7 +11268,7 @@
    Usage: root object [OPTIONS] COMMAND [ARGS]...                                 
                                                                                   
    Manages Snowflake objects like warehouses and stages                           
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -11292,7 +11289,7 @@
    Usage: root plugin disable [OPTIONS] [PLUGIN_NAME]                             
                                                                                   
    Disables a plugin with a given name.                                           
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   |   plugin_name      [PLUGIN_NAME]  Plugin name                                |
   +------------------------------------------------------------------------------+
@@ -11329,7 +11326,7 @@
    Usage: root plugin enable [OPTIONS] [PLUGIN_NAME]                              
                                                                                   
    Enables a plugin with a given name.                                            
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   |   plugin_name      [PLUGIN_NAME]  Plugin name                                |
   +------------------------------------------------------------------------------+
@@ -11366,7 +11363,7 @@
    Usage: root plugin list [OPTIONS]                                              
                                                                                   
    Lists all installed plugins.                                                   
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -11400,7 +11397,7 @@
    Usage: root plugin [OPTIONS] COMMAND [ARGS]...                                 
                                                                                   
    Plugin management commands.                                                    
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -11421,7 +11418,7 @@
    Builds artifacts required for the Snowpark project. The artifacts can be used  
    by deploy command. For each directory in artifacts a .zip file is created. All 
    non-anaconda dependencies are packaged in dependencies.zip file.               
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --ignore-anaconda                       Does not lookup packages on          |
   |                                         Snowflake Anaconda channel.          |
@@ -11573,7 +11570,7 @@
    already the commands will fail unless --replace flag is provided. Required     
    artifacts are deployed before creating functions or procedures. Dependencies   
    are deployed once to every stage specified in definitions.                     
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --replace                                Replaces procedure or function if   |
   |                                          there were changes in the           |
@@ -11719,7 +11716,7 @@
                                  IDENTIFIER                                       
                                                                                   
    Provides description of a procedure or function.                               
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    object_type      OBJECT_TYPE:{procedure|fun  Type of Snowpark object    |
   |                       ction}                      [required]                 |
@@ -11857,7 +11854,7 @@
    IDENTIFIER                                                                     
                                                                                   
    Drop procedure or function.                                                    
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    object_type      OBJECT_TYPE:{procedure|fun  Type of Snowpark object    |
   |                       ction}                      [required]                 |
@@ -11995,7 +11992,7 @@
                                 EXECUTION_IDENTIFIER                              
                                                                                   
    Executes a procedure or function in a specified environment.                   
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    object_type               OBJECT_TYPE:{procedur  Type of Snowpark       |
   |                                e|function}            object                 |
@@ -12134,7 +12131,7 @@
    Usage: root snowpark list [OPTIONS] OBJECT_TYPE:{procedure|function}           
                                                                                   
    Lists all available procedures or functions.                                   
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    object_type      OBJECT_TYPE:{procedure|fun  Type of Snowpark object    |
   |                       ction}                      [required]                 |
@@ -12278,7 +12275,7 @@
                                                                                   
    Creates a Python package as a zip file that can be uploaded to a stage and     
    imported for a Snowpark Python app.                                            
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Name of the package to create.                          |
   |                      [required]                                              |
@@ -12424,7 +12421,7 @@
    Usage: root snowpark package lookup [OPTIONS] PACKAGE_NAME                     
                                                                                   
    Checks if a package is available on the Snowflake Anaconda channel.            
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    package_name      TEXT  Name of the package.                            |
   |                              [required]                                      |
@@ -12557,7 +12554,7 @@
                                                                                   
    Uploads a Python package zip file to a Snowflake stage so it can be referenced 
    in the imports of a procedure or function.                                     
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | *  --file       -f      PATH  Path to the file to upload.                    |
   |                               [required]                                     |
@@ -12691,7 +12688,7 @@
    Usage: root snowpark package [OPTIONS] COMMAND [ARGS]...                       
                                                                                   
    Manages custom Python packages for Snowpark                                    
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -12712,7 +12709,7 @@
    Usage: root snowpark [OPTIONS] COMMAND [ARGS]...                               
                                                                                   
    Manages procedures and functions.                                              
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -12743,7 +12740,7 @@
    Usage: root spcs compute-pool create [OPTIONS] NAME                            
                                                                                   
    Creates a new compute pool.                                                    
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the compute pool; for example:            |
   |                      my_compute_pool                                         |
@@ -12933,7 +12930,7 @@
    Usage: root spcs compute-pool deploy [OPTIONS] [ENTITY_ID]                     
                                                                                   
    Deploys a compute pool from the project definition file.                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   |   entity_id      [ENTITY_ID]  ID of compute-pool entity.                     |
   +------------------------------------------------------------------------------+
@@ -13071,7 +13068,7 @@
    Usage: root spcs compute-pool describe [OPTIONS] NAME                          
                                                                                   
    Provides description of compute pool.                                          
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the compute pool; for example:            |
   |                      my_compute_pool                                         |
@@ -13204,7 +13201,7 @@
    Usage: root spcs compute-pool drop [OPTIONS] NAME                              
                                                                                   
    Drops compute pool with given name.                                            
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the compute pool; for example:            |
   |                      my_compute_pool                                         |
@@ -13337,7 +13334,7 @@
    Usage: root spcs compute-pool list [OPTIONS]                                   
                                                                                   
    Lists all available compute pools.                                             
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --like  -l      TEXT  SQL LIKE pattern for filtering objects by name. For    |
   |                       example, list --like "my%" lists all compute pools     |
@@ -13469,7 +13466,7 @@
    Usage: root spcs compute-pool resume [OPTIONS] NAME                            
                                                                                   
    Resumes the compute pool from a SUSPENDED state.                               
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the compute pool; for example:            |
   |                      my_compute_pool                                         |
@@ -13602,7 +13599,7 @@
    Usage: root spcs compute-pool set [OPTIONS] NAME                               
                                                                                   
    Sets one or more properties for the compute pool.                              
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the compute pool; for example:            |
   |                      my_compute_pool                                         |
@@ -13756,7 +13753,7 @@
                                                                                   
    Retrieves the status of a compute pool along with a relevant message, if one   
    exists.                                                                        
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    pool_name      TEXT  Identifier of the compute pool; for example:       |
   |                           my_compute_pool                                    |
@@ -13889,7 +13886,7 @@
    Usage: root spcs compute-pool stop-all [OPTIONS] NAME                          
                                                                                   
    Deletes all services running on the compute pool.                              
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the compute pool; for example:            |
   |                      my_compute_pool                                         |
@@ -14023,7 +14020,7 @@
                                                                                   
    Suspends the compute pool by suspending all currently running services and     
    then releasing compute pool nodes.                                             
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the compute pool; for example:            |
   |                      my_compute_pool                                         |
@@ -14156,7 +14153,7 @@
    Usage: root spcs compute-pool unset [OPTIONS] NAME                             
                                                                                   
    Resets one or more properties for the compute pool to their default value(s).  
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the compute pool; for example:            |
   |                      my_compute_pool                                         |
@@ -14298,7 +14295,7 @@
    Usage: root spcs compute-pool [OPTIONS] COMMAND [ARGS]...                      
                                                                                   
    Manages Snowpark Container Services compute pools.                             
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -14733,7 +14730,7 @@
    Usage: root spcs image-registry [OPTIONS] COMMAND [ARGS]...                    
                                                                                   
    Manages Snowpark Container Services image registries.                          
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -14754,7 +14751,7 @@
    Usage: root spcs image-repository create [OPTIONS] NAME                        
                                                                                   
    Creates a new image repository in the current schema.                          
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the image repository; for example:        |
   |                      my_repository                                           |
@@ -14890,7 +14887,7 @@
    Usage: root spcs image-repository deploy [OPTIONS] [ENTITY_ID]                 
                                                                                   
    Deploys a new image repository from snowflake.yml file.                        
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   |   entity_id      [ENTITY_ID]  ID of image-repository entity.                 |
   +------------------------------------------------------------------------------+
@@ -15026,7 +15023,7 @@
    Usage: root spcs image-repository drop [OPTIONS] NAME                          
                                                                                   
    Drops image repository with given name.                                        
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the image repository; for example:        |
   |                      my_repository                                           |
@@ -15159,7 +15156,7 @@
    Usage: root spcs image-repository list-images [OPTIONS] NAME                   
                                                                                   
    Lists images in the given repository.                                          
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the image repository; for example:        |
   |                      my_repository                                           |
@@ -15298,7 +15295,7 @@
    (deprecated)                                                                   
    Lists tags for the given image in a repository. This command is deprecated and 
    will be removed in a future release. Use list-images instead.                  
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the image repository; for example:        |
   |                      my_repository                                           |
@@ -15435,7 +15432,7 @@
    Usage: root spcs image-repository list [OPTIONS]                               
                                                                                   
    Lists all available image repositories.                                        
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
   |                                 name. For example, --like "my%" lists all    |
@@ -15573,7 +15570,7 @@
    Usage: root spcs image-repository url [OPTIONS] NAME                           
                                                                                   
    Returns the URL for the given repository.                                      
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the image repository; for example:        |
   |                      my_repository                                           |
@@ -15706,7 +15703,7 @@
    Usage: root spcs image-repository [OPTIONS] COMMAND [ARGS]...                  
                                                                                   
    Manages Snowpark Container Services image repositories.                        
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -15733,7 +15730,7 @@
    Usage: root spcs service create [OPTIONS] NAME                                 
                                                                                   
    Creates a new service in the current schema.                                   
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -15923,7 +15920,7 @@
    Usage: root spcs service deploy [OPTIONS] [ENTITY_ID]                          
                                                                                   
    Deploys a service defined in the project definition file.                      
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   |   entity_id      [ENTITY_ID]  ID of service entity.                          |
   +------------------------------------------------------------------------------+
@@ -16062,7 +16059,7 @@
    Usage: root spcs service describe [OPTIONS] NAME                               
                                                                                   
    Provides description of service.                                               
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -16194,7 +16191,7 @@
    Usage: root spcs service drop [OPTIONS] NAME                                   
                                                                                   
    Drops service with given name.                                                 
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -16326,7 +16323,7 @@
    Usage: root spcs service execute-job [OPTIONS] NAME                            
                                                                                   
    Creates and executes a job service in the current schema.                      
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -16471,7 +16468,7 @@
    Usage: root spcs service list-containers [OPTIONS] NAME                        
                                                                                   
    Lists all service containers in a service.                                     
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -16603,7 +16600,7 @@
    Usage: root spcs service list-endpoints [OPTIONS] NAME                         
                                                                                   
    Lists the endpoints in a service.                                              
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -16735,7 +16732,7 @@
    Usage: root spcs service list-instances [OPTIONS] NAME                         
                                                                                   
    Lists all service instances in a service.                                      
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -16867,7 +16864,7 @@
    Usage: root spcs service list-roles [OPTIONS] NAME                             
                                                                                   
    Lists all service roles in a service.                                          
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -16999,7 +16996,7 @@
    Usage: root spcs service list [OPTIONS]                                        
                                                                                   
    Lists all available services.                                                  
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
   |                                 name. For example, list --like "my%" lists   |
@@ -17137,7 +17134,7 @@
    Usage: root spcs service logs [OPTIONS] NAME                                   
                                                                                   
    Retrieves local logs from a service container.                                 
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -17281,7 +17278,7 @@
    Usage: root spcs service metrics [OPTIONS] NAME                                
                                                                                   
    Retrieve platform metrics for a service container.                             
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -17423,7 +17420,7 @@
    Usage: root spcs service resume [OPTIONS] NAME                                 
                                                                                   
    Resumes the service from a SUSPENDED state.                                    
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -17555,7 +17552,7 @@
    Usage: root spcs service set [OPTIONS] NAME                                    
                                                                                   
    Sets one or more properties for the service.                                   
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -17731,7 +17728,7 @@
    removed in a future release. Use describe instead to get service status and    
    use list-instances and list-containers to get more detailed information about  
    service instances and containers.                                              
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -17863,7 +17860,7 @@
    Usage: root spcs service suspend [OPTIONS] NAME                                
                                                                                   
    Suspends the service, shutting down and deleting all its containers.           
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -17995,7 +17992,7 @@
    Usage: root spcs service unset [OPTIONS] NAME                                  
                                                                                   
    Resets one or more properties for the service to their default value(s).       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -18140,7 +18137,7 @@
    Usage: root spcs service upgrade [OPTIONS] NAME                                
                                                                                   
    Updates an existing service with a new specification file.                     
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the service; for example: my_service      |
   |                      [required]                                              |
@@ -18274,7 +18271,7 @@
    Usage: root spcs service [OPTIONS] COMMAND [ARGS]...                           
                                                                                   
    Manages Snowpark Container Services services.                                  
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -18324,7 +18321,7 @@
                                                                                   
    Manages Snowpark Container Services compute pools, services, image registries, 
    and image repositories.                                                        
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -18345,13 +18342,13 @@
                                                                                   
    Executes Snowflake query.                                                      
                                                                                   
-   Use either query, filename or input option.                                    
-                                                                                  
-   Query to execute can be specified using query option, filename option (all     
-   queries from file will be executed) or via stdin by piping output from other   
-   command. For example cat my.sql | snow sql -i.                                 
-                                                                                  
-   The command supports variable substitution that happens on client-side.        
+   Use either query, filename or input option.
+
+   Query to execute can be specified using query option, filename option (all
+   queries from file will be executed) or via stdin by piping output from other
+   command. For example cat my.sql | snow sql -i.
+
+   The command supports variable substitution that happens on client-side.
                                                                                   
   +- Options --------------------------------------------------------------------+
   | --query           -q                      TEXT             Query to execute. |
@@ -18536,7 +18533,7 @@
    Copies all files from source path to target directory. This works for          
    uploading to and downloading files from the stage, and copying between named   
    stages.                                                                        
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    source_path           TEXT  Source path for copy operation. Can be      |
   |                                  either stage path or local. You can use a   |
@@ -18698,7 +18695,7 @@
    Usage: root stage create [OPTIONS] STAGE_NAME                                  
                                                                                   
    Creates a named stage if it does not already exist.                            
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    stage_name      TEXT  Identifier of the stage; for example: @my_stage   |
   |                            [required]                                        |
@@ -18839,7 +18836,7 @@
    Usage: root stage describe [OPTIONS] NAME                                      
                                                                                   
    Provides description of stage.                                                 
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the stage; for example: @my_stage         |
   |                      [required]                                              |
@@ -18971,7 +18968,7 @@
    Usage: root stage diff [OPTIONS] STAGE_NAME FOLDER_NAME                        
                                                                                   
    Diffs a stage with a local folder.                                             
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    stage_name       TEXT  Fully qualified name of a stage                  |
   |                             [required]                                       |
@@ -19105,7 +19102,7 @@
    Usage: root stage drop [OPTIONS] NAME                                          
                                                                                   
    Drops stage with given name.                                                   
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the stage; for example: @my_stage         |
   |                      [required]                                              |
@@ -19239,7 +19236,7 @@
    Execute immediate all files from the stage path. Files can be filtered with a  
    glob-like pattern, e.g. @stage/*.sql, @stage/dev/*. Only files with .sql       
    extension will be executed.                                                    
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    stage_path      TEXT  Stage path with files to be execute. For example  |
   |                            @stage/dev/*.                                     |
@@ -19388,7 +19385,7 @@
    Usage: root stage list-files [OPTIONS] STAGE_NAME                              
                                                                                   
    Lists the stage contents.                                                      
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    stage_name      TEXT  Identifier of the stage; for example:             |
   |                            @my_stage/path                                    |
@@ -19524,7 +19521,7 @@
    Usage: root stage list [OPTIONS]                                               
                                                                                   
    Lists all available stages.                                                    
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
   |                                 name. For example, list --like "my%" lists   |
@@ -19662,7 +19659,7 @@
    Usage: root stage remove [OPTIONS] STAGE_NAME FILE_NAME                        
                                                                                   
    Removes a file from a stage.                                                   
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    stage_name      TEXT  Identifier of the stage; for example: @my_stage   |
   |                            [required]                                        |
@@ -19796,7 +19793,7 @@
    Usage: root stage [OPTIONS] COMMAND [ARGS]...                                  
                                                                                   
    Manages stages.                                                                
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -19829,7 +19826,7 @@
    stage is used. If the specified stage does not exist, the command creates it.  
    If multiple Streamlits are defined in snowflake.yml and no entity_id is        
    provided then command will raise an error.                                     
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   |   entity_id      [ENTITY_ID]  ID of streamlit entity.                        |
   +------------------------------------------------------------------------------+
@@ -19975,7 +19972,7 @@
    Usage: root streamlit describe [OPTIONS] NAME                                  
                                                                                   
    Provides description of streamlit.                                             
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the Streamlit app; for example:           |
   |                      my_streamlit                                            |
@@ -20108,7 +20105,7 @@
    Usage: root streamlit drop [OPTIONS] NAME                                      
                                                                                   
    Drops streamlit with given name.                                               
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the Streamlit app; for example:           |
   |                      my_streamlit                                            |
@@ -20241,7 +20238,7 @@
    Usage: root streamlit execute [OPTIONS] NAME                                   
                                                                                   
    Executes a streamlit in a headless mode.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the Streamlit app; for example:           |
   |                      my_streamlit                                            |
@@ -20374,7 +20371,7 @@
    Usage: root streamlit get-url [OPTIONS] NAME                                   
                                                                                   
    Returns a URL to the specified Streamlit app                                   
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the Streamlit app; for example:           |
   |                      my_streamlit                                            |
@@ -20508,7 +20505,7 @@
    Usage: root streamlit list [OPTIONS]                                           
                                                                                   
    Lists all available streamlits.                                                
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --like  -l      TEXT            SQL LIKE pattern for filtering objects by    |
   |                                 name. For example, list --like "my%" lists   |
@@ -20646,7 +20643,7 @@
    Usage: root streamlit share [OPTIONS] NAME TO_ROLE                             
                                                                                   
    Shares a Streamlit app with another role.                                      
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name         TEXT  Identifier of the Streamlit app; for example:        |
   |                         my_streamlit                                         |
@@ -20781,7 +20778,7 @@
    Usage: root streamlit [OPTIONS] COMMAND [ARGS]...                              
                                                                                   
    Manages a Streamlit app in Snowflake.                                          
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -20810,7 +20807,7 @@
    Usage: root [OPTIONS] COMMAND [ARGS]...                                        
                                                                                   
    Snowflake CLI tool for developers [v0.0.0-test_patched]                        
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
@@ -20852,7 +20849,7 @@
    Usage: root app release-channel [OPTIONS] COMMAND [ARGS]...                    
                                                                                   
    Manages release channels of an application package                             
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -20875,7 +20872,7 @@
    Usage: root app release-directive [OPTIONS] COMMAND [ARGS]...                  
                                                                                   
    Manages release directives of an application package                           
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -20899,7 +20896,7 @@
    Usage: root app version [OPTIONS] COMMAND [ARGS]...                            
                                                                                   
    Manages versions defined in an application package                             
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -20922,7 +20919,7 @@
    Usage: root app [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
    Manages a Snowflake Native App                                                 
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -20962,7 +20959,7 @@
    Usage: root auth keypair [OPTIONS] COMMAND [ARGS]...                           
                                                                                   
    Manages authentication.                                                        
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -20986,7 +20983,7 @@
    Usage: root auth oidc [OPTIONS] COMMAND [ARGS]...                              
                                                                                   
    Manages OIDC authentication.                                                   
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21004,7 +21001,7 @@
    Usage: root auth [OPTIONS] COMMAND [ARGS]...                                   
                                                                                   
    Manages authentication methods.                                                
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21021,7 +21018,7 @@
    Usage: root connection [OPTIONS] COMMAND [ARGS]...                             
                                                                                   
    Manages connections to Snowflake.                                              
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21045,7 +21042,7 @@
                                                                                   
    Execute a dbt command on Snowflake. Subcommand name and all parameters         
    following it will be passed over to dbt.                                       
-                                                                                  
+
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
   |                      [required]                                              |
@@ -21204,7 +21201,7 @@
    Usage: root dbt [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
    Manages dbt on Snowflake projects.                                             
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21226,7 +21223,7 @@
    Usage: root dcm [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
    Manages DCM Projects in Snowflake.                                             
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21251,7 +21248,7 @@
    Usage: root git [OPTIONS] COMMAND [ARGS]...                                    
                                                                                   
    Manages git repositories in Snowflake.                                         
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21281,7 +21278,7 @@
    Usage: root notebook [OPTIONS] COMMAND [ARGS]...                               
                                                                                   
    Manages notebooks in Snowflake.                                                
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21303,7 +21300,7 @@
    Usage: root object [OPTIONS] COMMAND [ARGS]...                                 
                                                                                   
    Manages Snowflake objects like warehouses and stages                           
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21324,7 +21321,7 @@
    Usage: root plugin [OPTIONS] COMMAND [ARGS]...                                 
                                                                                   
    Plugin management commands.                                                    
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21343,7 +21340,7 @@
    Usage: root snowpark package [OPTIONS] COMMAND [ARGS]...                       
                                                                                   
    Manages custom Python packages for Snowpark                                    
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21364,7 +21361,7 @@
    Usage: root snowpark [OPTIONS] COMMAND [ARGS]...                               
                                                                                   
    Manages procedures and functions.                                              
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21395,7 +21392,7 @@
    Usage: root spcs compute-pool [OPTIONS] COMMAND [ARGS]...                      
                                                                                   
    Manages Snowpark Container Services compute pools.                             
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21425,7 +21422,7 @@
    Usage: root spcs image-registry [OPTIONS] COMMAND [ARGS]...                    
                                                                                   
    Manages Snowpark Container Services image registries.                          
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21446,7 +21443,7 @@
    Usage: root spcs image-repository [OPTIONS] COMMAND [ARGS]...                  
                                                                                   
    Manages Snowpark Container Services image repositories.                        
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21473,7 +21470,7 @@
    Usage: root spcs service [OPTIONS] COMMAND [ARGS]...                           
                                                                                   
    Manages Snowpark Container Services services.                                  
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21523,7 +21520,7 @@
                                                                                   
    Manages Snowpark Container Services compute pools, services, image registries, 
    and image repositories.                                                        
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21543,7 +21540,7 @@
    Usage: root stage [OPTIONS] COMMAND [ARGS]...                                  
                                                                                   
    Manages stages.                                                                
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
@@ -21571,7 +21568,7 @@
    Usage: root streamlit [OPTIONS] COMMAND [ARGS]...                              
                                                                                   
    Manages a Streamlit app in Snowflake.                                          
-                                                                                  
+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
