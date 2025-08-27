@@ -41,6 +41,10 @@ def test_console_base_class(capsys):
         def panel(self, message: str):
             print(message)
 
+        @contextmanager
+        def spinner(self):
+            yield
+
     console = TConsole()
     assert not console.is_silent
 
