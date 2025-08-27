@@ -33,7 +33,7 @@ RUN gem install dotenv -v 2.8.1
 RUN gem install fpm
 
 # Copy and run Python build script
-COPY scripts/packaging/build_python.sh /tmp/build_python.sh
+COPY build_python.sh /tmp/build_python.sh
 RUN chmod +x /tmp/build_python.sh && /tmp/build_python.sh && rm /tmp/build_python.sh
 
 # Update PATH to use our custom Python
