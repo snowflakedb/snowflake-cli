@@ -165,7 +165,7 @@ class QueriesCommand(ReplCommand):
         if start_date:
             if start_timestamp_ms:
                 return CompileCommandResult(
-                    error_message=f"'start_date' filter cannot be used with 'start' filter"
+                    error_message="'start_date' filter cannot be used with 'start' filter"
                 )
             try:
                 seconds = datetime.fromisoformat(start_date).timestamp()
@@ -178,7 +178,7 @@ class QueriesCommand(ReplCommand):
         if end_date:
             if end_timestamp_ms:
                 return CompileCommandResult(
-                    error_message=f"'end_date' filter cannot be used with 'end' filter"
+                    error_message="'end_date' filter cannot be used with 'end' filter"
                 )
             try:
                 seconds = datetime.fromisoformat(end_date).timestamp()
