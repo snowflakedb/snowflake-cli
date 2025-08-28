@@ -174,12 +174,49 @@ def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
                 )
                 framework_dir.mkdir(parents=True, exist_ok=True)
 
-                # Copy Python binary as framework library
+                # Find and copy the actual Python dynamic library
                 framework_lib = framework_dir / "Python"
                 import shutil
 
-                shutil.copy2(python_bin, framework_lib)
-                print(f"Copied Python binary to framework: {framework_lib}")
+                # Search for the real Python dynamic library
+                python_lib_found = False
+
+                # Look in the copied Python environment for libpython*.dylib
+                for lib_file in target_python_dir.rglob("libpython*.dylib"):
+                    if lib_file.is_file() and lib_file.stat().st_size > 1000000:
+                        print(f"Found Python dylib: {lib_file}")
+                        shutil.copy2(lib_file, framework_lib)
+                        python_lib_found = True
+                        break
+
+                # If not found in copied environment, search Homebrew locations
+                if not python_lib_found:
+                    homebrew_python_paths = [
+                        "/opt/homebrew/lib",
+                        "/usr/local/lib",
+                        "/opt/homebrew/Frameworks/Python.framework/Versions/3.10/lib",
+                        "/usr/local/Frameworks/Python.framework/Versions/3.10/lib",
+                    ]
+
+                    for search_path in homebrew_python_paths:
+                        if Path(search_path).exists():
+                            for lib_file in Path(search_path).rglob(
+                                "libpython3.10*.dylib"
+                            ):
+                                if lib_file.is_file():
+                                    print(f"Found Homebrew Python dylib: {lib_file}")
+                                    shutil.copy2(lib_file, framework_lib)
+                                    python_lib_found = True
+                                    break
+                        if python_lib_found:
+                            break
+
+                # Final fallback: use Python executable
+                if not python_lib_found:
+                    print("No Python dylib found, using Python executable as fallback")
+                    shutil.copy2(python_bin, framework_lib)
+
+                print(f"Copied Python library to framework: {framework_lib}")
 
                 # Fix framework references
                 framework_refs = []
