@@ -1,7 +1,7 @@
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.sql.snowsql_commands import (
+from snowflake.cli._plugins.sql.repl_commands import (
     AbortCommand,
     CompileCommandResult,
     QueriesCommand,
@@ -12,7 +12,7 @@ from snowflake.cli._plugins.sql.snowsql_commands import (
 
 _FAKE_QID = "00000000-0000-0000-0000-000000000000"
 
-PRINT_RESULT = "snowflake.cli._plugins.sql.snowsql_commands.print_result"
+PRINT_RESULT = "snowflake.cli._plugins.sql.repl_commands.print_result"
 
 
 def test_result_from_args():

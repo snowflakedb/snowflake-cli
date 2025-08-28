@@ -7,7 +7,7 @@ from typing import Any, Callable, Generator, List, Literal, Sequence, Tuple
 from urllib.request import urlopen
 
 from jinja2 import UndefinedError
-from snowflake.cli._plugins.sql.snowsql_commands import (
+from snowflake.cli._plugins.sql.repl_commands import (
     ReplCommand,
     compile_repl_command,
 )
