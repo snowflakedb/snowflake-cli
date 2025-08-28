@@ -109,13 +109,38 @@ def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
     print(f"macOS: Copying Python from current environment: {system_python_dir}")
     print(f"macOS: Target directory: {target_python_dir}")
 
-    # Copy the Python installation
-    shutil.copytree(
-        system_python_dir,
-        target_python_dir,
-        dirs_exist_ok=True,
-        ignore_dangling_symlinks=True,
-    )
+    # Copy only essential directories (similar to Linux approach)
+    essential_dirs = ["bin", "lib", "include"]
+    copied_dirs = []
+
+    for dir_name in essential_dirs:
+        source_dir = system_python_dir / dir_name
+        target_dir = target_python_dir / dir_name
+
+        if source_dir.exists():
+            print(f"Copying essential directory: {dir_name}")
+            shutil.copytree(
+                source_dir,
+                target_dir,
+                dirs_exist_ok=True,
+                ignore_dangling_symlinks=True,
+                ignore=shutil.ignore_patterns(
+                    "__pycache__",
+                    "*.pyc",
+                    "*.pyo",
+                    "test*",
+                    "tests*",
+                    "doc*",
+                    "*.egg-info",
+                    "pip*",
+                    "setuptools*",
+                ),
+            )
+            copied_dirs.append(dir_name)
+        else:
+            print(f"Warning: Essential directory {dir_name} not found in {source_dir}")
+
+    print(f"Copied essential directories: {copied_dirs}")
 
     # Copy essential macOS libraries
     lib_dir = target_python_dir / "lib"
