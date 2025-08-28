@@ -168,14 +168,21 @@ def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
             if "Python.framework" in otool_result.stdout:
                 print("Found framework dependencies, fixing paths...")
 
-                # Create framework structure
+                # Create complete framework structure including app bundle
                 framework_dir = (
                     target_python_dir / "Python.framework" / "Versions" / "3.10"
                 )
                 framework_dir.mkdir(parents=True, exist_ok=True)
 
-                # Find and copy the actual Python dynamic library
+                # Create the app bundle structure that Python expects
+                app_bundle_dir = (
+                    framework_dir / "Resources" / "Python.app" / "Contents" / "MacOS"
+                )
+                app_bundle_dir.mkdir(parents=True, exist_ok=True)
+
+                # Find and copy the actual Python dynamic library to both locations
                 framework_lib = framework_dir / "Python"
+                app_bundle_python = app_bundle_dir / "Python"
                 import shutil
 
                 # Search for the real Python dynamic library
@@ -186,6 +193,7 @@ def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
                     if lib_file.is_file() and lib_file.stat().st_size > 1000000:
                         print(f"Found Python dylib: {lib_file}")
                         shutil.copy2(lib_file, framework_lib)
+                        shutil.copy2(lib_file, app_bundle_python)
                         python_lib_found = True
                         break
 
@@ -206,6 +214,7 @@ def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
                                 if lib_file.is_file():
                                     print(f"Found Homebrew Python dylib: {lib_file}")
                                     shutil.copy2(lib_file, framework_lib)
+                                    shutil.copy2(lib_file, app_bundle_python)
                                     python_lib_found = True
                                     break
                         if python_lib_found:
@@ -215,8 +224,35 @@ def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
                 if not python_lib_found:
                     print("No Python dylib found, using Python executable as fallback")
                     shutil.copy2(python_bin, framework_lib)
+                    shutil.copy2(python_bin, app_bundle_python)
 
                 print(f"Copied Python library to framework: {framework_lib}")
+                print(f"Copied Python library to app bundle: {app_bundle_python}")
+
+                # Create a basic Info.plist for the app bundle
+                info_plist_dir = framework_dir / "Resources" / "Python.app" / "Contents"
+                info_plist_path = info_plist_dir / "Info.plist"
+                info_plist_content = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleExecutable</key>
+    <string>Python</string>
+    <key>CFBundleIdentifier</key>
+    <string>org.python.python</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>Python</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleVersion</key>
+    <string>3.10</string>
+</dict>
+</plist>
+"""
+                info_plist_path.write_text(info_plist_content)
+                print(f"Created Info.plist for app bundle: {info_plist_path}")
 
                 # Fix framework references
                 framework_refs = []
