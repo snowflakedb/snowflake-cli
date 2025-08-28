@@ -279,7 +279,9 @@ def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
                         new_ref = (
                             "@loader_path/../Python.framework/Versions/3.10/Python"
                         )
-                        print(f"Fixing framework path: {old_ref} -> {new_ref}")
+                        print(
+                            f"Fixing framework path in main Python: {old_ref} -> {new_ref}"
+                        )
                         subprocess.run(
                             [
                                 "install_name_tool",
@@ -291,15 +293,38 @@ def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
                             check=True,
                         )
 
-                # Re-sign the binary
+                        # Also fix the same path in the app bundle Python executable
+                        # From Python.app/Contents/MacOS/Python to Python.framework/Versions/3.10/Python
+                        app_bundle_new_ref = "@loader_path/../../../../Python"
+                        print(
+                            f"Fixing framework path in app bundle: {old_ref} -> {app_bundle_new_ref}"
+                        )
+                        subprocess.run(
+                            [
+                                "install_name_tool",
+                                "-change",
+                                old_ref,
+                                app_bundle_new_ref,
+                                str(app_bundle_python),
+                            ],
+                            check=True,
+                        )
+
+                # Re-sign both binaries
                 try:
                     subprocess.run(
                         ["codesign", "--force", "--sign", "-", str(python_bin)],
                         check=True,
                     )
-                    print("Python binary re-signed successfully")
+                    print("Main Python binary re-signed successfully")
+
+                    subprocess.run(
+                        ["codesign", "--force", "--sign", "-", str(app_bundle_python)],
+                        check=True,
+                    )
+                    print("App bundle Python binary re-signed successfully")
                 except subprocess.CalledProcessError as e:
-                    print(f"Warning: Could not re-sign binary: {e}")
+                    print(f"Warning: Could not re-sign binaries: {e}")
 
                 print("Framework paths fixed successfully")
 
