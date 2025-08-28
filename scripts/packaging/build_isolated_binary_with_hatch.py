@@ -153,6 +153,74 @@ def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
 
     print(f"Total essential libraries copied: {len(copied_libs)}")
 
+    # Fix framework paths in Python binary on macOS
+    python_bin = target_python_dir / "bin" / "python"
+    if python_bin.exists():
+        print("Checking for framework dependencies in Python binary...")
+        try:
+            import subprocess
+
+            # Check if the binary has framework dependencies
+            otool_result = subprocess.run(
+                ["otool", "-L", str(python_bin)], capture_output=True, text=True
+            )
+
+            if "Python.framework" in otool_result.stdout:
+                print("Found framework dependencies, fixing paths...")
+
+                # Create framework structure
+                framework_dir = (
+                    target_python_dir / "Python.framework" / "Versions" / "3.10"
+                )
+                framework_dir.mkdir(parents=True, exist_ok=True)
+
+                # Copy Python binary as framework library
+                framework_lib = framework_dir / "Python"
+                import shutil
+
+                shutil.copy2(python_bin, framework_lib)
+                print(f"Copied Python binary to framework: {framework_lib}")
+
+                # Fix framework references
+                framework_refs = []
+                for line in otool_result.stdout.split("\n"):
+                    if "Python.framework" in line and "@loader_path" in line:
+                        parts = line.strip().split()
+                        if len(parts) >= 1:
+                            framework_refs.append(parts[0])
+
+                for old_ref in framework_refs:
+                    if "Python.framework" in old_ref:
+                        new_ref = (
+                            "@loader_path/../Python.framework/Versions/3.10/Python"
+                        )
+                        print(f"Fixing framework path: {old_ref} -> {new_ref}")
+                        subprocess.run(
+                            [
+                                "install_name_tool",
+                                "-change",
+                                old_ref,
+                                new_ref,
+                                str(python_bin),
+                            ],
+                            check=True,
+                        )
+
+                # Re-sign the binary
+                try:
+                    subprocess.run(
+                        ["codesign", "--force", "--sign", "-", str(python_bin)],
+                        check=True,
+                    )
+                    print("Python binary re-signed successfully")
+                except subprocess.CalledProcessError as e:
+                    print(f"Warning: Could not re-sign binary: {e}")
+
+                print("Framework paths fixed successfully")
+
+        except Exception as e:
+            print(f"Warning: Could not fix framework paths: {e}")
+
     # Create a wrapper script for macOS
     python_wrapper = target_python_dir / "bin" / "python_wrapper"
     wrapper_content = f"""#!/bin/bash
