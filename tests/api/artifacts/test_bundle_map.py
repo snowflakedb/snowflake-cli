@@ -27,6 +27,7 @@ from snowflake.cli.api.artifacts.common import (
     SourceNotFoundError,
     TooManyFilesError,
 )
+from snowflake.cli.api.constants import PatternMatchingType
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.utils.path_utils import resolve_without_follow
 
@@ -921,3 +922,171 @@ def test_source_path_to_deploy_path(
         assert result == [resolve_without_follow(Path(expected_path))]
     else:
         assert result == []
+
+
+class TestRegexPatternMatching:
+    @pytest.fixture
+    def regex_bundle_map(self):
+        project_files = {
+            "manifest.yml": "# manifest",
+            "definitions/schema.sql": "-- schema",
+            "definitions/tables/users.sql": "-- users table",
+            "definitions/tables/orders.sql": "-- orders table",
+            "definitions/views/user_summary.sql": "-- user summary view",
+            "definitions/functions/calculate.sql": "-- calculate function",
+            "scripts/setup.sql": "-- setup script",
+            "scripts/cleanup.sql": "-- cleanup script",
+            "docs/README.md": "# Documentation",
+            "docs/api/endpoints.md": "# API docs",
+            "src/main.py": "# main python file",
+            "src/utils/helpers.py": "# helper utilities",
+            "test/unit/test_main.py": "# unit tests",
+            "test/integration/test_api.py": "# integration tests",
+        }
+        with temp_local_dir(project_files) as project_root:
+            deploy_root = project_root / "output" / "deploy"
+            yield BundleMap(
+                project_root=project_root,
+                deploy_root=deploy_root,
+                pattern_type=PatternMatchingType.REGEX,
+            )
+
+    @pytest.mark.parametrize(
+        "pattern,expected_mappings",
+        [
+            pytest.param(
+                r"definitions/.*\.sql",
+                {
+                    "definitions/schema.sql": "definitions/schema.sql",
+                    "definitions/tables/users.sql": "definitions/tables/users.sql",
+                    "definitions/tables/orders.sql": "definitions/tables/orders.sql",
+                    "definitions/views/user_summary.sql": "definitions/views/user_summary.sql",
+                    "definitions/functions/calculate.sql": "definitions/functions/calculate.sql",
+                },
+                id="all_sql_files_in_definitions_directory",
+            ),
+            pytest.param(
+                r"definitions/tables/.*\.sql",
+                {
+                    "definitions/tables/users.sql": "definitions/tables/users.sql",
+                    "definitions/tables/orders.sql": "definitions/tables/orders.sql",
+                },
+                id="sql_files_in_tables_subdirectory_only",
+            ),
+            pytest.param(
+                r".*\.py$",
+                {
+                    "src/main.py": "src/main.py",
+                    "src/utils/helpers.py": "src/utils/helpers.py",
+                    "test/unit/test_main.py": "test/unit/test_main.py",
+                    "test/integration/test_api.py": "test/integration/test_api.py",
+                },
+                id="all_python_files",
+            ),
+            pytest.param(
+                r"test/(unit|integration)/.*\.py$",
+                {
+                    "test/unit/test_main.py": "test/unit/test_main.py",
+                    "test/integration/test_api.py": "test/integration/test_api.py",
+                },
+                id="test_files_with_alternation_pattern",
+            ),
+            pytest.param(
+                r"^test.*\.py$",
+                {
+                    "test/unit/test_main.py": "test/unit/test_main.py",
+                    "test/integration/test_api.py": "test/integration/test_api.py",
+                },
+                id="test_files_with_anchored_pattern",
+            ),
+            pytest.param(
+                r"src/.*\.py$",
+                {
+                    "src/main.py": "src/main.py",
+                    "src/utils/helpers.py": "src/utils/helpers.py",
+                },
+                id="python_files_in_src_directory",
+            ),
+        ],
+    )
+    def test_bundle_map_regex_basic_patterns(
+        self, regex_bundle_map, pattern, expected_mappings
+    ):
+        regex_bundle_map.add(PathMapping(src=pattern))
+        verify_mappings(regex_bundle_map, expected_mappings)
+
+    def test_bundle_map_regex_multiple_patterns(self, regex_bundle_map):
+        """Test adding multiple regex patterns to the same bundle map."""
+        # Add multiple patterns
+        regex_bundle_map.add(PathMapping(src=r".*\.yml$"))  # YAML files
+        regex_bundle_map.add(PathMapping(src=r"scripts/.*\.sql$"))  # SQL scripts
+
+        verify_mappings(
+            regex_bundle_map,
+            {
+                "manifest.yml": "manifest.yml",
+                "scripts/setup.sql": "scripts/setup.sql",
+                "scripts/cleanup.sql": "scripts/cleanup.sql",
+            },
+        )
+
+    @pytest.mark.parametrize(
+        "pattern,expected_exception,match_text",
+        [
+            pytest.param(
+                r"docs/readme\.md$",  # lowercase pattern that won't match README.md
+                SourceNotFoundError,
+                None,
+                id="case_sensitive_pattern_no_match",
+            ),
+            pytest.param(
+                r"nonexistent/.*\.txt$",  # pattern that matches no files
+                SourceNotFoundError,
+                None,
+                id="pattern_matches_no_existing_files",
+            ),
+            pytest.param(
+                r"test[invalid",  # invalid regex with unmatched bracket
+                ArtifactError,
+                "Invalid regex pattern",
+                id="invalid_regex_pattern_syntax",
+            ),
+        ],
+    )
+    def test_bundle_map_regex_error_conditions(
+        self, regex_bundle_map, pattern, expected_exception, match_text
+    ):
+        """Test various error conditions with regex patterns."""
+        with pytest.raises(
+            expected_exception, match=match_text
+        ) if match_text else pytest.raises(expected_exception):
+            regex_bundle_map.add(PathMapping(src=pattern))
+
+    def test_bundle_map_regex_special_characters(self, regex_bundle_map):
+        """Test regex patterns with special characters that need escaping in file names."""
+        # Create a bundle map with files containing special characters
+        special_files = {
+            "file-with-dashes.txt": "content",
+            "file.with.dots.txt": "content",
+            "file+with+plus.txt": "content",
+            "file(with)parens.txt": "content",
+            "normal_file.txt": "content",
+        }
+
+        with temp_local_dir(special_files) as project_root:
+            deploy_root = project_root / "output" / "deploy"
+            bundle_map = BundleMap(
+                project_root=project_root,
+                deploy_root=deploy_root,
+                pattern_type=PatternMatchingType.REGEX,
+            )
+
+            # Pattern to match files with dashes (dash doesn't need escaping in this context)
+            bundle_map.add(PathMapping(src=r"file-with-.*\.txt$"))
+
+            verify_mappings(
+                bundle_map,
+                {
+                    "file-with-dashes.txt": "file-with-dashes.txt",
+                },
+            )

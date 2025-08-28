@@ -82,7 +82,7 @@ class TestDCMDeploy:
         mock_pm().execute.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
-            from_stage="MockDatabase.MockSchema.DCM_MY_PROJECT_1234567890_TMP_STAGE",
+            from_stage="MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE",
             variables=None,
             alias=None,
             output_path=None,
@@ -249,7 +249,7 @@ class TestDCMPlan:
         mock_pm().execute.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration="some_configuration",
-            from_stage="MockDatabase.MockSchema.DCM_MY_PROJECT_1234567890_TMP_STAGE",
+            from_stage="MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE",
             dry_run=True,
             variables=["key=value"],
             output_path=None,

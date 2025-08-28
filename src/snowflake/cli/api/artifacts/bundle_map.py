@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import itertools
 import os
+import re
 from pathlib import Path
 from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple
 
@@ -11,6 +12,8 @@ from snowflake.cli.api.artifacts.common import (
     SourceNotFoundError,
     TooManyFilesError,
 )
+from snowflake.cli.api.constants import PatternMatchingType
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.utils.path_utils import resolve_without_follow
 
@@ -38,9 +41,16 @@ class BundleMap:
 
     :param project_root: The root directory of the project and base for all relative paths. Must be an absolute path.
     :param deploy_root: The directory where artifacts should be copied to. Must be an absolute path.
+    :param pattern_type: The pattern matching type to use for artifact resolution. Defaults to GLOB.
     """
 
-    def __init__(self, *, project_root: Path, deploy_root: Path):
+    def __init__(
+        self,
+        *,
+        project_root: Path,
+        deploy_root: Path,
+        pattern_type: PatternMatchingType = PatternMatchingType.GLOB,
+    ):
         # If a relative path ends up here, it's a bug in the app and can lead to other
         # subtle bugs as paths would be resolved relative to the current working directory.
         assert (
@@ -52,6 +62,7 @@ class BundleMap:
 
         self._project_root: Path = resolve_without_follow(project_root)
         self._deploy_root: Path = resolve_without_follow(deploy_root)
+        self._pattern_type: PatternMatchingType = pattern_type
         self._artifact_map = _ArtifactPathMap(project_root=self._project_root)
 
     def is_empty(self) -> bool:
@@ -112,7 +123,14 @@ class BundleMap:
         if src_path.is_absolute():
             raise ArtifactError("Source path must be a relative path")
 
-        for resolved_src in self._project_root.glob(src):
+        if self._pattern_type == PatternMatchingType.REGEX:
+            resolved_sources = self._resolve_regex_pattern(src)
+        elif self._pattern_type == PatternMatchingType.GLOB:
+            resolved_sources = self._project_root.glob(src)
+        else:
+            raise CliError(f"Unsupported pattern type: {self._pattern_type}")
+
+        for resolved_src in resolved_sources:
             match_found = True
 
             if dest:
@@ -139,6 +157,23 @@ class BundleMap:
 
         if not match_found:
             raise SourceNotFoundError(src)
+
+    def _resolve_regex_pattern(self, pattern: str):
+        """
+        Resolve files matching a regex pattern.
+        """
+        try:
+            compiled_pattern = re.compile(pattern)
+        except re.error as e:
+            raise ArtifactError(f"Invalid regex pattern '{pattern}': {e}")
+
+        for path in self._project_root.rglob("*"):
+            if path.is_file():
+                relative_path = str(path.relative_to(self._project_root))
+                # Normalize path separators for cross-platform compatibility
+                relative_path = relative_path.replace("\\", "/")
+                if compiled_pattern.match(relative_path):
+                    yield path
 
     def add(self, mapping: PathMapping) -> None:
         """

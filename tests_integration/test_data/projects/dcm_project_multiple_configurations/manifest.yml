@@ -1,4 +1,7 @@
 manifest_version: 1
+
+type: "dcm_project"
+
 include_definitions:
   - file_a.sql
 configurations:
