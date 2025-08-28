@@ -274,55 +274,103 @@ def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
                         if len(parts) >= 1:
                             framework_refs.append(parts[0])
 
-                for old_ref in framework_refs:
+                print(f"Found {len(framework_refs)} framework references to fix")
+
+                # Limit processing to avoid timeout
+                if len(framework_refs) > 5:
+                    print(
+                        f"Warning: Too many framework references ({len(framework_refs)}), limiting to first 5"
+                    )
+                    framework_refs = framework_refs[:5]
+                elif len(framework_refs) == 0:
+                    print("No framework references found to fix")
+
+                # Process unique framework references only to avoid duplicates
+                if framework_refs:
+                    unique_refs = list(set(framework_refs))
+                    print(f"Processing {len(unique_refs)} unique framework references")
+                else:
+                    unique_refs = []
+
+                for i, old_ref in enumerate(unique_refs):
                     if "Python.framework" in old_ref:
+                        print(
+                            f"Processing reference {i+1}/{len(unique_refs)}: {old_ref}"
+                        )
+
                         new_ref = (
                             "@loader_path/../Python.framework/Versions/3.10/Python"
                         )
-                        print(
-                            f"Fixing framework path in main Python: {old_ref} -> {new_ref}"
-                        )
-                        subprocess.run(
-                            [
-                                "install_name_tool",
-                                "-change",
-                                old_ref,
-                                new_ref,
-                                str(python_bin),
-                            ],
-                            check=True,
-                        )
+                        print(f"Fixing main Python: {old_ref} -> {new_ref}")
+
+                        try:
+                            subprocess.run(
+                                [
+                                    "install_name_tool",
+                                    "-change",
+                                    old_ref,
+                                    new_ref,
+                                    str(python_bin),
+                                ],
+                                check=True,
+                                timeout=30,  # 30 second timeout per operation
+                            )
+                        except subprocess.TimeoutExpired:
+                            print(
+                                f"Warning: Timeout fixing main Python path for {old_ref}"
+                            )
+                            continue
+                        except subprocess.CalledProcessError as e:
+                            print(
+                                f"Warning: Failed to fix main Python path for {old_ref}: {e}"
+                            )
+                            continue
 
                         # Also fix the same path in the app bundle Python executable
-                        # From Python.app/Contents/MacOS/Python to Python.framework/Versions/3.10/Python
                         app_bundle_new_ref = "@loader_path/../../../../Python"
-                        print(
-                            f"Fixing framework path in app bundle: {old_ref} -> {app_bundle_new_ref}"
-                        )
-                        subprocess.run(
-                            [
-                                "install_name_tool",
-                                "-change",
-                                old_ref,
-                                app_bundle_new_ref,
-                                str(app_bundle_python),
-                            ],
-                            check=True,
-                        )
+                        print(f"Fixing app bundle: {old_ref} -> {app_bundle_new_ref}")
 
-                # Re-sign both binaries
+                        try:
+                            subprocess.run(
+                                [
+                                    "install_name_tool",
+                                    "-change",
+                                    old_ref,
+                                    app_bundle_new_ref,
+                                    str(app_bundle_python),
+                                ],
+                                check=True,
+                                timeout=30,  # 30 second timeout per operation
+                            )
+                        except subprocess.TimeoutExpired:
+                            print(
+                                f"Warning: Timeout fixing app bundle path for {old_ref}"
+                            )
+                            continue
+                        except subprocess.CalledProcessError as e:
+                            print(
+                                f"Warning: Failed to fix app bundle path for {old_ref}: {e}"
+                            )
+                            continue
+
+                # Re-sign both binaries with timeout protection
+                print("Re-signing binaries...")
                 try:
                     subprocess.run(
                         ["codesign", "--force", "--sign", "-", str(python_bin)],
                         check=True,
+                        timeout=60,  # 60 second timeout for signing
                     )
                     print("Main Python binary re-signed successfully")
 
                     subprocess.run(
                         ["codesign", "--force", "--sign", "-", str(app_bundle_python)],
                         check=True,
+                        timeout=60,  # 60 second timeout for signing
                     )
                     print("App bundle Python binary re-signed successfully")
+                except subprocess.TimeoutExpired:
+                    print("Warning: Timeout during binary re-signing")
                 except subprocess.CalledProcessError as e:
                     print(f"Warning: Could not re-sign binaries: {e}")
 
@@ -330,6 +378,8 @@ def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
 
         except Exception as e:
             print(f"Warning: Could not fix framework paths: {e}")
+
+        print("Framework fixing process completed")
 
     # Create a wrapper script for macOS
     python_wrapper = target_python_dir / "bin" / "python_wrapper"
