@@ -97,15 +97,103 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
     return archive
 
 
-def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
-    """Copy our conservatively compiled system Python for bundling."""
+def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
+    """Install Python for macOS using current environment."""
+    import shutil
+    import sys
+
+    # Use the current Python environment (from activated venv)
+    system_python_dir = Path(sys.prefix)
+    target_python_dir = python_tmp_dir / python_version
+
+    print(f"macOS: Copying Python from current environment: {system_python_dir}")
+    print(f"macOS: Target directory: {target_python_dir}")
+
+    # Copy the Python installation
+    shutil.copytree(
+        system_python_dir,
+        target_python_dir,
+        dirs_exist_ok=True,
+        ignore_dangling_symlinks=True,
+    )
+
+    # Copy essential macOS libraries
+    lib_dir = target_python_dir / "lib"
+    lib_dir.mkdir(exist_ok=True)
+
+    # macOS essential libraries (.dylib format)
+    essential_lib_names = [
+        "libssl.3.dylib",  # OpenSSL
+        "libcrypto.3.dylib",  # Crypto
+    ]
+
+    # Common Homebrew library locations
+    possible_lib_paths = [
+        "/opt/homebrew/lib",  # Apple Silicon
+        "/usr/local/lib",  # Intel
+    ]
+
+    copied_libs = []
+    for lib_name in essential_lib_names:
+        found = False
+        for lib_path_dir in possible_lib_paths:
+            lib_path = Path(lib_path_dir) / lib_name
+            if lib_path.exists():
+                try:
+                    shutil.copy2(lib_path, lib_dir / lib_name)
+                    copied_libs.append(lib_name)
+                    print(f"Copied essential library: {lib_name} from {lib_path}")
+                    found = True
+                    break
+                except (OSError, IOError, PermissionError) as e:
+                    print(f"Warning: Failed to copy {lib_name} from {lib_path}: {e}")
+
+        if not found:
+            print(f"Warning: Could not find {lib_name}")
+
+    print(f"Total essential libraries copied: {len(copied_libs)}")
+
+    # Create a wrapper script for macOS
+    python_wrapper = target_python_dir / "bin" / "python_wrapper"
+    wrapper_content = f"""#!/bin/bash
+# Auto-generated wrapper for relocatable Python on macOS
+SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
+PYTHON_HOME="$(dirname "$SCRIPT_DIR")"
+export PYTHONHOME="$PYTHON_HOME"
+export DYLD_LIBRARY_PATH="$PYTHON_HOME/lib:$DYLD_LIBRARY_PATH"
+exec "$SCRIPT_DIR/python" "$@"
+"""
+
+    with open(python_wrapper, "w") as f:
+        f.write(wrapper_content)
+
+    import os
+
+    os.chmod(python_wrapper, 0o755)
+    print(f"Created Python wrapper: {python_wrapper}")
+
+    # Create hatch-dist.json to point to our wrapper
+    import json
+
+    hatch_dist_info = {"python_path": "bin/python_wrapper"}
+    with open(target_python_dir / "hatch-dist.json", "w") as f:
+        json.dump(hatch_dist_info, f)
+
+    print(f"Successfully prepared Python distribution at {target_python_dir}")
+    return True
+
+
+def install_python_linux(python_tmp_dir: Path, python_version: str) -> bool:
+    """Install Python for Linux using custom built Python."""
     import shutil
 
     # Use the system Python we built instead of hatch installing one
     system_python_dir = Path("/usr/local")
     target_python_dir = python_tmp_dir / python_version
 
-    print(f"Copying system Python from {system_python_dir} to {target_python_dir}")
+    print(
+        f"Linux: Copying system Python from {system_python_dir} to {target_python_dir}"
+    )
 
     # Copy the entire system Python installation (ignore missing directories)
     shutil.copytree(
@@ -191,6 +279,20 @@ exec "$SCRIPT_DIR/python" "$@"
 
     print(f"Successfully copied system Python to {target_python_dir}")
     return True
+
+
+def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
+    """Copy our conservatively compiled system Python for bundling."""
+    import platform
+
+    if platform.system().lower() == "darwin":
+        print(
+            "Detected macOS: Using simplified approach with current Python environment"
+        )
+        return install_python_macos(python_tmp_dir, python_version)
+    else:
+        print("Detected Linux: Using existing custom Python approach")
+        return install_python_linux(python_tmp_dir, python_version)
 
 
 @contextlib.contextmanager
