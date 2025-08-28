@@ -192,8 +192,10 @@ def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
                 for lib_file in target_python_dir.rglob("libpython*.dylib"):
                     if lib_file.is_file() and lib_file.stat().st_size > 1000000:
                         print(f"Found Python dylib: {lib_file}")
-                        shutil.copy2(lib_file, framework_lib)
-                        shutil.copy2(lib_file, app_bundle_python)
+                        shutil.copy2(lib_file, framework_lib)  # Library to framework
+                        shutil.copy2(
+                            python_bin, app_bundle_python
+                        )  # Executable to app bundle
                         python_lib_found = True
                         break
 
@@ -213,8 +215,12 @@ def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
                             ):
                                 if lib_file.is_file():
                                     print(f"Found Homebrew Python dylib: {lib_file}")
-                                    shutil.copy2(lib_file, framework_lib)
-                                    shutil.copy2(lib_file, app_bundle_python)
+                                    shutil.copy2(
+                                        lib_file, framework_lib
+                                    )  # Library to framework
+                                    shutil.copy2(
+                                        python_bin, app_bundle_python
+                                    )  # Executable to app bundle
                                     python_lib_found = True
                                     break
                         if python_lib_found:
@@ -223,11 +229,17 @@ def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
                 # Final fallback: use Python executable
                 if not python_lib_found:
                     print("No Python dylib found, using Python executable as fallback")
-                    shutil.copy2(python_bin, framework_lib)
+                    shutil.copy2(
+                        python_bin, framework_lib
+                    )  # Executable to both as fallback
                     shutil.copy2(python_bin, app_bundle_python)
 
                 print(f"Copied Python library to framework: {framework_lib}")
-                print(f"Copied Python library to app bundle: {app_bundle_python}")
+                print(f"Copied Python executable to app bundle: {app_bundle_python}")
+
+                # Make the app bundle Python executable
+                app_bundle_python.chmod(0o755)
+                print(f"Made app bundle Python executable: {app_bundle_python}")
 
                 # Create a basic Info.plist for the app bundle
                 info_plist_dir = framework_dir / "Resources" / "Python.app" / "Contents"
