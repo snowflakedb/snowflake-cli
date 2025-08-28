@@ -5,6 +5,7 @@ from pathlib import Path
 
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.artifacts.common import NotInDeployRootError
+from snowflake.cli.api.constants import PatternMatchingType
 from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.project.schemas.entities.common import Artifacts
 from snowflake.cli.api.secure_path import SecurePath
@@ -54,16 +55,26 @@ def symlink_or_copy(src: Path, dst: Path, deploy_root: Path) -> None:
                 )
 
 
-def bundle_artifacts(project_paths: ProjectPaths, artifacts: Artifacts) -> BundleMap:
+def bundle_artifacts(
+    project_paths: ProjectPaths,
+    artifacts: Artifacts,
+    pattern_type: PatternMatchingType = PatternMatchingType.GLOB,
+) -> BundleMap:
     """
     Creates a bundle directory (project_paths.bundle_root) with all artifacts (using symlink_or_copy function above).
     Previous contents of the directory are deleted.
 
     Returns a BundleMap containing the mapping between artifacts and their location in bundle directory.
+
+    Args:
+        project_paths: Project paths configuration
+        artifacts: List of artifacts to bundle
+        pattern_type: The pattern matching type to use for artifact resolution. Defaults to GLOB.
     """
     bundle_map = BundleMap(
         project_root=project_paths.project_root,
         deploy_root=project_paths.bundle_root,
+        pattern_type=pattern_type,
     )
     for artifact in artifacts:
         bundle_map.add(artifact)
