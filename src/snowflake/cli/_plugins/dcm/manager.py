@@ -14,7 +14,6 @@
 
 from typing import List
 
-from snowflake.cli._plugins.dcm.dcm_project_entity_model import DCMProjectEntityModel
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.identifiers import FQN
@@ -25,7 +24,7 @@ from snowflake.cli.api.stage_path import StagePath
 class DCMProjectManager(SqlExecutionMixin):
     def execute(
         self,
-        project_name: FQN,
+        project_identifier: FQN,
         from_stage: str,
         configuration: str | None = None,
         variables: List[str] | None = None,
@@ -34,7 +33,7 @@ class DCMProjectManager(SqlExecutionMixin):
         output_path: str | None = None,
     ):
 
-        query = f"EXECUTE DCM PROJECT {project_name.sql_identifier}"
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier}"
         if dry_run:
             query += " PLAN"
         else:
@@ -56,40 +55,24 @@ class DCMProjectManager(SqlExecutionMixin):
             query += f" OUTPUT_PATH {output_stage_path.absolute_path()}"
         return self.execute_query(query=query)
 
-    def create(self, project: DCMProjectEntityModel) -> None:
-        query = f"CREATE DCM PROJECT {project.fqn.sql_identifier}"
+    def create(self, project_identifier: FQN) -> None:
+        query = f"CREATE DCM PROJECT {project_identifier.sql_identifier}"
         self.execute_query(query)
 
-    def _create_version(
-        self,
-        project_name: FQN,
-        from_stage: str,
-        alias: str | None = None,
-        comment: str | None = None,
-    ):
-        stage_path = StagePath.from_stage_str(from_stage)
-        query = f"ALTER DCM PROJECT {project_name.identifier} ADD VERSION"
-        if alias:
-            query += f" IF NOT EXISTS {alias}"
-        query += f" FROM {stage_path.absolute_path(at_prefix=True)}"
-        if comment:
-            query += f" COMMENT = '{comment}'"
-        return self.execute_query(query=query)
-
-    def list_versions(self, project_name: FQN):
-        query = f"SHOW VERSIONS IN DCM PROJECT {project_name.identifier}"
+    def list_versions(self, project_identifier: FQN):
+        query = f"SHOW VERSIONS IN DCM PROJECT {project_identifier.identifier}"
         return self.execute_query(query=query)
 
     def drop_deployment(
         self,
-        project_name: FQN,
+        project_identifier: FQN,
         version_name: str,
         if_exists: bool = False,
     ):
         """
         Drops a version from the DCM Project.
         """
-        query = f"ALTER DCM PROJECT {project_name.identifier} DROP VERSION"
+        query = f"ALTER DCM PROJECT {project_identifier.identifier} DROP VERSION"
         if if_exists:
             query += " IF EXISTS"
         query += f" {version_name}"
