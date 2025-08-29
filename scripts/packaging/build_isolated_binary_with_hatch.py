@@ -101,17 +101,21 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
     """Install Python distribution - platform specific approach."""
     import platform
 
-    if platform.system().lower() == "darwin":
-        print("Detected macOS: Using original hatch python install approach")
-        return install_python_macos(python_tmp_dir, python_version)
+    system = platform.system().lower()
+
+    if system in ["darwin", "windows"]:
+        platform_name = "macOS" if system == "darwin" else "Windows"
+        print(f"Detected {platform_name}: Using original hatch python install approach")
+        return install_python_original(python_tmp_dir, python_version)
     else:
         print("Detected Linux: Using optimized system Python approach")
         return install_python_linux(python_tmp_dir, python_version)
 
 
-def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
-    """Install Python dist using original hatch approach (macOS)."""
+def install_python_original(python_tmp_dir: Path, python_version: str) -> bool:
+    """Install Python dist using original hatch approach (macOS and Windows)."""
     # This is the original working approach from commit 8da461e3
+    # Works for both macOS and Windows - provides complete Python installation
     completed_proc = subprocess.run(
         [
             "hatch",
