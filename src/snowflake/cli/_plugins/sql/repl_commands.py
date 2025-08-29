@@ -1,35 +1,90 @@
-import enum
+import abc
+import logging
 import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Generator, Iterable, List, Tuple
+from typing import Any, Dict, Generator, Iterable, List, Tuple, Type
 from urllib.parse import urlencode
 
 from snowflake.cli._app.printing import print_result
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.output.types import CollectionResult, QueryResult
 from snowflake.connector import SnowflakeConnection
+
+# Command pattern to detect REPL commands
+COMMAND_PATTERN = re.compile(r"^(![\w]+)(?:\s+(.*))?$")
+
+log = logging.getLogger(__name__)
 
 VALID_UUID_RE = re.compile(
     r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
 )
 
-
-class CommandType(enum.Enum):
-    QUERIES = "queries"
-    UNKNOWN = "unknown"
-    URL = "url"
+# Registry for auto-discovery of commands
+_COMMAND_REGISTRY: Dict[str, Type["ReplCommand"]] = {}
 
 
-class ReplCommand:
+class UnknownCommandError(CliError):
+    """Raised when a command pattern matches but no registered command is found."""
+
+    def __init__(self, command_name: str):
+        self.command_name = command_name
+        super().__init__(f"Unknown command '{command_name}'")
+
+
+def register_command(command_name: str | List[str]):
+    """Decorator to register a command class."""
+
+    def decorator(cls):
+        command_names = (
+            command_name if isinstance(command_name, list) else [command_name]
+        )
+        for cmd_name in command_names:
+            _COMMAND_REGISTRY[cmd_name.lower()] = cls
+        return cls
+
+    return decorator
+
+
+class ReplCommand(abc.ABC):
+    """Base class for REPL commands."""
+
+    @abc.abstractmethod
     def execute(self, connection: SnowflakeConnection):
         """Executes command and prints the result."""
-        raise NotImplementedError
+        ...
 
     @classmethod
-    def from_args(cls, args, kwargs) -> "CompileCommandResult":
-        """Validates arguments and creates command ready for execution."""
-        raise NotImplementedError
+    @abc.abstractmethod
+    def from_args(cls, raw_args) -> "CompileCommandResult":
+        """Parses raw argument string and creates command ready for execution."""
+        ...
+
+    @classmethod
+    def _parse_args(cls, raw_args: str) -> tuple[List[str], Dict[str, Any]]:
+        """Parse raw argument string into positional args and keyword arguments.
+
+        This is a helper method that commands can use for standard argument parsing.
+        Commands can override this if they need custom parsing logic.
+        """
+        if not raw_args:
+            return [], {}
+
+        args = []
+        kwargs = {}
+        cmd_args = raw_args.split()
+
+        for cmd_arg in cmd_args:
+            if "=" not in cmd_arg:
+                args.append(cmd_arg)
+            else:
+                key, val = cmd_arg.split("=", maxsplit=1)
+                if key in kwargs:
+                    raise ValueError(f"Duplicated argument '{key}'")
+                kwargs[key] = val
+
+        return args, kwargs
 
 
 def _print_result_to_stdout(headers: Iterable[str], rows: Iterable[Iterable[Any]]):
@@ -45,8 +100,11 @@ class CompileCommandResult:
     error_message: str | None = None
 
 
+@register_command("!queries")
 @dataclass
 class QueriesCommand(ReplCommand):
+    """Command to query and display query history."""
+
     help_mode: bool = False
     from_current_session: bool = False
     amount: int = 25
@@ -129,7 +187,25 @@ class QueriesCommand(ReplCommand):
             )
 
     @classmethod
-    def from_args(cls, args: List[str], kwargs: Dict[str, Any]) -> CompileCommandResult:
+    def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
+        """Parse arguments and create QueriesCommand instance."""
+        # Handle both old and new calling patterns
+        if isinstance(raw_args, str):
+            # New pattern: from_args("amount=3 user=jdoe")
+            try:
+                args, kwargs = cls._parse_args(raw_args)
+            except ValueError as e:
+                return CompileCommandResult(error_message=str(e))
+        else:
+            # Old pattern: from_args(["session"], {"amount": "3"})
+            args, kwargs = raw_args, kwargs or {}
+
+        return cls._from_parsed_args(args, kwargs)
+
+    @classmethod
+    def _from_parsed_args(
+        cls, args: List[str], kwargs: Dict[str, Any]
+    ) -> CompileCommandResult:
         if "help" in args:
             return CompileCommandResult(command=cls(help_mode=True))
 
@@ -271,8 +347,11 @@ def _validate_only_arg_is_query_id(
     return None
 
 
+@register_command("!result")
 @dataclass
 class ResultCommand(ReplCommand):
+    """Command to retrieve and display query results by ID."""
+
     query_id: str
 
     def execute(self, connection: SnowflakeConnection):
@@ -281,15 +360,34 @@ class ResultCommand(ReplCommand):
         print_result(QueryResult(cursor=cursor))
 
     @classmethod
-    def from_args(cls, args, kwargs) -> CompileCommandResult:
+    def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
+        """Parse arguments and create ResultCommand instance."""
+        # Handle both old and new calling patterns
+        if isinstance(raw_args, str):
+            # New pattern: from_args("00000000-0000-0000-0000-000000000000")
+            try:
+                args, kwargs = cls._parse_args(raw_args)
+            except ValueError as e:
+                return CompileCommandResult(error_message=str(e))
+        else:
+            # Old pattern: from_args(["query_id"], {})
+            args, kwargs = raw_args, kwargs or {}
+
+        return cls._from_parsed_args(args, kwargs)
+
+    @classmethod
+    def _from_parsed_args(cls, args, kwargs) -> CompileCommandResult:
         error_msg = _validate_only_arg_is_query_id("result", args, kwargs)
         if error_msg:
             return CompileCommandResult(error_message=error_msg)
         return CompileCommandResult(command=cls(args[0]))
 
 
+@register_command("!abort")
 @dataclass
 class AbortCommand(ReplCommand):
+    """Command to abort a running query by ID."""
+
     query_id: str
 
     def execute(self, connection: SnowflakeConnection):
@@ -298,37 +396,99 @@ class AbortCommand(ReplCommand):
         print_result(QueryResult(cursor=cursor))
 
     @classmethod
-    def from_args(cls, args, kwargs) -> CompileCommandResult:
+    def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
+        """Parse arguments and create AbortCommand instance."""
+        # Handle both old and new calling patterns
+        if isinstance(raw_args, str):
+            # New pattern: from_args("00000000-0000-0000-0000-000000000000")
+            try:
+                args, kwargs = cls._parse_args(raw_args)
+            except ValueError as e:
+                return CompileCommandResult(error_message=str(e))
+        else:
+            # Old pattern: from_args(["query_id"], {})
+            args, kwargs = raw_args, kwargs or {}
+
+        return cls._from_parsed_args(args, kwargs)
+
+    @classmethod
+    def _from_parsed_args(cls, args, kwargs) -> CompileCommandResult:
         error_msg = _validate_only_arg_is_query_id("abort", args, kwargs)
         if error_msg:
             return CompileCommandResult(error_message=error_msg)
         return CompileCommandResult(command=cls(args[0]))
 
 
-def compile_repl_command(command: str, cmd_args: List[str]):
-    """Parses command into SQL query"""
-    args = []
-    kwargs = {}
-    for cmd_arg in cmd_args:
-        if "=" not in cmd_arg:
-            args.append(cmd_arg)
-        else:
-            key, val = cmd_arg.split("=", maxsplit=1)
-            if key in kwargs:
-                return CompileCommandResult(
-                    error_message=f"duplicated argument '{key}' for command '{command}'",
-                )
-            kwargs[key] = val
+@register_command("!edit")
+@dataclass
+class EditCommand(ReplCommand):
+    """Command for editing functionality (placeholder)."""
 
-    match command.lower():
-        case "!edit":
-            raise RuntimeError("You shall no pass")
-            raise NotImplementedError()
-        case "!queries":
-            return QueriesCommand.from_args(args, kwargs)
-        case "!result":
-            return ResultCommand.from_args(args, kwargs)
-        case "!abort":
-            return AbortCommand.from_args(args, kwargs)
-        case _:
-            return CompileCommandResult(error_message=f"Unknown command '{command}'")
+    def execute(self, connection: SnowflakeConnection):
+        raise RuntimeError("You shall no pass")
+
+    @classmethod
+    def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
+        """Parse arguments and create EditCommand instance."""
+        raise NotImplementedError()
+
+
+def detect_command(input_text: str) -> tuple[str, str] | None:
+    """Detect if input text matches a command pattern.
+
+    Returns:
+        tuple[command_name, raw_args] if command pattern is detected, None otherwise
+    """
+    match = COMMAND_PATTERN.match(input_text.strip())
+    if match:
+        command_name = match.group(1)  # The !command part
+        raw_args = match.group(2) or ""  # Everything after the command
+        return command_name, raw_args
+    return None
+
+
+def is_registered_command(command_name: str) -> bool:
+    """Check if a command name is registered."""
+    return command_name.lower() in _COMMAND_REGISTRY
+
+
+def get_command_class(command_name: str) -> Type[ReplCommand] | None:
+    """Get the command class for a given command name."""
+    return _COMMAND_REGISTRY.get(command_name.lower())
+
+
+def compile_repl_command(input_text: str) -> CompileCommandResult:
+    """Detect and compile a REPL command from input text.
+
+    This function handles:
+    1. Command pattern detection
+    2. Command registration checking
+    3. Delegation to command-specific parsing
+    """
+    # Step 1: Detect if this is a command
+    detection_result = detect_command(input_text)
+    if not detection_result:
+        log.info("Input does not match command pattern: %s", input_text)
+        return CompileCommandResult(error_message="Not a command")
+
+    command_name, raw_args = detection_result
+    log.debug("Detected command: %s with args: %s", command_name, raw_args)
+
+    # Step 2: Check if command is registered
+    if not is_registered_command(command_name):
+        log.info("Unknown command: %s", command_name)
+        raise UnknownCommandError(command_name)
+
+    # Step 3: Get command class and delegate parsing
+    command_class = get_command_class(command_name)
+    if command_class is None:
+        # This should never happen since we already checked registration
+        raise RuntimeError(f"Command class not found for {command_name}")
+
+    log.debug("Found command class: %s", command_class.__name__)
+    return command_class.from_args(raw_args)
+
+
+def get_available_commands() -> List[str]:
+    """Returns a list of all registered command names."""
+    return list(_COMMAND_REGISTRY.keys())

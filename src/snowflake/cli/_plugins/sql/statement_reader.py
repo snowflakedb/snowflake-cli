@@ -9,6 +9,7 @@ from urllib.request import urlopen
 from jinja2 import UndefinedError
 from snowflake.cli._plugins.sql.repl_commands import (
     ReplCommand,
+    UnknownCommandError,
     compile_repl_command,
 )
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
@@ -294,17 +295,24 @@ def compile_statements(
 
         if stmt.statement_type == StatementType.REPL_COMMAND:
             if not stmt.error:
-                cmd = (
+                command_text = (
                     stmt.statement.read()
                     .removesuffix(ASYNC_SUFFIX)
                     .removesuffix(";")
-                    .split()
+                    .strip()
                 )
-                parsed_command = compile_repl_command(command=cmd[0], cmd_args=cmd[1:])
-                if parsed_command.error_message:
-                    errors.append(parsed_command.error_message)
-                else:
-                    compiled.append(CompiledStatement(command=parsed_command.command))
+                try:
+                    parsed_command = compile_repl_command(command_text)
+                    if parsed_command.error_message:
+                        errors.append(parsed_command.error_message)
+                    else:
+                        compiled.append(
+                            CompiledStatement(command=parsed_command.command)
+                        )
+                except UnknownCommandError as e:
+                    errors.append(str(e))
+                except Exception as e:
+                    errors.append(f"Error parsing command: {e}")
 
         if stmt.error:
             errors.append(stmt.error)

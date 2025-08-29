@@ -303,4 +303,18 @@ def test_compile_commands(command, args, expected):
     else:
         expected_result = CompileCommandResult(error_message=expected)
 
-    assert compile_repl_command(command=command, cmd_args=args) == expected_result
+    # Construct the full command string as it would appear in real usage
+    if args:
+        full_command = f"{command} {' '.join(args)}"
+    else:
+        full_command = command
+
+    if expected == "Unknown command '!unknown'":
+        # For unknown commands, we expect an UnknownCommandError to be raised
+        try:
+            compile_repl_command(full_command)
+            assert False, "Expected UnknownCommandError to be raised"
+        except Exception as e:
+            assert str(e) == expected
+    else:
+        assert compile_repl_command(full_command) == expected_result
