@@ -86,8 +86,7 @@ rm -rf \
     turtle* \
     idlelib \
     lib2to3 \
-    pydoc_data \
-    ensurepip/_bundled
+    pydoc_data
 
 # Additional cleanup for smaller size
 echo "Removing development files..."
