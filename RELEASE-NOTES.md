@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added support for `auto_suspend_secs` parameter in SPCS service commands (`deploy`, `set`, `unset`) to configure automatic service suspension after inactivity period.
 
 ## Fixes and improvements
 * Improved parsing `!source` with trailing comments
