@@ -98,7 +98,36 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
 
 
 def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
-    """Copy our conservatively compiled system Python for bundling."""
+    """Install Python distribution - platform specific approach."""
+    import platform
+
+    if platform.system().lower() == "darwin":
+        print("Detected macOS: Using original hatch python install approach")
+        return install_python_macos(python_tmp_dir, python_version)
+    else:
+        print("Detected Linux: Using optimized system Python approach")
+        return install_python_linux(python_tmp_dir, python_version)
+
+
+def install_python_macos(python_tmp_dir: Path, python_version: str) -> bool:
+    """Install Python dist using original hatch approach (macOS)."""
+    # This is the original working approach from commit 8da461e3
+    completed_proc = subprocess.run(
+        [
+            "hatch",
+            "python",
+            "install",
+            "--private",
+            "--dir",
+            python_tmp_dir,
+            python_version,
+        ]
+    )
+    return not completed_proc.returncode
+
+
+def install_python_linux(python_tmp_dir: Path, python_version: str) -> bool:
+    """Copy our conservatively compiled system Python for bundling (Linux)."""
     import shutil
 
     # Use the system Python we built instead of hatch installing one
