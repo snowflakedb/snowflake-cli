@@ -32,6 +32,7 @@ get_console().soft_wrap = True
 get_console()._markup = False  # noqa: SLF001
 
 PHASE_STYLE: Style = Style(bold=True)
+SPINNER_STYLE: Style = Style(bold=True)
 STEP_STYLE: Style = Style(italic=True)
 INFO_STYLE: Style = Style()
 PANEL_STYLE: Style = Style()
@@ -112,7 +113,7 @@ class CliConsole(AbstractConsole):
         """
         with Progress(
             SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
+            TextColumn("[progress.description]{task.description}", style=SPINNER_STYLE),
             transient=True,
         ) as progress:
             yield progress
