@@ -32,7 +32,9 @@ from snowflake.cli._plugins.remote.utils import (
     get_regions,
     parse_image_string,
     setup_ssh_config_with_token,
+    validate_service_name,
 )
+from snowflake.cli.api.exceptions import CliError
 
 
 class TestImageSpec:
@@ -205,9 +207,7 @@ class TestNodeResources:
         mock_session = Mock()
         mock_session.sql.return_value.collect.return_value = []  # Empty result
 
-        with pytest.raises(
-            ValueError, match="Compute pool 'nonexistent_pool' not found"
-        ):
+        with pytest.raises(CliError, match="Compute pool 'nonexistent_pool' not found"):
             get_node_resources(mock_session, "nonexistent_pool")
 
 
@@ -276,7 +276,7 @@ class TestStagePathUtils:
         ]
 
         for path in invalid_paths:
-            with pytest.raises(ValueError, match="Invalid|cannot be empty|missing"):
+            with pytest.raises(CliError, match="Invalid|cannot be empty|missing"):
                 format_stage_path(path)
 
 
@@ -382,7 +382,7 @@ class TestSSHKeyManagement:
             1, "ssh-keygen", stderr="error"
         )
 
-        with pytest.raises(RuntimeError, match="Failed to generate SSH key pair"):
+        with pytest.raises(CliError, match="Failed to generate SSH key pair"):
             generate_ssh_key_pair("test_service")
 
     @patch("subprocess.run")
@@ -391,7 +391,7 @@ class TestSSHKeyManagement:
 
         mock_run.side_effect = FileNotFoundError()
 
-        with pytest.raises(RuntimeError, match="ssh-keygen command not found"):
+        with pytest.raises(CliError, match="ssh-keygen command not found"):
             generate_ssh_key_pair("test_service")
 
     @patch("pathlib.Path.exists")
@@ -606,16 +606,15 @@ Host another_service
                 ssh_config_path = ssh_dir / "config"
                 ssh_config_path.write_text("")  # Empty config
 
-                # Should return early without modifying file when websocat is not found
-                setup_ssh_config_with_token(
-                    service_name="test_service",
-                    ssh_hostname="example.com",
-                    token="test_token",
-                )
-
-                # Verify file was not modified
-                content = ssh_config_path.read_text()
-                assert content == ""  # File should remain empty
+                # Should raise CliError when websocat is not found
+                with pytest.raises(
+                    CliError, match="websocat is required for SSH connections"
+                ):
+                    setup_ssh_config_with_token(
+                        service_name="test_service",
+                        ssh_hostname="example.com",
+                        token="test_token",
+                    )
 
     @patch("shutil.which")
     def test_setup_ssh_config_partial_hostname_matching(self, mock_which):
@@ -715,3 +714,89 @@ Host another_service
         with patch("pathlib.Path.home", return_value=Path("/tmp/non_existent_home")):
             # Should return early without error
             cleanup_ssh_config("test_service")
+
+
+class TestServiceNameValidation:
+    """Test service name validation according to Snowflake CREATE SERVICE requirements."""
+
+    def test_valid_service_names(self):
+        """Test that valid service names pass validation."""
+
+        valid_names = [
+            "SNOW_REMOTE_USER_MYPROJECT",
+            "MY_PROJECT_123",
+            "_VALID_NAME",
+            "A1B2C3",
+            "PROJECT",
+            "project_name",
+            "Project123",
+        ]
+
+        for name in valid_names:
+            # Should not raise any exception
+            validate_service_name(name)
+
+    def test_invalid_service_names_special_characters(self):
+        """Test that service names with special characters are rejected."""
+
+        invalid_names = [
+            "my-project",  # hyphen
+            "my project",  # space
+            "my@project",  # at symbol
+            "project!",  # exclamation
+            "project.name",  # dot
+            "project#name",  # hash
+            "project$name",  # dollar
+            "project%name",  # percent
+        ]
+
+        for name in invalid_names:
+            with pytest.raises(
+                CliError,
+                match="only alphanumeric characters and underscores are allowed",
+            ):
+                validate_service_name(name)
+
+    def test_invalid_service_names_quotes(self):
+        """Test that service names with quotes are rejected."""
+
+        quoted_names = [
+            '"quoted"',  # double quotes
+            "'quoted'",  # single quotes
+            "`quoted`",  # backticks
+            'name"with"quotes',  # embedded quotes
+        ]
+
+        for name in quoted_names:
+            with pytest.raises(CliError, match="quoted names are not supported"):
+                validate_service_name(name)
+
+    def test_invalid_service_names_start_with_number(self):
+        """Test that service names starting with numbers are rejected."""
+
+        invalid_names = [
+            "123project",
+            "1_project",
+            "9invalid",
+        ]
+
+        for name in invalid_names:
+            with pytest.raises(
+                CliError, match="service name must start with a letter or underscore"
+            ):
+                validate_service_name(name)
+
+    def test_empty_service_name(self):
+        """Test that empty service names are rejected."""
+
+        with pytest.raises(CliError, match="Service name cannot be empty"):
+            validate_service_name("")
+
+    def test_service_name_too_long(self):
+        """Test that service names exceeding 255 characters are rejected."""
+
+        # Create a name that's 256 characters long
+        long_name = "A" * 256
+
+        with pytest.raises(CliError, match="service name cannot exceed 255 characters"):
+            validate_service_name(long_name)

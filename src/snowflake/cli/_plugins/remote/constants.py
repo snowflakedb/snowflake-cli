@@ -49,7 +49,7 @@ MEMORY_VOLUME_NAME = "dshm"
 USER_WORKSPACE_VOLUME_NAME = "user-workspace"
 USER_WORKSPACE_VOLUME_MOUNT_PATH = "/root/user-default"
 USER_VSCODE_DATA_VOLUME_NAME = "user-vscode-data"
-USER_VSCODE_DATA_VOLUME_MOUNT_PATH = "/root/.vscode-server"
+USER_VSCODE_DATA_VOLUME_MOUNT_PATH = "/root/.vscode-server/data"
 
 # Service naming constants
 SERVICE_NAME_PREFIX = "SNOW_REMOTE"
