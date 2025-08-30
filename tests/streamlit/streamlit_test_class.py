@@ -39,7 +39,7 @@ class StreamlitTestClass:
         ).start()
 
         self.mock_get_account = mock.patch(
-            "snowflake.cli._plugins.connection.util.get_account"
+            "snowflake.cli._plugins.connection.util.get_account_name"
         ).start()
         self.mock_get_account.return_value = "my_account"
 
