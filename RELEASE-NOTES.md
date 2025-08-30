@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added support for external access integrations in `snow dbt deploy` command via `--external-access-integrations` parameter.
 
 ## Fixes and improvements
 * Improved parsing `!source` with trailing comments
