@@ -280,12 +280,15 @@ class TestEditCommand:
         )
 
     def test_edit_command_from_args_with_equals_in_sql(self):
-        """Test EditCommand.from_args with SQL containing equals (should fail due to parser)."""
+        """Test EditCommand.from_args with SQL containing equals (should work with custom parser)."""
         result = EditCommand.from_args("SELECT col1, col2 FROM table WHERE id = 1;")
 
-        # This should fail because the parser interprets '=' as a key=value separator
-        assert result.command is None
-        assert "Invalid argument" in result.error_message
+        # This should now work because EditCommand has custom parsing that doesn't treat '=' as key=value
+        assert result.command is not None
+        assert (
+            result.command.sql_content == "SELECT col1, col2 FROM table WHERE id = 1;"
+        )
+        assert result.error_message is None
 
     @mock.patch("click.edit")
     def test_edit_command_integration_with_repl_prompt(
