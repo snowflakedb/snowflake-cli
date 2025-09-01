@@ -394,7 +394,6 @@ def test_detect_async_queries():
     select -2;
     select 3;>
     """
-    parsed_statements = query_reader(queries, [])
     errors, expected_results, compiled_statements = compile_statements(
         query_reader(queries, [])
     )
@@ -420,7 +419,7 @@ def test_parse_command(command):
 
 
 def test_parse_unknown_command():
-    query = f"!unknown_cmd a=b c d"
+    query = "!unknown_cmd a=b c d"
     parsed_statement = parse_statement(query, [])
     assert parsed_statement.statement_type == StatementType.UNKNOWN
     assert parsed_statement.statement.read() == query
