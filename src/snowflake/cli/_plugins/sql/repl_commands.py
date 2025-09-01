@@ -1,5 +1,6 @@
 import abc
 import logging
+import os
 import re
 import time
 from dataclasses import dataclass
@@ -7,7 +8,10 @@ from datetime import datetime
 from typing import Any, Dict, Generator, Iterable, List, Tuple, Type
 from urllib.parse import urlencode
 
+import click
 from snowflake.cli._app.printing import print_result
+from snowflake.cli.api.cli_global_context import get_cli_context
+from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.output.types import CollectionResult, QueryResult
 from snowflake.connector import SnowflakeConnection
@@ -422,15 +426,93 @@ class AbortCommand(ReplCommand):
 @register_command("!edit")
 @dataclass
 class EditCommand(ReplCommand):
-    """Command for editing functionality (placeholder)."""
+    """Command to edit SQL statements using an external editor."""
+
+    sql_content: str = ""
 
     def execute(self, connection: SnowflakeConnection):
-        raise RuntimeError("You shall no pass")
+        """Execute the edit command.
+
+        Flow:
+        1. Validate REPL mode and EDITOR environment variable
+        2. Get content to edit (provided args or last command from history)
+        3. Open editor with content using click.edit()
+        4. Inject edited content back into REPL prompt for execution
+        """
+        if not get_cli_context().is_repl:
+            raise CliError("The edit command can only be used in interactive mode.")
+
+        editor = os.environ.get("EDITOR")
+        if not editor:
+            raise CliError(
+                "No editor is set. Please set the EDITOR environment variable."
+            )
+
+        content_to_edit = self.sql_content
+        if not content_to_edit:
+            content_to_edit = self._get_last_command_from_history()
+
+        edited_content = click.edit(
+            text=content_to_edit, editor=editor, extension=".sql", require_save=False
+        )
+
+        if edited_content is None:
+            log.debug("Editor closed without changes")
+            return
+
+        edited_content = edited_content.strip()
+
+        if edited_content:
+            log.debug("Editor returned content, length: %d", len(edited_content))
+            repl = get_cli_context().repl
+            repl.set_next_input(edited_content)
+            cli_console.message(
+                "[green]✓ Edited SQL loaded into prompt. Modify as needed or press Enter to execute.[/green]"
+            )
+        else:
+            log.debug("Editor returned empty content")
+            cli_console.message("[yellow]Editor closed with no content.[/yellow]")
+
+    def _get_last_command_from_history(self) -> str:
+        """Get the last command from the REPL history."""
+        repl = get_cli_context().repl
+        if repl and hasattr(repl, "_history"):
+            try:
+                history_entries = list(repl._history.get_strings())
+                for entry in reversed(history_entries):
+                    entry = entry.strip()
+                    is_repl_command = entry and entry.startswith("!")
+                    if not is_repl_command:
+                        return entry
+            except Exception as e:
+                log.warning("Could not read history from REPL instance: %s", e)
+
+        return ""
 
     @classmethod
     def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
         """Parse arguments and create EditCommand instance."""
-        raise NotImplementedError()
+        if isinstance(raw_args, str):
+            try:
+                args, kwargs = cls._parse_args(raw_args)
+            except ValueError as e:
+                return CompileCommandResult(error_message=str(e))
+        else:
+            args, kwargs = raw_args, kwargs or {}
+
+        return cls._from_parsed_args(args, kwargs)
+
+    @classmethod
+    def _from_parsed_args(cls, args, kwargs) -> CompileCommandResult:
+        """Create EditCommand from parsed arguments."""
+        if kwargs:
+            key, value = kwargs.popitem()
+            return CompileCommandResult(
+                error_message=f"Invalid argument passed to 'edit' command: {key}={value}"
+            )
+
+        sql_content = " ".join(args) if args else ""
+        return CompileCommandResult(command=cls(sql_content=sql_content))
 
 
 def detect_command(input_text: str) -> tuple[str, str] | None:
@@ -468,11 +550,11 @@ def compile_repl_command(input_text: str) -> CompileCommandResult:
     # Step 1: Detect if this is a command
     detection_result = detect_command(input_text)
     if not detection_result:
-        log.info("Input does not match command pattern: %s", input_text)
+        log.info("Input does not match command pattern")
         return CompileCommandResult(error_message="Not a command")
 
     command_name, raw_args = detection_result
-    log.debug("Detected command: %s with args: %s", command_name, raw_args)
+    log.debug("Detected command: %s", command_name)
 
     # Step 2: Check if command is registered
     if not is_registered_command(command_name):
