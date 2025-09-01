@@ -139,13 +139,13 @@ class DBTManager(SqlExecutionMixin):
                     current_default_target = dbt_object_attributes.get("default_target")
                     if unset_default_target and current_default_target is not None:
                         unset_query = f"ALTER DBT PROJECT {fqn} UNSET DEFAULT_TARGET"
-                        return self.execute_query(unset_query)
+                        self.execute_query(unset_query)
                     elif default_target and (
                         current_default_target is None
                         or current_default_target.lower() != default_target.lower()
                     ):
                         set_default_query = f"ALTER DBT PROJECT {fqn} SET DEFAULT_TARGET='{default_target}'"
-                        return self.execute_query(set_default_query)
+                        self.execute_query(set_default_query)
 
                     return result
                 else:
