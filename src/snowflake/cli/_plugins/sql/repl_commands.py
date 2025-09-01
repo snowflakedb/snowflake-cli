@@ -314,11 +314,10 @@ class QueriesCommand(ReplCommand):
                 return CompileCommandResult(
                     error_message=f"Invalid argument passed to 'queries' command: {arg}"
                 )
-        if kwargs:
-            key, value = kwargs.popitem()
-            return CompileCommandResult(
-                error_message=f"Invalid argument passed to 'queries' command: {key}={value}"
-            )
+
+        kwargs_error = _validate_kwargs_empty("queries", kwargs)
+        if kwargs_error:
+            return CompileCommandResult(error_message=kwargs_error)
 
         return CompileCommandResult(
             command=cls(
@@ -336,12 +335,25 @@ class QueriesCommand(ReplCommand):
         )
 
 
+def _validate_kwargs_empty(command_name: str, kwargs: Dict[str, Any]) -> str | None:
+    """Validate that kwargs is empty and return comprehensive error message if not."""
+    if not kwargs:
+        return None
+
+    invalid_args = [f"{key}={value}" for key, value in kwargs.items()]
+    if len(invalid_args) == 1:
+        return f"Invalid argument passed to '{command_name}' command: {invalid_args[0]}"
+    else:
+        args_str = ", ".join(invalid_args)
+        return f"Invalid arguments passed to '{command_name}' command: {args_str}"
+
+
 def _validate_only_arg_is_query_id(
     command_name: str, args: List[str], kwargs: Dict[str, Any]
 ) -> str | None:
-    if kwargs:
-        key, value = kwargs.popitem()
-        return f"Invalid argument passed to '{command_name}' command: {key}={value}"
+    kwargs_error = _validate_kwargs_empty(command_name, kwargs)
+    if kwargs_error:
+        return kwargs_error
     if len(args) != 1:
         amount = "Too many" if args else "No"
         return f"{amount} arguments passed to '{command_name}' command. Usage: `!{command_name} <query id>`"
