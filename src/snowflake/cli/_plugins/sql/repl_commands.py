@@ -61,7 +61,7 @@ class ReplCommand(abc.ABC):
 
     @classmethod
     @abc.abstractmethod
-    def from_args(cls, raw_args) -> "CompileCommandResult":
+    def from_args(cls, raw_args, kwargs=None) -> "CompileCommandResult":
         """Parses raw argument string and creates command ready for execution."""
         ...
 
