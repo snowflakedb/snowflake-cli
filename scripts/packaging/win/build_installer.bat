@@ -30,7 +30,7 @@ set SM_CLIENT_CERT_FILE=%WORKSPACE%\\Certificate_pkcs12.p12
 smctl healthcheck
 smctl windows certsync
 
-smctl sign --keypair-alias key_1311463644 --input dist\snow\snow.exe --output dist\snow\snow.exe || goto :error
+smctl sign --keypair-alias key_1311463644 --input dist\snow\snow.exe || goto :error
 signtool verify /v /pa dist\snow\snow.exe || goto :error
 
 candle.exe ^
