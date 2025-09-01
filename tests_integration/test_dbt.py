@@ -80,7 +80,6 @@ def test_deploy_and_execute(
     snowflake_session,
     test_database,
     project_directory,
-    snapshot,
 ):
     with project_directory("dbt_project") as root_dir:
         # Given a local dbt project
@@ -91,7 +90,11 @@ def test_deploy_and_execute(
         _setup_dbt_profile(root_dir, snowflake_session, include_password=True)
         result = runner.invoke_with_connection_json(["dbt", "deploy", name])
         assert result.exit_code == 1, result.output
-        assert result.output == snapshot
+        assert (
+            "Found following errors in profiles.yml. Please fix them before proceeding:"
+            in result.output
+        )
+        assert "* Unsupported fields found: password in target dev" in result.output
 
         # deploy for the first time
         _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
