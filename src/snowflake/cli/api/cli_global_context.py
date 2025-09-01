@@ -49,7 +49,7 @@ class _CliGlobalContextManager:
     experimental: bool = False
     enable_tracebacks: bool = True
     is_repl: bool = False
-    _repl_instance: Repl | None = None
+    repl_instance: Repl | None = None
 
     metrics: CLIMetrics = field(default_factory=CLIMetrics)
 
@@ -214,7 +214,7 @@ class _CliGlobalContextAccess:
     @property
     def repl(self) -> Repl | None:
         """Get the current REPL instance if running in REPL mode."""
-        return self._manager._repl_instance
+        return self._manager.repl_instance
 
 
 _CLI_CONTEXT_MANAGER: ContextVar[_CliGlobalContextManager | None] = ContextVar(

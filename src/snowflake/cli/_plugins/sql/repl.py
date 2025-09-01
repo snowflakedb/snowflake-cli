@@ -35,14 +35,14 @@ def repl_context(repl_instance):
     """Context manager for REPL execution that handles CLI context registration."""
     context_manager = get_cli_context_manager()
     context_manager.is_repl = True
-    context_manager._repl_instance = repl_instance
+    context_manager.repl_instance = repl_instance
 
     try:
         yield
     finally:
         # Clean up REPL context
         context_manager.is_repl = False
-        context_manager._repl_instance = None
+        context_manager.repl_instance = None
 
 
 class Repl:
