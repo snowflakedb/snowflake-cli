@@ -255,6 +255,16 @@ class Repl:
         self._next_input = text
         log.debug("Next input has been set")
 
+    @property
+    def next_input(self) -> str | None:
+        """Get the next input text that will be used in the prompt."""
+        return self._next_input
+
+    @property
+    def history(self) -> FileHistory:
+        """Get the FileHistory instance used by the REPL."""
+        return self._history
+
     def ask_yn(self, question: str) -> bool:
         """Asks user a Yes/No question."""
         try:
