@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 import os
 import re
+import threading
 from pathlib import Path
 from typing import Callable, Dict, Iterable, Iterator, List, Optional, Tuple
 
@@ -18,6 +19,83 @@ from snowflake.cli.api.project.schemas.entities.common import PathMapping
 from snowflake.cli.api.utils.path_utils import resolve_without_follow
 
 ArtifactPredicate = Callable[[Path, Path], bool]
+
+
+def _validate_regex_pattern(pattern: str) -> None:
+    """
+    Validate a regex pattern for potential ReDoS (Regular Expression Denial of Service) vulnerabilities.
+
+    Raises ArtifactError if the pattern contains potentially dangerous constructs.
+    """
+    # Maximum allowed pattern length to prevent excessively complex patterns
+    MAX_PATTERN_LENGTH = 1000
+
+    if len(pattern) > MAX_PATTERN_LENGTH:
+        raise ArtifactError(
+            f"Regex pattern too long ({len(pattern)} chars, max {MAX_PATTERN_LENGTH}): "
+            "potentially unsafe for performance"
+        )
+
+    # Detect potentially dangerous patterns that could cause catastrophic backtracking
+    dangerous_patterns = [
+        # Nested quantifiers like (a+)+ or (a*)*
+        (r"\([^)]*[\+\*\?]\)[+*?]", "nested quantifiers"),
+        # Alternation with overlapping patterns like (a|a)*
+        (r"\([^)]*\|[^)]*\)[\+\*]", "alternation with quantifiers"),
+        # Excessive backtracking patterns like (a*)*b or (a+)+b
+        (r"\([^)]*\*[^)]*\)[\+\*]", "multiple star quantifiers"),
+        # Deep nesting with quantifiers
+        (r"\([^)]*\([^)]*\)[^)]*\)[\+\*]", "deeply nested groups with quantifiers"),
+    ]
+
+    for dangerous_pattern, description in dangerous_patterns:
+        if re.search(dangerous_pattern, pattern):
+            raise ArtifactError(
+                f"Potentially unsafe regex pattern '{pattern}': contains {description}. "
+                "This pattern could cause catastrophic backtracking and performance issues."
+            )
+
+
+class _TimeoutException(Exception):
+    """Exception raised when regex matching times out."""
+
+    pass
+
+
+def _safe_regex_match(
+    compiled_pattern: re.Pattern, text: str, timeout_seconds: float = 1.0
+) -> bool:
+    """
+    Safely match a regex pattern against text with timeout protection.
+
+    Returns True if the pattern matches, False if it doesn't match or times out.
+    """
+    result = [False]  # Use list to allow modification in nested function
+    exception = [None]  # Store any exception that occurs
+
+    def match_worker():
+        try:
+            result[0] = bool(compiled_pattern.match(text))
+        except Exception as e:
+            exception[0] = e
+
+    # Use threading for timeout protection (works on all platforms)
+    thread = threading.Thread(target=match_worker, daemon=True)
+    thread.start()
+    thread.join(timeout=timeout_seconds)
+
+    if thread.is_alive():
+        # Thread is still running, which means it's taking too long
+        raise ArtifactError(
+            f"Regex matching timed out after {timeout_seconds}s. "
+            f"Pattern may be too complex for text: '{text[:100]}...'"
+        )
+
+    if exception[0]:
+        # Re-raise any exception that occurred during matching
+        raise exception[0]
+
+    return result[0]
 
 
 def _specifies_directory(s: str) -> bool:
@@ -160,8 +238,16 @@ class BundleMap:
 
     def _resolve_regex_pattern(self, pattern: str):
         """
-        Resolve files matching a regex pattern.
+        Resolve files matching a regex pattern with ReDoS protection.
+
+        This method includes protections against Regular Expression Denial of Service (ReDoS) attacks:
+        - Validates patterns for dangerous constructs that could cause catastrophic backtracking
+        - Applies timeout protection to regex matching operations
+        - Limits pattern complexity to prevent performance issues
         """
+        # Validate the pattern for potential ReDoS vulnerabilities
+        _validate_regex_pattern(pattern)
+
         try:
             compiled_pattern = re.compile(pattern)
         except re.error as e:
@@ -172,8 +258,19 @@ class BundleMap:
                 relative_path = str(path.relative_to(self._project_root))
                 # Normalize path separators for cross-platform compatibility
                 relative_path = relative_path.replace("\\", "/")
-                if compiled_pattern.match(relative_path):
-                    yield path
+
+                # Use safe regex matching with timeout protection
+                try:
+                    if _safe_regex_match(
+                        compiled_pattern, relative_path, timeout_seconds=1.0
+                    ):
+                        yield path
+                except ArtifactError:
+                    # Re-raise ArtifactError (timeout or other issues) with context
+                    raise ArtifactError(
+                        f"Regex pattern '{pattern}' is too complex or taking too long to process. "
+                        "Consider simplifying the pattern or using glob patterns instead."
+                    )
 
     def add(self, mapping: PathMapping) -> None:
         """

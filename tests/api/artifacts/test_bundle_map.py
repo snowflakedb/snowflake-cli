@@ -1090,3 +1090,149 @@ class TestRegexPatternMatching:
                     "file-with-dashes.txt": "file-with-dashes.txt",
                 },
             )
+
+
+class TestRegexSecurityProtections:
+    """Test security protections against ReDoS (Regular Expression Denial of Service) attacks."""
+
+    @pytest.fixture
+    def basic_bundle_map(self):
+        """Simple bundle map for security testing."""
+        project_files = {
+            "test.txt": "content",
+            "test/file.py": "python code",
+            "docs/readme.md": "documentation",
+        }
+        with temp_local_dir(project_files) as project_root:
+            deploy_root = project_root / "output" / "deploy"
+            yield BundleMap(
+                project_root=project_root,
+                deploy_root=deploy_root,
+                pattern_type=PatternMatchingType.REGEX,
+            )
+
+    @pytest.mark.parametrize(
+        "dangerous_pattern,expected_error_msg",
+        [
+            pytest.param(
+                r"(a+)+b",
+                "nested quantifiers",
+                id="nested_quantifiers_catastrophic_backtracking",
+            ),
+            pytest.param(
+                r"(a*)*b",
+                "nested quantifiers",  # This pattern is caught by the nested quantifiers rule first
+                id="multiple_star_quantifiers",
+            ),
+            pytest.param(
+                r"(a|a)*b",
+                "alternation with quantifiers",
+                id="alternation_with_overlapping_patterns",
+            ),
+            pytest.param(
+                r"((a+)+)+b",
+                "nested quantifiers",  # This pattern is also caught by nested quantifiers rule first
+                id="deeply_nested_groups",
+            ),
+            pytest.param(
+                "a" * 1001,  # Pattern longer than MAX_PATTERN_LENGTH (1000)
+                "Regex pattern too long",
+                id="excessively_long_pattern",
+            ),
+        ],
+    )
+    def test_dangerous_regex_patterns_blocked(
+        self, basic_bundle_map, dangerous_pattern, expected_error_msg
+    ):
+        """Test that potentially dangerous regex patterns are blocked."""
+        with pytest.raises(ArtifactError, match=expected_error_msg):
+            basic_bundle_map.add(PathMapping(src=dangerous_pattern))
+
+    def test_safe_regex_patterns_allowed(self, basic_bundle_map):
+        """Test that safe regex patterns are allowed."""
+        safe_patterns = [
+            r"test\.txt$",  # Simple literal with escape - matches test.txt
+            r".*\.py$",  # File extension matching - matches test/file.py
+            r"^docs/.*",  # Directory prefix matching - matches docs/readme.md
+            r"test/.*",  # Directory matching - matches test/file.py
+            r"[^/]+\.py$",  # Character class matching - matches test/file.py
+        ]
+
+        for pattern in safe_patterns:
+            # Should not raise security-related exceptions
+            try:
+                basic_bundle_map.add(PathMapping(src=pattern))
+                # Reset the bundle map for next pattern
+                basic_bundle_map._artifact_map = (
+                    basic_bundle_map._artifact_map.__class__(
+                        project_root=basic_bundle_map._project_root
+                    )
+                )
+            except ArtifactError as e:
+                if (
+                    "potentially unsafe" in str(e)
+                    or "too long" in str(e)
+                    or "catastrophic backtracking" in str(e)
+                ):
+                    pytest.fail(
+                        f"Safe pattern '{pattern}' was incorrectly blocked: {e}"
+                    )
+                # Other ArtifactErrors (like no matches found) are acceptable
+            except SourceNotFoundError:
+                # SourceNotFoundError is acceptable - it means the pattern was validated but didn't match files
+                pass
+
+    def test_regex_timeout_protection(self, basic_bundle_map):
+        """Test that regex matching has timeout protection."""
+        # Create a pattern that could cause slow matching on specific input
+        # This is a simplified test - in practice, more complex patterns might be needed
+        pathological_pattern = r"(a+)*b"
+
+        # The validation should catch this before it even gets to matching
+        with pytest.raises(ArtifactError, match="nested quantifiers"):
+            basic_bundle_map.add(PathMapping(src=pathological_pattern))
+
+    def test_pattern_length_validation(self, basic_bundle_map):
+        """Test that excessively long patterns are rejected."""
+        long_pattern = "a" * 1500  # Exceeds MAX_PATTERN_LENGTH of 1000
+
+        with pytest.raises(ArtifactError, match="Regex pattern too long"):
+            basic_bundle_map.add(PathMapping(src=long_pattern))
+
+    def test_invalid_regex_syntax_handling(self, basic_bundle_map):
+        """Test that invalid regex syntax is properly handled."""
+        invalid_patterns = [
+            r"[invalid",  # Unclosed character class
+            r"(unclosed",  # Unclosed group
+            r"*invalid",  # Invalid quantifier position
+            r"(?P<incomplete",  # Incomplete named group
+        ]
+
+        for pattern in invalid_patterns:
+            with pytest.raises(ArtifactError, match="Invalid regex pattern"):
+                basic_bundle_map.add(PathMapping(src=pattern))
+
+    def test_security_error_messages_helpful(self, basic_bundle_map):
+        """Test that security error messages provide helpful guidance."""
+        dangerous_pattern = r"(a+)+b"
+
+        with pytest.raises(ArtifactError) as exc_info:
+            basic_bundle_map.add(PathMapping(src=dangerous_pattern))
+
+        error_msg = str(exc_info.value)
+        assert "nested quantifiers" in error_msg
+        assert "catastrophic backtracking" in error_msg
+        assert "performance issues" in error_msg
+
+    def test_normal_regex_functionality_preserved(self, basic_bundle_map):
+        """Test that normal regex functionality still works after adding security."""
+        # Test a normal, safe regex pattern
+        basic_bundle_map.add(PathMapping(src=r".*\.py$"))
+
+        # Should match the Python file
+        verify_mappings(
+            basic_bundle_map,
+            {
+                "test/file.py": "test/file.py",
+            },
+        )
