@@ -19,10 +19,13 @@
 ## Deprecations
 
 ## New additions
+* The `!edit` command for external editors was added to REPL
+
 
 ## Fixes and improvements
 * Improved parsing `!source` with trailing comments
-
+* REPL is registered with cli_context
+* `!` commands no longer require trailing `;` for evaluation
 
 
 # v3.11.0
