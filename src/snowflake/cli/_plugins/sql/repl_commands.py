@@ -192,16 +192,18 @@ class QueriesCommand(ReplCommand):
 
     @classmethod
     def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
-        """Parse arguments and create QueriesCommand instance."""
-        # Handle both old and new calling patterns
+        """Parse arguments and create QueriesCommand instance.
+
+        Supports both calling patterns:
+        - New pattern: from_args("amount=3 user=jdoe")
+        - Old pattern: from_args(["session"], {"amount": "3"})
+        """
         if isinstance(raw_args, str):
-            # New pattern: from_args("amount=3 user=jdoe")
             try:
                 args, kwargs = cls._parse_args(raw_args)
             except ValueError as e:
                 return CompileCommandResult(error_message=str(e))
         else:
-            # Old pattern: from_args(["session"], {"amount": "3"})
             args, kwargs = raw_args, kwargs or {}
 
         return cls._from_parsed_args(args, kwargs)
@@ -365,16 +367,18 @@ class ResultCommand(ReplCommand):
 
     @classmethod
     def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
-        """Parse arguments and create ResultCommand instance."""
-        # Handle both old and new calling patterns
+        """Parse arguments and create ResultCommand instance.
+
+        Supports both calling patterns:
+        - New pattern: from_args("00000000-0000-0000-0000-000000000000")
+        - Old pattern: from_args(["query_id"], {})
+        """
         if isinstance(raw_args, str):
-            # New pattern: from_args("00000000-0000-0000-0000-000000000000")
             try:
                 args, kwargs = cls._parse_args(raw_args)
             except ValueError as e:
                 return CompileCommandResult(error_message=str(e))
         else:
-            # Old pattern: from_args(["query_id"], {})
             args, kwargs = raw_args, kwargs or {}
 
         return cls._from_parsed_args(args, kwargs)
@@ -401,16 +405,18 @@ class AbortCommand(ReplCommand):
 
     @classmethod
     def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
-        """Parse arguments and create AbortCommand instance."""
-        # Handle both old and new calling patterns
+        """Parse arguments and create AbortCommand instance.
+
+        Supports both calling patterns:
+        - New pattern: from_args("00000000-0000-0000-0000-000000000000")
+        - Old pattern: from_args(["query_id"], {})
+        """
         if isinstance(raw_args, str):
-            # New pattern: from_args("00000000-0000-0000-0000-000000000000")
             try:
                 args, kwargs = cls._parse_args(raw_args)
             except ValueError as e:
                 return CompileCommandResult(error_message=str(e))
         else:
-            # Old pattern: from_args(["query_id"], {})
             args, kwargs = raw_args, kwargs or {}
 
         return cls._from_parsed_args(args, kwargs)
@@ -491,7 +497,12 @@ class EditCommand(ReplCommand):
 
     @classmethod
     def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
-        """Parse arguments and create EditCommand instance."""
+        """Parse arguments and create EditCommand instance.
+
+        Supports both calling patterns:
+        - New pattern: from_args("SELECT * FROM table")
+        - Old pattern: from_args(["SELECT", "*", "FROM", "table"], {})
+        """
         if isinstance(raw_args, str):
             try:
                 args, kwargs = cls._parse_args(raw_args)
