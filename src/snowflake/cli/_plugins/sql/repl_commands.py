@@ -500,7 +500,7 @@ class EditCommand(ReplCommand):
         """Parse arguments and create EditCommand instance.
 
         Supports both calling patterns:
-        - New pattern: from_args("SELECT * FROM table")
+        - New pattern: from_args("SELECT * FROM table WHERE id = 1")
         - Old pattern: from_args(["SELECT", "*", "FROM", "table"], {})
         """
         if isinstance(raw_args, str):
@@ -512,6 +512,21 @@ class EditCommand(ReplCommand):
             args, kwargs = raw_args, kwargs or {}
 
         return cls._from_parsed_args(args, kwargs)
+
+    @classmethod
+    def _parse_args(cls, raw_args: str) -> tuple[List[str], Dict[str, Any]]:
+        """Parse raw argument string for EditCommand.
+
+        Unlike other commands, EditCommand treats all arguments as SQL content,
+        not as key-value pairs. This allows SQL with equals signs to work correctly.
+        """
+        if not raw_args:
+            return [], {}
+
+        # For EditCommand, treat the entire raw_args as a single SQL string
+        # Split by spaces but don't interpret = as key-value pairs
+        args = raw_args.split()
+        return args, {}
 
     @classmethod
     def _from_parsed_args(cls, args, kwargs) -> CompileCommandResult:
