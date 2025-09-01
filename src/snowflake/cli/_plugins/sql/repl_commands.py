@@ -527,13 +527,11 @@ class EditCommand(ReplCommand):
 
     @classmethod
     def _from_parsed_args(cls, args, kwargs) -> CompileCommandResult:
-        """Create EditCommand from parsed arguments."""
-        if kwargs:
-            key, value = kwargs.popitem()
-            return CompileCommandResult(
-                error_message=f"Invalid argument passed to 'edit' command: {key}={value}"
-            )
+        """Create EditCommand from parsed arguments.
 
+        Since EditCommand's custom _parse_args always returns empty kwargs,
+        we only need to handle the args to reconstruct the SQL content.
+        """
         sql_content = " ".join(args) if args else ""
         return CompileCommandResult(command=cls(sql_content=sql_content))
 
