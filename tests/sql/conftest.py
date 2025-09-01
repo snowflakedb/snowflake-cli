@@ -72,7 +72,7 @@ def make_no_recursion_includes(tmp_path_factory):
     f2 = tmp_path_factory.mktemp("data") / ("f2.txt")
 
     f1.write_text(f"select 1; !source {f2}; FINAL;")
-    f2.write_text(f"select 2;")
+    f2.write_text("select 2;")
 
     yield (f1,)
 
