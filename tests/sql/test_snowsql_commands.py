@@ -7,6 +7,7 @@ from snowflake.cli._plugins.sql.repl_commands import (
     QueriesCommand,
     ReplCommand,
     ResultCommand,
+    UnknownCommandError,
     compile_repl_command,
 )
 
@@ -311,10 +312,8 @@ def test_compile_commands(command, args, expected):
 
     if expected == "Unknown command '!unknown'":
         # For unknown commands, we expect an UnknownCommandError to be raised
-        try:
+        with pytest.raises(UnknownCommandError) as exc_info:
             compile_repl_command(full_command)
-            assert False, "Expected UnknownCommandError to be raised"
-        except Exception as e:
-            assert str(e) == expected
+        assert str(exc_info.value) == expected
     else:
         assert compile_repl_command(full_command) == expected_result
