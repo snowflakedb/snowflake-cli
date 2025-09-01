@@ -52,7 +52,10 @@ def _assert_default_target(name, runner, default_target):
     result = runner.invoke_with_connection_json(["dbt", "list", "--like", name.upper()])
     assert result.exit_code == 0, result.output
     assert len(result.json) == 1
-    assert result.json[0]["default_target"].lower() == default_target
+    if default_target is None:
+        assert result.json[0]["default_target"] is None
+    else:
+        assert result.json[0]["default_target"].lower() == default_target
 
 
 def _fetch_creation_date(name, runner) -> datetime.datetime:
@@ -264,6 +267,12 @@ def test_deploy_with_default_target(
         )
         assert result.exit_code == 0, result.output
         _assert_default_target(name, runner, "dev")
+
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--unset-default-target"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_default_target(name, runner, None)
 
 
 @pytest.mark.skipif(

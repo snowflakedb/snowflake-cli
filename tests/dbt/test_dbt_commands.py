@@ -487,6 +487,91 @@ FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE DEFAULT_TARGET='prod'"""
         assert "@MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE" in query
         assert "SET DEFAULT_TARGET" not in query
 
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_deploy_with_unset_default_target_when_project_exists_with_target(
+        self,
+        _mock_create,
+        _mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": "prod"}
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--unset-default-target",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        queries = mock_connect.mocked_ctx.get_queries()
+        assert len(queries) == 2
+        assert "ALTER DBT PROJECT TEST_PIPELINE ADD VERSION" in queries[0]
+        assert "@MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE" in queries[0]
+        assert "ALTER DBT PROJECT TEST_PIPELINE UNSET DEFAULT_TARGET" == queries[1]
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_deploy_with_unset_default_target_when_project_exists_without_target(
+        self,
+        _mock_create,
+        _mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": None}
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--unset-default-target",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        query = mock_connect.mocked_ctx.get_query()
+        assert "ALTER DBT PROJECT TEST_PIPELINE ADD VERSION" in query
+        assert "@MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE" in query
+        assert "UNSET DEFAULT_TARGET" not in query
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+    def test_deploy_with_both_default_target_and_unset_default_target_fails(
+        self,
+        mock_connect,
+        runner,
+        dbt_project_path,
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--default-target=prod",
+                "--unset-default-target",
+            ]
+        )
+
+        assert result.exit_code == 2, result.output
+        assert (
+            "Parameters '--unset-default-target' and '--default-target' are incompatible"
+            in result.output
+        )
+
 
 class TestDBTExecute:
     @pytest.mark.parametrize(

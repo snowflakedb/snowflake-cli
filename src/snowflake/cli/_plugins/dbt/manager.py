@@ -83,6 +83,7 @@ class DBTManager(SqlExecutionMixin):
         profiles_path: SecurePath,
         force: bool,
         default_target: Optional[str] = None,
+        unset_default_target: bool = False,
     ) -> SnowflakeCursor:
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
@@ -135,14 +136,16 @@ class DBTManager(SqlExecutionMixin):
                     query += f"\nFROM {stage_name}"
                     result = self.execute_query(query)
 
-                    if default_target:
-                        current_default_target = dbt_object_attributes["default_target"]
-                        if (
-                            current_default_target is None
-                            or current_default_target.lower() != default_target.lower()
-                        ):
-                            set_default_query = f"ALTER DBT PROJECT {fqn} SET DEFAULT_TARGET='{default_target}'"
-                            return self.execute_query(set_default_query)
+                    current_default_target = dbt_object_attributes.get("default_target")
+                    if unset_default_target and current_default_target is not None:
+                        unset_query = f"ALTER DBT PROJECT {fqn} UNSET DEFAULT_TARGET"
+                        return self.execute_query(unset_query)
+                    elif default_target and (
+                        current_default_target is None
+                        or current_default_target.lower() != default_target.lower()
+                    ):
+                        set_default_query = f"ALTER DBT PROJECT {fqn} SET DEFAULT_TARGET='{default_target}'"
+                        return self.execute_query(set_default_query)
 
                     return result
                 else:
