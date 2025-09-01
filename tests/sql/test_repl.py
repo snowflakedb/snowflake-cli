@@ -22,8 +22,8 @@ def make_repl(mock_cursor):
         manager = SqlManager()
         repl = Repl(manager)
 
-        repl._history = mock.Mock()
-        repl._history.get_strings.return_value = ["SELECT 1;", "SELECT 2;"]
+        setattr(repl, "_history", mock.Mock())
+        repl.history.get_strings.return_value = ["SELECT 1;", "SELECT 2;"]
 
         repl.session.prompt = mock.Mock(return_value="mocked_prompt_result")
 
@@ -162,7 +162,7 @@ class TestEditCommand:
         self, mock_click_edit, edit_command, mock_connection, setup_repl_context, repl
     ):
         """Test !edit command falls back to history when no content provided."""
-        repl._history.get_strings.return_value = [
+        repl.history.get_strings.return_value = [
             "!queries",
             "SELECT * FROM products;",
             "SELECT * FROM users;",
@@ -185,7 +185,7 @@ class TestEditCommand:
         self, mock_click_edit, edit_command, mock_connection, setup_repl_context, repl
     ):
         """Test !edit command skips REPL commands when searching history."""
-        repl._history.get_strings.return_value = [
+        repl.history.get_strings.return_value = [
             "!edit",
             "!queries",
             "SELECT * FROM actual_sql;",
@@ -208,7 +208,7 @@ class TestEditCommand:
         self, mock_click_edit, edit_command, mock_connection, setup_repl_context, repl
     ):
         """Test !edit command with empty history."""
-        repl._history.get_strings.return_value = []
+        repl.history.get_strings.return_value = []
         mock_click_edit.return_value = "SELECT 1;"
 
         with mock.patch.dict(os.environ, {"EDITOR": "vim"}):
