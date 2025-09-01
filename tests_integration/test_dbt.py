@@ -25,6 +25,52 @@ from snowflake.cli.api.feature_flags import FeatureFlag
 from tests_common.feature_flag_utils import with_feature_flags
 
 
+def _setup_dbt_profile(root_dir: Path, snowflake_session, include_password: bool):
+    with open((root_dir / PROFILES_FILENAME), "r") as f:
+        profiles = yaml.safe_load(f)
+    dev_profile = profiles["dbt_integration_project"]["outputs"]["dev"]
+    dev_profile["database"] = snowflake_session.database
+    dev_profile["account"] = snowflake_session.account
+    dev_profile["user"] = snowflake_session.user
+    dev_profile["role"] = snowflake_session.role
+    dev_profile["warehouse"] = snowflake_session.warehouse
+    dev_profile["schema"] = snowflake_session.schema
+    if include_password:
+        dev_profile["password"] = "secret_phrase"
+    else:
+        dev_profile.pop("password", None)
+
+    prod_profile = dev_profile.copy()
+    prod_profile.pop("password", None)
+    prod_profile["schema"] = f"{snowflake_session.schema}_PROD"
+    profiles["dbt_integration_project"]["outputs"]["prod"] = prod_profile
+
+    (root_dir / PROFILES_FILENAME).write_text(yaml.dump(profiles))
+
+
+def _assert_default_target(name, runner, default_target):
+    result = runner.invoke_with_connection_json(["dbt", "list", "--like", name.upper()])
+    assert result.exit_code == 0, result.output
+    assert len(result.json) == 1
+    assert result.json[0]["default_target"].lower() == default_target
+
+
+def _fetch_creation_date(name, runner) -> datetime.datetime:
+    result = runner.invoke_with_connection_json(
+        [
+            "dbt",
+            "list",
+            "--like",
+            name,
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert len(result.json) == 1
+    dbt_object = result.json[0]
+    assert dbt_object["name"].lower() == name.lower()
+    return datetime.datetime.fromisoformat(dbt_object["created_on"])
+
+
 @pytest.mark.integration
 def test_deploy_and_execute(
     runner,
@@ -188,45 +234,6 @@ def test_dbt_deploy_options(
         ), f"Timestamps are the same: {timestamp_after_replace} vs {timestamp_after_create}"
 
 
-def _fetch_creation_date(name, runner) -> datetime.datetime:
-    result = runner.invoke_with_connection_json(
-        [
-            "dbt",
-            "list",
-            "--like",
-            name,
-        ]
-    )
-    assert result.exit_code == 0, result.output
-    assert len(result.json) == 1
-    dbt_object = result.json[0]
-    assert dbt_object["name"].lower() == name.lower()
-    return datetime.datetime.fromisoformat(dbt_object["created_on"])
-
-
-def _setup_dbt_profile(root_dir: Path, snowflake_session, include_password: bool):
-    with open((root_dir / PROFILES_FILENAME), "r") as f:
-        profiles = yaml.safe_load(f)
-    dev_profile = profiles["dbt_integration_project"]["outputs"]["dev"]
-    dev_profile["database"] = snowflake_session.database
-    dev_profile["account"] = snowflake_session.account
-    dev_profile["user"] = snowflake_session.user
-    dev_profile["role"] = snowflake_session.role
-    dev_profile["warehouse"] = snowflake_session.warehouse
-    dev_profile["schema"] = snowflake_session.schema
-    if include_password:
-        dev_profile["password"] = "secret_phrase"
-    else:
-        dev_profile.pop("password", None)
-
-    prod_profile = dev_profile.copy()
-    prod_profile.pop("password", None)
-    prod_profile["schema"] = f"{snowflake_session.schema}_PROD"
-    profiles["dbt_integration_project"]["outputs"]["prod"] = prod_profile
-
-    (root_dir / PROFILES_FILENAME).write_text(yaml.dump(profiles))
-
-
 @pytest.mark.skipif(
     FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled(),
     reason="DBT GA features are not yet released.",
@@ -250,13 +257,13 @@ def test_deploy_with_default_target(
             ["dbt", "deploy", name, "--default-target", "prod"]
         )
         assert result.exit_code == 0, result.output
+        _assert_default_target(name, runner, "prod")
 
         result = runner.invoke_with_connection_json(
-            ["dbt", "list", "--like", name.upper()]
+            ["dbt", "deploy", name, "--default-target", "dev"]
         )
         assert result.exit_code == 0, result.output
-        assert len(result.json) == 1
-        assert result.json[0]["default_target"].lower() == "prod"
+        _assert_default_target(name, runner, "dev")
 
 
 @pytest.mark.skipif(

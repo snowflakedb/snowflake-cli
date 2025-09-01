@@ -17,7 +17,7 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Optional
+from typing import Optional, TypedDict
 
 import yaml
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
@@ -31,6 +31,11 @@ from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.errors import ProgrammingError
+
+
+class DBTObjectEditableAttributes(TypedDict):
+    default_target: Optional[str]
 
 
 class DBTManager(SqlExecutionMixin):
@@ -42,6 +47,33 @@ class DBTManager(SqlExecutionMixin):
     def exists(name: FQN) -> bool:
         return ObjectManager().object_exists(
             object_type=ObjectType.DBT_PROJECT.value.cli_name, fqn=name
+        )
+
+    @staticmethod
+    def describe(name: FQN) -> SnowflakeCursor:
+        return ObjectManager().describe(
+            object_type=ObjectType.DBT_PROJECT.value.cli_name, fqn=name
+        )
+
+    @staticmethod
+    def get_dbt_object_attributes(name: FQN) -> Optional[DBTObjectEditableAttributes]:
+        """Get editable attributes of an existing DBT project, or None if it doesn't exist."""
+        try:
+            cursor = DBTManager().describe(name)
+        except ProgrammingError:
+            return None
+
+        rows = list(cursor)
+        if not rows:
+            return None
+
+        row = rows[0]
+        # Convert row to dict using column names
+        columns = [desc[0] for desc in cursor.description]
+        row_dict = dict(zip(columns, row))
+
+        return DBTObjectEditableAttributes(
+            default_target=row_dict.get("default_target")
         )
 
     def deploy(
@@ -91,15 +123,35 @@ class DBTManager(SqlExecutionMixin):
         with cli_console.phase("Creating DBT project"):
             if force is True:
                 query = f"CREATE OR REPLACE DBT PROJECT {fqn}"
-            elif self.exists(name=fqn):
-                query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
+                query += f"\nFROM {stage_name}"
+                if default_target:
+                    query += f" DEFAULT_TARGET='{default_target}'"
+                return self.execute_query(query)
             else:
-                query = f"CREATE DBT PROJECT {fqn}"
-            query += f"\nFROM {stage_name}"
-            if default_target:
-                # TODO: figure out what to do about ALTER case
-                query += f" DEFAULT_TARGET='{default_target}'"
-            return self.execute_query(query)
+                dbt_object_attributes = self.get_dbt_object_attributes(fqn)
+                if dbt_object_attributes is not None:
+                    # Project exists - add new version
+                    query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
+                    query += f"\nFROM {stage_name}"
+                    result = self.execute_query(query)
+
+                    if default_target:
+                        current_default_target = dbt_object_attributes["default_target"]
+                        if (
+                            current_default_target is None
+                            or current_default_target.lower() != default_target.lower()
+                        ):
+                            set_default_query = f"ALTER DBT PROJECT {fqn} SET DEFAULT_TARGET='{default_target}'"
+                            return self.execute_query(set_default_query)
+
+                    return result
+                else:
+                    # Project doesn't exist - create new one
+                    query = f"CREATE DBT PROJECT {fqn}"
+                    query += f"\nFROM {stage_name}"
+                    if default_target:
+                        query += f" DEFAULT_TARGET='{default_target}'"
+                    return self.execute_query(query)
 
     @staticmethod
     def _validate_profiles(

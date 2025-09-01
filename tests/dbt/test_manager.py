@@ -1,13 +1,16 @@
 import os
 from pathlib import Path
 from textwrap import dedent
+from unittest import mock
 
 import pytest
 import yaml
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
 from snowflake.cli._plugins.dbt.manager import DBTManager
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.connector import ProgrammingError
 
 
 class TestDeploy:
@@ -218,3 +221,73 @@ dev
         DBTManager._validate_profiles(  # noqa: SLF001
             SecurePath(project_path), "dev", None
         )
+
+
+class TestGetDBTObjectAttributes:
+    @pytest.fixture
+    def mock_describe(self):
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager.describe",
+            return_value=mock.MagicMock(),
+        ) as _fixture:
+            yield _fixture
+
+    def test_get_dbt_object_attributes_when_object_does_not_exist(self, mock_describe):
+        fqn = FQN.from_string("test_project")
+
+        mock_describe.side_effect = ProgrammingError("Object does not exist")
+
+        result = DBTManager.get_dbt_object_attributes(fqn)
+
+        assert result is None
+
+    def test_get_dbt_object_attributes_when_no_rows_returned(self, mock_describe):
+        fqn = FQN.from_string("test_project")
+        mock_describe.return_value.__iter__ = mock.MagicMock(return_value=iter([]))
+
+        result = DBTManager.get_dbt_object_attributes(fqn)
+
+        assert result is None
+
+    def test_get_dbt_object_attributes_with_default_target(self, mock_describe):
+        fqn = FQN.from_string("test_project")
+        mock_describe.return_value.description = [("default_target",), ("other_field",)]
+        mock_row = ("prod", "other_value")
+        mock_describe.return_value.__iter__ = mock.MagicMock(
+            return_value=iter([mock_row])
+        )
+
+        result = DBTManager.get_dbt_object_attributes(fqn)
+
+        assert result is not None
+        assert result["default_target"] == "prod"
+
+    def test_get_dbt_object_attributes_with_null_default_target(self, mock_describe):
+        fqn = FQN.from_string("test_project")
+        mock_describe.return_value.description = [("default_target",), ("other_field",)]
+        mock_row = (None, "other_value")
+        mock_describe.return_value.__iter__ = mock.MagicMock(
+            return_value=iter([mock_row])
+        )
+
+        result = DBTManager.get_dbt_object_attributes(fqn)
+
+        assert result is not None
+        assert result["default_target"] is None
+
+    def test_get_dbt_object_attributes_missing_default_target_column(
+        self, mock_describe
+    ):
+        fqn = FQN.from_string("test_project")
+        mock_describe.return_value.description = [("other_field",), ("another_field",)]
+        mock_row = ("value1", "value2")
+        mock_describe.return_value.__iter__ = mock.MagicMock(
+            return_value=iter([mock_row])
+        )
+
+        result = DBTManager.get_dbt_object_attributes(fqn)
+
+        assert result is not None
+        assert (
+            result["default_target"] is None
+        )  # Should default to None when key is missing
