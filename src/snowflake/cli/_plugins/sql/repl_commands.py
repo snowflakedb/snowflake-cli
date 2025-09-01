@@ -482,16 +482,13 @@ class EditCommand(ReplCommand):
     def _get_last_command_from_history(self) -> str:
         """Get the last command from the REPL history."""
         repl = get_cli_context().repl
-        if repl and hasattr(repl, "_history"):
-            try:
-                history_entries = list(repl._history.get_strings())
-                for entry in reversed(history_entries):
-                    entry = entry.strip()
-                    is_repl_command = entry and entry.startswith("!")
-                    if not is_repl_command:
-                        return entry
-            except Exception as e:
-                log.warning("Could not read history from REPL instance: %s", e)
+        if repl and repl.history:
+            history_entries = list(repl.history.get_strings())
+            for entry in reversed(history_entries):
+                entry = entry.strip()
+                is_repl_command = entry and entry.startswith("!")
+                if not is_repl_command:
+                    return entry
 
         return ""
 

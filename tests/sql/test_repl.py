@@ -155,7 +155,7 @@ class TestEditCommand:
             extension=".sql",
             require_save=False,
         )
-        assert repl._next_input == "SELECT * FROM updated_users;"
+        assert repl.next_input == "SELECT * FROM updated_users;"
 
     @mock.patch("click.edit")
     def test_edit_command_with_history_fallback(
@@ -178,7 +178,7 @@ class TestEditCommand:
             extension=".sql",
             require_save=False,
         )
-        assert repl._next_input == "SELECT * FROM updated_history;"
+        assert repl.next_input == "SELECT * FROM updated_history;"
 
     @mock.patch("click.edit")
     def test_edit_command_skips_repl_commands_in_history(
@@ -228,7 +228,7 @@ class TestEditCommand:
         with mock.patch.dict(os.environ, {"EDITOR": "vim"}):
             edit_command.execute(mock_connection)
 
-        assert repl._next_input is None
+        assert repl.next_input is None
 
     @mock.patch("click.edit")
     def test_edit_command_editor_returns_empty_string(
@@ -240,7 +240,7 @@ class TestEditCommand:
         with mock.patch.dict(os.environ, {"EDITOR": "vim"}):
             edit_command.execute(mock_connection)
 
-        assert repl._next_input is None
+        assert repl.next_input is None
 
     @mock.patch("click.edit")
     def test_edit_command_strips_whitespace(
@@ -252,7 +252,7 @@ class TestEditCommand:
         with mock.patch.dict(os.environ, {"EDITOR": "vim"}):
             edit_command.execute(mock_connection)
 
-        assert repl._next_input == "SELECT * FROM test;"
+        assert repl.next_input == "SELECT * FROM test;"
 
     def test_edit_command_from_args_with_content(self):
         """Test EditCommand.from_args with SQL content."""
@@ -300,8 +300,8 @@ class TestEditCommand:
         with mock.patch.dict(os.environ, {"EDITOR": "vim"}):
             edit_command.execute(mock_connection)
 
-        # Verify that _next_input was set correctly
-        assert repl._next_input == "SELECT * FROM integration_test;"
+        # Verify that next_input was set correctly
+        assert repl.next_input == "SELECT * FROM integration_test;"
 
         # Mock the session.prompt to return the default text
         with mock.patch.object(repl.session, "prompt") as mock_prompt:
@@ -314,4 +314,4 @@ class TestEditCommand:
         assert call_kwargs["default"] == "SELECT * FROM integration_test;"
 
         # Verify _next_input is cleared after use
-        assert repl._next_input is None
+        assert repl.next_input is None
