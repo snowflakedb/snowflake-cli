@@ -113,10 +113,10 @@ class TestEditCommand:
         """Set up REPL context for testing."""
         context_manager = get_cli_context_manager()
         context_manager.is_repl = True
-        context_manager._repl_instance = repl
+        context_manager.repl_instance = repl
         yield
         context_manager.is_repl = False
-        context_manager._repl_instance = None
+        context_manager.repl_instance = None
 
     def test_edit_command_requires_repl_mode(self, edit_command, mock_connection):
         """Test that !edit command raises error when not in REPL mode."""
