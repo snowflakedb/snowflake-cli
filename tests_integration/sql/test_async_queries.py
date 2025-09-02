@@ -19,7 +19,7 @@ class TableForTesting:
     def assert_contents(self, expected_contents: Set[str]):
         # as very rarely the result of the last async query is not yet visible on the server side,
         # we wait short amount of time and repeat the check before failing the test
-        for time_to_wait in [0, 0.1, 0.3]:
+        for time_to_wait in [0, 0.1, 0.3, 0.5, 1]:
             sleep(time_to_wait)
             result = self.runner.invoke_with_connection_json(
                 ["sql", "-q", f"SELECT {self.col} FROM {self.name}"]

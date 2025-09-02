@@ -5,39 +5,41 @@ ENV HOME=/root
 RUN apt -y update
 RUN apt -y install -y software-properties-common binutils --fix-missing
 RUN add-apt-repository ppa:deadsnakes/ppa
-RUN apt install -y --fix-missing ruby\
-  squashfs-tools\
-  rpm\
-  vim \
-  build-essential\
-  libssl-dev\
-  zlib1g-dev\
-  libbz2-dev\
-  libreadline-dev\
-  libsqlite3-dev\
-  curl\
+
+RUN apt install -y --fix-missing \
+  build-essential \
+  curl \
   git \
-  libncursesw5-dev\
-  xz-utils \
-  libxml2-dev\
-  libxmlsec1-dev\
-  libffi-dev\
-  liblzma-dev
+  pkg-config \
+  libssl-dev \
+  zlib1g-dev \
+  libbz2-dev \
+  libreadline-dev \
+  libffi-dev \
+  liblzma-dev \
+  libncursesw5-dev \
+  libssl1.1 \
+  zlib1g \
+  libbz2-1.0 \
+  liblzma5 \
+  libffi6 \
+  ruby \
+  squashfs-tools \
+  rpm
+
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y tk-dev
 
 RUN gem install dotenv -v 2.8.1
 RUN gem install fpm
 
-ENV PYENV_ROOT="${HOME}/.pyenv"
-ENV PATH="${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:$PATH"
-ENV PYTHON_VERSION=3.10
+# Copy and run Python build script
+COPY build_python.sh /tmp/build_python.sh
+RUN chmod +x /tmp/build_python.sh && /tmp/build_python.sh && rm /tmp/build_python.sh
 
-RUN curl https://pyenv.run | bash
-RUN pyenv install ${PYTHON_VERSION}
-RUN pyenv rehash
-RUN pyenv global ${PYTHON_VERSION}
-RUN pyenv versions
-RUN pyenv rehash
-RUN pyenv exec pip install -U pip uv hatch
+# Update PATH to use our custom Python
+ENV PATH="/usr/local/bin:$PATH"
+
+# Install build tools - these are not embedded in final binary so can use pre-built wheels
+RUN python -m pip install -U uv hatch
 
 WORKDIR /snowflake-cli

@@ -40,7 +40,7 @@ class DCMProjectManager(SqlExecutionMixin):
         else:
             query += " DEPLOY"
             if alias:
-                query += f" AS {alias}"
+                query += f' AS "{alias}"'
         if configuration or variables:
             query += f" USING"
         if configuration:
@@ -92,5 +92,5 @@ class DCMProjectManager(SqlExecutionMixin):
         query = f"ALTER DCM PROJECT {project_name.identifier} DROP DEPLOYMENT"
         if if_exists:
             query += " IF EXISTS"
-        query += f" {deployment_name}"
+        query += f' "{deployment_name}"'
         return self.execute_query(query=query)

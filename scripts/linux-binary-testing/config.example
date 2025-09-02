@@ -1,0 +1,12 @@
+# AWS Testing Configuration
+# Copy this file to 'config' and customize for your environment
+
+# Required Configuration
+KEYPAIR="your-keypair-name"          # Your AWS keypair name (e.g., "my-aws-key")
+PACKAGE_DIR="/path/to/your/packages" # Directory containing snowflake-cli packages
+
+# Required AWS Configuration
+SECURITY_GROUP="your-security-group-id"
+VPC_ID="your-vpc-id"
+SUBNET_ID="your-subnet-id"
+REGION="your-aws-region"

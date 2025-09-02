@@ -183,7 +183,7 @@ def test_project_drop_deployment(
                 "deploy",
                 project_name,
                 "--alias",
-                "v2",
+                "test-1",
                 "-D",
                 f"table_name='{test_database}.PUBLIC.MyTable'",
             ]
@@ -206,8 +206,8 @@ def test_project_drop_deployment(
             project_name,
             {
                 ("DEPLOYMENT$1", None),
-                ("DEPLOYMENT$2", "V2"),
-                ("DEPLOYMENT$3", "THEDEFAULT"),
+                ("DEPLOYMENT$2", "test-1"),
+                ("DEPLOYMENT$3", "theDefault"),
             },
         )
         # Drop the deployment by name
@@ -222,11 +222,11 @@ def test_project_drop_deployment(
 
         # Drop the deployment by alias
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "v2"]
+            ["dcm", "drop-deployment", project_name, "test-1"]
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Deployment 'v2' dropped from DCM Project '{project_name}'"
+            f"Deployment 'test-1' dropped from DCM Project '{project_name}'"
             in result.output
         )
 
