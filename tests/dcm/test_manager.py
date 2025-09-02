@@ -204,7 +204,7 @@ def test_deploy_project_with_alias_special_characters(
 ):
     mgr = DCMProjectManager()
     mgr.execute(
-        project_name=TEST_PROJECT,
+        project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
         alias=alias,
     )
