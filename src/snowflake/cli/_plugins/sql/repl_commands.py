@@ -482,8 +482,12 @@ class EditCommand(ReplCommand):
 
         if edited_content:
             log.debug("Editor returned content, length: %d", len(edited_content))
-            repl = get_cli_context().repl
-            repl.set_next_input(edited_content)
+
+            if repl := get_cli_context().repl:
+                repl.set_next_input(edited_content)
+            else:
+                log.warning("REPL instance not found in context")
+
             cli_console.message(
                 "[green]✓ Edited SQL loaded into prompt. Modify as needed or press Enter to execute.[/green]"
             )
