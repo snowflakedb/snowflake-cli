@@ -1,13 +1,16 @@
 import os
 from pathlib import Path
 from textwrap import dedent
+from unittest import mock
 
 import pytest
 import yaml
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
 from snowflake.cli._plugins.dbt.manager import DBTManager
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
+from snowflake.connector import ProgrammingError
 
 
 class TestDeploy:
@@ -25,7 +28,17 @@ class TestDeploy:
                         "type": "snowflake",
                         "user": "test_user",
                         "warehouse": "test_warehouse",
-                    }
+                    },
+                    "prod": {
+                        "account": "test_account",
+                        "database": "testdb_prod",
+                        "role": "test_role",
+                        "schema": "test_schema",
+                        "threads": 4,
+                        "type": "snowflake",
+                        "user": "test_user",
+                        "warehouse": "test_warehouse",
+                    },
                 }
             }
         }
@@ -178,3 +191,105 @@ dev
                 assert "comment" not in line
                 assert "password" not in line
                 assert "# " not in line
+
+    def test_validate_profiles_with_valid_default_target(self, project_path, profile):
+        self._generate_profile(project_path, profile)
+
+        # Should not raise an exception
+        DBTManager._validate_profiles(  # noqa: SLF001
+            SecurePath(project_path), "dev", "prod"
+        )
+
+    def test_validate_profiles_with_invalid_default_target(self, project_path, profile):
+        self._generate_profile(project_path, profile)
+
+        with pytest.raises(CliError) as exc_info:
+            DBTManager._validate_profiles(  # noqa: SLF001
+                SecurePath(project_path), "dev", "invalid_target"
+            )
+
+        assert (
+            "Default target 'invalid_target' is not defined in profile 'dev'"
+            in exc_info.value.message
+        )
+        assert "Available targets: local, prod" in exc_info.value.message
+
+    def test_validate_profiles_without_default_target(self, project_path, profile):
+        self._generate_profile(project_path, profile)
+
+        # Should not raise an exception when default_target is None
+        DBTManager._validate_profiles(  # noqa: SLF001
+            SecurePath(project_path), "dev", None
+        )
+
+
+class TestGetDBTObjectAttributes:
+    @pytest.fixture
+    def mock_describe(self):
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager.describe",
+            return_value=mock.MagicMock(),
+        ) as _fixture:
+            yield _fixture
+
+    def test_get_dbt_object_attributes_when_object_does_not_exist(self, mock_describe):
+        fqn = FQN.from_string("test_project")
+
+        mock_describe.side_effect = ProgrammingError(
+            f"002003 (02000): 01bec8ce-010b-16e8-0000-5349394c206e: SQL compilation error:\nDBT PROJECT '{fqn.name}' does not exist or not authorized."
+        )
+
+        result = DBTManager.get_dbt_object_attributes(fqn)
+
+        assert result is None
+
+    def test_get_dbt_object_attributes_when_no_rows_returned(self, mock_describe):
+        fqn = FQN.from_string("test_project")
+        mock_describe.return_value.__iter__ = mock.MagicMock(return_value=iter([]))
+
+        result = DBTManager.get_dbt_object_attributes(fqn)
+
+        assert result is None
+
+    def test_get_dbt_object_attributes_with_default_target(self, mock_describe):
+        fqn = FQN.from_string("test_project")
+        mock_describe.return_value.description = [("default_target",), ("other_field",)]
+        mock_row = ("prod", "other_value")
+        mock_describe.return_value.__iter__ = mock.MagicMock(
+            return_value=iter([mock_row])
+        )
+
+        result = DBTManager.get_dbt_object_attributes(fqn)
+
+        assert result is not None
+        assert result["default_target"] == "prod"
+
+    def test_get_dbt_object_attributes_with_null_default_target(self, mock_describe):
+        fqn = FQN.from_string("test_project")
+        mock_describe.return_value.description = [("default_target",), ("other_field",)]
+        mock_row = (None, "other_value")
+        mock_describe.return_value.__iter__ = mock.MagicMock(
+            return_value=iter([mock_row])
+        )
+
+        result = DBTManager.get_dbt_object_attributes(fqn)
+
+        assert result is not None
+        assert result["default_target"] is None
+
+    def test_get_dbt_object_attributes_missing_default_target_column(
+        self, mock_describe
+    ):
+        fqn = FQN.from_string("test_project")
+        mock_describe.return_value.description = [("other_field",), ("another_field",)]
+        mock_row = ("value1", "value2")
+        mock_describe.return_value.__iter__ = mock.MagicMock(
+            return_value=iter([mock_row])
+        )
+
+        result = DBTManager.get_dbt_object_attributes(fqn)
+
+        assert result is not None
+        assert (
+            result["default_target"] is None
+        )  # Should default to None when key is missing
