@@ -166,7 +166,7 @@ def plan(
         from_stage = _sync_local_files(project_identifier=identifier)
 
     with cli_console.spinner() as spinner:
-        spinner.add_task(description=f"Deploying dcm project {identifier}", total=None)
+        spinner.add_task(description=f"Planning dcm project {identifier}", total=None)
         result = DCMProjectManager().execute(
             project_identifier=identifier,
             configuration=configuration,
