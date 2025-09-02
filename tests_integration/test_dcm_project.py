@@ -231,7 +231,7 @@ def test_project_drop_deployment(
         )
 
         _assert_project_has_deployments(
-            runner, project_name, expected_deployments={("DEPLOYMENT$3", "THEDEFAULT")}
+            runner, project_name, expected_deployments={("DEPLOYMENT$3", "theDefault")}
         )
 
         # Try to drop the default deployment

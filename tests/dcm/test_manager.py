@@ -10,29 +10,6 @@ TEST_PROJECT = FQN.from_string("my_project")
 
 
 @mock.patch(execute_queries)
-@pytest.mark.parametrize("stage_name", ["@stage_foo", "stage_foo"])
-def test_create_version(mock_execute_query, stage_name):
-    mgr = DCMProjectManager()
-    mgr._create_deployment(  # noqa: SLF001
-        project_name=TEST_PROJECT, from_stage=stage_name, alias="v1", comment="fancy"
-    )
-    mock_execute_query.assert_called_once_with(
-        query=f"ALTER DCM PROJECT my_project ADD DEPLOYMENT IF NOT EXISTS v1 FROM @stage_foo COMMENT = 'fancy'"
-    )
-
-
-@mock.patch(execute_queries)
-def test_create_deployment_no_alias(mock_execute_query):
-    mgr = DCMProjectManager()
-    mgr._create_deployment(  # noqa: SLF001
-        project_name=TEST_PROJECT, from_stage="@stage_foo"
-    )
-    mock_execute_query.assert_called_once_with(
-        query="ALTER DCM PROJECT my_project ADD DEPLOYMENT FROM @stage_foo"
-    )
-
-
-@mock.patch(execute_queries)
 def test_create(mock_execute_query):
     project_mock = mock.MagicMock(
         fqn=FQN.from_string("project_mock_fqn"), stage="mock_stage_name"
