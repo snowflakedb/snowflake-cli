@@ -153,20 +153,21 @@ class Repl:
         Checks for queued input from commands like !edit and uses it as
         default text in the prompt. The queued input is cleared after use.
         """
-        default_text = None
-        if self._next_input is not None:
-            default_text = self._next_input
-            self._next_input = None
+        default_text = self._next_input
 
-        return self.session.prompt(
-            msg,
-            lexer=self._lexer,
-            completer=self._completer,
-            multiline=True,
-            wrap_lines=True,
-            key_bindings=self._repl_key_bindings,
-            default=default_text or "",
-        )
+        try:
+            return self.session.prompt(
+                msg,
+                lexer=self._lexer,
+                completer=self._completer,
+                multiline=True,
+                wrap_lines=True,
+                key_bindings=self._repl_key_bindings,
+                default=default_text or "",
+            )
+        finally:
+            if self._next_input == default_text:
+                self._next_input = None
 
     def yn_prompt(self, msg: str) -> str:
         """Yes/No prompt."""
