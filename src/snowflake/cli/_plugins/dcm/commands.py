@@ -268,7 +268,8 @@ def _sync_local_files(project_identifier: FQN) -> str:
             )
 
         definitions = dcm_manifest.get("include_definitions", list())
-        definitions.append(MANIFEST_FILE_NAME)
+        if MANIFEST_FILE_NAME not in definitions:
+            definitions.append(MANIFEST_FILE_NAME)
 
     # Create a temporary stage for this deployment session
     stage_manager = StageManager()

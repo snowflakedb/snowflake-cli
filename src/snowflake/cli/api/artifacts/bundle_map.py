@@ -28,11 +28,11 @@ def _validate_regex_pattern(pattern: str) -> None:
     Raises ArtifactError if the pattern contains potentially dangerous constructs.
     """
     # Maximum allowed pattern length to prevent excessively complex patterns
-    MAX_PATTERN_LENGTH = 1000
+    max_pattern_length = 1000
 
-    if len(pattern) > MAX_PATTERN_LENGTH:
+    if len(pattern) > max_pattern_length:
         raise ArtifactError(
-            f"Regex pattern too long ({len(pattern)} chars, max {MAX_PATTERN_LENGTH}): "
+            f"Regex pattern too long ({len(pattern)} chars, max {max_pattern_length}): "
             "potentially unsafe for performance"
         )
 
@@ -52,14 +52,8 @@ def _validate_regex_pattern(pattern: str) -> None:
         if re.search(dangerous_pattern, pattern):
             raise ArtifactError(
                 f"Potentially unsafe regex pattern '{pattern}': contains {description}. "
-                "This pattern could cause catastrophic backtracking and performance issues."
+                "This pattern could cause performance issues."
             )
-
-
-class _TimeoutException(Exception):
-    """Exception raised when regex matching times out."""
-
-    pass
 
 
 def _safe_regex_match(
@@ -79,20 +73,17 @@ def _safe_regex_match(
         except Exception as e:
             exception[0] = e
 
-    # Use threading for timeout protection (works on all platforms)
     thread = threading.Thread(target=match_worker, daemon=True)
     thread.start()
     thread.join(timeout=timeout_seconds)
 
     if thread.is_alive():
-        # Thread is still running, which means it's taking too long
         raise ArtifactError(
             f"Regex matching timed out after {timeout_seconds}s. "
             f"Pattern may be too complex for text: '{text[:100]}...'"
         )
 
     if exception[0]:
-        # Re-raise any exception that occurred during matching
         raise exception[0]
 
     return result[0]
@@ -238,7 +229,7 @@ class BundleMap:
 
     def _resolve_regex_pattern(self, pattern: str):
         """
-        Resolve files matching a regex pattern with ReDoS protection.
+        Resolve files matching a regex pattern.
 
         This method includes protections against Regular Expression Denial of Service (ReDoS) attacks:
         - Validates patterns for dangerous constructs that could cause catastrophic backtracking
@@ -266,10 +257,8 @@ class BundleMap:
                     ):
                         yield path
                 except ArtifactError:
-                    # Re-raise ArtifactError (timeout or other issues) with context
                     raise ArtifactError(
-                        f"Regex pattern '{pattern}' is too complex or taking too long to process. "
-                        "Consider simplifying the pattern or using glob patterns instead."
+                        f"Regex pattern '{pattern}' is too complex or taking too long to process."
                     )
 
     def add(self, mapping: PathMapping) -> None:

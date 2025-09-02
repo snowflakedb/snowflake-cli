@@ -1102,6 +1102,7 @@ class TestRegexSecurityProtections:
             "test.txt": "content",
             "test/file.py": "python code",
             "docs/readme.md": "documentation",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaac": "file that causes catastrophic backtracking",
         }
         with temp_local_dir(project_files) as project_root:
             deploy_root = project_root / "output" / "deploy"
@@ -1121,7 +1122,7 @@ class TestRegexSecurityProtections:
             ),
             pytest.param(
                 r"(a*)*b",
-                "nested quantifiers",  # This pattern is caught by the nested quantifiers rule first
+                "nested quantifiers",
                 id="multiple_star_quantifiers",
             ),
             pytest.param(
@@ -1131,7 +1132,7 @@ class TestRegexSecurityProtections:
             ),
             pytest.param(
                 r"((a+)+)+b",
-                "nested quantifiers",  # This pattern is also caught by nested quantifiers rule first
+                "nested quantifiers",
                 id="deeply_nested_groups",
             ),
             pytest.param(
@@ -1145,8 +1146,8 @@ class TestRegexSecurityProtections:
         self, basic_bundle_map, dangerous_pattern, expected_error_msg
     ):
         """Test that potentially dangerous regex patterns are blocked."""
-        with pytest.raises(ArtifactError, match=expected_error_msg):
-            basic_bundle_map.add(PathMapping(src=dangerous_pattern))
+        with pytest.raises(ArtifactError, match=str(expected_error_msg)):
+            basic_bundle_map.add(PathMapping(src=str(dangerous_pattern)))
 
     def test_safe_regex_patterns_allowed(self, basic_bundle_map):
         """Test that safe regex patterns are allowed."""
@@ -1163,9 +1164,9 @@ class TestRegexSecurityProtections:
             try:
                 basic_bundle_map.add(PathMapping(src=pattern))
                 # Reset the bundle map for next pattern
-                basic_bundle_map._artifact_map = (
-                    basic_bundle_map._artifact_map.__class__(
-                        project_root=basic_bundle_map._project_root
+                basic_bundle_map._artifact_map = (  # noqa: SLF001
+                    basic_bundle_map._artifact_map.__class__(  # noqa: SLF001
+                        project_root=basic_bundle_map._project_root  # noqa: SLF001
                     )
                 )
             except ArtifactError as e:
@@ -1183,14 +1184,10 @@ class TestRegexSecurityProtections:
                 pass
 
     def test_regex_timeout_protection(self, basic_bundle_map):
-        """Test that regex matching has timeout protection."""
-        # Create a pattern that could cause slow matching on specific input
-        # This is a simplified test - in practice, more complex patterns might be needed
-        pathological_pattern = r"(a+)*b"
+        dangerous_pattern = r"(a+)*b"
 
-        # The validation should catch this before it even gets to matching
-        with pytest.raises(ArtifactError, match="nested quantifiers"):
-            basic_bundle_map.add(PathMapping(src=pathological_pattern))
+        with pytest.raises(ArtifactError, match="contains nested quantifiers"):
+            basic_bundle_map.add(PathMapping(src=dangerous_pattern))
 
     def test_pattern_length_validation(self, basic_bundle_map):
         """Test that excessively long patterns are rejected."""
@@ -1211,18 +1208,6 @@ class TestRegexSecurityProtections:
         for pattern in invalid_patterns:
             with pytest.raises(ArtifactError, match="Invalid regex pattern"):
                 basic_bundle_map.add(PathMapping(src=pattern))
-
-    def test_security_error_messages_helpful(self, basic_bundle_map):
-        """Test that security error messages provide helpful guidance."""
-        dangerous_pattern = r"(a+)+b"
-
-        with pytest.raises(ArtifactError) as exc_info:
-            basic_bundle_map.add(PathMapping(src=dangerous_pattern))
-
-        error_msg = str(exc_info.value)
-        assert "nested quantifiers" in error_msg
-        assert "catastrophic backtracking" in error_msg
-        assert "performance issues" in error_msg
 
     def test_normal_regex_functionality_preserved(self, basic_bundle_map):
         """Test that normal regex functionality still works after adding security."""
