@@ -67,7 +67,8 @@ def test_abort_execute(mock_print, mock_ctx):
     ctx = mock_ctx()
     command.execute(ctx)
     ctx.cursor().execute.assert_called_once_with(
-        f"SELECT SYSTEM$CANCEL_QUERY('{_FAKE_QID}')"
+        "SELECT SYSTEM$CANCEL_QUERY(%s)",
+        ("00000000-0000-0000-0000-000000000000",),
     )
     mock_print.assert_called_once()
 

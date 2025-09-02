@@ -412,7 +412,7 @@ class AbortCommand(ReplCommand):
 
     def execute(self, connection: SnowflakeConnection):
         cursor = connection.cursor()
-        cursor.execute(f"SELECT SYSTEM$CANCEL_QUERY('{self.query_id}')")
+        cursor.execute("SELECT SYSTEM$CANCEL_QUERY(%s)", (self.query_id,))
         print_result(QueryResult(cursor=cursor))
 
     @classmethod
