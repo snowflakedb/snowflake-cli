@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Optional, TypedDict
 
 import yaml
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
@@ -30,6 +31,11 @@ from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.errors import ProgrammingError
+
+
+class DBTObjectEditableAttributes(TypedDict):
+    default_target: Optional[str]
 
 
 class DBTManager(SqlExecutionMixin):
@@ -43,12 +49,43 @@ class DBTManager(SqlExecutionMixin):
             object_type=ObjectType.DBT_PROJECT.value.cli_name, fqn=name
         )
 
+    @staticmethod
+    def describe(name: FQN) -> SnowflakeCursor:
+        return ObjectManager().describe(
+            object_type=ObjectType.DBT_PROJECT.value.cli_name, fqn=name
+        )
+
+    @staticmethod
+    def get_dbt_object_attributes(name: FQN) -> Optional[DBTObjectEditableAttributes]:
+        """Get editable attributes of an existing DBT project, or None if it doesn't exist."""
+        try:
+            cursor = DBTManager().describe(name)
+        except ProgrammingError as exc:
+            if "DBT PROJECT" in exc.msg and "does not exist" in exc.msg:
+                return None
+            raise exc
+
+        rows = list(cursor)
+        if not rows:
+            return None
+
+        row = rows[0]
+        # Convert row to dict using column names
+        columns = [desc[0] for desc in cursor.description]
+        row_dict = dict(zip(columns, row))
+
+        return DBTObjectEditableAttributes(
+            default_target=row_dict.get("default_target")
+        )
+
     def deploy(
         self,
         fqn: FQN,
         path: SecurePath,
         profiles_path: SecurePath,
         force: bool,
+        default_target: Optional[str] = None,
+        unset_default_target: bool = False,
     ) -> SnowflakeCursor:
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
@@ -63,7 +100,7 @@ class DBTManager(SqlExecutionMixin):
             except KeyError:
                 raise CliError("`profile` is not defined in dbt_project.yml")
 
-        self._validate_profiles(profiles_path, profile)
+        self._validate_profiles(profiles_path, profile, default_target)
 
         with cli_console.phase("Creating temporary stage"):
             stage_manager = StageManager()
@@ -89,21 +126,51 @@ class DBTManager(SqlExecutionMixin):
         with cli_console.phase("Creating DBT project"):
             if force is True:
                 query = f"CREATE OR REPLACE DBT PROJECT {fqn}"
-            elif self.exists(name=fqn):
-                query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
+                query += f"\nFROM {stage_name}"
+                if default_target:
+                    query += f" DEFAULT_TARGET='{default_target}'"
+                return self.execute_query(query)
             else:
-                query = f"CREATE DBT PROJECT {fqn}"
-            query += f"\nFROM {stage_name}"
-            return self.execute_query(query)
+                dbt_object_attributes = self.get_dbt_object_attributes(fqn)
+                if dbt_object_attributes is not None:
+                    # Project exists - add new version
+                    query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
+                    query += f"\nFROM {stage_name}"
+                    result = self.execute_query(query)
+
+                    current_default_target = dbt_object_attributes.get("default_target")
+                    if unset_default_target and current_default_target is not None:
+                        unset_query = f"ALTER DBT PROJECT {fqn} UNSET DEFAULT_TARGET"
+                        self.execute_query(unset_query)
+                    elif default_target and (
+                        current_default_target is None
+                        or current_default_target.lower() != default_target.lower()
+                    ):
+                        set_default_query = f"ALTER DBT PROJECT {fqn} SET DEFAULT_TARGET='{default_target}'"
+                        self.execute_query(set_default_query)
+
+                    return result
+                else:
+                    # Project doesn't exist - create new one
+                    query = f"CREATE DBT PROJECT {fqn}"
+                    query += f"\nFROM {stage_name}"
+                    if default_target:
+                        query += f" DEFAULT_TARGET='{default_target}'"
+                    return self.execute_query(query)
 
     @staticmethod
-    def _validate_profiles(profiles_path: SecurePath, target_profile: str) -> None:
+    def _validate_profiles(
+        profiles_path: SecurePath,
+        target_profile: str,
+        default_target: str | None = None,
+    ) -> None:
         """
         Validates that:
          * profiles.yml exists
          * contain profile specified in dbt_project.yml
          * no other profiles are defined there
          * does not contain any confidential data like passwords
+         * default_target (if specified) exists in the profile's outputs
         """
         profiles_file = profiles_path / PROFILES_FILENAME
         if not profiles_file.exists():
@@ -152,6 +219,15 @@ class DBTManager(SqlExecutionMixin):
             if "type" in target and target["type"].lower() != "snowflake":
                 errors[target_profile].append(
                     f"Value for type field is invalid. Should be set to `snowflake` in target {target_name}"
+                )
+
+        if default_target is not None:
+            available_targets = set(profiles[target_profile]["outputs"].keys())
+            if default_target not in available_targets:
+                available_targets_str = ", ".join(sorted(available_targets))
+                errors["default_target"].append(
+                    f"Default target '{default_target}' is not defined in profile '{target_profile}'. "
+                    f"Available targets: {available_targets_str}"
                 )
 
         if errors:
