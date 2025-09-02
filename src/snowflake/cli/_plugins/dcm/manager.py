@@ -40,7 +40,7 @@ class DCMProjectManager(SqlExecutionMixin):
         else:
             query += " DEPLOY"
             if alias:
-                query += f" AS {alias}"
+                query += f' AS "{alias}"'
         if configuration or variables:
             query += f" USING"
         if configuration:
@@ -60,22 +60,6 @@ class DCMProjectManager(SqlExecutionMixin):
         query = f"CREATE DCM PROJECT {project.fqn.sql_identifier}"
         self.execute_query(query)
 
-    def _create_version(
-        self,
-        project_name: FQN,
-        from_stage: str,
-        alias: str | None = None,
-        comment: str | None = None,
-    ):
-        stage_path = StagePath.from_stage_str(from_stage)
-        query = f"ALTER DCM PROJECT {project_name.identifier} ADD VERSION"
-        if alias:
-            query += f" IF NOT EXISTS {alias}"
-        query += f" FROM {stage_path.absolute_path(at_prefix=True)}"
-        if comment:
-            query += f" COMMENT = '{comment}'"
-        return self.execute_query(query=query)
-
     def list_versions(self, project_name: FQN):
         query = f"SHOW VERSIONS IN DCM PROJECT {project_name.identifier}"
         return self.execute_query(query=query)
@@ -87,10 +71,10 @@ class DCMProjectManager(SqlExecutionMixin):
         if_exists: bool = False,
     ):
         """
-        Drops a version from the DCM Project.
+        Drops a deployment from the DCM Project.
         """
         query = f"ALTER DCM PROJECT {project_name.identifier} DROP VERSION"
         if if_exists:
             query += " IF EXISTS"
-        query += f" {version_name}"
+        query += f' "{version_name}"'
         return self.execute_query(query=query)

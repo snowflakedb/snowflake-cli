@@ -10,29 +10,6 @@ TEST_PROJECT = FQN.from_string("my_project")
 
 
 @mock.patch(execute_queries)
-@pytest.mark.parametrize("stage_name", ["@stage_foo", "stage_foo"])
-def test_create_version(mock_execute_query, stage_name):
-    mgr = DCMProjectManager()
-    mgr._create_version(  # noqa: SLF001
-        project_name=TEST_PROJECT, from_stage=stage_name, alias="v1", comment="fancy"
-    )
-    mock_execute_query.assert_called_once_with(
-        query=f"ALTER DCM PROJECT my_project ADD VERSION IF NOT EXISTS v1 FROM @stage_foo COMMENT = 'fancy'"
-    )
-
-
-@mock.patch(execute_queries)
-def test_create_version_no_alias(mock_execute_query):
-    mgr = DCMProjectManager()
-    mgr._create_version(  # noqa: SLF001
-        project_name=TEST_PROJECT, from_stage="@stage_foo"
-    )
-    mock_execute_query.assert_called_once_with(
-        query="ALTER DCM PROJECT my_project ADD VERSION FROM @stage_foo"
-    )
-
-
-@mock.patch(execute_queries)
 def test_create(mock_execute_query):
     project_mock = mock.MagicMock(
         fqn=FQN.from_string("project_mock_fqn"), stage="mock_stage_name"
@@ -156,7 +133,7 @@ def test_drop_version(mock_execute_query, if_exists):
     expected_query = "ALTER DCM PROJECT my_project DROP VERSION"
     if if_exists:
         expected_query += " IF EXISTS"
-    expected_query += " v1"
+    expected_query += ' "v1"'
 
     mock_execute_query.assert_called_once_with(query=expected_query)
 
@@ -209,5 +186,31 @@ def test_deploy_project_with_output_path(mock_execute_query, project_directory):
     )
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY AS v1 FROM @test_stage OUTPUT_PATH @output_stage"
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY AS \"v1\" FROM @test_stage OUTPUT_PATH @output_stage"
+    )
+
+
+@mock.patch(execute_queries)
+@pytest.mark.parametrize(
+    "alias,expected_alias",
+    [
+        ("test-1", '"test-1"'),
+        ("my alias", '"my alias"'),
+        ("v1.0", '"v1.0"'),
+        ("test_alias", '"test_alias"'),
+        ("v1", '"v1"'),
+    ],
+)
+def test_deploy_project_with_alias_special_characters(
+    mock_execute_query, alias, expected_alias
+):
+    mgr = DCMProjectManager()
+    mgr.execute(
+        project_name=TEST_PROJECT,
+        from_stage="@test_stage",
+        alias=alias,
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query=f"EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY AS {expected_alias} FROM @test_stage"
     )
