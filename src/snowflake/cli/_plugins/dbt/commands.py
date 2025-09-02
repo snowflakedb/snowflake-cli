@@ -92,6 +92,11 @@ def deploy_dbt(
         False,
         help="Overwrites conflicting files in the project, if any.",
     ),
+    external_access_integrations: Optional[list[str]] = typer.Option(
+        None,
+        show_default=None,
+        help="External access integrations to be used by the dbt object.",
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -107,6 +112,7 @@ def deploy_dbt(
             project_path.resolve(),
             profiles_dir_path.resolve(),
             force=force,
+            external_access_integrations=external_access_integrations,
         )
     )
 
