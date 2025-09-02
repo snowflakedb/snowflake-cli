@@ -31,6 +31,7 @@ from snowflake.cli._plugins.object.command_aliases import add_object_command_ali
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli.api.commands.decorators import global_options_with_connection
 from snowflake.cli.api.commands.flags import identifier_argument, like_option
+from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import CliError
@@ -58,6 +59,16 @@ DBTNameArgument = identifier_argument(sf_object="DBT Project", example="my_pipel
 # command, in which case FQN validation could fail
 DBTNameOrCommandArgument = identifier_argument(
     sf_object="DBT Project", example="my_pipeline", click_type=types.StringParamType()
+)
+DefaultTargetOption = OverrideableOption(
+    None,
+    "--default-target",
+    mutually_exclusive=["unset_default_target"],
+)
+UnsetDefaultTargetOption = OverrideableOption(
+    False,
+    "--unset-default-target",
+    mutually_exclusive=["default_target"],
 )
 
 add_object_command_aliases(
@@ -92,6 +103,14 @@ def deploy_dbt(
         False,
         help="Overwrites conflicting files in the project, if any.",
     ),
+    default_target: Optional[str] = DefaultTargetOption(
+        help="Default target for the dbt project. Mutually exclusive with --unset-default-target.",
+        hidden=FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled(),
+    ),
+    unset_default_target: Optional[bool] = UnsetDefaultTargetOption(
+        help="Unset the default target for the dbt project. Mutually exclusive with --default-target.",
+        hidden=FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled(),
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -99,6 +118,10 @@ def deploy_dbt(
     provided; or create a new one if it doesn't exist; or update files and
     create a new version if it exists.
     """
+    if FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled():
+        default_target = None
+        unset_default_target = False
+
     project_path = SecurePath(source) if source is not None else SecurePath.cwd()
     profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
     return QueryResult(
@@ -107,6 +130,8 @@ def deploy_dbt(
             project_path.resolve(),
             profiles_dir_path.resolve(),
             force=force,
+            default_target=default_target,
+            unset_default_target=unset_default_target,
         )
     )
 
