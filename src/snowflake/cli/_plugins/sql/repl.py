@@ -147,7 +147,7 @@ class Repl:
 
         return kb
 
-    def repl_propmpt(self, msg: str = " > ") -> str:
+    def repl_prompt(self, msg: str = " > ") -> str:
         """Regular repl prompt with support for pre-filled input.
 
         Checks for queued input from commands like !edit and uses it as
@@ -218,7 +218,7 @@ class Repl:
         """
         while True:
             try:
-                user_input = self.repl_propmpt().strip()
+                user_input = self.repl_prompt().strip()
 
                 if not user_input:
                     continue

@@ -306,7 +306,7 @@ class TestEditCommand:
         # Mock the session.prompt to return the default text
         with mock.patch.object(repl.session, "prompt") as mock_prompt:
             mock_prompt.return_value = "SELECT * FROM integration_test;"
-            repl.repl_propmpt("test > ")
+            repl.repl_prompt("test > ")
 
         # Verify prompt was called with the correct default
         mock_prompt.assert_called_once()
