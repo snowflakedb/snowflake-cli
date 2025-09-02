@@ -529,13 +529,7 @@ class EditCommand(ReplCommand):
         Unlike other commands, EditCommand treats all arguments as SQL content,
         not as key-value pairs. This allows SQL with equals signs to work correctly.
         """
-        if not raw_args:
-            return [], {}
-
-        # For EditCommand, treat the entire raw_args as a single SQL string
-        # Split by spaces but don't interpret = as key-value pairs
-        args = raw_args.split()
-        return args, {}
+        return [raw_args] if raw_args else [], {}
 
     @classmethod
     def _from_parsed_args(cls, args, kwargs) -> CompileCommandResult:
