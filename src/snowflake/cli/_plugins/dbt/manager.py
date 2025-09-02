@@ -60,8 +60,10 @@ class DBTManager(SqlExecutionMixin):
         """Get editable attributes of an existing DBT project, or None if it doesn't exist."""
         try:
             cursor = DBTManager().describe(name)
-        except ProgrammingError:
-            return None
+        except ProgrammingError as exc:
+            if "DBT PROJECT" in exc.msg and "does not exist" in exc.msg:
+                return None
+            raise exc
 
         rows = list(cursor)
         if not rows:

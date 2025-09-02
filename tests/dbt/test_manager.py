@@ -235,7 +235,9 @@ class TestGetDBTObjectAttributes:
     def test_get_dbt_object_attributes_when_object_does_not_exist(self, mock_describe):
         fqn = FQN.from_string("test_project")
 
-        mock_describe.side_effect = ProgrammingError("Object does not exist")
+        mock_describe.side_effect = ProgrammingError(
+            f"002003 (02000): 01bec8ce-010b-16e8-0000-5349394c206e: SQL compilation error:\nDBT PROJECT '{fqn.name}' does not exist or not authorized."
+        )
 
         result = DBTManager.get_dbt_object_attributes(fqn)
 
