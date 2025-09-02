@@ -48,7 +48,7 @@ light.exe ^
   snowflake_cli.wixobj ^
   snowflake_cli_exitdlg.wixobj || goto :error
 
-signtool sign /debug /sm /d "Snowflake CLI" /t http://timestamp.digicert.com /a %CLI_MSI% || goto :error
+smctl sign --keypair-alias key_1311463644 --input %CLI_MSI% || goto :error
 signtool verify /v /pa %CLI_MSI% || goto :error
 
 echo "[INFO] uploading artifacts"
