@@ -29,9 +29,9 @@ from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 from snowflake.connector import SnowflakeConnection
 
 if TYPE_CHECKING:
+    from snowflake.cli._plugins.sql.repl import Repl
     from snowflake.cli.api.project.definition_manager import DefinitionManager
     from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
-    from snowflake.cli._plugins.sql.repl import Repl
 
 _CONNECTION_CACHE = OpenConnectionCache()
 
