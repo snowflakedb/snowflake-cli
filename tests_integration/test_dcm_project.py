@@ -65,7 +65,7 @@ def test_project_deploy(
         _assert_project_has_versions(
             runner,
             project_name,
-            {("VERSION$1", None)},
+            {("DEPLOYMENT$1", None)},
         )
 
         # remove project
@@ -143,10 +143,10 @@ def test_project_drop_version(
 
         # Drop the non-existent version (should fail without --if-exists)
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "VERSION$1"]
+            ["dcm", "drop-deployment", project_name, "DEPLOYMENT$1"]
         )
         assert result.exit_code == 1, result.output
-        assert "Version does not exist" in result.output
+        assert "Deployment does not exist" in result.output
 
         # Add version
         result = runner.invoke_with_connection(
@@ -162,7 +162,7 @@ def test_project_drop_version(
         _assert_project_has_versions(
             runner,
             project_name,
-            {("VERSION$1", None)},
+            {("DEPLOYMENT$1", None)},
         )
 
         # Add another version with alias
@@ -172,7 +172,7 @@ def test_project_drop_version(
                 "deploy",
                 project_name,
                 "--alias",
-                "v2",
+                "test-1",
                 "-D",
                 f"table_name='{test_database}.PUBLIC.MyTable'",
             ]
@@ -193,39 +193,44 @@ def test_project_drop_version(
         _assert_project_has_versions(
             runner,
             project_name,
-            {("VERSION$1", None), ("VERSION$2", "V2"), ("VERSION$3", "THEDEFAULT")},
+            {
+                ("DEPLOYMENT$1", None),
+                ("DEPLOYMENT$2", "test-1"),
+                ("DEPLOYMENT$3", "theDefault"),
+            },
         )
 
         # Drop the version by name
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "VERSION$1"]
+            ["dcm", "drop-deployment", project_name, "DEPLOYMENT$1"]
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'VERSION$1' dropped from DCM Project '{project_name}'"
+            f"Version 'DEPLOYMENT$1' dropped from DCM Project '{project_name}'"
             in result.output
         )
 
         # Drop the version by alias
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "v2"]
+            ["dcm", "drop-deployment", project_name, "test-1"]
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'v2' dropped from DCM Project '{project_name}'" in result.output
+            f"Version 'test-1' dropped from DCM Project '{project_name}'"
+            in result.output
         )
 
         _assert_project_has_versions(
-            runner, project_name, expected_versions={("VERSION$3", "THEDEFAULT")}
+            runner, project_name, expected_versions={("DEPLOYMENT$3", "theDefault")}
         )
 
         # Try to drop the default version
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "VERSION$3"]
+            ["dcm", "drop-deployment", project_name, "DEPLOYMENT$3"]
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'VERSION$3' dropped from DCM Project '{project_name}'"
+            f"Version 'DEPLOYMENT$3' dropped from DCM Project '{project_name}'"
             in result.output
         )
 
@@ -234,7 +239,7 @@ def test_project_drop_version(
             ["dcm", "drop-deployment", project_name, "non_existent"]
         )
         assert result.exit_code == 1, result.output
-        assert "Version does not exist" in result.output
+        assert "Deployment does not exist" in result.output
 
         # Try to drop non-existent version with --if-exists (should succeed)
         result = runner.invoke_with_connection(
