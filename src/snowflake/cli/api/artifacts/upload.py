@@ -13,6 +13,7 @@ from snowflake.cli.api.secure_path import SecurePath
 def sync_artifacts_with_stage(
     project_paths: ProjectPaths,
     stage_root: str,
+    use_temporary_stage: bool = False,
     prune: bool = False,
     artifacts: Optional[List[PathMapping]] = None,
     pattern_type: PatternMatchingType = PatternMatchingType.GLOB,
@@ -33,6 +34,7 @@ def sync_artifacts_with_stage(
         prune=prune,
         recursive=True,
         stage_path_parts=stage_path_parts,
+        use_temporary_stage=use_temporary_stage,
         print_diff=True,
     )
     project_paths.clean_up_output()

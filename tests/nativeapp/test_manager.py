@@ -157,7 +157,7 @@ def test_sync_deploy_root_with_stage(
     mock_stage_exists.assert_called_once_with(stage_fqn)
     if not stage_exists:
         mock_create_schema.assert_called_once_with(stage_schema, database=package_name)
-        mock_create_stage.assert_called_once_with(stage_fqn)
+        mock_create_stage.assert_called_once_with(stage_fqn, temporary=False)
     mock_compute_stage_diff.assert_called_once_with(
         local_root=dm.project_root / pkg_model.deploy_root,
         stage_path=DefaultStagePathParts.from_fqn("app_pkg.app_src.stage"),
@@ -222,7 +222,7 @@ def test_sync_deploy_root_with_stage_subdir(
     mock_stage_exists.assert_called_once_with(stage_fqn)
     if not stage_exists:
         mock_create_schema.assert_called_once_with(stage_schema, database=package_name)
-        mock_create_stage.assert_called_once_with(stage_fqn)
+        mock_create_stage.assert_called_once_with(stage_fqn, temporary=False)
     mock_compute_stage_diff.assert_called_once_with(
         local_root=dm.project_root / pkg_model.deploy_root,
         stage_path=DefaultStagePathParts.from_fqn(stage_fqn, "v1"),

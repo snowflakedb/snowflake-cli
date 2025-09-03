@@ -87,6 +87,7 @@ def sync_deploy_root_with_stage(
     prune: bool,
     recursive: bool,
     stage_path_parts: StagePathParts,
+    use_temporary_stage: bool = False,
     role: str | None = None,
     package_name: str | None = None,
     local_paths_to_sync: List[Path] | None = None,
@@ -103,6 +104,7 @@ def sync_deploy_root_with_stage(
         prune (bool): Whether to prune artifacts from the stage that don't exist locally.
         recursive (bool): Whether to traverse directories recursively.
         stage_path_parts (StagePathParts): stage path parts object.
+        use_temporary_stage (bool): specifies if new stage should be temporary.
 
         package_name (str): supported for Native App compatibility. Should be None out of Native App context.
 
@@ -120,8 +122,11 @@ def sync_deploy_root_with_stage(
     elif not package_name:
         # ensure stage exists
         stage_fqn = FQN.from_stage(stage_path_parts.stage)
-        console.step(f"Creating stage {stage_fqn} if not exists.")
-        StageManager().create(fqn=stage_fqn)
+        if use_temporary_stage:
+            console.step(f"Creating temporary stage {stage_fqn}.")
+        else:
+            console.step(f"Creating stage {stage_fqn} if not exists.")
+        StageManager().create(fqn=stage_fqn, temporary=use_temporary_stage)
     else:
         # ensure stage exists - nativeapp behavior
         sql_facade = get_snowflake_facade()
@@ -134,10 +139,10 @@ def sync_deploy_root_with_stage(
         )
         if not sql_facade.stage_exists(stage_fqn):
             sql_facade.create_schema(schema, database=package_name)
-            sql_facade.create_stage(stage_fqn)
+            sql_facade.create_stage(stage_fqn, temporary=use_temporary_stage)
 
     # Perform a diff operation and display results to the user for informational purposes
-    if print_diff:
+    if print_diff and not use_temporary_stage:
         console.step(
             f"Performing a diff between the Snowflake stage: {stage_path_parts.path} and your local deploy_root: {deploy_root.resolve()}."
         )
@@ -199,8 +204,7 @@ def sync_deploy_root_with_stage(
     # Upload diff-ed files to the stage
     if diff.has_changes():
         console.step(
-            "Updating the Snowflake stage from your local %s directory."
-            % deploy_root.resolve(),
+            f"Uploading files from local {deploy_root.resolve()} directory to{' temporary' if use_temporary_stage else ''} stage."
         )
         sync_local_diff_with_stage(
             role=role,

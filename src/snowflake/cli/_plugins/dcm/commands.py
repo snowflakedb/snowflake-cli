@@ -21,7 +21,6 @@ from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
-from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.commands.flags import (
     IfExistsOption,
@@ -269,21 +268,15 @@ def _sync_local_files(project_identifier: FQN) -> str:
         if MANIFEST_FILE_NAME not in definitions:
             definitions.append(MANIFEST_FILE_NAME)
 
-    # Create a temporary stage for this deployment session
-    stage_manager = StageManager()
-    unquoted_name = unquote_identifier(project_identifier.name)
-    stage_fqn = FQN.from_string(
-        f"DCM_{unquoted_name}_{int(time.time())}_TMP_STAGE"
-    ).using_context()
-
-    with cli_console.phase("Creating temporary stage for deployment"):
-        stage_manager.create(fqn=stage_fqn, temporary=True)
-        cli_console.step(f"Created temporary stage: {stage_fqn}")
-
-    with cli_console.phase("Syncing local files to temporary stage"):
+    with cli_console.phase(f"Uploading definition files"):
+        unquoted_name = unquote_identifier(project_identifier.name)
+        stage_fqn = FQN.from_string(
+            f"DCM_{unquoted_name}_{int(time.time())}_TMP_STAGE"
+        ).using_context()
         sync_artifacts_with_stage(
             project_paths=ProjectPaths(project_root=Path.cwd()),
             stage_root=stage_fqn.identifier,
+            use_temporary_stage=True,
             artifacts=[PathMapping(src=definition) for definition in definitions],
             pattern_type=PatternMatchingType.REGEX,
         )
