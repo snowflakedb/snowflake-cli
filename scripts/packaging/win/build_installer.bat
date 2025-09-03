@@ -26,7 +26,7 @@ echo "[INFO] building installer"
 7z x %CLI_ZIP% || goto :error
 
 set SM_HOST=https://clientauth.one.digicert.com
-set SM_CLIENT_CERT_FILE=%WORKSPACE%\\Certificate_pkcs12.p12
+set SM_CLIENT_CERT_FILE=%WORKSPACE%\Certificate_pkcs12.p12
 smctl healthcheck || goto :error
 smctl windows certsync || goto :error
 
