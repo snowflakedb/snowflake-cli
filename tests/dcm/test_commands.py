@@ -5,9 +5,6 @@ from snowflake.cli.api.identifiers import FQN
 
 DCMProjectManager = "snowflake.cli._plugins.dcm.commands.DCMProjectManager"
 ObjectManager = "snowflake.cli._plugins.dcm.commands.ObjectManager"
-get_entity_for_operation = (
-    "snowflake.cli._plugins.dcm.commands.get_entity_for_operation"
-)
 
 
 @pytest.fixture
@@ -87,6 +84,8 @@ class TestDCMDeploy:
             alias=None,
             output_path=None,
         )
+        mock_sync.assert_called_once()
+        assert mock_sync.call_args.kwargs["use_temporary_stage"] is True
 
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_from_stage(
@@ -183,12 +182,10 @@ class TestDCMDeploy:
         )
 
     @mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")
-    @mock.patch("snowflake.cli._plugins.dcm.commands.StageManager.create")
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_sync(
         self,
         mock_pm,
-        _mock_create,
         mock_sync,
         runner,
         project_directory,
@@ -254,6 +251,8 @@ class TestDCMPlan:
             variables=["key=value"],
             output_path=None,
         )
+        mock_sync.assert_called_once()
+        assert mock_sync.call_args.kwargs["use_temporary_stage"] is True
 
     @mock.patch(DCMProjectManager)
     def test_plan_project_with_from_stage(
@@ -350,12 +349,10 @@ class TestDCMPlan:
         )
 
     @mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")
-    @mock.patch("snowflake.cli._plugins.dcm.commands.StageManager.create")
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_sync(
         self,
         mock_pm,
-        _mock_create,
         mock_sync,
         runner,
         project_directory,
