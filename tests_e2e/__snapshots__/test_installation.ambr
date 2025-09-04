@@ -23,7 +23,6 @@
   |                                     CLI                                      |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
-  |                                     [default: None]                          |
   | --install-completion                Install completion for the current       |
   |                                     shell.                                   |
   | --show-completion                   Show completion for the current shell,   |
@@ -88,7 +87,6 @@
   |                                     CLI                                      |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
-  |                                     [default: None]                          |
   | --install-completion                Install completion for the current       |
   |                                     shell.                                   |
   | --show-completion                   Show completion for the current shell,   |
@@ -134,7 +132,6 @@
   |                                     CLI                                      |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
-  |                                     [default: None]                          |
   | --install-completion                Install completion for the current       |
   |                                     shell.                                   |
   | --show-completion                   Show completion for the current shell,   |
@@ -219,7 +216,6 @@
   |                                     CLI                                      |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
-  |                                     [default: None]                          |
   | --install-completion                Install completion for the current       |
   |                                     shell.                                   |
   | --show-completion                   Show completion for the current shell,   |
