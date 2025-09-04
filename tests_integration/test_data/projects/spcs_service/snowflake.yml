@@ -12,5 +12,6 @@ entities:
     max_instances: 1
     query_warehouse: xsmall
     comment: "This is a test service"
+    auto_suspend_secs: 1000
     artifacts:
       - spec.yml
