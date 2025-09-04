@@ -60,22 +60,6 @@ class DCMProjectManager(SqlExecutionMixin):
         query = f"CREATE DCM PROJECT {project.fqn.sql_identifier}"
         self.execute_query(query)
 
-    def _create_deployment(
-        self,
-        project_name: FQN,
-        from_stage: str,
-        alias: str | None = None,
-        comment: str | None = None,
-    ):
-        stage_path = StagePath.from_stage_str(from_stage)
-        query = f"ALTER DCM PROJECT {project_name.identifier} ADD DEPLOYMENT"
-        if alias:
-            query += f" IF NOT EXISTS {alias}"
-        query += f" FROM {stage_path.absolute_path(at_prefix=True)}"
-        if comment:
-            query += f" COMMENT = '{comment}'"
-        return self.execute_query(query=query)
-
     def list_deployments(self, project_name: FQN):
         query = f"SHOW DEPLOYMENTS IN DCM PROJECT {project_name.identifier}"
         return self.execute_query(query=query)
