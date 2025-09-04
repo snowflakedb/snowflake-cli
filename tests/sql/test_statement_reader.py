@@ -318,6 +318,35 @@ def test_parse_source_invalid_file(tmp_path_factory: pytest.TempPathFactory):
     assert source.error and source.error.startswith("Could not read")
 
 
+def test_allow_comments_at_source_file(tmp_path_factory: pytest.TempPathFactory):
+    expected_content = "select 73"
+
+    f1 = tmp_path_factory.mktemp("a") / "f1.sql"
+    f1.write_text(expected_content)
+
+    source_with_comment = f"!source {f1.as_posix()} --noqa: XXX"
+    source = parse_statement(source_with_comment, WORKING_OPERATOR_FUNCS)
+    assert source.statement_type == StatementType.FILE
+    assert source.source_path and source.source_path == f1.as_posix()
+    assert source.statement.read() == expected_content
+    assert source.error is None
+
+
+def test_allow_comments_at_source_url(httpserver: HTTPServer):
+    expected_content = "select 73"
+    httpserver.expect_request("/f1.sql").respond_with_data(expected_content)
+
+    query = f"!source {httpserver.url_for('f1.sql')} --noqa: XXX"
+    source = parse_statement(query, WORKING_OPERATOR_FUNCS)
+
+    assert source.statement_type == StatementType.URL
+    assert source.source_path and source.source_path == httpserver.url_for("f1.sql")
+    assert source.source_path.startswith("http://localhost:")
+    assert source.source_path.endswith("/f1.sql")
+    assert source.statement.read() == expected_content
+    assert source.error is None
+
+
 @pytest.mark.parametrize("command", ["source", "load"])
 def test_parse_source_default_fallback(command):
     path = "s3://bucket/path/file.sql"

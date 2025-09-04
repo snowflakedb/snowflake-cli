@@ -98,7 +98,24 @@ def make_dist_archive(python_tmp_dir: Path, dist_path: Path) -> Path:
 
 
 def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
-    """Install Python dist into temp dir for bundling."""
+    """Install Python distribution - platform specific approach."""
+    import platform
+
+    system = platform.system().lower()
+
+    if system in ["darwin", "windows"]:
+        platform_name = "macOS" if system == "darwin" else "Windows"
+        print(f"Detected {platform_name}: Using original hatch python install approach")
+        return install_python_original(python_tmp_dir, python_version)
+    else:
+        print("Detected Linux: Using optimized system Python approach")
+        return install_python_linux(python_tmp_dir, python_version)
+
+
+def install_python_original(python_tmp_dir: Path, python_version: str) -> bool:
+    """Install Python dist using original hatch approach (macOS and Windows)."""
+    # This is the original working approach from commit 8da461e3
+    # Works for both macOS and Windows - provides complete Python installation
     completed_proc = subprocess.run(
         [
             "hatch",
@@ -111,6 +128,102 @@ def hatch_install_python(python_tmp_dir: Path, python_version: str) -> bool:
         ]
     )
     return not completed_proc.returncode
+
+
+def install_python_linux(python_tmp_dir: Path, python_version: str) -> bool:
+    """Copy our conservatively compiled system Python for bundling (Linux)."""
+    import shutil
+
+    # Use the system Python we built instead of hatch installing one
+    system_python_dir = Path("/usr/local")
+    target_python_dir = python_tmp_dir / python_version
+
+    print(f"Copying system Python from {system_python_dir} to {target_python_dir}")
+
+    # Copy the entire system Python installation (ignore missing directories)
+    shutil.copytree(
+        system_python_dir,
+        target_python_dir,
+        dirs_exist_ok=True,
+        ignore_dangling_symlinks=True,
+    )
+
+    # Copy essential system libraries that Python needs at runtime (architecture-aware)
+    lib_dir = target_python_dir / "lib"
+    lib_dir.mkdir(exist_ok=True)
+
+    # Detect architecture for library paths
+    import platform
+
+    arch = platform.machine()
+    if arch == "x86_64":
+        arch_dir = "x86_64-linux-gnu"
+    elif arch in ["aarch64", "arm64"]:
+        arch_dir = "aarch64-linux-gnu"
+    else:
+        arch_dir = f"{arch}-linux-gnu"  # fallback
+
+    print(f"Detected architecture: {arch}, using lib path: {arch_dir}")
+
+    essential_lib_names = [
+        "libssl.so.1.1",  # OpenSSL for ssl module
+        "libcrypto.so.1.1",  # Crypto for ssl module
+        "libz.so.1",  # Zlib for compression
+        "libffi.so.6",  # FFI for ctypes module
+    ]
+
+    copied_libs = []
+    for lib_name in essential_lib_names:
+        # Try multiple possible locations
+        possible_paths = [
+            f"/usr/lib/{arch_dir}/{lib_name}",
+            f"/lib/{arch_dir}/{lib_name}",
+            f"/usr/lib/{lib_name}",
+            f"/lib/{lib_name}",
+        ]
+
+        for lib_path in possible_paths:
+            if Path(lib_path).exists():
+                try:
+                    shutil.copy2(lib_path, lib_dir / lib_name)
+                    copied_libs.append(lib_name)
+                    print(f"Copied essential library: {lib_name} from {lib_path}")
+                    break
+                except (OSError, IOError, PermissionError) as e:
+                    print(f"Warning: Failed to copy {lib_name} from {lib_path}: {e}")
+        else:
+            print(f"Warning: Could not find {lib_name} in any standard location")
+
+    print(f"Total essential libraries copied: {len(copied_libs)}")
+
+    # Create a wrapper script that sets library paths
+    python_wrapper = target_python_dir / "bin" / "python_wrapper"
+    wrapper_content = f"""#!/bin/bash
+# Auto-generated wrapper for relocatable Python
+SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
+PYTHON_HOME="$(dirname "$SCRIPT_DIR")"
+export PYTHONHOME="$PYTHON_HOME"
+export LD_LIBRARY_PATH="$PYTHON_HOME/lib:$LD_LIBRARY_PATH"
+exec "$SCRIPT_DIR/python" "$@"
+"""
+
+    with open(python_wrapper, "w") as f:
+        f.write(wrapper_content)
+
+    import os
+
+    os.chmod(python_wrapper, 0o755)
+    print(f"Created Python wrapper: {python_wrapper}")
+
+    # Create hatch-dist.json to point to our wrapper
+    import json
+
+    hatch_dist_info = {"python_path": "bin/python_wrapper"}
+    with open(target_python_dir / "hatch-dist.json", "w") as f:
+        json.dump(hatch_dist_info, f)
+
+    print(f"Successfully copied system Python to {target_python_dir}")
+    return True
 
 
 @contextlib.contextmanager

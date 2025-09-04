@@ -24,7 +24,11 @@ from snowflake.cli._plugins.dbt.constants import (
     PROFILES_FILENAME,
     RESULT_COLUMN_NAME,
 )
+from snowflake.cli._plugins.dbt.manager import DBTObjectEditableAttributes
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+
+from tests_common.feature_flag_utils import with_feature_flags
 
 
 class TestDBTList:
@@ -59,6 +63,10 @@ class TestDBTList:
 
 
 class TestDBTDeploy:
+    @staticmethod
+    def _get_default_attribute_dict() -> DBTObjectEditableAttributes:
+        return {"default_target": None}
+
     @pytest.fixture
     def dbt_project_path(self, tmp_path_factory):
         source_path = tmp_path_factory.mktemp("dbt_project")
@@ -79,7 +87,17 @@ class TestDBTDeploy:
                                 "type": "snowflake",
                                 "user": "test_user",
                                 "warehouse": "test_warehouse",
-                            }
+                            },
+                            "prod": {
+                                "account": "test_account",
+                                "database": "testdb_prod",
+                                "role": "test_role",
+                                "schema": "test_schema",
+                                "threads": 2,
+                                "type": "snowflake",
+                                "user": "test_user",
+                                "warehouse": "test_warehouse",
+                            },
                         }
                     }
                 },
@@ -93,9 +111,10 @@ class TestDBTDeploy:
             yield _fixture
 
     @pytest.fixture
-    def mock_exists(self):
+    def mock_get_dbt_object_attributes(self):
         with mock.patch(
-            "snowflake.cli._plugins.dbt.manager.DBTManager.exists", return_value=False
+            "snowflake.cli._plugins.dbt.manager.DBTManager.get_dbt_object_attributes",
+            return_value=None,
         ) as _fixture:
             yield _fixture
 
@@ -108,9 +127,8 @@ class TestDBTDeploy:
         mock_connect,
         runner,
         dbt_project_path,
-        mock_exists,
+        mock_get_dbt_object_attributes,
     ):
-
         result = runner.invoke(
             [
                 "dbt",
@@ -124,9 +142,9 @@ class TestDBTDeploy:
         assert (
             mock_connect.mocked_ctx.get_query()
             == """CREATE DBT PROJECT TEST_PIPELINE
-FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
+FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE"""
         )
-        stage_fqn = FQN.from_string(f"dbt_TEST_PIPELINE_stage").using_context()
+        stage_fqn = FQN.from_string(f"DBT_TEST_PIPELINE_STAGE").using_context()
         mock_create.assert_called_once_with(stage_fqn, temporary=True)
         mock_put_recursive.assert_called_once()
 
@@ -165,9 +183,9 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
         mock_connect,
         runner,
         dbt_project_path,
-        mock_exists,
+        mock_get_dbt_object_attributes,
     ):
-        mock_exists.return_value = True
+        mock_get_dbt_object_attributes.return_value = self._get_default_attribute_dict()
 
         result = runner.invoke(
             [
@@ -181,8 +199,39 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
         assert result.exit_code == 0, result.output
         assert mock_connect.mocked_ctx.get_query().startswith(
             """ALTER DBT PROJECT TEST_PIPELINE ADD VERSION
-FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
+FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE"""
         )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_deploys_project_with_case_sensitive_name(
+        self,
+        mock_create,
+        mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+    ):
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                '"MockDaTaBaSe"."PuBlIc"."caseSenSITIVEnAME"',
+                f"--source={dbt_project_path}",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == """CREATE DBT PROJECT "MockDaTaBaSe"."PuBlIc"."caseSenSITIVEnAME"
+FROM @MockDatabase.MockSchema.DBT_caseSenSITIVEnAME_STAGE"""
+        )
+        stage_fqn = FQN.from_string(f"DBT_caseSenSITIVEnAME_STAGE").using_context()
+        mock_create.assert_called_once_with(stage_fqn, temporary=True)
+        mock_put_recursive.assert_called_once()
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
@@ -193,7 +242,7 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
         mock_connect,
         runner,
         dbt_project_path,
-        mock_exists,
+        mock_get_dbt_object_attributes,
     ):
         new_profiles_directory = Path(dbt_project_path) / "dbt_profiles"
         new_profiles_directory.mkdir(parents=True, exist_ok=True)
@@ -222,9 +271,8 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
         mock_connect,
         runner,
         dbt_project_path,
-        mock_exists,
+        mock_get_dbt_object_attributes,
     ):
-
         result = runner.invoke(
             [
                 "dbt",
@@ -238,10 +286,10 @@ FROM @MockDatabase.MockSchema.dbt_TEST_PIPELINE_stage"""
         assert (
             mock_connect.mocked_ctx.get_query()
             == """CREATE DBT PROJECT MockDatabase.MockSchema.test_dbt_project
-FROM @MockDatabase.MockSchema.dbt_test_dbt_project_stage"""
+FROM @MockDatabase.MockSchema.DBT_TEST_DBT_PROJECT_STAGE"""
         )
         # Verify stage creation uses only the name part of the FQN
-        stage_fqn = FQN.from_string(f"dbt_test_dbt_project_stage").using_context()
+        stage_fqn = FQN.from_string(f"DBT_TEST_DBT_PROJECT_STAGE").using_context()
         mock_create.assert_called_once_with(stage_fqn, temporary=True)
         mock_put_recursive.assert_called_once()
 
@@ -319,6 +367,210 @@ FROM @MockDatabase.MockSchema.dbt_test_dbt_project_stage"""
         assert result.exit_code == 1, result.output
         assert "profile dev is not defined in profiles.yml" in result.output
         assert mock_connect.mocked_ctx.get_query() == ""
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_deploy_with_default_target(
+        self,
+        _mock_create,
+        _mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--default-target=prod",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert (
+            mock_connect.mocked_ctx.get_query()
+            == """CREATE DBT PROJECT TEST_PIPELINE
+FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE DEFAULT_TARGET='prod'"""
+        )
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_deploy_with_invalid_default_target(
+        self,
+        _mock_create,
+        _mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--default-target=invalid",
+            ]
+        )
+
+        assert result.exit_code == 1, result.output
+        assert "Default target 'invalid' is not defined" in result.output
+        assert mock_connect.mocked_ctx.get_query() == ""
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_deploy_existing_project_with_default_target(
+        self,
+        _mock_create,
+        _mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": "dev"}
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--default-target=prod",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        queries = mock_connect.mocked_ctx.get_queries()
+        assert (
+            len(queries) == 2
+        )  # ADD VERSION and SET DEFAULT_TARGET (get_current_default_target is mocked)
+        assert "ALTER DBT PROJECT TEST_PIPELINE ADD VERSION" in queries[0]
+        assert "@MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE" in queries[0]
+        assert "ALTER DBT PROJECT TEST_PIPELINE SET DEFAULT_TARGET='prod'" == queries[1]
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_deploy_existing_project_with_same_default_target(
+        self,
+        _mock_create,
+        _mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": "prod"}
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--default-target=prod",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        # Should have only one query: ADD VERSION (no SET DEFAULT_TARGET because it's already correct)
+        query = mock_connect.mocked_ctx.get_query()
+        assert "ALTER DBT PROJECT TEST_PIPELINE ADD VERSION" in query
+        assert "@MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE" in query
+        assert "SET DEFAULT_TARGET" not in query
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_deploy_with_unset_default_target_when_project_exists_with_target(
+        self,
+        _mock_create,
+        _mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": "prod"}
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--unset-default-target",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        queries = mock_connect.mocked_ctx.get_queries()
+        assert len(queries) == 2
+        assert "ALTER DBT PROJECT TEST_PIPELINE ADD VERSION" in queries[0]
+        assert "@MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE" in queries[0]
+        assert "ALTER DBT PROJECT TEST_PIPELINE UNSET DEFAULT_TARGET" == queries[1]
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    def test_deploy_with_unset_default_target_when_project_exists_without_target(
+        self,
+        _mock_create,
+        _mock_put_recursive,
+        mock_connect,
+        runner,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": None}
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--unset-default-target",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        query = mock_connect.mocked_ctx.get_query()
+        assert "ALTER DBT PROJECT TEST_PIPELINE ADD VERSION" in query
+        assert "@MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE" in query
+        assert "UNSET DEFAULT_TARGET" not in query
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+    def test_deploy_with_both_default_target_and_unset_default_target_fails(
+        self,
+        mock_connect,
+        runner,
+        dbt_project_path,
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--default-target=prod",
+                "--unset-default-target",
+            ]
+        )
+
+        assert result.exit_code == 2, result.output
+        assert (
+            "Parameters '--unset-default-target' and '--default-target' are incompatible"
+            in result.output
+        )
 
 
 class TestDBTExecute:

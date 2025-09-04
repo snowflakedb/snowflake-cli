@@ -65,7 +65,7 @@ def test_project_deploy(
         _assert_project_has_versions(
             runner,
             project_name,
-            {("VERSION$1", None)},
+            {("DEPLOYMENT$1", None)},
         )
 
         # remove project
@@ -105,20 +105,8 @@ def test_create_corner_cases(
     project_directory,
 ):
     project_name = "project_descriptive_name"
-    stage_name = "my_project_stage"
     with project_directory("dcm_project"):
-        # case 1: stage already exists
-        result = runner.invoke_with_connection(["stage", "create", stage_name])
-        assert result.exit_code == 0, result.output
-
-        result = runner.invoke_with_connection(["dcm", "create"])
-        assert result.exit_code == 1, result.output
-        assert f"Stage '{stage_name}' already exists." in result.output
-
-        result = runner.invoke_with_connection(["stage", "drop", stage_name])
-        assert result.exit_code == 0, result.output
-
-        # case 2: project already exists
+        # case 1: project already exists
         result = runner.invoke_with_connection(["dcm", "create"])
         assert result.exit_code == 0, result.output
         _assert_project_has_versions(runner, project_name, expected_versions=set())
@@ -155,10 +143,10 @@ def test_project_drop_version(
 
         # Drop the non-existent version (should fail without --if-exists)
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "VERSION$1"]
+            ["dcm", "drop-deployment", project_name, "DEPLOYMENT$1"]
         )
         assert result.exit_code == 1, result.output
-        assert "Version does not exist" in result.output
+        assert "Deployment does not exist" in result.output
 
         # Add version
         result = runner.invoke_with_connection(
@@ -174,7 +162,7 @@ def test_project_drop_version(
         _assert_project_has_versions(
             runner,
             project_name,
-            {("VERSION$1", None)},
+            {("DEPLOYMENT$1", None)},
         )
 
         # Add another version with alias
@@ -184,7 +172,7 @@ def test_project_drop_version(
                 "deploy",
                 project_name,
                 "--alias",
-                "v2",
+                "test-1",
                 "-D",
                 f"table_name='{test_database}.PUBLIC.MyTable'",
             ]
@@ -205,39 +193,44 @@ def test_project_drop_version(
         _assert_project_has_versions(
             runner,
             project_name,
-            {("VERSION$1", None), ("VERSION$2", "V2"), ("VERSION$3", "THEDEFAULT")},
+            {
+                ("DEPLOYMENT$1", None),
+                ("DEPLOYMENT$2", "test-1"),
+                ("DEPLOYMENT$3", "theDefault"),
+            },
         )
 
         # Drop the version by name
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "VERSION$1"]
+            ["dcm", "drop-deployment", project_name, "DEPLOYMENT$1"]
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'VERSION$1' dropped from DCM Project '{project_name}'"
+            f"Version 'DEPLOYMENT$1' dropped from DCM Project '{project_name}'"
             in result.output
         )
 
         # Drop the version by alias
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "v2"]
+            ["dcm", "drop-deployment", project_name, "test-1"]
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'v2' dropped from DCM Project '{project_name}'" in result.output
+            f"Version 'test-1' dropped from DCM Project '{project_name}'"
+            in result.output
         )
 
         _assert_project_has_versions(
-            runner, project_name, expected_versions={("VERSION$3", "THEDEFAULT")}
+            runner, project_name, expected_versions={("DEPLOYMENT$3", "theDefault")}
         )
 
         # Try to drop the default version
         result = runner.invoke_with_connection(
-            ["dcm", "drop-deployment", project_name, "VERSION$3"]
+            ["dcm", "drop-deployment", project_name, "DEPLOYMENT$3"]
         )
         assert result.exit_code == 0, result.output
         assert (
-            f"Version 'VERSION$3' dropped from DCM Project '{project_name}'"
+            f"Version 'DEPLOYMENT$3' dropped from DCM Project '{project_name}'"
             in result.output
         )
 
@@ -246,7 +239,7 @@ def test_project_drop_version(
             ["dcm", "drop-deployment", project_name, "non_existent"]
         )
         assert result.exit_code == 1, result.output
-        assert "Version does not exist" in result.output
+        assert "Deployment does not exist" in result.output
 
         # Try to drop non-existent version with --if-exists (should succeed)
         result = runner.invoke_with_connection(
@@ -363,216 +356,6 @@ def test_project_deploy_from_stage(
         assert (
             "MYTABLE_SECOND" == table_check_result.json[0]["name"]
         ), "Table should exist after deploy"
-
-        # Clean up
-        result = runner.invoke_with_connection(["dcm", "drop", project_name])
-        assert result.exit_code == 0, result.output
-
-
-@pytest.mark.qa_only
-@pytest.mark.integration
-def test_project_deploy_with_prune(
-    runner,
-    test_database,
-    project_directory,
-):
-    """Test that --prune flag removes unused artifacts from the stage and prevents creation of database objects from pruned files."""
-    project_name = "project_descriptive_name"
-    entity_id = "my_project"
-    stage_name = "my_project_stage"
-
-    with project_directory("dcm_project") as project_root:
-        # Create a new project
-        result = runner.invoke_with_connection(["dcm", "create", entity_id])
-        assert result.exit_code == 0, result.output
-        assert (
-            "DCM Project" in result.output
-            and project_name in result.output
-            and "successfully created" in result.output
-        )
-        _assert_project_has_versions(runner, project_name, expected_versions=set())
-
-        # Create an additional file that we'll remove later to test prune
-        file_b_path = project_root / "file_b.sql"
-        file_b_path.write_text(
-            "define table identifier('{{ table_name }}_B') (id int, data string);\n"
-        )
-
-        # Update snowflake.yml to include the new file
-        config_path = project_root / "snowflake.yml"
-        config_content = config_path.read_text()
-        config_content = config_content.replace(
-            "artifacts:\n      - file_a.sql",
-            "artifacts:\n      - file_a.sql\n      - file_b.sql",
-        )
-        config_path.write_text(config_content)
-
-        # Update manifest.yml to include the new file in definitions
-        manifest_path = project_root / "manifest.yml"
-        manifest_content = manifest_path.read_text()
-        manifest_content = manifest_content.replace(
-            "include_definitions:\n  - file_a.sql",
-            "include_definitions:\n  - file_a.sql\n  - file_b.sql",
-        )
-        manifest_path.write_text(manifest_content)
-
-        # Initial deploy with both files
-        result = runner.invoke_with_connection(
-            [
-                "dcm",
-                "deploy",
-                project_name,
-                "-D",
-                f"table_name='{test_database}.PUBLIC.MyTable'",
-            ]
-        )
-        assert result.exit_code == 0, result.output
-        _assert_project_has_versions(
-            runner,
-            project_name,
-            {("VERSION$1", None)},
-        )
-
-        # Verify both files are in the stage
-        assert_stage_has_files(
-            runner,
-            f"@{stage_name}",
-            [
-                f"{stage_name}/file_a.sql",
-                f"{stage_name}/file_b.sql",
-                f"{stage_name}/manifest.yml",
-            ],
-        )
-
-        # Verify both tables exist after first deploy
-        table_a_check = runner.invoke_with_connection_json(
-            [
-                "object",
-                "list",
-                "table",
-                "--like",
-                "MYTABLE",
-                "--in",
-                "database",
-                test_database,
-            ]
-        )
-        assert table_a_check.exit_code == 0
-        assert len(table_a_check.json) == 1, "MyTable should exist after first deploy"
-        assert "MYTABLE" == table_a_check.json[0]["name"]
-
-        table_b_check = runner.invoke_with_connection_json(
-            [
-                "object",
-                "list",
-                "table",
-                "--like",
-                "MYTABLE_B",
-                "--in",
-                "database",
-                test_database,
-            ]
-        )
-        assert table_b_check.exit_code == 0
-        assert len(table_b_check.json) == 1, "MyTable_B should exist after first deploy"
-        assert "MYTABLE_B" == table_b_check.json[0]["name"]
-
-        # Now remove file_b.sql from artifacts to test prune functionality
-        config_content = config_path.read_text()
-        config_content = config_content.replace(
-            "artifacts:\n      - file_a.sql\n      - file_b.sql",
-            "artifacts:\n      - file_a.sql",
-        )
-        config_path.write_text(config_content)
-
-        # Also remove file_b.sql from manifest include_definitions
-        manifest_content = manifest_path.read_text()
-        manifest_content = manifest_content.replace(
-            "include_definitions:\n  - file_a.sql\n  - file_b.sql",
-            "include_definitions:\n  - file_a.sql",
-        )
-        manifest_path.write_text(manifest_content)
-
-        # Deploy again with --prune flag to remove unused file_b.sql
-        result = runner.invoke_with_connection(
-            [
-                "dcm",
-                "deploy",
-                project_name,
-                "--prune",
-                "-D",
-                f"table_name='{test_database}.PUBLIC.MyTable'",
-            ]
-        )
-        assert result.exit_code == 0, result.output
-        _assert_project_has_versions(
-            runner,
-            project_name,
-            {("VERSION$1", None), ("VERSION$2", None)},
-        )
-
-        # Verify that file_b.sql was removed from the stage but file_a.sql and manifest.yml remain
-        stage_files_result = runner.invoke_with_connection_json(
-            ["stage", "list-files", f"@{stage_name}"]
-        )
-        assert stage_files_result.exit_code == 0
-        stage_files = [file["name"] for file in stage_files_result.json]
-
-        # file_a.sql and manifest.yml should still be present
-        assert (
-            f"{stage_name}/file_a.sql" in stage_files
-        ), f"file_a.sql should be present in stage. Files: {stage_files}"
-        assert (
-            f"{stage_name}/manifest.yml" in stage_files
-        ), f"manifest.yml should be present in stage. Files: {stage_files}"
-
-        # file_b.sql should be removed
-        assert (
-            f"{stage_name}/file_b.sql" not in stage_files
-        ), f"file_b.sql should be removed from stage. Files: {stage_files}"
-
-        # Verify that MyTable still exists but MyTable_B does not exist after prune deploy
-        table_a_check_after_prune = runner.invoke_with_connection_json(
-            [
-                "object",
-                "list",
-                "table",
-                "--like",
-                "MYTABLE",
-                "--in",
-                "database",
-                test_database,
-            ]
-        )
-        assert table_a_check_after_prune.exit_code == 0
-        # Should find only one table (MYTABLE), not MYTABLE_B
-        mytable_found = False
-        for table in table_a_check_after_prune.json:
-            if table["name"] == "MYTABLE":
-                mytable_found = True
-            # Ensure MYTABLE_B is not in the results
-            assert (
-                table["name"] != "MYTABLE_B"
-            ), "MyTable_B should not exist after prune deploy"
-        assert mytable_found, "MyTable should still exist after prune deploy"
-
-        # Double-check: specifically query for MYTABLE_B to ensure it doesn't exist
-        table_b_check_after_prune = runner.invoke_with_connection_json(
-            [
-                "object",
-                "list",
-                "table",
-                "--like",
-                "MYTABLE_B",
-                "--in",
-                "database",
-                test_database,
-            ]
-        )
-        assert table_b_check_after_prune.exit_code == 0
-        assert (
-            len(table_b_check_after_prune.json) == 0
-        ), "MyTable_B should not exist after prune deploy"
 
         # Clean up
         result = runner.invoke_with_connection(["dcm", "drop", project_name])

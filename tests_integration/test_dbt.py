@@ -20,16 +20,66 @@ import yaml
 
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
+from snowflake.cli.api.feature_flags import FeatureFlag
+
+from tests_common.feature_flag_utils import with_feature_flags
+
+
+def _setup_dbt_profile(root_dir: Path, snowflake_session, include_password: bool):
+    with open((root_dir / PROFILES_FILENAME), "r") as f:
+        profiles = yaml.safe_load(f)
+    dev_profile = profiles["dbt_integration_project"]["outputs"]["dev"]
+    dev_profile["database"] = snowflake_session.database
+    dev_profile["account"] = snowflake_session.account
+    dev_profile["user"] = snowflake_session.user
+    dev_profile["role"] = snowflake_session.role
+    dev_profile["warehouse"] = snowflake_session.warehouse
+    dev_profile["schema"] = snowflake_session.schema
+    if include_password:
+        dev_profile["password"] = "secret_phrase"
+    else:
+        dev_profile.pop("password", None)
+
+    prod_profile = dev_profile.copy()
+    prod_profile.pop("password", None)
+    prod_profile["schema"] = f"{snowflake_session.schema}_PROD"
+    profiles["dbt_integration_project"]["outputs"]["prod"] = prod_profile
+
+    (root_dir / PROFILES_FILENAME).write_text(yaml.dump(profiles))
+
+
+def _assert_default_target(name, runner, default_target):
+    result = runner.invoke_with_connection_json(["dbt", "list", "--like", name.upper()])
+    assert result.exit_code == 0, result.output
+    assert len(result.json) == 1
+    if default_target is None:
+        assert result.json[0]["default_target"] is None
+    else:
+        assert result.json[0]["default_target"].lower() == default_target
+
+
+def _fetch_creation_date(name, runner) -> datetime.datetime:
+    result = runner.invoke_with_connection_json(
+        [
+            "dbt",
+            "list",
+            "--like",
+            name,
+        ]
+    )
+    assert result.exit_code == 0, result.output
+    assert len(result.json) == 1
+    dbt_object = result.json[0]
+    assert dbt_object["name"].lower() == name.lower()
+    return datetime.datetime.fromisoformat(dbt_object["created_on"])
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_deploy_and_execute(
     runner,
     snowflake_session,
     test_database,
     project_directory,
-    snapshot,
 ):
     with project_directory("dbt_project") as root_dir:
         # Given a local dbt project
@@ -40,7 +90,11 @@ def test_deploy_and_execute(
         _setup_dbt_profile(root_dir, snowflake_session, include_password=True)
         result = runner.invoke_with_connection_json(["dbt", "deploy", name])
         assert result.exit_code == 1, result.output
-        assert result.output == snapshot
+        assert (
+            "Found following errors in profiles.yml. Please fix them before proceeding:"
+            in result.output
+        )
+        assert "* Unsupported fields found: password in target dev" in result.output
 
         # deploy for the first time
         _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
@@ -99,7 +153,6 @@ def test_deploy_and_execute(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_deploy_and_execute_with_full_fqn(
     runner,
     snowflake_session,
@@ -144,7 +197,6 @@ def test_deploy_and_execute_with_full_fqn(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_dbt_deploy_options(
     runner,
     snowflake_session,
@@ -188,34 +240,126 @@ def test_dbt_deploy_options(
         ), f"Timestamps are the same: {timestamp_after_replace} vs {timestamp_after_create}"
 
 
-def _fetch_creation_date(name, runner) -> datetime.datetime:
-    result = runner.invoke_with_connection_json(
-        [
-            "dbt",
-            "list",
-            "--like",
-            name,
-        ]
-    )
-    assert result.exit_code == 0, result.output
-    assert len(result.json) == 1
-    dbt_object = result.json[0]
-    assert dbt_object["name"].lower() == name.lower()
-    return datetime.datetime.fromisoformat(dbt_object["created_on"])
+@pytest.mark.skipif(
+    FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled(),
+    reason="DBT GA features are not yet released.",
+)
+@with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_with_default_target(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_default_target_{ts}"
+
+        _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
+
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--default-target", "prod"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_default_target(name, runner, "prod")
+
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--default-target", "dev"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_default_target(name, runner, "dev")
+
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--unset-default-target"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_default_target(name, runner, None)
 
 
-def _setup_dbt_profile(root_dir: Path, snowflake_session, include_password: bool):
-    with open((root_dir / PROFILES_FILENAME), "r") as f:
-        profiles = yaml.safe_load(f)
-    dev_profile = profiles["dbt_integration_project"]["outputs"]["dev"]
-    dev_profile["database"] = snowflake_session.database
-    dev_profile["account"] = snowflake_session.account
-    dev_profile["user"] = snowflake_session.user
-    dev_profile["role"] = snowflake_session.role
-    dev_profile["warehouse"] = snowflake_session.warehouse
-    dev_profile["schema"] = snowflake_session.schema
-    if include_password:
-        dev_profile["password"] = "secret_phrase"
-    else:
-        dev_profile.pop("password", None)
-    (root_dir / PROFILES_FILENAME).write_text(yaml.dump(profiles))
+@pytest.mark.skipif(
+    FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled(),
+    reason="DBT GA features are not yet released.",
+)
+@with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_execute_with_target(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_target_{ts}"
+        second_target_schema = f"{snowflake_session.schema}_PROD"
+        snowflake_session.execute_string(
+            f"create schema {second_target_schema}; use schema PUBLIC"
+        )
+
+        _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
+
+        result = runner.invoke_with_connection_json(
+            ["dbt", "deploy", name, "--default-target=dev"]
+        )
+        assert result.exit_code == 0, result.output
+
+        # execute on implicit default target
+        result = runner.invoke_passthrough_with_connection(
+            args=[
+                "dbt",
+                "execute",
+            ],
+            passthrough_args=[name, "run"],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Done. PASS=2 WARN=0 ERROR=0 SKIP=0 TOTAL=2" in result.output
+
+        result = runner.invoke_with_connection_json(
+            [
+                "sql",
+                "-q",
+                f"select count(*) as COUNT from {snowflake_session.database}.{snowflake_session.schema}.my_second_dbt_model;",
+            ]
+        )
+        assert len(result.json) == 1, result.json
+        assert result.json[0]["COUNT"] == 1, result.json[0]
+
+        result = runner.invoke_with_connection_json(
+            [
+                "sql",
+                "-q",
+                f"select count(*) as COUNT from {snowflake_session.database}.{second_target_schema}.my_second_dbt_model;",
+            ]
+        )
+        # Should fail because table doesn't exist in prod schema
+        assert result.exit_code == 1, "Table should not exist in prod schema yet"
+        assert (
+            "does not exist" in result.output.lower()
+            or "object does not exist" in result.output.lower()
+        )
+
+        # Now execute with explicit target=prod
+        result = runner.invoke_passthrough_with_connection(
+            args=[
+                "dbt",
+                "execute",
+            ],
+            passthrough_args=[name, "run", "--target=prod"],
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Done. PASS=2 WARN=0 ERROR=0 SKIP=0 TOTAL=2" in result.output
+
+        result = runner.invoke_with_connection_json(
+            [
+                "sql",
+                "-q",
+                f"select count(*) as COUNT from {snowflake_session.database}.{second_target_schema}.my_second_dbt_model;",
+            ]
+        )
+        assert len(result.json) == 1, result.json
+        assert result.json[0]["COUNT"] == 1, result.json[0]

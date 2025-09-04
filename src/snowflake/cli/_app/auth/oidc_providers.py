@@ -364,30 +364,28 @@ def auto_detect_oidc_provider() -> OidcTokenProvider:
             return available[0]
         case (0, providers) if providers:
             # No providers available but some are registered
-            logger.warning("No OIDC provider detected in current environment")
             providers_list = ", ".join(providers)
-            error_msg = (
+            msg = (
                 "No OIDC provider detected in current environment. "
                 "Available providers: %s. "
                 "Use --type <provider> to specify a provider explicitly."
             ) % providers_list
-            logger.error(error_msg)
-            raise OidcProviderAutoDetectionError(error_msg)
+            logger.info(msg)
+            raise OidcProviderAutoDetectionError(msg)
         case (0, _):
             # No providers available and none are registered
-            logger.warning("No OIDC provider detected in current environment")
-            error_msg = "No OIDC providers are registered."
-            logger.error(error_msg)
-            raise OidcProviderAutoDetectionError(error_msg)
+            msg = "No OIDC providers are registered."
+            logger.info(msg)
+            raise OidcProviderAutoDetectionError(msg)
         case _:
             # Multiple providers available - raise error
             providers_list = ", ".join(available_names)
-            error_msg = (
+            msg = (
                 "Multiple OIDC providers detected: %s. "
                 "Please specify which provider to use with --type <provider>."
             ) % providers_list
-            logger.error(error_msg)
-            raise OidcProviderAutoDetectionError(error_msg)
+            logger.info(msg)
+            raise OidcProviderAutoDetectionError(msg)
 
     # This line should never be reached, but helps mypy understand all paths are covered
     raise OidcProviderAutoDetectionError(

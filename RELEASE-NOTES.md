@@ -21,6 +21,8 @@
 ## New additions
 
 ## Fixes and improvements
+* Improved parsing `!source` with trailing comments
+
 
 
 # v3.11.0
@@ -31,11 +33,17 @@
 * Add `snow connection remove` command
 * Added support for `runtime_environment_version` field in notebook entity configuration, allowing specification of runtime environment version for containerized notebooks.
 * Added `snow auth oidc` command group for managing workload identity federation authentication:
-  * `snow auth oidc setup` - Creates federated users with OIDC authentication configuration
-  * `snow auth oidc delete` - Removes existing federated users
   * `snow auth oidc read-token` - Reads and displays OIDC tokens from CI/CD environments
-  * `snow auth oidc list` - Lists all users with workload identity federation enabled
   * Supports GitHub Actions OIDC provider for passwordless authentication in CI/CD pipelines
+
+## Fixes and improvements
+
+
+# v3.10.1
+
+## Deprecations
+
+## New additions
 
 ## Fixes and improvements
 * Fixed DBT deploy command to properly handle fully qualified names

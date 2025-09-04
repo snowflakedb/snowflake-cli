@@ -88,12 +88,21 @@ class ParsedStatement:
     def __repr__(self):
         return f"{self.__class__.__name__}(statement_type={self.statement_type}, source_path={self.source_path}, error={self.error})"
 
+    @staticmethod
+    def drop_comments_from_path_parts(path_part: str) -> str:
+        """Clean up path_part from trailing comments."""
+        uncommented, _ = next(
+            split_statements(io.StringIO(path_part), remove_comments=True)
+        )
+        return uncommented
+
     @classmethod
     def from_url(cls, path_part: str, raw_source: str) -> "ParsedStatement":
         """Constructor for loading from URL."""
+        stripped_comments_path_part = cls.drop_comments_from_path_parts(path_part)
         try:
-            payload = urlopen(path_part, timeout=10.0).read().decode()
-            return cls(payload, StatementType.URL, path_part)
+            payload = urlopen(stripped_comments_path_part, timeout=10.0).read().decode()
+            return cls(payload, StatementType.URL, stripped_comments_path_part)
 
         except urllib.error.HTTPError as err:
             error = f"Could not fetch {path_part}: {err}"
@@ -102,14 +111,20 @@ class ParsedStatement:
     @classmethod
     def from_file(cls, path_part: str, raw_source: str) -> "ParsedStatement":
         """Constructor for loading from file."""
-        path = SecurePath(path_part)
+        stripped_comments_path_part = cls.drop_comments_from_path_parts(path_part)
+        path = SecurePath(stripped_comments_path_part)
 
         if path.is_file():
             payload = path.read_text(file_size_limit_mb=UNLIMITED)
             return cls(payload, StatementType.FILE, path.as_posix())
 
         error_msg = f"Could not read: {path_part}"
-        return cls(path_part, StatementType.FILE, raw_source, error_msg)
+        return cls(
+            path_part,
+            StatementType.FILE,
+            raw_source,
+            error_msg,
+        )
 
 
 RecursiveStatementReader = Generator[ParsedStatement, Any, Any]
