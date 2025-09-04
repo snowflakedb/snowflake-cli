@@ -60,21 +60,21 @@ class DCMProjectManager(SqlExecutionMixin):
         query = f"CREATE DCM PROJECT {project.fqn.sql_identifier}"
         self.execute_query(query)
 
-    def list_versions(self, project_name: FQN):
-        query = f"SHOW VERSIONS IN DCM PROJECT {project_name.identifier}"
+    def list_deployments(self, project_name: FQN):
+        query = f"SHOW DEPLOYMENTS IN DCM PROJECT {project_name.identifier}"
         return self.execute_query(query=query)
 
     def drop_deployment(
         self,
         project_name: FQN,
-        version_name: str,
+        deployment_name: str,
         if_exists: bool = False,
     ):
         """
         Drops a deployment from the DCM Project.
         """
-        query = f"ALTER DCM PROJECT {project_name.identifier} DROP VERSION"
+        query = f"ALTER DCM PROJECT {project_name.identifier} DROP DEPLOYMENT"
         if if_exists:
             query += " IF EXISTS"
-        query += f' "{version_name}"'
+        query += f' "{deployment_name}"'
         return self.execute_query(query=query)
