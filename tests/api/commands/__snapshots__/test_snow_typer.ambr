@@ -5,7 +5,7 @@
    Usage: snow cmd_with_connection_options [OPTIONS] NAME                         
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  [default: None] [required]                              |
+  | *    name      TEXT  [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -134,7 +134,7 @@
    Usage: snow cmd_with_global_options [OPTIONS] NAME                             
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  [default: None] [required]                              |
+  | *    name      TEXT  [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -169,7 +169,7 @@
    Usage: snow simple_cmd [OPTIONS] NAME                                          
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  [default: None] [required]                              |
+  | *    name      TEXT  [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
