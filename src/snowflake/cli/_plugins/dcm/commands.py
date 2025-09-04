@@ -207,38 +207,40 @@ def list_deployments(
     Lists deployments of given DCM Project.
     """
     pm = DCMProjectManager()
-    results = pm.list_versions(project_name=identifier)
+    results = pm.list_deployments(project_name=identifier)
     return QueryResult(results)
 
 
 @app.command(requires_connection=True)
 def drop_deployment(
     identifier: FQN = dcm_identifier,
-    version_name: str = typer.Argument(
-        help="Name or alias of the version to drop. For names containing '$', use single quotes to prevent shell expansion (e.g., 'VERSION$1').",
+    deployment_name: str = typer.Argument(
+        help="Name or alias of the deployment to drop. For names containing '$', use single quotes to prevent shell expansion (e.g., 'DEPLOYMENT$1').",
         show_default=False,
     ),
-    if_exists: bool = IfExistsOption(help="Do nothing if the version does not exist."),
+    if_exists: bool = IfExistsOption(
+        help="Do nothing if the deployment does not exist."
+    ),
     **options,
 ):
     """
-    Drops a version from the DCM Project.
+    Drops a deployment from the DCM Project.
     """
     # Detect potential shell expansion issues
-    if version_name and version_name.upper() == "VERSION":
+    if deployment_name and deployment_name.upper() == "DEPLOYMENT":
         cli_console.warning(
-            f"Version name '{version_name}' might be truncated due to shell expansion. "
-            f"If you meant to use a version like 'VERSION$1', try using single quotes: 'VERSION$1'."
+            f"Deployment name '{deployment_name}' might be truncated due to shell expansion. "
+            f"If you meant to use a deployment like 'DEPLOYMENT$1', try using single quotes: 'DEPLOYMENT$1'."
         )
 
     dpm = DCMProjectManager()
     dpm.drop_deployment(
         project_name=identifier,
-        version_name=version_name,
+        deployment_name=deployment_name,
         if_exists=if_exists,
     )
     return MessageResult(
-        f"Version '{version_name}' dropped from DCM Project '{identifier}'."
+        f"Deployment '{deployment_name}' dropped from DCM Project '{identifier}'."
     )
 
 
