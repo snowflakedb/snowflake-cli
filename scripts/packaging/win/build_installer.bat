@@ -25,7 +25,12 @@ cmd /c aws s3 cp %STAGE_URL%/%CLI_ZIP% . || goto :error
 echo "[INFO] building installer"
 7z x %CLI_ZIP% || goto :error
 
-signtool sign /debug /sm /d "Snowflake CLI" /t http://timestamp.digicert.com /a dist\snow\snow.exe || goto :error
+set SM_HOST=https://clientauth.one.digicert.com
+set SM_CLIENT_CERT_FILE=%WORKSPACE%\Certificate_pkcs12.p12
+smctl healthcheck || goto :error
+smctl windows certsync || goto :error
+
+smctl sign --keypair-alias key_1311463644 --input dist\snow\snow.exe || goto :error
 signtool verify /v /pa dist\snow\snow.exe || goto :error
 
 candle.exe ^
@@ -43,7 +48,7 @@ light.exe ^
   snowflake_cli.wixobj ^
   snowflake_cli_exitdlg.wixobj || goto :error
 
-signtool sign /debug /sm /d "Snowflake CLI" /t http://timestamp.digicert.com /a %CLI_MSI% || goto :error
+smctl sign --keypair-alias key_1311463644 --input %CLI_MSI% || goto :error
 signtool verify /v /pa %CLI_MSI% || goto :error
 
 echo "[INFO] uploading artifacts"
