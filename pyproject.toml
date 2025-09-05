@@ -44,7 +44,7 @@ dependencies = [
   'snowflake-snowpark-python==1.33.0;python_version < "3.12"',
   "snowflake.core==1.7.0",
   "tomlkit==0.13.3",
-  "typer==0.16.0",
+  "typer==0.17.3",
   "urllib3>=1.24.3,<2.6",
 ]
 classifiers = [

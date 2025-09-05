@@ -15,7 +15,6 @@
   
    Snowflake CLI tool for developers [v0.0.1-test_patched]
   
-  
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
@@ -23,7 +22,6 @@
   |                                     CLI                                      |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
-  |                                     [default: None]                          |
   | --install-completion                Install completion for the current       |
   |                                     shell.                                   |
   | --show-completion                   Show completion for the current shell,   |
@@ -80,7 +78,6 @@
   
    Snowflake CLI tool for developers [v0.0.1-test_patched]
   
-  
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
@@ -88,7 +85,6 @@
   |                                     CLI                                      |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
-  |                                     [default: None]                          |
   | --install-completion                Install completion for the current       |
   |                                     shell.                                   |
   | --show-completion                   Show completion for the current shell,   |
@@ -126,7 +122,6 @@
   
    Snowflake CLI tool for developers [v0.0.1-test_patched]
   
-  
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
@@ -134,7 +129,6 @@
   |                                     CLI                                      |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
-  |                                     [default: None]                          |
   | --install-completion                Install completion for the current       |
   |                                     shell.                                   |
   | --show-completion                   Show completion for the current shell,   |
@@ -211,7 +205,6 @@
   
    Snowflake CLI tool for developers [v0.0.1-test_patched]
   
-  
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
@@ -219,7 +212,6 @@
   |                                     CLI                                      |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
-  |                                     [default: None]                          |
   | --install-completion                Install completion for the current       |
   |                                     shell.                                   |
   | --show-completion                   Show completion for the current shell,   |
