@@ -380,8 +380,8 @@ class TestReplPasteHandling:
         paste_handler = self._find_bracketed_paste_handler(key_bindings)
         paste_handler(paste_event)
 
-        expected_clean_sql = "SELECT 1;\r\nSELECT 2;"
-        assert buffer.text == expected_clean_sql
+        expected_normalized_sql = "SELECT 1;\nSELECT 2;"
+        assert buffer.text == expected_normalized_sql
         assert not buffer.text.endswith(("\n", "\r"))
 
     def test_bracketed_paste_preserves_internal_newlines(self, repl, mock_app_buffer):
@@ -401,6 +401,22 @@ class TestReplPasteHandling:
 
         expected_multiline_sql = "SELECT\n  column1,\n  column2\nFROM table;"
         assert buffer.text == expected_multiline_sql
+
+    def test_bracketed_paste_handles_carriage_return_only(self, repl, mock_app_buffer):
+        """Test that bracketed paste handles \\r (carriage return only) line endings."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        sql_with_cr_endings = "SELECT 1;\rSELECT 2;\r\r"
+        paste_event = mock.MagicMock()
+        paste_event.app = app
+        paste_event.data = sql_with_cr_endings
+
+        paste_handler = self._find_bracketed_paste_handler(key_bindings)
+        paste_handler(paste_event)
+
+        expected_normalized_sql = "SELECT 1;\nSELECT 2;"
+        assert buffer.text == expected_normalized_sql
 
     def test_enter_key_with_semicolon_at_meaningful_end(self, repl, mock_app_buffer):
         """Test Enter key behavior when cursor is at meaningful content end with semicolon."""

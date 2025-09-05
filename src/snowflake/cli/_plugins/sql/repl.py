@@ -84,12 +84,17 @@ class Repl:
 
         @kb.add(Keys.BracketedPaste)
         def _(event):
-            """Handle bracketed paste - strip trailing newlines and position cursor correctly."""
+            """Handle bracketed paste - normalize line endings and strip trailing whitespace."""
             pasted_data = event.data
-            cleaned_data = pasted_data.rstrip()
+            # Normalize line endings: \r\n -> \n, \r -> \n
+            normalized_data = pasted_data.replace("\r\n", "\n").replace("\r", "\n")
+            # Strip trailing whitespace
+            cleaned_data = normalized_data.rstrip()
             buffer = event.app.current_buffer
             buffer.insert_text(cleaned_data)
-            log.debug("handled paste operation, stripped trailing newlines")
+            log.debug(
+                "handled paste operation, normalized line endings and stripped trailing whitespace"
+            )
 
         @kb.add(Keys.Enter, filter=not_searching)
         def _(event):
