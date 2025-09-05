@@ -23,7 +23,7 @@
 ## Fixes and improvements
 * Improved parsing `!source` with trailing comments
 * Bumped to `typer=0.17.3`. Improved displaying help messages.
-
+* Fixed using `ctx.var` in `snow sql` with Jinja templating.
 
 
 # v3.11.0
