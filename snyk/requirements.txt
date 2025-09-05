@@ -60,7 +60,7 @@ snowflake-snowpark-python==1.33.0 ; python_full_version < '3.12'
 sortedcontainers==2.4.0
 tomlkit==0.13.3
 typer==0.17.3
-typing-extensions==4.14.1
+typing-extensions==4.15.0
 typing-inspection==0.4.1
 tzdata==2025.2 ; python_full_version < '3.12' and sys_platform == 'win32'
 tzlocal==5.3.1 ; python_full_version < '3.12'
