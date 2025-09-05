@@ -21,13 +21,11 @@
 ## New additions
 * The `!edit` command for external editors was added to REPL
 
-
 ## Fixes and improvements
 * Improved parsing `!source` with trailing comments
+* `!` commands no longer require trailing `;` for evaluation
 * Bumped to `typer=0.17.3`. Improved displaying help messages.
 * Fixed using `ctx.var` in `snow sql` with Jinja templating.
-* REPL is registered with cli_context
-* `!` commands no longer require trailing `;` for evaluation
 
 
 # v3.11.0
