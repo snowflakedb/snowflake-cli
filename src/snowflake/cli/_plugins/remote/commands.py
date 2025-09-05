@@ -69,6 +69,16 @@ def start(
         "--image",
         help="Custom image to use (can be full path like 'repo/image:tag' or just tag like '1.7.1')",
     ),
+    ssh: bool = typer.Option(
+        False,
+        "--ssh",
+        help="Set up SSH configuration for connecting to the remote environment. This is a blocking command that keeps SSH connections alive.",
+    ),
+    no_ssh_key: bool = typer.Option(
+        False,
+        "--no-ssh-key",
+        help="When used with --ssh, skip SSH key generation and use token-only authentication (less secure)",
+    ),
     **options,
 ) -> None:
     """
@@ -83,9 +93,16 @@ def start(
     - Resume existing service: snow remote start myproject
     - Create new service: snow remote start --compute-pool my_pool
     - Create named service: snow remote start myproject --compute-pool my_pool
+    - Start with SSH setup: snow remote start myproject --ssh
+    - Start with SSH (no key): snow remote start myproject --ssh --no-ssh-key
 
     The --compute-pool parameter is only required when creating a new service. For resuming
     existing services, the compute pool is not needed.
+
+    SSH Options:
+    - Use --ssh to set up SSH configuration for secure terminal access
+    - Use --no-ssh-key with --ssh for token-only authentication (less secure)
+    - SSH setup is a blocking command that continuously refreshes authentication tokens
     """
     try:
         manager = RemoteManager()
@@ -96,6 +113,9 @@ def start(
             external_access=eai_name,
             stage=stage,
             image=image,
+            generate_ssh_key=(
+                ssh and not no_ssh_key
+            ),  # Only generate SSH key if --ssh and not --no-ssh-key
         )
 
         # Display appropriate success message based on what happened
@@ -131,6 +151,10 @@ def start(
             log.debug("External access integrations: %s", ", ".join(eai_name))
         if image:
             log.debug("Using custom image: %s", image)
+
+        # Handle SSH setup if requested - this is a blocking operation
+        if ssh:
+            manager.setup_ssh_connection(service_name)
 
     except ValueError as e:
         cc.warning(f"Error: {e}")
