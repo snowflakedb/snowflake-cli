@@ -181,7 +181,6 @@ class Repl:
                 multiline=True,
                 wrap_lines=True,
                 key_bindings=self._repl_key_bindings,
-                enable_open_in_editor=True,  # Enable bracketed paste mode
                 default=default_text or "",
             )
         finally:
