@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from logging import getLogger
 from typing import Iterable
 
@@ -10,6 +11,7 @@ from prompt_toolkit.lexers import PygmentsLexer
 from snowflake.cli._app.printing import print_result
 from snowflake.cli._plugins.sql.lexer import CliLexer, cli_completer
 from snowflake.cli._plugins.sql.manager import SqlManager
+from snowflake.cli._plugins.sql.repl_commands import detect_command
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import MultipleResults, QueryResult
@@ -26,6 +28,21 @@ HISTORY_FILE = SecurePath(
 EXIT_KEYWORDS = ("exit", "quit")
 
 log.debug("setting history file to: %s", HISTORY_FILE.as_posix())
+
+
+@contextmanager
+def repl_context(repl_instance):
+    """Context manager for REPL execution that handles CLI context registration."""
+    context_manager = get_cli_context_manager()
+    context_manager.is_repl = True
+    context_manager.repl_instance = repl_instance
+
+    try:
+        yield
+    finally:
+        # Clean up REPL context
+        context_manager.is_repl = False
+        context_manager.repl_instance = None
 
 
 class Repl:
@@ -45,7 +62,6 @@ class Repl:
         `retain_comments` how to handle comments in queries
         """
         super().__init__()
-        setattr(get_cli_context_manager(), "is_repl", True)
         self._data = data or {}
         self._retain_comments = retain_comments
         self._template_syntax_config = template_syntax_config
@@ -56,6 +72,7 @@ class Repl:
         self._yes_no_keybindings = self._setup_yn_key_bindings()
         self._sql_manager = sql_manager
         self.session = PromptSession(history=self._history)
+        self._next_input: str | None = None
 
     def _setup_key_bindings(self) -> KeyBindings:
         """Key bindings for repl. Helps detecting ; at end of buffer."""
@@ -67,7 +84,14 @@ class Repl:
 
         @kb.add(Keys.Enter, filter=not_searching)
         def _(event):
-            """Handle Enter key press."""
+            """Handle Enter key press with intelligent execution logic.
+
+            Execution priority:
+            1. Exit keywords (exit, quit) - execute immediately
+            2. REPL commands (starting with !) - execute immediately
+            3. SQL with trailing semicolon - execute immediately
+            4. All other input - add new line for multi-line editing
+            """
             buffer = event.app.current_buffer
             stripped_buffer = buffer.text.strip()
 
@@ -75,9 +99,14 @@ class Repl:
                 log.debug("evaluating repl input")
                 cursor_position = buffer.cursor_position
                 ends_with_semicolon = buffer.text.endswith(";")
+                is_command = detect_command(stripped_buffer) is not None
 
                 if stripped_buffer.lower() in EXIT_KEYWORDS:
                     log.debug("exit keyword detected %r", stripped_buffer)
+                    buffer.validate_and_handle()
+
+                elif is_command:
+                    log.debug("command detected, submitting input")
                     buffer.validate_and_handle()
 
                 elif ends_with_semicolon and cursor_position >= len(stripped_buffer):
@@ -118,16 +147,27 @@ class Repl:
 
         return kb
 
-    def repl_propmpt(self, msg: str = " > ") -> str:
-        """Regular repl prompt."""
-        return self.session.prompt(
-            msg,
-            lexer=self._lexer,
-            completer=self._completer,
-            multiline=True,
-            wrap_lines=True,
-            key_bindings=self._repl_key_bindings,
-        )
+    def repl_prompt(self, msg: str = " > ") -> str:
+        """Regular repl prompt with support for pre-filled input.
+
+        Checks for queued input from commands like !edit and uses it as
+        default text in the prompt. The queued input is cleared after use.
+        """
+        default_text = self._next_input
+
+        try:
+            return self.session.prompt(
+                msg,
+                lexer=self._lexer,
+                completer=self._completer,
+                multiline=True,
+                wrap_lines=True,
+                key_bindings=self._repl_key_bindings,
+                default=default_text or "",
+            )
+        finally:
+            if self._next_input == default_text:
+                self._next_input = None
 
     def yn_prompt(self, msg: str) -> str:
         """Yes/No prompt."""
@@ -142,7 +182,7 @@ class Repl:
 
     @property
     def _welcome_banner(self) -> str:
-        return f"Welcome to Snowflake-CLI REPL\nType 'exit' or 'quit' to leave"
+        return "Welcome to Snowflake-CLI REPL\nType 'exit' or 'quit' to leave"
 
     def _initialize_connection(self):
         """Early connection for possible fast fail."""
@@ -163,12 +203,13 @@ class Repl:
         return cursors
 
     def run(self):
-        try:
-            cli_console.panel(self._welcome_banner)
-            self._initialize_connection()
-            self._repl_loop()
-        except (KeyboardInterrupt, EOFError):
-            cli_console.message("\n[bold orange_red1]Leaving REPL, bye ...")
+        with repl_context(self):
+            try:
+                cli_console.panel(self._welcome_banner)
+                self._initialize_connection()
+                self._repl_loop()
+            except (KeyboardInterrupt, EOFError):
+                cli_console.message("\n[bold orange_red1]Leaving REPL, bye ...")
 
     def _repl_loop(self):
         """Main REPL loop. Handles input and query execution.
@@ -178,7 +219,7 @@ class Repl:
         """
         while True:
             try:
-                user_input = self.repl_propmpt().strip()
+                user_input = self.repl_prompt().strip()
 
                 if not user_input:
                     continue
@@ -209,6 +250,21 @@ class Repl:
 
             except Exception as e:
                 cli_console.warning(f"\nError occurred: {e}")
+
+    def set_next_input(self, text: str) -> None:
+        """Set the text that will be used as the next REPL input."""
+        self._next_input = text
+        log.debug("Next input has been set")
+
+    @property
+    def next_input(self) -> str | None:
+        """Get the next input text that will be used in the prompt."""
+        return self._next_input
+
+    @property
+    def history(self) -> FileHistory:
+        """Get the FileHistory instance used by the REPL."""
+        return self._history
 
     def ask_yn(self, question: str) -> bool:
         """Asks user a Yes/No question."""
