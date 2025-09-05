@@ -1,0 +1,4 @@
+type: "dcm_project"
+
+include_definitions:
+  - definitions/my_query.sql

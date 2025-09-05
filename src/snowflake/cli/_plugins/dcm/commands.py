@@ -11,34 +11,26 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import time
 from typing import List, Optional
 
 import typer
-from snowflake.cli._plugins.dcm.dcm_project_entity_model import (
-    DCMProjectEntityModel,
-)
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
-from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
-from snowflake.cli.api.cli_global_context import get_cli_context
-from snowflake.cli.api.commands.decorators import with_project_definition
 from snowflake.cli.api.commands.flags import (
     IfExistsOption,
     IfNotExistsOption,
     OverrideableOption,
-    entity_argument,
     identifier_argument,
     like_option,
     variables_option,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
-from snowflake.cli.api.commands.utils import get_entity_for_operation
 from snowflake.cli.api.console.console import cli_console
-from snowflake.cli.api.constants import ObjectType
+from snowflake.cli.api.constants import (
+    ObjectType,
+)
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
@@ -47,8 +39,6 @@ from snowflake.cli.api.output.types import (
     QueryJsonValueResult,
     QueryResult,
 )
-from snowflake.cli.api.project.project_paths import ProjectPaths
-from snowflake.cli.api.project.util import unquote_identifier
 
 app = SnowTyperFactory(
     name="dcm",
@@ -127,14 +117,19 @@ def deploy(
     """
     Applies changes defined in DCM Project to Snowflake.
     """
-    result = DCMProjectManager().execute(
-        project_name=identifier,
-        configuration=configuration,
-        from_stage=from_stage if from_stage else _sync_local_files(),
-        variables=variables,
-        alias=alias,
-        output_path=None,
-    )
+    manager = DCMProjectManager()
+    if not from_stage:
+        from_stage = manager.sync_local_files(project_identifier=identifier)
+    with cli_console.spinner() as spinner:
+        spinner.add_task(description=f"Deploying dcm project {identifier}", total=None)
+        result = manager.execute(
+            project_identifier=identifier,
+            configuration=configuration,
+            from_stage=from_stage,
+            variables=variables,
+            alias=alias,
+            output_path=None,
+        )
     return QueryJsonValueResult(result)
 
 
@@ -154,21 +149,27 @@ def plan(
     """
     Plans a DCM Project deployment (validates without executing).
     """
-    result = DCMProjectManager().execute(
-        project_name=identifier,
-        configuration=configuration,
-        from_stage=from_stage if from_stage else _sync_local_files(),
-        dry_run=True,
-        variables=variables,
-        output_path=output_path,
-    )
+    manager = DCMProjectManager()
+    if not from_stage:
+        from_stage = manager.sync_local_files(project_identifier=identifier)
+
+    with cli_console.spinner() as spinner:
+        spinner.add_task(description=f"Planning dcm project {identifier}", total=None)
+        result = manager.execute(
+            project_identifier=identifier,
+            configuration=configuration,
+            from_stage=from_stage,
+            dry_run=True,
+            variables=variables,
+            output_path=output_path,
+        )
+
     return QueryJsonValueResult(result)
 
 
 @app.command(requires_connection=True)
-@with_project_definition()
 def create(
-    entity_id: str = entity_argument("dcm"),
+    identifier: FQN = dcm_identifier,
     if_not_exists: bool = IfNotExistsOption(
         help="Do nothing if the project already exists."
     ),
@@ -177,25 +178,18 @@ def create(
     """
     Creates a DCM Project in Snowflake.
     """
-    cli_context = get_cli_context()
-    project: DCMProjectEntityModel = get_entity_for_operation(
-        cli_context=cli_context,
-        entity_id=entity_id,
-        project_definition=cli_context.project_definition,
-        entity_type="dcm",
-    )
     om = ObjectManager()
-    if om.object_exists(object_type="dcm", fqn=project.fqn):
-        message = f"DCM Project '{project.fqn}' already exists."
+    if om.object_exists(object_type="dcm", fqn=identifier):
+        message = f"DCM Project '{identifier}' already exists."
         if if_not_exists:
             return MessageResult(message)
         raise CliError(message)
 
     dpm = DCMProjectManager()
-    with cli_console.phase(f"Creating DCM Project '{project.fqn}'"):
-        dpm.create(project=project)
+    with cli_console.phase(f"Creating DCM Project '{identifier}'"):
+        dpm.create(project_identifier=identifier)
 
-    return MessageResult(f"DCM Project '{project.fqn}' successfully created.")
+    return MessageResult(f"DCM Project '{identifier}' successfully created.")
 
 
 @app.command(requires_connection=True)
@@ -207,7 +201,7 @@ def list_deployments(
     Lists deployments of given DCM Project.
     """
     pm = DCMProjectManager()
-    results = pm.list_deployments(project_name=identifier)
+    results = pm.list_deployments(project_identifier=identifier)
     return QueryResult(results)
 
 
@@ -235,40 +229,10 @@ def drop_deployment(
 
     dpm = DCMProjectManager()
     dpm.drop_deployment(
-        project_name=identifier,
+        project_identifier=identifier,
         deployment_name=deployment_name,
         if_exists=if_exists,
     )
     return MessageResult(
         f"Deployment '{deployment_name}' dropped from DCM Project '{identifier}'."
     )
-
-
-def _sync_local_files() -> str:
-    cli_context = get_cli_context()
-    project_entity = get_entity_for_operation(
-        cli_context=cli_context,
-        entity_id=None,
-        project_definition=cli_context.project_definition,
-        entity_type="dcm",
-    )
-
-    # Create a temporary stage for this deployment session
-    stage_manager = StageManager()
-    unquoted_name = unquote_identifier(project_entity.fqn.name)
-    stage_fqn = FQN.from_string(
-        f"DCM_{unquoted_name}_{int(time.time())}_TMP_STAGE"
-    ).using_context()
-
-    with cli_console.phase("Creating temporary stage for deployment"):
-        stage_manager.create(fqn=stage_fqn, temporary=True)
-        cli_console.step(f"Created temporary stage: {stage_fqn}")
-
-    with cli_console.phase("Syncing local files to temporary stage"):
-        sync_artifacts_with_stage(
-            project_paths=ProjectPaths(project_root=cli_context.project_root),
-            stage_root=stage_fqn.identifier,
-            artifacts=project_entity.artifacts,
-        )
-
-    return stage_fqn.identifier
