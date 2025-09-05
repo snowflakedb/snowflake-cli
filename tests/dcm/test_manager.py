@@ -1,4 +1,3 @@
-from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -11,7 +10,6 @@ from snowflake.cli._plugins.dcm.manager import (
 from snowflake.cli.api.constants import PatternMatchingType
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
 
 execute_queries = "snowflake.cli._plugins.dcm.manager.DCMProjectManager.execute_query"
@@ -283,12 +281,21 @@ class TestSyncLocalFiles:
         with project_directory("dcm_project") as project_dir:
             DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
 
-            mock_sync_artifacts_with_stage.assert_called_once_with(
-                project_paths=ProjectPaths(Path(project_dir.resolve())),
-                stage_root="DCM_TEST_PROJECT_1234567890_TMP_STAGE",
-                artifacts=[
-                    PathMapping(src="definitions/my_query.sql"),
-                    PathMapping(src="manifest.yml", dest=None, processors=[]),
-                ],
-                pattern_type=PatternMatchingType.REGEX,
+            mock_sync_artifacts_with_stage.assert_called_once()
+
+            # due to Windows and inconsistent path resolution in unit tests,
+            # we need to verify call arguments individually, with simplified path comparison
+            call_args = mock_sync_artifacts_with_stage.call_args
+            assert (
+                call_args.kwargs["stage_root"]
+                == "DCM_TEST_PROJECT_1234567890_TMP_STAGE"
             )
+            assert call_args.kwargs["artifacts"] == [
+                PathMapping(src="definitions/my_query.sql"),
+                PathMapping(src="manifest.yml", dest=None, processors=[]),
+            ]
+            assert call_args.kwargs["pattern_type"] == PatternMatchingType.REGEX
+
+            actual_project_root = call_args.kwargs["project_paths"].project_root
+            expected_project_root = project_dir.resolve()
+            assert actual_project_root.resolve() == expected_project_root.resolve()
