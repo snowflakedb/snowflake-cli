@@ -109,7 +109,7 @@ class DCMProjectManager(SqlExecutionMixin):
                     f"Manifest file is defined for type {object_type}. Expected {DCM_PROJECT_TYPE}"
                 )
 
-            definitions = dcm_manifest.get("include_definitions", list())
+            definitions = list(dcm_manifest.get("include_definitions", list()))
             if MANIFEST_FILE_NAME not in definitions:
                 definitions.append(MANIFEST_FILE_NAME)
 

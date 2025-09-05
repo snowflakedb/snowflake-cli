@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -283,7 +284,7 @@ class TestSyncLocalFiles:
             DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
 
             mock_sync_artifacts_with_stage.assert_called_once_with(
-                project_paths=ProjectPaths(project_dir.resolve()),
+                project_paths=ProjectPaths(Path(project_dir.resolve())),
                 stage_root="DCM_TEST_PROJECT_1234567890_TMP_STAGE",
                 artifacts=[
                     PathMapping(src="definitions/my_query.sql"),
