@@ -114,7 +114,7 @@ def test_sql_fails_if_query_and_stdin_and_file_provided(runner):
         result = runner.invoke(["sql", "-i", "-q", "foo", "-f", tmp_file.name])
         assert_that_result_is_usage_error(
             result,
-            f"Parameters '--query' and '--stdin' are incompatible and cannot be used simultaneously.",
+            "Parameters '--query' and '--stdin' are incompatible and cannot be used simultaneously.",
         )
 
 
