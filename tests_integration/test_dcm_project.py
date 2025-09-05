@@ -119,7 +119,9 @@ def test_create_corner_cases(
         _assert_project_has_deployments(
             runner, project_name, expected_deployments=set()
         )
-        result = runner.invoke_with_connection(["dcm", "create", project_name, "--if-not-exists"])
+        result = runner.invoke_with_connection(
+            ["dcm", "create", project_name, "--if-not-exists"]
+        )
         assert result.exit_code == 0, result.output
         assert f"DCM Project '{project_name}' already exists." in result.output
         _assert_project_has_deployments(
@@ -142,7 +144,7 @@ def test_project_drop_deployment(
 
     with project_directory("dcm_project"):
         # Create project
-        result = runner.invoke_with_connection(["dcm", "create", entity_id])
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
         assert result.exit_code == 0, result.output
         assert f"DCM Project '{project_name}' successfully created." in result.output
         _assert_project_has_deployments(

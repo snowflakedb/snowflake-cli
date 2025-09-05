@@ -55,16 +55,12 @@ class TestDCMCreate:
 
 
 class TestDCMDeploy:
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.commands.time.time", return_value=1234567890
-    )
-    @mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.time.time", return_value=1234567890)
     @mock.patch(DCMProjectManager)
     def test_deploy_project(
         self,
         mock_pm,
-        mock_sync,
-        mock_time,
+        _mock_time,
         runner,
         project_directory,
         mock_cursor,
@@ -72,6 +68,9 @@ class TestDCMDeploy:
     ):
         mock_pm().execute.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
+        )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
         )
 
         with project_directory("dcm_project"):
@@ -182,14 +181,12 @@ class TestDCMDeploy:
             output_path=None,
         )
 
-    @mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")
-    @mock.patch("snowflake.cli._plugins.dcm.commands.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_sync(
         self,
         mock_pm,
         _mock_create,
-        mock_sync,
         runner,
         project_directory,
         mock_cursor,
@@ -199,30 +196,26 @@ class TestDCMDeploy:
         mock_pm().execute.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
 
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "deploy", "my_project"])
             assert result.exit_code == 0, result.output
 
-            # Verify that sync was called
-            mock_sync.assert_called_once()
-
         call_args = mock_pm().execute.call_args
-        assert "DCM_MY_PROJECT" in call_args.kwargs["from_stage"]
+        assert "DCM_FOOBAR" in call_args.kwargs["from_stage"]
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
 
 class TestDCMPlan:
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.commands.time.time", return_value=1234567890
-    )
-    @mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.time.time", return_value=1234567890)
     @mock.patch(DCMProjectManager)
     def test_plan_project(
         self,
         mock_pm,
-        mock_sync,
-        mock_time,
+        _mock_time,
         runner,
         project_directory,
         mock_cursor,
@@ -230,6 +223,9 @@ class TestDCMPlan:
     ):
         mock_pm().execute.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
+        )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
         )
 
         with project_directory("dcm_project"):
@@ -349,14 +345,12 @@ class TestDCMPlan:
             output_path="@output_stage",
         )
 
-    @mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")
-    @mock.patch("snowflake.cli._plugins.dcm.commands.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     @mock.patch(DCMProjectManager)
-    def test_deploy_project_with_sync(
+    def test_plan_project_with_sync(
         self,
         mock_pm,
         _mock_create,
-        mock_sync,
         runner,
         project_directory,
         mock_cursor,
@@ -366,16 +360,16 @@ class TestDCMPlan:
         mock_pm().execute.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
 
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "plan", "my_project"])
             assert result.exit_code == 0, result.output
 
-            # Verify that sync was called
-            mock_sync.assert_called_once()
-
             call_args = mock_pm().execute.call_args
-            assert "DCM_MY_PROJECT_" in call_args.kwargs["from_stage"]
+            assert "DCM_FOOBAR_" in call_args.kwargs["from_stage"]
             assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
 

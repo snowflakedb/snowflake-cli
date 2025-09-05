@@ -1,8 +1,17 @@
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.dcm.manager import DCMProjectManager
+import yaml
+from snowflake.cli._plugins.dcm.manager import (
+    DCM_PROJECT_TYPE,
+    MANIFEST_FILE_NAME,
+    DCMProjectManager,
+)
+from snowflake.cli.api.constants import PatternMatchingType
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.project_paths import ProjectPaths
+from snowflake.cli.api.project.schemas.entities.common import PathMapping
 
 execute_queries = "snowflake.cli._plugins.dcm.manager.DCMProjectManager.execute_query"
 TEST_STAGE = FQN.from_stage("@test_stage")
@@ -212,3 +221,73 @@ def test_deploy_project_with_alias_special_characters(
     mock_execute_query.assert_called_once_with(
         query=f"EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY AS {expected_alias} FROM @test_stage"
     )
+
+
+class TestSyncLocalFiles:
+    def test_raises_when_manifest_file_is_missing(self, project_directory):
+        with project_directory("dcm_project") as project_dir:
+            (project_dir / MANIFEST_FILE_NAME).unlink()
+            with pytest.raises(
+                CliError,
+                match=f"{MANIFEST_FILE_NAME} was not found in project directory",
+            ):
+                DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
+
+    def test_raises_when_manifest_file_has_no_type(self, project_directory):
+        with project_directory("dcm_project") as project_dir:
+            (project_dir / MANIFEST_FILE_NAME).unlink()
+            (project_dir / MANIFEST_FILE_NAME).touch()
+            with pytest.raises(
+                CliError,
+                match=f"Manifest file type is undefined. Expected {DCM_PROJECT_TYPE}",
+            ):
+                DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
+
+            with open((project_dir / MANIFEST_FILE_NAME), "w") as f:
+                yaml.dump({"definition": "v1"}, f)
+            with pytest.raises(
+                CliError,
+                match=f"Manifest file type is undefined. Expected {DCM_PROJECT_TYPE}",
+            ):
+                DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
+
+    def test_raises_when_manifest_file_is_invalid(self, project_directory):
+        with project_directory("dcm_project") as project_dir:
+            with open((project_dir / MANIFEST_FILE_NAME), "w") as f:
+                yaml.dump({"type": "spcs"}, f)
+            with pytest.raises(
+                CliError,
+                match=f"Manifest file is defined for type spcs. Expected {DCM_PROJECT_TYPE}",
+            ):
+                DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
+
+    @mock.patch("snowflake.cli._plugins.dcm.manager.time.time", return_value=1234567890)
+    @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.FQN.using_context")
+    def test_calls_sync_artifacts_with_stage(
+        self,
+        mock_using_context,
+        _mock_create_stage,
+        mock_sync_artifacts_with_stage,
+        _mock_time,
+        project_directory,
+        mock_connect,
+        mock_cursor,
+    ):
+        mock_using_context.return_value = FQN.from_string(
+            "DCM_TEST_PROJECT_1234567890_TMP_STAGE"
+        )
+
+        with project_directory("dcm_project") as project_dir:
+            DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
+
+            mock_sync_artifacts_with_stage.assert_called_once_with(
+                project_paths=ProjectPaths(project_dir.resolve()),
+                stage_root="DCM_TEST_PROJECT_1234567890_TMP_STAGE",
+                artifacts=[
+                    PathMapping(src="definitions/my_query.sql"),
+                    PathMapping(src="manifest.yml", dest=None, processors=[]),
+                ],
+                pattern_type=PatternMatchingType.REGEX,
+            )

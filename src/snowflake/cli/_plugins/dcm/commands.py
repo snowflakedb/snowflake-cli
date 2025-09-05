@@ -11,18 +11,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import time
-from pathlib import Path
 from typing import List, Optional
 
 import typer
-import yaml
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
-from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.commands.flags import (
     IfExistsOption,
     IfNotExistsOption,
@@ -34,9 +29,7 @@ from snowflake.cli.api.commands.flags import (
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import (
-    DEFAULT_SIZE_LIMIT_MB,
     ObjectType,
-    PatternMatchingType,
 )
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
@@ -46,13 +39,6 @@ from snowflake.cli.api.output.types import (
     QueryJsonValueResult,
     QueryResult,
 )
-from snowflake.cli.api.project.project_paths import ProjectPaths
-from snowflake.cli.api.project.schemas.entities.common import PathMapping
-from snowflake.cli.api.project.util import unquote_identifier
-from snowflake.cli.api.secure_path import SecurePath
-
-MANIFEST_FILE_NAME = "manifest.yml"
-DCM_PROJECT_TYPE = "dcm_project"
 
 app = SnowTyperFactory(
     name="dcm",
@@ -131,11 +117,12 @@ def deploy(
     """
     Applies changes defined in DCM Project to Snowflake.
     """
+    manager = DCMProjectManager()
     if not from_stage:
-        from_stage = _sync_local_files(project_identifier=identifier)
+        from_stage = manager.sync_local_files(project_identifier=identifier)
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Deploying dcm project {identifier}", total=None)
-        result = DCMProjectManager().execute(
+        result = manager.execute(
             project_identifier=identifier,
             configuration=configuration,
             from_stage=from_stage,
@@ -162,12 +149,13 @@ def plan(
     """
     Plans a DCM Project deployment (validates without executing).
     """
+    manager = DCMProjectManager()
     if not from_stage:
-        from_stage = _sync_local_files(project_identifier=identifier)
+        from_stage = manager.sync_local_files(project_identifier=identifier)
 
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Planning dcm project {identifier}", total=None)
-        result = DCMProjectManager().execute(
+        result = manager.execute(
             project_identifier=identifier,
             configuration=configuration,
             from_stage=from_stage,
@@ -248,46 +236,3 @@ def drop_deployment(
     return MessageResult(
         f"Deployment '{deployment_name}' dropped from DCM Project '{identifier}'."
     )
-
-
-def _sync_local_files(project_identifier: FQN) -> str:
-    dcm_manifest_file = SecurePath.cwd() / MANIFEST_FILE_NAME
-    if not dcm_manifest_file.exists():
-        raise CliError(f"{MANIFEST_FILE_NAME} was not found in project directory")
-
-    with dcm_manifest_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
-        dcm_manifest = yaml.safe_load(fd)
-        object_type = dcm_manifest.get("type")
-        if object_type is None:
-            raise CliError(
-                f"Manifest file type is undefined. Expected {DCM_PROJECT_TYPE}"
-            )
-        if object_type.lower() != DCM_PROJECT_TYPE:
-            raise CliError(
-                f"Manifest file is defined for type {object_type}. Expected {DCM_PROJECT_TYPE}"
-            )
-
-        definitions = dcm_manifest.get("include_definitions", list())
-        if MANIFEST_FILE_NAME not in definitions:
-            definitions.append(MANIFEST_FILE_NAME)
-
-    # Create a temporary stage for this deployment session
-    stage_manager = StageManager()
-    unquoted_name = unquote_identifier(project_identifier.name)
-    stage_fqn = FQN.from_string(
-        f"DCM_{unquoted_name}_{int(time.time())}_TMP_STAGE"
-    ).using_context()
-
-    with cli_console.phase("Creating temporary stage for deployment"):
-        stage_manager.create(fqn=stage_fqn, temporary=True)
-        cli_console.step(f"Created temporary stage: {stage_fqn}")
-
-    with cli_console.phase("Syncing local files to temporary stage"):
-        sync_artifacts_with_stage(
-            project_paths=ProjectPaths(project_root=Path.cwd()),
-            stage_root=stage_fqn.identifier,
-            artifacts=[PathMapping(src=definition) for definition in definitions],
-            pattern_type=PatternMatchingType.REGEX,
-        )
-
-    return stage_fqn.identifier
