@@ -35,6 +35,7 @@ _SQL_TEMPLATE_START = "<%"
 _SQL_TEMPLATE_END = "%>"
 _OLD_SQL_TEMPLATE_START = "&{"
 _OLD_SQL_TEMPLATE_END = "}"
+_JINJA_TEMPLATE_START, _JINJA_TEMPLATE_END = "{{", "}}"
 RESERVED_KEYS = [CONTEXT_KEY, FUNCTION_KEY]
 
 
@@ -62,6 +63,7 @@ def has_sql_templates(template_content: str) -> bool:
     return (
         _OLD_SQL_TEMPLATE_START in template_content
         or _SQL_TEMPLATE_START in template_content
+        or _JINJA_TEMPLATE_START in template_content
     )
 
 
