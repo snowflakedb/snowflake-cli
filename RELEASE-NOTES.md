@@ -22,6 +22,7 @@
 
 ## Fixes and improvements
 * Improved parsing `!source` with trailing comments
+* Bumped to `typer=0.17.3`. Improved displaying help messages.
 
 
 
