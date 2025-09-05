@@ -2,6 +2,8 @@ import os
 from unittest import mock
 
 import pytest
+from prompt_toolkit.buffer import Buffer
+from prompt_toolkit.keys import Keys
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.repl import Repl
 from snowflake.cli._plugins.sql.repl_commands import EditCommand
@@ -321,3 +323,202 @@ class TestEditCommand:
 
         # Verify _next_input is cleared after use
         assert repl.next_input is None
+
+
+class TestReplPasteHandling:
+    """Test cases for REPL paste handling functionality."""
+
+    @pytest.fixture
+    def mock_app_buffer(self):
+        """Create a mock application with a buffer for testing key bindings."""
+        buffer = Buffer()
+        app = mock.MagicMock()
+        app.current_buffer = buffer
+        return app, buffer
+
+    def _find_bracketed_paste_handler(self, key_bindings):
+        """Find the bracketed paste handler from key bindings."""
+        for binding in key_bindings.bindings:
+            if binding.keys == (Keys.BracketedPaste,):
+                return binding.handler
+        raise AssertionError("BracketedPaste handler not found")
+
+    def _find_enter_handler(self, key_bindings):
+        """Find the Enter key handler from key bindings."""
+        for binding in key_bindings.bindings:
+            if binding.keys == (Keys.Enter,) and hasattr(binding, "filter"):
+                return binding.handler
+        raise AssertionError("Enter handler not found")
+
+    def test_bracketed_paste_strips_trailing_newlines(self, repl, mock_app_buffer):
+        """Test that bracketed paste strips trailing newlines from pasted content."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        sql_with_trailing_newlines = "SELECT * FROM table;\n\n\n"
+        paste_event = mock.MagicMock()
+        paste_event.app = app
+        paste_event.data = sql_with_trailing_newlines
+
+        paste_handler = self._find_bracketed_paste_handler(key_bindings)
+        paste_handler(paste_event)
+
+        expected_clean_sql = "SELECT * FROM table;"
+        assert buffer.text == expected_clean_sql
+        assert not buffer.text.endswith("\n")
+
+    def test_bracketed_paste_handles_mixed_line_endings(self, repl, mock_app_buffer):
+        """Test that bracketed paste handles both \\n and \\r\\n line endings."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        sql_with_mixed_endings = "SELECT 1;\r\nSELECT 2;\n\r\n\n"
+        paste_event = mock.MagicMock()
+        paste_event.app = app
+        paste_event.data = sql_with_mixed_endings
+
+        paste_handler = self._find_bracketed_paste_handler(key_bindings)
+        paste_handler(paste_event)
+
+        expected_clean_sql = "SELECT 1;\r\nSELECT 2;"
+        assert buffer.text == expected_clean_sql
+        assert not buffer.text.endswith(("\n", "\r"))
+
+    def test_bracketed_paste_preserves_internal_newlines(self, repl, mock_app_buffer):
+        """Test that internal newlines in pasted content are preserved."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        multiline_sql_with_trailing_newlines = (
+            "SELECT\n  column1,\n  column2\nFROM table;\n\n"
+        )
+        paste_event = mock.MagicMock()
+        paste_event.app = app
+        paste_event.data = multiline_sql_with_trailing_newlines
+
+        paste_handler = self._find_bracketed_paste_handler(key_bindings)
+        paste_handler(paste_event)
+
+        expected_multiline_sql = "SELECT\n  column1,\n  column2\nFROM table;"
+        assert buffer.text == expected_multiline_sql
+
+    def test_enter_key_with_semicolon_at_meaningful_end(self, repl, mock_app_buffer):
+        """Test Enter key behavior when cursor is at meaningful content end with semicolon."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        sql_with_trailing_whitespace = "SELECT 1;   \n  "
+        meaningful_content = "SELECT 1;"
+        buffer.text = sql_with_trailing_whitespace
+        buffer.cursor_position = len(meaningful_content)
+        buffer.validate_and_handle = mock.MagicMock()
+
+        enter_event = mock.MagicMock()
+        enter_event.app = app
+
+        enter_handler = self._find_enter_handler(key_bindings)
+        enter_handler(enter_event)
+
+        buffer.validate_and_handle.assert_called_once()
+
+    def test_enter_key_without_semicolon_adds_newline(self, repl, mock_app_buffer):
+        """Test Enter key adds newline when no semicolon at meaningful content end."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        incomplete_sql = "SELECT 1"
+        buffer.text = incomplete_sql
+        buffer.cursor_position = len(buffer.text)
+
+        enter_event = mock.MagicMock()
+        enter_event.app = app
+
+        enter_handler = self._find_enter_handler(key_bindings)
+        enter_handler(enter_event)
+
+        expected_sql_with_newline = "SELECT 1\n"
+        assert buffer.text == expected_sql_with_newline
+
+    def test_enter_key_with_cursor_in_middle_adds_newline(self, repl, mock_app_buffer):
+        """Test Enter key adds newline when cursor is not at meaningful content end."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        complete_sql = "SELECT 1;"
+        cursor_in_middle_position = 3
+        buffer.text = complete_sql
+        buffer.cursor_position = cursor_in_middle_position
+
+        enter_event = mock.MagicMock()
+        enter_event.app = app
+
+        enter_handler = self._find_enter_handler(key_bindings)
+        enter_handler(enter_event)
+
+        expected_sql_with_newline_in_middle = "SEL\nECT 1;"
+        assert buffer.text == expected_sql_with_newline_in_middle
+
+    def test_enter_key_handles_exit_keywords(self, repl, mock_app_buffer):
+        """Test Enter key handles exit keywords correctly."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        exit_command = "exit"
+        buffer.text = exit_command
+        buffer.cursor_position = len(buffer.text)
+        buffer.validate_and_handle = mock.MagicMock()
+
+        enter_event = mock.MagicMock()
+        enter_event.app = app
+
+        enter_handler = self._find_enter_handler(key_bindings)
+        enter_handler(enter_event)
+
+        buffer.validate_and_handle.assert_called_once()
+
+    @pytest.mark.parametrize("exit_keyword", ["exit", "quit", "EXIT", "QUIT"])
+    def test_enter_key_handles_all_exit_keywords(
+        self, exit_keyword, repl, mock_app_buffer
+    ):
+        """Test Enter key handles all exit keywords case-insensitively."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        buffer.text = exit_keyword
+        buffer.cursor_position = len(buffer.text)
+        buffer.validate_and_handle = mock.MagicMock()
+
+        enter_event = mock.MagicMock()
+        enter_event.app = app
+
+        enter_handler = self._find_enter_handler(key_bindings)
+        enter_handler(enter_event)
+
+        buffer.validate_and_handle.assert_called_once()
+
+    def test_paste_and_enter_integration(self, repl, mock_app_buffer):
+        """Test integration of paste handling followed by Enter key."""
+        app, buffer = mock_app_buffer
+        key_bindings = repl._setup_key_bindings()  # noqa: SLF001
+
+        sql_query_with_trailing_newlines = "SELECT * FROM users WHERE id = 1;\n\n\n"
+        paste_event = mock.MagicMock()
+        paste_event.app = app
+        paste_event.data = sql_query_with_trailing_newlines
+
+        paste_handler = self._find_bracketed_paste_handler(key_bindings)
+        paste_handler(paste_event)
+
+        expected_clean_query = "SELECT * FROM users WHERE id = 1;"
+        assert buffer.text == expected_clean_query
+
+        buffer.cursor_position = len(buffer.text)
+        buffer.validate_and_handle = mock.MagicMock()
+
+        enter_event = mock.MagicMock()
+        enter_event.app = app
+
+        enter_handler = self._find_enter_handler(key_bindings)
+        enter_handler(enter_event)
+
+        buffer.validate_and_handle.assert_called_once()

@@ -82,6 +82,15 @@ class Repl:
         def not_searching():
             return not is_searching()
 
+        @kb.add(Keys.BracketedPaste)
+        def _(event):
+            """Handle bracketed paste - strip trailing newlines and position cursor correctly."""
+            pasted_data = event.data
+            cleaned_data = pasted_data.rstrip()
+            buffer = event.app.current_buffer
+            buffer.insert_text(cleaned_data)
+            log.debug("handled paste operation, stripped trailing newlines")
+
         @kb.add(Keys.Enter, filter=not_searching)
         def _(event):
             """Handle Enter key press with intelligent execution logic.
@@ -93,23 +102,27 @@ class Repl:
             4. All other input - add new line for multi-line editing
             """
             buffer = event.app.current_buffer
-            stripped_buffer = buffer.text.strip()
+            buffer_text = buffer.text
+            stripped_text = buffer_text.strip()
 
-            if stripped_buffer:
+            if stripped_text:
                 log.debug("evaluating repl input")
                 cursor_position = buffer.cursor_position
-                ends_with_semicolon = buffer.text.endswith(";")
-                is_command = detect_command(stripped_buffer) is not None
+                ends_with_semicolon = stripped_text.endswith(";")
+                is_command = detect_command(stripped_text) is not None
 
-                if stripped_buffer.lower() in EXIT_KEYWORDS:
-                    log.debug("exit keyword detected %r", stripped_buffer)
+                meaningful_content_end = len(buffer_text.rstrip())
+                cursor_at_meaningful_end = cursor_position >= meaningful_content_end
+
+                if stripped_text.lower() in EXIT_KEYWORDS:
+                    log.debug("exit keyword detected %r", stripped_text)
                     buffer.validate_and_handle()
 
                 elif is_command:
                     log.debug("command detected, submitting input")
                     buffer.validate_and_handle()
 
-                elif ends_with_semicolon and cursor_position >= len(stripped_buffer):
+                elif ends_with_semicolon and cursor_at_meaningful_end:
                     log.debug("semicolon detected, submitting input")
                     buffer.validate_and_handle()
 
@@ -163,6 +176,7 @@ class Repl:
                 multiline=True,
                 wrap_lines=True,
                 key_bindings=self._repl_key_bindings,
+                enable_open_in_editor=True,  # Enable bracketed paste mode
                 default=default_text or "",
             )
         finally:
