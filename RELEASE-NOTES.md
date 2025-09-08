@@ -27,6 +27,7 @@
 * Bumped to `typer=0.17.3`. Improved displaying help messages.
 * Fixed using `ctx.var` in `snow sql` with Jinja templating.
 * Fixed issues when pasting content with trailing new lines.
+* Improved output handling  with streaming
 
 
 # v3.11.0
