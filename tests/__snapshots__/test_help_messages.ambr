@@ -7244,21 +7244,18 @@
 # name: test_help_messages[dcm.create]
   '''
                                                                                   
-   Usage: root dcm create [OPTIONS] [ENTITY_ID]                                   
+   Usage: root dcm create [OPTIONS] IDENTIFIER                                    
                                                                                   
    Creates a DCM Project in Snowflake.                                            
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  |   entity_id      [ENTITY_ID]  ID of dcm entity.                              |
+  | *    identifier      TEXT  Identifier of the DCM Project; for example:       |
+  |                            MY_PROJECT                                        |
+  |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --if-not-exists                Do nothing if the project already exists.     |
-  | --project        -p      TEXT  Path where the Snowflake project is stored.   |
-  |                                Defaults to the current working directory.    |
-  | --env                    TEXT  String in the format key=value. Overrides     |
-  |                                variables from the env section used for       |
-  |                                templates.                                    |
-  | --help           -h            Show this message and exit.                   |
+  | --if-not-exists            Do nothing if the project already exists.         |
+  | --help           -h        Show this message and exit.                       |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |

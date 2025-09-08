@@ -75,6 +75,15 @@ class ObjectType(Enum):
         return self.value.cli_name
 
 
+class PatternMatchingType(Enum):
+    """
+    Enum for different pattern matching types used in artifact resolution.
+    """
+
+    GLOB = "glob"
+    REGEX = "regex"
+
+
 OBJECT_TO_NAMES = {o.value.cli_name: o.value for o in ObjectType}
 UNSUPPORTED_OBJECTS = {
     ObjectType.APPLICATION.value.cli_name,
