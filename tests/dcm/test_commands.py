@@ -16,6 +16,19 @@ def mock_project_exists():
         yield _fixture
 
 
+@pytest.fixture
+def mock_related_to_resource():
+    with mock.patch(
+        "snowflake.cli._plugins.dbt.manager.FQN.related_to_resource",
+        return_value=FQN(
+            database="MockDatabase",
+            schema="MockSchema",
+            name="DCM_TEST_PIPELINE_1757333281_OUTPUT_TMP_STAGE",
+        ),
+    ) as _fixture:
+        yield _fixture
+
+
 class TestDCMCreate:
     @mock.patch(DCMProjectManager)
     @mock.patch(ObjectManager)
@@ -52,23 +65,20 @@ class TestDCMCreate:
 
 
 class TestDCMDeploy:
-    @mock.patch("snowflake.cli._plugins.dcm.manager.time.time", return_value=1234567890)
     @mock.patch(DCMProjectManager)
     def test_deploy_project(
         self,
         mock_pm,
-        _mock_time,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_related_to_resource,
     ):
         mock_pm().execute.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
-        mock_pm().sync_local_files.return_value = (
-            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
-        )
+        mock_pm().sync_local_files.return_value = mock_related_to_resource()
 
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "deploy", "fooBar"])
@@ -78,7 +88,7 @@ class TestDCMDeploy:
         mock_pm().execute.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
-            from_stage="MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE",
+            from_stage=mock_related_to_resource(),
             variables=None,
             alias=None,
             output_path=None,
@@ -207,23 +217,20 @@ class TestDCMDeploy:
 
 
 class TestDCMPlan:
-    @mock.patch("snowflake.cli._plugins.dcm.manager.time.time", return_value=1234567890)
     @mock.patch(DCMProjectManager)
     def test_plan_project(
         self,
         mock_pm,
-        _mock_time,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_related_to_resource,
     ):
         mock_pm().execute.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
-        mock_pm().sync_local_files.return_value = (
-            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
-        )
+        mock_pm().sync_local_files.return_value = mock_related_to_resource()
 
         with project_directory("dcm_project"):
             result = runner.invoke(
@@ -242,7 +249,7 @@ class TestDCMPlan:
         mock_pm().execute.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration="some_configuration",
-            from_stage="MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE",
+            from_stage=mock_related_to_resource(),
             dry_run=True,
             variables=["key=value"],
             output_path=None,
