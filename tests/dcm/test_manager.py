@@ -295,6 +295,7 @@ class TestSyncLocalFiles:
                 PathMapping(src="manifest.yml", dest=None, processors=[]),
             ]
             assert call_args.kwargs["pattern_type"] == PatternMatchingType.REGEX
+            assert call_args.kwargs["use_temporary_stage"] is True
 
             actual_project_root = call_args.kwargs["project_paths"].project_root
             expected_project_root = project_dir.resolve()
