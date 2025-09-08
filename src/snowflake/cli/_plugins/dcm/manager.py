@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import time
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import List
+from typing import Generator, List
 
 import yaml
 from snowflake.cli._plugins.stage.manager import StageManager
@@ -29,12 +30,55 @@ from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
+from snowflake.cli.api.utils.path_utils import is_stage_path
 
 MANIFEST_FILE_NAME = "manifest.yml"
 DCM_PROJECT_TYPE = "dcm_project"
 
 
 class DCMProjectManager(SqlExecutionMixin):
+    @contextmanager
+    def collect_output(
+        self, project_identifier: FQN, output_path: str
+    ) -> Generator[str, None, None]:
+        """
+        Context manager for handling output path - creates temporary stage for local paths,
+        downloads files after execution, and ensures proper cleanup.
+
+        Args:
+            project_identifier: The DCM project identifier
+            output_path: Either a stage path (@stage/path) or local directory path
+
+        Yields:
+            str: The effective output path to use in the DCM command
+        """
+        temp_stage_for_local_output = None
+        stage_manager = StageManager()
+
+        should_download_files = not is_stage_path(output_path)
+        if should_download_files:
+            # TODO: refactor temp stage creation logic
+            unquoted_name = unquote_identifier(project_identifier.name)
+            temp_stage_fqn = FQN.from_string(
+                f"DCM_{unquoted_name}_{int(time.time())}_OUTPUT_TMP_STAGE"
+            ).using_context()
+            stage_manager.create(fqn=temp_stage_fqn, temporary=True)
+
+            effective_output_path = StagePath.from_stage_str(temp_stage_fqn.identifier)
+            temp_stage_for_local_output = (temp_stage_fqn.identifier, Path(output_path))
+        else:
+            effective_output_path = StagePath.from_stage_str(output_path)
+
+        yield effective_output_path.absolute_path()
+
+        if should_download_files:
+            assert temp_stage_for_local_output is not None
+            stage_path, local_path = temp_stage_for_local_output
+            stage_manager.get_recursive(stage_path=stage_path, dest_path=local_path)
+            cli_console.step(f"Plan output saved to: {local_path.resolve()}")
+        else:
+            cli_console.step(f"Plan output saved to: {output_path}")
+
     def execute(
         self,
         project_identifier: FQN,
@@ -45,28 +89,31 @@ class DCMProjectManager(SqlExecutionMixin):
         alias: str | None = None,
         output_path: str | None = None,
     ):
+        with self.collect_output(project_identifier, output_path) if (
+            output_path and dry_run
+        ) else nullcontext() as output_stage:
+            query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier}"
+            if dry_run:
+                query += " PLAN"
+            else:
+                query += " DEPLOY"
+                if alias:
+                    query += f' AS "{alias}"'
+            if configuration or variables:
+                query += f" USING"
+            if configuration:
+                query += f" CONFIGURATION {configuration}"
+            if variables:
+                query += StageManager.parse_execute_variables(
+                    parse_key_value_variables(variables)
+                ).removeprefix(" using")
+            stage_path = StagePath.from_stage_str(from_stage)
+            query += f" FROM {stage_path.absolute_path()}"
+            if output_stage is not None:
+                query += f" OUTPUT_PATH {output_stage}"
+            result = self.execute_query(query=query)
 
-        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier}"
-        if dry_run:
-            query += " PLAN"
-        else:
-            query += " DEPLOY"
-            if alias:
-                query += f' AS "{alias}"'
-        if configuration or variables:
-            query += f" USING"
-        if configuration:
-            query += f" CONFIGURATION {configuration}"
-        if variables:
-            query += StageManager.parse_execute_variables(
-                parse_key_value_variables(variables)
-            ).removeprefix(" using")
-        stage_path = StagePath.from_stage_str(from_stage)
-        query += f" FROM {stage_path.absolute_path()}"
-        if output_path:
-            output_stage_path = StagePath.from_stage_str(output_path)
-            query += f" OUTPUT_PATH {output_stage_path.absolute_path()}"
-        return self.execute_query(query=query)
+        return result
 
     def create(self, project_identifier: FQN) -> None:
         query = f"CREATE DCM PROJECT {project_identifier.sql_identifier}"
