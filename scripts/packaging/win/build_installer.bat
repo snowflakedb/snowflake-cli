@@ -30,7 +30,7 @@ set SM_CLIENT_CERT_FILE=%WORKSPACE%\Certificate_pkcs12.p12
 smctl healthcheck || goto :error
 smctl windows certsync || goto :error
 
-smctl sign --keypair-alias key_1311463644 --input dist\snow\snow.exe || goto :error
+smctl sign --keypair-alias %digicert_key_name% --input dist\snow\snow.exe || goto :error
 signtool verify /v /pa dist\snow\snow.exe || goto :error
 
 candle.exe ^
@@ -48,7 +48,7 @@ light.exe ^
   snowflake_cli.wixobj ^
   snowflake_cli_exitdlg.wixobj || goto :error
 
-smctl sign --keypair-alias key_1311463644 --input %CLI_MSI% || goto :error
+smctl sign --keypair-alias %digicert_key_name% --input %CLI_MSI% || goto :error
 signtool verify /v /pa %CLI_MSI% || goto :error
 
 echo "[INFO] uploading artifacts"
