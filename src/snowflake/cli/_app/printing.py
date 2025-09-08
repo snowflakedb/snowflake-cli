@@ -61,7 +61,9 @@ class CustomJSONEncoder(JSONEncoder):
             return list(o.result)
         if isinstance(o, (date, datetime, time)):
             return o.isoformat()
-        if isinstance(o, (Path, Decimal)):
+        if isinstance(o, Path):
+            return o.as_posix()
+        if isinstance(o, Decimal):
             return str(o)
         if isinstance(o, bytearray):
             return o.hex()
@@ -82,7 +84,9 @@ class StreamingJSONEncoder(JSONEncoder):
             )
         if isinstance(o, (date, datetime, time)):
             return o.isoformat()
-        if isinstance(o, (Path, Decimal)):
+        if isinstance(o, Path):
+            return o.as_posix()
+        if isinstance(o, Decimal):
             return str(o)
         if isinstance(o, bytearray):
             return o.hex()
@@ -132,8 +136,10 @@ def _stream_collection_as_csv(result: CollectionResult):
         return
 
     fieldnames = list(first_item.keys())
-    writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames, lineterminator="\n")
+    if not isinstance(first_item, dict):
+        raise TypeError("CSV output requires dictionary items")
 
+    writer = csv.DictWriter(sys.stdout, fieldnames=fieldnames, lineterminator="\n")
     writer.writeheader()
     _write_csv_row(writer, first_item)
 
@@ -149,7 +155,9 @@ def _write_csv_row(writer: csv.DictWriter, row_data: Dict[str, Any]):
             processed_row[key] = sanitize_for_terminal(value)
         elif isinstance(value, (date, datetime, time)):
             processed_row[key] = value.isoformat()
-        elif isinstance(value, (Path, Decimal)):
+        elif isinstance(value, Path):
+            processed_row[key] = value.as_posix()
+        elif isinstance(value, Decimal):
             processed_row[key] = str(value)
         elif isinstance(value, bytearray):
             processed_row[key] = value.hex()
