@@ -27,7 +27,6 @@ from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
-from snowflake.cli.api.project.util import unquote_identifier
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
@@ -104,10 +103,9 @@ class DBTManager(SqlExecutionMixin):
 
         with cli_console.phase("Creating temporary stage"):
             stage_manager = StageManager()
-            unquoted_name = unquote_identifier(fqn.name)
-            stage_fqn = FQN.from_string(f"DBT_{unquoted_name}_STAGE").using_context()
-            stage_name = stage_manager.get_standard_stage_prefix(stage_fqn)
+            stage_fqn = FQN.related_to_resource(ObjectType.DBT_PROJECT, fqn, "STAGE")
             stage_manager.create(stage_fqn, temporary=True)
+            stage_name = stage_manager.get_standard_stage_prefix(stage_fqn)
 
         with cli_console.phase("Copying project files to stage"):
             with TemporaryDirectory() as tmp:

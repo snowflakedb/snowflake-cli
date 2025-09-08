@@ -15,14 +15,20 @@
 from __future__ import annotations
 
 import re
+import time
 from pathlib import Path
 
 from click import ClickException
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import FQNInconsistencyError, FQNNameError
 from snowflake.cli.api.project.schemas.v1.identifier_model import (
     ObjectIdentifierBaseModel,
 )
-from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, identifier_for_url
+from snowflake.cli.api.project.util import (
+    VALID_IDENTIFIER_REGEX,
+    identifier_for_url,
+    unquote_identifier,
+)
 
 
 class FQN:
@@ -198,3 +204,13 @@ class FQN:
 
     def to_dict(self) -> dict:
         return {"name": self.name, "schema": self.schema, "database": self.database}
+
+    @classmethod
+    def related_to_resource(
+        cls, resource_type: ObjectType, resource_fqn: FQN, purpose: str
+    ) -> "FQN":
+        unquoted_name = unquote_identifier(resource_fqn.name)
+        safe_cli_name = resource_type.value.cli_name.upper().replace("-", "_")
+        return cls.from_string(
+            f"{safe_cli_name}_{unquoted_name}_{int(time.time())}_{purpose.upper()}"
+        ).using_context()
