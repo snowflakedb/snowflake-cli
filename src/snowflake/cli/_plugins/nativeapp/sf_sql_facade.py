@@ -632,6 +632,7 @@ class SnowflakeSQLFacade:
         role: str | None = None,
         database: str | None = None,
         schema: str | None = None,
+        temporary: bool = False,
     ):
         """
         Creates a stage.
@@ -641,13 +642,14 @@ class SnowflakeSQLFacade:
         @param [Optional] role: Role to switch to while running this script. Current role will be used if no role is passed in.
         @param [Optional] database: Database to use while running this script, unless the stage name is database-qualified.
         @param [Optional] schema: Schema to use while running this script, unless the stage name is schema-qualified.
+        @param [Optional] temporary: determines if stage should be temporary. Default is false.
         """
         fqn = FQN.from_string(name)
         identifier = to_identifier(fqn.name)
         database = fqn.database or database
         schema = fqn.schema or schema
 
-        query = f"create stage if not exists {identifier}"
+        query = f"create{' temporary' if temporary else ''} stage if not exists {identifier}"
         if encryption_type:
             query += f" encryption = (type = '{encryption_type}')"
         if enable_directory:

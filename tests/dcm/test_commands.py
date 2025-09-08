@@ -5,9 +5,6 @@ from snowflake.cli.api.identifiers import FQN
 
 DCMProjectManager = "snowflake.cli._plugins.dcm.commands.DCMProjectManager"
 ObjectManager = "snowflake.cli._plugins.dcm.commands.ObjectManager"
-get_entity_for_operation = (
-    "snowflake.cli._plugins.dcm.commands.get_entity_for_operation"
-)
 
 
 @pytest.fixture

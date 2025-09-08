@@ -8,7 +8,7 @@
     added:    app/README.md -> README.md
     added:    app/manifest.yml -> manifest.yml
     added:    app/setup_script.sql -> setup_script.sql
-  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
+  Uploading files from local @@DEPLOY_ROOT@@ directory to stage.
   Validating Snowflake Native App setup script.
   Deployed successfully. Application package and stage are up-to-date.
   
@@ -23,7 +23,7 @@
     added:    app/README.md -> README.md
     added:    app/manifest.yml -> manifest.yml
     added:    app/setup_script.sql -> setup_script.sql
-  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
+  Uploading files from local @@DEPLOY_ROOT@@ directory to stage.
   Validating Snowflake Native App setup script.
   Deployed successfully. Application package and stage are up-to-date.
   
@@ -38,7 +38,7 @@
     added:    app/README.md -> README.md
     added:    app/manifest.yml -> manifest.yml
     added:    app/setup_script.sql -> setup_script.sql
-  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
+  Uploading files from local @@DEPLOY_ROOT@@ directory to stage.
   Validating Snowflake Native App setup script.
   Deployed successfully.
   
@@ -53,7 +53,7 @@
     added:    app/README.md -> README.md
     added:    app/manifest.yml -> manifest.yml
     added:    app/setup_script.sql -> setup_script.sql
-  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
+  Uploading files from local @@DEPLOY_ROOT@@ directory to stage.
   Validating Snowflake Native App setup script.
   Deployed successfully. Application package and stage are up-to-date.
   
@@ -67,7 +67,7 @@
   Local changes to be deployed:
     added:    app/manifest.yml -> manifest.yml
     added:    app/setup_script.sql -> setup_script.sql
-  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
+  Uploading files from local @@DEPLOY_ROOT@@ directory to stage.
   Deployed successfully. Application package and stage are up-to-date.
   
   '''
@@ -81,7 +81,7 @@
     added:    app/v2/README.md -> README.md
     added:    app/v2/manifest.yml -> manifest.yml
     added:    app/v2/setup.sql -> setup.sql
-  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@/v2 directory.
+  Uploading files from local @@DEPLOY_ROOT@@/v2 directory to stage.
   Validating Snowflake Native App setup script.
   Deployed successfully. Application package and stage are up-to-date.
   
@@ -96,7 +96,7 @@
     added:    app/README.md -> README.md
     added:    app/manifest.yml -> manifest.yml
     added:    app/setup_script.sql -> setup_script.sql
-  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
+  Uploading files from local @@DEPLOY_ROOT@@ directory to stage.
   Validating Snowflake Native App setup script.
   Deployed successfully. Application package and stage are up-to-date.
   
@@ -109,7 +109,7 @@
   Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   Local changes to be deployed:
     added:    app/nested/dir/file.txt -> nested/dir/file.txt
-  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
+  Uploading files from local @@DEPLOY_ROOT@@ directory to stage.
   Deployed successfully. Application package and stage are up-to-date.
   
   '''
@@ -134,7 +134,7 @@
   Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   Deleted paths to be removed from your stage:
     deleted:  README.md
-  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
+  Uploading files from local @@DEPLOY_ROOT@@ directory to stage.
   Deployed successfully. Application package and stage are up-to-date.
   
   '''
@@ -145,7 +145,7 @@
   Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   Deleted paths to be removed from your stage:
     deleted:  README.md
-  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
+  Uploading files from local @@DEPLOY_ROOT@@ directory to stage.
   Deployed successfully. Application package and stage are up-to-date.
   
   '''
@@ -170,7 +170,7 @@
   Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   Deleted paths to be removed from your stage:
     deleted:  README.md
-  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
+  Uploading files from local @@DEPLOY_ROOT@@ directory to stage.
   Deployed successfully.
   
   '''
@@ -181,7 +181,7 @@
   Performing a diff between the Snowflake stage: stage and your local deploy_root: @@DEPLOY_ROOT@@.
   Deleted paths to be removed from your stage:
     deleted:  README.md
-  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@ directory.
+  Uploading files from local @@DEPLOY_ROOT@@ directory to stage.
   Deployed successfully.
   
   '''
@@ -206,7 +206,7 @@
   Performing a diff between the Snowflake stage: stage/v1 and your local deploy_root: @@DEPLOY_ROOT@@/v1.
   Deleted paths to be removed from your stage:
     deleted:  README.md
-  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@/v1 directory.
+  Uploading files from local @@DEPLOY_ROOT@@/v1 directory to stage.
   Deployed successfully. Application package and stage are up-to-date.
   
   '''
@@ -217,7 +217,7 @@
   Performing a diff between the Snowflake stage: stage/v1 and your local deploy_root: @@DEPLOY_ROOT@@/v1.
   Deleted paths to be removed from your stage:
     deleted:  README.md
-  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@/v1 directory.
+  Uploading files from local @@DEPLOY_ROOT@@/v1 directory to stage.
   Deployed successfully. Application package and stage are up-to-date.
   
   '''
@@ -231,7 +231,7 @@
     added:    app/v1/README.md -> README.md
     added:    app/v1/manifest.yml -> manifest.yml
     added:    app/v1/setup.sql -> setup.sql
-  Updating the Snowflake stage from your local @@DEPLOY_ROOT@@/v1 directory.
+  Uploading files from local @@DEPLOY_ROOT@@/v1 directory to stage.
   Validating Snowflake Native App setup script.
   Deployed successfully. Application package and stage are up-to-date.
   
