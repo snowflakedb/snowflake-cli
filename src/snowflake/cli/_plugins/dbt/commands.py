@@ -19,7 +19,6 @@ from typing import Optional
 
 import typer
 from click import types
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from snowflake.cli._plugins.dbt.constants import (
     DBT_COMMANDS,
     OUTPUT_COLUMN_NAME,
@@ -33,6 +32,7 @@ from snowflake.cli.api.commands.decorators import global_options_with_connection
 from snowflake.cli.api.commands.flags import identifier_argument, like_option
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
@@ -186,13 +186,8 @@ for cmd in DBT_COMMANDS:
                 f"Command submitted. You can check the result with `snow sql -q \"select execution_status from table(information_schema.query_history_by_user()) where query_id in ('{result.sfqid}');\"`"
             )
 
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            transient=True,
-        ) as progress:
-            progress.add_task(description=f"Executing 'dbt {dbt_command}'", total=None)
-
+        with cli_console.spinner() as spinner:
+            spinner.add_task(description=f"Executing 'dbt {dbt_command}'", total=None)
             result = dbt_manager.execute(*execute_args)
 
             try:
