@@ -216,8 +216,7 @@ class TestStreamCollectionAsJSON:
         _stream_collection_as_json(empty_collection_result, indent=4)
 
         output = get_output(capsys)
-        # Empty collection outputs [ on one line and ] on another, with trailing newline
-        assert output == "[\n]\n"
+        assert output == "[]"
 
     def test_stream_collection_as_json_no_indent(
         self, capsys, sample_collection_result

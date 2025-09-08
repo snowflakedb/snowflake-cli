@@ -105,14 +105,14 @@ def _print_json_item_with_array_indentation(item: Any, indent: int):
 
 def _stream_collection_as_json(result: CollectionResult, indent: int = 4):
     """Stream a CollectionResult as a JSON array without loading all data into memory"""
-    print("[")
-
     items = iter(result.result)
     try:
         first_item = next(items)
     except StopIteration:
-        print("]")
+        print("[]", end="")
         return
+
+    print("[")
 
     _print_json_item_with_array_indentation(first_item, indent)
 
@@ -120,7 +120,7 @@ def _stream_collection_as_json(result: CollectionResult, indent: int = 4):
         print(",")
         _print_json_item_with_array_indentation(item, indent)
 
-    print("\n]")
+    print("\n]", end="")
 
 
 def _stream_collection_as_csv(result: CollectionResult):
@@ -219,7 +219,7 @@ def print_structured(
         # instead of joining all the values into a JSON array or CSV entry set
         for r in result.result:
             if output_format == OutputFormat.CSV:
-                _print_csv_result_streaming(r.result)
+                _print_csv_result_streaming(r)
             else:
                 json.dump(r, sys.stdout, cls=StreamingJSONEncoder)
             print(flush=True)
