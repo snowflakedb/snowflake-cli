@@ -290,11 +290,6 @@ def _print_csv_result_streaming(result: CommandResult):
         _print_message_result_as_csv(result)
 
 
-def _print_csv_result(result: CommandResult):
-    """Deprecated: Use _print_csv_result_streaming instead"""
-    _print_csv_result_streaming(result)
-
-
 def _stream_json(result):
     """Simple helper for streaming multiple results as a JSON."""
     indent_size = 2
