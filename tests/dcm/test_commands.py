@@ -17,9 +17,9 @@ def mock_project_exists():
 
 
 @pytest.fixture
-def mock_related_to_resource():
+def mock_from_resource():
     with mock.patch(
-        "snowflake.cli._plugins.dbt.manager.FQN.related_to_resource",
+        "snowflake.cli._plugins.dbt.manager.FQN.from_resource",
         return_value=FQN(
             database="MockDatabase",
             schema="MockSchema",
@@ -73,12 +73,12 @@ class TestDCMDeploy:
         project_directory,
         mock_cursor,
         mock_connect,
-        mock_related_to_resource,
+        mock_from_resource,
     ):
         mock_pm().execute.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
-        mock_pm().sync_local_files.return_value = mock_related_to_resource()
+        mock_pm().sync_local_files.return_value = mock_from_resource()
 
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "deploy", "fooBar"])
@@ -88,7 +88,7 @@ class TestDCMDeploy:
         mock_pm().execute.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
-            from_stage=mock_related_to_resource(),
+            from_stage=mock_from_resource(),
             variables=None,
             alias=None,
             output_path=None,
@@ -225,12 +225,12 @@ class TestDCMPlan:
         project_directory,
         mock_cursor,
         mock_connect,
-        mock_related_to_resource,
+        mock_from_resource,
     ):
         mock_pm().execute.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
-        mock_pm().sync_local_files.return_value = mock_related_to_resource()
+        mock_pm().sync_local_files.return_value = mock_from_resource()
 
         with project_directory("dcm_project"):
             result = runner.invoke(
@@ -249,7 +249,7 @@ class TestDCMPlan:
         mock_pm().execute.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration="some_configuration",
-            from_stage=mock_related_to_resource(),
+            from_stage=mock_from_resource(),
             dry_run=True,
             variables=["key=value"],
             output_path=None,

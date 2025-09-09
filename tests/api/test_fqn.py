@@ -219,7 +219,7 @@ class TestRelatedToResource:
     def test_basic_functionality(self, mock_ctx, mock_time):
         resource_fqn = FQN(name="my_pipeline", database=None, schema=None)
 
-        result = FQN.related_to_resource(ObjectType.DBT_PROJECT, resource_fqn, "STAGE")
+        result = FQN.from_resource(ObjectType.DBT_PROJECT, resource_fqn, "STAGE")
 
         assert (
             result.identifier
@@ -229,9 +229,7 @@ class TestRelatedToResource:
     def test_with_quoted_identifier(self, mock_ctx, mock_time):
         resource_fqn = FQN(name='"caseSenSITIVEnAME"', database=None, schema=None)
 
-        result = FQN.related_to_resource(
-            ObjectType.DCM_PROJECT, resource_fqn, "TEMP_STAGE"
-        )
+        result = FQN.from_resource(ObjectType.DCM_PROJECT, resource_fqn, "TEMP_STAGE")
 
         assert (
             result.identifier
@@ -246,7 +244,7 @@ class TestRelatedToResource:
             name="resource", database="resource_db", schema="resource_schema"
         )
 
-        result = FQN.related_to_resource(ObjectType.STAGE, resource_fqn, "TEST")
+        result = FQN.from_resource(ObjectType.STAGE, resource_fqn, "TEST")
 
         assert result.database == "context_db"
         assert result.schema == "context_schema"

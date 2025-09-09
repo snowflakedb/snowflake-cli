@@ -57,9 +57,8 @@ class DCMProjectManager(SqlExecutionMixin):
         temp_stage_for_local_output = None
         stage_manager = StageManager()
 
-        should_download_files = not is_stage_path(output_path)
-        if should_download_files:
-            temp_stage_fqn = FQN.related_to_resource(
+        if should_download_files := not is_stage_path(output_path):
+            temp_stage_fqn = FQN.from_resource(
                 ObjectType.DCM_PROJECT, project_identifier, "OUTPUT_TMP_STAGE"
             )
             stage_manager.create(temp_stage_fqn, temporary=True)
@@ -160,7 +159,7 @@ class DCMProjectManager(SqlExecutionMixin):
                 definitions.append(MANIFEST_FILE_NAME)
 
         with cli_console.phase(f"Uploading definition files"):
-            stage_fqn = FQN.related_to_resource(
+            stage_fqn = FQN.from_resource(
                 ObjectType.DCM_PROJECT, project_identifier, "_TMP_STAGE"
             )
             sync_artifacts_with_stage(

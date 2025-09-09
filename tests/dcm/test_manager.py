@@ -19,9 +19,9 @@ TEST_PROJECT = FQN.from_string("my_project")
 
 
 @pytest.fixture
-def mock_related_to_resource():
+def mock_from_resource():
     with mock.patch(
-        "snowflake.cli._plugins.dbt.manager.FQN.related_to_resource",
+        "snowflake.cli._plugins.dbt.manager.FQN.from_resource",
         return_value=FQN(
             database="MockDatabase",
             schema="MockSchema",
@@ -182,7 +182,7 @@ def test_plan_project_with_output_path__local_path(
     mock_get_recursive,
     mock_execute_query,
     project_directory,
-    mock_related_to_resource,
+    mock_from_resource,
 ):
     mgr = DCMProjectManager()
     mgr.execute(
@@ -193,7 +193,7 @@ def test_plan_project_with_output_path__local_path(
         output_path="output_path/results",
     )
 
-    temp_stage_fqn = mock_related_to_resource()
+    temp_stage_fqn = mock_from_resource()
     mock_execute_query.assert_called_once_with(
         query=f"EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration FROM @test_stage OUTPUT_PATH @{temp_stage_fqn}"
     )
@@ -292,7 +292,7 @@ class TestSyncLocalFiles:
         project_directory,
         mock_connect,
         mock_cursor,
-        mock_related_to_resource,
+        mock_from_resource,
     ):
 
         with project_directory("dcm_project") as project_dir:
@@ -303,7 +303,7 @@ class TestSyncLocalFiles:
             # due to Windows and inconsistent path resolution in unit tests,
             # we need to verify call arguments individually, with simplified path comparison
             call_args = mock_sync_artifacts_with_stage.call_args
-            assert call_args.kwargs["stage_root"] == str(mock_related_to_resource())
+            assert call_args.kwargs["stage_root"] == str(mock_from_resource())
             assert call_args.kwargs["artifacts"] == [
                 PathMapping(src="definitions/my_query.sql"),
                 PathMapping(src="manifest.yml", dest=None, processors=[]),

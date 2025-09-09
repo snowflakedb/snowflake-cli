@@ -118,9 +118,9 @@ class TestDBTDeploy:
             yield _fixture
 
     @pytest.fixture
-    def mock_related_to_resource(self):
+    def mock_from_resource(self):
         with mock.patch(
-            "snowflake.cli._plugins.dbt.manager.FQN.related_to_resource",
+            "snowflake.cli._plugins.dbt.manager.FQN.from_resource",
             return_value="@MockDatabase.MockSchema.DBT_PROJECT_TEST_PIPELINE_1757333281_STAGE",
         ) as _fixture:
             yield _fixture
@@ -135,7 +135,7 @@ class TestDBTDeploy:
         runner,
         dbt_project_path,
         mock_get_dbt_object_attributes,
-        mock_related_to_resource,
+        mock_from_resource,
     ):
         result = runner.invoke(
             [
@@ -148,10 +148,10 @@ class TestDBTDeploy:
 
         assert result.exit_code == 0, result.output
         assert (
-            f"CREATE DBT PROJECT TEST_PIPELINE\nFROM {mock_related_to_resource()}"
+            f"CREATE DBT PROJECT TEST_PIPELINE\nFROM {mock_from_resource()}"
             in mock_connect.mocked_ctx.get_query()
         )
-        mock_create.assert_called_once_with(mock_related_to_resource(), temporary=True)
+        mock_create.assert_called_once_with(mock_from_resource(), temporary=True)
         mock_put_recursive.assert_called_once()
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
@@ -190,7 +190,7 @@ class TestDBTDeploy:
         runner,
         dbt_project_path,
         mock_get_dbt_object_attributes,
-        mock_related_to_resource,
+        mock_from_resource,
     ):
         mock_get_dbt_object_attributes.return_value = self._get_default_attribute_dict()
 
@@ -205,7 +205,7 @@ class TestDBTDeploy:
 
         assert result.exit_code == 0, result.output
         assert (
-            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_related_to_resource()}"
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
             in mock_connect.mocked_ctx.get_query()
         )
 
@@ -384,7 +384,7 @@ FROM @MockDatabase.MockSchema.DBT_PROJECT_TEST_DBT_PROJECT_{mock_time()}_STAGE""
         runner,
         dbt_project_path,
         mock_get_dbt_object_attributes,
-        mock_related_to_resource,
+        mock_from_resource,
     ):
         result = runner.invoke(
             [
@@ -398,7 +398,7 @@ FROM @MockDatabase.MockSchema.DBT_PROJECT_TEST_DBT_PROJECT_{mock_time()}_STAGE""
 
         assert result.exit_code == 0, result.output
         assert (
-            f"CREATE DBT PROJECT TEST_PIPELINE\nFROM {mock_related_to_resource()} DEFAULT_TARGET='prod'"
+            f"CREATE DBT PROJECT TEST_PIPELINE\nFROM {mock_from_resource()} DEFAULT_TARGET='prod'"
             in mock_connect.mocked_ctx.get_query()
         )
 
@@ -439,7 +439,7 @@ FROM @MockDatabase.MockSchema.DBT_PROJECT_TEST_DBT_PROJECT_{mock_time()}_STAGE""
         runner,
         dbt_project_path,
         mock_get_dbt_object_attributes,
-        mock_related_to_resource,
+        mock_from_resource,
     ):
         mock_get_dbt_object_attributes.return_value = {"default_target": "dev"}
 
@@ -459,7 +459,7 @@ FROM @MockDatabase.MockSchema.DBT_PROJECT_TEST_DBT_PROJECT_{mock_time()}_STAGE""
             len(queries) == 2
         )  # ADD VERSION and SET DEFAULT_TARGET (get_current_default_target is mocked)
         assert (
-            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_related_to_resource()}"
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
             in queries[0]
         )
         assert "ALTER DBT PROJECT TEST_PIPELINE SET DEFAULT_TARGET='prod'" == queries[1]
@@ -475,7 +475,7 @@ FROM @MockDatabase.MockSchema.DBT_PROJECT_TEST_DBT_PROJECT_{mock_time()}_STAGE""
         runner,
         dbt_project_path,
         mock_get_dbt_object_attributes,
-        mock_related_to_resource,
+        mock_from_resource,
     ):
         mock_get_dbt_object_attributes.return_value = {"default_target": "prod"}
 
@@ -493,7 +493,7 @@ FROM @MockDatabase.MockSchema.DBT_PROJECT_TEST_DBT_PROJECT_{mock_time()}_STAGE""
         # Should have only one query: ADD VERSION (no SET DEFAULT_TARGET because it's already correct)
         query = mock_connect.mocked_ctx.get_query()
         assert (
-            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_related_to_resource()}"
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
             in query
         )
         assert "SET DEFAULT_TARGET" not in query
@@ -509,7 +509,7 @@ FROM @MockDatabase.MockSchema.DBT_PROJECT_TEST_DBT_PROJECT_{mock_time()}_STAGE""
         runner,
         dbt_project_path,
         mock_get_dbt_object_attributes,
-        mock_related_to_resource,
+        mock_from_resource,
     ):
         mock_get_dbt_object_attributes.return_value = {"default_target": "prod"}
 
@@ -527,7 +527,7 @@ FROM @MockDatabase.MockSchema.DBT_PROJECT_TEST_DBT_PROJECT_{mock_time()}_STAGE""
         queries = mock_connect.mocked_ctx.get_queries()
         assert len(queries) == 2
         assert (
-            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_related_to_resource()}"
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
             in queries[0]
         )
         assert "ALTER DBT PROJECT TEST_PIPELINE UNSET DEFAULT_TARGET" == queries[1]
@@ -543,7 +543,7 @@ FROM @MockDatabase.MockSchema.DBT_PROJECT_TEST_DBT_PROJECT_{mock_time()}_STAGE""
         runner,
         dbt_project_path,
         mock_get_dbt_object_attributes,
-        mock_related_to_resource,
+        mock_from_resource,
     ):
         mock_get_dbt_object_attributes.return_value = {"default_target": None}
 
@@ -560,7 +560,7 @@ FROM @MockDatabase.MockSchema.DBT_PROJECT_TEST_DBT_PROJECT_{mock_time()}_STAGE""
         assert result.exit_code == 0, result.output
         query = mock_connect.mocked_ctx.get_query()
         assert (
-            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_related_to_resource()}"
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
             in query
         )
         assert "UNSET DEFAULT_TARGET" not in query

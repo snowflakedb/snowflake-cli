@@ -103,7 +103,7 @@ class DBTManager(SqlExecutionMixin):
 
         with cli_console.phase("Creating temporary stage"):
             stage_manager = StageManager()
-            stage_fqn = FQN.related_to_resource(ObjectType.DBT_PROJECT, fqn, "STAGE")
+            stage_fqn = FQN.from_resource(ObjectType.DBT_PROJECT, fqn, "STAGE")
             stage_manager.create(stage_fqn, temporary=True)
             stage_name = stage_manager.get_standard_stage_prefix(stage_fqn)
 
