@@ -215,6 +215,43 @@ class TestDCMDeploy:
         assert "DCM_FOOBAR" in call_args.kwargs["from_stage"]
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
+    @mock.patch(DCMProjectManager)
+    def test_deploy_project_with_from_local_directory(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        mock_pm().execute.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations")
+        )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
+
+        source_dir = tmp_path / "source_project"
+        source_dir.mkdir()
+
+        manifest_file = source_dir / "manifest.yml"
+        manifest_file.write_text("type: dcm_project\n")
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "deploy", "my_project", "--from", str(source_dir)]
+            )
+            assert result.exit_code == 0, result.output
+
+        mock_pm().sync_local_files.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            source_directory=str(source_dir),
+        )
+
+        call_args = mock_pm().execute.call_args
+        assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
 
 class TestDCMPlan:
     @mock.patch(DCMProjectManager)
@@ -375,6 +412,42 @@ class TestDCMPlan:
             call_args = mock_pm().execute.call_args
             assert "DCM_FOOBAR_" in call_args.kwargs["from_stage"]
             assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
+    @mock.patch(DCMProjectManager)
+    def test_plan_project_with_from_local_directory(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        mock_pm().execute.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations")
+        )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
+
+        source_dir = tmp_path / "source_project"
+        source_dir.mkdir()
+        manifest_file = source_dir / "manifest.yml"
+        manifest_file.write_text("type: dcm_project\n")
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "plan", "my_project", "--from", str(source_dir)]
+            )
+            assert result.exit_code == 0, result.output
+
+        mock_pm().sync_local_files.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            source_directory=str(source_dir),
+        )
+
+        call_args = mock_pm().execute.call_args
+        assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
 
 class TestDCMList:
