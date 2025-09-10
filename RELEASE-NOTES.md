@@ -22,6 +22,7 @@
 * The `!edit` command for external editors was added to REPL
 
 ## Fixes and improvements
+* Fixed crashes with older x86_64 Intel CPUs
 * Improved parsing `!source` with trailing comments
 * `!` commands no longer require trailing `;` for evaluation
 * Bumped to `typer=0.17.3`. Improved displaying help messages.
