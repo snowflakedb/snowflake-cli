@@ -200,7 +200,7 @@ def test_git_fqn():
     assert fqn.name == "git_repo"
 
 
-class TestRelatedToResource:
+class TestFromResource:
     @pytest.fixture
     def mock_time(self):
         with mock.patch(

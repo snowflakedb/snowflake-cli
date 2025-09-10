@@ -39,6 +39,7 @@ from snowflake.cli.api.output.types import (
     QueryJsonValueResult,
     QueryResult,
 )
+from snowflake.cli.api.utils.path_utils import is_stage_path
 
 app = SnowTyperFactory(
     name="dcm",
@@ -56,9 +57,10 @@ configuration_flag = typer.Option(
     help="Configuration of the DCM Project to use. If not specified default configuration is used.",
     show_default=False,
 )
-from_option = OverrideableOption(
+from_option = typer.Option(
     None,
     "--from",
+    help="Source location: stage path (starting with '@') or local directory path. Omit to use current directory.",
     show_default=False,
 )
 
@@ -106,9 +108,7 @@ add_object_command_aliases(
 @app.command(requires_connection=True)
 def deploy(
     identifier: FQN = dcm_identifier,
-    from_stage: Optional[str] = from_option(
-        help="Deploy DCM Project deployment from a given stage."
-    ),
+    from_location: Optional[str] = from_option,
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
     alias: Optional[str] = alias_option,
@@ -118,14 +118,14 @@ def deploy(
     Applies changes defined in DCM Project to Snowflake.
     """
     manager = DCMProjectManager()
-    if not from_stage:
-        from_stage = manager.sync_local_files(project_identifier=identifier)
+    effective_stage = _get_effective_stage(identifier, from_location)
+
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Deploying dcm project {identifier}", total=None)
         result = manager.execute(
             project_identifier=identifier,
             configuration=configuration,
-            from_stage=from_stage,
+            from_stage=effective_stage,
             variables=variables,
             alias=alias,
             output_path=None,
@@ -136,9 +136,7 @@ def deploy(
 @app.command(requires_connection=True)
 def plan(
     identifier: FQN = dcm_identifier,
-    from_stage: Optional[str] = from_option(
-        help="Plan DCM Project deployment from a given stage."
-    ),
+    from_location: Optional[str] = from_option,
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
     output_path: Optional[str] = output_path_option(
@@ -150,15 +148,14 @@ def plan(
     Plans a DCM Project deployment (validates without executing).
     """
     manager = DCMProjectManager()
-    if not from_stage:
-        from_stage = manager.sync_local_files(project_identifier=identifier)
+    effective_stage = _get_effective_stage(identifier, from_location)
 
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Planning dcm project {identifier}", total=None)
         result = manager.execute(
             project_identifier=identifier,
             configuration=configuration,
-            from_stage=from_stage,
+            from_stage=effective_stage,
             dry_run=True,
             variables=variables,
             output_path=output_path,
@@ -236,3 +233,16 @@ def drop_deployment(
     return MessageResult(
         f"Deployment '{deployment_name}' dropped from DCM Project '{identifier}'."
     )
+
+
+def _get_effective_stage(identifier: FQN, from_location: Optional[str]):
+    manager = DCMProjectManager()
+    if not from_location:
+        from_stage = manager.sync_local_files(project_identifier=identifier)
+    elif is_stage_path(from_location):
+        from_stage = from_location
+    else:
+        from_stage = manager.sync_local_files(
+            project_identifier=identifier, source_directory=from_location
+        )
+    return from_stage

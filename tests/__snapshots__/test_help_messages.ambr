@@ -7388,8 +7388,9 @@
   |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --from                   TEXT  Deploy DCM Project deployment from a given    |
-  |                                stage.                                        |
+  | --from                   TEXT  Source location: stage path (starting with    |
+  |                                '@') or local directory path. Omit to use     |
+  |                                current directory.                            |
   | --variable       -D      TEXT  Variables for the execution context; for      |
   |                                example: -D "<key>=<value>".                  |
   | --configuration          TEXT  Configuration of the DCM Project to use. If   |
@@ -8204,8 +8205,9 @@
   |                            [required]                                        |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --from                   TEXT  Plan DCM Project deployment from a given      |
-  |                                stage.                                        |
+  | --from                   TEXT  Source location: stage path (starting with    |
+  |                                '@') or local directory path. Omit to use     |
+  |                                current directory.                            |
   | --variable       -D      TEXT  Variables for the execution context; for      |
   |                                example: -D "<key>=<value>".                  |
   | --configuration          TEXT  Configuration of the DCM Project to use. If   |
