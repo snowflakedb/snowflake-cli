@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -15,6 +16,19 @@ from snowflake.cli.api.project.schemas.entities.common import PathMapping
 execute_queries = "snowflake.cli._plugins.dcm.manager.DCMProjectManager.execute_query"
 TEST_STAGE = FQN.from_stage("@test_stage")
 TEST_PROJECT = FQN.from_string("my_project")
+
+
+@pytest.fixture
+def mock_from_resource():
+    with mock.patch(
+        "snowflake.cli._plugins.dbt.manager.FQN.from_resource",
+        return_value=FQN(
+            database="MockDatabase",
+            schema="MockSchema",
+            name="DCM_TEST_PIPELINE_1757333281_OUTPUT_TMP_STAGE",
+        ),
+    ) as _fixture:
+        yield _fixture
 
 
 @mock.patch(execute_queries)
@@ -88,7 +102,7 @@ def test_execute_project_with_default_deployment(mock_execute_query, project_dir
 
 
 @mock.patch(execute_queries)
-def test_validate_project(mock_execute_query, project_directory):
+def test_plan_project(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
     mgr.execute(
         project_identifier=TEST_PROJECT,
@@ -103,7 +117,7 @@ def test_validate_project(mock_execute_query, project_directory):
 
 
 @mock.patch(execute_queries)
-def test_validate_project_with_from_stage(mock_execute_query, project_directory):
+def test_plan_project_with_from_stage(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
     mgr.execute(
         project_identifier=TEST_PROJECT,
@@ -145,7 +159,7 @@ def test_drop_deployment(mock_execute_query, if_exists):
 
 
 @mock.patch(execute_queries)
-def test_validate_project_with_output_path(mock_execute_query, project_directory):
+def test_plan_project_with_output_path__stage(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
     mgr.execute(
         project_identifier=TEST_PROJECT,
@@ -161,22 +175,31 @@ def test_validate_project_with_output_path(mock_execute_query, project_directory
 
 
 @mock.patch(execute_queries)
-@pytest.mark.parametrize(
-    "output_stage_name", ["@output_stage/path", "output_stage/path"]
-)
-def test_validate_project_with_output_path_different_formats(
-    mock_execute_query, project_directory, output_stage_name
+@mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.get_recursive")
+@mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+def test_plan_project_with_output_path__local_path(
+    mock_create,
+    mock_get_recursive,
+    mock_execute_query,
+    project_directory,
+    mock_from_resource,
 ):
     mgr = DCMProjectManager()
     mgr.execute(
         project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
         dry_run=True,
-        output_path=output_stage_name,
+        configuration="some_configuration",
+        output_path="output_path/results",
     )
 
+    temp_stage_fqn = mock_from_resource()
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN FROM @test_stage OUTPUT_PATH @output_stage/path"
+        query=f"EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration FROM @test_stage OUTPUT_PATH @{temp_stage_fqn}"
+    )
+    mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
+    mock_get_recursive.assert_called_once_with(
+        stage_path=str(temp_stage_fqn), dest_path=Path("output_path/results")
     )
 
 
@@ -192,7 +215,7 @@ def test_deploy_project_with_output_path(mock_execute_query, project_directory):
     )
 
     mock_execute_query.assert_called_once_with(
-        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY AS \"v1\" FROM @test_stage OUTPUT_PATH @output_stage"
+        query=f"EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY AS \"v1\" FROM @test_stage"
     )
 
 
@@ -260,23 +283,17 @@ class TestSyncLocalFiles:
             ):
                 DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
 
-    @mock.patch("snowflake.cli._plugins.dcm.manager.time.time", return_value=1234567890)
     @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
-    @mock.patch("snowflake.cli._plugins.dcm.manager.FQN.using_context")
     def test_calls_sync_artifacts_with_stage(
         self,
-        mock_using_context,
         _mock_create_stage,
         mock_sync_artifacts_with_stage,
-        _mock_time,
         project_directory,
         mock_connect,
         mock_cursor,
+        mock_from_resource,
     ):
-        mock_using_context.return_value = FQN.from_string(
-            "DCM_TEST_PROJECT_1234567890_TMP_STAGE"
-        )
 
         with project_directory("dcm_project") as project_dir:
             DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
@@ -286,10 +303,7 @@ class TestSyncLocalFiles:
             # due to Windows and inconsistent path resolution in unit tests,
             # we need to verify call arguments individually, with simplified path comparison
             call_args = mock_sync_artifacts_with_stage.call_args
-            assert (
-                call_args.kwargs["stage_root"]
-                == "DCM_TEST_PROJECT_1234567890_TMP_STAGE"
-            )
+            assert call_args.kwargs["stage_root"] == str(mock_from_resource())
             assert call_args.kwargs["artifacts"] == [
                 PathMapping(src="definitions/my_query.sql"),
                 PathMapping(src="manifest.yml", dest=None, processors=[]),

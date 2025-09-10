@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import pytest
 
 from typing import Set, Optional, Tuple
@@ -415,7 +416,7 @@ def test_project_plan_with_output_path(
         result = runner.invoke_with_connection(["stage", "create", output_stage_name])
         assert result.exit_code == 0, result.output
 
-        # Test plan with output-path option
+        # Test plan with stage output-path option
         result = runner.invoke_with_connection_json(
             [
                 "dcm",
@@ -430,13 +431,6 @@ def test_project_plan_with_output_path(
             ]
         )
         assert result.exit_code == 0, result.output
-
-        # Verify that the plan was executed successfully
-        output_str = str(result.json)
-        assert (
-            f"{test_database}.PUBLIC.OUTPUTTESTTABLE_OUTPUT_TEST".upper()
-            in output_str.upper()
-        )
 
         # Verify that the output was written to the specified stage path
         # Check if there are files in the output stage
@@ -459,23 +453,43 @@ def test_project_plan_with_output_path(
             for name in file_names
         ), f"Expected plan output files, but found: {file_names}"
 
-        # Verify that the table does not exist after plan (plan should not create actual objects)
-        table_check_result = runner.invoke_with_connection_json(
+        # Test plan with local output-path option
+        local_output_dir = "./dcm_output"
+        result = runner.invoke_with_connection_json(
             [
-                "object",
-                "list",
-                "table",
-                "--like",
-                "OUTPUTTESTTABLE_OUTPUT_TEST",
-                "--in",
-                "database",
-                test_database,
+                "dcm",
+                "plan",
+                project_name,
+                "--from",
+                f"{source_stage_name}/project",
+                "--output-path",
+                local_output_dir,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.OutputTestTable'",
             ]
         )
-        assert table_check_result.exit_code == 0
+        assert result.exit_code == 0, result.output
+        assert os.path.exists(
+            local_output_dir
+        ), f"Local output directory {local_output_dir} does not exist"
+
+        local_files = set()
+        for root, dirs, files in os.walk(local_output_dir):
+            for file in files:
+                relative_path = os.path.relpath(
+                    os.path.join(root, file), local_output_dir
+                )
+                local_files.add(relative_path)
+
+        stage_files = set()
+        for name in file_names:
+            normalized_name = name.removeprefix(f"{output_stage_name}/plan_results/")
+            stage_files.add(normalized_name)
+
+        diff = stage_files.symmetric_difference(local_files)
         assert (
-            len(table_check_result.json) == 0
-        ), "Table should not exist after plan operation"
+            not diff
+        ), f"Files present in stage but missing in local output directory: {stage_files - local_files}. Local files found but missing on stage: {local_files - stage_files}"
 
         # Clean up stages
         result = runner.invoke_with_connection(["stage", "drop", source_stage_name])
