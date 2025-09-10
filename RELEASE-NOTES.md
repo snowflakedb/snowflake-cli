@@ -28,6 +28,7 @@
 * Fixed using `ctx.var` in `snow sql` with Jinja templating.
 * Fixed issues when pasting content with trailing new lines.
 * Improved output handling  with streaming
+* Extend `Decimal` precision to 38
 
 
 # v3.11.0
