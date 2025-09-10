@@ -29,6 +29,7 @@
 * Fixed using `ctx.var` in `snow sql` with Jinja templating.
 * Fixed issues when pasting content with trailing new lines.
 * Improved output handling  with streaming
+* Bumped `snowflake-connector-python` to 3.17.3
 
 
 # v3.11.0
