@@ -305,7 +305,7 @@ def test_project_deploy_from_stage(
                 "plan",
                 project_name,
                 "--from",
-                f"{other_stage_name}/project",
+                f"@{other_stage_name}/project",
                 "-D",
                 f"table_name='{test_database}.PUBLIC.MyTable'",
             ]
@@ -339,7 +339,7 @@ def test_project_deploy_from_stage(
                 "deploy",
                 project_name,
                 "--from",
-                f"{other_stage_name}/project",
+                f"@{other_stage_name}/project",
                 "-D",
                 f"table_name='{test_database}.PUBLIC.MyTable'",
             ]
@@ -423,7 +423,7 @@ def test_project_plan_with_output_path(
                 "plan",
                 project_name,
                 "--from",
-                f"{source_stage_name}/project",
+                f"@{source_stage_name}/project",
                 "--output-path",
                 output_path,
                 "-D",
@@ -461,7 +461,7 @@ def test_project_plan_with_output_path(
                 "plan",
                 project_name,
                 "--from",
-                f"{source_stage_name}/project",
+                f"@{source_stage_name}/project",
                 "--output-path",
                 local_output_dir,
                 "-D",
@@ -501,3 +501,57 @@ def test_project_plan_with_output_path(
         # Clean up project
         result = runner.invoke_with_connection(["dcm", "drop", project_name])
         assert result.exit_code == 0, result.output
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_plan_and_deploy_from_another_directory(
+    runner,
+    test_database,
+    project_directory,
+    tmp_path,
+):
+    project_name = "project_descriptive_name"
+
+    with project_directory("dcm_project") as project_root:
+        project_source_path = project_root
+
+    original_cwd = os.getcwd()
+    try:
+        os.chdir(tmp_path)
+
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+        assert f"DCM Project '{project_name}' successfully created." in result.output
+
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "plan",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.MyTable'",
+                "--from",
+                f"{project_source_path}",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.MyTable'",
+                "--from",
+                f"{project_source_path}",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+    finally:
+        os.chdir(original_cwd)
+
+    # Clean up
+    result = runner.invoke_with_connection(["dcm", "drop", project_name])
+    assert result.exit_code == 0, result.output
