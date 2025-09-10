@@ -137,10 +137,20 @@ class DCMProjectManager(SqlExecutionMixin):
         return self.execute_query(query=query)
 
     @staticmethod
-    def sync_local_files(project_identifier: FQN) -> str:
-        dcm_manifest_file = SecurePath.cwd() / MANIFEST_FILE_NAME
+    def sync_local_files(
+        project_identifier: FQN, source_directory: str | None = None
+    ) -> str:
+        source_path = (
+            SecurePath(source_directory).resolve()
+            if source_directory
+            else SecurePath.cwd()
+        )
+
+        dcm_manifest_file = source_path / MANIFEST_FILE_NAME
         if not dcm_manifest_file.exists():
-            raise CliError(f"{MANIFEST_FILE_NAME} was not found in project directory")
+            raise CliError(
+                f"{MANIFEST_FILE_NAME} was not found in directory {source_path.path}"
+            )
 
         with dcm_manifest_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
             dcm_manifest = yaml.safe_load(fd)
@@ -160,10 +170,10 @@ class DCMProjectManager(SqlExecutionMixin):
 
         with cli_console.phase(f"Uploading definition files"):
             stage_fqn = FQN.from_resource(
-                ObjectType.DCM_PROJECT, project_identifier, "_TMP_STAGE"
+                ObjectType.DCM_PROJECT, project_identifier, "TMP_STAGE"
             )
             sync_artifacts_with_stage(
-                project_paths=ProjectPaths(project_root=Path.cwd()),
+                project_paths=ProjectPaths(project_root=source_path.path),
                 stage_root=stage_fqn.identifier,
                 use_temporary_stage=True,
                 artifacts=[PathMapping(src=definition) for definition in definitions],

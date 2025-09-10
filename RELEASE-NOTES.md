@@ -22,14 +22,15 @@
 * The `!edit` command for external editors was added to REPL
 
 ## Fixes and improvements
+* Fixed crashes with older x86_64 Intel CPUs
 * Improved parsing `!source` with trailing comments
 * `!` commands no longer require trailing `;` for evaluation
 * Bumped to `typer=0.17.3`. Improved displaying help messages.
 * Fixed using `ctx.var` in `snow sql` with Jinja templating.
 * Fixed issues when pasting content with trailing new lines.
 * Improved output handling  with streaming
+* Bumped `snowflake-connector-python` to 3.17.3
 * Extend `Decimal` precision to 38
-
 
 # v3.11.0
 

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from unittest import mock
 
@@ -251,7 +252,7 @@ class TestSyncLocalFiles:
             (project_dir / MANIFEST_FILE_NAME).unlink()
             with pytest.raises(
                 CliError,
-                match=f"{MANIFEST_FILE_NAME} was not found in project directory",
+                match=f"{MANIFEST_FILE_NAME} was not found in directory",
             ):
                 DCMProjectManager.sync_local_files(project_identifier=TEST_PROJECT)
 
@@ -314,3 +315,75 @@ class TestSyncLocalFiles:
             actual_project_root = call_args.kwargs["project_paths"].project_root
             expected_project_root = project_dir.resolve()
             assert actual_project_root.resolve() == expected_project_root.resolve()
+
+    @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    def test_sync_local_files_with_source_directory(
+        self,
+        _mock_create_stage,
+        mock_sync_artifacts_with_stage,
+        tmp_path,
+        mock_connect,
+        mock_cursor,
+        mock_from_resource,
+    ):
+        source_dir = tmp_path / "custom_source"
+        source_dir.mkdir()
+
+        manifest_content = {
+            "type": "dcm_project",
+            "include_definitions": ["definitions/custom_query.sql"],
+        }
+        manifest_file = source_dir / MANIFEST_FILE_NAME
+        with open(manifest_file, "w") as f:
+            yaml.dump(manifest_content, f)
+
+        # Create the definition file
+        definitions_dir = source_dir / "definitions"
+        definitions_dir.mkdir()
+        (definitions_dir / "custom_query.sql").write_text("SELECT 1;")
+
+        DCMProjectManager.sync_local_files(
+            project_identifier=TEST_PROJECT, source_directory=str(source_dir)
+        )
+
+        mock_sync_artifacts_with_stage.assert_called_once()
+        call_args = mock_sync_artifacts_with_stage.call_args
+        actual_project_root = call_args.kwargs["project_paths"].project_root
+        assert actual_project_root.resolve() == source_dir.resolve()
+
+    @mock.patch("snowflake.cli._plugins.dcm.manager.sync_artifacts_with_stage")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    def test_sync_local_files_with_relative_source_directory(
+        self,
+        _mock_create_stage,
+        mock_sync_artifacts_with_stage,
+        tmp_path,
+        mock_connect,
+        mock_cursor,
+        mock_from_resource,
+    ):
+        source_dir = tmp_path / "relative_source"
+        source_dir.mkdir()
+
+        manifest_file = source_dir / MANIFEST_FILE_NAME
+        with open(manifest_file, "w") as f:
+            yaml.dump({"type": "dcm_project"}, f)
+
+        original_cwd = os.getcwd()
+        try:
+            os.chdir(tmp_path)
+
+            DCMProjectManager.sync_local_files(
+                project_identifier=TEST_PROJECT,
+                source_directory="relative_source",  # relative path
+            )
+
+            mock_sync_artifacts_with_stage.assert_called_once()
+            call_args = mock_sync_artifacts_with_stage.call_args
+
+            actual_project_root = call_args.kwargs["project_paths"].project_root
+            assert actual_project_root.is_absolute()
+            assert actual_project_root.resolve() == source_dir.resolve()
+        finally:
+            os.chdir(original_cwd)
