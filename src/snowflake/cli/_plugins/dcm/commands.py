@@ -118,21 +118,14 @@ def deploy(
     Applies changes defined in DCM Project to Snowflake.
     """
     manager = DCMProjectManager()
-    if not from_location:
-        from_stage = manager.sync_local_files(project_identifier=identifier)
-    elif is_stage_path(from_location):
-        from_stage = from_location
-    else:
-        from_stage = manager.sync_local_files(
-            project_identifier=identifier, source_directory=from_location
-        )
+    effective_stage = _get_effective_stage(identifier, from_location)
 
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Deploying dcm project {identifier}", total=None)
         result = manager.execute(
             project_identifier=identifier,
             configuration=configuration,
-            from_stage=from_stage,
+            from_stage=effective_stage,
             variables=variables,
             alias=alias,
             output_path=None,
@@ -155,22 +148,14 @@ def plan(
     Plans a DCM Project deployment (validates without executing).
     """
     manager = DCMProjectManager()
-
-    if not from_location:
-        from_stage = manager.sync_local_files(project_identifier=identifier)
-    elif is_stage_path(from_location):
-        from_stage = from_location
-    else:
-        from_stage = manager.sync_local_files(
-            project_identifier=identifier, source_directory=from_location
-        )
+    effective_stage = _get_effective_stage(identifier, from_location)
 
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Planning dcm project {identifier}", total=None)
         result = manager.execute(
             project_identifier=identifier,
             configuration=configuration,
-            from_stage=from_stage,
+            from_stage=effective_stage,
             dry_run=True,
             variables=variables,
             output_path=output_path,
@@ -248,3 +233,16 @@ def drop_deployment(
     return MessageResult(
         f"Deployment '{deployment_name}' dropped from DCM Project '{identifier}'."
     )
+
+
+def _get_effective_stage(identifier: FQN, from_location: Optional[str]):
+    manager = DCMProjectManager()
+    if not from_location:
+        from_stage = manager.sync_local_files(project_identifier=identifier)
+    elif is_stage_path(from_location):
+        from_stage = from_location
+    else:
+        from_stage = manager.sync_local_files(
+            project_identifier=identifier, source_directory=from_location
+        )
+    return from_stage
