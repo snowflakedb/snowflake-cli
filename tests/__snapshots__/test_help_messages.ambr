@@ -9859,6 +9859,8 @@
   | --log-level          TEXT     The log level to filter by. If not provided,   |
   |                               INFO will be used                              |
   |                               [default: INFO]                                |
+  | --partial                     Enable partial, case-insensitive matching for  |
+  |                               object names                                   |
   | --help       -h               Show this message and exit.                    |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
