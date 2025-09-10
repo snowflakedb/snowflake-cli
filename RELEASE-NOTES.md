@@ -20,6 +20,7 @@
 
 ## New additions
 * The `!edit` command for external editors was added to REPL
+* Added `--partial` flag to `snow logs` command for partial, case-insensitive object name matching
 
 ## Fixes and improvements
 * Fixed crashes with older x86_64 Intel CPUs
