@@ -26,7 +26,6 @@ from snowflake.cli._plugins.dbt.constants import (
 )
 from snowflake.cli._plugins.dbt.manager import DBTObjectEditableAttributes
 from snowflake.cli.api.feature_flags import FeatureFlag
-from snowflake.cli.api.identifiers import FQN
 
 from tests_common.feature_flag_utils import with_feature_flags
 
@@ -118,6 +117,14 @@ class TestDBTDeploy:
         ) as _fixture:
             yield _fixture
 
+    @pytest.fixture
+    def mock_from_resource(self):
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.FQN.from_resource",
+            return_value="@MockDatabase.MockSchema.DBT_PROJECT_TEST_PIPELINE_1757333281_STAGE",
+        ) as _fixture:
+            yield _fixture
+
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     def test_deploys_project_from_source(
@@ -128,6 +135,7 @@ class TestDBTDeploy:
         runner,
         dbt_project_path,
         mock_get_dbt_object_attributes,
+        mock_from_resource,
     ):
         result = runner.invoke(
             [
@@ -140,12 +148,10 @@ class TestDBTDeploy:
 
         assert result.exit_code == 0, result.output
         assert (
-            mock_connect.mocked_ctx.get_query()
-            == """CREATE DBT PROJECT TEST_PIPELINE
-FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE"""
+            f"CREATE DBT PROJECT TEST_PIPELINE\nFROM {mock_from_resource()}"
+            in mock_connect.mocked_ctx.get_query()
         )
-        stage_fqn = FQN.from_string(f"DBT_TEST_PIPELINE_STAGE").using_context()
-        mock_create.assert_called_once_with(stage_fqn, temporary=True)
+        mock_create.assert_called_once_with(mock_from_resource(), temporary=True)
         mock_put_recursive.assert_called_once()
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
@@ -184,6 +190,7 @@ FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE"""
         runner,
         dbt_project_path,
         mock_get_dbt_object_attributes,
+        mock_from_resource,
     ):
         mock_get_dbt_object_attributes.return_value = self._get_default_attribute_dict()
 
@@ -197,15 +204,17 @@ FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE"""
         )
 
         assert result.exit_code == 0, result.output
-        assert mock_connect.mocked_ctx.get_query().startswith(
-            """ALTER DBT PROJECT TEST_PIPELINE ADD VERSION
-FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE"""
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in mock_connect.mocked_ctx.get_query()
         )
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli.api.identifiers.time.time", return_value=1234567890)
     def test_deploys_project_with_case_sensitive_name(
         self,
+        mock_time,
         mock_create,
         mock_put_recursive,
         mock_connect,
@@ -226,12 +235,9 @@ FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE"""
         assert result.exit_code == 0, result.output
         assert (
             mock_connect.mocked_ctx.get_query()
-            == """CREATE DBT PROJECT "MockDaTaBaSe"."PuBlIc"."caseSenSITIVEnAME"
-FROM @MockDatabase.MockSchema.DBT_caseSenSITIVEnAME_STAGE"""
+            == f"""CREATE DBT PROJECT "MockDaTaBaSe"."PuBlIc"."caseSenSITIVEnAME"
+FROM @MockDatabase.MockSchema.DBT_PROJECT_caseSenSITIVEnAME_{mock_time()}_STAGE"""
         )
-        stage_fqn = FQN.from_string(f"DBT_caseSenSITIVEnAME_STAGE").using_context()
-        mock_create.assert_called_once_with(stage_fqn, temporary=True)
-        mock_put_recursive.assert_called_once()
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
@@ -264,8 +270,10 @@ FROM @MockDatabase.MockSchema.DBT_caseSenSITIVEnAME_STAGE"""
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli.api.identifiers.time.time", return_value=1234567890)
     def test_deploys_project_with_fqn_uses_name_only_for_stage(
         self,
+        mock_time,
         mock_create,
         mock_put_recursive,
         mock_connect,
@@ -283,15 +291,12 @@ FROM @MockDatabase.MockSchema.DBT_caseSenSITIVEnAME_STAGE"""
         )
 
         assert result.exit_code == 0, result.output
+        # Verify stage creation uses only the name part of the FQN
         assert (
             mock_connect.mocked_ctx.get_query()
-            == """CREATE DBT PROJECT MockDatabase.MockSchema.test_dbt_project
-FROM @MockDatabase.MockSchema.DBT_TEST_DBT_PROJECT_STAGE"""
+            == f"""CREATE DBT PROJECT MockDatabase.MockSchema.test_dbt_project
+FROM @MockDatabase.MockSchema.DBT_PROJECT_TEST_DBT_PROJECT_{mock_time()}_STAGE"""
         )
-        # Verify stage creation uses only the name part of the FQN
-        stage_fqn = FQN.from_string(f"DBT_TEST_DBT_PROJECT_STAGE").using_context()
-        mock_create.assert_called_once_with(stage_fqn, temporary=True)
-        mock_put_recursive.assert_called_once()
 
     def test_raises_when_dbt_project_yml_is_not_available(
         self, dbt_project_path, mock_connect, runner
@@ -379,6 +384,7 @@ FROM @MockDatabase.MockSchema.DBT_TEST_DBT_PROJECT_STAGE"""
         runner,
         dbt_project_path,
         mock_get_dbt_object_attributes,
+        mock_from_resource,
     ):
         result = runner.invoke(
             [
@@ -392,9 +398,8 @@ FROM @MockDatabase.MockSchema.DBT_TEST_DBT_PROJECT_STAGE"""
 
         assert result.exit_code == 0, result.output
         assert (
-            mock_connect.mocked_ctx.get_query()
-            == """CREATE DBT PROJECT TEST_PIPELINE
-FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE DEFAULT_TARGET='prod'"""
+            f"CREATE DBT PROJECT TEST_PIPELINE\nFROM {mock_from_resource()} DEFAULT_TARGET='prod'"
+            in mock_connect.mocked_ctx.get_query()
         )
 
     @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
@@ -434,6 +439,7 @@ FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE DEFAULT_TARGET='prod'"""
         runner,
         dbt_project_path,
         mock_get_dbt_object_attributes,
+        mock_from_resource,
     ):
         mock_get_dbt_object_attributes.return_value = {"default_target": "dev"}
 
@@ -452,8 +458,10 @@ FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE DEFAULT_TARGET='prod'"""
         assert (
             len(queries) == 2
         )  # ADD VERSION and SET DEFAULT_TARGET (get_current_default_target is mocked)
-        assert "ALTER DBT PROJECT TEST_PIPELINE ADD VERSION" in queries[0]
-        assert "@MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE" in queries[0]
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in queries[0]
+        )
         assert "ALTER DBT PROJECT TEST_PIPELINE SET DEFAULT_TARGET='prod'" == queries[1]
 
     @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
@@ -467,6 +475,7 @@ FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE DEFAULT_TARGET='prod'"""
         runner,
         dbt_project_path,
         mock_get_dbt_object_attributes,
+        mock_from_resource,
     ):
         mock_get_dbt_object_attributes.return_value = {"default_target": "prod"}
 
@@ -483,8 +492,10 @@ FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE DEFAULT_TARGET='prod'"""
         assert result.exit_code == 0, result.output
         # Should have only one query: ADD VERSION (no SET DEFAULT_TARGET because it's already correct)
         query = mock_connect.mocked_ctx.get_query()
-        assert "ALTER DBT PROJECT TEST_PIPELINE ADD VERSION" in query
-        assert "@MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE" in query
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in query
+        )
         assert "SET DEFAULT_TARGET" not in query
 
     @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
@@ -498,6 +509,7 @@ FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE DEFAULT_TARGET='prod'"""
         runner,
         dbt_project_path,
         mock_get_dbt_object_attributes,
+        mock_from_resource,
     ):
         mock_get_dbt_object_attributes.return_value = {"default_target": "prod"}
 
@@ -514,8 +526,10 @@ FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE DEFAULT_TARGET='prod'"""
         assert result.exit_code == 0, result.output
         queries = mock_connect.mocked_ctx.get_queries()
         assert len(queries) == 2
-        assert "ALTER DBT PROJECT TEST_PIPELINE ADD VERSION" in queries[0]
-        assert "@MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE" in queries[0]
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in queries[0]
+        )
         assert "ALTER DBT PROJECT TEST_PIPELINE UNSET DEFAULT_TARGET" == queries[1]
 
     @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
@@ -529,6 +543,7 @@ FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE DEFAULT_TARGET='prod'"""
         runner,
         dbt_project_path,
         mock_get_dbt_object_attributes,
+        mock_from_resource,
     ):
         mock_get_dbt_object_attributes.return_value = {"default_target": None}
 
@@ -544,8 +559,10 @@ FROM @MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE DEFAULT_TARGET='prod'"""
 
         assert result.exit_code == 0, result.output
         query = mock_connect.mocked_ctx.get_query()
-        assert "ALTER DBT PROJECT TEST_PIPELINE ADD VERSION" in query
-        assert "@MockDatabase.MockSchema.DBT_TEST_PIPELINE_STAGE" in query
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in query
+        )
         assert "UNSET DEFAULT_TARGET" not in query
 
     @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})

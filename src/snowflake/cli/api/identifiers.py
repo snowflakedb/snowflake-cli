@@ -15,14 +15,20 @@
 from __future__ import annotations
 
 import re
+import time
 from pathlib import Path
 
 from click import ClickException
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import FQNInconsistencyError, FQNNameError
 from snowflake.cli.api.project.schemas.v1.identifier_model import (
     ObjectIdentifierBaseModel,
 )
-from snowflake.cli.api.project.util import VALID_IDENTIFIER_REGEX, identifier_for_url
+from snowflake.cli.api.project.util import (
+    VALID_IDENTIFIER_REGEX,
+    identifier_for_url,
+    unquote_identifier,
+)
 
 
 class FQN:
@@ -166,6 +172,17 @@ class FQN:
             raise FQNInconsistencyError("schema", model.name)
 
         return fqn.set_database(model.database).set_schema(model.schema_)
+
+    @classmethod
+    def from_resource(
+        cls, resource_type: ObjectType, resource_fqn: FQN, purpose: str
+    ) -> "FQN":
+        """Create an instance related to another Snowflake resource."""
+        unquoted_name = unquote_identifier(resource_fqn.name)
+        safe_cli_name = resource_type.value.cli_name.upper().replace("-", "_")
+        return cls.from_string(
+            f"{safe_cli_name}_{unquoted_name}_{int(time.time())}_{purpose.upper()}"
+        ).using_context()
 
     def set_database(self, database: str | None) -> "FQN":
         if database:

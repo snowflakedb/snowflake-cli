@@ -16,6 +16,7 @@ from unittest import mock
 from unittest.mock import MagicMock
 
 import pytest
+from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import FQNInconsistencyError, FQNNameError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.schemas.v1.streamlit.streamlit import Streamlit
@@ -197,3 +198,54 @@ def test_using_context(mock_ctx):
 def test_git_fqn():
     fqn = FQN.from_stage_path("@git_repo/branches/main/devops/")
     assert fqn.name == "git_repo"
+
+
+class TestRelatedToResource:
+    @pytest.fixture
+    def mock_time(self):
+        with mock.patch(
+            "snowflake.cli.api.identifiers.time.time", return_value=1234567890
+        ) as _fixture:
+            yield _fixture
+
+    @pytest.fixture
+    def mock_ctx(self):
+        with mock.patch(
+            "snowflake.cli.api.cli_global_context.get_cli_context"
+        ) as _fixture:
+            _fixture().connection = MagicMock(database="test_db", schema="test_schema")
+            yield _fixture
+
+    def test_basic_functionality(self, mock_ctx, mock_time):
+        resource_fqn = FQN(name="my_pipeline", database=None, schema=None)
+
+        result = FQN.from_resource(ObjectType.DBT_PROJECT, resource_fqn, "STAGE")
+
+        assert (
+            result.identifier
+            == "test_db.test_schema.DBT_PROJECT_MY_PIPELINE_1234567890_STAGE"
+        )
+
+    def test_with_quoted_identifier(self, mock_ctx, mock_time):
+        resource_fqn = FQN(name='"caseSenSITIVEnAME"', database=None, schema=None)
+
+        result = FQN.from_resource(ObjectType.DCM_PROJECT, resource_fqn, "TEMP_STAGE")
+
+        assert (
+            result.identifier
+            == "test_db.test_schema.DCM_caseSenSITIVEnAME_1234567890_TEMP_STAGE"
+        )
+
+    def test_with_fqn_resource(self, mock_ctx, mock_time):
+        mock_ctx().connection = MagicMock(
+            database="context_db", schema="context_schema"
+        )
+        resource_fqn = FQN(
+            name="resource", database="resource_db", schema="resource_schema"
+        )
+
+        result = FQN.from_resource(ObjectType.STAGE, resource_fqn, "TEST")
+
+        assert result.database == "context_db"
+        assert result.schema == "context_schema"
+        assert result.name == "STAGE_RESOURCE_1234567890_TEST"

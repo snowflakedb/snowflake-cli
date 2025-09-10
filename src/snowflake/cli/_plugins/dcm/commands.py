@@ -142,7 +142,7 @@ def plan(
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
     output_path: Optional[str] = output_path_option(
-        help="Stage path where the deployment plan output will be stored."
+        help="Path where the deployment plan output will be stored. Can be a stage path (starting with '@') or a local directory path."
     ),
     **options,
 ):
