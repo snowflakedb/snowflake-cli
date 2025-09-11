@@ -14,14 +14,12 @@
 
 from __future__ import annotations
 
-import decimal
 import sys
 
 from snowflake.cli._app.cli_app import CliAppFactory
 
 
 def main(*args):
-    decimal.getcontext().prec = 38
     app = CliAppFactory().create_or_get_app()
     app(*args)
 
