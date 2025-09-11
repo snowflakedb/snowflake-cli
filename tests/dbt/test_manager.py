@@ -48,9 +48,107 @@ class TestDeploy:
         source_path = tmp_path_factory.mktemp("dbt_project")
         yield source_path
 
+    @pytest.fixture
+    def dbt_project_path(self, project_path, profile):
+        dbt_project_file = project_path / "dbt_project.yml"
+        dbt_project_file.write_text(yaml.dump({"profile": "dev"}))
+        dbt_profiles_file = project_path / PROFILES_FILENAME
+        dbt_profiles_file.write_text(yaml.dump(profile))
+        yield project_path
+
     def _generate_profile(self, project_path, profile):
         dbt_profiles_file = project_path / PROFILES_FILENAME
         dbt_profiles_file.write_text(yaml.dump(profile))
+
+    @pytest.fixture
+    def mock_get_dbt_object_attributes(self):
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager.get_dbt_object_attributes",
+            return_value=None,
+        ) as _fixture:
+            yield _fixture
+
+    @pytest.fixture
+    def mock_execute_query(self):
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager.execute_query"
+        ) as _fixture:
+            yield _fixture
+
+    @pytest.fixture
+    def mock_get_cli_context(self, mock_connect):
+        with mock.patch(
+            "snowflake.cli.api.cli_global_context.get_cli_context"
+        ) as cli_context:
+            mock_connect.database = "TestDB"
+            mock_connect.schema = "TestSchema"
+            cli_context().connection = mock_connect
+            yield cli_context()
+
+    @pytest.fixture
+    def mock_from_resource(self):
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.FQN.from_resource",
+            return_value="@MockDatabase.MockSchema.DBT_PROJECT_TEST_PIPELINE_1757333281_STAGE",
+        ) as _fixture:
+            yield _fixture
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_with_external_access_integrations(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+    ):
+        manager = DBTManager()
+
+        manager.deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            external_access_integrations=[
+                "google_apis_access_integration",
+                "dbt_hub_integration",
+            ],
+        )
+
+        expected_query = f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()}\nEXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration, dbt_hub_integration)"
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_alter_project_with_external_access_integrations(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": None}
+        manager = DBTManager()
+
+        manager.deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            external_access_integrations=[
+                "google_apis_access_integration",
+                "dbt_hub_integration",
+            ],
+        )
+
+        expected_query = f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}\nEXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration, dbt_hub_integration)"
+        mock_execute_query.assert_called_once_with(expected_query)
 
     def test_validate_profiles_raises_when_file_does_not_exist(self, project_path):
 

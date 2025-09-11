@@ -1,0 +1,27 @@
+version: 2
+
+models:
+  - name: first_model_with_utils
+    description: "First model using dbt_utils macros"
+    columns:
+      - name: id
+        description: "Primary key"
+        tests:
+          - unique
+          - not_null
+      - name: name
+        description: "Name field"
+      - name: surrogate_key
+        description: "Generated surrogate key using dbt_utils"
+  
+  - name: second_model_with_utils
+    description: "Second model using dbt_utils macros"
+    columns:
+      - name: id
+        description: "Primary key"
+      - name: name
+        description: "Name field"
+      - name: surrogate_key
+        description: "Generated surrogate key using dbt_utils"
+      - name: processed_field
+        description: "Processed field using dbt_utils" 
