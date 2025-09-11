@@ -124,13 +124,13 @@ class DBTManager(SqlExecutionMixin):
 
         with cli_console.phase("Creating DBT project"):
             if force is True:
-                return self._deploy__create_or_replace(
+                return self._deploy_create_or_replace(
                     fqn, stage_name, default_target, external_access_integrations
                 )
             else:
                 dbt_object_attributes = self.get_dbt_object_attributes(fqn)
                 if dbt_object_attributes is not None:
-                    return self._deploy__alter(
+                    return self._deploy_alter(
                         fqn,
                         stage_name,
                         dbt_object_attributes,
@@ -139,11 +139,11 @@ class DBTManager(SqlExecutionMixin):
                         external_access_integrations,
                     )
                 else:
-                    return self._deploy__create(
+                    return self._deploy_create(
                         fqn, stage_name, default_target, external_access_integrations
                     )
 
-    def _deploy__alter(
+    def _deploy_alter(
         self,
         fqn: FQN,
         stage_name: str,
@@ -172,7 +172,7 @@ class DBTManager(SqlExecutionMixin):
             self.execute_query(set_default_query)
         return result
 
-    def _deploy__create(
+    def _deploy_create(
         self,
         fqn: FQN,
         stage_name: str,
@@ -198,7 +198,7 @@ class DBTManager(SqlExecutionMixin):
             query += f"\nEXTERNAL_ACCESS_INTEGRATIONS = ({integrations_str})"
         return query
 
-    def _deploy__create_or_replace(
+    def _deploy_create_or_replace(
         self,
         fqn: FQN,
         stage_name: str,
