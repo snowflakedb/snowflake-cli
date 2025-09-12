@@ -11,6 +11,7 @@ TYPES = (
     "DATETIME",
     "DEC",
     "DECIMAL",
+    "DECFLOAT",
     "DOUBLE",
     "FLOAT",
     "INT",

@@ -349,6 +349,7 @@ def user_to_sql_type_mapper(user_provided_type: str) -> str:
             "FLOAT4",
             "FLOAT8",
         ),
+        ("DECFLOAT", ""): ("DECFLOAT",),
         ("TIMESTAMP_NTZ", ""): ("TIMESTAMP_NTZ", "TIMESTAMPNTZ", "DATETIME"),
         ("TIMESTAMP_LTZ", ""): ("TIMESTAMP_LTZ", "TIMESTAMPLTZ"),
         ("TIMESTAMP_TZ", ""): ("TIMESTAMP_TZ", "TIMESTAMPTZ"),
