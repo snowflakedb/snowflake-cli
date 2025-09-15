@@ -42,6 +42,7 @@
 * Bumped `snowflake-connector-python` to 3.17.3
 * Fixed `snow snowpark deploy` failing on duplicated packages
 
+
 # v3.11.0
 
 ## Deprecations
