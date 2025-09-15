@@ -21,7 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
-
+* Fixed `snow snowpark deploy` failing on duplicated packages
 
 # v3.12.0
 
