@@ -23,6 +23,15 @@
 ## Fixes and improvements
 
 
+# v3.12.0
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
+
+
 # v3.11.1
 
 ## Deprecations
