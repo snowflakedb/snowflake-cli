@@ -255,14 +255,55 @@ def split_downloaded_dependencies(
     anaconda_packages: AnacondaPackages,
     skip_version_check: bool,
 ) -> SplitDownloadedDependenciesResult:
-    packages_metadata: Dict[str, WheelMetadata] = {
-        meta.name: meta
+    # Build metadata for all downloaded wheels
+    all_wheels_metadata = [
+        meta
         for meta in (
             WheelMetadata.from_wheel(wheel_path)
             for wheel_path in downloads_dir.glob("*.whl")
         )
         if meta is not None
-    }
+    ]
+
+    # Detect and handle duplicate packages
+    packages_metadata: Dict[str, WheelMetadata] = {}
+    duplicate_packages = set()
+
+    for meta in all_wheels_metadata:
+        if meta.name in packages_metadata:
+            duplicate_packages.add(meta.name)
+            log.warning(
+                "Multiple versions of package '%s' found in dependencies. "
+                "Using: %s, Ignoring: %s",
+                meta.name,
+                packages_metadata[meta.name].wheel_path.name,
+                meta.wheel_path.name,
+            )
+        else:
+            packages_metadata[meta.name] = meta
+
+    if duplicate_packages:
+        log.warning(
+            "Found duplicate packages: %s. This may cause deployment issues. "
+            "Consider pinning package versions in requirements.txt to avoid conflicts.",
+            ", ".join(sorted(duplicate_packages)),
+        )
+
+        # Remove duplicate wheel files to prevent them from being extracted
+        for meta in all_wheels_metadata:
+            if (
+                meta.name in duplicate_packages
+                and meta not in packages_metadata.values()
+            ):
+                try:
+                    meta.wheel_path.unlink()
+                    log.debug("Removed duplicate wheel file: %s", meta.wheel_path.name)
+                except Exception as e:
+                    log.warning(
+                        "Failed to remove duplicate wheel file %s: %s",
+                        meta.wheel_path.name,
+                        e,
+                    )
     available_in_snowflake_dependencies: Dict = {}
     unavailable_dependencies: Dict = {}
 
