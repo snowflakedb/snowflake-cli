@@ -19,6 +19,15 @@
 ## Deprecations
 
 ## New additions
+
+## Fixes and improvements
+
+
+# v3.11.1
+
+## Deprecations
+
+## New additions
 * The `!edit` command for external editors was added to REPL
 * Added `--partial` flag to `snow logs` command for partial, case-insensitive object name matching
 
