@@ -26,6 +26,8 @@ from snowflake.cli._plugins.dbt.constants import (
 )
 from snowflake.cli._plugins.dbt.manager import DBTObjectEditableAttributes
 from snowflake.cli.api.feature_flags import FeatureFlag
+from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.secure_path import SecurePath
 
 from tests_common.feature_flag_utils import with_feature_flags
 
@@ -122,6 +124,13 @@ class TestDBTDeploy:
         with mock.patch(
             "snowflake.cli._plugins.dbt.manager.FQN.from_resource",
             return_value="@MockDatabase.MockSchema.DBT_PROJECT_TEST_PIPELINE_1757333281_STAGE",
+        ) as _fixture:
+            yield _fixture
+
+    @pytest.fixture
+    def mock_deploy(self):
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager.deploy"
         ) as _fixture:
             yield _fixture
 
@@ -296,6 +305,68 @@ FROM @MockDatabase.MockSchema.DBT_PROJECT_caseSenSITIVEnAME_{mock_time()}_STAGE"
             mock_connect.mocked_ctx.get_query()
             == f"""CREATE DBT PROJECT MockDatabase.MockSchema.test_dbt_project
 FROM @MockDatabase.MockSchema.DBT_PROJECT_TEST_DBT_PROJECT_{mock_time()}_STAGE"""
+        )
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+    def test_deploys_project_with_single_external_access_integration(
+        self,
+        runner,
+        dbt_project_path,
+        mock_deploy,
+    ):
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--external-access-integration",
+                "google_apis_access_integration",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once_with(
+            FQN.from_string("TEST_PIPELINE"),
+            SecurePath(dbt_project_path),
+            SecurePath(dbt_project_path),
+            force=False,
+            default_target=None,
+            unset_default_target=False,
+            external_access_integrations=["google_apis_access_integration"],
+        )
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+    def test_deploys_project_with_multiple_external_access_integrations(
+        self,
+        runner,
+        dbt_project_path,
+        mock_deploy,
+    ):
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--external-access-integration",
+                "google_apis_access_integration",
+                "--external-access-integration",
+                "dbt_hub",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once_with(
+            FQN.from_string("TEST_PIPELINE"),
+            SecurePath(dbt_project_path),
+            SecurePath(dbt_project_path),
+            force=False,
+            default_target=None,
+            unset_default_target=False,
+            external_access_integrations=["google_apis_access_integration", "dbt_hub"],
         )
 
     def test_raises_when_dbt_project_yml_is_not_available(

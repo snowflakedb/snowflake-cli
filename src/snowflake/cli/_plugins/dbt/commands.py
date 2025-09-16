@@ -111,6 +111,13 @@ def deploy_dbt(
         help="Unset the default target for the dbt project. Mutually exclusive with --default-target.",
         hidden=FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled(),
     ),
+    external_access_integrations: Optional[list[str]] = typer.Option(
+        None,
+        "--external-access-integration",
+        show_default=False,
+        help="External access integration to be used by the dbt object.",
+        hidden=FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled(),
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -121,6 +128,7 @@ def deploy_dbt(
     if FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled():
         default_target = None
         unset_default_target = False
+        external_access_integrations = None
 
     project_path = SecurePath(source) if source is not None else SecurePath.cwd()
     profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
@@ -132,6 +140,7 @@ def deploy_dbt(
             force=force,
             default_target=default_target,
             unset_default_target=unset_default_target,
+            external_access_integrations=external_access_integrations,
         )
     )
 
