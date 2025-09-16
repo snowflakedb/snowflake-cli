@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from snowflake.cli._plugins.auth.keypair import plugin_spec as auth_plugin_spec
+from snowflake.cli._plugins.auth import plugin_spec as auth_plugin_spec
 from snowflake.cli._plugins.connection import plugin_spec as connection_plugin_spec
 from snowflake.cli._plugins.cortex import plugin_spec as cortex_plugin_spec
 from snowflake.cli._plugins.dbt import plugin_spec as dbt_plugin_spec
