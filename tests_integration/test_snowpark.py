@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from textwrap import dedent
@@ -1833,3 +1834,27 @@ def alter_requirements_txt():
         requirements_path.write_text("\n".join(requirements))
 
     yield update
+
+
+@pytest.mark.integration
+def test_build_integration_with_duplicate_packages(
+    runner, project_directory, test_database
+):
+    """
+    This test uses real packages and pip downloads to verify that when pip downloads
+    multiple versions of the same package, our deduplication logic correctly handles them"""
+    with project_directory("snowpark_duplicate_test"):
+        result = runner.invoke_with_connection(["snowpark", "build"])
+        assert result.exit_code == 0, f"Build failed: {result.output}"
+        assert "Build done." in result.output
+
+        result = runner.invoke_with_connection(["snowpark", "deploy"])
+        assert result.exit_code == 0, f"Deploy failed: {result.output}"
+
+        result = runner.invoke_with_connection_json(
+            ["snowpark", "execute", "function", "func1()"]
+        )
+        assert result.exit_code == 0, f"Function execution failed: {result.output}"
+        assert result.json == {
+            "FUNC1()": "hello"
+        }, f"Unexpected function output: {result.json}"

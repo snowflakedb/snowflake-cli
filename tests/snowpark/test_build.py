@@ -18,7 +18,6 @@ from zipfile import ZipFile
 import pytest
 from snowflake.cli._plugins.snowpark.models import (
     Requirement,
-    RequirementWithFiles,
     WheelMetadata,
 )
 from snowflake.cli._plugins.snowpark.package.anaconda_packages import (
@@ -296,40 +295,3 @@ def test_multiple_different_packages_no_duplicates_detected(mock_log, tmp_path):
         # Verify all wheel files are still present
         remaining_wheels = list(downloads_dir.glob("*.whl"))
         assert len(remaining_wheels) == 3
-
-
-@patch("snowflake.cli._plugins.snowpark.package_utils.download_unavailable_packages")
-def test_build_integration_with_duplicate_packages(
-    mock_download, runner, project_directory
-):
-    """Integration test that ensures the full build process handles duplicates correctly.
-
-    This test simulates the real-world scenario where pip downloads multiple versions
-    of the same package and ensures both the dependencies.zip and requirements.snowflake.txt
-    fixes work together in the complete build flow.
-    """
-    mock_anaconda_packages = [
-        Requirement.parse_line("httpx==0.28.1"),
-        Requirement.parse_line("httpx>=0.20.0"),
-    ]
-
-    mock_download_packages = [
-        RequirementWithFiles(
-            requirement=Requirement.parse_line("httpx-retries==0.4.2"),
-            files=["httpx_retries/__init__.py", "httpx_retries/retry.py"],
-        )
-    ]
-
-    mock_download.return_value = DownloadUnavailablePackagesResult(
-        anaconda_packages=mock_anaconda_packages,
-        downloaded_packages_details=mock_download_packages,
-    )
-
-    with project_directory("snowpark_functions"):
-        result = runner.invoke(["snowpark", "build", "--ignore-anaconda"])
-        assert result.exit_code == 0, f"Build failed: {result.output}"
-
-        assert "Build done." in result.output
-
-        # The mock ensures we test the deduplication logic without real packages
-        assert "Duplicate packages: httpx" not in result.output
