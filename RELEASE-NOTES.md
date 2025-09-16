@@ -40,6 +40,7 @@
 * Fixed issues when pasting content with trailing new lines.
 * Improved output handling  with streaming
 * Bumped `snowflake-connector-python` to 3.17.3
+* Extend `Decimal` precision to 38
 
 
 # v3.11.0
