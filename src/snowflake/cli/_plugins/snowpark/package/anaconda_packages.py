@@ -153,13 +153,37 @@ class AnacondaPackages:
     ):
         """Saves requirements to a file in format accepted by Snowflake SQL commands."""
         log.info("Writing requirements into file %s", file_path.path)
-        formatted_requirements = []
+
+        # Deduplicate requirements by package name, keeping the first occurrence
+        seen_packages = set()
+        deduplicated_requirements = []
+        duplicate_packages = set()
+
         for requirement in requirements:
             if requirement.name and requirement.name in self._packages:
-                snowflake_name = self._packages[requirement.name].snowflake_name
-                formatted_requirements.append(
-                    snowflake_name + requirement.formatted_specs
-                )
+                if requirement.name in seen_packages:
+                    duplicate_packages.add(requirement.name)
+                    log.warning(
+                        "Duplicate package '%s' found in Anaconda requirements. "
+                        "Ignoring: %s",
+                        requirement.name,
+                        requirement.name_and_version,
+                    )
+                else:
+                    seen_packages.add(requirement.name)
+                    deduplicated_requirements.append(requirement)
+
+        if duplicate_packages:
+            log.warning(
+                "Found duplicate Anaconda packages: %s. "
+                "Consider consolidating package versions in requirements.txt.",
+                ", ".join(sorted(duplicate_packages)),
+            )
+
+        formatted_requirements = []
+        for requirement in deduplicated_requirements:
+            snowflake_name = self._packages[requirement.name].snowflake_name
+            formatted_requirements.append(snowflake_name + requirement.formatted_specs)
 
         if formatted_requirements:
             file_path.write_text("\n".join(formatted_requirements))
