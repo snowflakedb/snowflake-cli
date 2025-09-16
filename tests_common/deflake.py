@@ -163,12 +163,19 @@ class DeflakePlugin:
                 "Exceeded maximum number of inbound queries allowed for this instance",
             ),
             ("setup", "GS instance is still unavailable at"),
+            (
+                "call",
+                "Insufficient resource during interleaved execution",
+            ),
         ]
         for phase, known_message in known_server_issues:
             phase_info = getattr(test, phase)
             # match messages via regex, as they might be printed in multiple lines / pretty formatted by typer etc.
-            regex = ".*".join(re.escape(word) for word in known_message.split())
-            if re.search(regex, phase_info.longrepr):
+            # regex pattern allows whitespace, punctuation, and box-drawing chars but not entire phrases.
+            regex = r"\s*[^\w]*\s*".join(
+                re.escape(word) for word in known_message.split()
+            )
+            if re.search(regex, phase_info.longrepr, re.DOTALL):
                 return True
         return False
 
