@@ -45,7 +45,10 @@ class StreamlitManager(SqlExecutionMixin):
         if not entity_model.grants:
             return
         for grant in entity_model.grants:
-            self.execute_query(grant.get_grant_sql(entity_model))
+            # Use connection context to ensure proper database/schema qualification
+            fqn_with_context = entity_model.fqn.using_connection(self._conn)
+            grant_sql = f"GRANT {grant.privilege} ON {entity_model.get_type().upper()} {fqn_with_context.sql_identifier} TO ROLE {grant.role}"
+            self.execute_query(grant_sql)
 
     def get_url(self, streamlit_name: FQN) -> str:
         try:
