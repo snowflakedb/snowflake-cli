@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Grant privileges defined in `snowflake.yml` after deploying Streamlit
 
 
 # v3.12.0
