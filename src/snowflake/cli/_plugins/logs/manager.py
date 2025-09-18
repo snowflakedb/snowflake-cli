@@ -96,7 +96,9 @@ class LogsManager(SqlExecutionMixin):
         # Build the object name condition based on partial_match flag
         if partial_match:
             # Use ILIKE for case-insensitive partial matching with wildcards
-            escaped_pattern = escape_like_pattern(escaped_object_name)
+            escaped_pattern = escape_like_pattern(
+                escaped_object_name, escape_sequence="\\"
+            )
             object_condition = f"object_name ILIKE '%{escaped_pattern}%'"
         else:
             # Use exact match (original behavior)
