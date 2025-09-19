@@ -122,9 +122,7 @@ def test_partial_match_query_construction(
     assert queries[0] == snapshot
 
 
-@pytest.mark.parametrize(
-    "object_name", ["test_obj_with_underscore", "test_obj_with_percent"]
-)
+@pytest.mark.parametrize("object_name", ["test_obj_with_underscore", '"test%obj"'])
 def test_partial_match_with_like_wildcards(
     mock_connect, mock_ctx, runner, snapshot, object_name
 ):
