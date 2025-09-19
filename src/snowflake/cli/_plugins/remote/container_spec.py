@@ -47,22 +47,32 @@ from snowflake.cli._plugins.remote.utils import (
     ImageSpec,
     format_stage_path,
     get_node_resources,
+    parse_image_string,
 )
 
 
 def _get_image_spec(
-    session: snowpark.Session, compute_pool: str, image_tag: Optional[str] = None
+    session: snowpark.Session, compute_pool: str, image: Optional[str] = None
 ) -> ImageSpec:
     """Get appropriate image specification based on compute pool."""
     # Retrieve compute pool node resources
     resources = get_node_resources(session, compute_pool=compute_pool)
 
-    # Use MLRuntime image - select CPU or GPU based on resources
-    image_repo = DEFAULT_IMAGE_REPO
-    image_name = DEFAULT_IMAGE_GPU if resources.gpu > 0 else DEFAULT_IMAGE_CPU
+    # Set defaults
+    default_image_name = DEFAULT_IMAGE_GPU if resources.gpu > 0 else DEFAULT_IMAGE_CPU
 
-    # Use provided image_tag or fall back to default
-    if not image_tag:
+    if image:
+        # Parse the image string
+        parsed_repo, parsed_image_name, parsed_tag = parse_image_string(image)
+
+        # Use parsed values or fall back to defaults
+        image_repo = parsed_repo or DEFAULT_IMAGE_REPO
+        image_name = parsed_image_name or default_image_name
+        image_tag = parsed_tag or DEFAULT_IMAGE_TAG
+    else:
+        # Use all defaults
+        image_repo = DEFAULT_IMAGE_REPO
+        image_name = default_image_name
         image_tag = DEFAULT_IMAGE_TAG
 
     return ImageSpec(
@@ -78,7 +88,7 @@ def generate_service_spec(
     session: snowpark.Session,
     compute_pool: str,
     stage: Optional[str] = None,
-    image_tag: Optional[str] = None,
+    image: Optional[str] = None,
     ssh_public_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -88,7 +98,7 @@ def generate_service_spec(
         session: Snowflake session
         compute_pool: Compute pool for service execution
         stage: Optional internal Snowflake stage to mount (e.g., @my_stage)
-        image_tag: Optional custom image tag to use
+        image: Optional custom image (can be full path like 'repo/image:tag' or just tag like '1.7.1')
         ssh_public_key: Optional SSH public key to inject for secure authentication
 
     Returns:
@@ -99,7 +109,7 @@ def generate_service_spec(
         # Normalize and validate the stage path (raises ValueError if invalid)
         stage = format_stage_path(stage)
 
-    image_spec = _get_image_spec(session, compute_pool, image_tag)
+    image_spec = _get_image_spec(session, compute_pool, image)
 
     # Set resource requests/limits
     # This is a temporary fix to SPCS preprod8 bug to ensure the container has enough memory.
@@ -273,7 +283,7 @@ def generate_service_spec_yaml(
     session: snowpark.Session,
     compute_pool: str,
     stage: Optional[str] = None,
-    image_tag: Optional[str] = None,
+    image: Optional[str] = None,
     ssh_public_key: Optional[str] = None,
 ) -> str:
     """
@@ -285,7 +295,7 @@ def generate_service_spec_yaml(
         session: Snowflake session
         compute_pool: Compute pool for service execution
         stage: Optional internal Snowflake stage to mount (e.g., @my_stage)
-        image_tag: Optional custom image tag to use
+        image: Optional custom image (can be full path like 'repo/image:tag' or just tag like '1.7.1')
         ssh_public_key: Optional SSH public key to inject for secure authentication
 
     Returns:
@@ -295,7 +305,7 @@ def generate_service_spec_yaml(
         session=session,
         compute_pool=compute_pool,
         stage=stage,
-        image_tag=image_tag,
+        image=image,
         ssh_public_key=ssh_public_key,
     )
     return yaml.dump(spec, default_flow_style=False)
