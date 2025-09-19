@@ -887,10 +887,8 @@ class RemoteManager(SqlExecutionMixin):
         from snowflake.cli._app.snow_connector import connect_to_snowflake
 
         fresh_connection = None
-        try:
-            log.debug("Creating fresh connection for SSH token...")
 
-            current_context = get_cli_context().connection_context
+        current_context = get_cli_context().connection_context
 
         # Create connection with natural session expiration for SSH token refresh
         fresh_connection = connect_to_snowflake(
