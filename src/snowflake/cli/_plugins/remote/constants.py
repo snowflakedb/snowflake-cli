@@ -84,7 +84,7 @@ DEFAULT_SERVICE_TIMEOUT_MINUTES = 10
 DEFAULT_IMAGE_REPO = "/snowflake/images/snowflake_images"
 DEFAULT_IMAGE_CPU = "st_plat/runtime/x86/runtime_image/snowbooks"
 DEFAULT_IMAGE_GPU = "st_plat/runtime/x86/generic_gpu/runtime_image/snowbooks"
-DEFAULT_IMAGE_TAG = "1.7.2"
+DEFAULT_IMAGE_TAG = "1.9.1"
 
 # Percent of container memory to allocate for /dev/shm volume
 MEMORY_VOLUME_SIZE = 0.3
