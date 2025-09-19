@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import decimal
 import logging
 import os
 
@@ -21,6 +20,3 @@ logging.getLogger("snowflake").setLevel(logging.ERROR)
 
 # Restrict permissions of all created files
 os.umask(0o077)
-
-# Set Decimal precision to reflect precision on Snowflake
-decimal.getcontext().prec = 38
