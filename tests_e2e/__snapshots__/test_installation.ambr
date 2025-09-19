@@ -39,6 +39,7 @@
   | logs                 Retrieves logs for a given object.                      |
   | notebook             Manages notebooks in Snowflake.                         |
   | object               Manages Snowflake objects like warehouses and stages    |
+  | remote               Manages remote development environments.                |
   | snowpark             Manages procedures and functions.                       |
   | spcs                 Manages Snowpark Container Services compute pools,      |
   |                      services, image registries, and image repositories.     |
@@ -102,6 +103,7 @@
   | logs         Retrieves logs for a given object.                              |
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
+  | remote       Manages remote development environments.                        |
   | snowpark     Manages procedures and functions.                               |
   | spcs         Manages Snowpark Container Services compute pools, services,    |
   |              image registries, and image repositories.                       |
@@ -146,6 +148,7 @@
   | logs                 Retrieves logs for a given object.                      |
   | notebook             Manages notebooks in Snowflake.                         |
   | object               Manages Snowflake objects like warehouses and stages    |
+  | remote               Manages remote development environments.                |
   | snowpark             Manages procedures and functions.                       |
   | spcs                 Manages Snowpark Container Services compute pools,      |
   |                      services, image registries, and image repositories.     |
@@ -229,6 +232,7 @@
   | logs         Retrieves logs for a given object.                              |
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
+  | remote       Manages remote development environments.                        |
   | snowpark     Manages procedures and functions.                               |
   | spcs         Manages Snowpark Container Services compute pools, services,    |
   |              image registries, and image repositories.                       |
