@@ -1,6 +1,6 @@
 python3.10 -m venv venv
 source venv/bin/activate
-python -m pip install --upgrade pip hatch
+python -m pip install --upgrade pip click==8.2.1 hatch
 
 echo "Test cleanup"
 python -m hatch env create integration
