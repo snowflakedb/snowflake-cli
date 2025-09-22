@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Fixed `snow spcs logs` `IndexOutOfRange` error
 
 
 # v3.12.0
