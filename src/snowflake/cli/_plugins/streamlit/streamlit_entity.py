@@ -63,7 +63,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         )
 
     def _is_spcs_runtime_v2_mode(self, experimental: bool = False) -> bool:
-        """Check if SPCS runtime v2 mode is enabled"""
+        """Check if SPCS runtime v2 mode is enabled."""
         return (
             experimental
             and self.model.runtime_name == "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
