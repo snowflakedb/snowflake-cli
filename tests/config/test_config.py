@@ -156,17 +156,19 @@ def test_get_all_connections(test_snowcli_config):
     }
 
 
-@mock.patch("snowflake.cli.api.config.CONFIG_MANAGER")
-@mock.patch("snowflake.cli.api.config.get_config_section")
+@mock.patch("snowflake.cli.api.config.legacy.get_config_manager")
+@mock.patch("snowflake.cli._app.loggers.create_initial_loggers")
 def test_create_default_config_if_not_exists_with_proper_permissions(
-    mock_get_config_section,
-    mock_config_manager,
+    mock_create_initial_loggers,
+    mock_get_config_manager,
 ):
-    mock_get_config_section.return_value = {}
+    mock_create_initial_loggers.return_value = None  # Skip logger creation
     with TemporaryDirectory() as tmp_dir:
         config_path = Path(f"{tmp_dir}/snowflake/config.toml")
+        mock_config_manager = mock.MagicMock()
         mock_config_manager.file_path = config_path
         mock_config_manager.conf_file_cache = {}
+        mock_get_config_manager.return_value = mock_config_manager
 
         config_init(None)
 
@@ -225,9 +227,9 @@ def test_not_found_default_connection_from_evn_variable(test_root_path):
 
 
 def test_correct_updates_of_connections_on_setting_default_connection(
-    test_snowcli_config, snowflake_home
+    test_snowcli_config, snowflake_home, clean_config_manager
 ):
-    from snowflake.cli.api.config import CONFIG_MANAGER
+    config_manager, force_reload = clean_config_manager
 
     config = test_snowcli_config
     connections_toml = snowflake_home / "connections.toml"
@@ -236,7 +238,7 @@ def test_correct_updates_of_connections_on_setting_default_connection(
     database = "asdf_a_database"
     user = "asdf_a"
     account = "asdf_a"
-    
+
     [asdf_b]
     database = "asdf_b_database"
     user = "asdf_b"
@@ -244,11 +246,13 @@ def test_correct_updates_of_connections_on_setting_default_connection(
     """
     )
     config_init(config)
+    # Force reload after config_init to pick up connections.toml
+    force_reload()
     set_config_value(path=["default_connection_name"], value="asdf_b")
 
     def assert_correct_connections_loaded():
-        assert CONFIG_MANAGER["default_connection_name"] == "asdf_b"
-        assert CONFIG_MANAGER["connections"] == {
+        assert config_manager["default_connection_name"] == "asdf_b"
+        assert config_manager["connections"] == {
             "asdf_a": {
                 "database": "asdf_a_database",
                 "user": "asdf_a",
@@ -299,9 +303,11 @@ def test_correct_updates_of_connections_on_setting_default_connection(
 
 
 def test_correct_updates_of_connections_on_setting_default_connection_for_empty_config_file(
-    config_file, snowflake_home
+    config_file, snowflake_home, reset_config_manager
 ):
-    from snowflake.cli.api.config import CONFIG_MANAGER
+    from snowflake.cli.api.config.legacy import get_config_manager
+
+    config_manager = get_config_manager()
 
     with config_file() as config:
         connections_toml = snowflake_home / "connections.toml"
@@ -318,11 +324,13 @@ def test_correct_updates_of_connections_on_setting_default_connection_for_empty_
         """
         )
         config_init(config)
+        # Force reload after config_init to pick up connections.toml
+        config_manager.force_reload()
         set_config_value(path=["default_connection_name"], value="asdf_b")
 
         def assert_correct_connections_loaded():
-            assert CONFIG_MANAGER["default_connection_name"] == "asdf_b"
-            assert CONFIG_MANAGER["connections"] == {
+            assert config_manager["default_connection_name"] == "asdf_b"
+            assert config_manager["connections"] == {
                 "asdf_a": {
                     "database": "asdf_a_database",
                     "user": "asdf_a",
@@ -372,8 +380,12 @@ def test_correct_updates_of_connections_on_setting_default_connection_for_empty_
         assert_correct_connections_loaded()
 
 
-def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_home):
-    from snowflake.cli.api.config import CONFIG_MANAGER
+def test_connections_toml_override_config_toml(
+    test_snowcli_config, snowflake_home, reset_config_manager
+):
+    from snowflake.cli.api.config.legacy import get_config_manager
+
+    config_manager = get_config_manager()
 
     connections_toml = snowflake_home / "connections.toml"
     connections_toml.write_text(
@@ -382,9 +394,11 @@ def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_ho
     """
     )
     config_init(test_snowcli_config)
+    # Force reload after config_init to pick up connections.toml
+    config_manager.force_reload()
 
     assert get_default_connection_dict() == {"database": "overridden_database"}
-    assert CONFIG_MANAGER["connections"] == {
+    assert config_manager["connections"] == {
         "default": {"database": "overridden_database"}
     }
 
@@ -435,13 +449,16 @@ def _windows_grant_permissions(permissions: str, file: Path) -> None:
 def test_too_wide_permissions_on_default_config_file_causes_error(
     snowflake_home: Path, chmod
 ):
-    config_path = snowflake_home / "config.toml"
-    config_path.touch()
-    config_path.chmod(chmod)
+    from snowflake.cli.api.config.legacy import isolated_config
 
-    with pytest.raises(ConfigFileTooWidePermissionsError) as error:
-        config_init(None)
-    assert "config.toml has too wide permissions" in error.value.message
+    with isolated_config(snowflake_home):
+        config_path = snowflake_home / "config.toml"
+        config_path.touch()
+        config_path.chmod(chmod)
+
+        with pytest.raises(ConfigFileTooWidePermissionsError) as error:
+            config_init(None)
+        assert "config.toml has too wide permissions" in error.value.message
 
 
 @parametrize_icacls
@@ -512,15 +529,18 @@ def test_too_wide_permissions_on_custom_config_file_causes_warning_windows(permi
 def test_too_wide_permissions_on_default_connections_file_causes_error(
     snowflake_home: Path, chmod
 ):
-    config_path = snowflake_home / "config.toml"
-    config_path.touch()
-    connections_path = snowflake_home / "connections.toml"
-    connections_path.touch()
-    connections_path.chmod(chmod)
+    from snowflake.cli.api.config.legacy import isolated_config
 
-    with pytest.raises(ConfigFileTooWidePermissionsError) as error:
-        config_init(None)
-    assert "connections.toml has too wide permissions" in error.value.message
+    with isolated_config(snowflake_home):
+        config_path = snowflake_home / "config.toml"
+        config_path.touch()
+        connections_path = snowflake_home / "connections.toml"
+        connections_path.touch()
+        connections_path.chmod(chmod)
+
+        with pytest.raises(ConfigFileTooWidePermissionsError) as error:
+            config_init(None)
+        assert "connections.toml has too wide permissions" in error.value.message
 
 
 @parametrize_icacls

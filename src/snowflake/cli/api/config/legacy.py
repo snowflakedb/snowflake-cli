@@ -46,7 +46,6 @@ from snowflake.cli.api.utils.dict_utils import remove_key_from_nested_dict_if_ex
 from snowflake.cli.api.utils.types import try_cast_to_bool
 from snowflake.connector.compat import IS_WINDOWS
 from snowflake.connector.config_manager import CONFIG_MANAGER
-from snowflake.connector.constants import CONFIG_FILE, CONNECTIONS_FILE
 from snowflake.connector.errors import ConfigSourceError, MissingConfigOptionError
 from tomlkit import TOMLDocument, dump
 from tomlkit.container import Container
@@ -79,6 +78,216 @@ CONFIG_MANAGER.add_option(
     parse_str=tomlkit.parse,
     default=dict(),
 )
+
+
+class ConfigManagerWrapper:
+    """
+    Wrapper around CONFIG_MANAGER that provides testable interface.
+
+    This allows for dependency injection and clean test isolation
+    without relying on module reloading or singleton state management.
+    """
+
+    def __init__(self, config_manager=None):
+        self._config_manager = config_manager or CONFIG_MANAGER
+
+    def __getitem__(self, key):
+        """Delegate dict-like access to the underlying config manager."""
+        return self._config_manager[key]
+
+    def __setitem__(self, key, value):
+        """Delegate dict-like assignment to the underlying config manager."""
+        self._config_manager[key] = value
+
+    @property
+    def file_path(self):
+        """Get the config file path."""
+        return self._config_manager.file_path
+
+    @file_path.setter
+    def file_path(self, value):
+        """Set the config file path."""
+        self._config_manager.file_path = value
+
+    @property
+    def conf_file_cache(self):
+        """Get the config file cache."""
+        return self._config_manager.conf_file_cache
+
+    @conf_file_cache.setter
+    def conf_file_cache(self, value):
+        """Set the config file cache."""
+        self._config_manager.conf_file_cache = value
+
+    def read_config(self):
+        """Read configuration from files."""
+        return self._config_manager.read_config()
+
+    def use_default_paths(self, temp_dir: Path):
+        """Set config manager to use default paths in the test directory."""
+        from snowflake.connector.constants import CONFIG_FILE
+
+        self._config_manager.file_path = CONFIG_FILE
+
+    def force_reload(self):
+        """Force CONFIG_MANAGER to reload configuration from disk."""
+        # Clear all cached state to force reload
+        self._config_manager.conf_file_cache = None
+
+        # Clear any cached option values
+        if hasattr(self._config_manager, "_options"):
+            for option in getattr(self._config_manager, "_options", {}).values():
+                if hasattr(option, "_cached_value"):
+                    setattr(option, "_cached_value", None)
+                if hasattr(option, "_value"):
+                    setattr(option, "_value", None)
+
+        # Clear slices and re-initialize them to detect connections.toml
+        setattr(self._config_manager, "_slices", [])
+
+        # Re-add connections slice if it exists
+        from snowflake.connector.constants import CONNECTIONS_FILE
+
+        if CONNECTIONS_FILE.exists():
+            from snowflake.connector.config_manager import (
+                ConfigSlice,
+                ConfigSliceOptions,
+            )
+
+            _slices = getattr(self._config_manager, "_slices", []) or []
+            _slices.append(
+                ConfigSlice(
+                    path=CONNECTIONS_FILE,
+                    options=ConfigSliceOptions(
+                        check_permissions=True, only_in_slice=False
+                    ),
+                    section="connections",
+                )
+            )
+            setattr(self._config_manager, "_slices", _slices)
+
+        # Force re-reading configuration
+        self._config_manager.read_config()
+
+    def reset_for_testing(self, temp_dir: Path):
+        """
+        Reset config manager state for testing with isolated paths.
+
+        This provides clean isolation without module reloading.
+        """
+        # Clear all cached state
+        self._config_manager.conf_file_cache = None
+
+        # Clear slices and reset with test paths
+        setattr(self._config_manager, "_slices", [])
+
+        # Reset cached option values
+        if hasattr(self._config_manager, "_options"):
+            for option in getattr(self._config_manager, "_options", {}).values():
+                if hasattr(option, "_cached_value"):
+                    setattr(option, "_cached_value", None)
+                if hasattr(option, "_value"):
+                    setattr(option, "_value", None)
+
+        # Set file_path to default for isolated tests (like permission tests)
+        # Tests that need specific config files should not use isolated_config
+        from snowflake.connector.constants import CONFIG_FILE
+
+        self._config_manager.file_path = CONFIG_FILE
+
+        # Re-add connections slice with test path
+        connections_file = temp_dir / "connections.toml"
+        from snowflake.connector.config_manager import ConfigSlice, ConfigSliceOptions
+
+        _slices = [
+            ConfigSlice(
+                path=connections_file,
+                options=ConfigSliceOptions(check_permissions=True, only_in_slice=False),
+                section="connections",
+            )
+        ]
+        setattr(self._config_manager, "_slices", _slices)
+
+
+# Global config manager instance - can be replaced for testing
+_current_config_manager = ConfigManagerWrapper()
+
+
+def get_config_manager() -> ConfigManagerWrapper:
+    """Get the current config manager instance."""
+    return _current_config_manager
+
+
+def set_config_manager_for_testing(config_manager: ConfigManagerWrapper):
+    """Replace the global config manager for testing."""
+    global _current_config_manager
+    _current_config_manager = config_manager
+
+
+def force_config_reload():
+    """Force the global config manager to reload configuration from disk."""
+    get_config_manager().force_reload()
+
+
+def reset_config_manager_completely():
+    """
+    Completely reset CONFIG_MANAGER state by clearing all caches.
+
+    This is a more aggressive reset for tests that need completely clean state.
+    """
+    # Get the current config manager
+    config_manager = get_config_manager()
+    internal_config_manager = getattr(config_manager, "_config_manager")
+
+    # Clear all cached state
+    setattr(internal_config_manager, "conf_file_cache", None)
+    setattr(internal_config_manager, "_slices", [])
+
+    # Clear cached option values
+    if hasattr(internal_config_manager, "_options"):
+        for option in getattr(internal_config_manager, "_options").values():
+            if hasattr(option, "_cached_value"):
+                setattr(option, "_cached_value", None)
+            if hasattr(option, "_value"):
+                setattr(option, "_value", None)
+
+    # Clear sub-managers cache to force reconstruction
+    if hasattr(internal_config_manager, "_sub_managers"):
+        getattr(internal_config_manager, "_sub_managers").clear()
+
+    # Force a fresh read of configuration
+    internal_config_manager.read_config()
+
+
+@contextmanager
+def isolated_config(temp_dir: Path):
+    """
+    Context manager that provides isolated config for testing.
+
+    This eliminates the need for module reloading and complex state management.
+
+    Usage:
+        with isolated_config(tmp_path / ".snowflake"):
+            # All config operations are isolated to temp_dir
+            config_init(None)
+            set_config_value(["default_connection_name"], "test")
+    """
+    # Create a fresh wrapper for testing
+    test_wrapper = ConfigManagerWrapper()
+    original_wrapper = get_config_manager()
+
+    try:
+        # Set up isolated environment
+        test_wrapper.reset_for_testing(temp_dir)
+        set_config_manager_for_testing(test_wrapper)
+
+        # Don't override with monitoring wrapper - let tests set their own config file paths
+        # The key isolation is in the reset_for_testing method
+
+        yield test_wrapper
+    finally:
+        # Restore original config manager
+        set_config_manager_for_testing(original_wrapper)
 
 
 @dataclass
@@ -147,7 +356,7 @@ class ConnectionConfig:
 # Default configuration values
 _DEFAULT_LOGS_CONFIG = {
     "save_logs": True,
-    "path": str(CONFIG_MANAGER.file_path.parent / "logs"),
+    "path": str(get_config_manager().file_path.parent / "logs"),
     "level": "info",
 }
 
@@ -163,12 +372,13 @@ def config_init(config_file: Optional[Path]) -> None:
     """
     from snowflake.cli._app.loggers import create_initial_loggers
 
+    config_manager = get_config_manager()
     if config_file:
-        CONFIG_MANAGER.file_path = config_file
+        config_manager.file_path = config_file
     else:
         _check_default_config_files_permissions()
-    if not CONFIG_MANAGER.file_path.exists():
-        _initialise_config(CONFIG_MANAGER.file_path)
+    if not config_manager.file_path.exists():
+        _initialise_config(config_manager.file_path)
     _read_config_file()
     create_initial_loggers()
 
@@ -177,6 +387,8 @@ def add_connection_to_proper_file(
     name: str, connection_config: ConnectionConfig
 ) -> Path:
     """Add connection to the appropriate configuration file."""
+    from snowflake.connector.constants import CONNECTIONS_FILE
+
     if CONNECTIONS_FILE.exists():
         existing_connections = _read_connections_toml()
         existing_connections.update(
@@ -189,11 +401,13 @@ def add_connection_to_proper_file(
             path=[CONNECTIONS_SECTION, name],
             value=connection_config.to_dict_of_all_non_empty_values(),
         )
-        return CONFIG_MANAGER.file_path
+        return get_config_manager().file_path
 
 
 def remove_connection_from_proper_file(name: str) -> Path:
     """Remove connection from the appropriate configuration file."""
+    from snowflake.connector.constants import CONNECTIONS_FILE
+
     if CONNECTIONS_FILE.exists():
         existing_connections = _read_connections_toml()
         if name not in existing_connections:
@@ -203,14 +417,15 @@ def remove_connection_from_proper_file(name: str) -> Path:
         return CONNECTIONS_FILE
     else:
         unset_config_value(path=[CONNECTIONS_SECTION, name])
-        return CONFIG_MANAGER.file_path
+        return get_config_manager().file_path
 
 
 @contextmanager
 def _config_file():
     """Context manager for configuration file operations."""
     _read_config_file()
-    conf_file_cache = CONFIG_MANAGER.conf_file_cache
+    config_manager = get_config_manager()
+    conf_file_cache = config_manager.conf_file_cache
     yield conf_file_cache
     _dump_config(conf_file_cache)
 
@@ -225,19 +440,21 @@ def _read_config_file() -> None:
                 module="snowflake.connector.config_manager",
             )
 
-            if not file_permissions_are_strict(CONFIG_MANAGER.file_path):
+            config_manager = get_config_manager()
+            if not file_permissions_are_strict(config_manager.file_path):
                 users = ", ".join(
                     windows_get_not_whitelisted_users_with_access(
-                        CONFIG_MANAGER.file_path
+                        config_manager.file_path
                     )
                 )
                 warnings.warn(
-                    f"Unauthorized users ({users}) have access to configuration file {CONFIG_MANAGER.file_path}.\n"
-                    f'Run `icacls "{CONFIG_MANAGER.file_path}" /remove:g <USER_ID>` on those users to restrict permissions.'
+                    f"Unauthorized users ({users}) have access to configuration file {config_manager.file_path}.\n"
+                    f'Run `icacls "{config_manager.file_path}" /remove:g <USER_ID>` on those users to restrict permissions.'
                 )
 
         try:
-            CONFIG_MANAGER.read_config()
+            config_manager = get_config_manager()
+            config_manager.read_config()
         except ConfigSourceError as exception:
             raise ClickException(
                 f"Configuration file seems to be corrupted. {str(exception.__cause__)}"
@@ -334,7 +551,7 @@ def get_connection_dict(connection_name: str) -> dict:
 
 def get_default_connection_name() -> str:
     """Get the default connection name."""
-    return CONFIG_MANAGER["default_connection_name"]
+    return get_config_manager()["default_connection_name"]
 
 
 def get_default_connection_dict() -> dict:
@@ -422,12 +639,14 @@ def _initialise_config(config_file: Path) -> None:
     config_file.touch()
     _initialise_cli_section()
     _initialise_logs_section()
-    log.info("Created Snowflake configuration file at %s", CONFIG_MANAGER.file_path)
+    log.info(
+        "Created Snowflake configuration file at %s", get_config_manager().file_path
+    )
 
 
 def _find_section(*path) -> TOMLDocument:
     """Find a configuration section by path."""
-    section = CONFIG_MANAGER
+    section = get_config_manager()
     idx = 0
     while idx < len(path):
         section = section[path[idx]]
@@ -458,6 +677,8 @@ def _get_envs_for_path(*path) -> dict:
 
 def _dump_config(config_and_connections: Dict) -> None:
     """Dump configuration to files."""
+    from snowflake.connector.constants import CONNECTIONS_FILE
+
     config_toml_dict = config_and_connections.copy()
 
     if CONNECTIONS_FILE.exists():
@@ -473,12 +694,15 @@ def _dump_config(config_and_connections: Dict) -> None:
         else:
             config_toml_dict.pop("connections", None)
 
-    with SecurePath(CONFIG_MANAGER.file_path).open("w+") as fh:
+    with SecurePath(get_config_manager().file_path).open("w+") as fh:
         dump(config_toml_dict, fh)
 
 
 def _check_default_config_files_permissions() -> None:
     """Check permissions on default configuration files."""
+    # Import constants inside the function to get updated values after module reload
+    from snowflake.connector.constants import CONFIG_FILE, CONNECTIONS_FILE
+
     if not IS_WINDOWS:
         if CONNECTIONS_FILE.exists() and not file_permissions_are_strict(
             CONNECTIONS_FILE
@@ -490,15 +714,19 @@ def _check_default_config_files_permissions() -> None:
 
 def _read_config_file_toml() -> dict:
     """Read configuration file as TOML."""
-    return tomlkit.loads(CONFIG_MANAGER.file_path.read_text()).unwrap()
+    return tomlkit.loads(get_config_manager().file_path.read_text()).unwrap()
 
 
 def _read_connections_toml() -> dict:
     """Read connections file as TOML."""
+    from snowflake.connector.constants import CONNECTIONS_FILE
+
     return tomlkit.loads(CONNECTIONS_FILE.read_text()).unwrap()
 
 
 def _update_connections_toml(connections: dict) -> None:
     """Update connections TOML file."""
+    from snowflake.connector.constants import CONNECTIONS_FILE
+
     with open(CONNECTIONS_FILE, "w") as f:
         f.write(tomlkit.dumps(connections))

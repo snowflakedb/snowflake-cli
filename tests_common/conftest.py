@@ -11,14 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import importlib
 import os
-import shutil
 import sys
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator, List
 from unittest import mock
 
 import pytest
@@ -89,66 +86,86 @@ def example_entity(project_directory, workspace_context):
 @pytest.fixture
 def snowflake_home(monkeypatch):
     """
-    Set up the default location of config files to [temporary_directory]/.snowflake
+    Provide isolated config environment for testing.
+
+    Uses the hybrid approach with dependency injection and minimal module reloading.
     """
     with tempfile.TemporaryDirectory() as tmp_dir:
         snowflake_home = Path(tmp_dir) / ".snowflake"
         snowflake_home.mkdir()
+
+        # Set environment variable for any code that reads it directly
         monkeypatch.setenv("SNOWFLAKE_HOME", str(snowflake_home))
-        for module in [
-            sys.modules["snowflake.connector.constants"],
-            sys.modules["snowflake.connector.config_manager"],
-            sys.modules["snowflake.connector.log_configuration"],
-            sys.modules["snowflake.cli.api.config"],
-        ]:
-            importlib.reload(module)
 
-        # Also reload the config submodules since config is now a package
-        for submodule in [
-            "snowflake.cli.api.config.legacy",
-            "snowflake.cli.api.config.config_ng",
-        ]:
-            if submodule in sys.modules:
-                importlib.reload(sys.modules[submodule])
+        # We still need to reload the constants module to update CONFIG_FILE and CONNECTIONS_FILE
+        # This is necessary for permission checking which uses these global constants
+        import importlib
+        import snowflake.connector.constants  # Import first
 
-        # Clear CONFIG_MANAGER cache to ensure clean state between tests
-        from snowflake.connector.config_manager import CONFIG_MANAGER
+        importlib.reload(snowflake.connector.constants)
 
-        if hasattr(CONFIG_MANAGER, "conf_file_cache"):
-            CONFIG_MANAGER.conf_file_cache = None
-        # Clear internal slices and options that cache configuration data
-        if hasattr(CONFIG_MANAGER, "_slices"):
-            CONFIG_MANAGER._slices = []
-        # Reset each option's cached data
-        if hasattr(CONFIG_MANAGER, "_options"):
-            for option in CONFIG_MANAGER._options.values():
-                if hasattr(option, "_cached_value"):
-                    option._cached_value = None
-                if hasattr(option, "_value"):
-                    option._value = None
-
-        # Force CONFIG_MANAGER to re-initialize with new SNOWFLAKE_HOME
-        # This ensures slices point to the test directory
-        from snowflake.connector.constants import CONNECTIONS_FILE
-
-        if hasattr(CONFIG_MANAGER, "_slices") and CONNECTIONS_FILE:
-            # Re-add the connections slice with the correct test path
-            from snowflake.connector.config_manager import (
-                ConfigSlice,
-                ConfigSliceOptions,
-            )
-
-            CONFIG_MANAGER._slices = [
-                ConfigSlice(
-                    path=CONNECTIONS_FILE,
-                    options=ConfigSliceOptions(
-                        check_permissions=True, only_in_slice=False
-                    ),
-                    section="connections",
-                )
-            ]
-
+        # Just provide the isolated snowflake_home directory and updated constants
+        # Don't use isolated_config here as it interferes with tests that use specific config files
+        # Tests that need isolated CONFIG_MANAGER state should use isolated_config explicitly
         yield snowflake_home
+
+
+@pytest.fixture
+def reset_config_manager():
+    """
+    Fixture that completely resets CONFIG_MANAGER state before each test.
+
+    This ensures clean config state for tests that need to manipulate connections.toml
+    or other config manager state without interference from previous tests.
+
+    Usage:
+        def test_something(reset_config_manager):
+            # CONFIG_MANAGER is now in a clean state
+            config_init(some_config_file)
+            # ... test logic
+    """
+    from snowflake.cli.api.config.legacy import reset_config_manager_completely
+
+    # Reset before the test runs
+    reset_config_manager_completely()
+
+    yield
+
+    # Optionally reset after the test as well for extra cleanliness
+    reset_config_manager_completely()
+
+
+@pytest.fixture
+def clean_config_manager():
+    """
+    Fixture that provides a clean CONFIG_MANAGER with force reload capability.
+
+    This is specifically for tests that need to test connections.toml override behavior.
+    It returns a tuple of (CONFIG_MANAGER, force_reload_function) for convenience.
+
+    Usage:
+        def test_something(clean_config_manager):
+            CONFIG_MANAGER, force_reload = clean_config_manager
+            # Create connections.toml
+            config_init(some_file)
+            force_reload()  # Ensure connections.toml is detected
+            # ... test logic
+    """
+    from snowflake.cli.api.config.legacy import (
+        reset_config_manager_completely,
+        get_config_manager,
+    )
+
+    # Reset before the test runs
+    reset_config_manager_completely()
+
+    config_manager = get_config_manager()
+    force_reload = config_manager.force_reload
+
+    yield config_manager, force_reload
+
+    # Reset after the test as well for extra cleanliness
+    reset_config_manager_completely()
 
 
 @pytest.fixture
