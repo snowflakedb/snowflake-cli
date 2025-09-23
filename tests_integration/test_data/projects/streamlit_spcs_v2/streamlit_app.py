@@ -1,19 +1,23 @@
 import streamlit as st
-from utils.utils import generate_sample_data
+from utils.utils import hello_world
 
 st.title("My SPCS Streamlit App")
 st.write("This app is running on SPCS runtime v2!")
 
-# Generate sample data using numpy and pandas
-st.header("Sample Data Analysis")
-df = generate_sample_data()
-st.dataframe(df)
+# Simple test content
+st.header("Basic Functionality Test")
+st.write(hello_world())
 
-# Show some basic statistics
-st.header("Data Statistics")
-st.write(f"Dataset shape: {df.shape}")
-st.write(f"Mean values:\n{df.mean()}")
+# Simple data display
+st.header("Simple Data")
+simple_data = {
+    "Name": ["Alice", "Bob", "Charlie"],
+    "Age": [25, 30, 35],
+    "City": ["New York", "San Francisco", "Seattle"],
+}
+st.table(simple_data)
 
-# Create a simple chart
-st.header("Data Visualization")
-st.line_chart(df)
+# Simple chart with built-in data
+st.header("Simple Chart")
+chart_data = [1, 3, 2, 4, 5, 3, 2]
+st.line_chart(chart_data)

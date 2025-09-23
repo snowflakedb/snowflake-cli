@@ -1,2 +1,1 @@
-pandas
-numpy
+# No additional requirements needed for basic Streamlit testing
