@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from snowflake.cli.api.project.schemas.entities.common import (
     Artifacts,
     EntityModelBaseWithArtifacts,
@@ -59,3 +59,18 @@ class StreamlitEntityModel(
         title="The compute pool name of the snowservices running the streamlit app",
         default=None,
     )
+
+    @model_validator(mode="after")
+    def validate_spcs_runtime_fields(self):
+        """Validate that runtime_name and compute_pool are provided together for SPCS container runtime."""
+        # Only validate for SPCS container runtime, not warehouse runtime
+        if self.compute_pool and not self.runtime_name:
+            raise ValueError("compute_pool is specified without runtime_name")
+        if (
+            self.runtime_name == "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
+            and not self.compute_pool
+        ):
+            raise ValueError(
+                "compute_pool is required when using SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
+            )
+        return self
