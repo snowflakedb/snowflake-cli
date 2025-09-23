@@ -62,12 +62,11 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             self._conn, f"/#/streamlit-apps/{name.url_identifier}"
         )
 
-    def _is_spcs_runtime_v2_mode(self) -> bool:
+    def _is_spcs_runtime_v2_mode(self, experimental: bool = False) -> bool:
         """Check if SPCS runtime v2 mode is enabled"""
         return (
-            GlobalFeatureFlag.ENABLE_STREAMLIT_SPCS_RUNTIME_V2.is_enabled()
-            and GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled()  # SPCS Runtime V2 also requires Versioned Stages to be enabled
-            and self.model.runtime_name
+            experimental
+            and self.model.runtime_name == "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
             and self.model.compute_pool
         )
 
@@ -90,7 +89,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         replace: bool,
         prune: bool = False,
         bundle_map: Optional[BundleMap] = None,
-        experimental: Optional[bool] = False,
+        experimental: bool = False,
         *args,
         **kwargs,
     ):
@@ -136,7 +135,11 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             console.step(f"Creating Streamlit object {self.model.fqn.sql_identifier}")
 
             self._execute_query(
-                self.get_deploy_sql(replace=replace, from_stage_name=stage_root)
+                self.get_deploy_sql(
+                    replace=replace,
+                    from_stage_name=stage_root,
+                    experimental=experimental,
+                )
             )
 
         return self.perform(EntityActions.GET_URL, action_context, *args, **kwargs)
@@ -163,6 +166,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         artifacts_dir: Optional[Path] = None,
         schema: Optional[str] = None,
         database: Optional[str] = None,
+        experimental: bool = False,
         *args,
         **kwargs,
     ) -> str:
@@ -206,7 +210,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if self.model.secrets:
             query += "\n" + self.model.get_secrets_sql()
 
-        if self._is_spcs_runtime_v2_mode():
+        if self._is_spcs_runtime_v2_mode(experimental):
             query += f"\nRUNTIME_NAME = '{self.model.runtime_name}'"
             query += f"\nCOMPUTE_POOL = '{self.model.compute_pool}'"
 
@@ -244,6 +248,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             self.get_deploy_sql(
                 if_not_exists=True,
                 replace=replace,
+                experimental=True,
             )
         )
         try:

@@ -130,18 +130,8 @@ class TestStreamlitEntity(StreamlitTestClass):
         assert model.runtime_name == "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
         assert model.compute_pool == "MYPOOL"
 
-    @mock.patch(
-        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled"
-    )
-    @mock.patch(
-        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_SPCS_RUNTIME_V2.is_enabled"
-    )
-    def test_get_deploy_sql_with_spcs_runtime_v2(
-        self, mock_spcs_flag, mock_versioned_flag, workspace_context
-    ):
-        """Test that get_deploy_sql includes RUNTIME_NAME and COMPUTE_POOL when SPCS runtime v2 is enabled"""
-        mock_spcs_flag.return_value = True
-        mock_versioned_flag.return_value = True
+    def test_get_deploy_sql_with_spcs_runtime_v2(self, workspace_context):
+        """Test that get_deploy_sql includes RUNTIME_NAME and COMPUTE_POOL when experimental is True"""
 
         model = StreamlitEntityModel(
             type="streamlit",
@@ -158,23 +148,15 @@ class TestStreamlitEntity(StreamlitTestClass):
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
         # Test with FROM syntax (artifacts_dir provided)
-        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"))
+        sql = entity.get_deploy_sql(
+            artifacts_dir=Path("/tmp/artifacts"), experimental=True
+        )
 
         assert "RUNTIME_NAME = 'SYSTEM$ST_CONTAINER_RUNTIME_PY3_11'" in sql
         assert "COMPUTE_POOL = 'MYPOOL'" in sql
 
-    @mock.patch(
-        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled"
-    )
-    @mock.patch(
-        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_SPCS_RUNTIME_V2.is_enabled"
-    )
-    def test_get_deploy_sql_spcs_runtime_v2_with_stage(
-        self, mock_spcs_flag, mock_versioned_flag, workspace_context
-    ):
-        """Test that SPCS runtime v2 clauses are added with stage-based deployment"""
-        mock_spcs_flag.return_value = True
-        mock_versioned_flag.return_value = True
+    def test_get_deploy_sql_spcs_runtime_v2_with_stage(self, workspace_context):
+        """Test that SPCS runtime v2 clauses are added with stage-based deployment when experimental is True"""
 
         model = StreamlitEntityModel(
             type="streamlit",
@@ -191,24 +173,14 @@ class TestStreamlitEntity(StreamlitTestClass):
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
         # Test with stage-based deployment
-        sql = entity.get_deploy_sql(from_stage_name="@stage/path")
+        sql = entity.get_deploy_sql(from_stage_name="@stage/path", experimental=True)
 
         assert "ROOT_LOCATION = '@stage/path'" in sql
         assert "RUNTIME_NAME = 'SYSTEM$ST_CONTAINER_RUNTIME_PY3_11'" in sql
         assert "COMPUTE_POOL = 'MYPOOL'" in sql
 
-    @mock.patch(
-        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled"
-    )
-    @mock.patch(
-        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_SPCS_RUNTIME_V2.is_enabled"
-    )
-    def test_get_deploy_sql_without_spcs_runtime_v2(
-        self, mock_spcs_flag, mock_versioned_flag, workspace_context
-    ):
-        """Test that get_deploy_sql works normally when SPCS runtime v2 is disabled"""
-        mock_spcs_flag.return_value = False
-        mock_versioned_flag.return_value = False
+    def test_get_deploy_sql_without_spcs_runtime_v2(self, workspace_context):
+        """Test that get_deploy_sql works normally when experimental is False"""
         model = StreamlitEntityModel(
             type="streamlit",
             identifier="test_streamlit",
@@ -223,22 +195,16 @@ class TestStreamlitEntity(StreamlitTestClass):
 
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
-        # Test without feature flag enabled
-        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"))
+        # Test without experimental flag enabled
+        sql = entity.get_deploy_sql(
+            artifacts_dir=Path("/tmp/artifacts"), experimental=False
+        )
 
         assert "RUNTIME_NAME" not in sql
         assert "COMPUTE_POOL" not in sql
 
-    @mock.patch(
-        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled"
-    )
-    @mock.patch(
-        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_SPCS_RUNTIME_V2.is_enabled"
-    )
-    def test_spcs_runtime_v2_requires_both_flags(
-        self, mock_spcs_flag, mock_versioned_flag, workspace_context
-    ):
-        """Test that SPCS runtime v2 requires both feature flags to be enabled"""
+    def test_spcs_runtime_v2_requires_correct_runtime_name(self, workspace_context):
+        """Test that SPCS runtime v2 requires correct runtime name to be enabled"""
         model = StreamlitEntityModel(
             type="streamlit",
             identifier="test_streamlit",
@@ -253,39 +219,31 @@ class TestStreamlitEntity(StreamlitTestClass):
 
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
-        # Test with only SPCS flag enabled
-        mock_spcs_flag.return_value = True
-        mock_versioned_flag.return_value = False
-        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"))
-        assert "RUNTIME_NAME" not in sql
-        assert "COMPUTE_POOL" not in sql
-
-        # Test with only versioned flag enabled
-        mock_spcs_flag.return_value = False
-        mock_versioned_flag.return_value = True
-        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"))
-        assert "RUNTIME_NAME" not in sql
-        assert "COMPUTE_POOL" not in sql
-
-        # Test with both flags enabled
-        mock_spcs_flag.return_value = True
-        mock_versioned_flag.return_value = True
-        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"))
+        # Test with experimental=True and correct runtime_name
+        sql = entity.get_deploy_sql(
+            artifacts_dir=Path("/tmp/artifacts"), experimental=True
+        )
         assert "RUNTIME_NAME = 'SYSTEM$ST_CONTAINER_RUNTIME_PY3_11'" in sql
         assert "COMPUTE_POOL = 'MYPOOL'" in sql
 
-    @mock.patch(
-        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled"
-    )
-    @mock.patch(
-        "snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_STREAMLIT_SPCS_RUNTIME_V2.is_enabled"
-    )
-    def test_spcs_runtime_v2_requires_runtime_and_pool(
-        self, mock_spcs_flag, mock_versioned_flag, workspace_context
-    ):
+        # Test with experimental=False, should not add SPCS fields
+        sql = entity.get_deploy_sql(
+            artifacts_dir=Path("/tmp/artifacts"), experimental=False
+        )
+        assert "RUNTIME_NAME" not in sql
+        assert "COMPUTE_POOL" not in sql
+
+        # Test with wrong runtime_name
+        model.runtime_name = "SOME_OTHER_RUNTIME"
+        entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
+        sql = entity.get_deploy_sql(
+            artifacts_dir=Path("/tmp/artifacts"), experimental=True
+        )
+        assert "RUNTIME_NAME" not in sql
+        assert "COMPUTE_POOL" not in sql
+
+    def test_spcs_runtime_v2_requires_runtime_and_pool(self, workspace_context):
         """Test that SPCS runtime v2 requires both runtime_name and compute_pool"""
-        mock_spcs_flag.return_value = True
-        mock_versioned_flag.return_value = True
 
         from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 
@@ -299,7 +257,9 @@ class TestStreamlitEntity(StreamlitTestClass):
         )
         model.set_entity_id("test_streamlit")
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
-        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"))
+        sql = entity.get_deploy_sql(
+            artifacts_dir=Path("/tmp/artifacts"), experimental=True
+        )
         assert "RUNTIME_NAME" not in sql
         assert "COMPUTE_POOL" not in sql
 
@@ -313,7 +273,9 @@ class TestStreamlitEntity(StreamlitTestClass):
         )
         model.set_entity_id("test_streamlit")
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
-        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"))
+        sql = entity.get_deploy_sql(
+            artifacts_dir=Path("/tmp/artifacts"), experimental=True
+        )
         assert "RUNTIME_NAME" not in sql
         assert "COMPUTE_POOL" not in sql
 
@@ -328,6 +290,8 @@ class TestStreamlitEntity(StreamlitTestClass):
         )
         model.set_entity_id("test_streamlit")
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
-        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"))
+        sql = entity.get_deploy_sql(
+            artifacts_dir=Path("/tmp/artifacts"), experimental=True
+        )
         assert "RUNTIME_NAME = 'SYSTEM$ST_CONTAINER_RUNTIME_PY3_11'" in sql
         assert "COMPUTE_POOL = 'MYPOOL'" in sql
