@@ -629,12 +629,11 @@ class TestRemoteManagerSSH:
         mock_connect.assert_called_once_with(
             connection_name="test_conn",
             temporary_connection=False,
-            using_session_keep_alive=False,
+            using_session_keep_alive=True,
         )
         mock_cursor.execute.assert_called_once_with(
             "ALTER SESSION SET python_connector_query_result_format = 'JSON'"
         )
-        # Connection is designed to expire naturally, no explicit close
 
     @patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
     @patch("snowflake.cli._plugins.remote.manager.get_cli_context")

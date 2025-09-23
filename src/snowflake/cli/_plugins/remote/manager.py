@@ -877,7 +877,7 @@ class RemoteManager(SqlExecutionMixin):
             raise CliError(f"SSH error occurred: {str(e)}")
 
     def _get_fresh_token(self) -> str:
-        """Get a fresh authentication token with natural session expiration.
+        """Get a fresh authentication token with session keep-alive enabled.
 
         Creates a connection that will expire naturally according to Snowflake's
         default session timeout, allowing proper token lifecycle management
@@ -890,12 +890,12 @@ class RemoteManager(SqlExecutionMixin):
 
         current_context = get_cli_context().connection_context
 
-        # Create connection with natural session expiration for SSH token refresh
+        # Create connection with session keep-alive enabled for SSH token refresh
         fresh_connection = connect_to_snowflake(
             connection_name=current_context.connection_name,
             temporary_connection=current_context.temporary_connection,
-            # Allow session to expire naturally - don't keep it alive artificially
-            using_session_keep_alive=False,
+            # Enable session keep-alive to prevent session expiry
+            using_session_keep_alive=True,
         )
 
         # Track the connection and proactively cap the number of live temp connections
