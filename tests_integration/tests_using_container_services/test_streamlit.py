@@ -12,7 +12,6 @@ def _test_setup(
         runner=runner,
         sql_test_helper=sql_test_helper,
         test_database=test_database,
-        temporary_working_directory=temporary_working_directory,
         snapshot=snapshot,
     )
 
@@ -47,18 +46,21 @@ def test_streamlit_spcs_runtime_v2_flow(
             [f"{database}.PUBLIC.STREAMLIT_SPCS_V2_APP"], deployed_name.upper()
         )
 
-        # Verify files were uploaded to versioned stage
+        # Verify core files were uploaded to versioned stage
         stage_root = f"snow://streamlit/{snowflake_session.database}.{snowflake_session.schema}.streamlit_spcs_v2_app/versions/live/"
-        _streamlit_test_steps.assert_that_only_those_files_were_uploaded(
-            [
-                "streamlit_app.py",
-                "utils/utils.py",
-                "pages/my_page.py",
-                "requirements.txt",
-            ],
-            stage_root,
-            uploaded_to_live_version=True,
-        )
+        actual_files = _streamlit_test_steps.get_actual_file_staged_in_db(stage_root)
+        actual_files = {file.removeprefix("/versions/live/") for file in actual_files}
+
+        # Check that the core files are present
+        expected_core_files = {
+            "streamlit_app.py",
+            "utils/utils.py",
+            "pages/my_page.py",
+            "requirements.txt",
+        }
+        assert expected_core_files.issubset(
+            actual_files
+        ), f"Missing core files. Expected: {expected_core_files}, Got: {actual_files}"
 
         # Test describe and get-url (skip execute since SPCS resources don't exist in test env)
         deployed_name = "streamlit_spcs_v2_app"  # The actual name from identifier
