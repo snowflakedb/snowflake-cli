@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Bumped `snowflake-connector-python==3.17.4`
 * Fixed `snow spcs logs` `IndexOutOfRange` error
 
 
