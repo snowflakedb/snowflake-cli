@@ -19,7 +19,6 @@ from typing import Optional
 
 import typer
 from click import types
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from snowflake.cli._plugins.dbt.constants import (
     DBT_COMMANDS,
     OUTPUT_COLUMN_NAME,
@@ -33,6 +32,7 @@ from snowflake.cli.api.commands.decorators import global_options_with_connection
 from snowflake.cli.api.commands.flags import identifier_argument, like_option
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
+from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
@@ -111,6 +111,13 @@ def deploy_dbt(
         help="Unset the default target for the dbt project. Mutually exclusive with --default-target.",
         hidden=FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled(),
     ),
+    external_access_integrations: Optional[list[str]] = typer.Option(
+        None,
+        "--external-access-integration",
+        show_default=False,
+        help="External access integration to be used by the dbt object.",
+        hidden=FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled(),
+    ),
     **options,
 ) -> CommandResult:
     """
@@ -121,6 +128,7 @@ def deploy_dbt(
     if FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled():
         default_target = None
         unset_default_target = False
+        external_access_integrations = None
 
     project_path = SecurePath(source) if source is not None else SecurePath.cwd()
     profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
@@ -132,6 +140,7 @@ def deploy_dbt(
             force=force,
             default_target=default_target,
             unset_default_target=unset_default_target,
+            external_access_integrations=external_access_integrations,
         )
     )
 
@@ -186,13 +195,8 @@ for cmd in DBT_COMMANDS:
                 f"Command submitted. You can check the result with `snow sql -q \"select execution_status from table(information_schema.query_history_by_user()) where query_id in ('{result.sfqid}');\"`"
             )
 
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            transient=True,
-        ) as progress:
-            progress.add_task(description=f"Executing 'dbt {dbt_command}'", total=None)
-
+        with cli_console.spinner() as spinner:
+            spinner.add_task(description=f"Executing 'dbt {dbt_command}'", total=None)
             result = dbt_manager.execute(*execute_args)
 
             try:

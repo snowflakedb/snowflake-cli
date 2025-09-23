@@ -64,6 +64,116 @@
   
   '''
 # ---
+# name: test_partial_match_query_construction[MyObject-False]
+  '''
+  SELECT
+                  timestamp,
+                  resource_attributes:"snow.database.name"::string as database_name,
+                  resource_attributes:"snow.schema.name"::string as schema_name,
+                  resource_attributes:"snow.table.name"::string as object_name,
+                  record:severity_text::string as log_level,
+                  value::string as log_message
+              FROM SNOWFLAKE.TELEMETRY.EVENTS
+              WHERE record_type = 'LOG'
+              AND (record:severity_text IN ('INFO', 'WARN', 'ERROR', 'FATAL') or record:severity_text is NULL )
+              AND object_name = 'MyObject'
+              AND timestamp >= TO_TIMESTAMP_LTZ('2022-02-02T02:02:02')
+  AND timestamp <= TO_TIMESTAMP_LTZ('2022-02-03T02:02:02')
+  
+              ORDER BY timestamp;
+  '''
+# ---
+# name: test_partial_match_query_construction[MyObject-True]
+  '''
+  SELECT
+                  timestamp,
+                  resource_attributes:"snow.database.name"::string as database_name,
+                  resource_attributes:"snow.schema.name"::string as schema_name,
+                  resource_attributes:"snow.table.name"::string as object_name,
+                  record:severity_text::string as log_level,
+                  value::string as log_message
+              FROM SNOWFLAKE.TELEMETRY.EVENTS
+              WHERE record_type = 'LOG'
+              AND (record:severity_text IN ('INFO', 'WARN', 'ERROR', 'FATAL') or record:severity_text is NULL )
+              AND object_name ILIKE '%MyObject%'
+              AND timestamp >= TO_TIMESTAMP_LTZ('2022-02-02T02:02:02')
+  AND timestamp <= TO_TIMESTAMP_LTZ('2022-02-03T02:02:02')
+  
+              ORDER BY timestamp;
+  '''
+# ---
+# name: test_partial_match_query_construction[test_obj-False]
+  '''
+  SELECT
+                  timestamp,
+                  resource_attributes:"snow.database.name"::string as database_name,
+                  resource_attributes:"snow.schema.name"::string as schema_name,
+                  resource_attributes:"snow.table.name"::string as object_name,
+                  record:severity_text::string as log_level,
+                  value::string as log_message
+              FROM SNOWFLAKE.TELEMETRY.EVENTS
+              WHERE record_type = 'LOG'
+              AND (record:severity_text IN ('INFO', 'WARN', 'ERROR', 'FATAL') or record:severity_text is NULL )
+              AND object_name = 'test_obj'
+              AND timestamp >= TO_TIMESTAMP_LTZ('2022-02-02T02:02:02')
+  AND timestamp <= TO_TIMESTAMP_LTZ('2022-02-03T02:02:02')
+  
+              ORDER BY timestamp;
+  '''
+# ---
+# name: test_partial_match_query_construction[test_obj-True]
+  '''
+  SELECT
+                  timestamp,
+                  resource_attributes:"snow.database.name"::string as database_name,
+                  resource_attributes:"snow.schema.name"::string as schema_name,
+                  resource_attributes:"snow.table.name"::string as object_name,
+                  record:severity_text::string as log_level,
+                  value::string as log_message
+              FROM SNOWFLAKE.TELEMETRY.EVENTS
+              WHERE record_type = 'LOG'
+              AND (record:severity_text IN ('INFO', 'WARN', 'ERROR', 'FATAL') or record:severity_text is NULL )
+              AND object_name ILIKE '%test\_obj%'
+              AND timestamp >= TO_TIMESTAMP_LTZ('2022-02-02T02:02:02')
+  AND timestamp <= TO_TIMESTAMP_LTZ('2022-02-03T02:02:02')
+  
+              ORDER BY timestamp;
+  '''
+# ---
+# name: test_partial_match_with_like_wildcards["test%obj"]
+  '''
+  SELECT
+      timestamp,
+      resource_attributes:"snow.database.name"::string as database_name,
+      resource_attributes:"snow.schema.name"::string as schema_name,
+      resource_attributes:"snow.table.name"::string as object_name,
+      record:severity_text::string as log_level,
+      value::string as log_message
+  FROM SNOWFLAKE.TELEMETRY.EVENTS
+  WHERE record_type = 'LOG'
+  AND (record:severity_text IN ('INFO', 'WARN', 'ERROR', 'FATAL') or record:severity_text is NULL )
+  AND object_name ILIKE '%"test\%obj"%'
+  
+  ORDER BY timestamp;
+  '''
+# ---
+# name: test_partial_match_with_like_wildcards[test_obj_with_underscore]
+  '''
+  SELECT
+      timestamp,
+      resource_attributes:"snow.database.name"::string as database_name,
+      resource_attributes:"snow.schema.name"::string as schema_name,
+      resource_attributes:"snow.table.name"::string as object_name,
+      record:severity_text::string as log_level,
+      value::string as log_message
+  FROM SNOWFLAKE.TELEMETRY.EVENTS
+  WHERE record_type = 'LOG'
+  AND (record:severity_text IN ('INFO', 'WARN', 'ERROR', 'FATAL') or record:severity_text is NULL )
+  AND object_name ILIKE '%test\_obj\_with\_underscore%'
+  
+  ORDER BY timestamp;
+  '''
+# ---
 # name: test_providing_time_in_incorrect_format_causes_error[2024-11-03 12:00:00 UTC---from]
   '''
   +- Error ----------------------------------------------------------------------+

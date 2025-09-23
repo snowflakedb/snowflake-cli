@@ -69,7 +69,20 @@ class CommandPluginsLoader:
                 )
 
     def load_all_registered_plugins(self) -> List[LoadedCommandPlugin]:
-        for plugin_name, plugin in self._plugin_manager.list_name_plugin():
+        all_plugins = list(self._plugin_manager.list_name_plugin())
+        builtin_plugin_names = set(get_builtin_plugin_name_to_plugin_spec().keys())
+
+        def plugin_sort_key(name_plugin_tuple):
+            _plugin_name, _ = name_plugin_tuple
+            is_builtin = _plugin_name in builtin_plugin_names
+            return (
+                not is_builtin,
+                _plugin_name,
+            )
+
+        sorted_plugins = sorted(all_plugins, key=plugin_sort_key)
+
+        for plugin_name, plugin in sorted_plugins:
             self._load_plugin(plugin_name, plugin)
         return list(self._loaded_plugins.values())
 

@@ -91,3 +91,54 @@ def test_if_incorrect_log_level_causes_error(runner, snapshot):
     )
     assert result.exit_code == 1
     assert result.output == snapshot
+
+
+@pytest.mark.parametrize("partial_match", [True, False])
+@pytest.mark.parametrize("object_name", ["test_obj", "MyObject"])
+def test_partial_match_query_construction(
+    mock_connect, mock_ctx, runner, snapshot, partial_match, object_name
+):
+    """Test that SQL queries are properly constructed for both exact and partial matching"""
+    ctx = mock_ctx()
+    mock_connect.return_value = ctx
+
+    args = [
+        "logs",
+        "table",
+        object_name,
+        "--from",
+        "2022-02-02 02:02:02",
+        "--to",
+        "2022-02-03 02:02:02",
+    ]
+
+    if partial_match:
+        args.append("--partial")
+
+    _ = runner.invoke(args)
+
+    queries = ctx.get_queries()
+    assert len(queries) == 1
+    assert queries[0] == snapshot
+
+
+@pytest.mark.parametrize("object_name", ["test_obj_with_underscore", '"test%obj"'])
+def test_partial_match_with_like_wildcards(
+    mock_connect, mock_ctx, runner, snapshot, object_name
+):
+    """Test that SQL LIKE wildcard characters in object names are properly escaped when using partial matching"""
+    ctx = mock_ctx()
+    mock_connect.return_value = ctx
+
+    args = [
+        "logs",
+        "table",
+        object_name,
+        "--partial",
+    ]
+
+    _ = runner.invoke(args)
+
+    queries = ctx.get_queries()
+    assert len(queries) == 1
+    assert queries[0] == snapshot

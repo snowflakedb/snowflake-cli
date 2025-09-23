@@ -5,9 +5,6 @@ from snowflake.cli.api.identifiers import FQN
 
 DCMProjectManager = "snowflake.cli._plugins.dcm.commands.DCMProjectManager"
 ObjectManager = "snowflake.cli._plugins.dcm.commands.ObjectManager"
-get_entity_for_operation = (
-    "snowflake.cli._plugins.dcm.commands.get_entity_for_operation"
-)
 
 
 @pytest.fixture
@@ -19,19 +16,32 @@ def mock_project_exists():
         yield _fixture
 
 
+@pytest.fixture
+def mock_from_resource():
+    with mock.patch(
+        "snowflake.cli._plugins.dbt.manager.FQN.from_resource",
+        return_value=FQN(
+            database="MockDatabase",
+            schema="MockSchema",
+            name="DCM_TEST_PIPELINE_1757333281_OUTPUT_TMP_STAGE",
+        ),
+    ) as _fixture:
+        yield _fixture
+
+
 class TestDCMCreate:
     @mock.patch(DCMProjectManager)
     @mock.patch(ObjectManager)
     def test_create(self, mock_om, mock_pm, runner, project_directory):
         mock_om().object_exists.return_value = False
         with project_directory("dcm_project"):
-            command = ["dcm", "create"]
+            command = ["dcm", "create", "my_project"]
             result = runner.invoke(command)
             assert result.exit_code == 0, result.output
 
-            mock_pm().create.assert_called_once()
-            create_kwargs = mock_pm().create.mock_calls[0].kwargs
-            assert create_kwargs["project"].fqn == FQN.from_string("my_project")
+            mock_pm().create.assert_called_once_with(
+                project_identifier=FQN.from_string("my_project")
+            )
 
     @mock.patch(DCMProjectManager)
     @mock.patch(ObjectManager)
@@ -41,7 +51,7 @@ class TestDCMCreate:
     ):
         mock_om().object_exists.return_value = True
         with project_directory("dcm_project"):
-            command = ["dcm", "create"]
+            command = ["dcm", "create", "my_project"]
             if if_not_exists:
                 command.append("--if-not-exists")
             result = runner.invoke(command)
@@ -55,24 +65,20 @@ class TestDCMCreate:
 
 
 class TestDCMDeploy:
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.commands.time.time", return_value=1234567890
-    )
-    @mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")
     @mock.patch(DCMProjectManager)
     def test_deploy_project(
         self,
         mock_pm,
-        mock_sync,
-        mock_time,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
+        mock_from_resource,
     ):
         mock_pm().execute.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
+        mock_pm().sync_local_files.return_value = mock_from_resource()
 
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "deploy", "fooBar"])
@@ -80,9 +86,9 @@ class TestDCMDeploy:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration=None,
-            from_stage="MockDatabase.MockSchema.DCM_MY_PROJECT_1234567890_TMP_STAGE",
+            from_stage=mock_from_resource(),
             variables=None,
             alias=None,
             output_path=None,
@@ -100,7 +106,7 @@ class TestDCMDeploy:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="@my_stage",
             variables=None,
@@ -122,7 +128,7 @@ class TestDCMDeploy:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="@my_stage",
             variables=["key=value"],
@@ -152,7 +158,7 @@ class TestDCMDeploy:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration="some_configuration",
             from_stage="@my_stage",
             variables=None,
@@ -174,7 +180,7 @@ class TestDCMDeploy:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="@my_stage",
             variables=None,
@@ -182,14 +188,12 @@ class TestDCMDeploy:
             output_path=None,
         )
 
-    @mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")
-    @mock.patch("snowflake.cli._plugins.dcm.commands.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_sync(
         self,
         mock_pm,
         _mock_create,
-        mock_sync,
         runner,
         project_directory,
         mock_cursor,
@@ -199,38 +203,71 @@ class TestDCMDeploy:
         mock_pm().execute.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
 
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "deploy", "my_project"])
             assert result.exit_code == 0, result.output
 
-            # Verify that sync was called
-            mock_sync.assert_called_once()
-
         call_args = mock_pm().execute.call_args
-        assert "DCM_MY_PROJECT" in call_args.kwargs["from_stage"]
+        assert "DCM_FOOBAR" in call_args.kwargs["from_stage"]
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
-
-class TestDCMPlan:
-    @mock.patch(
-        "snowflake.cli._plugins.dcm.commands.time.time", return_value=1234567890
-    )
-    @mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")
     @mock.patch(DCMProjectManager)
-    def test_plan_project(
+    def test_deploy_project_with_from_local_directory(
         self,
         mock_pm,
-        mock_sync,
-        mock_time,
         runner,
         project_directory,
         mock_cursor,
         mock_connect,
+        tmp_path,
     ):
         mock_pm().execute.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
+
+        source_dir = tmp_path / "source_project"
+        source_dir.mkdir()
+
+        manifest_file = source_dir / "manifest.yml"
+        manifest_file.write_text("type: dcm_project\n")
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "deploy", "my_project", "--from", str(source_dir)]
+            )
+            assert result.exit_code == 0, result.output
+
+        mock_pm().sync_local_files.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            source_directory=str(source_dir),
+        )
+
+        call_args = mock_pm().execute.call_args
+        assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
+
+class TestDCMPlan:
+    @mock.patch(DCMProjectManager)
+    def test_plan_project(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_from_resource,
+    ):
+        mock_pm().execute.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations")
+        )
+        mock_pm().sync_local_files.return_value = mock_from_resource()
 
         with project_directory("dcm_project"):
             result = runner.invoke(
@@ -247,9 +284,9 @@ class TestDCMPlan:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration="some_configuration",
-            from_stage="MockDatabase.MockSchema.DCM_MY_PROJECT_1234567890_TMP_STAGE",
+            from_stage=mock_from_resource(),
             dry_run=True,
             variables=["key=value"],
             output_path=None,
@@ -279,7 +316,7 @@ class TestDCMPlan:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration="some_configuration",
             from_stage="@my_stage",
             dry_run=True,
@@ -309,7 +346,7 @@ class TestDCMPlan:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="@my_stage",
             dry_run=True,
@@ -341,7 +378,7 @@ class TestDCMPlan:
         assert result.exit_code == 0, result.output
 
         mock_pm().execute.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
+            project_identifier=FQN.from_string("fooBar"),
             configuration="some_config",
             from_stage="@my_stage",
             dry_run=True,
@@ -349,14 +386,12 @@ class TestDCMPlan:
             output_path="@output_stage",
         )
 
-    @mock.patch("snowflake.cli._plugins.dcm.commands.sync_artifacts_with_stage")
-    @mock.patch("snowflake.cli._plugins.dcm.commands.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
     @mock.patch(DCMProjectManager)
-    def test_deploy_project_with_sync(
+    def test_plan_project_with_sync(
         self,
         mock_pm,
         _mock_create,
-        mock_sync,
         runner,
         project_directory,
         mock_cursor,
@@ -366,17 +401,53 @@ class TestDCMPlan:
         mock_pm().execute.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
 
         with project_directory("dcm_project"):
             result = runner.invoke(["dcm", "plan", "my_project"])
             assert result.exit_code == 0, result.output
 
-            # Verify that sync was called
-            mock_sync.assert_called_once()
-
             call_args = mock_pm().execute.call_args
-            assert "DCM_MY_PROJECT_" in call_args.kwargs["from_stage"]
+            assert "DCM_FOOBAR_" in call_args.kwargs["from_stage"]
             assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
+    @mock.patch(DCMProjectManager)
+    def test_plan_project_with_from_local_directory(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        mock_pm().execute.return_value = mock_cursor(
+            rows=[("[]",)], columns=("operations")
+        )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
+
+        source_dir = tmp_path / "source_project"
+        source_dir.mkdir()
+        manifest_file = source_dir / "manifest.yml"
+        manifest_file.write_text("type: dcm_project\n")
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "plan", "my_project", "--from", str(source_dir)]
+            )
+            assert result.exit_code == 0, result.output
+
+        mock_pm().sync_local_files.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            source_directory=str(source_dir),
+        )
+
+        call_args = mock_pm().execute.call_args
+        assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
 
 class TestDCMList:
@@ -471,15 +542,15 @@ class TestDCMListDeployments:
 
         assert result.exit_code == 0, result.output
 
-        mock_pm().list_versions.assert_called_once_with(
-            project_name=FQN.from_string("fooBar")
+        mock_pm().list_deployments.assert_called_once_with(
+            project_identifier=FQN.from_string("fooBar")
         )
 
 
 class TestDCMDropDeployment:
     @mock.patch(DCMProjectManager)
     @pytest.mark.parametrize("if_exists", [True, False])
-    def test_drop_version(self, mock_pm, runner, if_exists):
+    def test_drop_deployment(self, mock_pm, runner, if_exists):
         command = ["dcm", "drop-deployment", "fooBar", "v1"]
         if if_exists:
             command.append("--if-exists")
@@ -487,33 +558,33 @@ class TestDCMDropDeployment:
         result = runner.invoke(command)
 
         assert result.exit_code == 0, result.output
-        assert "Version 'v1' dropped from DCM Project 'fooBar'" in result.output
+        assert "Deployment 'v1' dropped from DCM Project 'fooBar'" in result.output
 
         mock_pm().drop_deployment.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
-            version_name="v1",
+            project_identifier=FQN.from_string("fooBar"),
+            deployment_name="v1",
             if_exists=if_exists,
         )
 
     @mock.patch(DCMProjectManager)
     @pytest.mark.parametrize(
-        "version_name,should_warn",
+        "deployment_name,should_warn",
         [
-            ("version", True),
-            ("VERSION", True),
-            ("Version", True),
-            ("VERSION$1", False),
+            ("deployment", True),
+            ("DEPLOYMENT", True),
+            ("Deployment", True),
+            ("DEPLOYMENT$1", False),
             ("v1", False),
-            ("my_version", False),
-            ("version1", False),
-            ("actual_version", False),
+            ("my_deployment", False),
+            ("deployment1", False),
+            ("actual_deployment", False),
         ],
     )
-    def test_drop_version_shell_expansion_warning(
-        self, mock_pm, runner, version_name, should_warn
+    def test_drop_deployment_shell_expansion_warning(
+        self, mock_pm, runner, deployment_name, should_warn
     ):
-        """Test that warning is displayed for version names that look like shell expansion results."""
-        result = runner.invoke(["dcm", "drop-deployment", "fooBar", version_name])
+        """Test that warning is displayed for deployment names that look like shell expansion results."""
+        result = runner.invoke(["dcm", "drop-deployment", "fooBar", deployment_name])
 
         assert result.exit_code == 0, result.output
 
@@ -524,8 +595,8 @@ class TestDCMDropDeployment:
             assert "might be truncated due to shell expansion" not in result.output
 
         mock_pm().drop_deployment.assert_called_once_with(
-            project_name=FQN.from_string("fooBar"),
-            version_name=version_name,
+            project_identifier=FQN.from_string("fooBar"),
+            deployment_name=deployment_name,
             if_exists=False,
         )
 

@@ -48,6 +48,11 @@ def get_logs(
         "--log-level",
         help="The log level to filter by. If not provided, INFO will be used",
     ),
+    partial_match: bool = typer.Option(
+        False,
+        "--partial",
+        help="Enable partial, case-insensitive matching for object names",
+    ),
     **options,
 ):
     """
@@ -75,6 +80,7 @@ def get_logs(
             refresh_time=refresh_time,
             event_table=event_table,
             log_level=log_level,
+            partial_match=partial_match,
         )
         logs = itertools.chain(
             (MessageResult(log.log_message) for logs in logs_stream for log in logs)
@@ -87,6 +93,7 @@ def get_logs(
             to_time=to_time,
             event_table=event_table,
             log_level=log_level,
+            partial_match=partial_match,
         )
         logs = (MessageResult(log.log_message) for log in logs_iterable)  # type: ignore
 

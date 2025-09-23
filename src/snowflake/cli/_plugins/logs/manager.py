@@ -11,6 +11,7 @@ from snowflake.cli._plugins.logs.utils import (
 )
 from snowflake.cli._plugins.object.commands import NameArgument, ObjectArgument
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.project.util import escape_like_pattern
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -24,6 +25,7 @@ class LogsManager(SqlExecutionMixin):
         from_time: Optional[datetime] = None,
         event_table: Optional[str] = None,
         log_level: Optional[str] = "INFO",
+        partial_match: bool = False,
     ) -> Iterable[List[LogsQueryRow]]:
         try:
             previous_end = from_time
@@ -36,6 +38,7 @@ class LogsManager(SqlExecutionMixin):
                     to_time=None,
                     event_table=event_table,
                     log_level=log_level,
+                    partial_match=partial_match,
                 ).fetchall()
 
                 if raw_logs:
@@ -56,6 +59,7 @@ class LogsManager(SqlExecutionMixin):
         to_time: Optional[datetime] = None,
         event_table: Optional[str] = None,
         log_level: Optional[str] = "INFO",
+        partial_match: bool = False,
     ) -> Iterable[LogsQueryRow]:
         """
         Basic function to get a single batch of logs from the server
@@ -68,6 +72,7 @@ class LogsManager(SqlExecutionMixin):
             to_time=to_time,
             event_table=event_table,
             log_level=log_level,
+            partial_match=partial_match,
         )
 
         return sanitize_logs(logs)
@@ -80,9 +85,24 @@ class LogsManager(SqlExecutionMixin):
         to_time: Optional[datetime] = None,
         event_table: Optional[str] = None,
         log_level: Optional[str] = "INFO",
+        partial_match: bool = False,
     ) -> SnowflakeCursor:
 
         table = event_table if event_table else "SNOWFLAKE.TELEMETRY.EVENTS"
+
+        # Escape single quotes in object_name to prevent SQL injection
+        escaped_object_name = str(object_name).replace("'", "''")
+
+        # Build the object name condition based on partial_match flag
+        if partial_match:
+            # Use ILIKE for case-insensitive partial matching with wildcards
+            escaped_pattern = escape_like_pattern(
+                escaped_object_name, escape_sequence="\\"
+            )
+            object_condition = f"object_name ILIKE '%{escaped_pattern}%'"
+        else:
+            # Use exact match (original behavior)
+            object_condition = f"object_name = '{escaped_object_name}'"
 
         query = dedent(
             f"""
@@ -96,7 +116,7 @@ class LogsManager(SqlExecutionMixin):
             FROM {table}
             WHERE record_type = 'LOG'
             AND (record:severity_text IN ({parse_log_levels_for_query((log_level))}) or record:severity_text is NULL )
-            AND object_name = '{object_name}'
+            AND {object_condition}
             {get_timestamp_query(from_time, to_time)}
             ORDER BY timestamp;
 """

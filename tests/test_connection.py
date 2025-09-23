@@ -24,7 +24,6 @@ import tomlkit
 from snowflake.cli.api.config import ConnectionConfig
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.secret import SecretType
-from snowflake.cli.api.secure_utils import file_permissions_are_strict
 
 from tests_common import IS_WINDOWS
 
@@ -1414,89 +1413,6 @@ def test_connection_add_no_interactive(mock_add, runner):
     )
 
 
-@mock.patch("snowflake.cli._plugins.auth.keypair.manager.AuthManager.execute_query")
-@mock.patch("snowflake.cli._plugins.object.manager.ObjectManager.execute_query")
-@mock.patch("snowflake.connector.connect")
-def test_connection_add_with_key_pair(
-    mock_connect,
-    mock_object_execute_query,
-    mock_auth_execute_query,
-    runner,
-    tmp_path,
-    mock_cursor,
-    test_snowcli_config,
-    enable_auth_keypair_feature_flag,
-):
-    mock_connect.return_value.user = "user"
-    mock_object_execute_query.return_value = mock_cursor(
-        rows=[
-            {"property": "RSA_PUBLIC_KEY", "value": None},
-            {"property": "RSA_PUBLIC_KEY_2", "value": None},
-        ],
-        columns=[],
-    )
-
-    result = runner.invoke(
-        [
-            "connection",
-            "add",
-        ],
-        input="conn\n"  # connection name: zz
-        "test\n"  # account:
-        "user\n"  # user:
-        "123\n"  # password:
-        "\n"  # role:
-        "\n"  # warehouse:
-        "\n"  # database:
-        "\n"  # schema:
-        "\n"  # host:
-        "\n"  # port:
-        "\n"  # region:
-        "\n"  # authenticator:
-        "\n"  # workload identity provider:
-        "\n"  # private key file:
-        "\n"  # token file path:
-        "y\n"  #
-        "4096\n"  # key_length
-        f"{tmp_path}\n"  # output_path
-        "123\n",  # passphrase
-    )
-
-    private_key_path = tmp_path / "conn.p8"
-    public_key_path = tmp_path / "conn.pub"
-    assert result.exit_code == 0, result.output
-    assert result.output == dedent(
-        f"""\
-        Enter connection name: conn
-        Enter account: test
-        Enter user: user
-        Enter password: 
-        Enter role: 
-        Enter warehouse: 
-        Enter database: 
-        Enter schema: 
-        Enter host: 
-        Enter port: 
-        Enter region: 
-        Enter authenticator: 
-        Enter workload identity provider: 
-        Enter private key file: 
-        Enter token file path: 
-        Do you want to configure key pair authentication? [y/N]: y
-        Key length [2048]: 4096
-        Output path [~/.ssh]: {tmp_path}
-        Private key passphrase: 
-        Set the `PRIVATE_KEY_PASSPHRASE` environment variable before using the connection.
-        Wrote new connection conn to {test_snowcli_config}
-        """
-    )
-    assert private_key_path.exists()
-    assert "BEGIN ENCRYPTED PRIVATE KEY" in private_key_path.read_text()
-    assert file_permissions_are_strict(private_key_path)
-    assert public_key_path.exists()
-    assert file_permissions_are_strict(public_key_path)
-
-
 def test_connection_add_no_key_pair_setup_if_private_key_provided(
     runner, test_snowcli_config, tmp_path
 ):
@@ -1567,98 +1483,6 @@ def test_connection_add_no_key_pair_setup_if_no_interactive(
     assert (
         result.output.strip() == f"Wrote new connection conn to {test_snowcli_config}"
     )
-
-
-@mock.patch("snowflake.cli._plugins.auth.keypair.manager.AuthManager.execute_query")
-@mock.patch("snowflake.cli._plugins.object.manager.ObjectManager.execute_query")
-@mock.patch("snowflake.connector.connect")
-def test_connection_add_with_key_pair_saves_password_if_keypair_is_set(
-    mock_connect,
-    mock_object_execute_query,
-    mock_auth_execute_query,
-    runner,
-    tmp_path,
-    mock_cursor,
-    test_snowcli_config,
-    enable_auth_keypair_feature_flag,
-):
-    mock_connect.return_value.user = "user"
-    mock_object_execute_query.return_value = mock_cursor(
-        rows=[
-            {"property": "RSA_PUBLIC_KEY", "value": None},
-            {"property": "RSA_PUBLIC_KEY_2", "value": "public key..."},
-        ],
-        columns=[],
-    )
-
-    result = runner.invoke(
-        [
-            "connection",
-            "add",
-        ],
-        input="conn\n"  # connection name: zz
-        "test\n"  # account:
-        "user\n"  # user:
-        "123\n"  # password:
-        "\n"  # role:
-        "\n"  # warehouse:
-        "\n"  # database:
-        "\n"  # schema:
-        "\n"  # host:
-        "\n"  # port:
-        "\n"  # region:
-        "\n"  # authenticator:
-        "\n"  # workload identity provider:
-        "\n"  # private key file:
-        "\n"  # token file path:
-        "y\n"  #
-        "\n"  # key_length
-        f"{tmp_path}\n"  # output_path
-        "123\n",  # passphrase
-    )
-
-    private_key_path = tmp_path / "conn.p8"
-    public_key_path = tmp_path / "conn.pub"
-    assert result.exit_code == 0, result.output
-    assert result.output == dedent(
-        f"""\
-        Enter connection name: conn
-        Enter account: test
-        Enter user: user
-        Enter password: 
-        Enter role: 
-        Enter warehouse: 
-        Enter database: 
-        Enter schema: 
-        Enter host: 
-        Enter port: 
-        Enter region: 
-        Enter authenticator: 
-        Enter workload identity provider: 
-        Enter private key file: 
-        Enter token file path: 
-        Do you want to configure key pair authentication? [y/N]: y
-        Key length [2048]: 
-        Output path [~/.ssh]: {tmp_path}
-        Private key passphrase: 
-        Wrote new password-based connection conn to {test_snowcli_config}, however there were some issues during key pair setup. Review the following error and check 'snow auth keypair' commands to setup key pair authentication:
-         * The public key is set already.
-        """
-    )
-    assert not private_key_path.exists()
-    assert not public_key_path.exists()
-    with open(test_snowcli_config, "r") as f:
-        connections = tomlkit.load(f)
-        assert connections["connections"]["conn"]["password"] == "123"
-
-
-@pytest.fixture
-def enable_auth_keypair_feature_flag():
-    with mock.patch(
-        f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_AUTH_KEYPAIR.is_enabled",
-        return_value=True,
-    ):
-        yield
 
 
 @pytest.mark.parametrize(

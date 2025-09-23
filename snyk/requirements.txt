@@ -54,12 +54,12 @@ setuptools==80.8.0
 shellingham==1.5.4
 six==1.17.0
 smmap==5.0.2
-snowflake-connector-python==3.17.2
+snowflake-connector-python==3.17.3
 snowflake-core==1.7.0
 snowflake-snowpark-python==1.33.0 ; python_full_version < '3.12'
 sortedcontainers==2.4.0
 tomlkit==0.13.3
-typer==0.16.0
+typer==0.17.3
 typing-extensions==4.14.1
 typing-inspection==0.4.1
 tzdata==2025.2 ; python_full_version < '3.12' and sys_platform == 'win32'

@@ -114,7 +114,7 @@ def test_sql_fails_if_query_and_stdin_and_file_provided(runner):
         result = runner.invoke(["sql", "-i", "-q", "foo", "-f", tmp_file.name])
         assert_that_result_is_usage_error(
             result,
-            f"Parameters '--query' and '--stdin' are incompatible and cannot be used simultaneously.",
+            "Parameters '--query' and '--stdin' are incompatible and cannot be used simultaneously.",
         )
 
 
@@ -408,6 +408,36 @@ def test_uses_variables_from_snowflake_yml(
     assert result.exit_code == 0
     mock_execute_query.assert_called_once_with(
         "select foo_value", cursor_class=VerboseCursor
+    )
+
+
+@pytest.mark.parametrize(
+    "template_start,template_end",
+    [
+        ("&{", "}"),
+        ("<%", "%>"),
+        ("{{", "}}"),
+    ],
+)
+@mock.patch("snowflake.cli._plugins.sql.commands.SqlManager._execute_string")
+def test_uses_variables_from_command_line(
+    mock_execute_query, runner, template_start, template_end
+):
+    args = [
+        "sql",
+        "-q",
+        f"select {template_start} ctx.env.sf_foo {template_end}",
+        "--env",
+        "sf_foo=sf_boo",
+        "--enable-templating",
+        "ALL",
+    ]
+
+    result = runner.invoke(args)
+
+    assert result.exit_code == 0
+    mock_execute_query.assert_called_once_with(
+        "select sf_boo", cursor_class=VerboseCursor
     )
 
 

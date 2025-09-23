@@ -1,0 +1,11 @@
+definition_version: 1
+snowpark:
+  project_name: "test_snowpark_project"
+  stage_name: "test_stage"
+  src: "app.py"
+  functions:
+    - name: func1
+      handler: "app.main"
+      signature: ""
+      returns: string
+      runtime: 3.10

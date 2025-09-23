@@ -347,3 +347,34 @@ def test_nested_json_backward_compatibility(runner):
     assert "profile" in user_obj
     assert "Alice" in user_obj
     assert "dark" in user_obj
+
+
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_decfloat_values(runner):
+    """Test DECFLOAT type with various value types: positive/negative, maximum/minimum, floating point."""
+
+    sql = """
+        SELECT 
+            CAST('123456789012345678901234567890.123456789' AS DECFLOAT) AS positive_value,
+            CAST('-123456789012345678901234567890.123456789' AS DECFLOAT) AS negative_value,
+            CAST('3.14159265358979323846264338327950288419' AS DECFLOAT) AS floating_point,
+            CAST('99999999999999999999999999999999999999e16384' AS DECFLOAT) AS maximum_value,
+            CAST('-99999999999999999999999999999999999999e16384' AS DECFLOAT) AS minimum_value,
+    """
+
+    result = runner.invoke_with_connection_json(["sql", "-q", sql])
+    assert result.exit_code == 0, f"Failed to select DECFLOAT values: {result.output}"
+
+    # Verify JSON response contains expected values
+    assert len(result.json) == 1
+    row = result.json[0]
+
+    # Assert exact values that Snowflake returns for DECFLOAT
+    assert row["POSITIVE_VALUE"] == "1.234567890123456789012345679E+29"
+    assert row["NEGATIVE_VALUE"] == "-1.234567890123456789012345679E+29"
+    assert (
+        row["FLOATING_POINT"] == "3.141592653589793238462643383"
+    )  # value is rounded up to 28 numbers
+    assert row["MAXIMUM_VALUE"] == "1.000000000000000000000000000E+16422"
+    assert row["MINIMUM_VALUE"] == "-1.000000000000000000000000000E+16422"
