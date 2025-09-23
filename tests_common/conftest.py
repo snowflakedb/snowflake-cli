@@ -103,6 +103,51 @@ def snowflake_home(monkeypatch):
         ]:
             importlib.reload(module)
 
+        # Also reload the config submodules since config is now a package
+        for submodule in [
+            "snowflake.cli.api.config.legacy",
+            "snowflake.cli.api.config.config_ng",
+        ]:
+            if submodule in sys.modules:
+                importlib.reload(sys.modules[submodule])
+
+        # Clear CONFIG_MANAGER cache to ensure clean state between tests
+        from snowflake.connector.config_manager import CONFIG_MANAGER
+
+        if hasattr(CONFIG_MANAGER, "conf_file_cache"):
+            CONFIG_MANAGER.conf_file_cache = None
+        # Clear internal slices and options that cache configuration data
+        if hasattr(CONFIG_MANAGER, "_slices"):
+            CONFIG_MANAGER._slices = []
+        # Reset each option's cached data
+        if hasattr(CONFIG_MANAGER, "_options"):
+            for option in CONFIG_MANAGER._options.values():
+                if hasattr(option, "_cached_value"):
+                    option._cached_value = None
+                if hasattr(option, "_value"):
+                    option._value = None
+
+        # Force CONFIG_MANAGER to re-initialize with new SNOWFLAKE_HOME
+        # This ensures slices point to the test directory
+        from snowflake.connector.constants import CONNECTIONS_FILE
+
+        if hasattr(CONFIG_MANAGER, "_slices") and CONNECTIONS_FILE:
+            # Re-add the connections slice with the correct test path
+            from snowflake.connector.config_manager import (
+                ConfigSlice,
+                ConfigSliceOptions,
+            )
+
+            CONFIG_MANAGER._slices = [
+                ConfigSlice(
+                    path=CONNECTIONS_FILE,
+                    options=ConfigSliceOptions(
+                        check_permissions=True, only_in_slice=False
+                    ),
+                    section="connections",
+                )
+            ]
+
         yield snowflake_home
 
 
