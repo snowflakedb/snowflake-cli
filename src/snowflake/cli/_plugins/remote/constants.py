@@ -99,7 +99,7 @@ WEBSOCKET_SSH_ENDPOINT_NAME = "websocket-ssh"
 RAY_DASHBOARD_ENDPOINT_NAME = "ray-dashboard"
 
 # SSH Configuration
-DEFAULT_SSH_REFRESH_INTERVAL = 300  # 5 minutes
+DEFAULT_SSH_REFRESH_INTERVAL = 2700  # 45 minutes
 SSH_RETRY_INTERVAL = 30  # 30 seconds
 SSH_COUNTDOWN_INTERVAL = 30  # Show countdown every 30 seconds
 SSH_DIR_NAME = ".ssh"
