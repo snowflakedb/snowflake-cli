@@ -1,9 +1,7 @@
-# Packages with known CVEs that will actually install on modern Python
+# Packages with known CVEs - pure Python, guaranteed to install
 jinja2==2.11.3
 requests==2.25.1
 urllib3==1.26.5
-pyyaml==5.4.1
-setuptools==65.5.0
 flask==1.1.4
 werkzeug==1.0.1
-# These should install without compilation issues but still have vulnerabilities
+# Removed pyyaml due to C extension compilation issues on CI
