@@ -48,8 +48,8 @@ pyopenssl==25.1.0
 python-dateutil==2.9.0.post0
 pytz==2025.2
 pywin32-ctypes==0.2.3 ; sys_platform == 'win32'
-pyyaml==6.0.2
-requests==2.32.4
+# pyyaml==6.0.2  # REMOVED: using vulnerable version for testing
+# requests==2.32.4  # REMOVED: using vulnerable version for testing
 requirements-parser==0.13.0
 rich==14.0.0
 s3transfer==0.13.1
@@ -68,7 +68,7 @@ typing-extensions==4.14.1
 typing-inspection==0.4.1
 tzdata==2025.2 ; python_full_version < '3.12' and sys_platform == 'win32'
 tzlocal==5.3.1 ; python_full_version < '3.12'
-urllib3==2.5.0
+# urllib3==2.5.0  # REMOVED: using vulnerable version for testing
 wcwidth==0.2.13
 wheel==0.45.1 ; python_full_version < '3.12'
 zipp==3.23.0 ; python_full_version < '3.12'
