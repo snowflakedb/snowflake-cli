@@ -5,3 +5,10 @@ requests==2.20.0
 urllib3==1.24.1
 pyyaml==3.13
 setuptools==40.0.0
+# Additional packages with known CVEs
+flask==0.12.2
+django==1.11.0
+pillow==6.0.0
+lxml==4.2.0
+paramiko==2.0.0
+werkzeug==0.14.0
