@@ -133,14 +133,14 @@
               FROM SNOWFLAKE.TELEMETRY.EVENTS
               WHERE record_type = 'LOG'
               AND (record:severity_text IN ('INFO', 'WARN', 'ERROR', 'FATAL') or record:severity_text is NULL )
-              AND object_name ILIKE '%test\\_obj%'
+              AND object_name ILIKE '%test\_obj%'
               AND timestamp >= TO_TIMESTAMP_LTZ('2022-02-02T02:02:02')
   AND timestamp <= TO_TIMESTAMP_LTZ('2022-02-03T02:02:02')
   
               ORDER BY timestamp;
   '''
 # ---
-# name: test_partial_match_with_like_wildcards[test_obj_with_percent]
+# name: test_partial_match_with_like_wildcards["test%obj"]
   '''
   SELECT
       timestamp,
@@ -152,7 +152,7 @@
   FROM SNOWFLAKE.TELEMETRY.EVENTS
   WHERE record_type = 'LOG'
   AND (record:severity_text IN ('INFO', 'WARN', 'ERROR', 'FATAL') or record:severity_text is NULL )
-  AND object_name ILIKE '%test\\_obj\\_with\\_percent%'
+  AND object_name ILIKE '%"test\%obj"%'
   
   ORDER BY timestamp;
   '''
@@ -169,7 +169,7 @@
   FROM SNOWFLAKE.TELEMETRY.EVENTS
   WHERE record_type = 'LOG'
   AND (record:severity_text IN ('INFO', 'WARN', 'ERROR', 'FATAL') or record:severity_text is NULL )
-  AND object_name ILIKE '%test\\_obj\\_with\\_underscore%'
+  AND object_name ILIKE '%test\_obj\_with\_underscore%'
   
   ORDER BY timestamp;
   '''

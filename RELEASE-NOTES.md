@@ -21,6 +21,8 @@
 ## New additions
 
 ## Fixes and improvements
+* Bumped `snowflake-connector-python==3.17.4`
+* Fixed `snow spcs logs` `IndexOutOfRange` error
 * Grant privileges defined in `snowflake.yml` after deploying Streamlit
 
 
@@ -42,7 +44,6 @@
 * Improved output handling  with streaming
 * Bumped `snowflake-connector-python` to 3.17.3
 * Fixed `snow snowpark deploy` failing on duplicated packages
-* Extend `Decimal` precision to 38
 
 
 # v3.11.0

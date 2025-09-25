@@ -137,3 +137,4 @@ def _handle_create_error_codes(err: Exception) -> None:
                 raise ClickException(f"{err_code} internal server error.")
             case _:
                 raise err
+    raise err
