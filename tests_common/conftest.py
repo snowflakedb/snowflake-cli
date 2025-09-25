@@ -151,3 +151,67 @@ skip_snowpark_on_newest_python = pytest.mark.skipif(
     sys.version_info >= PYTHON_3_12,
     reason="requires python3.11 or lower",
 )
+
+
+@pytest.fixture(autouse=True)
+def windows_file_cleanup():
+    """
+    Windows-specific fixture to clean up file handles that prevent directory deletion.
+
+    This fixture automatically runs for all tests and cleans up ConfigManager
+    resources and logging handlers that can hold file handles open on Windows.
+    """
+    yield  # Let the test run first
+
+    # Only perform cleanup on Windows
+    if os.name == "nt":  # Windows
+        import gc
+        import logging
+
+        try:
+            # Force cleanup of ConfigManager resources
+            from snowflake.cli.api.cli_global_context import get_cli_context_manager
+
+            context_manager = get_cli_context_manager()
+            if (
+                hasattr(context_manager, "_config_manager")
+                and context_manager._config_manager is not None
+            ):
+                config_manager = context_manager._config_manager
+
+                # Clear any cached file handles
+                if hasattr(config_manager, "conf_file_cache"):
+                    config_manager.conf_file_cache = None
+
+                # Reset internal state that might hold file references
+                if hasattr(config_manager, "_slices"):
+                    for slice_obj in config_manager._slices:
+                        if hasattr(slice_obj, "_cached_data"):
+                            slice_obj._cached_data = None
+
+                # Clear options that might have file references
+                if hasattr(config_manager, "_options"):
+                    for option in config_manager._options.values():
+                        if hasattr(option, "_cached_value"):
+                            option._cached_value = None
+                        if hasattr(option, "_value"):
+                            option._value = None
+
+            # Close any remaining log handlers that might be holding file handles
+            # This is crucial for Windows where file handles prevent directory deletion
+            for handler in logging.getLogger().handlers[:]:
+                if hasattr(handler, "close"):
+                    handler.close()
+
+            # Also check the snowflake CLI logger specifically
+            cli_logger = logging.getLogger("snowflake.cli")
+            for handler in cli_logger.handlers[:]:
+                if hasattr(handler, "close"):
+                    handler.close()
+
+            # Force garbage collection to release any remaining references
+            gc.collect()
+
+        except Exception:
+            # Best effort cleanup - don't fail tests if cleanup fails
+            pass
