@@ -26,7 +26,7 @@ from unittest import mock
 
 import pytest
 from click import Command
-from snowflake.connector.config_manager import CONFIG_MANAGER
+from snowflake.cli.api.config.legacy import get_config_manager
 from typer.core import TyperArgument, TyperOption
 
 
@@ -73,7 +73,10 @@ def test_info_callback(runner):
     payload = json.loads(result.output)
     assert payload == [
         {"key": "version", "value": "0.0.0-test_patched"},
-        {"key": "default_config_file_path", "value": str(CONFIG_MANAGER.file_path)},
+        {
+            "key": "default_config_file_path",
+            "value": str(get_config_manager().file_path),
+        },
         {"key": "python_version", "value": sys.version},
         {"key": "system_info", "value": platform.platform()},
         {

@@ -45,7 +45,6 @@ from snowflake.cli.api.secure_utils import (
 from snowflake.cli.api.utils.dict_utils import remove_key_from_nested_dict_if_exists
 from snowflake.cli.api.utils.types import try_cast_to_bool
 from snowflake.connector.compat import IS_WINDOWS
-from snowflake.connector.config_manager import CONFIG_MANAGER
 from snowflake.connector.constants import CONFIG_FILE, CONNECTIONS_FILE
 from snowflake.connector.errors import ConfigSourceError, MissingConfigOptionError
 from tomlkit import TOMLDocument, dump
@@ -54,6 +53,18 @@ from tomlkit.exceptions import NonExistentKey
 from tomlkit.items import Table
 
 log = logging.getLogger(__name__)
+
+
+def get_config_manager():
+    """
+    Factory method to get the config manager instance.
+
+    This provides a centralized way to access the config manager,
+    allowing for easier testing and potential future customization.
+    """
+    from snowflake.connector.config_manager import CONFIG_MANAGER
+
+    return CONFIG_MANAGER
 
 
 class Empty:
@@ -73,8 +84,8 @@ PLUGINS_SECTION_PATH = [CLI_SECTION, PLUGINS_SECTION]
 PLUGIN_ENABLED_KEY = "enabled"
 FEATURE_FLAGS_SECTION_PATH = [CLI_SECTION, "features"]
 
-# Initialize CONFIG_MANAGER with CLI section
-CONFIG_MANAGER.add_option(
+# Initialize config manager with CLI section
+get_config_manager().add_option(
     name=CLI_SECTION,
     parse_str=tomlkit.parse,
     default=dict(),
@@ -147,7 +158,7 @@ class ConnectionConfig:
 # Default configuration values
 _DEFAULT_LOGS_CONFIG = {
     "save_logs": True,
-    "path": str(CONFIG_MANAGER.file_path.parent / "logs"),
+    "path": str(get_config_manager().file_path.parent / "logs"),
     "level": "info",
 }
 
@@ -163,12 +174,13 @@ def config_init(config_file: Optional[Path]) -> None:
     """
     from snowflake.cli._app.loggers import create_initial_loggers
 
+    config_manager = get_config_manager()
     if config_file:
-        CONFIG_MANAGER.file_path = config_file
+        config_manager.file_path = config_file
     else:
         _check_default_config_files_permissions()
-    if not CONFIG_MANAGER.file_path.exists():
-        _initialise_config(CONFIG_MANAGER.file_path)
+    if not config_manager.file_path.exists():
+        _initialise_config(config_manager.file_path)
     _read_config_file()
     create_initial_loggers()
 
@@ -189,7 +201,7 @@ def add_connection_to_proper_file(
             path=[CONNECTIONS_SECTION, name],
             value=connection_config.to_dict_of_all_non_empty_values(),
         )
-        return CONFIG_MANAGER.file_path
+        return get_config_manager().file_path
 
 
 def remove_connection_from_proper_file(name: str) -> Path:
@@ -203,20 +215,22 @@ def remove_connection_from_proper_file(name: str) -> Path:
         return CONNECTIONS_FILE
     else:
         unset_config_value(path=[CONNECTIONS_SECTION, name])
-        return CONFIG_MANAGER.file_path
+        return get_config_manager().file_path
 
 
 @contextmanager
 def _config_file():
     """Context manager for configuration file operations."""
     _read_config_file()
-    conf_file_cache = CONFIG_MANAGER.conf_file_cache
+    config_manager = get_config_manager()
+    conf_file_cache = config_manager.conf_file_cache
     yield conf_file_cache
     _dump_config(conf_file_cache)
 
 
 def _read_config_file() -> None:
     """Read and parse the configuration file."""
+    config_manager = get_config_manager()
     with warnings.catch_warnings():
         if IS_WINDOWS:
             warnings.filterwarnings(
@@ -225,19 +239,19 @@ def _read_config_file() -> None:
                 module="snowflake.connector.config_manager",
             )
 
-            if not file_permissions_are_strict(CONFIG_MANAGER.file_path):
+            if not file_permissions_are_strict(config_manager.file_path):
                 users = ", ".join(
                     windows_get_not_whitelisted_users_with_access(
-                        CONFIG_MANAGER.file_path
+                        config_manager.file_path
                     )
                 )
                 warnings.warn(
-                    f"Unauthorized users ({users}) have access to configuration file {CONFIG_MANAGER.file_path}.\n"
-                    f'Run `icacls "{CONFIG_MANAGER.file_path}" /remove:g <USER_ID>` on those users to restrict permissions.'
+                    f"Unauthorized users ({users}) have access to configuration file {config_manager.file_path}.\n"
+                    f'Run `icacls "{config_manager.file_path}" /remove:g <USER_ID>` on those users to restrict permissions.'
                 )
 
         try:
-            CONFIG_MANAGER.read_config()
+            config_manager.read_config()
         except ConfigSourceError as exception:
             raise ClickException(
                 f"Configuration file seems to be corrupted. {str(exception.__cause__)}"
@@ -334,7 +348,7 @@ def get_connection_dict(connection_name: str) -> dict:
 
 def get_default_connection_name() -> str:
     """Get the default connection name."""
-    return CONFIG_MANAGER["default_connection_name"]
+    return get_config_manager()["default_connection_name"]
 
 
 def get_default_connection_dict() -> dict:
@@ -422,12 +436,14 @@ def _initialise_config(config_file: Path) -> None:
     config_file.touch()
     _initialise_cli_section()
     _initialise_logs_section()
-    log.info("Created Snowflake configuration file at %s", CONFIG_MANAGER.file_path)
+    log.info(
+        "Created Snowflake configuration file at %s", get_config_manager().file_path
+    )
 
 
 def _find_section(*path) -> TOMLDocument:
     """Find a configuration section by path."""
-    section = CONFIG_MANAGER
+    section = get_config_manager()
     idx = 0
     while idx < len(path):
         section = section[path[idx]]
@@ -473,7 +489,7 @@ def _dump_config(config_and_connections: Dict) -> None:
         else:
             config_toml_dict.pop("connections", None)
 
-    with SecurePath(CONFIG_MANAGER.file_path).open("w+") as fh:
+    with SecurePath(get_config_manager().file_path).open("w+") as fh:
         dump(config_toml_dict, fh)
 
 
@@ -490,7 +506,7 @@ def _check_default_config_files_permissions() -> None:
 
 def _read_config_file_toml() -> dict:
     """Read configuration file as TOML."""
-    return tomlkit.loads(CONFIG_MANAGER.file_path.read_text()).unwrap()
+    return tomlkit.loads(get_config_manager().file_path.read_text()).unwrap()
 
 
 def _read_connections_toml() -> dict:

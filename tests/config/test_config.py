@@ -156,23 +156,42 @@ def test_get_all_connections(test_snowcli_config):
     }
 
 
-@mock.patch("snowflake.cli.api.config.CONFIG_MANAGER")
 @mock.patch("snowflake.cli.api.config.get_config_section")
 def test_create_default_config_if_not_exists_with_proper_permissions(
     mock_get_config_section,
-    mock_config_manager,
 ):
     mock_get_config_section.return_value = {}
     with TemporaryDirectory() as tmp_dir:
         config_path = Path(f"{tmp_dir}/snowflake/config.toml")
-        mock_config_manager.file_path = config_path
-        mock_config_manager.conf_file_cache = {}
 
-        config_init(None)
+        # Mock the config manager to use our test path
+        with mock.patch(
+            "snowflake.cli.api.config.legacy.get_config_manager"
+        ) as mock_get_config_manager:
+            # Create a mock that has all the necessary methods
+            class MockConfigManager(dict):
+                def __init__(self):
+                    super().__init__()
+                    self.file_path = config_path
+                    self.conf_file_cache = {}
 
-        assert config_path.exists()
-        assert_file_permissions_are_strict(config_path.parent)
-        assert_file_permissions_are_strict(config_path)
+                def __getitem__(self, key):
+                    raise KeyError(f"mocked section {key} not found")
+
+                def read_config(self):
+                    # Mock implementation - do nothing
+                    pass
+
+            mock_config_manager = MockConfigManager()
+            mock_get_config_manager.return_value = mock_config_manager
+
+            # Also mock the logger creation to avoid issues
+            with mock.patch("snowflake.cli._app.loggers.create_initial_loggers"):
+                config_init(None)
+
+            assert config_path.exists()
+            assert_file_permissions_are_strict(config_path.parent)
+            assert_file_permissions_are_strict(config_path)
 
 
 @mock.patch.dict(
@@ -227,8 +246,9 @@ def test_not_found_default_connection_from_evn_variable(test_root_path):
 def test_correct_updates_of_connections_on_setting_default_connection(
     test_snowcli_config, snowflake_home
 ):
-    from snowflake.cli.api.config import CONFIG_MANAGER
+    from snowflake.cli.api.config import get_config_manager
 
+    config_manager = get_config_manager()
     config = test_snowcli_config
     connections_toml = snowflake_home / "connections.toml"
     connections_toml.write_text(
@@ -247,8 +267,8 @@ def test_correct_updates_of_connections_on_setting_default_connection(
     set_config_value(path=["default_connection_name"], value="asdf_b")
 
     def assert_correct_connections_loaded():
-        assert CONFIG_MANAGER["default_connection_name"] == "asdf_b"
-        assert CONFIG_MANAGER["connections"] == {
+        assert config_manager["default_connection_name"] == "asdf_b"
+        assert config_manager["connections"] == {
             "asdf_a": {
                 "database": "asdf_a_database",
                 "user": "asdf_a",
@@ -301,8 +321,9 @@ def test_correct_updates_of_connections_on_setting_default_connection(
 def test_correct_updates_of_connections_on_setting_default_connection_for_empty_config_file(
     config_file, snowflake_home
 ):
-    from snowflake.cli.api.config import CONFIG_MANAGER
+    from snowflake.cli.api.config import get_config_manager
 
+    config_manager = get_config_manager()
     with config_file() as config:
         connections_toml = snowflake_home / "connections.toml"
         connections_toml.write_text(
@@ -321,8 +342,8 @@ def test_correct_updates_of_connections_on_setting_default_connection_for_empty_
         set_config_value(path=["default_connection_name"], value="asdf_b")
 
         def assert_correct_connections_loaded():
-            assert CONFIG_MANAGER["default_connection_name"] == "asdf_b"
-            assert CONFIG_MANAGER["connections"] == {
+            assert config_manager["default_connection_name"] == "asdf_b"
+            assert config_manager["connections"] == {
                 "asdf_a": {
                     "database": "asdf_a_database",
                     "user": "asdf_a",
@@ -373,8 +394,9 @@ def test_correct_updates_of_connections_on_setting_default_connection_for_empty_
 
 
 def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_home):
-    from snowflake.cli.api.config import CONFIG_MANAGER
+    from snowflake.cli.api.config import get_config_manager
 
+    config_manager = get_config_manager()
     connections_toml = snowflake_home / "connections.toml"
     connections_toml.write_text(
         """[default]
@@ -384,7 +406,7 @@ def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_ho
     config_init(test_snowcli_config)
 
     assert get_default_connection_dict() == {"database": "overridden_database"}
-    assert CONFIG_MANAGER["connections"] == {
+    assert config_manager["connections"] == {
         "default": {"database": "overridden_database"}
     }
 

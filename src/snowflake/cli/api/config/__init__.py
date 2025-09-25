@@ -68,5 +68,5 @@ else:
     # Use the legacy configuration system
     from .legacy import *  # noqa: F403, F401
 
-# Export the feature flag utilities for external use
-__all__ = ["_is_config_ng_enabled", "CONFIG_NG_ENV_VAR"]
+# Export the feature flag utilities and factory method for external use
+__all__ = ["_is_config_ng_enabled", "CONFIG_NG_ENV_VAR", "get_config_manager"]
