@@ -1,5 +1,3 @@
-import uuid
-
 import pytest
 
 from tests_integration.testing_utils import FlowTestSetup
@@ -144,10 +142,8 @@ def test_streamlit_grants_flow(
     alter_snowflake_yml,
 ):
     """Test that streamlit grants are properly applied during deployment."""
-    test_role = f"snowcli_streamlit_grants_test_{uuid.uuid4().hex[:8]}"
+    test_role = "PUBLIC"  # Use existing role instead of creating new one
     entity_id = "app_1"
-
-    _streamlit_test_steps.create_test_role(test_role)
 
     with project_directory("streamlit_v2"):
         alter_snowflake_yml(
@@ -164,8 +160,6 @@ def test_streamlit_grants_flow(
 
         _streamlit_test_steps.drop_should_succeed(entity_id, snowflake_session)
 
-    _streamlit_test_steps.cleanup_test_role(test_role)
-
 
 @pytest.mark.integration
 def test_streamlit_grants_experimental_flow(
@@ -175,10 +169,8 @@ def test_streamlit_grants_experimental_flow(
     alter_snowflake_yml,
 ):
     """Test that streamlit grants are properly applied during experimental deployment."""
-    test_role = f"snowcli_streamlit_grants_exp_test_{uuid.uuid4().hex[:8]}"
+    test_role = "PUBLIC"  # Use existing role instead of creating new one
     entity_id = "app_1"
-
-    _streamlit_test_steps.create_test_role(test_role)
 
     with project_directory("streamlit_v2"):
         alter_snowflake_yml(
@@ -194,5 +186,3 @@ def test_streamlit_grants_experimental_flow(
         _streamlit_test_steps.verify_grants_applied(entity_id, test_role)
 
         _streamlit_test_steps.drop_should_succeed(entity_id, snowflake_session)
-
-    _streamlit_test_steps.cleanup_test_role(test_role)
