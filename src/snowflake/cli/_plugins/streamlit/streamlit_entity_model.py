@@ -25,6 +25,9 @@ from snowflake.cli.api.project.schemas.entities.common import (
 )
 from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
 
+# SPCS Runtime v2 constants
+SPCS_RUNTIME_V2_NAME = "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
+
 
 class StreamlitEntityModel(
     EntityModelBaseWithArtifacts,
@@ -66,11 +69,8 @@ class StreamlitEntityModel(
         # Only validate for SPCS container runtime, not warehouse runtime
         if self.compute_pool and not self.runtime_name:
             raise ValueError("compute_pool is specified without runtime_name")
-        if (
-            self.runtime_name == "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
-            and not self.compute_pool
-        ):
+        if self.runtime_name == SPCS_RUNTIME_V2_NAME and not self.compute_pool:
             raise ValueError(
-                "compute_pool is required when using SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
+                f"compute_pool is required when using {SPCS_RUNTIME_V2_NAME}"
             )
         return self

@@ -6,7 +6,10 @@ from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import build_bundle
 from snowflake.cli._plugins.stage.manager import StageManager
-from snowflake.cli._plugins.streamlit.streamlit_entity_model import StreamlitEntityModel
+from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
+    SPCS_RUNTIME_V2_NAME,
+    StreamlitEntityModel,
+)
 from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.entities.common import EntityBase
@@ -66,7 +69,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         """Check if SPCS runtime v2 mode is enabled."""
         return (
             experimental
-            and self.model.runtime_name == "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
+            and self.model.runtime_name == SPCS_RUNTIME_V2_NAME
             and self.model.compute_pool
         )
 
@@ -138,7 +141,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 self.get_deploy_sql(
                     replace=replace,
                     from_stage_name=stage_root,
-                    experimental=experimental,
+                    experimental=False,
                 )
             )
 

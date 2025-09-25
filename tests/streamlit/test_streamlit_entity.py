@@ -3,7 +3,10 @@ from unittest import mock
 
 import pytest
 from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
-from snowflake.cli._plugins.streamlit.streamlit_entity_model import StreamlitEntityModel
+from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
+    SPCS_RUNTIME_V2_NAME,
+    StreamlitEntityModel,
+)
 
 from tests.streamlit.streamlit_test_class import STREAMLIT_NAME, StreamlitTestClass
 
@@ -121,14 +124,14 @@ class TestStreamlitEntity(StreamlitTestClass):
         model = StreamlitEntityModel(
             type="streamlit",
             identifier="test_streamlit",
-            runtime_name="SYSTEM$ST_CONTAINER_RUNTIME_PY3_11",
+            runtime_name=SPCS_RUNTIME_V2_NAME,
             compute_pool="MYPOOL",
             main_file="streamlit_app.py",
             artifacts=["streamlit_app.py"],
         )
         model.set_entity_id("test_streamlit")
 
-        assert model.runtime_name == "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
+        assert model.runtime_name == SPCS_RUNTIME_V2_NAME
         assert model.compute_pool == "MYPOOL"
 
     def test_get_deploy_sql_with_spcs_runtime_v2(self, workspace_context):
@@ -137,7 +140,7 @@ class TestStreamlitEntity(StreamlitTestClass):
         model = StreamlitEntityModel(
             type="streamlit",
             identifier="test_streamlit",
-            runtime_name="SYSTEM$ST_CONTAINER_RUNTIME_PY3_11",
+            runtime_name=SPCS_RUNTIME_V2_NAME,
             compute_pool="MYPOOL",
             main_file="streamlit_app.py",
             artifacts=["streamlit_app.py"],
@@ -151,16 +154,16 @@ class TestStreamlitEntity(StreamlitTestClass):
             artifacts_dir=Path("/tmp/artifacts"), experimental=True
         )
 
-        assert "RUNTIME_NAME = 'SYSTEM$ST_CONTAINER_RUNTIME_PY3_11'" in sql
+        assert f"RUNTIME_NAME = '{SPCS_RUNTIME_V2_NAME}'" in sql
         assert "COMPUTE_POOL = 'MYPOOL'" in sql
 
     def test_get_deploy_sql_spcs_runtime_v2_with_stage(self, workspace_context):
-        """Test that SPCS runtime v2 clauses are added with stage-based deployment when experimental is True"""
+        """Test that SPCS runtime v2 clauses are NOT added with stage-based deployment (old-style streamlits)"""
 
         model = StreamlitEntityModel(
             type="streamlit",
             identifier="test_streamlit",
-            runtime_name="SYSTEM$ST_CONTAINER_RUNTIME_PY3_11",
+            runtime_name=SPCS_RUNTIME_V2_NAME,
             compute_pool="MYPOOL",
             main_file="streamlit_app.py",
             artifacts=["streamlit_app.py"],
@@ -169,19 +172,20 @@ class TestStreamlitEntity(StreamlitTestClass):
 
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
-        # Test with stage-based deployment
+        # Test with stage-based deployment - should NOT include SPCS runtime fields
+        # even when experimental=True, as stage-based deployments are old-style
         sql = entity.get_deploy_sql(from_stage_name="@stage/path", experimental=True)
 
         assert "ROOT_LOCATION = '@stage/path'" in sql
-        assert "RUNTIME_NAME = 'SYSTEM$ST_CONTAINER_RUNTIME_PY3_11'" in sql
-        assert "COMPUTE_POOL = 'MYPOOL'" in sql
+        assert "RUNTIME_NAME" not in sql
+        assert "COMPUTE_POOL" not in sql
 
     def test_get_deploy_sql_without_spcs_runtime_v2(self, workspace_context):
         """Test that get_deploy_sql works normally when experimental is False"""
         model = StreamlitEntityModel(
             type="streamlit",
             identifier="test_streamlit",
-            runtime_name="SYSTEM$ST_CONTAINER_RUNTIME_PY3_11",
+            runtime_name=SPCS_RUNTIME_V2_NAME,
             compute_pool="MYPOOL",
             main_file="streamlit_app.py",
             artifacts=["streamlit_app.py"],
@@ -203,7 +207,7 @@ class TestStreamlitEntity(StreamlitTestClass):
         model = StreamlitEntityModel(
             type="streamlit",
             identifier="test_streamlit",
-            runtime_name="SYSTEM$ST_CONTAINER_RUNTIME_PY3_11",
+            runtime_name=SPCS_RUNTIME_V2_NAME,
             compute_pool="MYPOOL",
             main_file="streamlit_app.py",
             artifacts=["streamlit_app.py"],
@@ -216,7 +220,7 @@ class TestStreamlitEntity(StreamlitTestClass):
         sql = entity.get_deploy_sql(
             artifacts_dir=Path("/tmp/artifacts"), experimental=True
         )
-        assert "RUNTIME_NAME = 'SYSTEM$ST_CONTAINER_RUNTIME_PY3_11'" in sql
+        assert f"RUNTIME_NAME = '{SPCS_RUNTIME_V2_NAME}'" in sql
         assert "COMPUTE_POOL = 'MYPOOL'" in sql
 
         # Test with experimental=False, should not add SPCS fields
@@ -242,7 +246,7 @@ class TestStreamlitEntity(StreamlitTestClass):
         model = StreamlitEntityModel(
             type="streamlit",
             identifier="test_streamlit",
-            runtime_name="SYSTEM$ST_CONTAINER_RUNTIME_PY3_11",
+            runtime_name=SPCS_RUNTIME_V2_NAME,
             compute_pool="MYPOOL",
             main_file="streamlit_app.py",
             artifacts=["streamlit_app.py"],
@@ -252,7 +256,7 @@ class TestStreamlitEntity(StreamlitTestClass):
         sql = entity.get_deploy_sql(
             artifacts_dir=Path("/tmp/artifacts"), experimental=True
         )
-        assert "RUNTIME_NAME = 'SYSTEM$ST_CONTAINER_RUNTIME_PY3_11'" in sql
+        assert f"RUNTIME_NAME = '{SPCS_RUNTIME_V2_NAME}'" in sql
         assert "COMPUTE_POOL = 'MYPOOL'" in sql
 
         # Test with warehouse runtime (no compute_pool needed)
@@ -278,12 +282,12 @@ class TestStreamlitEntity(StreamlitTestClass):
         # Test: SYSTEM$ST_CONTAINER_RUNTIME_PY3_11 requires compute_pool
         with pytest.raises(
             ValueError,
-            match=r"compute_pool is required when using SYSTEM\$ST_CONTAINER_RUNTIME_PY3_11",
+            match=rf"compute_pool is required when using {SPCS_RUNTIME_V2_NAME.replace('$', r'\$')}",
         ):
             StreamlitEntityModel(
                 type="streamlit",
                 identifier="test_streamlit",
-                runtime_name="SYSTEM$ST_CONTAINER_RUNTIME_PY3_11",
+                runtime_name=SPCS_RUNTIME_V2_NAME,
                 main_file="streamlit_app.py",
                 artifacts=["streamlit_app.py"],
             )
@@ -315,10 +319,10 @@ class TestStreamlitEntity(StreamlitTestClass):
         model = StreamlitEntityModel(
             type="streamlit",
             identifier="test_streamlit",
-            runtime_name="SYSTEM$ST_CONTAINER_RUNTIME_PY3_11",
+            runtime_name=SPCS_RUNTIME_V2_NAME,
             compute_pool="MYPOOL",
             main_file="streamlit_app.py",
             artifacts=["streamlit_app.py"],
         )
-        assert model.runtime_name == "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
+        assert model.runtime_name == SPCS_RUNTIME_V2_NAME
         assert model.compute_pool == "MYPOOL"
