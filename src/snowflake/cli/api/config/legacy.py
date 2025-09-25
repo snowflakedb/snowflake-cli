@@ -57,14 +57,15 @@ log = logging.getLogger(__name__)
 
 def get_config_manager():
     """
-    Factory method to get the config manager instance.
+    Get the config manager instance from the current CLI context.
 
     This provides a centralized way to access the config manager,
-    allowing for easier testing and potential future customization.
+    allowing for easier testing and better isolation between contexts.
+    Each CLI context gets its own ConfigManager instance.
     """
-    from snowflake.connector.config_manager import CONFIG_MANAGER
+    from snowflake.cli.api.cli_global_context import get_cli_context_manager
 
-    return CONFIG_MANAGER
+    return get_cli_context_manager().config_manager
 
 
 class Empty:
@@ -84,12 +85,7 @@ PLUGINS_SECTION_PATH = [CLI_SECTION, PLUGINS_SECTION]
 PLUGIN_ENABLED_KEY = "enabled"
 FEATURE_FLAGS_SECTION_PATH = [CLI_SECTION, "features"]
 
-# Initialize config manager with CLI section
-get_config_manager().add_option(
-    name=CLI_SECTION,
-    parse_str=tomlkit.parse,
-    default=dict(),
-)
+# Note: CLI section initialization is now handled in the CliGlobalContext factory
 
 
 @dataclass
@@ -155,14 +151,14 @@ class ConnectionConfig:
         }
 
 
-# Default configuration values
-_DEFAULT_LOGS_CONFIG = {
-    "save_logs": True,
-    "path": str(get_config_manager().file_path.parent / "logs"),
-    "level": "info",
-}
-
-_DEFAULT_CLI_CONFIG = {LOGS_SECTION: _DEFAULT_LOGS_CONFIG}
+# Default configuration values - computed lazily to avoid circular imports
+def _get_default_logs_config() -> dict:
+    """Get default logs configuration with computed paths."""
+    return {
+        "save_logs": True,
+        "path": str(get_config_manager().file_path.parent / "logs"),
+        "level": "info",
+    }
 
 
 def config_init(config_file: Optional[Path]) -> None:
@@ -261,7 +257,7 @@ def _read_config_file() -> None:
 def _initialise_logs_section() -> None:
     """Initialize the logs section with default values."""
     with _config_file() as conf_file_cache:
-        conf_file_cache[CLI_SECTION][LOGS_SECTION] = _DEFAULT_LOGS_CONFIG
+        conf_file_cache[CLI_SECTION][LOGS_SECTION] = _get_default_logs_config()
 
 
 def _initialise_cli_section() -> None:
@@ -300,7 +296,7 @@ def unset_config_value(path: List[str]) -> None:
 
 def get_logs_config() -> dict:
     """Get logs configuration with defaults."""
-    logs_config = _DEFAULT_LOGS_CONFIG.copy()
+    logs_config = _get_default_logs_config().copy()
     if config_section_exists(*LOGS_SECTION_PATH):
         logs_config.update(**get_config_section(*LOGS_SECTION_PATH))
     return logs_config

@@ -13,12 +13,10 @@
 # limitations under the License.
 import importlib
 import os
-import shutil
 import sys
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator, List
 from unittest import mock
 
 import pytest
@@ -111,43 +109,12 @@ def snowflake_home(monkeypatch):
             if submodule in sys.modules:
                 importlib.reload(sys.modules[submodule])
 
-        # Clear CONFIG_MANAGER cache to ensure clean state between tests
-        from snowflake.cli.api.config.legacy import get_config_manager
+        # Reset CLI context to get fresh ConfigManager instance for tests
+        # This replaces complex cache clearing with simple instance recreation
+        from snowflake.cli.api.cli_global_context import get_cli_context_manager
 
-        config_manager = get_config_manager()
-        if hasattr(config_manager, "conf_file_cache"):
-            config_manager.conf_file_cache = None
-        # Clear internal slices and options that cache configuration data
-        if hasattr(config_manager, "_slices"):
-            config_manager._slices = []
-        # Reset each option's cached data
-        if hasattr(config_manager, "_options"):
-            for option in config_manager._options.values():
-                if hasattr(option, "_cached_value"):
-                    option._cached_value = None
-                if hasattr(option, "_value"):
-                    option._value = None
-
-        # Force CONFIG_MANAGER to re-initialize with new SNOWFLAKE_HOME
-        # This ensures slices point to the test directory
-        from snowflake.connector.constants import CONNECTIONS_FILE
-
-        if hasattr(config_manager, "_slices") and CONNECTIONS_FILE:
-            # Re-add the connections slice with the correct test path
-            from snowflake.connector.config_manager import (
-                ConfigSlice,
-                ConfigSliceOptions,
-            )
-
-            config_manager._slices = [
-                ConfigSlice(
-                    path=CONNECTIONS_FILE,
-                    options=ConfigSliceOptions(
-                        check_permissions=True, only_in_slice=False
-                    ),
-                    section="connections",
-                )
-            ]
+        context_manager = get_cli_context_manager()
+        context_manager.reset()  # This creates a fresh config manager instance
 
         yield snowflake_home
 
