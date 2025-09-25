@@ -133,7 +133,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 self.get_deploy_sql(replace=replace, from_stage_name=stage_root)
             )
 
-            StreamlitManager().grant_privileges(self.model)
+            StreamlitManager(connection=self._conn).grant_privileges(self.model)
 
         return self.perform(EntityActions.GET_URL, action_context, *args, **kwargs)
 
@@ -260,4 +260,4 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             force_overwrite=True,  # files copied to streamlit vstage need to be overwritten
         )
 
-        StreamlitManager().grant_privileges(self.model)
+        StreamlitManager(connection=self._conn).grant_privileges(self.model)
