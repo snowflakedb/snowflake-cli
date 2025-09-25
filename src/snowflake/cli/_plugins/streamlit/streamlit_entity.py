@@ -213,7 +213,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if self.model.secrets:
             query += "\n" + self.model.get_secrets_sql()
 
-        if self._is_spcs_runtime_v2_mode(experimental):
+        # SPCS runtime fields are only supported for FBE/versioned streamlits (FROM syntax)
+        # Never add these fields for stage-based deployments (ROOT_LOCATION syntax)
+        if not from_stage_name and self._is_spcs_runtime_v2_mode(experimental):
             query += f"\nRUNTIME_NAME = '{self.model.runtime_name}'"
             query += f"\nCOMPUTE_POOL = '{self.model.compute_pool}'"
 

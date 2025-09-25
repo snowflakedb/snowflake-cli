@@ -280,9 +280,10 @@ class TestStreamlitEntity(StreamlitTestClass):
         """Test validation for SPCS runtime configuration"""
 
         # Test: SYSTEM$ST_CONTAINER_RUNTIME_PY3_11 requires compute_pool
+        escaped_runtime_name = SPCS_RUNTIME_V2_NAME.replace("$", r"\$")
         with pytest.raises(
             ValueError,
-            match=rf"compute_pool is required when using {SPCS_RUNTIME_V2_NAME.replace('$', r'\$')}",
+            match=rf"compute_pool is required when using {escaped_runtime_name}",
         ):
             StreamlitEntityModel(
                 type="streamlit",
