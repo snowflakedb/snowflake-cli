@@ -142,7 +142,7 @@ def test_streamlit_grants_flow(
     alter_snowflake_yml,
 ):
     """Test that streamlit grants are properly applied during deployment."""
-    test_role = "PUBLIC"  # Use existing role instead of creating new one
+    test_role = "test_role"  # Use integration test role
     entity_id = "app_1"
 
     with project_directory("streamlit_v2"):
@@ -169,7 +169,7 @@ def test_streamlit_grants_experimental_flow(
     alter_snowflake_yml,
 ):
     """Test that streamlit grants are properly applied during experimental deployment."""
-    test_role = "PUBLIC"  # Use existing role instead of creating new one
+    test_role = "test_role"  # Use integration test role
     entity_id = "app_1"
 
     with project_directory("streamlit_v2"):
