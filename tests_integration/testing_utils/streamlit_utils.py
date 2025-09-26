@@ -184,7 +184,6 @@ class StreamlitTestSteps:
         assert message.endswith(create_expected_url_suffix(entity_id, session))
 
     def verify_grants_applied(self, entity_id: str, test_role: str):
-        # Switch to test role and verify grants work
         self.setup.sql_test_helper.execute_single_sql(f"USE ROLE {test_role}")
         streamlits_with_role = self.setup.sql_test_helper.execute_single_sql(
             f"SHOW STREAMLITS LIKE '{entity_id}'"
@@ -192,7 +191,6 @@ class StreamlitTestSteps:
         assert (
             len(streamlits_with_role) == 1
         ), f"Role {test_role} should have USAGE access to the streamlit"
-        # No need to switch back since this is at the end of the test
 
 
 def create_expected_url_suffix(entity_id: str, session: SnowflakeConnection):

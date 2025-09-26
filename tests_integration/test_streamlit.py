@@ -142,7 +142,6 @@ def test_streamlit_grants_flow(
     alter_snowflake_yml,
 ):
     """Test that streamlit grants are properly applied during deployment."""
-    # Use the session's default role (main CI role)
     test_role = snowflake_session.role
     entity_id = "app_1"
 
@@ -170,7 +169,6 @@ def test_streamlit_grants_experimental_flow(
     alter_snowflake_yml,
 ):
     """Test that streamlit grants are properly applied during experimental deployment."""
-    # Use the session's default role (main CI role)
     test_role = snowflake_session.role
     entity_id = "app_1"
 
