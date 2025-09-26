@@ -167,8 +167,28 @@ def windows_file_cleanup():
     if os.name == "nt":  # Windows
         import gc
         import logging
+        import time
 
         try:
+            # More aggressive logging cleanup - close ALL handlers in the logging system
+            for logger_name in list(logging.Logger.manager.loggerDict.keys()):
+                logger = logging.getLogger(logger_name)
+                for handler in logger.handlers[:]:
+                    try:
+                        handler.close()
+                        logger.removeHandler(handler)
+                    except Exception:
+                        pass
+
+            # Also clean up root logger
+            root_logger = logging.getLogger()
+            for handler in root_logger.handlers[:]:
+                try:
+                    handler.close()
+                    root_logger.removeHandler(handler)
+                except Exception:
+                    pass
+
             # Force cleanup of ConfigManager resources
             from snowflake.cli.api.cli_global_context import get_cli_context_manager
 
@@ -197,20 +217,17 @@ def windows_file_cleanup():
                         if hasattr(option, "_value"):
                             option._value = None
 
-            # Close any remaining log handlers that might be holding file handles
-            # This is crucial for Windows where file handles prevent directory deletion
-            for handler in logging.getLogger().handlers[:]:
-                if hasattr(handler, "close"):
-                    handler.close()
+                # Force the config manager to release file handles
+                try:
+                    if hasattr(config_manager, "_file_cache"):
+                        config_manager._file_cache = None
+                except Exception:
+                    pass
 
-            # Also check the snowflake CLI logger specifically
-            cli_logger = logging.getLogger("snowflake.cli")
-            for handler in cli_logger.handlers[:]:
-                if hasattr(handler, "close"):
-                    handler.close()
-
-            # Force garbage collection to release any remaining references
-            gc.collect()
+            # Multiple garbage collection passes with delays to let Windows release handles
+            for _ in range(3):
+                gc.collect()
+                time.sleep(0.1)  # Small delay to let Windows release handles
 
         except Exception:
             # Best effort cleanup - don't fail tests if cleanup fails
