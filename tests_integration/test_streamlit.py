@@ -142,9 +142,8 @@ def test_streamlit_grants_flow(
     alter_snowflake_yml,
 ):
     """Test that streamlit grants are properly applied during deployment."""
-    # Use current role to avoid role assignment issues in CI
-    current_role_cursor = snowflake_session.execute_string("SELECT CURRENT_ROLE()")[0]
-    test_role = current_role_cursor.fetchone()[0]
+    # Use the session's default role (main CI role)
+    test_role = snowflake_session.role
     entity_id = "app_1"
 
     with project_directory("streamlit_v2"):
@@ -171,9 +170,8 @@ def test_streamlit_grants_experimental_flow(
     alter_snowflake_yml,
 ):
     """Test that streamlit grants are properly applied during experimental deployment."""
-    # Use current role to avoid role assignment issues in CI
-    current_role_cursor = snowflake_session.execute_string("SELECT CURRENT_ROLE()")[0]
-    test_role = current_role_cursor.fetchone()[0]
+    # Use the session's default role (main CI role)
+    test_role = snowflake_session.role
     entity_id = "app_1"
 
     with project_directory("streamlit_v2"):
