@@ -142,7 +142,9 @@ def test_streamlit_grants_flow(
     alter_snowflake_yml,
 ):
     """Test that streamlit grants are properly applied during deployment."""
-    test_role = "test_role"  # Use integration test role
+    # Use current role to avoid role assignment issues in CI
+    current_role_cursor = snowflake_session.execute_string("SELECT CURRENT_ROLE()")[0]
+    test_role = current_role_cursor.fetchone()[0]
     entity_id = "app_1"
 
     with project_directory("streamlit_v2"):
@@ -156,9 +158,7 @@ def test_streamlit_grants_flow(
             entity_id, snowflake_session, experimental=False
         )
 
-        # Skip grants verification in CI due to role assignment issues
-        # The grants functionality is verified to work correctly during deployment
-        # _streamlit_test_steps.verify_grants_applied(entity_id, test_role)
+        _streamlit_test_steps.verify_grants_applied(entity_id, test_role)
 
         _streamlit_test_steps.drop_should_succeed(entity_id, snowflake_session)
 
@@ -171,7 +171,9 @@ def test_streamlit_grants_experimental_flow(
     alter_snowflake_yml,
 ):
     """Test that streamlit grants are properly applied during experimental deployment."""
-    test_role = "test_role"  # Use integration test role
+    # Use current role to avoid role assignment issues in CI
+    current_role_cursor = snowflake_session.execute_string("SELECT CURRENT_ROLE()")[0]
+    test_role = current_role_cursor.fetchone()[0]
     entity_id = "app_1"
 
     with project_directory("streamlit_v2"):
@@ -185,8 +187,6 @@ def test_streamlit_grants_experimental_flow(
             entity_id, snowflake_session, experimental=True
         )
 
-        # Skip grants verification in CI due to role assignment issues
-        # The grants functionality is verified to work correctly during deployment
-        # _streamlit_test_steps.verify_grants_applied(entity_id, test_role)
+        _streamlit_test_steps.verify_grants_applied(entity_id, test_role)
 
         _streamlit_test_steps.drop_should_succeed(entity_id, snowflake_session)
