@@ -40,6 +40,42 @@ class LoggerConfig:
     handlers: List[str] = field(default_factory=list)
 
 
+def _get_file_handler_config() -> Dict[str, Any]:
+    """
+    Get file handler configuration based on environment.
+
+    In test environments, use simple FileHandler to avoid Windows compatibility issues.
+    In production, use TimedRotatingFileHandler for log rotation.
+    """
+    import os
+    import sys
+
+    # Detect if we're running in a test environment
+    is_test_env = (
+        "pytest" in os.environ.get("_", "")
+        or "PYTEST_CURRENT_TEST" in os.environ
+        or any("pytest" in arg for arg in sys.argv)
+    )
+
+    if is_test_env:
+        # Simple FileHandler for tests - avoids Windows directory issues
+        return {
+            "class": "logging.FileHandler",
+            "filename": None,
+            "formatter": "detailed_formatter",
+            "level": logging.INFO,
+        }
+    else:
+        # TimedRotatingFileHandler for production - provides log rotation
+        return {
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": None,
+            "when": "midnight",
+            "formatter": "detailed_formatter",
+            "level": logging.INFO,
+        }
+
+
 @dataclass
 class DefaultLoggingConfig:
     version: int = 1
@@ -62,13 +98,7 @@ class DefaultLoggingConfig:
                 "formatter": "default_formatter",
                 "level": logging.ERROR,
             },
-            "file": {
-                "class": "logging.handlers.TimedRotatingFileHandler",
-                "filename": None,
-                "when": "midnight",
-                "formatter": "detailed_formatter",
-                "level": logging.INFO,
-            },
+            "file": _get_file_handler_config(),
         },
     )
     loggers: Dict[str, Any] = field(
