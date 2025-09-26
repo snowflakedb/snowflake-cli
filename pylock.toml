@@ -448,9 +448,9 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/20/12/38679034af33278
 
 [[packages]]
 name = "pip"
-version = "24.2"
-sdist = { url = "https://files.pythonhosted.org/packages/4d/87/fb90046e096a03aeab235e139436b3fe804cdd447ed2093b0d70eba3f7f8/pip-24.2.tar.gz", upload-time = 2024-07-28T22:40:55Z, size = 1922041, hashes = { sha256 = "5b5e490b5e9cb275c879595064adce9ebd31b854e3e803740b72f9ccf34a45b8" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/d4/55/90db48d85f7689ec6f81c0db0622d704306c5284850383c090e6c7195a5c/pip-24.2-py3-none-any.whl", upload-time = 2024-07-28T22:40:52Z, size = 1815170, hashes = { sha256 = "2cd581cf58ab7fcfca4ce8efa6dcacd0de5bf8d0a3eb9ec927e07405f4d9e2a2" } }]
+version = "25.2"
+sdist = { url = "https://files.pythonhosted.org/packages/20/16/650289cd3f43d5a2fadfd98c68bd1e1e7f2550a1a5326768cddfbcedb2c5/pip-25.2.tar.gz", upload-time = 2025-07-30T21:50:15Z, size = 1840021, hashes = { sha256 = "578283f006390f85bb6282dffb876454593d637f5d1be494b5202ce4877e71f2" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/b7/3f/945ef7ab14dc4f9d7f40288d2df998d1837ee0888ec3659c813487572faa/pip-25.2-py3-none-any.whl", upload-time = 2025-07-30T21:50:13Z, size = 1752557, hashes = { sha256 = "6d67a2b4e7f14d8b31b8b52648866fa717f45a1eb70e83002f4331d07e953717" } }]
 
 [[packages]]
 name = "platformdirs"
