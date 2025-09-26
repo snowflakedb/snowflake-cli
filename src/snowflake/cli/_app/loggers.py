@@ -136,7 +136,7 @@ class FileLogsConfig:
 
     @property
     def filename(self):
-        return self.path.path / _DEFAULT_LOG_FILENAME
+        return str(self.path.path / _DEFAULT_LOG_FILENAME)
 
 
 def create_initial_loggers():
