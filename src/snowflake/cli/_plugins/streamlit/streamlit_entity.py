@@ -6,6 +6,7 @@ from click import ClickException
 from snowflake.cli._plugins.connection.util import make_snowsight_url
 from snowflake.cli._plugins.nativeapp.artifacts import build_bundle
 from snowflake.cli._plugins.stage.manager import StageManager
+from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     StreamlitEntityModel,
 )
@@ -132,6 +133,8 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 self.get_deploy_sql(replace=replace, from_stage_name=stage_root)
             )
 
+            StreamlitManager(connection=self._conn).grant_privileges(self.model)
+
         return self.perform(EntityActions.GET_URL, action_context, *args, **kwargs)
 
     def describe(self) -> SnowflakeCursor:
@@ -256,3 +259,5 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             print_diff=True,
             force_overwrite=True,  # files copied to streamlit vstage need to be overwritten
         )
+
+        StreamlitManager(connection=self._conn).grant_privileges(self.model)

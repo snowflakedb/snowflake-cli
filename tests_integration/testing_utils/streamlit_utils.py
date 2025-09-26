@@ -183,6 +183,15 @@ class StreamlitTestSteps:
         assert message.startswith("Streamlit successfully deployed and available under")
         assert message.endswith(create_expected_url_suffix(entity_id, session))
 
+    def verify_grants_applied(self, entity_id: str, test_role: str):
+        self.setup.sql_test_helper.execute_single_sql(f"USE ROLE {test_role}")
+        streamlits_with_role = self.setup.sql_test_helper.execute_single_sql(
+            f"SHOW STREAMLITS LIKE '{entity_id}'"
+        )
+        assert (
+            len(streamlits_with_role) == 1
+        ), f"Role {test_role} should have USAGE access to the streamlit"
+
 
 def create_expected_url_suffix(entity_id: str, session: SnowflakeConnection):
     return f".snowflake.com/SFENGINEERING/{get_account(session)}/#/streamlit-apps/{session.database.upper()}.{session.schema.upper()}.{entity_id.upper()}"

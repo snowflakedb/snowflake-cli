@@ -22,6 +22,7 @@
 
 ## Fixes and improvements
 * Bumped `snowflake-connector-python==3.17.4`
+* Grant privileges defined in `snowflake.yml` after deploying Streamlit
 
 
 # v3.12.0
