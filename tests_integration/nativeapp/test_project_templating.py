@@ -364,29 +364,22 @@ def test_nativeapp_templates_processor_with_run(
         if with_project_flag:
             working_directory_changer = WorkingDirectoryChanger()
             working_directory_changer.change_working_directory_to("app")
-        try:
-            result = runner.invoke_with_connection_json(
-                ["app", "run"] + project_args,
-                env={
-                    "schema_name": "test_schema",
-                    "table_name": "test_table",
-                    "value": "test_value",
-                },
-            )
-            assert result.exit_code == 0
+        result = runner.invoke_with_connection_json(
+            ["app", "run"] + project_args,
+            env={
+                "schema_name": "test_schema",
+                "table_name": "test_table",
+                "value": "test_value",
+            },
+        )
+        assert result.exit_code == 0
 
-            result = row_from_snowflake_session(
-                snowflake_session.execute_string(
-                    f"select * from {app_name}.test_schema.test_table",
-                )
+        result = row_from_snowflake_session(
+            snowflake_session.execute_string(
+                f"select * from {app_name}.test_schema.test_table",
             )
-            assert result == [{"NAME": "test_value"}]
-
-        finally:
-            result = runner.invoke_with_connection_json(
-                ["app", "teardown", "--force"] + project_args
-            )
-            assert result.exit_code == 0
+        )
+        assert result == [{"NAME": "test_value"}]
 
 
 @pytest.mark.integration
