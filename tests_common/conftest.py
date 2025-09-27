@@ -13,12 +13,10 @@
 # limitations under the License.
 import importlib
 import os
-import shutil
 import sys
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator, List
 from unittest import mock
 
 import pytest
@@ -103,6 +101,21 @@ def snowflake_home(monkeypatch):
         ]:
             importlib.reload(module)
 
+        # Also reload the config submodules since config is now a package
+        for submodule in [
+            "snowflake.cli.api.config.legacy",
+            "snowflake.cli.api.config.config_ng",
+        ]:
+            if submodule in sys.modules:
+                importlib.reload(sys.modules[submodule])
+
+        # Reset CLI context to get fresh ConfigManager instance for tests
+        # This replaces complex cache clearing with simple instance recreation
+        from snowflake.cli.api.cli_global_context import get_cli_context_manager
+
+        context_manager = get_cli_context_manager()
+        context_manager.reset()  # This creates a fresh config manager instance
+
         yield snowflake_home
 
 
@@ -138,3 +151,84 @@ skip_snowpark_on_newest_python = pytest.mark.skipif(
     sys.version_info >= PYTHON_3_12,
     reason="requires python3.11 or lower",
 )
+
+
+@pytest.fixture(autouse=True)
+def windows_file_cleanup():
+    """
+    Windows-specific fixture to clean up file handles that prevent directory deletion.
+
+    This fixture automatically runs for all tests and cleans up ConfigManager
+    resources and logging handlers that can hold file handles open on Windows.
+    """
+    yield  # Let the test run first
+
+    # Only perform cleanup on Windows
+    if os.name == "nt":  # Windows
+        import gc
+        import logging
+        import time
+
+        try:
+            # More aggressive logging cleanup - close ALL handlers in the logging system
+            for logger_name in list(logging.Logger.manager.loggerDict.keys()):
+                logger = logging.getLogger(logger_name)
+                for handler in logger.handlers[:]:
+                    try:
+                        handler.close()
+                        logger.removeHandler(handler)
+                    except Exception:
+                        pass
+
+            # Also clean up root logger
+            root_logger = logging.getLogger()
+            for handler in root_logger.handlers[:]:
+                try:
+                    handler.close()
+                    root_logger.removeHandler(handler)
+                except Exception:
+                    pass
+
+            # Force cleanup of ConfigManager resources
+            from snowflake.cli.api.cli_global_context import get_cli_context_manager
+
+            context_manager = get_cli_context_manager()
+            if (
+                hasattr(context_manager, "_config_manager")
+                and context_manager._config_manager is not None
+            ):
+                config_manager = context_manager._config_manager
+
+                # Clear any cached file handles
+                if hasattr(config_manager, "conf_file_cache"):
+                    config_manager.conf_file_cache = None
+
+                # Reset internal state that might hold file references
+                if hasattr(config_manager, "_slices"):
+                    for slice_obj in config_manager._slices:
+                        if hasattr(slice_obj, "_cached_data"):
+                            slice_obj._cached_data = None
+
+                # Clear options that might have file references
+                if hasattr(config_manager, "_options"):
+                    for option in config_manager._options.values():
+                        if hasattr(option, "_cached_value"):
+                            option._cached_value = None
+                        if hasattr(option, "_value"):
+                            option._value = None
+
+                # Force the config manager to release file handles
+                try:
+                    if hasattr(config_manager, "_file_cache"):
+                        config_manager._file_cache = None
+                except Exception:
+                    pass
+
+            # Multiple garbage collection passes with delays to let Windows release handles
+            for _ in range(3):
+                gc.collect()
+                time.sleep(0.1)  # Small delay to let Windows release handles
+
+        except Exception:
+            # Best effort cleanup - don't fail tests if cleanup fails
+            pass

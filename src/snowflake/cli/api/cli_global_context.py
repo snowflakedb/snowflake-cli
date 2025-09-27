@@ -32,8 +32,72 @@ if TYPE_CHECKING:
     from snowflake.cli._plugins.sql.repl import Repl
     from snowflake.cli.api.project.definition_manager import DefinitionManager
     from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
+    from snowflake.connector.config_manager import ConfigManager
 
 _CONNECTION_CACHE = OpenConnectionCache()
+
+
+def _create_config_manager(config_file: Path | None = None) -> "ConfigManager":
+    """
+    Create a new ConfigManager instance.
+
+    This replaces the global singleton pattern with instance creation,
+    providing better testability and isolation.
+
+    Args:
+        config_file: Optional path to configuration file
+
+    Returns:
+        A new ConfigManager instance configured for CLI use
+    """
+    import tomlkit
+    from snowflake.connector.config_manager import ConfigManager
+
+    # Set up file path - use provided or get default from constants
+    if config_file is None:
+        from snowflake.connector.constants import CONFIG_FILE
+
+        config_file = CONFIG_FILE
+
+    # Import required components for slices (same as global CONFIG_MANAGER)
+    from snowflake.connector.config_manager import ConfigSlice, ConfigSliceOptions
+    from snowflake.connector.constants import CONNECTIONS_FILE
+
+    # Create new instance with required name parameter, file path, and slices
+    # This matches the global CONFIG_MANAGER initialization
+    config_manager = ConfigManager(
+        name="CLI_CONFIG_MANAGER",
+        file_path=config_file,
+        _slices=[
+            ConfigSlice(  # Optional connections file to read in connections from
+                CONNECTIONS_FILE,
+                ConfigSliceOptions(
+                    check_permissions=True,  # connections could live here, check permissions
+                ),
+                "connections",
+            ),
+        ],
+    )
+
+    # Add the same options as the global CONFIG_MANAGER
+    config_manager.add_option(
+        name="connections",
+        parse_str=tomlkit.parse,
+        default=dict(),
+    )
+    config_manager.add_option(
+        name="default_connection_name",
+        default="default",
+    )
+
+    # Add CLI section (equivalent to what was in legacy.py)
+    config_manager.add_option(
+        name="cli",
+        parse_str=tomlkit.parse,
+        default=dict(),
+    )
+
+    return config_manager
 
 
 @dataclass
@@ -64,6 +128,7 @@ class _CliGlobalContextManager:
     override_project_definition: ProjectDefinition | None = None
 
     _definition_manager: DefinitionManager | None = None
+    _config_manager: "ConfigManager | None" = field(default=None, init=False)
     enhanced_exit_codes: bool = False
 
     # which properties invalidate our current DefinitionManager?
@@ -73,16 +138,27 @@ class _CliGlobalContextManager:
         "project_env_overrides_args",
     ]
 
+    @property
+    def config_manager(self) -> "ConfigManager":
+        """Get or create the ConfigManager instance for this context."""
+        if self._config_manager is None:
+            self._config_manager = _create_config_manager()
+        return self._config_manager
+
     def reset(self):
         self.__init__()
 
     def clone(self) -> _CliGlobalContextManager:
-        return replace(
+        cloned = replace(
             self,
             connection_context=self.connection_context.clone(),
             project_env_overrides_args=self.project_env_overrides_args.copy(),
             metrics=self.metrics.clone(),
         )
+        # Don't clone config_manager - each context gets its own fresh instance
+        # We use object.__setattr__ to bypass the normal attribute setting
+        object.__setattr__(cloned, "_config_manager", None)
+        return cloned
 
     def __setattr__(self, prop, val):
         if prop in self.DEFINITION_MANAGER_DEPENDENCIES:
@@ -215,6 +291,11 @@ class _CliGlobalContextAccess:
     def repl(self) -> Repl | None:
         """Get the current REPL instance if running in REPL mode."""
         return self._manager.repl_instance
+
+    @property
+    def config_manager(self) -> "ConfigManager":
+        """Get the ConfigManager instance for this context."""
+        return self._manager.config_manager
 
 
 _CLI_CONTEXT_MANAGER: ContextVar[_CliGlobalContextManager | None] = ContextVar(
