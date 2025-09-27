@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Add `snow spcs compute-pool show-instance-families` command.
 
 ## Fixes and improvements
 * Bumped `snowflake-connector-python==3.17.4`
