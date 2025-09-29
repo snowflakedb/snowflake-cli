@@ -32,6 +32,7 @@ import yaml
 from rich import box
 from snowflake.cli._app import loggers
 from snowflake.cli._app.cli_app import CliAppFactory
+from snowflake.cli._plugins.connection.util import clear_ui_parameters_cache
 from snowflake.cli.api.cli_global_context import (
     fork_cli_context,
     get_cli_context_manager,
@@ -116,6 +117,7 @@ def reset_global_context_and_setup_config_and_logging_levels(
             yield
         finally:
             cli_context_manager.connection_cache.clear()
+            clear_ui_parameters_cache()
 
 
 # This automatically used cleanup fixture is required to avoid random breaking of logging

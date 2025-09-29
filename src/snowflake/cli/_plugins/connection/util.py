@@ -93,6 +93,17 @@ def get_ui_parameters(conn: SnowflakeConnection) -> Dict[UIParameter, Any]:
     }
 
 
+def clear_ui_parameters_cache() -> None:
+    """
+    Clear the LRU cache for UI parameters to ensure fresh state.
+
+    This function should be called between tests or operations to prevent
+    state pollution from cached UI parameters. It clears the cache for
+    get_ui_parameters function.
+    """
+    get_ui_parameters.cache_clear()
+
+
 def is_regionless_redirect(conn: SnowflakeConnection) -> bool:
     """
     Determines if the deployment this connection refers to uses
