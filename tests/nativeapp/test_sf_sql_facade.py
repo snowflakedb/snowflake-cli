@@ -29,6 +29,7 @@ from snowflake.cli._plugins.nativeapp.constants import (
 from snowflake.cli._plugins.nativeapp.same_account_install_method import (
     SameAccountInstallMethod,
 )
+from snowflake.cli._plugins.nativeapp.sf_facade import get_snowflake_facade
 from snowflake.cli._plugins.nativeapp.sf_facade_constants import UseObjectType
 from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     CouldNotUseObjectError,
@@ -39,9 +40,6 @@ from snowflake.cli._plugins.nativeapp.sf_facade_exceptions import (
     UpgradeApplicationRestrictionError,
     UserInputError,
     UserScriptError,
-)
-from snowflake.cli._plugins.nativeapp.sf_sql_facade import (
-    SnowflakeSQLFacade,
 )
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.errno import (
@@ -87,14 +85,6 @@ from tests.nativeapp.utils import (
     assert_programmingerror_cause_with_errno,
     mock_execute_helper,
 )
-
-sql_facade = SnowflakeSQLFacade()
-
-
-@pytest.fixture(autouse=True)
-def reset_sql_facade():
-    global sql_facade
-    sql_facade = SnowflakeSQLFacade()
 
 
 @pytest.fixture
@@ -161,9 +151,9 @@ def assert_in_context(
         (mock_execute_query, mock.call("select 2")),
     ]
     with assert_in_context(expected_use_objects, expected_execute_query):
-        sql_facade.foo()
+        get_snowflake_facade().foo()
 
-    This will assert that sql_facade.foo() calls use_role and use_warehouse with the correct arguments
+    This will assert that get_snowflake_facade().foo() calls use_role and use_warehouse with the correct arguments
     in the correct order, and that execute_query was called within the context managers
     returned by use_role and use_warehouse (i.e. in between the __enter__ and __exit__ calls).
     """
@@ -284,7 +274,7 @@ def test_execute_with_role_wh_db(mock_execute_queries, mock_execute_query, mock_
     ]
 
     # Act
-    sql_facade.execute_user_script(
+    get_snowflake_facade().execute_user_script(
         queries=mock_script,
         script_name=mock_script_name,
         role=role,
@@ -339,7 +329,7 @@ def test_execute_no_db(mock_execute_queries, mock_execute_query, mock_cursor):
     ]
 
     # Act
-    sql_facade.execute_user_script(
+    get_snowflake_facade().execute_user_script(
         queries=mock_script, script_name=mock_script_name, role=role, warehouse=wh
     )
 
@@ -390,7 +380,7 @@ def test_execute_no_wh(mock_execute_queries, mock_execute_query, mock_cursor):
     ]
 
     # Act
-    sql_facade.execute_user_script(
+    get_snowflake_facade().execute_user_script(
         queries=mock_script, script_name=mock_script_name, role=role, database=database
     )
 
@@ -441,7 +431,7 @@ def test_execute_no_role(mock_execute_queries, mock_execute_query, mock_cursor):
     ]
 
     # Act
-    sql_facade.execute_user_script(
+    get_snowflake_facade().execute_user_script(
         queries=mock_script,
         script_name=mock_script_name,
         warehouse=wh,
@@ -485,7 +475,7 @@ def test_execute_no_wh_no_db(mock_execute_queries, mock_execute_query, mock_curs
     ]
 
     # Act
-    sql_facade.execute_user_script(
+    get_snowflake_facade().execute_user_script(
         queries=mock_script, script_name=mock_script_name, role=role
     )
 
@@ -526,7 +516,7 @@ def test_execute_no_role_no_wh(mock_execute_queries, mock_execute_query, mock_cu
     ]
 
     # Act
-    sql_facade.execute_user_script(
+    get_snowflake_facade().execute_user_script(
         queries=mock_script, script_name=mock_script_name, database=database
     )
 
@@ -567,7 +557,7 @@ def test_execute_no_role_no_db(mock_execute_queries, mock_execute_query, mock_cu
     ]
 
     # Act
-    sql_facade.execute_user_script(
+    get_snowflake_facade().execute_user_script(
         queries=mock_script, script_name=mock_script_name, warehouse=wh
     )
 
@@ -585,7 +575,9 @@ def test_execute_no_role_no_wh_no_db(mock_execute_queries, mock_execute_query):
     mock_script_name = "test-user-sql-script.sql"
 
     # Act
-    sql_facade.execute_user_script(queries=mock_script, script_name=mock_script_name)
+    get_snowflake_facade().execute_user_script(
+        queries=mock_script, script_name=mock_script_name
+    )
 
     # Assert
     mock_execute_query.assert_not_called()
@@ -603,7 +595,7 @@ def test_execute_catches_no_warehouse_error_raises_user_error(mock_execute_queri
 
     # Act
     with pytest.raises(UserScriptError) as err:
-        sql_facade.execute_user_script(
+        get_snowflake_facade().execute_user_script(
             queries=mock_script, script_name=mock_script_name
         )
 
@@ -624,7 +616,7 @@ def test_execute_raises_other_programming_error_as_user_error(mock_execute_queri
 
     # Act
     with pytest.raises(UserScriptError) as err:
-        sql_facade.execute_user_script(
+        get_snowflake_facade().execute_user_script(
             queries=mock_script, script_name=mock_script_name
         )
 
@@ -663,7 +655,7 @@ def test_execute_catch_all_exception(
 
     # Act
     with pytest.raises(error_caught) as err:
-        sql_facade.execute_user_script(
+        get_snowflake_facade().execute_user_script(
             queries=mock_script, script_name=mock_script_name
         )
 

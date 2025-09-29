@@ -12,19 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from contextvars import ContextVar
-
 from snowflake.cli._plugins.nativeapp.sf_sql_facade import SnowflakeSQLFacade
-
-_SNOWFLAKE_FACADE: ContextVar[SnowflakeSQLFacade | None] = ContextVar(
-    "snowflake_sql_facade", default=None
-)
 
 
 def get_snowflake_facade() -> SnowflakeSQLFacade:
-    """Returns a Snowflake Facade"""
-    facade = _SNOWFLAKE_FACADE.get()
-    if not facade:
-        facade = SnowflakeSQLFacade()
-        _SNOWFLAKE_FACADE.set(facade)
-    return facade
+    """
+    Returns a fresh Snowflake Facade instance.
+
+    Creates a new SnowflakeSQLFacade instance each time it's called to ensure
+    no state pollution between different operations or test runs. This eliminates
+    the need for a global ContextVar singleton pattern.
+    """
+    return SnowflakeSQLFacade()
