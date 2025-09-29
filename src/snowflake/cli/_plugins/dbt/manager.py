@@ -242,43 +242,29 @@ class DBTManager(SqlExecutionMixin):
 
         errors = defaultdict(list)
         required_fields = {
-            "account",
             "database",
             "role",
             "schema",
-            "type",
-            "user",
-            "warehouse",
         }
-        supported_fields = {
-            "threads",
-        }
-        for target_name, target in profiles[target_profile]["outputs"].items():
-            if missing_keys := required_fields - set(target.keys()):
+        target = default_target or profiles[target_profile]["target"]
+        available_targets = set(profiles[target_profile]["outputs"].keys())
+        if target in available_targets:
+            target_details = profiles[target_profile]["outputs"][target]
+            if missing_keys := required_fields - set(target_details.keys()):
                 errors[target_profile].append(
-                    f"Missing required fields: {', '.join(sorted(missing_keys))} in target {target_name}"
+                    f"Missing required fields: {', '.join(sorted(missing_keys))} in target {target}"
                 )
-            if (
-                unsupported_keys := set(target.keys())
-                - required_fields
-                - supported_fields
-            ):
-                errors[target_profile].append(
-                    f"Unsupported fields found: {', '.join(sorted(unsupported_keys))} in target {target_name}"
-                )
-            if "type" in target and target["type"].lower() != "snowflake":
-                errors[target_profile].append(
-                    f"Value for type field is invalid. Should be set to `snowflake` in target {target_name}"
-                )
-
-        if default_target is not None:
-            available_targets = set(profiles[target_profile]["outputs"].keys())
-            if default_target not in available_targets:
-                available_targets_str = ", ".join(sorted(available_targets))
-                errors["default_target"].append(
-                    f"Default target '{default_target}' is not defined in profile '{target_profile}'. "
-                    f"Available targets: {available_targets_str}"
-                )
+            if role := target_details.get("role"):
+                if not DBTManager._validate_role(role_name=role):
+                    errors[target_profile].append(
+                        f"Role '{role}' does not exist or is not accessible"
+                    )
+        else:
+            available_targets_str = ", ".join(sorted(available_targets))
+            errors["default_target"].append(
+                f"Target '{target}' is not defined in profile '{target_profile}'. "
+                f"Available targets: {available_targets_str}"
+            )
 
         if errors:
             message = f"Found following errors in {PROFILES_FILENAME}. Please fix them before proceeding:"
@@ -286,6 +272,16 @@ class DBTManager(SqlExecutionMixin):
                 message += f"\n{target}"
                 message += "\n * " + "\n * ".join(issues)
             raise CliError(message)
+
+    @staticmethod
+    def _validate_role(role_name: str) -> bool:
+        # It's not possible to describe a role, so this method is a workaround
+        object_manager = ObjectManager()
+        role_fqn = FQN.from_string(role_name)
+        roles = object_manager.show(
+            object_type=ObjectType.ROLE.value.cli_name, like=str(role_fqn.identifier)
+        )
+        return bool(roles.rowcount == 1)
 
     @staticmethod
     def _prepare_profiles_file(profiles_path: Path, tmp_path: Path):

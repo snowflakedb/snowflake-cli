@@ -25,7 +25,7 @@ from snowflake.cli.api.feature_flags import FeatureFlag
 from tests_common.feature_flag_utils import with_feature_flags
 
 
-def _setup_dbt_profile(root_dir: Path, snowflake_session, include_password: bool):
+def _setup_dbt_profile(root_dir: Path, snowflake_session):
     with open((root_dir / PROFILES_FILENAME), "r") as f:
         profiles = yaml.safe_load(f)
     dev_profile = profiles["dbt_integration_project"]["outputs"]["dev"]
@@ -35,10 +35,6 @@ def _setup_dbt_profile(root_dir: Path, snowflake_session, include_password: bool
     dev_profile["role"] = snowflake_session.role
     dev_profile["warehouse"] = snowflake_session.warehouse
     dev_profile["schema"] = snowflake_session.schema
-    if include_password:
-        dev_profile["password"] = "secret_phrase"
-    else:
-        dev_profile.pop("password", None)
 
     prod_profile = dev_profile.copy()
     prod_profile.pop("password", None)
@@ -150,18 +146,8 @@ def test_deploy_and_execute(
         ts = int(datetime.datetime.now().timestamp())
         name = f"dbt_project_{ts}"
 
-        # try to deploy, but fail since profiles.yml contains a password
-        _setup_dbt_profile(root_dir, snowflake_session, include_password=True)
-        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
-        assert result.exit_code == 1, result.output
-        assert (
-            "Found following errors in profiles.yml. Please fix them before proceeding:"
-            in result.output
-        )
-        assert "* Unsupported fields found: password in target dev" in result.output
-
         # deploy for the first time
-        _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
+        _setup_dbt_profile(root_dir, snowflake_session)
         result = runner.invoke_with_connection_json(["dbt", "deploy", name])
         assert result.exit_code == 0, result.output
 
@@ -247,7 +233,7 @@ def test_deploy_and_execute_with_full_fqn(
             f"{snowflake_session.database}.{snowflake_session.schema}.{name}"
         )
 
-        _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
+        _setup_dbt_profile(root_dir, snowflake_session)
         result = runner.invoke_with_connection_json(["dbt", "deploy", str(fqn)])
         assert result.exit_code == 0, result.output
 
@@ -288,7 +274,7 @@ def test_dbt_deploy_options(
         name = f"dbt_project_{ts}"
 
         # deploy for the first time - create new dbt object
-        _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
+        _setup_dbt_profile(root_dir, snowflake_session)
         result = runner.invoke_with_connection_json(["dbt", "deploy", name])
         assert result.exit_code == 0, result.output
 
@@ -336,7 +322,7 @@ def test_deploy_with_default_target(
         ts = int(datetime.datetime.now().timestamp())
         name = f"dbt_project_default_target_{ts}"
 
-        _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
+        _setup_dbt_profile(root_dir, snowflake_session)
 
         result = runner.invoke_with_connection_json(
             ["dbt", "deploy", name, "--default-target", "prod"]
@@ -378,7 +364,7 @@ def test_execute_with_target(
             f"create schema {second_target_schema}; use schema PUBLIC"
         )
 
-        _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
+        _setup_dbt_profile(root_dir, snowflake_session)
 
         result = runner.invoke_with_connection_json(
             ["dbt", "deploy", name, "--default-target=dev"]
@@ -466,7 +452,7 @@ def test_dbt_deploy_with_external_access_integrations(
         # Setup external access integration for dbt hub access
         _setup_external_access_integration(runner, ext_access_integration)
 
-        _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
+        _setup_dbt_profile(root_dir, snowflake_session)
 
         # Deploy dbt project with external access integrations
         result = runner.invoke_with_connection_json(

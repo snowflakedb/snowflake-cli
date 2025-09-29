@@ -118,6 +118,14 @@ class TestDBTDeploy:
     def _get_default_attribute_dict() -> DBTObjectEditableAttributes:
         return {"default_target": None}
 
+    @pytest.fixture(autouse=True)
+    def mock_validate_role(self):
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager._validate_role",
+            return_value=True,
+        ) as _fixture:
+            yield _fixture
+
     @pytest.fixture
     def dbt_project_path(self, tmp_path_factory):
         source_path = tmp_path_factory.mktemp("dbt_project")
@@ -128,6 +136,7 @@ class TestDBTDeploy:
             yaml.dump(
                 {
                     "dev": {
+                        "target": "local",
                         "outputs": {
                             "local": {
                                 "account": "test_account",
@@ -149,7 +158,7 @@ class TestDBTDeploy:
                                 "user": "test_user",
                                 "warehouse": "test_warehouse",
                             },
-                        }
+                        },
                     }
                 },
             )
@@ -546,7 +555,7 @@ FROM @MockDatabase.MockSchema.DBT_PROJECT_TEST_DBT_PROJECT_{mock_time()}_STAGE""
         )
 
         assert result.exit_code == 1, result.output
-        assert "Default target 'invalid' is not defined" in result.output
+        assert "Target 'invalid' is not defined" in result.output
         assert mock_connect.mocked_ctx.get_query() == ""
 
     @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
