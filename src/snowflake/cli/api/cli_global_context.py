@@ -34,8 +34,6 @@ if TYPE_CHECKING:
     from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
     from snowflake.connector.config_manager import ConfigManager
 
-_CONNECTION_CACHE = OpenConnectionCache()
-
 
 def _create_config_manager(config_file: Path | None = None) -> "ConfigManager":
     """
@@ -103,9 +101,7 @@ def _create_config_manager(config_file: Path | None = None) -> "ConfigManager":
 @dataclass
 class _CliGlobalContextManager:
     connection_context: ConnectionContext = field(default_factory=ConnectionContext)
-    connection_cache: OpenConnectionCache = (
-        _CONNECTION_CACHE  # by default, use global cache
-    )
+    connection_cache: OpenConnectionCache = field(default_factory=OpenConnectionCache)
 
     output_format: OutputFormat = OutputFormat.TABLE
     silent: bool = False

@@ -38,7 +38,6 @@ from snowflake.cli.api.cli_global_context import (
 )
 from snowflake.cli.api.commands.decorators import global_options, with_output
 from snowflake.cli.api.config import config_init
-from snowflake.cli.api.connections import OpenConnectionCache
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import QueryResult
 from snowflake.cli.api.project.schemas.project_definition import (
@@ -107,18 +106,16 @@ def reset_global_context_and_setup_config_and_logging_levels(
     request, test_snowcli_config
 ):
     with fork_cli_context():
-        connection_cache = OpenConnectionCache()
         cli_context_manager = get_cli_context_manager()
         cli_context_manager.reset()
         cli_context_manager.verbose = False
         cli_context_manager.enable_tracebacks = False
-        cli_context_manager.connection_cache = connection_cache
         config_init(test_snowcli_config)
         loggers.create_loggers(verbose=False, debug=False)
         try:
             yield
         finally:
-            connection_cache.clear()
+            cli_context_manager.connection_cache.clear()
 
 
 # This automatically used cleanup fixture is required to avoid random breaking of logging
