@@ -224,7 +224,6 @@ class DBTManager(SqlExecutionMixin):
         Validates that:
          * profiles.yml exists
          * contain profile specified in dbt_project.yml
-         * no other profiles are defined there
          * does not contain any confidential data like passwords
          * default_target (if specified) exists in the profile's outputs
         """
@@ -242,11 +241,6 @@ class DBTManager(SqlExecutionMixin):
             )
 
         errors = defaultdict(list)
-        if len(profiles.keys()) > 1:
-            for profile_name in profiles.keys():
-                if profile_name.lower() != target_profile.lower():
-                    errors[profile_name].append("Remove unnecessary profiles")
-
         required_fields = {
             "account",
             "database",
