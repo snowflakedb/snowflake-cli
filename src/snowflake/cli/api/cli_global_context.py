@@ -142,6 +142,7 @@ class _CliGlobalContextManager:
         return self._config_manager
 
     def reset(self):
+        self._clear_definition_manager()
         self.__init__()
 
     def clone(self) -> _CliGlobalContextManager:
@@ -213,6 +214,9 @@ class _CliGlobalContextManager:
         """
         Force re-calculation of definition_manager and its dependent attributes
         (template_context, project_definition, and project_root).
+
+        Creates a fresh DefinitionManager instance on next access, ensuring
+        no cached state pollution between contexts.
         """
         self._definition_manager = None
 
