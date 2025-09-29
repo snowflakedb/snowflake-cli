@@ -57,20 +57,17 @@ from snowflake.cli.api.utils.dict_utils import deep_merge_dicts
 
 log = logging.getLogger(__name__)
 
-# A directory to hold temporary files created during in-memory definition conversion
-# We need a global reference to this directory to prevent the object from being
-# garbage collected before the files in the directory are used by other parts
-# of the CLI. The directory will then be deleted on interpreter exit
-_IN_MEMORY_CONVERSION_TEMP_DIR: TemporaryDirectory | None = None
 
+def _create_temp_dir() -> TemporaryDirectory:
+    """
+    Create a new temporary directory for in-memory definition conversion.
 
-def _get_temp_dir() -> TemporaryDirectory:
-    global _IN_MEMORY_CONVERSION_TEMP_DIR
-    if _IN_MEMORY_CONVERSION_TEMP_DIR is None:
-        _IN_MEMORY_CONVERSION_TEMP_DIR = TemporaryDirectory(
-            suffix="_pdf_conversion", ignore_cleanup_errors=True
-        )
-    return _IN_MEMORY_CONVERSION_TEMP_DIR
+    This creates a fresh temporary directory each time it's called, ensuring
+    no state pollution between different conversion operations or test runs.
+    The caller is responsible for managing the lifecycle of the returned
+    TemporaryDirectory object.
+    """
+    return TemporaryDirectory(suffix="_pdf_conversion", ignore_cleanup_errors=True)
 
 
 def _is_field_defined(template_context: Optional[Dict[str, Any]], *path: str) -> bool:
@@ -104,6 +101,8 @@ def convert_project_definition_to_v2(
     in_memory: bool = False,
 ) -> ProjectDefinitionV2:
     _check_if_project_definition_meets_requirements(definition_v1, accept_templates)
+
+    temp_dir = _create_temp_dir() if in_memory else None
 
     snowpark_data = (
         convert_snowpark_to_v2_data(definition_v1.snowpark)
@@ -152,6 +151,7 @@ def convert_project_definition_to_v2(
             definition_v2,
             in_memory,
             replacement_template_context,
+            temp_dir,
         )
 
     return definition_v2
@@ -413,6 +413,7 @@ def _convert_templates_in_files(
     definition_v2: ProjectDefinitionV2,
     in_memory: bool,
     replacement_template_context: dict[str, Any],
+    temp_dir: TemporaryDirectory | None = None,
 ):
     """Converts templates in other files to the new format"""
     # Set up fakers so that references to ctx.env. and fn.
@@ -505,7 +506,7 @@ def _convert_templates_in_files(
             )
 
             converted_post_deploy_hooks = _convert_package_script_files(
-                project_root, pkg.scripts, pkg_model, in_memory
+                project_root, pkg.scripts, pkg_model, in_memory, temp_dir
             )
             if pkg_model.meta is None:
                 pkg_model.meta = MetaField()
@@ -519,6 +520,7 @@ def _convert_package_script_files(
     package_scripts: list[str],
     pkg_model: ApplicationPackageEntityModel,
     in_memory: bool,
+    temp_dir: TemporaryDirectory | None = None,
 ):
     # PDFv2 doesn't support package scripts, only post-deploy scripts, so we
     # need to convert the Jinja syntax from {{ }} to <% %>
@@ -543,8 +545,11 @@ def _convert_package_script_files(
         if in_memory:
             # If we're converting the definition in-memory, we can't touch
             # the package scripts on disk, so we'll write them to a temporary file
-            d = _get_temp_dir().name
-            _, script_file = mkstemp(dir=d, suffix="_converted.sql", text=True)
+            if temp_dir is None:
+                raise ValueError("temp_dir must be provided when in_memory=True")
+            _, script_file = mkstemp(
+                dir=temp_dir.name, suffix="_converted.sql", text=True
+            )
         (project_root / script_file).write_text(new_contents)
         hook = SqlScriptHookType(sql_script=script_file)
         hook._display_path = original_script_file  # noqa: SLF001
