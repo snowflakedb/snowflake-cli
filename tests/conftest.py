@@ -22,7 +22,6 @@ import tempfile
 from contextlib import contextmanager
 from datetime import datetime
 from io import StringIO
-from logging import FileHandler
 from pathlib import Path
 from typing import Any, Dict, Generator, List, NamedTuple, Optional, Union
 from unittest import mock
@@ -125,6 +124,7 @@ def reset_global_context_and_setup_config_and_logging_levels(
 # See similar issues: https://github.com/pytest-dev/pytest/issues/5502
 @pytest.fixture(autouse=True)
 def clean_logging_handlers_fixture(request, snowflake_home):
+    clean_logging_handlers()
     yield
     clean_logging_handlers()
 
@@ -150,15 +150,77 @@ def mocked_rich():
         yield
 
 
-def clean_logging_handlers():
-    for logger in [logging.getLogger()] + list(
-        logging.Logger.manager.loggerDict.values()
-    ):
-        handlers = [hdl for hdl in getattr(logger, "handlers", [])]
+def _clean_handlers_for_logger(logger, warnings):
+    """
+    Close adn remove file handlers for logger explicitely.
+    Thank you W.
+
+    Args:
+        logger: The logger instance to clean handlers for
+        warnings: The warnings module for issuing warnings
+
+    Returns:
+        int: Number of handlers cleaned
+    """
+    handlers_cleaned = 0
+    if hasattr(logger, "handlers"):
+        handlers = list(logger.handlers)
         for handler in handlers:
-            logger.removeHandler(handler)
-            if isinstance(handler, FileHandler):
-                handler.close()
+            try:
+                if hasattr(handler, "close"):
+                    handler.close()
+                logger.removeHandler(handler)
+                handlers_cleaned += 1
+            except Exception as e:
+                warnings.warn(
+                    f"Failed to clean logging handler {handler}: {e}",
+                    RuntimeWarning,
+                    stacklevel=4,
+                )
+    return handlers_cleaned
+
+
+def clean_logging_handlers():
+    """
+    Comprehensive cleanup of logging handlers to prevent state pollution.
+
+    This function ensures that all logging handlers are properly removed and closed
+    between tests to prevent handler accumulation, resource leaks, and logging
+    interference. It handles various types of handlers and logger objects safely.
+    """
+    import warnings
+
+    # Get all actual Logger instances (not PlaceHolder objects)
+    all_loggers = [logging.getLogger()]  # Root logger first
+
+    # Add all named loggers, filtering out PlaceHolder objects
+    for name, logger_obj in logging.Logger.manager.loggerDict.items():
+        if isinstance(logger_obj, logging.Logger):
+            all_loggers.append(logger_obj)
+
+    # Clean up handlers for each logger
+    total_handlers_cleaned = 0
+    for logger in all_loggers:
+        total_handlers_cleaned += _clean_handlers_for_logger(logger, warnings)
+
+    # Clear logger manager's internal state to prevent accumulation
+    # Note: We don't clear the entire loggerDict as it might contain PlaceHolder
+    # objects that are needed for proper logger hierarchy
+    try:
+        # Clear any cached loggers that might hold references
+        if hasattr(logging.Logger.manager, "_fixupParents"):
+            logging.Logger.manager._fixupParents()  # noqa: SLF001
+    except Exception as e:
+        warnings.warn(
+            f"Failed to cleanup logger manager state: {e}", RuntimeWarning, stacklevel=2
+        )
+
+    if total_handlers_cleaned > 10:
+        warnings.warn(
+            f"Cleaned {total_handlers_cleaned} logging handlers - potential handler accumulation detected",
+            RuntimeWarning,
+            stacklevel=2,
+        )
 
 
 @pytest.fixture(name="_create_mock_cursor")
