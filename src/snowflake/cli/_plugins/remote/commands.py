@@ -134,7 +134,13 @@ def _display_service_result(
             f"✓ Remote Development Environment {service_name} is already running."
         )
 
-    cc.message(f"VS Code Server URL: {url}")
+    if url:
+        cc.message(f"VS Code Server URL: {url}")
+    else:
+        cc.warning(
+            "VS Code Server URL is not yet available. The service is still initializing its public endpoint. "
+            f"Run 'snow remote start {service_name}' again in a moment to retrieve the URL, or use 'snow remote list' to check status."
+        )
 
     # Log detailed information at debug level
     if stage:
@@ -187,7 +193,7 @@ def _handle_remote_service(
             external_access=eai_name,
             stage=stage,
             image=image,
-            generate_ssh_key=(ssh_mode is not None and not no_ssh_key),
+            generate_ssh_key=not no_ssh_key,
         )
 
         # Display service result
