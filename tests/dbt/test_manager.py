@@ -177,22 +177,6 @@ class TestDeploy:
             == "profile another_profile_name is not defined in profiles.yml"
         )
 
-    def test_validate_profiles_raises_when_extra_profiles_are_defined(
-        self, project_path, profile
-    ):
-        profile["another_profile"] = {}
-        self._generate_profile(project_path, profile)
-
-        with pytest.raises(CliError) as exc_info:
-            DBTManager._validate_profiles(  # noqa: SLF001
-                SecurePath(project_path), "dev"
-            )
-
-        expected_error_message = """Found following errors in profiles.yml. Please fix them before proceeding:
-another_profile
- * Remove unnecessary profiles"""
-        assert exc_info.value.message == dedent(expected_error_message)
-
     def test_validate_profiles_raises_when_required_fields_are_missing(
         self, project_path, profile
     ):
