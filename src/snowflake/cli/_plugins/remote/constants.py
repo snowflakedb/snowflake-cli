@@ -113,7 +113,7 @@ ML_RUNTIME_HEALTH_CHECK_PORT = "5001"
 ENABLE_HEALTH_CHECKS = "false"
 
 # Endpoint readiness validation settings
-DEFAULT_ENDPOINT_TIMEOUT_MINUTES = 5  # Maximum time to wait for endpoint readiness
+DEFAULT_ENDPOINT_TIMEOUT_MINUTES = 2  # Maximum time to wait for endpoint readiness
 ENDPOINT_CHECK_INTERVAL_SECONDS = 5  # Interval between endpoint health checks
 ENDPOINT_REQUEST_TIMEOUT_SECONDS = 10  # HTTP request timeout for individual checks
 

@@ -62,7 +62,7 @@ class TestRemoteCommands:
             external_access=None,
             stage=None,
             image=None,
-            generate_ssh_key=False,
+            generate_ssh_key=True,
         )
 
     @patch.object(RemoteManager, "start")

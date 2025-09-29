@@ -97,6 +97,39 @@ def validate_service_name(service_name: str) -> None:
         )
 
 
+def sanitize_identifier_component(
+    value: str, default_value: str = "DEFAULT_USER"
+) -> str:
+    """
+    Sanitize a string to be a safe component of a Snowflake identifier.
+
+    - Replace invalid characters with underscores
+    - Collapse multiple underscores
+    - Ensure it starts with a letter or underscore (prefix underscore if needed)
+    - Fall back to 'USER' if the result is empty
+
+    Args:
+        value: Input string (e.g., username) to sanitize
+
+    Returns:
+        Sanitized identifier-safe component string
+    """
+    if not value:
+        return default_value
+
+    # Replace any character not allowed in identifiers with underscore
+    sanitized = re.sub(r"[^A-Za-z0-9_]", "_", value)
+
+    # Collapse multiple consecutive underscores
+    sanitized = re.sub(r"_+", "_", sanitized)
+
+    # If everything was stripped to empty or underscores only, fallback
+    if not sanitized or sanitized.strip("_") == "":
+        return default_value
+
+    return sanitized
+
+
 class SnowflakeRegion(TypedDict):
     region_group: Optional[str]
     snowflake_region: str
@@ -667,7 +700,7 @@ def validate_endpoint_ready(
     Raises:
         CliError: If endpoint doesn't become ready within timeout or authentication fails
     """
-    log.debug("Validating endpoint readiness for %s at %s", endpoint_name, endpoint_url)
+    cc.step(f"Validating endpoint readiness for {endpoint_name} at {endpoint_url}")
 
     timeout_seconds = timeout_minutes * 60
     start_time = time.time()
@@ -708,12 +741,26 @@ def validate_endpoint_ready(
                 response.status_code,
                 ENDPOINT_CHECK_INTERVAL_SECONDS,
             )
+            elapsed = int(time.time() - start_time)
+            log.debug(
+                "Still waiting for '%s'... elapsed %ds (last status: %d).",
+                endpoint_name,
+                elapsed,
+                response.status_code,
+            )
 
         except Exception as e:
             log.debug(
                 "Error to %s endpoint (attempt %d): %s, retrying...",
                 endpoint_name,
                 attempts,
+                str(e),
+            )
+            elapsed = int(time.time() - start_time)
+            log.debug(
+                "Still waiting for '%s'... elapsed %ds (last error: %s).",
+                endpoint_name,
+                elapsed,
                 str(e),
             )
 
