@@ -182,7 +182,7 @@ class _CliGlobalContextManager:
     def connection(self) -> SnowflakeConnection:
         """
         Returns a connection for our configured context from the configured cache.
-        By default, this is the global _CONNECTION_CACHE. If a matching connection
+        Each context has its own connection cache instance. If a matching connection
         does not already exist, creates a new connection and caches it.
         """
         self.connection_context.validate_and_complete()

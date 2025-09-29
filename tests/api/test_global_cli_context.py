@@ -17,12 +17,12 @@ from __future__ import annotations
 from dataclasses import fields
 
 from snowflake.cli.api.cli_global_context import (
-    _CONNECTION_CACHE,
     _CliGlobalContextManager,
     fork_cli_context,
     get_cli_context,
     get_cli_context_manager,
 )
+from snowflake.cli.api.connections import OpenConnectionCache
 from snowflake.cli.api.metrics import CLIMetricsSpan
 from snowflake.cli.api.output.formats import OutputFormat
 
@@ -38,10 +38,12 @@ def test_reset_global_context_mgr():
     mgr.connection_context.database = "blahblah"
     mgr.connection_context.password = "****"
     mgr.override_project_definition = "project definition"
-    assert mgr.connection_cache == _CONNECTION_CACHE
+    original_cache = mgr.connection_cache
+    assert isinstance(original_cache, OpenConnectionCache)
     mgr.connection_cache = None
     mgr.reset()
-    assert mgr.connection_cache == _CONNECTION_CACHE
+    assert isinstance(mgr.connection_cache, OpenConnectionCache)
+    assert mgr.connection_cache is not original_cache  # Should be a new instance
     assert mgr.override_project_definition is None
 
     initial_mgr = _CliGlobalContextManager()
