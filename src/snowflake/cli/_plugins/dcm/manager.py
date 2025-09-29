@@ -136,6 +136,29 @@ class DCMProjectManager(SqlExecutionMixin):
         query += f' "{deployment_name}"'
         return self.execute_query(query=query)
 
+    def analyze(
+        self,
+        project_identifier: FQN,
+        from_stage: str,
+        dependencies: bool = False,
+    ):
+        """
+        Analyzes a DCM Project from a stage location.
+
+        Args:
+            project_identifier: The DCM project identifier
+            from_stage: Stage location to analyze from
+            dependencies: Whether to analyze dependencies as well
+        """
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} ANALYZE"
+        if dependencies:
+            query += " DEPENDENCIES"
+
+        stage_path = StagePath.from_stage_str(from_stage)
+        query += f" FROM {stage_path.absolute_path()}"
+
+        return self.execute_query(query=query)
+
     @staticmethod
     def sync_local_files(
         project_identifier: FQN, source_directory: str | None = None

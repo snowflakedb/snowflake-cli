@@ -235,6 +235,36 @@ def drop_deployment(
     )
 
 
+@app.command(requires_connection=True)
+def analyze(
+    identifier: FQN = dcm_identifier,
+    from_location: Optional[str] = from_option,
+    dependencies: bool = typer.Option(
+        False,
+        "--dependencies-only",
+        help="Analyze dependencies only.",
+        show_default=False,
+    ),
+    **options,
+):
+    """
+    Analyzes a DCM Project from a stage location.
+    """
+    manager = DCMProjectManager()
+    effective_stage = _get_effective_stage(identifier, from_location)
+
+    with cli_console.spinner() as spinner:
+        action = "Analyzing dependencies only for" if dependencies else "Analyzing"
+        spinner.add_task(description=f"{action} DCM project {identifier}", total=None)
+        result = manager.analyze(
+            project_identifier=identifier,
+            from_stage=effective_stage,
+            dependencies=dependencies,
+        )
+
+    return QueryResult(result)
+
+
 def _get_effective_stage(identifier: FQN, from_location: Optional[str]):
     manager = DCMProjectManager()
     if not from_location:

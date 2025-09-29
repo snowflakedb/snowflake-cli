@@ -160,6 +160,62 @@ def test_drop_deployment(mock_execute_query, if_exists):
 
 
 @mock.patch(execute_queries)
+def test_analyze_project(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        dependencies=False,
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE FROM @test_stage"
+    )
+
+
+@mock.patch(execute_queries)
+def test_analyze_project_with_dependencies(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        dependencies=True,
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE DEPENDENCIES FROM @test_stage"
+    )
+
+
+@mock.patch(execute_queries)
+def test_analyze_project_with_stage_path(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@my_db.my_schema.my_stage/path/to/files",
+        dependencies=False,
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE FROM @my_db.my_schema.my_stage/path/to/files"
+    )
+
+
+@mock.patch(execute_queries)
+def test_analyze_project_stage_without_prefix(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="my_stage",
+        dependencies=True,
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE DEPENDENCIES FROM @my_stage"
+    )
+
+
+@mock.patch(execute_queries)
 def test_plan_project_with_output_path__stage(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
     mgr.execute(

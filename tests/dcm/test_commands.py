@@ -650,3 +650,108 @@ class TestDCMDescribe:
             == queries[1]
             == "describe DCM Project IDENTIFIER('PROJECT_NAME')"
         )
+
+
+class TestDCMAnalyze:
+    @mock.patch(DCMProjectManager)
+    def test_analyze_project_with_from_stage(self, mock_pm, runner, mock_cursor):
+        mock_pm().analyze.return_value = mock_cursor(
+            rows=[("analysis_result",)], columns=("result")
+        )
+
+        result = runner.invoke(["dcm", "analyze", "my_project", "--from", "@my_stage"])
+
+        assert result.exit_code == 0, result.output
+
+        mock_pm().analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            from_stage="@my_stage",
+            dependencies=False,
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_analyze_project_with_dependencies(self, mock_pm, runner, mock_cursor):
+        mock_pm().analyze.return_value = mock_cursor(
+            rows=[("analysis_result",)], columns=("result")
+        )
+
+        result = runner.invoke(
+            [
+                "dcm",
+                "analyze",
+                "my_project",
+                "--from",
+                "@my_stage",
+                "--dependencies-only",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+
+        mock_pm().analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            from_stage="@my_stage",
+            dependencies=True,
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_analyze_project_with_sync(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        """Test that files are synced to project stage when from_location is not provided."""
+        mock_pm().analyze.return_value = mock_cursor(
+            rows=[("analysis_result",)], columns=("result")
+        )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "analyze", "my_project"])
+            assert result.exit_code == 0, result.output
+
+        call_args = mock_pm().analyze.call_args
+        assert "DCM_FOOBAR" in call_args.kwargs["from_stage"]
+        assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
+    @mock.patch(DCMProjectManager)
+    def test_analyze_project_with_from_local_directory(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        mock_pm().analyze.return_value = mock_cursor(
+            rows=[("analysis_result",)], columns=("result")
+        )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
+
+        source_dir = tmp_path / "source_project"
+        source_dir.mkdir()
+
+        manifest_file = source_dir / "manifest.yml"
+        manifest_file.write_text("type: dcm_project\n")
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "analyze", "my_project", "--from", str(source_dir)]
+            )
+            assert result.exit_code == 0, result.output
+
+        mock_pm().sync_local_files.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            source_directory=str(source_dir),
+        )
+
+        call_args = mock_pm().analyze.call_args
+        assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
