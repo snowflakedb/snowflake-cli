@@ -25,19 +25,26 @@ from snowflake.cli.api.feature_flags import FeatureFlag
 from tests_common.feature_flag_utils import with_feature_flags
 
 
-def _setup_dbt_profile(root_dir: Path, snowflake_session):
+def _setup_dbt_profile(
+    root_dir: Path, snowflake_session, skip_optional_ga_fields: bool = False
+):
+    """
+    skip_optional_ga_fields is something that should be removed once dbt goes GA.
+    (ENABLE_DBT_GA_FEATURES)
+    """
     with open((root_dir / PROFILES_FILENAME), "r") as f:
         profiles = yaml.safe_load(f)
     dev_profile = profiles["dbt_integration_project"]["outputs"]["dev"]
     dev_profile["database"] = snowflake_session.database
-    dev_profile["account"] = snowflake_session.account
-    dev_profile["user"] = snowflake_session.user
     dev_profile["role"] = snowflake_session.role
-    dev_profile["warehouse"] = snowflake_session.warehouse
     dev_profile["schema"] = snowflake_session.schema
+    dev_profile["type"] = "snowflake"  # TODO: make this optional
+    if not skip_optional_ga_fields:
+        dev_profile["account"] = snowflake_session.account
+        dev_profile["user"] = snowflake_session.user
+        dev_profile["warehouse"] = snowflake_session.warehouse
 
     prod_profile = dev_profile.copy()
-    prod_profile.pop("password", None)
     prod_profile["schema"] = f"{snowflake_session.schema}_PROD"
     profiles["dbt_integration_project"]["outputs"]["prod"] = prod_profile
 
@@ -477,3 +484,33 @@ def test_dbt_deploy_with_external_access_integrations(
 
         # Cleanup: Remove external access integration and network rule
         _cleanup_external_access_integration(runner, ext_access_integration)
+
+
+@pytest.mark.skipif(
+    FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled(),
+    reason="DBT GA features are not yet released.",
+)
+@with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_and_execute_with_full_fqn_only_required_ga_fields(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+    snapshot,
+):
+    """
+    Remove this test once dbt goes GA.
+    """
+    with project_directory("dbt_project") as root_dir:
+        # Given a local dbt project
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_{ts}"
+        fqn = FQN.from_string(
+            f"{snowflake_session.database}.{snowflake_session.schema}.{name}"
+        )
+
+        _setup_dbt_profile(root_dir, snowflake_session, skip_optional_ga_fields=True)
+        result = runner.invoke_with_connection_json(["dbt", "deploy", str(fqn)])
+        assert result.exit_code == 0, result.output

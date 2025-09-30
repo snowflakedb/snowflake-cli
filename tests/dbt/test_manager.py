@@ -25,33 +25,26 @@ def mock_validate_role():
 class TestDeploy:
     @pytest.fixture()
     def profile(self):
-        return {
+        profiles = {
             "dev": {
                 "target": "local",
                 "outputs": {
                     "local": {
-                        "account": "test_account",
                         "database": "testdb",
                         "role": "test_role",
                         "schema": "test_schema",
                         "threads": 4,
-                        "type": "snowflake",
-                        "user": "test_user",
-                        "warehouse": "test_warehouse",
                     },
                     "prod": {
-                        "account": "test_account",
                         "database": "testdb_prod",
                         "role": "test_role",
                         "schema": "test_schema",
                         "threads": 4,
-                        "type": "snowflake",
-                        "user": "test_user",
-                        "warehouse": "test_warehouse",
                     },
                 },
             }
         }
+        return profiles
 
     @pytest.fixture
     def project_path(self, tmp_path_factory):
@@ -190,6 +183,7 @@ class TestDeploy:
             == "profile another_profile_name is not defined in profiles.yml"
         )
 
+    # @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
     def test_validate_profiles_raises_when_required_fields_are_missing(
         self, mock_validate_role, project_path, profile
     ):

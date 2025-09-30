@@ -17,7 +17,7 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import List, Optional, TypedDict
+from typing import Dict, List, Optional, TypedDict
 
 import yaml
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
@@ -26,6 +26,7 @@ from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -241,27 +242,17 @@ class DBTManager(SqlExecutionMixin):
             )
 
         errors = defaultdict(list)
-        required_fields = {
-            "database",
-            "role",
-            "schema",
-        }
+
         target = default_target or profiles[target_profile]["target"]
         available_targets = set(profiles[target_profile]["outputs"].keys())
         if target in available_targets:
             target_details = profiles[target_profile]["outputs"][target]
-            if missing_keys := required_fields - set(target_details.keys()):
-                errors[target_profile].append(
-                    f"Missing required fields: {', '.join(sorted(missing_keys))} in target {target}"
-                )
-            if role := target_details.get("role"):
-                if not DBTManager._validate_role(role_name=role):
-                    errors[target_profile].append(
-                        f"Role '{role}' does not exist or is not accessible"
-                    )
+            target_errors = DBTManager._validate_target(target, target_details)
+            if target_errors:
+                errors[target_profile].extend(target_errors)
         else:
             available_targets_str = ", ".join(sorted(available_targets))
-            errors["default_target"].append(
+            errors[target_profile].append(
                 f"Target '{target}' is not defined in profile '{target_profile}'. "
                 f"Available targets: {available_targets_str}"
             )
@@ -272,6 +263,28 @@ class DBTManager(SqlExecutionMixin):
                 message += f"\n{target}"
                 message += "\n * " + "\n * ".join(issues)
             raise CliError(message)
+
+    @staticmethod
+    def _validate_target(target_name: str, target_details: Dict[str, str]) -> List[str]:
+        errors = []
+        required_fields = {
+            "database",
+            "role",
+            "schema",
+            "type",  # TODO: make this optional
+        }
+        if FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled():
+            required_fields.add("account")
+            required_fields.add("user")
+            required_fields.add("warehouse")
+        if missing_keys := required_fields - set(target_details.keys()):
+            errors.append(
+                f"Missing required fields: {', '.join(sorted(missing_keys))} in target {target_name}"
+            )
+        if role := target_details.get("role"):
+            if not DBTManager._validate_role(role_name=role):
+                errors.append(f"Role '{role}' does not exist or is not accessible")
+        return errors
 
     @staticmethod
     def _validate_role(role_name: str) -> bool:
