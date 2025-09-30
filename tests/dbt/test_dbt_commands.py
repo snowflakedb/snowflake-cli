@@ -139,24 +139,16 @@ class TestDBTDeploy:
                         "target": "local",
                         "outputs": {
                             "local": {
-                                "account": "test_account",
                                 "database": "testdb",
                                 "role": "test_role",
                                 "schema": "test_schema",
                                 "threads": 2,
-                                "type": "snowflake",
-                                "user": "test_user",
-                                "warehouse": "test_warehouse",
                             },
                             "prod": {
-                                "account": "test_account",
                                 "database": "testdb_prod",
                                 "role": "test_role",
                                 "schema": "test_schema",
                                 "threads": 2,
-                                "type": "snowflake",
-                                "user": "test_user",
-                                "warehouse": "test_warehouse",
                             },
                         },
                     }
