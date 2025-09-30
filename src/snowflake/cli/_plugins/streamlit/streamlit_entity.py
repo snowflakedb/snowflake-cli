@@ -8,6 +8,7 @@ from snowflake.cli._plugins.nativeapp.artifacts import build_bundle
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli._plugins.streamlit.manager import StreamlitManager
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
+    SPCS_RUNTIME_V2_NAME,
     StreamlitEntityModel,
 )
 from snowflake.cli._plugins.workspace.context import ActionContext
@@ -65,6 +66,14 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             self._conn, f"/#/streamlit-apps/{name.url_identifier}"
         )
 
+    def _is_spcs_runtime_v2_mode(self, experimental: bool = False) -> bool:
+        """Check if SPCS runtime v2 mode is enabled."""
+        return (
+            experimental
+            and self.model.runtime_name == SPCS_RUNTIME_V2_NAME
+            and self.model.compute_pool
+        )
+
     def bundle(self, output_dir: Optional[Path] = None) -> BundleMap:
         return build_bundle(
             self.root,
@@ -84,7 +93,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         replace: bool,
         prune: bool = False,
         bundle_map: Optional[BundleMap] = None,
-        experimental: Optional[bool] = False,
+        experimental: bool = False,
         *args,
         **kwargs,
     ):
@@ -130,7 +139,11 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             console.step(f"Creating Streamlit object {self.model.fqn.sql_identifier}")
 
             self._execute_query(
-                self.get_deploy_sql(replace=replace, from_stage_name=stage_root)
+                self.get_deploy_sql(
+                    replace=replace,
+                    from_stage_name=stage_root,
+                    experimental=False,
+                )
             )
 
             StreamlitManager(connection=self._conn).grant_privileges(self.model)
@@ -159,6 +172,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         artifacts_dir: Optional[Path] = None,
         schema: Optional[str] = None,
         database: Optional[str] = None,
+        experimental: bool = False,
         *args,
         **kwargs,
     ) -> str:
@@ -202,6 +216,12 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if self.model.secrets:
             query += "\n" + self.model.get_secrets_sql()
 
+        # SPCS runtime fields are only supported for FBE/versioned streamlits (FROM syntax)
+        # Never add these fields for stage-based deployments (ROOT_LOCATION syntax)
+        if not from_stage_name and self._is_spcs_runtime_v2_mode(experimental):
+            query += f"\nRUNTIME_NAME = '{self.model.runtime_name}'"
+            query += f"\nCOMPUTE_POOL = '{self.model.compute_pool}'"
+
         return query + ";"
 
     def get_describe_sql(self) -> str:
@@ -236,6 +256,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             self.get_deploy_sql(
                 if_not_exists=True,
                 replace=replace,
+                experimental=True,
             )
         )
         try:
