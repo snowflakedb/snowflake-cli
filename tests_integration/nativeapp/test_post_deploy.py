@@ -99,79 +99,75 @@ def test_nativeapp_post_deploy(
     pkg_name = f"{project_name}_pkg_{default_username}{resource_suffix}"
 
     with nativeapp_project_directory(test_project):
-        try:
-            # first run, application is created
-            run(runner, base_command, [])
+        # first run, application is created
+        run(runner, base_command, [])
 
-            verify_app_post_deploy_log(
-                snowflake_session,
-                app_name,
-                [
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                ],
-            )
+        verify_app_post_deploy_log(
+            snowflake_session,
+            app_name,
+            [
+                {"TEXT": "app-post-deploy-part-1"},
+                {"TEXT": "app-post-deploy-part-2"},
+            ],
+        )
 
-            verify_pkg_post_deploy_log(
-                snowflake_session,
-                pkg_name,
-                [
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                ],
-            )
+        verify_pkg_post_deploy_log(
+            snowflake_session,
+            pkg_name,
+            [
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+            ],
+        )
 
-            # Second run, application is upgraded
-            run(runner, base_command, [])
+        # Second run, application is upgraded
+        run(runner, base_command, [])
 
-            verify_app_post_deploy_log(
-                snowflake_session,
-                app_name,
-                [
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                ],
-            )
-            verify_pkg_post_deploy_log(
-                snowflake_session,
-                pkg_name,
-                [
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                ],
-            )
+        verify_app_post_deploy_log(
+            snowflake_session,
+            app_name,
+            [
+                {"TEXT": "app-post-deploy-part-1"},
+                {"TEXT": "app-post-deploy-part-2"},
+                {"TEXT": "app-post-deploy-part-1"},
+                {"TEXT": "app-post-deploy-part-2"},
+            ],
+        )
+        verify_pkg_post_deploy_log(
+            snowflake_session,
+            pkg_name,
+            [
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+            ],
+        )
 
-            deploy(runner, base_command, [])
+        deploy(runner, base_command, [])
 
-            verify_app_post_deploy_log(
-                snowflake_session,
-                app_name,
-                [
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                ],
-            )
-            verify_pkg_post_deploy_log(
-                snowflake_session,
-                pkg_name,
-                [
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                ],
-            )
-
-        finally:
-            teardown(runner, [])
+        verify_app_post_deploy_log(
+            snowflake_session,
+            app_name,
+            [
+                {"TEXT": "app-post-deploy-part-1"},
+                {"TEXT": "app-post-deploy-part-2"},
+                {"TEXT": "app-post-deploy-part-1"},
+                {"TEXT": "app-post-deploy-part-2"},
+            ],
+        )
+        verify_pkg_post_deploy_log(
+            snowflake_session,
+            pkg_name,
+            [
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+            ],
+        )
 
 
 @pytest.mark.integration
@@ -198,82 +194,79 @@ def test_nativeapp_post_deploy_versioned(
     with nativeapp_project_directory(test_project):
         version_run_args = ["--version", version]
 
-        try:
-            # first run, application is created
-            create_version(runner, version, [])
-            run(runner, base_command, version_run_args)
+        # first run, application is created
+        create_version(runner, version, [])
+        run(runner, base_command, version_run_args)
 
-            verify_app_post_deploy_log(
-                snowflake_session,
-                app_name,
-                [
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                ],
-            )
+        verify_app_post_deploy_log(
+            snowflake_session,
+            app_name,
+            [
+                {"TEXT": "app-post-deploy-part-1"},
+                {"TEXT": "app-post-deploy-part-2"},
+            ],
+        )
 
-            verify_pkg_post_deploy_log(
-                snowflake_session,
-                pkg_name,
-                [
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                ],
-            )
+        verify_pkg_post_deploy_log(
+            snowflake_session,
+            pkg_name,
+            [
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+            ],
+        )
 
-            # Second run, application is upgraded
-            create_version(runner, version, [])
-            run(runner, base_command, version_run_args)
+        # Second run, application is upgraded
+        create_version(runner, version, [])
+        run(runner, base_command, version_run_args)
 
-            verify_app_post_deploy_log(
-                snowflake_session,
-                app_name,
-                [
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                ],
-            )
-            verify_pkg_post_deploy_log(
-                snowflake_session,
-                pkg_name,
-                [
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                ],
-            )
+        verify_app_post_deploy_log(
+            snowflake_session,
+            app_name,
+            [
+                {"TEXT": "app-post-deploy-part-1"},
+                {"TEXT": "app-post-deploy-part-2"},
+                {"TEXT": "app-post-deploy-part-1"},
+                {"TEXT": "app-post-deploy-part-2"},
+            ],
+        )
+        verify_pkg_post_deploy_log(
+            snowflake_session,
+            pkg_name,
+            [
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+            ],
+        )
 
-            deploy(runner, base_command, [])
+        deploy(runner, base_command, [])
 
-            verify_app_post_deploy_log(
-                snowflake_session,
-                app_name,
-                [
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                ],
-            )
-            verify_pkg_post_deploy_log(
-                snowflake_session,
-                pkg_name,
-                [
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                ],
-            )
+        verify_app_post_deploy_log(
+            snowflake_session,
+            app_name,
+            [
+                {"TEXT": "app-post-deploy-part-1"},
+                {"TEXT": "app-post-deploy-part-2"},
+                {"TEXT": "app-post-deploy-part-1"},
+                {"TEXT": "app-post-deploy-part-2"},
+            ],
+        )
+        verify_pkg_post_deploy_log(
+            snowflake_session,
+            pkg_name,
+            [
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+            ],
+        )
 
-        finally:
-            drop_version(runner, version, [])
-            teardown(runner, [])
+        drop_version(runner, version, [])
 
 
 @pytest.mark.integration
@@ -302,79 +295,75 @@ def test_nativeapp_post_deploy_with_project_flag(
         working_directory_changer = WorkingDirectoryChanger()
         working_directory_changer.change_working_directory_to("app")
 
-        try:
-            # first run, application is created
-            run(runner, base_command, project_args)
+        # first run, application is created
+        run(runner, base_command, project_args)
 
-            verify_app_post_deploy_log(
-                snowflake_session,
-                app_name,
-                [
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                ],
-            )
+        verify_app_post_deploy_log(
+            snowflake_session,
+            app_name,
+            [
+                {"TEXT": "app-post-deploy-part-1"},
+                {"TEXT": "app-post-deploy-part-2"},
+            ],
+        )
 
-            verify_pkg_post_deploy_log(
-                snowflake_session,
-                pkg_name,
-                [
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                ],
-            )
+        verify_pkg_post_deploy_log(
+            snowflake_session,
+            pkg_name,
+            [
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+            ],
+        )
 
-            # Second run, application is upgraded
-            run(runner, base_command, project_args)
+        # Second run, application is upgraded
+        run(runner, base_command, project_args)
 
-            verify_app_post_deploy_log(
-                snowflake_session,
-                app_name,
-                [
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                ],
-            )
-            verify_pkg_post_deploy_log(
-                snowflake_session,
-                pkg_name,
-                [
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                ],
-            )
+        verify_app_post_deploy_log(
+            snowflake_session,
+            app_name,
+            [
+                {"TEXT": "app-post-deploy-part-1"},
+                {"TEXT": "app-post-deploy-part-2"},
+                {"TEXT": "app-post-deploy-part-1"},
+                {"TEXT": "app-post-deploy-part-2"},
+            ],
+        )
+        verify_pkg_post_deploy_log(
+            snowflake_session,
+            pkg_name,
+            [
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+            ],
+        )
 
-            deploy(runner, base_command, project_args)
+        deploy(runner, base_command, project_args)
 
-            verify_app_post_deploy_log(
-                snowflake_session,
-                app_name,
-                [
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                ],
-            )
-            verify_pkg_post_deploy_log(
-                snowflake_session,
-                pkg_name,
-                [
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                ],
-            )
-
-        finally:
-            teardown(runner, project_args)
+        verify_app_post_deploy_log(
+            snowflake_session,
+            app_name,
+            [
+                {"TEXT": "app-post-deploy-part-1"},
+                {"TEXT": "app-post-deploy-part-2"},
+                {"TEXT": "app-post-deploy-part-1"},
+                {"TEXT": "app-post-deploy-part-2"},
+            ],
+        )
+        verify_pkg_post_deploy_log(
+            snowflake_session,
+            pkg_name,
+            [
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+            ],
+        )
 
 
 @pytest.mark.integration
@@ -401,18 +390,17 @@ def test_nativeapp_post_deploy_with_windows_path(
     pkg_name = f"{project_name}_pkg_{default_username}{resource_suffix}"
 
     with nativeapp_project_directory(test_project) as tmp_dir:
-        try:
-            snowflake_yml_path = tmp_dir / "snowflake.yml"
-            with open(snowflake_yml_path, "r", encoding="utf-8") as file:
-                yml = yaml.safe_load(file)
-                if yml["definition_version"] >= 2:
-                    artifact = yml["entities"]["pkg"]["artifacts"][0]
-                    pkg_scripts = yml["entities"]["pkg"]["meta"]["post_deploy"]
-                    app_scripts = yml["entities"]["app"]["meta"]["post_deploy"]
-                else:
-                    artifact = yml["native_app"]["artifacts"][0]
-                    pkg_scripts = yml["native_app"]["package"]["post_deploy"]
-                    app_scripts = yml["native_app"]["application"]["post_deploy"]
+        snowflake_yml_path = tmp_dir / "snowflake.yml"
+        with open(snowflake_yml_path, "r", encoding="utf-8") as file:
+            yml = yaml.safe_load(file)
+            if yml["definition_version"] >= 2:
+                artifact = yml["entities"]["pkg"]["artifacts"][0]
+                pkg_scripts = yml["entities"]["pkg"]["meta"]["post_deploy"]
+                app_scripts = yml["entities"]["app"]["meta"]["post_deploy"]
+            else:
+                artifact = yml["native_app"]["artifacts"][0]
+                pkg_scripts = yml["native_app"]["package"]["post_deploy"]
+                app_scripts = yml["native_app"]["application"]["post_deploy"]
 
                 # use backslashes in artifacts src
                 artifact["src"] = artifact["src"].replace("/", "\\")
@@ -433,31 +421,28 @@ def test_nativeapp_post_deploy_with_windows_path(
                     (tmp_dir / app_scripts[1]["sql_script"]).absolute()
                 )
 
-            with open(snowflake_yml_path, "w", encoding="utf-8") as file:
-                yaml.dump(yml, file)
+        with open(snowflake_yml_path, "w", encoding="utf-8") as file:
+            yaml.dump(yml, file)
 
-            run(runner, base_command, [])
+        run(runner, base_command, [])
 
-            verify_app_post_deploy_log(
-                snowflake_session,
-                app_name,
-                [
-                    {"TEXT": "app-post-deploy-part-1"},
-                    {"TEXT": "app-post-deploy-part-2"},
-                ],
-            )
+        verify_app_post_deploy_log(
+            snowflake_session,
+            app_name,
+            [
+                {"TEXT": "app-post-deploy-part-1"},
+                {"TEXT": "app-post-deploy-part-2"},
+            ],
+        )
 
-            verify_pkg_post_deploy_log(
-                snowflake_session,
-                pkg_name,
-                [
-                    {"TEXT": "package-post-deploy-part-1"},
-                    {"TEXT": "package-post-deploy-part-2"},
-                ],
-            )
-
-        finally:
-            teardown(runner, [])
+        verify_pkg_post_deploy_log(
+            snowflake_session,
+            pkg_name,
+            [
+                {"TEXT": "package-post-deploy-part-1"},
+                {"TEXT": "package-post-deploy-part-2"},
+            ],
+        )
 
 
 @pytest.mark.integration
