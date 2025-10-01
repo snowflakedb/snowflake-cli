@@ -100,6 +100,7 @@ def snowflake_home(monkeypatch):
             sys.modules["snowflake.connector.config_manager"],
             sys.modules["snowflake.connector.log_configuration"],
             sys.modules["snowflake.cli.api.config"],
+            sys.modules["snowflake.cli.api.cli_global_context"],
         ]:
             importlib.reload(module)
 
