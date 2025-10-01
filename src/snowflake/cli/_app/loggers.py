@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 import logging.config
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List
 
 import typer
@@ -136,7 +137,11 @@ class FileLogsConfig:
 
     @property
     def filename(self):
-        return self.path.path / _DEFAULT_LOG_FILENAME
+        from snowflake.cli.api.utils.path_utils import path_resolver
+
+        # Ensure Windows short paths are resolved to prevent cleanup issues
+        resolved_path = path_resolver(str(self.path.path))
+        return Path(resolved_path) / _DEFAULT_LOG_FILENAME
 
 
 def create_initial_loggers():

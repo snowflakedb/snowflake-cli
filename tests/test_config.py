@@ -35,14 +35,23 @@ from tests_common import IS_WINDOWS
 
 
 def test_empty_config_file_is_created_if_not_present():
+    from snowflake.cli.api.utils.path_utils import path_resolver
+
+    from tests.conftest import clean_logging_handlers
+
     with TemporaryDirectory() as tmp_dir:
-        config_file = Path(tmp_dir) / "sub" / "config.toml"
+        # Resolve Windows short paths to prevent cleanup issues
+        resolved_tmp_dir = path_resolver(tmp_dir)
+        config_file = Path(resolved_tmp_dir) / "sub" / "config.toml"
         assert config_file.exists() is False
 
-        config_init(config_file)
-        assert config_file.exists() is True
-
-        assert_file_permissions_are_strict(config_file)
+        try:
+            config_init(config_file)
+            assert config_file.exists() is True
+            assert_file_permissions_are_strict(config_file)
+        finally:
+            # Ensure all logging handlers are closed before temp directory cleanup
+            clean_logging_handlers()
 
 
 @mock.patch.dict(os.environ, {}, clear=True)
@@ -161,16 +170,26 @@ def test_get_all_connections(test_snowcli_config):
 def test_create_default_config_if_not_exists_with_proper_permissions(
     mock_get_config_section,
 ):
+    from snowflake.cli.api.utils.path_utils import path_resolver
+
+    from tests.conftest import clean_logging_handlers
+
     mock_get_config_section.return_value = {}
     with TemporaryDirectory() as tmp_dir:
-        config_path = Path(f"{tmp_dir}/snowflake/config.toml")
+        # Resolve Windows short paths to prevent cleanup issues
+        resolved_tmp_dir = path_resolver(tmp_dir)
+        config_path = Path(f"{resolved_tmp_dir}/snowflake/config.toml")
 
-        # Test the config initialization with a specific path
-        config_init(config_path)
+        try:
+            # Test the config initialization with a specific path
+            config_init(config_path)
 
-        assert config_path.exists()
-        assert_file_permissions_are_strict(config_path.parent)
-        assert_file_permissions_are_strict(config_path)
+            assert config_path.exists()
+            assert_file_permissions_are_strict(config_path.parent)
+            assert_file_permissions_are_strict(config_path)
+        finally:
+            # Ensure all logging handlers are closed before temp directory cleanup
+            clean_logging_handlers()
 
 
 @mock.patch.dict(
@@ -496,8 +515,14 @@ def test_too_wide_permissions_on_custom_config_file_causes_warning(
 def test_too_wide_permissions_on_custom_config_file_causes_warning_windows(permissions):
     import subprocess
 
+    from snowflake.cli.api.utils.path_utils import path_resolver
+
+    from tests.conftest import clean_logging_handlers
+
     with TemporaryDirectory() as tmp_dir:
-        config_path = Path(tmp_dir) / "config.toml"
+        # Resolve Windows short paths to prevent cleanup issues
+        resolved_tmp_dir = path_resolver(tmp_dir)
+        config_path = Path(resolved_tmp_dir) / "config.toml"
         config_path.touch()
         result = subprocess.run(
             ["icacls", str(config_path), "/GRANT", f"Everyone:{permissions}"],
@@ -506,11 +531,15 @@ def test_too_wide_permissions_on_custom_config_file_causes_warning_windows(permi
         )
         assert result.returncode == 0, result.stdout + result.stderr
 
-        with pytest.warns(
-            UserWarning,
-            match=r"Unauthorized users \(.*\) have access to configuration file .*",
-        ):
-            config_init(config_file=config_path)
+        try:
+            with pytest.warns(
+                UserWarning,
+                match=r"Unauthorized users \(.*\) have access to configuration file .*",
+            ):
+                config_init(config_file=config_path)
+        finally:
+            # Ensure all logging handlers are closed before temp directory cleanup
+            clean_logging_handlers()
 
 
 @parametrize_chmod
