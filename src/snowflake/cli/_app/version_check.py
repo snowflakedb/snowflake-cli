@@ -10,9 +10,9 @@ from snowflake.cli.api.config import (
     CLI_SECTION,
     IGNORE_NEW_VERSION_WARNING_KEY,
     get_config_bool_value,
+    get_config_manager,
 )
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.connector.config_manager import CONFIG_MANAGER
 
 REPOSITORY_URL_PIP = "https://pypi.org/pypi/snowflake-cli/json"
 REPOSITORY_URL_BREW = "https://formulae.brew.sh/api/formula/snowflake-cli.json"
@@ -69,12 +69,14 @@ class _VersionCache:
     _last_time = "last_time_check"
     _version = "version"
     _last_time_shown = "last_time_shown"
-    _version_cache_file = SecurePath(
-        CONFIG_MANAGER.file_path.parent / ".cli_version.cache"
-    )
+
+    @property
+    def _version_cache_file(self):
+        """Get version cache file path with lazy evaluation."""
+        return SecurePath(get_config_manager().file_path.parent / ".cli_version.cache")
 
     def __init__(self):
-        self._cache_file = _VersionCache._version_cache_file
+        self._cache_file = self._version_cache_file
 
     def _save_latest_version(self, version: str):
         data = {

@@ -113,7 +113,11 @@ def reset_global_context_and_setup_config_and_logging_levels(
         cli_context_manager.verbose = False
         cli_context_manager.enable_tracebacks = False
         cli_context_manager.connection_cache = connection_cache
-        config_init(test_snowcli_config)
+
+        # Set config file override in context for test isolation
+        cli_context_manager.config_file_override = test_snowcli_config
+
+        config_init(None)  # No need to pass config file, it's in context
         loggers.create_loggers(verbose=False, debug=False)
         try:
             yield
@@ -232,6 +236,98 @@ class SnowCLIRunner(CliRunner):
 @pytest.fixture
 def app_zip(temporary_directory) -> Generator:
     yield create_temp_file(".zip", temporary_directory, [])
+
+
+# New fixtures for config manager testing
+@pytest.fixture
+def config_manager():
+    """
+    Direct access to current config manager.
+    Returns a proxy that always fetches the current manager from context,
+    ensuring tests see config changes after config_init() calls.
+    """
+    from snowflake.cli.api.config import get_config_manager
+
+    class ConfigManagerProxy:
+        def __getitem__(self, key):
+            return get_config_manager()[key]
+
+        def __setitem__(self, key, value):
+            get_config_manager()[key] = value
+
+        def __contains__(self, key):
+            return key in get_config_manager()
+
+        def __getattr__(self, name):
+            return getattr(get_config_manager(), name)
+
+        def __repr__(self):
+            return repr(get_config_manager())
+
+        def get(self, key, default=None):
+            return get_config_manager().get(key, default)
+
+    return ConfigManagerProxy()
+
+
+@pytest.fixture
+def with_custom_config():
+    """Context manager for custom config testing"""
+
+    @contextmanager
+    def _with_custom_config(config_data: dict):
+        import tempfile
+        from pathlib import Path
+
+        import tomlkit
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            tomlkit.dump(config_data, f)
+            config_file = Path(f.name)
+
+        try:
+            with fork_cli_context() as ctx:
+                ctx.config_file_override = config_file
+                yield ctx.config_manager
+        finally:
+            config_file.unlink(missing_ok=True)
+
+    return _with_custom_config
+
+
+@pytest.fixture
+def config_manager_factory():
+    """Factory for creating config managers with specific settings"""
+    import tempfile
+    from pathlib import Path
+
+    import tomlkit
+
+    created_files = []
+
+    def _create_manager(
+        config_data: Optional[dict] = None,
+        config_file: Optional[Path] = None,
+    ):
+        with fork_cli_context() as ctx:
+            if config_file:
+                ctx.config_file_override = config_file
+            elif config_data:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".toml", delete=False
+                ) as f:
+                    tomlkit.dump(config_data, f)
+                    config_file = Path(f.name)
+                    created_files.append(config_file)
+                    ctx.config_file_override = config_file
+
+            return ctx.config_manager
+
+    yield _create_manager
+
+    # Cleanup
+    for file in created_files:
+        file.unlink(missing_ok=True)
 
 
 @pytest.fixture
