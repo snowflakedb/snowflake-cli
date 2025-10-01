@@ -519,11 +519,20 @@ def build_runner(app_factory, test_snowcli_config):
 @contextmanager
 def _named_temporary_file(suffix=None, prefix=None):
     with tempfile.TemporaryDirectory() as tmp_dir:
+        # Resolve Windows short paths to prevent cleanup issues
+        from snowflake.cli.api.utils.path_utils import path_resolver
+
+        resolved_tmp_dir = path_resolver(tmp_dir)
+
         suffix = suffix or ""
         prefix = prefix or ""
-        f = Path(tmp_dir) / f"{prefix}tmp_file{suffix}"
+        f = Path(resolved_tmp_dir) / f"{prefix}tmp_file{suffix}"
         f.touch()
-        yield f
+        try:
+            yield f
+        finally:
+            # Ensure all logging handlers are closed before temp directory cleanup
+            clean_logging_handlers()
 
 
 @pytest.fixture()

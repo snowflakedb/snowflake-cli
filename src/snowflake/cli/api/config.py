@@ -196,9 +196,15 @@ def remove_connection_from_proper_file(name: str):
 
 def _get_default_logs_config() -> dict:
     """Get default logs configuration with lazy evaluation to avoid circular imports."""
+    from snowflake.cli.api.utils.path_utils import path_resolver
+
+    config_parent_path = get_config_manager().file_path.parent
+    # Resolve Windows short paths to prevent issues with temp directory cleanup
+    resolved_parent_path = path_resolver(str(config_parent_path))
+
     return {
         "save_logs": True,
-        "path": str(get_config_manager().file_path.parent / "logs"),
+        "path": str(Path(resolved_parent_path) / "logs"),
         "level": "info",
     }
 
