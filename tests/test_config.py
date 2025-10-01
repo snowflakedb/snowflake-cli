@@ -18,6 +18,7 @@ from tempfile import NamedTemporaryFile, TemporaryDirectory
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.cli_global_context import fork_cli_context
 from snowflake.cli.api.config import (
     ConfigFileTooWidePermissionsError,
     config_init,
@@ -156,19 +157,16 @@ def test_get_all_connections(test_snowcli_config):
     }
 
 
-@mock.patch("snowflake.cli.api.config.CONFIG_MANAGER")
 @mock.patch("snowflake.cli.api.config.get_config_section")
 def test_create_default_config_if_not_exists_with_proper_permissions(
     mock_get_config_section,
-    mock_config_manager,
 ):
     mock_get_config_section.return_value = {}
     with TemporaryDirectory() as tmp_dir:
         config_path = Path(f"{tmp_dir}/snowflake/config.toml")
-        mock_config_manager.file_path = config_path
-        mock_config_manager.conf_file_cache = {}
 
-        config_init(None)
+        # Test the config initialization with a specific path
+        config_init(config_path)
 
         assert config_path.exists()
         assert_file_permissions_are_strict(config_path.parent)
@@ -227,81 +225,87 @@ def test_not_found_default_connection_from_evn_variable(test_root_path):
 def test_correct_updates_of_connections_on_setting_default_connection(
     test_snowcli_config, snowflake_home
 ):
-    from snowflake.cli.api.config import CONFIG_MANAGER
+    # Use isolated context for this test to avoid fixture conflicts
+    with fork_cli_context() as ctx:
+        config = test_snowcli_config
+        connections_toml = snowflake_home / "connections.toml"
+        connections_toml.write_text(
+            """[asdf_a]
+        database = "asdf_a_database"
+        user = "asdf_a"
+        account = "asdf_a"
+        
+        [asdf_b]
+        database = "asdf_b_database"
+        user = "asdf_b"
+        account = "asdf_b"
+        """
+        )
 
-    config = test_snowcli_config
-    connections_toml = snowflake_home / "connections.toml"
-    connections_toml.write_text(
-        """[asdf_a]
-    database = "asdf_a_database"
-    user = "asdf_a"
-    account = "asdf_a"
-    
-    [asdf_b]
-    database = "asdf_b_database"
-    user = "asdf_b"
-    account = "asdf_b"
-    """
-    )
-    config_init(config)
-    set_config_value(path=["default_connection_name"], value="asdf_b")
+        # Set config file override in isolated context
+        ctx.config_file_override = config
+        config_init(None)  # Use context's config file
+        set_config_value(path=["default_connection_name"], value="asdf_b")
 
-    def assert_correct_connections_loaded():
-        assert CONFIG_MANAGER["default_connection_name"] == "asdf_b"
-        assert CONFIG_MANAGER["connections"] == {
-            "asdf_a": {
-                "database": "asdf_a_database",
-                "user": "asdf_a",
-                "account": "asdf_a",
-            },
-            "asdf_b": {
-                "database": "asdf_b_database",
-                "user": "asdf_b",
-                "account": "asdf_b",
-            },
-        }
+        # Get config manager from isolated context
+        config_manager = ctx.config_manager
 
-    # assert correct connections in memory after setting default connection name
-    assert_correct_connections_loaded()
+        def assert_correct_connections_loaded():
+            assert config_manager["default_connection_name"] == "asdf_b"
+            assert config_manager["connections"] == {
+                "asdf_a": {
+                    "database": "asdf_a_database",
+                    "user": "asdf_a",
+                    "account": "asdf_a",
+                },
+                "asdf_b": {
+                    "database": "asdf_b_database",
+                    "user": "asdf_b",
+                    "account": "asdf_b",
+                },
+            }
 
-    with open(connections_toml) as f:
-        connection_toml_content = f.read()
-        assert (
-            connection_toml_content.count("asdf_a") == 4
-        )  # connection still exists in connections.toml
-        assert (
-            connection_toml_content.count("asdf_b") == 4
-        )  # connection still exists in connections.toml
-        assert (
-            connection_toml_content.count("jwt") == 0
-        )  # connection from config.toml isn't copied to connections.toml
-    with open(config) as f:
-        config_toml_content = f.read()
-        assert (
-            config_toml_content.count("asdf_a") == 0
-        )  # connection from connections.toml isn't copied to config.toml
-        assert (
-            config_toml_content.count("asdf_b") == 1
-        )  # only default_config_name setting, connection from connections.toml isn't copied to config.toml
-        assert (
-            config_toml_content.count("connections.full") == 1
-        )  # connection wasn't erased from config.toml
-        assert (
-            config_toml_content.count("connections.jwt") == 1
-        )  # connection wasn't erased from config.toml
-        assert (
-            config_toml_content.count("dummy_flag = true") == 1
-        )  # other settings are not erased
+        # assert correct connections in memory after setting default connection name
+        assert_correct_connections_loaded()
 
-    # reinit config file and recheck loaded connections
-    config_init(config)
-    assert_correct_connections_loaded()
+        with open(connections_toml) as f:
+            connection_toml_content = f.read()
+            assert (
+                connection_toml_content.count("asdf_a") == 4
+            )  # connection still exists in connections.toml
+            assert (
+                connection_toml_content.count("asdf_b") == 4
+            )  # connection still exists in connections.toml
+            assert (
+                connection_toml_content.count("jwt") == 0
+            )  # connection from config.toml isn't copied to connections.toml
+        with open(config) as f:
+            config_toml_content = f.read()
+            assert (
+                config_toml_content.count("asdf_a") == 0
+            )  # connection from connections.toml isn't copied to config.toml
+            assert (
+                config_toml_content.count("asdf_b") == 1
+            )  # only default_config_name setting, connection from connections.toml isn't copied to config.toml
+            assert (
+                config_toml_content.count("connections.full") == 1
+            )  # connection wasn't erased from config.toml
+            assert (
+                config_toml_content.count("connections.jwt") == 1
+            )  # connection wasn't erased from config.toml
+            assert (
+                config_toml_content.count("dummy_flag = true") == 1
+            )  # other settings are not erased
+
+        # reinit config file and recheck loaded connections
+        config_init(None)  # Use context's config file
+        assert_correct_connections_loaded()
 
 
 def test_correct_updates_of_connections_on_setting_default_connection_for_empty_config_file(
-    config_file, snowflake_home
+    config_file, snowflake_home, config_manager
 ):
-    from snowflake.cli.api.config import CONFIG_MANAGER
+    # CONFIG_MANAGER is now accessed through the config_manager fixture
 
     with config_file() as config:
         connections_toml = snowflake_home / "connections.toml"
@@ -321,8 +325,8 @@ def test_correct_updates_of_connections_on_setting_default_connection_for_empty_
         set_config_value(path=["default_connection_name"], value="asdf_b")
 
         def assert_correct_connections_loaded():
-            assert CONFIG_MANAGER["default_connection_name"] == "asdf_b"
-            assert CONFIG_MANAGER["connections"] == {
+            assert config_manager["default_connection_name"] == "asdf_b"
+            assert config_manager["connections"] == {
                 "asdf_a": {
                     "database": "asdf_a_database",
                     "user": "asdf_a",
@@ -372,8 +376,10 @@ def test_correct_updates_of_connections_on_setting_default_connection_for_empty_
         assert_correct_connections_loaded()
 
 
-def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_home):
-    from snowflake.cli.api.config import CONFIG_MANAGER
+def test_connections_toml_override_config_toml(
+    test_snowcli_config, snowflake_home, config_manager
+):
+    # CONFIG_MANAGER is now accessed through the config_manager fixture
 
     connections_toml = snowflake_home / "connections.toml"
     connections_toml.write_text(
@@ -384,7 +390,7 @@ def test_connections_toml_override_config_toml(test_snowcli_config, snowflake_ho
     config_init(test_snowcli_config)
 
     assert get_default_connection_dict() == {"database": "overridden_database"}
-    assert CONFIG_MANAGER["connections"] == {
+    assert config_manager["connections"] == {
         "default": {"database": "overridden_database"}
     }
 

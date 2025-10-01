@@ -40,11 +40,14 @@ from snowflake.cli._app.version_check import (
     get_new_version_msg,
     show_new_version_banner_callback,
 )
-from snowflake.cli.api.config import config_init, get_feature_flags_section
+from snowflake.cli.api.config import (
+    config_init,
+    get_config_manager,
+    get_feature_flags_section,
+)
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import CollectionResult
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.connector.config_manager import CONFIG_MANAGER
 
 log = logging.getLogger(__name__)
 
@@ -160,7 +163,7 @@ class CliAppFactory:
                         {"key": "version", "value": __about__.VERSION},
                         {
                             "key": "default_config_file_path",
-                            "value": str(CONFIG_MANAGER.file_path),
+                            "value": str(get_config_manager().file_path),
                         },
                         {"key": "python_version", "value": sys.version},
                         {"key": "system_info", "value": platform.platform()},

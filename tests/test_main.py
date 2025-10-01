@@ -26,7 +26,6 @@ from unittest import mock
 
 import pytest
 from click import Command
-from snowflake.connector.config_manager import CONFIG_MANAGER
 from typer.core import TyperArgument, TyperOption
 
 
@@ -67,13 +66,13 @@ def test_custom_config_path(mock_conn, runner, mock_cursor):
 
 
 @mock.patch.dict(os.environ, {"SNOWFLAKE_HOME": "FooBar"}, clear=True)
-def test_info_callback(runner):
+def test_info_callback(runner, config_manager):
     result = runner.invoke(["--info"])
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output)
     assert payload == [
         {"key": "version", "value": "0.0.0-test_patched"},
-        {"key": "default_config_file_path", "value": str(CONFIG_MANAGER.file_path)},
+        {"key": "default_config_file_path", "value": str(config_manager.file_path)},
         {"key": "python_version", "value": sys.version},
         {"key": "system_info", "value": platform.platform()},
         {
