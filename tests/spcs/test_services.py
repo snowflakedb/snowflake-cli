@@ -69,8 +69,9 @@ EXECUTE_QUERY = (
 @pytest.fixture()
 def enable_events_and_metrics_config():
     from snowflake.cli.api.utils.path_utils import path_resolver
+
     from tests.conftest import clean_logging_handlers
-    
+
     with TemporaryDirectory() as tempdir:
         # Resolve Windows short paths to prevent cleanup issues
         resolved_tempdir = path_resolver(tempdir)
