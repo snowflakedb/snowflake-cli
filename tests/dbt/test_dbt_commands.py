@@ -113,69 +113,15 @@ class TestDBTDescribe:
         )
 
 
+@pytest.mark.usefixtures("mock_validate_role")
 class TestDBTDeploy:
     @staticmethod
     def _get_default_attribute_dict() -> DBTObjectEditableAttributes:
         return {"default_target": None}
 
-    @pytest.fixture(autouse=True)
-    def mock_validate_role(self):
-        with mock.patch(
-            "snowflake.cli._plugins.dbt.manager.DBTManager._validate_role",
-            return_value=True,
-        ) as _fixture:
-            yield _fixture
-
-    @pytest.fixture
-    def dbt_project_path(self, tmp_path_factory):
-        source_path = tmp_path_factory.mktemp("dbt_project")
-        dbt_project_file = source_path / "dbt_project.yml"
-        dbt_project_file.write_text(yaml.dump({"profile": "dev"}))
-        dbt_profiles_file = source_path / PROFILES_FILENAME
-        dbt_profiles_file.write_text(
-            yaml.dump(
-                {
-                    "dev": {
-                        "target": "local",
-                        "outputs": {
-                            "local": {
-                                "database": "testdb",
-                                "role": "test_role",
-                                "schema": "test_schema",
-                                "threads": 2,
-                            },
-                            "prod": {
-                                "database": "testdb_prod",
-                                "role": "test_role",
-                                "schema": "test_schema",
-                                "threads": 2,
-                            },
-                        },
-                    }
-                },
-            )
-        )
-        yield source_path
-
     @pytest.fixture
     def mock_cli_console(self):
         with mock.patch("snowflake.cli.api.console") as _fixture:
-            yield _fixture
-
-    @pytest.fixture
-    def mock_get_dbt_object_attributes(self):
-        with mock.patch(
-            "snowflake.cli._plugins.dbt.manager.DBTManager.get_dbt_object_attributes",
-            return_value=None,
-        ) as _fixture:
-            yield _fixture
-
-    @pytest.fixture
-    def mock_from_resource(self):
-        with mock.patch(
-            "snowflake.cli._plugins.dbt.manager.FQN.from_resource",
-            return_value="@MockDatabase.MockSchema.DBT_PROJECT_TEST_PIPELINE_1757333281_STAGE",
-        ) as _fixture:
             yield _fixture
 
     @pytest.fixture

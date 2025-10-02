@@ -13,63 +13,10 @@ from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import ProgrammingError
 
 
-@pytest.fixture
-def mock_validate_role():
-    with mock.patch(
-        "snowflake.cli._plugins.dbt.manager.DBTManager._validate_role",
-        return_value=True,
-    ) as _fixture:
-        yield _fixture
-
-
 class TestDeploy:
-    @pytest.fixture()
-    def profile(self):
-        profiles = {
-            "dev": {
-                "target": "local",
-                "outputs": {
-                    "local": {
-                        "database": "testdb",
-                        "role": "test_role",
-                        "schema": "test_schema",
-                        "threads": 4,
-                    },
-                    "prod": {
-                        "database": "testdb_prod",
-                        "role": "test_role",
-                        "schema": "test_schema",
-                        "threads": 4,
-                    },
-                },
-            }
-        }
-        return profiles
-
-    @pytest.fixture
-    def project_path(self, tmp_path_factory):
-        source_path = tmp_path_factory.mktemp("dbt_project")
-        yield source_path
-
-    @pytest.fixture
-    def dbt_project_path(self, project_path, profile):
-        dbt_project_file = project_path / "dbt_project.yml"
-        dbt_project_file.write_text(yaml.dump({"profile": "dev"}))
-        dbt_profiles_file = project_path / PROFILES_FILENAME
-        dbt_profiles_file.write_text(yaml.dump(profile))
-        yield project_path
-
     def _generate_profile(self, project_path, profile):
         dbt_profiles_file = project_path / PROFILES_FILENAME
         dbt_profiles_file.write_text(yaml.dump(profile))
-
-    @pytest.fixture
-    def mock_get_dbt_object_attributes(self):
-        with mock.patch(
-            "snowflake.cli._plugins.dbt.manager.DBTManager.get_dbt_object_attributes",
-            return_value=None,
-        ) as _fixture:
-            yield _fixture
 
     @pytest.fixture
     def mock_execute_query(self):
@@ -87,14 +34,6 @@ class TestDeploy:
             mock_connect.schema = "TestSchema"
             cli_context().connection = mock_connect
             yield cli_context()
-
-    @pytest.fixture
-    def mock_from_resource(self):
-        with mock.patch(
-            "snowflake.cli._plugins.dbt.manager.FQN.from_resource",
-            return_value="@MockDatabase.MockSchema.DBT_PROJECT_TEST_PIPELINE_1757333281_STAGE",
-        ) as _fixture:
-            yield _fixture
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
@@ -255,7 +194,6 @@ dev
     ):
         self._generate_profile(project_path, profile)
 
-        # Should not raise an exception
         DBTManager._validate_profiles(  # noqa: SLF001
             SecurePath(project_path), "dev", "prod"
         )
