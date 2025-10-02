@@ -137,8 +137,8 @@ def deploy_dbt(
     return QueryResult(
         DBTManager().deploy(
             name,
-            project_path.resolve(),
-            profiles_dir_path.resolve(),
+            path=project_path.resolve(),
+            profiles_path=profiles_dir_path.resolve(),
             force=force,
             default_target=default_target,
             unset_default_target=unset_default_target,

@@ -4580,11 +4580,11 @@
                                                                                   
    Usage: root dbt deploy [OPTIONS] NAME                                          
                                                                                   
-   Upload local dbt project files and create or update a DBT project object on
-   Snowflake.
-
-   Examples: snow dbt deploy PROJECT snow dbt deploy PROJECT
-   --source=/Users/jdoe/project --force
+   Upload local dbt project files and create or update a DBT project object on    
+   Snowflake.                                                                     
+                                                                                  
+   Examples: snow dbt deploy PROJECT snow dbt deploy PROJECT                      
+   --source=/Users/jdoe/project --force                                           
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
@@ -4731,11 +4731,11 @@
 # ---
 # name: test_help_messages[dbt.describe]
   '''
-
-   Usage: root dbt describe [OPTIONS] NAME
-
-   Provides description of dbt project.
-
+                                                                                  
+   Usage: root dbt describe [OPTIONS] NAME                                        
+                                                                                  
+   Provides description of dbt project.                                           
+                                                                                  
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
   |                      [required]                                              |
@@ -4865,17 +4865,17 @@
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
-
-
+  
+  
   '''
 # ---
 # name: test_help_messages[dbt.drop]
   '''
-
-   Usage: root dbt drop [OPTIONS] NAME
-
-   Drops dbt project with given name.
-
+                                                                                  
+   Usage: root dbt drop [OPTIONS] NAME                                            
+                                                                                  
+   Drops dbt project with given name.                                             
+                                                                                  
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
   |                      [required]                                              |
@@ -5005,8 +5005,8 @@
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
-
-
+  
+  
   '''
 # ---
 # name: test_help_messages[dbt.execute.build]
@@ -7182,14 +7182,8 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | deploy    Upload local dbt project files and create or update a DBT project  |
-  |           object on Snowflake.                                               |
-  | execute   Execute a dbt command on Snowflake. Subcommand name and all        |
-  |           parameters following it will be passed over to dbt.                |
-  | list      Lists all available dbt projects.                                  |
-  | deploy     Copy dbt files and either recreate dbt on Snowflake if --force    |
-  |            flag is provided; or create a new one if it doesn't exist; or     |
-  |            update files and create a new version if it exists.               |
+  | deploy     Upload local dbt project files and create or update a DBT project |
+  |            object on Snowflake.                                              |
   | describe   Provides description of dbt project.                              |
   | drop       Drops dbt project with given name.                                |
   | execute    Execute a dbt command on Snowflake. Subcommand name and all       |
@@ -21930,14 +21924,8 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | deploy    Upload local dbt project files and create or update a DBT project  |
-  |           object on Snowflake.                                               |
-  | execute   Execute a dbt command on Snowflake. Subcommand name and all        |
-  |           parameters following it will be passed over to dbt.                |
-  | list      Lists all available dbt projects.                                  |
-  | deploy     Copy dbt files and either recreate dbt on Snowflake if --force    |
-  |            flag is provided; or create a new one if it doesn't exist; or     |
-  |            update files and create a new version if it exists.               |
+  | deploy     Upload local dbt project files and create or update a DBT project |
+  |            object on Snowflake.                                              |
   | describe   Provides description of dbt project.                              |
   | drop       Drops dbt project with given name.                                |
   | execute    Execute a dbt command on Snowflake. Subcommand name and all       |

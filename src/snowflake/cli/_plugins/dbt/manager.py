@@ -225,7 +225,6 @@ class DBTManager(SqlExecutionMixin):
         Validates that:
          * profiles.yml exists
          * contain profile specified in dbt_project.yml
-         * does not contain any confidential data like passwords
          * default_target (if specified) exists in the profile's outputs
         """
         profiles_file = profiles_path / PROFILES_FILENAME
