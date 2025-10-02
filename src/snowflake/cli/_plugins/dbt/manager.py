@@ -271,7 +271,7 @@ class DBTManager(SqlExecutionMixin):
             "database",
             "role",
             "schema",
-            "type",  # TODO: make this optional
+            "type",
         }
         if FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled():
             required_fields.add("account")
