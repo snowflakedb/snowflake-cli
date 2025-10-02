@@ -208,7 +208,7 @@ def test_command_aliases(
     with project_directory("dbt_project") as root_dir:
         ts = int(datetime.datetime.now().timestamp())
         name = f"dbt_project_{ts}".upper()
-        _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
+        _setup_dbt_profile(root_dir, snowflake_session)
 
         result = runner.invoke_with_connection_json(["dbt", "deploy", name])
         assert result.exit_code == 0, result.output

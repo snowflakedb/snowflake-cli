@@ -37,6 +37,107 @@ class TestDeploy:
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_dbt_from_default_directories(
+        self,
+        mock_put_recursive,
+        mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+        )
+
+        expected_query = f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()}"
+        mock_execute_query.assert_called_once_with(expected_query)
+        mock_create.assert_called_once_with(mock_from_resource(), temporary=True)
+        mock_put_recursive.assert_called_once()
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_force_flag_uses_create_or_replace(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=True,
+        )
+
+        expected_query = (
+            f"CREATE OR REPLACE DBT PROJECT test_project\nFROM {mock_from_resource()}"
+        )
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_alters_existing_object(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": None}
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+        )
+
+        expected_query = (
+            f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
+        )
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli.api.identifiers.time.time", return_value=1234567890)
+    def test_deploys_project_with_case_sensitive_name(
+        self,
+        mock_time,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_validate_role,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string('"MockDaTaBaSe"."PuBlIc"."caseSenSITIVEnAME"'),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+        )
+
+        expected_query = f'CREATE DBT PROJECT "MockDaTaBaSe"."PuBlIc"."caseSenSITIVEnAME"\nFROM @TestDB.TestSchema.DBT_PROJECT_caseSenSITIVEnAME_{mock_time()}_STAGE'
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
     def test_deploy_with_external_access_integrations(
         self,
         _mock_put_recursive,
@@ -93,6 +194,182 @@ class TestDeploy:
 
         expected_query = f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}\nEXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration, dbt_hub_integration)"
         mock_execute_query.assert_called_once_with(expected_query)
+
+    def test_deploy_raises_when_dbt_project_yml_is_not_available(
+        self, dbt_project_path
+    ):
+        dbt_file = dbt_project_path / "dbt_project.yml"
+        dbt_file.unlink()
+
+        with pytest.raises(CliError) as exc_info:
+            DBTManager().deploy(
+                fqn=FQN.from_string("TEST_PIPELINE"),
+                path=SecurePath(dbt_project_path),
+                profiles_path=SecurePath(dbt_project_path),
+                force=False,
+            )
+
+        assert "dbt_project.yml does not exist in directory" in exc_info.value.message
+
+    def test_deploy_raises_when_dbt_project_yml_does_not_specify_profile(
+        self, dbt_project_path
+    ):
+        with open((dbt_project_path / "dbt_project.yml"), "w") as f:
+            yaml.dump({}, f)
+
+        with pytest.raises(CliError) as exc_info:
+            DBTManager().deploy(
+                fqn=FQN.from_string("TEST_PIPELINE"),
+                path=SecurePath(dbt_project_path),
+                profiles_path=SecurePath(dbt_project_path),
+                force=False,
+            )
+
+        assert "`profile` is not defined in dbt_project.yml" in exc_info.value.message
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_create_with_default_target(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            default_target="prod",
+        )
+
+        expected_query = f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()} DEFAULT_TARGET='prod'"
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_existing_project_sets_default_target(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": "dev"}
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("TEST_PIPELINE"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            default_target="prod",
+        )
+
+        calls = [call.args[0] for call in mock_execute_query.call_args_list]
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in calls[0]
+        )
+        assert "ALTER DBT PROJECT TEST_PIPELINE SET DEFAULT_TARGET='prod'" in calls[1]
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_existing_project_with_same_default_target(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": "prod"}
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("TEST_PIPELINE"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            default_target="prod",
+        )
+
+        query = mock_execute_query.call_args_list[0].args[0]
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in query
+        )
+        assert len(mock_execute_query.call_args_list) == 1
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_unset_default_target_when_project_exists_with_target(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": "prod"}
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("TEST_PIPELINE"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            unset_default_target=True,
+        )
+
+        calls = [call.args[0] for call in mock_execute_query.call_args_list]
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in calls[0]
+        )
+        assert "ALTER DBT PROJECT TEST_PIPELINE UNSET DEFAULT_TARGET" in calls[1]
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_unset_default_target_when_project_exists_without_target(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": None}
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("TEST_PIPELINE"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            unset_default_target=True,
+        )
+
+        query = mock_execute_query.call_args_list[0].args[0]
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in query
+        )
+        assert len(mock_execute_query.call_args_list) == 1
 
     def test_validate_profiles_raises_when_file_does_not_exist(
         self, mock_validate_role, project_path
