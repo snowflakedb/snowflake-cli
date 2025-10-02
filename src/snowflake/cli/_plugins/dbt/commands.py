@@ -121,9 +121,11 @@ def deploy_dbt(
     **options,
 ) -> CommandResult:
     """
-    Copy dbt files and either recreate dbt on Snowflake if `--force` flag is
-    provided; or create a new one if it doesn't exist; or update files and
-    create a new version if it exists.
+    Upload local dbt project files and create or update a DBT project object on Snowflake.
+
+    Examples:
+        snow dbt deploy PROJECT
+        snow dbt deploy PROJECT --source=/Users/jdoe/project --force
     """
     if FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled():
         default_target = None
