@@ -87,6 +87,7 @@ class DBTManager(SqlExecutionMixin):
         default_target: Optional[str] = None,
         unset_default_target: bool = False,
         external_access_integrations: Optional[List[str]] = None,
+        install_local_deps: bool = False,
     ) -> SnowflakeCursor:
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
@@ -126,7 +127,11 @@ class DBTManager(SqlExecutionMixin):
         with cli_console.phase("Creating DBT project"):
             if force is True:
                 return self._deploy_create_or_replace(
-                    fqn, stage_name, default_target, external_access_integrations
+                    fqn,
+                    stage_name,
+                    default_target,
+                    external_access_integrations,
+                    install_local_deps,
                 )
             else:
                 dbt_object_attributes = self.get_dbt_object_attributes(fqn)
@@ -138,10 +143,15 @@ class DBTManager(SqlExecutionMixin):
                         default_target,
                         unset_default_target,
                         external_access_integrations,
+                        install_local_deps,
                     )
                 else:
                     return self._deploy_create(
-                        fqn, stage_name, default_target, external_access_integrations
+                        fqn,
+                        stage_name,
+                        default_target,
+                        external_access_integrations,
+                        install_local_deps,
                     )
 
     def _deploy_alter(
@@ -152,11 +162,12 @@ class DBTManager(SqlExecutionMixin):
         default_target: Optional[str],
         unset_default_target: bool,
         external_access_integrations: Optional[List[str]],
+        install_local_deps: bool,
     ) -> SnowflakeCursor:
         query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
         query += f"\nFROM {stage_name}"
         query = self._handle_external_access_integrations_query(
-            query, external_access_integrations
+            query, external_access_integrations, install_local_deps
         )
         result = self.execute_query(query)
         current_default_target = dbt_object_attributes.get("default_target")
@@ -179,6 +190,7 @@ class DBTManager(SqlExecutionMixin):
         stage_name: str,
         default_target: Optional[str],
         external_access_integrations: Optional[List[str]],
+        install_local_deps: bool,
     ) -> SnowflakeCursor:
         # Project doesn't exist - create new one
         query = f"CREATE DBT PROJECT {fqn}"
@@ -186,17 +198,21 @@ class DBTManager(SqlExecutionMixin):
         if default_target:
             query += f" DEFAULT_TARGET='{default_target}'"
         query = self._handle_external_access_integrations_query(
-            query, external_access_integrations
+            query, external_access_integrations, install_local_deps
         )
         return self.execute_query(query)
 
     @staticmethod
     def _handle_external_access_integrations_query(
-        query: str, external_access_integrations: Optional[List[str]]
+        query: str,
+        external_access_integrations: Optional[List[str]],
+        install_local_deps: bool,
     ) -> str:
         if external_access_integrations:
             integrations_str = ", ".join(external_access_integrations)
             query += f"\nEXTERNAL_ACCESS_INTEGRATIONS = ({integrations_str})"
+        elif install_local_deps:
+            query += f"\nEXTERNAL_ACCESS_INTEGRATIONS = ()"
         return query
 
     def _deploy_create_or_replace(
@@ -205,13 +221,14 @@ class DBTManager(SqlExecutionMixin):
         stage_name: str,
         default_target: Optional[str],
         external_access_integrations: Optional[List[str]],
+        install_local_deps: bool,
     ) -> SnowflakeCursor:
         query = f"CREATE OR REPLACE DBT PROJECT {fqn}"
         query += f"\nFROM {stage_name}"
         if default_target:
             query += f" DEFAULT_TARGET='{default_target}'"
         query = self._handle_external_access_integrations_query(
-            query, external_access_integrations
+            query, external_access_integrations, install_local_deps
         )
         return self.execute_query(query)
 
