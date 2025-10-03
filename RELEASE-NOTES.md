@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added global option `--decimal-precision` allowing settinging arbitrary precision for Python's `Decimal` type.
 
 ## Fixes and improvements
 * Bumped `snowflake-connector-python==3.17.4`
