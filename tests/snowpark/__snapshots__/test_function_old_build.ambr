@@ -26,7 +26,6 @@
   | string)                                                 |          |         |
   +------------------------------------------------------------------------------+
   
-  
   '''
 # ---
 # name: test_deploy_function_fully_qualified_name_duplicated_database[database error]
