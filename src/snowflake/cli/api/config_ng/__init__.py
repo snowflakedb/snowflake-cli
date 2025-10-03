@@ -29,9 +29,19 @@ from snowflake.cli.api.config_ng.core import (
     SourcePriority,
     ValueSource,
 )
+from snowflake.cli.api.config_ng.sources import (
+    CliArgumentSource,
+    ConfigurationSource,
+    EnvironmentSource,
+    FileSource,
+)
 
 __all__ = [
+    "CliArgumentSource",
+    "ConfigurationSource",
     "ConfigValue",
+    "EnvironmentSource",
+    "FileSource",
     "ResolutionEntry",
     "ResolutionHistory",
     "SourcePriority",
