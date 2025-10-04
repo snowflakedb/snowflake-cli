@@ -151,6 +151,14 @@ AutoResumeOption = OverrideableOption(
     help=_AUTO_RESUME_HELP,
 )
 
+_AUTO_SUSPEND_SECS_HELP = "Number of seconds of inactivity after which the service will be automatically suspended."
+AutoSuspendSecsOption = OverrideableOption(
+    None,
+    "--auto-suspend-secs",
+    help=_AUTO_SUSPEND_SECS_HELP,
+    min=0,
+)
+
 _COMMENT_HELP = "Comment for the service."
 
 add_object_command_aliases(
@@ -217,7 +225,7 @@ def deploy(
     upgrade: bool = typer.Option(
         False,
         "--upgrade",
-        help="Updates the existing service. Can update min_instances, max_instances, query_warehouse, auto_resume, external_access_integrations and comment.",
+        help="Updates the existing service. Can update min_instances, max_instances, query_warehouse, auto_resume, auto_suspend_secs, external_access_integrations and comment.",
     ),
     **options,
 ) -> CommandResult:
@@ -241,6 +249,7 @@ def deploy(
         min_instances=service.min_instances,
         max_instances=max_instances,
         auto_resume=service.auto_resume,
+        auto_suspend_secs=service.auto_suspend_secs,
         external_access_integrations=service.external_access_integrations,
         query_warehouse=service.query_warehouse,
         tags=service.tags,
@@ -529,6 +538,7 @@ def set_property(
     max_instances: Optional[int] = MaxInstancesOption(show_default=False),
     query_warehouse: Optional[str] = QueryWarehouseOption(show_default=False),
     auto_resume: Optional[bool] = AutoResumeOption(default=None, show_default=False),
+    auto_suspend_secs: Optional[int] = AutoSuspendSecsOption(show_default=False),
     external_access_integrations: Optional[List[str]] = typer.Option(
         None,
         "--eai-name",
@@ -546,6 +556,7 @@ def set_property(
         max_instances=max_instances,
         query_warehouse=query_warehouse,
         auto_resume=auto_resume,
+        auto_suspend_secs=auto_suspend_secs,
         external_access_integrations=external_access_integrations,
         comment=comment,
     )
@@ -576,6 +587,12 @@ def unset_property(
         help=f"Reset the AUTO_RESUME property - {_AUTO_RESUME_HELP}",
         show_default=False,
     ),
+    auto_suspend_secs: bool = AutoSuspendSecsOption(
+        default=False,
+        param_decls=["--auto-suspend-secs"],
+        help=f"Reset the AUTO_SUSPEND_SECS property - {_AUTO_SUSPEND_SECS_HELP}",
+        show_default=False,
+    ),
     comment: bool = CommentOption(
         default=False,
         help=f"Reset the COMMENT property - {_COMMENT_HELP}",
@@ -593,6 +610,7 @@ def unset_property(
         max_instances=max_instances,
         query_warehouse=query_warehouse,
         auto_resume=auto_resume,
+        auto_suspend_secs=auto_suspend_secs,
         comment=comment,
     )
     return SingleQueryResult(cursor)
