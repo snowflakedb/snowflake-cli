@@ -63,6 +63,56 @@ class TestDBTList:
         )
 
 
+class TestDBTDrop:
+    def test_drop_command_alias(self, mock_connect, runner):
+        result = runner.invoke(
+            [
+                "object",
+                "drop",
+                "dbt-project",
+                "PROJECT_NAME",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        result = runner.invoke(
+            ["dbt", "drop", "PROJECT_NAME"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
+
+        queries = mock_connect.mocked_ctx.get_queries()
+        assert len(queries) == 2
+        assert queries[0] == queries[1] == "drop dbt project IDENTIFIER('PROJECT_NAME')"
+
+
+class TestDBTDescribe:
+    def test_describe_command_alias(self, mock_connect, runner):
+        result = runner.invoke(
+            [
+                "object",
+                "describe",
+                "dbt-project",
+                "PROJECT_NAME",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        result = runner.invoke(
+            ["dbt", "describe", "PROJECT_NAME"],
+            catch_exceptions=False,
+        )
+        assert result.exit_code == 0, result.output
+
+        queries = mock_connect.mocked_ctx.get_queries()
+        assert len(queries) == 2
+        assert (
+            queries[0]
+            == queries[1]
+            == "describe dbt project IDENTIFIER('PROJECT_NAME')"
+        )
+
+
 class TestDBTDeploy:
     @staticmethod
     def _get_default_attribute_dict() -> DBTObjectEditableAttributes:

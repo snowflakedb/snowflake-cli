@@ -205,6 +205,33 @@ def test_deploy_and_execute(
 
 
 @pytest.mark.integration
+def test_command_aliases(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+    snapshot,
+):
+    with project_directory("dbt_project") as root_dir:
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_{ts}".upper()
+        _setup_dbt_profile(root_dir, snowflake_session, include_password=False)
+
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(["dbt", "describe", name])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(["dbt", "drop", name])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(["dbt", "list"])
+        assert result.exit_code == 0, result.output
+        assert len(result.json) == 0, result.json
+
+
+@pytest.mark.integration
 def test_deploy_and_execute_with_full_fqn(
     runner,
     snowflake_session,
