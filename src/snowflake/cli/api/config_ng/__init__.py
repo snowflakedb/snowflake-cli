@@ -30,6 +30,7 @@ from snowflake.cli.api.config_ng.core import (
     ValueSource,
 )
 from snowflake.cli.api.config_ng.env_handlers import (
+    SNOWSQL_TO_SNOWCLI_KEY_MAPPINGS,
     SnowCliEnvHandler,
     SnowSqlEnvHandler,
 )
@@ -49,6 +50,7 @@ __all__ = [
     "ResolutionEntry",
     "ResolutionHistory",
     "SnowCliEnvHandler",
+    "SNOWSQL_TO_SNOWCLI_KEY_MAPPINGS",
     "SnowSqlEnvHandler",
     "SourcePriority",
     "ValueSource",
