@@ -26,6 +26,7 @@
   | string)                                                 |          |         |
   +------------------------------------------------------------------------------+
   
+  
   '''
 # ---
 # name: test_deploy_function_fully_qualified_name[snowpark_function_fully_qualified_name_v2-entities.custom_database_custom_schema_fqn_function_error.identifier.name][ok]
@@ -54,6 +55,7 @@
   | custom_db.MockSchema.database_function(name string)     | function | created |
   | MockDatabase.custom_schema.schema_function(name string) | function | created |
   +------------------------------------------------------------------------------+
+  
   
   '''
 # ---

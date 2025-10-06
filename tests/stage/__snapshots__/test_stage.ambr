@@ -24,6 +24,7 @@
   | @DB.SCHEMA.EXE/s1.sql | SUCCESS | None  |
   +-----------------------------------------+
   
+  
   '''
 # ---
 # name: test_execute[@DB.schema.EXE/a/S3.sql-@DB.schema.EXE-expected_files20]
@@ -34,6 +35,7 @@
   |-------------------------+---------+-------|
   | @DB.schema.EXE/a/S3.sql | SUCCESS | None  |
   +-------------------------------------------+
+  
   
   '''
 # ---
@@ -50,6 +52,7 @@
   | @db.schema.exe/a/b/s4.sql | SUCCESS | None  |
   +---------------------------------------------+
   
+  
   '''
 # ---
 # name: test_execute[@db.schema.exe/a/S3.sql-@db.schema.exe-expected_files18]
@@ -61,6 +64,7 @@
   | @db.schema.exe/a/S3.sql | SUCCESS | None  |
   +-------------------------------------------+
   
+  
   '''
 # ---
 # name: test_execute[@db.schema.exe/s1.sql-@db.schema.exe-expected_files17]
@@ -71,6 +75,7 @@
   |-----------------------+---------+-------|
   | @db.schema.exe/s1.sql | SUCCESS | None  |
   +-----------------------------------------+
+  
   
   '''
 # ---
@@ -87,6 +92,7 @@
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
   
+  
   '''
 # ---
 # name: test_execute[db.schema.exe-@db.schema.exe-expected_files16]
@@ -101,6 +107,7 @@
   | @db.schema.exe/a/S3.sql   | SUCCESS | None  |
   | @db.schema.exe/a/b/s4.sql | SUCCESS | None  |
   +---------------------------------------------+
+  
   
   '''
 # ---
@@ -117,6 +124,7 @@
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
   
+  
   '''
 # ---
 # name: test_execute[exe/*-@exe-expected_files3]
@@ -131,6 +139,7 @@
   | @exe/a/S3.sql   | SUCCESS | None  |
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
+  
   
   '''
 # ---
@@ -147,6 +156,7 @@
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
   
+  
   '''
 # ---
 # name: test_execute[exe/-@exe-expected_files2]
@@ -162,6 +172,7 @@
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
   
+  
   '''
 # ---
 # name: test_execute[exe/a-@exe-expected_files5]
@@ -174,6 +185,7 @@
   | @exe/a/S3.sql   | SUCCESS | None  |
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
+  
   
   '''
 # ---
@@ -188,6 +200,7 @@
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
   
+  
   '''
 # ---
 # name: test_execute[exe/a/*.sql-@exe-expected_files8]
@@ -200,6 +213,7 @@
   | @exe/a/S3.sql   | SUCCESS | None  |
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
+  
   
   '''
 # ---
@@ -214,6 +228,7 @@
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
   
+  
   '''
 # ---
 # name: test_execute[exe/a/b-@exe-expected_files9]
@@ -224,6 +239,7 @@
   |-----------------+---------+-------|
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
+  
   
   '''
 # ---
@@ -236,6 +252,7 @@
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
   
+  
   '''
 # ---
 # name: test_execute[exe/a/b/*.sql-@exe-expected_files12]
@@ -246,6 +263,7 @@
   |-----------------+---------+-------|
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
+  
   
   '''
 # ---
@@ -258,6 +276,7 @@
   | @exe/a/b/s4.sql | SUCCESS | None  |
   +-----------------------------------+
   
+  
   '''
 # ---
 # name: test_execute[exe/s1.sql-@exe-expected_files14]
@@ -269,6 +288,7 @@
   | @exe/s1.sql | SUCCESS | None  |
   +-------------------------------+
   
+  
   '''
 # ---
 # name: test_execute[exe/s?.sql-@exe-expected_files13]
@@ -279,6 +299,7 @@
   |-------------+---------+-------|
   | @exe/s1.sql | SUCCESS | None  |
   +-------------------------------+
+  
   
   '''
 # ---
@@ -299,6 +320,7 @@
   | @exe/s3.sql | SUCCESS | None       |
   +------------------------------------+
   
+  
   '''
 # ---
 # name: test_execute_from_user_stage[@~-expected_files0]
@@ -314,6 +336,7 @@
   | @~/a/b/s4.sql | SUCCESS | None  |
   +---------------------------------+
   
+  
   '''
 # ---
 # name: test_execute_from_user_stage[@~/a-expected_files2]
@@ -327,6 +350,7 @@
   | @~/a/b/s4.sql | SUCCESS | None  |
   +---------------------------------+
   
+  
   '''
 # ---
 # name: test_execute_from_user_stage[@~/a/b-expected_files4]
@@ -337,6 +361,7 @@
   |---------------+---------+-------|
   | @~/a/b/s4.sql | SUCCESS | None  |
   +---------------------------------+
+  
   
   '''
 # ---
@@ -349,6 +374,7 @@
   | @~/a/s3.sql | SUCCESS | None  |
   +-------------------------------+
   
+  
   '''
 # ---
 # name: test_execute_from_user_stage[@~/s1.sql-expected_files1]
@@ -359,6 +385,7 @@
   |-----------+---------+-------|
   | @~/s1.sql | SUCCESS | None  |
   +-----------------------------+
+  
   
   '''
 # ---
@@ -389,6 +416,7 @@
   | file3.txt | 10   | DOWNLOADED |         |
   +-----------------------------------------+
   
+  
   '''
 # ---
 # name: test_stage_print_result_for_get_all_files_from_stage_recursive
@@ -400,6 +428,7 @@
   | file2.txt | 10   | DOWNLOADED |         |
   | file3.txt | 10   | DOWNLOADED |         |
   +-----------------------------------------+
+  
   
   '''
 # ---
@@ -417,6 +446,7 @@
   | file3.t | file3.t | 10      | 8       | NONE    | NONE    | UPLOADE |        |
   | xt      | xt      |         |         |         |         | D       |        |
   +------------------------------------------------------------------------------+
+  
   
   '''
 # ---

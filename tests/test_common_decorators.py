@@ -25,6 +25,7 @@ _KNOWN_SIG_GLOBAL_PARAMETERS = [
     "debug",
     "silent",
     "enhanced_exit_codes",
+    "decimal_precision",
 ]
 _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "connection",
