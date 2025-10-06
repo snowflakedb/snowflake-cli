@@ -30,6 +30,7 @@ RUN apt install -y --fix-missing \
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y tk-dev
 
 RUN gem install dotenv -v 2.8.1
+# Pin fpm to 1.15.1 for Ruby 2.5 compatibility (Newer versions require Ruby 2.6+ that is not available in Ubuntu 18.04)
 RUN gem install fpm -v 1.15.1
 
 # Copy and run Python build script
