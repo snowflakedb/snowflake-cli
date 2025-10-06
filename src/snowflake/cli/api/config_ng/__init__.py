@@ -39,6 +39,10 @@ from snowflake.cli.api.config_ng.file_handlers import (
     TomlFileHandler,
     get_snowsql_config_paths,
 )
+from snowflake.cli.api.config_ng.resolver import (
+    ConfigurationResolver,
+    ResolutionHistoryTracker,
+)
 from snowflake.cli.api.config_ng.sources import (
     CliArgumentSource,
     ConfigurationSource,
@@ -48,6 +52,7 @@ from snowflake.cli.api.config_ng.sources import (
 
 __all__ = [
     "CliArgumentSource",
+    "ConfigurationResolver",
     "ConfigurationSource",
     "ConfigValue",
     "EnvironmentSource",
@@ -55,6 +60,7 @@ __all__ = [
     "get_snowsql_config_paths",
     "ResolutionEntry",
     "ResolutionHistory",
+    "ResolutionHistoryTracker",
     "SnowCliEnvHandler",
     "SnowSqlConfigHandler",
     "SNOWSQL_TO_SNOWCLI_KEY_MAPPINGS",
