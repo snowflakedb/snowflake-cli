@@ -111,7 +111,6 @@ class TestDBTDescribe:
         )
 
 
-@pytest.mark.usefixtures("mock_validate_role")
 class TestDBTDeploy:
     @pytest.fixture
     def mock_deploy(self):
