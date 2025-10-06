@@ -396,10 +396,9 @@ class TestDeploy:
 
         assert (
             exc_info.value.message
-            == "profile another_profile_name is not defined in profiles.yml"
+            == "Profile another_profile_name is not defined in profiles.yml."
         )
 
-    # @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
     def test_validate_profiles_raises_when_required_fields_are_missing(
         self, mock_validate_role, project_path, profile
     ):
@@ -496,7 +495,6 @@ dev
     ):
         self._generate_profile(project_path, profile)
 
-        # Should not raise an exception when default_target is None
         DBTManager._validate_profiles(  # noqa: SLF001
             SecurePath(project_path), "dev", None
         )
@@ -506,7 +504,6 @@ dev
     ):
         self._generate_profile(project_path, profile)
 
-        # Should not raise an exception when role exists
         DBTManager._validate_profiles(  # noqa: SLF001
             SecurePath(project_path), "dev", None
         )

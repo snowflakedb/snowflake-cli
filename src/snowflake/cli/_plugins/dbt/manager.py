@@ -218,7 +218,7 @@ class DBTManager(SqlExecutionMixin):
     @staticmethod
     def _validate_profiles(
         profiles_path: SecurePath,
-        target_profile: str,
+        profile_name: str,
         default_target: str | None = None,
     ) -> None:
         """
@@ -235,24 +235,24 @@ class DBTManager(SqlExecutionMixin):
         with profiles_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
             profiles = yaml.safe_load(fd)
 
-        if target_profile not in profiles:
+        if profile_name not in profiles:
             raise CliError(
-                f"profile {target_profile} is not defined in {PROFILES_FILENAME}"
+                f"Profile {profile_name} is not defined in {PROFILES_FILENAME}."
             )
 
         errors = defaultdict(list)
-
-        target = default_target or profiles[target_profile]["target"]
-        available_targets = set(profiles[target_profile]["outputs"].keys())
-        if target in available_targets:
-            target_details = profiles[target_profile]["outputs"][target]
-            target_errors = DBTManager._validate_target(target, target_details)
+        profile = profiles[profile_name]
+        target_name = default_target or profile.get("target")
+        available_targets = set(profile["outputs"].keys())
+        if target_name in available_targets:
+            target = profile["outputs"][target_name]
+            target_errors = DBTManager._validate_target(target_name, target)
             if target_errors:
-                errors[target_profile].extend(target_errors)
+                errors[profile_name].extend(target_errors)
         else:
             available_targets_str = ", ".join(sorted(available_targets))
-            errors[target_profile].append(
-                f"Target '{target}' is not defined in profile '{target_profile}'. "
+            errors[profile_name].append(
+                f"Target '{target_name}' is not defined in profile '{profile_name}'. "
                 f"Available targets: {available_targets_str}"
             )
 

@@ -38,7 +38,7 @@ def _setup_dbt_profile(
     dev_profile["database"] = snowflake_session.database
     dev_profile["role"] = snowflake_session.role
     dev_profile["schema"] = snowflake_session.schema
-    dev_profile["type"] = "snowflake"  # TODO: make this optional
+    dev_profile["type"] = "snowflake"
     if not skip_optional_ga_fields:
         dev_profile["account"] = snowflake_session.account
         dev_profile["user"] = snowflake_session.user
