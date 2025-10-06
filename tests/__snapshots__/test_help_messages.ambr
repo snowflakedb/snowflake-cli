@@ -82,6 +82,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -284,6 +292,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -424,6 +440,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -619,6 +643,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -760,6 +792,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -987,6 +1027,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -1135,6 +1183,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -1282,6 +1338,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -1426,6 +1490,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -1574,6 +1646,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -1721,6 +1801,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -1863,6 +1951,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -2036,6 +2132,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -2191,6 +2295,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -2341,6 +2453,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -2500,6 +2620,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -2646,6 +2774,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -2905,6 +3041,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -3072,6 +3216,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -3212,6 +3364,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -3425,6 +3585,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -3598,6 +3766,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -3738,6 +3914,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -3837,6 +4021,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -3940,6 +4132,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -4068,6 +4268,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -4102,6 +4310,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -4140,6 +4356,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -4179,6 +4403,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -4307,6 +4539,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -4474,6 +4714,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -4606,6 +4854,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -4738,6 +4994,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -4874,6 +5138,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
@@ -5034,6 +5306,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
@@ -5194,6 +5474,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
@@ -5354,6 +5642,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
@@ -5514,6 +5810,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
@@ -5674,6 +5978,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
@@ -5834,6 +6146,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
@@ -5994,6 +6314,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
@@ -6154,6 +6482,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
@@ -6314,6 +6650,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
@@ -6474,6 +6818,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
@@ -6634,6 +6986,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
@@ -6796,6 +7156,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -6954,6 +7322,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -7095,6 +7471,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -7227,6 +7611,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -7366,6 +7758,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -7498,6 +7898,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -7631,6 +8039,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -7771,6 +8187,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -7914,6 +8338,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -8085,6 +8517,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -8217,6 +8657,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -8349,6 +8797,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -8503,6 +8959,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -8636,6 +9100,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -8773,6 +9245,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -8911,6 +9391,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -9048,6 +9536,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -9187,6 +9683,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -9332,6 +9836,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -9412,6 +9924,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -9560,6 +10080,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -9696,6 +10224,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -9841,6 +10377,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -9974,6 +10518,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -10107,6 +10659,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -10240,6 +10800,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -10415,6 +10983,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -10555,6 +11131,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -10695,6 +11279,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -10846,6 +11438,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -10904,6 +11504,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -10941,6 +11549,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -10975,6 +11591,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -11144,6 +11768,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -11293,6 +11925,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -11431,6 +12071,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -11569,6 +12217,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -11709,6 +12365,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -11852,6 +12516,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -11999,6 +12671,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -12131,6 +12811,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -12266,6 +12954,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -12508,6 +13204,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -12646,6 +13350,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -12779,6 +13491,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -12912,6 +13632,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -13044,6 +13772,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -13177,6 +13913,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -13330,6 +14074,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -13464,6 +14216,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -13597,6 +14357,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -13731,6 +14499,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -13873,6 +14649,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -14037,6 +14821,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -14168,6 +14960,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
                                                                                   
    Usage Example: snow spcs image-registry token --format JSON | docker login     
@@ -14308,6 +15108,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -14465,6 +15273,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -14601,6 +15417,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -14734,6 +15558,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -14871,6 +15703,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -15010,6 +15850,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -15148,6 +15996,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -15281,6 +16137,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -15498,6 +16362,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -15637,6 +16509,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -15769,6 +16649,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -15901,6 +16789,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -16046,6 +16942,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -16178,6 +17082,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -16310,6 +17222,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -16442,6 +17362,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -16574,6 +17502,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -16712,6 +17648,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -16856,6 +17800,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -16998,6 +17950,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -17130,6 +18090,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -17302,6 +18270,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -17438,6 +18414,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -17570,6 +18554,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -17715,6 +18707,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -17849,6 +18849,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -18109,6 +19117,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -18273,6 +19289,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -18414,6 +19438,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -18546,6 +19578,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -18680,6 +19720,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -18812,6 +19860,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -18963,6 +20019,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -19099,6 +20163,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -19237,6 +20309,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -19371,6 +20451,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -19550,6 +20638,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -19683,6 +20779,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -19816,6 +20920,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -19949,6 +21061,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -20083,6 +21203,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -20221,6 +21349,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -20356,6 +21492,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -20731,6 +21875,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | build           Execute build command on Snowflake. Command name and all     |
