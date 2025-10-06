@@ -7,7 +7,6 @@
   | 1 |
   +---+
   
-  
   '''
 # ---
 # name: test_sql_repl_if_no_query_file_or_stdin
