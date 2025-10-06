@@ -30,7 +30,7 @@ RUN apt install -y --fix-missing \
 RUN DEBIAN_FRONTEND=noninteractive TZ=Etc/UTC apt install -y tk-dev
 
 RUN gem install dotenv -v 2.8.1
-RUN gem install fpm
+RUN gem install fpm -v 1.15.1
 
 # Copy and run Python build script
 COPY build_python.sh /tmp/build_python.sh
