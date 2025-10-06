@@ -28,6 +28,12 @@ from typing import Any, Dict, Optional
 from snowflake.cli.api.config_ng.core import ConfigValue, SourcePriority
 from snowflake.cli.api.config_ng.handlers import SourceHandler
 
+# Key mappings from SnowSQL to SnowCLI naming conventions
+# These mappings are used by handlers that need to support SnowSQL compatibility
+SNOWSQL_TO_SNOWCLI_KEY_MAPPINGS: Dict[str, str] = {
+    "pwd": "password",
+}
+
 
 class SnowCliEnvHandler(SourceHandler):
     """
@@ -124,11 +130,8 @@ class SnowSqlEnvHandler(SourceHandler):
 
     PREFIX = "SNOWSQL_"
 
-    # Key mappings from SnowSQL to SnowCLI
-    # SnowSQL uses PWD, but SnowCLI uses PASSWORD
-    KEY_MAPPINGS: Dict[str, str] = {
-        "pwd": "password",
-    }
+    # Reference to module-level key mappings
+    KEY_MAPPINGS = SNOWSQL_TO_SNOWCLI_KEY_MAPPINGS
 
     @property
     def source_name(self) -> str:
