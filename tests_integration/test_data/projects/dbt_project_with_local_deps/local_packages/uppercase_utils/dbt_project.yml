@@ -1,0 +1,6 @@
+name: 'uppercase_utils'
+version: '1.0.0'
+
+profile: 'uppercase_utils'
+
+macro-paths: ["macros"]

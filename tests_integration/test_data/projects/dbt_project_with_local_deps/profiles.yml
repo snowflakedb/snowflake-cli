@@ -1,0 +1,5 @@
+dbt_integration_project:
+  target: dev
+  outputs: 
+    dev:
+      threads: 2

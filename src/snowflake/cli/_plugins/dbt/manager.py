@@ -208,6 +208,7 @@ class DBTManager(SqlExecutionMixin):
         external_access_integrations: Optional[List[str]],
         install_local_deps: bool,
     ) -> str:
+        # Providing external access integrations will trigger installation of local deps as well
         if external_access_integrations:
             integrations_str = ", ".join(external_access_integrations)
             query += f"\nEXTERNAL_ACCESS_INTEGRATIONS = ({integrations_str})"
