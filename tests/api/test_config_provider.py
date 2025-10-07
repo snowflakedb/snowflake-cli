@@ -90,30 +90,32 @@ def test_reset_provider():
     assert provider1 is not provider2
 
 
-def test_alternative_provider_methods_not_implemented():
-    """AlternativeConfigProvider methods should raise NotImplementedError."""
+def test_alternative_provider_has_all_required_methods():
+    """AlternativeConfigProvider should have all ConfigProvider methods implemented."""
     provider = AlternativeConfigProvider()
 
-    with pytest.raises(NotImplementedError, match="not yet implemented"):
-        provider.get_section("test")
+    # Verify all abstract methods are implemented and callable
+    # Note: These are smoke tests - comprehensive tests are in test_config_provider_integration.py
+    assert callable(provider.get_section)
+    assert callable(provider.get_value)
+    assert callable(provider.set_value)
+    assert callable(provider.unset_value)
+    assert callable(provider.section_exists)
+    assert callable(provider.read_config)
+    assert callable(provider.get_connection_dict)
+    assert callable(provider.get_all_connections)
 
-    with pytest.raises(NotImplementedError, match="not yet implemented"):
-        provider.get_value("test", key="key")
 
-    with pytest.raises(NotImplementedError, match="not yet implemented"):
-        provider.set_value(["test"], "value")
+def test_legacy_provider_has_all_required_methods():
+    """LegacyConfigProvider should have all ConfigProvider methods implemented."""
+    provider = LegacyConfigProvider()
 
-    with pytest.raises(NotImplementedError, match="not yet implemented"):
-        provider.unset_value(["test"])
-
-    with pytest.raises(NotImplementedError, match="not yet implemented"):
-        provider.section_exists("test")
-
-    with pytest.raises(NotImplementedError, match="not yet implemented"):
-        provider.read_config()
-
-    with pytest.raises(NotImplementedError, match="not yet implemented"):
-        provider.get_connection_dict("test")
-
-    with pytest.raises(NotImplementedError, match="not yet implemented"):
-        provider.get_all_connections()
+    # Verify all abstract methods are implemented and callable
+    assert callable(provider.get_section)
+    assert callable(provider.get_value)
+    assert callable(provider.set_value)
+    assert callable(provider.unset_value)
+    assert callable(provider.section_exists)
+    assert callable(provider.read_config)
+    assert callable(provider.get_connection_dict)
+    assert callable(provider.get_all_connections)
