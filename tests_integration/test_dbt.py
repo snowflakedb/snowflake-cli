@@ -514,3 +514,58 @@ def test_deploy_and_execute_with_full_fqn_only_required_ga_fields(
         _setup_dbt_profile(root_dir, snowflake_session, skip_optional_ga_fields=True)
         result = runner.invoke_with_connection_json(["dbt", "deploy", str(fqn)])
         assert result.exit_code == 0, result.output
+
+
+@pytest.mark.skipif(
+    FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled(),
+    reason="DBT GA features are not yet released.",
+)
+@with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+@pytest.mark.integration
+@pytest.mark.qa_only
+def test_deploy_project_with_local_deps(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    """
+    Remove this test once dbt goes GA.
+    """
+    with project_directory("dbt_project_with_local_deps") as root_dir:
+        # Given a local dbt project
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_{ts}"
+        fqn = FQN.from_string(
+            f"{snowflake_session.database}.{snowflake_session.schema}.{name}"
+        )
+
+        _setup_dbt_profile(root_dir, snowflake_session)
+        result = runner.invoke_with_connection_json(
+            [
+                "dbt",
+                "deploy",
+                str(fqn),
+                "--install-local-deps",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Verify the dbt project was created
+        _verify_dbt_project_exists(runner, name)
+
+        result = runner.invoke_passthrough_with_connection(
+            args=["dbt", "execute"], passthrough_args=[name, "run"]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Make sure that uppercasing macro was used
+        result = runner.invoke_with_connection_json(
+            [
+                "sql",
+                "-q",
+                f"select name from {snowflake_session.database}.{snowflake_session.schema}.my_first_dbt_model;",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert all(map(lambda x: x["NAME"].isupper(), result.json)), result.json
