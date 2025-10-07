@@ -30,6 +30,7 @@ from snowflake.cli.api.config import (
     get_all_connections,
     set_config_value,
 )
+from snowflake.cli.api.config_provider import ALTERNATIVE_CONFIG_ENV_VAR
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -317,3 +318,101 @@ def check_snowsql_env_vars(**options):
 
     results.append(MessageResult(summary))
     return MultipleResults(results)
+
+
+@app.command(
+    name="show-config-sources",
+    requires_connection=False,
+    hidden=os.environ.get(ALTERNATIVE_CONFIG_ENV_VAR, "").lower()
+    not in ("1", "true", "yes", "on"),
+)
+def show_config_sources(
+    key: Optional[str] = typer.Argument(
+        None,
+        help="Specific configuration key to show resolution for (e.g., 'account', 'user'). If not provided, shows summary for all keys.",
+    ),
+    show_details: bool = typer.Option(
+        False,
+        "--show-details",
+        "-d",
+        help="Show detailed resolution chains for all sources consulted.",
+    ),
+    export_file: Optional[Path] = typer.Option(
+        None,
+        "--export",
+        "-e",
+        help="Export complete resolution history to JSON file for support or debugging.",
+        file_okay=True,
+        dir_okay=False,
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Show where configuration values come from.
+
+    This command displays the configuration resolution process, showing which
+    source (CLI arguments, environment variables, or config files) provided
+    each configuration value. Useful for debugging configuration issues.
+
+    Examples:
+
+        # Show summary of all configuration resolution
+        snow helpers show-config-sources
+
+        # Show detailed resolution for all keys
+        snow helpers show-config-sources --show-details
+
+        # Show resolution for a specific key
+        snow helpers show-config-sources account
+
+        # Show detailed resolution for a specific key
+        snow helpers show-config-sources account --show-details
+
+        # Export complete resolution history to file
+        snow helpers show-config-sources --export config_debug.json
+
+    Note: This command requires the enhanced configuration system to be enabled.
+    Set SNOWFLAKE_CLI_CONFIG_V2_ENABLED=true to enable it.
+    """
+    from snowflake.cli.api.config_ng import (
+        explain_configuration,
+        export_resolution_history,
+        is_resolution_logging_available,
+    )
+
+    if not is_resolution_logging_available():
+        return MessageResult(
+            f"⚠️  Configuration resolution logging is not available.\n\n"
+            f"To enable it, set the environment variable:\n"
+            f"    export {ALTERNATIVE_CONFIG_ENV_VAR}=true\n\n"
+            f"Then run this command again to see where configuration values come from."
+        )
+
+    # Export if requested
+    if export_file:
+        success = export_resolution_history(export_file)
+        if not success:
+            return MessageResult(
+                f"❌ Failed to export resolution history to {export_file}"
+            )
+        return MessageResult(
+            f"✅ Resolution history exported to: {export_file}\n\n"
+            f"This file contains complete details about configuration resolution "
+            f"and can be attached to support tickets."
+        )
+
+    # Show resolution information
+    explain_configuration(key=key, verbose=show_details)
+
+    if key:
+        return MessageResult(
+            f"\n✅ Showing resolution for key: {key}\n"
+            f"Use --show-details to see the complete resolution chain."
+        )
+    else:
+        return MessageResult(
+            "\n✅ Configuration resolution summary displayed above.\n"
+            "Use a specific key (e.g., 'snow helpers show-config-sources account') "
+            "to see detailed resolution for that key.\n"
+            "Use --show-details to see complete resolution chains for all keys."
+        )
