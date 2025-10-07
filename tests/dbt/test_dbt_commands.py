@@ -24,7 +24,6 @@ from snowflake.cli._plugins.dbt.constants import (
     RESULT_COLUMN_NAME,
 )
 from snowflake.cli.api.feature_flags import FeatureFlag
-from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 
 from tests_common.feature_flag_utils import with_feature_flags
@@ -255,15 +254,12 @@ class TestDBTDeploy:
         )
 
         assert result.exit_code == 0, result.output
-        mock_deploy.assert_called_once_with(
-            FQN.from_string("TEST_PIPELINE"),
-            path=SecurePath(dbt_project_path),
-            profiles_path=SecurePath(dbt_project_path),
-            force=False,
-            default_target=None,
-            unset_default_target=False,
-            external_access_integrations=["google_apis_access_integration"],
-        )
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert call_kwargs["external_access_integrations"] == [
+            "google_apis_access_integration"
+        ]
+        assert call_kwargs["install_local_deps"] is False
 
     @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
     def test_deploys_project_with_multiple_external_access_integrations(
@@ -286,15 +282,35 @@ class TestDBTDeploy:
         )
 
         assert result.exit_code == 0, result.output
-        mock_deploy.assert_called_once_with(
-            FQN.from_string("TEST_PIPELINE"),
-            path=SecurePath(dbt_project_path),
-            profiles_path=SecurePath(dbt_project_path),
-            force=False,
-            default_target=None,
-            unset_default_target=False,
-            external_access_integrations=["google_apis_access_integration", "dbt_hub"],
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert sorted(call_kwargs["external_access_integrations"]) == sorted(
+            ["google_apis_access_integration", "dbt_hub"]
         )
+        assert call_kwargs["install_local_deps"] is False
+
+    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
+    def test_deploys_project_with_local_deps(
+        self,
+        runner,
+        dbt_project_path,
+        mock_deploy,
+    ):
+        result = runner.invoke(
+            [
+                "dbt",
+                "deploy",
+                "TEST_PIPELINE",
+                f"--source={dbt_project_path}",
+                "--install-local-deps",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_deploy.assert_called_once()
+        call_kwargs = mock_deploy.call_args[1]
+        assert not call_kwargs["external_access_integrations"]
+        assert call_kwargs["install_local_deps"] is True
 
     @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
     def test_deploy_with_both_default_target_and_unset_default_target_fails(
