@@ -16,7 +16,10 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
+
+if TYPE_CHECKING:
+    from snowflake.cli.api.config_ng.resolver import ConfigurationResolver
 
 ALTERNATIVE_CONFIG_ENV_VAR = "SNOWFLAKE_CLI_CONFIG_V2_ENABLED"
 
@@ -75,80 +78,363 @@ class LegacyConfigProvider(ConfigProvider):
     """
 
     def get_section(self, *path) -> dict:
-        from snowflake.cli.api.config import get_config_section_internal
+        from snowflake.cli.api.config import get_config_section
 
-        return get_config_section_internal(*path)
+        return get_config_section(*path)
 
     def get_value(self, *path, key: str, default: Optional[Any] = None) -> Any:
-        from snowflake.cli.api.config import Empty, get_config_value_internal
+        from snowflake.cli.api.config import Empty, get_config_value
 
-        return get_config_value_internal(
+        return get_config_value(
             *path, key=key, default=default if default is not None else Empty
         )
 
     def set_value(self, path: list[str], value: Any) -> None:
-        from snowflake.cli.api.config import set_config_value_internal
+        from snowflake.cli.api.config import set_config_value
 
-        set_config_value_internal(path, value)
+        set_config_value(path, value)
 
     def unset_value(self, path: list[str]) -> None:
-        from snowflake.cli.api.config import unset_config_value_internal
+        from snowflake.cli.api.config import unset_config_value
 
-        unset_config_value_internal(path)
+        unset_config_value(path)
 
     def section_exists(self, *path) -> bool:
-        from snowflake.cli.api.config import config_section_exists_internal
+        from snowflake.cli.api.config import config_section_exists
 
-        return config_section_exists_internal(*path)
+        return config_section_exists(*path)
 
     def read_config(self) -> None:
-        from snowflake.cli.api.config import _read_config_file
+        from snowflake.cli.api.config import get_config_manager
 
-        _read_config_file()
+        config_manager = get_config_manager()
+        config_manager.read_config()
 
     def get_connection_dict(self, connection_name: str) -> dict:
-        from snowflake.cli.api.config import get_connection_dict_internal
+        from snowflake.cli.api.config import get_connection_dict
 
-        return get_connection_dict_internal(connection_name)
+        return get_connection_dict(connection_name)
 
     def get_all_connections(self) -> dict:
-        from snowflake.cli.api.config import get_all_connections_internal
+        from snowflake.cli.api.config import get_all_connections
 
-        return get_all_connections_internal()
+        return get_all_connections()
 
 
 class AlternativeConfigProvider(ConfigProvider):
     """
-    New configuration provider implementation.
-    To be implemented with new logic while maintaining same output format.
+    New configuration provider using config_ng resolution system.
+
+    This provider uses ConfigurationResolver to discover values from:
+    - CLI arguments (highest priority)
+    - Environment variables (SNOWFLAKE_* and SNOWSQL_*)
+    - Configuration files (SnowCLI TOML and SnowSQL config)
+
+    Maintains backward compatibility with LegacyConfigProvider output format.
     """
 
-    def __init__(self):
-        pass
+    def __init__(self) -> None:
+        self._resolver: Optional[ConfigurationResolver] = None
+        self._config_cache: Dict[str, Any] = {}
+        self._initialized: bool = False
 
-    def get_section(self, *path) -> dict:
-        raise NotImplementedError("Alternative config provider not yet implemented")
+    def _ensure_initialized(self) -> None:
+        """Lazily initialize the resolver on first use."""
+        if self._initialized:
+            return
 
-    def get_value(self, *path, key: str, default: Optional[Any] = None) -> Any:
-        raise NotImplementedError("Alternative config provider not yet implemented")
+        from snowflake.cli.api.cli_global_context import get_cli_context
+        from snowflake.cli.api.config import get_config_manager, get_connections_file
+        from snowflake.cli.api.config_ng import (
+            CliArgumentSource,
+            ConfigurationResolver,
+            EnvironmentSource,
+            FileSource,
+            SnowCliEnvHandler,
+            SnowSqlConfigHandler,
+            SnowSqlEnvHandler,
+            TomlFileHandler,
+            get_snowsql_config_paths,
+        )
 
-    def set_value(self, path: list[str], value: Any) -> None:
-        raise NotImplementedError("Alternative config provider not yet implemented")
+        # Get CLI context safely
+        try:
+            cli_context = get_cli_context().connection_context
+            cli_context_dict = cli_context.present_values_as_dict()
+        except Exception:
+            cli_context_dict = {}
 
-    def unset_value(self, path: list[str]) -> None:
-        raise NotImplementedError("Alternative config provider not yet implemented")
+        # 1. CLI Arguments Source (Priority 1 - Highest)
+        cli_source = CliArgumentSource(cli_context=cli_context_dict)
 
-    def section_exists(self, *path) -> bool:
-        raise NotImplementedError("Alternative config provider not yet implemented")
+        # 2. Environment Variables Source (Priority 2 - Medium)
+        env_source = EnvironmentSource(
+            handlers=[
+                SnowCliEnvHandler(),  # SNOWFLAKE_* checked first
+                SnowSqlEnvHandler(),  # SNOWSQL_* checked second (fallback)
+            ]
+        )
+
+        # 3. Configuration Files Source (Priority 3 - Lowest)
+        config_manager = get_config_manager()
+        connections_file = get_connections_file()
+
+        file_paths = []
+        # Add connections file if it exists
+        if connections_file and connections_file.exists():
+            file_paths.append(connections_file)
+        # Add main config file
+        if config_manager.file_path.exists():
+            file_paths.append(config_manager.file_path)
+        # Add SnowSQL config paths
+        file_paths.extend(get_snowsql_config_paths())
+
+        file_source = FileSource(
+            file_paths=file_paths,
+            handlers=[
+                # SnowCLI TOML handlers (tried first)
+                TomlFileHandler(section_path=["connections"]),
+                TomlFileHandler(section_path=["cli"]),
+                TomlFileHandler(),  # Root level
+                # SnowSQL handler (tried last, fallback)
+                SnowSqlConfigHandler(),
+            ],
+        )
+
+        # Create resolver with all sources
+        self._resolver = ConfigurationResolver(
+            sources=[cli_source, env_source, file_source], track_history=True
+        )
+
+        self._initialized = True
 
     def read_config(self) -> None:
-        raise NotImplementedError("Alternative config provider not yet implemented")
+        """
+        Load configuration from all sources.
+        For config_ng, this means (re)initializing the resolver.
+        """
+        self._initialized = False
+        self._config_cache.clear()
+        self._ensure_initialized()
+
+        # Resolve all configuration to populate cache
+        assert self._resolver is not None
+        self._config_cache = self._resolver.resolve()
+
+    def get_section(self, *path) -> dict:
+        """
+        Get configuration section at specified path.
+
+        Args:
+            *path: Section path (e.g., "connections", "my_conn")
+
+        Returns:
+            Dictionary of section contents
+        """
+        self._ensure_initialized()
+
+        if not self._config_cache:
+            assert self._resolver is not None
+            self._config_cache = self._resolver.resolve()
+
+        # Navigate through path to find section
+        if not path:
+            return self._config_cache
+
+        # For connections section, return all connections as nested dicts
+        if len(path) == 1 and path[0] == "connections":
+            return self._get_all_connections_dict()
+
+        # For specific connection, return connection dict
+        if len(path) == 2 and path[0] == "connections":
+            connection_name = path[1]
+            return self._get_connection_dict_internal(connection_name)
+
+        # For other sections, try to resolve with path prefix
+        section_prefix = ".".join(path)
+        result = {}
+        for key, value in self._config_cache.items():
+            if key.startswith(section_prefix + "."):
+                # Strip prefix to get relative key
+                relative_key = key[len(section_prefix) + 1 :]
+                result[relative_key] = value
+            elif key == section_prefix:
+                # Exact match for section itself
+                return value if isinstance(value, dict) else {section_prefix: value}
+
+        return result
+
+    def get_value(self, *path, key: str, default: Optional[Any] = None) -> Any:
+        """
+        Get single configuration value at path + key.
+
+        Args:
+            *path: Path to section
+            key: Configuration key
+            default: Default value if not found
+
+        Returns:
+            Configuration value or default
+        """
+        self._ensure_initialized()
+
+        if not self._config_cache:
+            assert self._resolver is not None
+            self._config_cache = self._resolver.resolve()
+
+        # Build full key from path and key
+        if path:
+            full_key = ".".join(path) + "." + key
+        else:
+            full_key = key
+
+        # Try to resolve the value
+        value = self._config_cache.get(full_key, default)
+        return value
+
+    def set_value(self, path: list[str], value: Any) -> None:
+        """
+        Set configuration value at path.
+
+        Note: config_ng is read-only for resolution. This delegates to
+        legacy config system for writing.
+        """
+        from snowflake.cli.api.config import set_config_value as legacy_set_value
+
+        legacy_set_value(path, value)
+        # Clear cache to force re-read on next access
+        self._config_cache.clear()
+        self._initialized = False
+
+    def unset_value(self, path: list[str]) -> None:
+        """
+        Remove configuration value at path.
+
+        Note: config_ng is read-only for resolution. This delegates to
+        legacy config system for writing.
+        """
+        from snowflake.cli.api.config import unset_config_value as legacy_unset_value
+
+        legacy_unset_value(path)
+        # Clear cache to force re-read on next access
+        self._config_cache.clear()
+        self._initialized = False
+
+    def section_exists(self, *path) -> bool:
+        """
+        Check if configuration section exists.
+
+        Args:
+            *path: Section path
+
+        Returns:
+            True if section exists and has values
+        """
+        self._ensure_initialized()
+
+        if not self._config_cache:
+            assert self._resolver is not None
+            self._config_cache = self._resolver.resolve()
+
+        if not path:
+            return True
+
+        section_prefix = ".".join(path)
+        # Check if any key starts with this prefix
+        return any(
+            key == section_prefix or key.startswith(section_prefix + ".")
+            for key in self._config_cache.keys()
+        )
+
+    def _get_connection_dict_internal(self, connection_name: str) -> Dict[str, Any]:
+        """
+        Get connection configuration by name.
+
+        Args:
+            connection_name: Name of the connection
+
+        Returns:
+            Dictionary of connection parameters
+        """
+        self._ensure_initialized()
+
+        if not self._config_cache:
+            assert self._resolver is not None
+            self._config_cache = self._resolver.resolve()
+
+        # Look for keys like "connections.{connection_name}.{param}"
+        connection_prefix = f"connections.{connection_name}."
+        connection_dict: Dict[str, Any] = {}
+
+        for key, value in self._config_cache.items():
+            if key.startswith(connection_prefix):
+                # Extract parameter name
+                param_name = key[len(connection_prefix) :]
+                connection_dict[param_name] = value
+
+        if not connection_dict:
+            from snowflake.cli.api.exceptions import MissingConfigurationError
+
+            raise MissingConfigurationError(
+                f"Connection {connection_name} is not configured"
+            )
+
+        return connection_dict
 
     def get_connection_dict(self, connection_name: str) -> dict:
-        raise NotImplementedError("Alternative config provider not yet implemented")
+        """
+        Get connection configuration by name.
+
+        Args:
+            connection_name: Name of the connection
+
+        Returns:
+            Dictionary of connection parameters
+        """
+        return self._get_connection_dict_internal(connection_name)
+
+    def _get_all_connections_dict(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Get all connection configurations as nested dictionary.
+
+        Returns:
+            Dictionary mapping connection names to their configurations
+        """
+        self._ensure_initialized()
+
+        if not self._config_cache:
+            assert self._resolver is not None
+            self._config_cache = self._resolver.resolve()
+
+        connections: Dict[str, Dict[str, Any]] = {}
+        connections_prefix = "connections."
+
+        for key, value in self._config_cache.items():
+            if key.startswith(connections_prefix):
+                # Parse "connections.{name}.{param}"
+                parts = key[len(connections_prefix) :].split(".", 1)
+                if len(parts) == 2:
+                    conn_name, param_name = parts
+                    if conn_name not in connections:
+                        connections[conn_name] = {}
+                    connections[conn_name][param_name] = value
+
+        return connections
 
     def get_all_connections(self) -> dict:
-        raise NotImplementedError("Alternative config provider not yet implemented")
+        """
+        Get all connection configurations.
+
+        Returns:
+            Dictionary mapping connection names to ConnectionConfig objects
+        """
+        from snowflake.cli.api.config import ConnectionConfig
+
+        connections_dict = self._get_all_connections_dict()
+        return {
+            name: ConnectionConfig.from_dict(config)
+            for name, config in connections_dict.items()
+        }
 
 
 def _is_alternative_config_enabled() -> bool:
