@@ -114,10 +114,8 @@ def test_decimal_precision_environment_variable(runner, reset_decimal_precision)
         assert len(result.json) == 1
         row = result.json[0]
 
-        test_value = str(row["TEST_VALUE"])
-        pi_value = str(row["PI_VALUE"])
-
-        print(f"Environment test - test_value: {test_value}, pi_value: {pi_value}")
+        assert row["TEST_VALUE"] == "1234.567890"
+        assert row["PI_VALUE"] == "3.141592654"
 
     finally:
         if original_env is not None:
@@ -149,17 +147,8 @@ def test_decimal_precision_param_overrides_env(runner, reset_decimal_precision):
         assert len(result.json) == 1
         row = result.json[0]
 
-        test_value = str(row["TEST_VALUE"])
-        pi_value = str(row["PI_VALUE"])
-
-        print(f"Precedence test - test_value: {test_value}, pi_value: {pi_value}")
-
-        assert (
-            len(test_value.replace(".", "")) <= 7
-        ), f"Expected CLI param precision (5) to override env var (25): {test_value}"
-        assert (
-            len(pi_value.replace(".", "")) <= 7
-        ), f"Expected CLI param precision (5) to override env var (25): {pi_value}"
+        assert row["TEST_VALUE"] == "1234.6"
+        assert row["PI_VALUE"] == "3.1416"
 
     finally:
         if original_env is not None:
