@@ -513,6 +513,25 @@ EnhancedExitCodesOption = typer.Option(
     envvar="SNOWFLAKE_ENHANCED_EXIT_CODES",
 )
 
+
+def _decimal_precision_callback(value: int | None):
+    """Callback to set decimal precision globally when provided."""
+    if value is not None:
+        from decimal import getcontext
+
+        getcontext().prec = value
+    return value
+
+
+DecimalPrecisionOption = typer.Option(
+    None,
+    "--decimal-precision",
+    help="Number of decimal places to display for decimal values. Uses Python's default precision if not specified.",
+    callback=_decimal_precision_callback,
+    rich_help_panel=_CLI_BEHAVIOUR,
+    envvar="SNOWFLAKE_DECIMAL_PRECISION",
+)
+
 # If IfExistsOption, IfNotExistsOption, or ReplaceOption are used with names other than those in CREATE_MODE_OPTION_NAMES,
 # you must also override mutually_exclusive if you want to retain the validation that at most one of these flags is
 # passed.

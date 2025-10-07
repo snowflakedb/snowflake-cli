@@ -27,6 +27,7 @@ from snowflake.cli.api.commands.flags import (
     ConnectionOption,
     DatabaseOption,
     DebugOption,
+    DecimalPrecisionOption,
     DiagAllowlistPathOption,
     DiagLogPathOption,
     EnableDiagOption,
@@ -445,6 +446,12 @@ GLOBAL_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[bool],
         default=EnhancedExitCodesOption,
+    ),
+    inspect.Parameter(
+        "decimal_precision",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[int],
+        default=DecimalPrecisionOption,
     ),
 ]
 
