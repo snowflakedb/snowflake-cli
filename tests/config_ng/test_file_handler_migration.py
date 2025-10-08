@@ -62,11 +62,11 @@ class TestFileHandlerMigration:
 
     def test_pure_snowsql_configuration(self):
         """Scenario: User has only SnowSQL configuration."""
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
             f.write(
                 "[connections]\n"
-                'accountname = "snowsql_account"\n'
-                'username = "snowsql_user"\n'
+                "accountname = snowsql_account\n"
+                "username = snowsql_user\n"
             )
             f.flush()
             snowsql_path = Path(f.name)
@@ -100,9 +100,9 @@ class TestFileHandlerMigration:
         with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f2:
             f2.write(
                 "[connections]\n"
-                'accountname = "old_account"\n'
-                'username = "old_user"\n'
-                'databasename = "old_db"\n'
+                "accountname = old_account\n"
+                "username = old_user\n"
+                "databasename = old_db\n"
             )
             f2.flush()
             snowsql_path = Path(f2.name)
@@ -131,28 +131,30 @@ class TestFileHandlerMigration:
 
     def test_handler_ordering_within_same_file(self):
         """Handler order matters when both can handle same file."""
+        # Create a pure TOML file that both handlers could potentially read
+        # TomlFileHandler will read [default], SnowSqlConfigHandler will read [connections]
         with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            # File has both TOML format AND connections section
+            # Pure TOML format file with both sections
             f.write(
                 '[default]\naccount = "toml_format"\n'
-                '[connections]\naccountname = "snowsql_format"\n'
+                '[connections]\naccount = "other_format"\n'
             )
             f.flush()
             temp_path = Path(f.name)
 
         try:
-            # TOML handler first
+            # TOML handler first - should find account in [default]
             source = FileSource(
                 file_paths=[temp_path],
                 handlers=[
                     TomlFileHandler(section_path=["default"]),
-                    SnowSqlConfigHandler(),
+                    TomlFileHandler(section_path=["connections"]),
                 ],
             )
 
             values = source.discover()
 
-            # TOML handler should win (first handler)
+            # First TOML handler should win (reads [default])
             assert values["account"].value == "toml_format"
             assert values["account"].source_name == "toml:default"
         finally:
@@ -210,7 +212,7 @@ class TestFileHandlerMigration:
         """Simulates complete migration from SnowSQL to TOML."""
         # Step 1: Pure SnowSQL user
         with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write('[connections]\naccountname = "account"\nusername = "user"\n')
+            f.write("[connections]\naccountname = account\nusername = user\n")
             f.flush()
             snowsql_path = Path(f.name)
 
@@ -236,9 +238,7 @@ class TestFileHandlerMigration:
             toml_path = Path(f1.name)
 
         with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f2:
-            f2.write(
-                '[connections]\naccountname = "old_account"\nusername = "old_user"\n'
-            )
+            f2.write("[connections]\naccountname = old_account\nusername = old_user\n")
             f2.flush()
             snowsql_path = Path(f2.name)
 
@@ -300,9 +300,7 @@ class TestFileHandlerMigration:
             toml_path = Path(f1.name)
 
         with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f2:
-            f2.write(
-                '[connections]\naccountname = "snowsql_account"\nusername = "user"\n'
-            )
+            f2.write("[connections]\naccountname = snowsql_account\nusername = user\n")
             f2.flush()
             snowsql_path = Path(f2.name)
 
@@ -346,9 +344,7 @@ class TestFileHandlerMigration:
 
         with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f3:
             f3.write(
-                "[connections]\n"
-                'accountname = "legacy_account"\n'
-                'username = "legacy_user"\n'
+                "[connections]\naccountname = legacy_account\nusername = legacy_user\n"
             )
             f3.flush()
             snowsql_config = Path(f3.name)
