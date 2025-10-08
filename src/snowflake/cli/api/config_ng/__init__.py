@@ -15,8 +15,8 @@
 """
 Enhanced Configuration System - Next Generation (NG)
 
-This package implements a layered, extensible configuration system with:
-- Clear precedence rules (CLI > Environment > Files)
+This package implements a simple, extensible configuration system with:
+- List-order precedence (explicit ordering in source list)
 - Migration support (SnowCLI and SnowSQL compatibility)
 - Complete resolution history tracking
 - Read-only, immutable configuration sources
@@ -26,19 +26,7 @@ from snowflake.cli.api.config_ng.core import (
     ConfigValue,
     ResolutionEntry,
     ResolutionHistory,
-    SourcePriority,
     ValueSource,
-)
-from snowflake.cli.api.config_ng.env_handlers import (
-    SNOWSQL_TO_SNOWCLI_KEY_MAPPINGS,
-    SnowCliEnvHandler,
-    SnowSqlEnvHandler,
-)
-from snowflake.cli.api.config_ng.file_handlers import (
-    SNOWSQL_CONFIG_KEY_MAPPINGS,
-    IniFileHandler,
-    TomlFileHandler,
-    get_snowsql_config_paths,
 )
 from snowflake.cli.api.config_ng.resolution_logger import (
     check_value_source,
@@ -56,38 +44,34 @@ from snowflake.cli.api.config_ng.resolver import (
     ResolutionHistoryTracker,
 )
 from snowflake.cli.api.config_ng.sources import (
-    CliArgumentSource,
-    ConfigurationSource,
-    EnvironmentSource,
-    FileSource,
+    CliConfigFile,
+    CliEnvironment,
+    CliParameters,
+    ConnectionsConfigFile,
+    SnowSQLConfigFile,
+    SnowSQLEnvironment,
 )
 
 __all__ = [
     "check_value_source",
-    "CliArgumentSource",
+    "CliConfigFile",
+    "CliEnvironment",
+    "CliParameters",
     "ConfigurationResolver",
-    "ConfigurationSource",
     "ConfigValue",
-    "EnvironmentSource",
+    "ConnectionsConfigFile",
     "explain_configuration",
     "export_resolution_history",
-    "FileSource",
     "format_summary_for_display",
     "get_resolution_summary",
     "get_resolver",
-    "get_snowsql_config_paths",
     "is_resolution_logging_available",
     "ResolutionEntry",
     "ResolutionHistory",
     "ResolutionHistoryTracker",
     "show_all_resolution_chains",
     "show_resolution_chain",
-    "SnowCliEnvHandler",
-    "SNOWSQL_CONFIG_KEY_MAPPINGS",
-    "SNOWSQL_TO_SNOWCLI_KEY_MAPPINGS",
-    "SnowSqlEnvHandler",
-    "IniFileHandler",
-    "SourcePriority",
-    "TomlFileHandler",
+    "SnowSQLConfigFile",
+    "SnowSQLEnvironment",
     "ValueSource",
 ]
