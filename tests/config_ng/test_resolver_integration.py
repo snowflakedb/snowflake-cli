@@ -93,10 +93,10 @@ class TestResolverEndToEnd:
         snowsql_config = tmp_path / "snowsql.toml"
         snowsql_config.write_text(
             "[connections]\n"
-            'accountname = "old_account"\n'
-            'username = "old_user"\n'
-            'databasename = "old_db"\n'
-            'warehousename = "old_warehouse"\n'
+            "accountname = old_account\n"
+            "username = old_user\n"
+            "databasename = old_db\n"
+            "warehousename = old_warehouse\n"
         )
 
         # SnowCLI config (new, partial migration)
