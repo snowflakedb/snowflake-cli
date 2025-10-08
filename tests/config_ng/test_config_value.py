@@ -22,7 +22,7 @@ Tests verify:
 - Representation formatting
 """
 
-from snowflake.cli.api.config_ng.core import ConfigValue, SourcePriority
+from snowflake.cli.api.config_ng.core import ConfigValue
 
 
 class TestConfigValue:
@@ -34,13 +34,11 @@ class TestConfigValue:
             key="account",
             value="my_account",
             source_name="cli_arguments",
-            priority=SourcePriority.CLI_ARGUMENT,
         )
 
         assert cv.key == "account"
         assert cv.value == "my_account"
         assert cv.source_name == "cli_arguments"
-        assert cv.priority == SourcePriority.CLI_ARGUMENT
         assert cv.raw_value is None
 
     def test_create_config_value_with_raw_value(self):
@@ -48,8 +46,7 @@ class TestConfigValue:
         cv = ConfigValue(
             key="port",
             value=443,
-            source_name="snowflake_cli_env",
-            priority=SourcePriority.ENVIRONMENT,
+            source_name="cli_env",
             raw_value="443",
         )
 
@@ -65,7 +62,6 @@ class TestConfigValue:
             key="account",
             value="my_account",
             source_name="cli_arguments",
-            priority=SourcePriority.CLI_ARGUMENT,
         )
 
         repr_str = repr(cv)
@@ -78,8 +74,7 @@ class TestConfigValue:
         cv = ConfigValue(
             key="port",
             value=443,
-            source_name="snowflake_cli_env",
-            priority=SourcePriority.ENVIRONMENT,
+            source_name="cli_env",
             raw_value="443",
         )
 
@@ -87,7 +82,7 @@ class TestConfigValue:
         assert "port" in repr_str
         assert "443" in repr_str
         assert "→" in repr_str
-        assert "snowflake_cli_env" in repr_str
+        assert "cli_env" in repr_str
 
     def test_repr_with_same_raw_and_parsed_value(self):
         """__repr__ should not show conversion when values are the same."""
@@ -95,7 +90,6 @@ class TestConfigValue:
             key="account",
             value="my_account",
             source_name="cli_arguments",
-            priority=SourcePriority.CLI_ARGUMENT,
             raw_value="my_account",
         )
 
@@ -107,8 +101,7 @@ class TestConfigValue:
         cv = ConfigValue(
             key="enable_diag",
             value=True,
-            source_name="snowflake_cli_env",
-            priority=SourcePriority.ENVIRONMENT,
+            source_name="cli_env",
             raw_value="true",
         )
 
@@ -122,8 +115,7 @@ class TestConfigValue:
         cv = ConfigValue(
             key="timeout",
             value=30,
-            source_name="snowflake_cli_env",
-            priority=SourcePriority.ENVIRONMENT,
+            source_name="cli_env",
             raw_value="30",
         )
 
@@ -138,7 +130,6 @@ class TestConfigValue:
             key="account",
             value="my_account",
             source_name="snowsql_config",
-            priority=SourcePriority.FILE,
             raw_value="accountname=my_account",
         )
 
@@ -152,7 +143,6 @@ class TestConfigValue:
             key="optional_field",
             value=None,
             source_name="cli_arguments",
-            priority=SourcePriority.CLI_ARGUMENT,
         )
 
         assert cv.value is None
@@ -163,61 +153,38 @@ class TestConfigValue:
         cv_list = ConfigValue(
             key="tags",
             value=["tag1", "tag2"],
-            source_name="toml:connections",
-            priority=SourcePriority.FILE,
+            source_name="connections_toml",
         )
 
         cv_dict = ConfigValue(
             key="metadata",
             value={"key1": "value1", "key2": "value2"},
-            source_name="toml:connections",
-            priority=SourcePriority.FILE,
+            source_name="connections_toml",
         )
 
         assert cv_list.value == ["tag1", "tag2"]
         assert cv_dict.value == {"key1": "value1", "key2": "value2"}
 
-    def test_all_priority_levels(self):
-        """Should work with all priority levels."""
+    def test_different_source_names(self):
+        """Should work with different source names."""
         cv_cli = ConfigValue(
             key="account",
             value="cli_account",
             source_name="cli_arguments",
-            priority=SourcePriority.CLI_ARGUMENT,
         )
 
         cv_env = ConfigValue(
             key="account",
             value="env_account",
-            source_name="snowflake_cli_env",
-            priority=SourcePriority.ENVIRONMENT,
+            source_name="cli_env",
         )
 
         cv_file = ConfigValue(
             key="account",
             value="file_account",
-            source_name="toml:connections",
-            priority=SourcePriority.FILE,
+            source_name="connections_toml",
         )
 
-        assert cv_cli.priority == SourcePriority.CLI_ARGUMENT
-        assert cv_env.priority == SourcePriority.ENVIRONMENT
-        assert cv_file.priority == SourcePriority.FILE
-
-    def test_priority_comparison(self):
-        """Should be able to compare priorities."""
-        cv_high = ConfigValue(
-            key="account",
-            value="high",
-            source_name="cli",
-            priority=SourcePriority.CLI_ARGUMENT,
-        )
-
-        cv_low = ConfigValue(
-            key="account",
-            value="low",
-            source_name="file",
-            priority=SourcePriority.FILE,
-        )
-
-        assert cv_high.priority.value < cv_low.priority.value
+        assert cv_cli.source_name == "cli_arguments"
+        assert cv_env.source_name == "cli_env"
+        assert cv_file.source_name == "connections_toml"
