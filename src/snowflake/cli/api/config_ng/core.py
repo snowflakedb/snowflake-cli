@@ -28,7 +28,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 
 class SourcePriority(Enum):
@@ -61,6 +61,37 @@ class ConfigValue:
         if self.raw_value is not None and self.raw_value != self.value:
             value_display = f"{self.raw_value} → {self.value}"
         return f"ConfigValue({self.key}={value_display}, from {self.source_name})"
+
+    @classmethod
+    def from_source(
+        cls,
+        key: str,
+        raw_value: str,
+        source_name: str,
+        priority: SourcePriority,
+        value_parser: Optional[Callable[[str], Any]] = None,
+    ) -> ConfigValue:
+        """
+        Factory method to create ConfigValue from a source handler.
+
+        Args:
+            key: Configuration key
+            raw_value: Raw string value from the source
+            source_name: Name of the configuration source
+            priority: Source priority level
+            value_parser: Optional parser function; if None, raw_value is used as-is
+
+        Returns:
+            ConfigValue instance with parsed value
+        """
+        parsed_value = value_parser(raw_value) if value_parser else raw_value
+        return cls(
+            key=key,
+            value=parsed_value,
+            source_name=source_name,
+            priority=priority,
+            raw_value=raw_value,
+        )
 
 
 class ValueSource(ABC):
