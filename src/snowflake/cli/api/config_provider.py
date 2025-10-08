@@ -144,67 +144,46 @@ class AlternativeConfigProvider(ConfigProvider):
             return
 
         from snowflake.cli.api.cli_global_context import get_cli_context
-        from snowflake.cli.api.config import get_config_manager, get_connections_file
         from snowflake.cli.api.config_ng import (
-            CliArgumentSource,
+            CliConfigFile,
+            CliEnvironment,
+            CliParameters,
             ConfigurationResolver,
-            EnvironmentSource,
-            FileSource,
-            IniFileHandler,
-            SnowCliEnvHandler,
-            SnowSqlEnvHandler,
-            TomlFileHandler,
-            get_snowsql_config_paths,
+            ConnectionsConfigFile,
+            SnowSQLConfigFile,
+            SnowSQLEnvironment,
         )
 
-        # Get CLI context safely
+        # Get CLI context and connection name safely
         try:
             cli_context = get_cli_context().connection_context
             cli_context_dict = cli_context.present_values_as_dict()
+            connection_name = cli_context_dict.get("connection", "default")
         except Exception:
             cli_context_dict = {}
+            connection_name = "default"
 
-        # 1. CLI Arguments Source (Priority 1 - Highest)
-        cli_source = CliArgumentSource(cli_context=cli_context_dict)
+        # Create sources in precedence order (lowest to highest priority)
+        # Order: SnowSQL config -> CLI config -> connections.toml ->
+        #        SnowSQL env -> CLI env -> CLI arguments
 
-        # 2. Environment Variables Source (Priority 2 - Medium)
-        env_source = EnvironmentSource(
-            handlers=[
-                SnowCliEnvHandler(),  # SNOWFLAKE_* checked first
-                SnowSqlEnvHandler(),  # SNOWSQL_* checked second (fallback)
-            ]
-        )
+        sources = [
+            # 1. SnowSQL config files (lowest priority, merged)
+            SnowSQLConfigFile(connection_name=connection_name),
+            # 2. CLI config.toml (first-found behavior)
+            CliConfigFile(connection_name=connection_name),
+            # 3. Dedicated connections.toml
+            ConnectionsConfigFile(connection_name=connection_name),
+            # 4. SnowSQL environment variables (SNOWSQL_*)
+            SnowSQLEnvironment(),
+            # 5. CLI environment variables (SNOWFLAKE_* and SNOWFLAKE_CONNECTION_*)
+            CliEnvironment(connection_name=connection_name),
+            # 6. CLI command-line arguments (highest priority)
+            CliParameters(cli_context=cli_context_dict),
+        ]
 
-        # 3. Configuration Files Source (Priority 3 - Lowest)
-        config_manager = get_config_manager()
-        connections_file = get_connections_file()
-
-        file_paths = []
-        # Add connections file if it exists
-        if connections_file and connections_file.exists():
-            file_paths.append(connections_file)
-        # Add main config file
-        if config_manager.file_path.exists():
-            file_paths.append(config_manager.file_path)
-        # Add SnowSQL config paths
-        file_paths.extend(get_snowsql_config_paths())
-
-        file_source = FileSource(
-            file_paths=file_paths,
-            handlers=[
-                # SnowCLI TOML handlers (tried first)
-                TomlFileHandler(section_path=["connections"]),
-                TomlFileHandler(section_path=["cli"]),
-                TomlFileHandler(),  # Root level
-                # SnowSQL handler (tried last, fallback)
-                IniFileHandler(source_name="snowsql_config"),
-            ],
-        )
-
-        # Create resolver with all sources
-        self._resolver = ConfigurationResolver(
-            sources=[cli_source, env_source, file_source], track_history=True
-        )
+        # Create resolver with all sources in order
+        self._resolver = ConfigurationResolver(sources=sources, track_history=True)
 
         self._initialized = True
 
