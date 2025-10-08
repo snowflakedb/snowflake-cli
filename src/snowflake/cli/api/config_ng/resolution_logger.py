@@ -76,6 +76,13 @@ def show_resolution_chain(key: str) -> None:
     Args:
         key: Configuration key to show resolution for
     """
+    from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+    provider = get_config_provider_singleton()
+
+    # Force configuration resolution to populate history
+    provider.read_config()
+
     resolver = get_resolver()
 
     if resolver is None:
@@ -95,6 +102,13 @@ def show_all_resolution_chains() -> None:
     This provides a complete overview of the configuration resolution process,
     showing how every configuration value was determined.
     """
+    from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+    provider = get_config_provider_singleton()
+
+    # Force configuration resolution to populate history
+    provider.read_config()
+
     resolver = get_resolver()
 
     if resolver is None:
@@ -121,6 +135,13 @@ def get_resolution_summary() -> Optional[Dict]:
 
         None if resolution logging is not available
     """
+    from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+    provider = get_config_provider_singleton()
+
+    # Force configuration resolution to populate history
+    provider.read_config()
+
     resolver = get_resolver()
 
     if resolver is None:
@@ -144,6 +165,13 @@ def export_resolution_history(output_path: Path) -> bool:
     Returns:
         True if export succeeded, False otherwise
     """
+    from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+    provider = get_config_provider_singleton()
+
+    # Force configuration resolution to populate history
+    provider.read_config()
+
     resolver = get_resolver()
 
     if resolver is None:
@@ -210,6 +238,13 @@ def check_value_source(key: str) -> Optional[str]:
     Returns:
         Name of the source that provided the final value, or None if not found
     """
+    from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+    provider = get_config_provider_singleton()
+
+    # Force configuration resolution to populate history
+    provider.read_config()
+
     resolver = get_resolver()
 
     if resolver is None:
@@ -233,6 +268,13 @@ def explain_configuration(key: Optional[str] = None, verbose: bool = False) -> N
         key: Specific key to explain, or None to explain all
         verbose: If True, show detailed resolution chains
     """
+    from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+    provider = get_config_provider_singleton()
+
+    # Force configuration resolution to populate history
+    provider.read_config()
+
     resolver = get_resolver()
 
     if resolver is None:
