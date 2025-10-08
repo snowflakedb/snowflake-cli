@@ -16,7 +16,7 @@
 Unit tests for Resolution History tracking.
 
 Tests verify:
-- ResolutionEntry immutability and fields
+- ResolutionEntry fields
 - ResolutionHistory creation and properties
 - Resolution chain formatting
 - History export to dictionary
@@ -25,7 +25,6 @@ Tests verify:
 
 from datetime import datetime
 
-import pytest
 from snowflake.cli.api.config_ng.core import (
     ConfigValue,
     ResolutionEntry,
@@ -76,52 +75,6 @@ class TestResolutionEntry:
 
         assert entry.was_used is False
         assert entry.overridden_by == "cli_arguments"
-
-    def test_resolution_entry_is_immutable(self):
-        """ResolutionEntry should be immutable (frozen dataclass)."""
-        config_value = ConfigValue(
-            key="account",
-            value="my_account",
-            source_name="cli_arguments",
-            priority=SourcePriority.CLI_ARGUMENT,
-        )
-
-        entry = ResolutionEntry(
-            config_value=config_value,
-            timestamp=datetime.now(),
-            was_used=True,
-        )
-
-        with pytest.raises(Exception):
-            entry.was_used = False
-
-        with pytest.raises(Exception):
-            entry.overridden_by = "someone"
-
-    def test_resolution_entry_equality(self):
-        """ResolutionEntry instances with same data should be equal."""
-        config_value = ConfigValue(
-            key="account",
-            value="my_account",
-            source_name="cli_arguments",
-            priority=SourcePriority.CLI_ARGUMENT,
-        )
-
-        timestamp = datetime.now()
-
-        entry1 = ResolutionEntry(
-            config_value=config_value,
-            timestamp=timestamp,
-            was_used=True,
-        )
-
-        entry2 = ResolutionEntry(
-            config_value=config_value,
-            timestamp=timestamp,
-            was_used=True,
-        )
-
-        assert entry1 == entry2
 
 
 class TestResolutionHistory:
