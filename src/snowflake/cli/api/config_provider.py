@@ -150,8 +150,8 @@ class AlternativeConfigProvider(ConfigProvider):
             ConfigurationResolver,
             EnvironmentSource,
             FileSource,
+            IniFileHandler,
             SnowCliEnvHandler,
-            SnowSqlConfigHandler,
             SnowSqlEnvHandler,
             TomlFileHandler,
             get_snowsql_config_paths,
@@ -197,7 +197,7 @@ class AlternativeConfigProvider(ConfigProvider):
                 TomlFileHandler(section_path=["cli"]),
                 TomlFileHandler(),  # Root level
                 # SnowSQL handler (tried last, fallback)
-                SnowSqlConfigHandler(),
+                IniFileHandler(source_name="snowsql_config"),
             ],
         )
 

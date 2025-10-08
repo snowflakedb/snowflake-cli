@@ -158,11 +158,11 @@ class TestGetSnowSqlConfigPaths:
 
 
 class TestSnowSqlConfigPathsIntegration:
-    """Integration tests with FileSource and SnowSqlConfigHandler."""
+    """Integration tests with FileSource and IniFileHandler."""
 
     def test_paths_work_with_file_source(self, tmp_path):
         """Paths should work correctly with FileSource."""
-        from snowflake.cli.api.config_ng.file_handlers import SnowSqlConfigHandler
+        from snowflake.cli.api.config_ng.file_handlers import IniFileHandler
         from snowflake.cli.api.config_ng.sources import FileSource
 
         with patch("pathlib.Path.home", return_value=tmp_path):
@@ -178,7 +178,7 @@ class TestSnowSqlConfigPathsIntegration:
             paths = get_snowsql_config_paths()
 
             # Create FileSource with these paths
-            source = FileSource(file_paths=paths, handlers=[SnowSqlConfigHandler()])
+            source = FileSource(file_paths=paths, handlers=[IniFileHandler()])
 
             values = source.discover()
 
@@ -194,7 +194,7 @@ class TestSnowSqlConfigPathsIntegration:
         In FileSource: earlier files override later ones
         With reversed order: same effective behavior
         """
-        from snowflake.cli.api.config_ng.file_handlers import SnowSqlConfigHandler
+        from snowflake.cli.api.config_ng.file_handlers import IniFileHandler
         from snowflake.cli.api.config_ng.sources import FileSource
 
         with patch("pathlib.Path.home", return_value=tmp_path):
@@ -221,7 +221,7 @@ class TestSnowSqlConfigPathsIntegration:
             # Manually specify paths to test precedence
             paths = [user_config, legacy_config]
 
-            source = FileSource(file_paths=paths, handlers=[SnowSqlConfigHandler()])
+            source = FileSource(file_paths=paths, handlers=[IniFileHandler()])
 
             values = source.discover()
 

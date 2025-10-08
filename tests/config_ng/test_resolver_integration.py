@@ -27,7 +27,7 @@ from snowflake.cli.api.config_ng.env_handlers import (
     SnowSqlEnvHandler,
 )
 from snowflake.cli.api.config_ng.file_handlers import (
-    SnowSqlConfigHandler,
+    IniFileHandler,
     TomlFileHandler,
 )
 from snowflake.cli.api.config_ng.resolver import ConfigurationResolver
@@ -117,7 +117,7 @@ class TestResolverEndToEnd:
             file_paths=[snowcli_config, snowsql_config],
             handlers=[
                 TomlFileHandler(section_path=["default"]),
-                SnowSqlConfigHandler(),
+                IniFileHandler(),
             ],
         )
 
