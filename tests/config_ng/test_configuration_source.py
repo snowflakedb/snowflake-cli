@@ -13,10 +13,9 @@
 # limitations under the License.
 
 """
-Unit tests for ConfigurationSource abstract base class.
+Unit tests for ConfigurationSource.
 
 Tests verify:
-- Abstract class cannot be instantiated without implementing abstract methods
 - Handler ordering and precedence
 - Handler management (add, set, get)
 - Direct value precedence over handler values
@@ -25,7 +24,6 @@ Tests verify:
 
 from typing import Any, Dict, Optional
 
-import pytest
 from snowflake.cli.api.config_ng.core import ConfigValue, SourcePriority
 from snowflake.cli.api.config_ng.handlers import SourceHandler
 from snowflake.cli.api.config_ng.sources import ConfigurationSource
@@ -77,55 +75,6 @@ class MockHandler(SourceHandler):
 
     def supports_key(self, key: str) -> bool:
         return key in self._data
-
-
-class TestConfigurationSourceInterface:
-    """Test suite for ConfigurationSource abstract base class."""
-
-    def test_cannot_instantiate_abstract_class(self):
-        """Should not be able to instantiate ConfigurationSource directly."""
-        with pytest.raises(TypeError):
-            ConfigurationSource()
-
-    def test_must_implement_discover_direct(self):
-        """Concrete implementations must implement discover_direct method."""
-
-        class IncompleteSource(ConfigurationSource):
-            @property
-            def source_name(self) -> str:
-                return "test"
-
-            @property
-            def priority(self) -> SourcePriority:
-                return SourcePriority.FILE
-
-            def supports_key(self, key: str) -> bool:
-                return True
-
-        with pytest.raises(TypeError):
-            IncompleteSource()
-
-    def test_complete_implementation(self):
-        """Should be able to instantiate with all methods implemented."""
-
-        class CompleteSource(ConfigurationSource):
-            @property
-            def source_name(self) -> str:
-                return "test_source"
-
-            @property
-            def priority(self) -> SourcePriority:
-                return SourcePriority.FILE
-
-            def discover_direct(self, key=None) -> Dict[str, ConfigValue]:
-                return {}
-
-            def supports_key(self, key: str) -> bool:
-                return True
-
-        source = CompleteSource()
-        assert source.source_name == "test_source"
-        assert source.priority == SourcePriority.FILE
 
 
 class TestConfigurationSourceHandlers:
