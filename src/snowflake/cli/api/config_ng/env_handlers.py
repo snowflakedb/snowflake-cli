@@ -68,25 +68,24 @@ class SnowCliEnvHandler(SourceHandler):
             # Discover specific key
             env_key = f"{self.PREFIX}{key.upper()}"
             if env_key in os.environ:
-                raw = os.environ[env_key]
-                values[key] = ConfigValue(
+                values[key] = ConfigValue.from_source(
                     key=key,
-                    value=self._parse_value(raw),
+                    raw_value=os.environ[env_key],
                     source_name=self.source_name,
                     priority=self.priority,
-                    raw_value=raw,
+                    value_parser=self._parse_value,
                 )
         else:
             # Discover all SNOWFLAKE_* variables
             for env_key, env_value in os.environ.items():
                 if env_key.startswith(self.PREFIX):
                     config_key = env_key[len(self.PREFIX) :].lower()
-                    values[config_key] = ConfigValue(
+                    values[config_key] = ConfigValue.from_source(
                         key=config_key,
-                        value=self._parse_value(env_value),
+                        raw_value=env_value,
                         source_name=self.source_name,
                         priority=self.priority,
-                        raw_value=env_value,
+                        value_parser=self._parse_value,
                     )
 
         return values
@@ -162,13 +161,12 @@ class SnowSqlEnvHandler(SourceHandler):
             env_key = f"{self.PREFIX}{snowsql_key.upper()}"
 
             if env_key in os.environ:
-                raw = os.environ[env_key]
-                values[key] = ConfigValue(
+                values[key] = ConfigValue.from_source(
                     key=key,  # Normalized SnowCLI key
-                    value=self._parse_value(raw),
+                    raw_value=os.environ[env_key],
                     source_name=self.source_name,
                     priority=self.priority,
-                    raw_value=raw,
+                    value_parser=self._parse_value,
                 )
         else:
             # Discover all SNOWSQL_* variables
@@ -178,12 +176,12 @@ class SnowSqlEnvHandler(SourceHandler):
                     # Map to SnowCLI key
                     config_key = self.KEY_MAPPINGS.get(snowsql_key, snowsql_key)
 
-                    values[config_key] = ConfigValue(
+                    values[config_key] = ConfigValue.from_source(
                         key=config_key,
-                        value=self._parse_value(env_value),
+                        raw_value=env_value,
                         source_name=self.source_name,
                         priority=self.priority,
-                        raw_value=env_value,
+                        value_parser=self._parse_value,
                     )
 
         return values
