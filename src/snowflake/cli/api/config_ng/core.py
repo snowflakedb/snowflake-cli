@@ -16,7 +16,6 @@
 Core abstractions for the enhanced configuration system.
 
 This module implements the foundational data structures and interfaces:
-- SourcePriority: Defines precedence levels
 - ConfigValue: Immutable value container with provenance
 - ValueSource: Common protocol for all configuration sources
 - ResolutionHistory: Tracks the complete resolution process
@@ -27,19 +26,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
 from typing import Any, Callable, Dict, List, Optional
-
-
-class SourcePriority(Enum):
-    """
-    Defines top-level precedence for configuration sources.
-    Lower numeric value = higher priority.
-    """
-
-    CLI_ARGUMENT = 1  # Highest: command-line arguments
-    ENVIRONMENT = 2  # Medium: environment variables
-    FILE = 3  # Lowest: configuration files
 
 
 @dataclass(frozen=True)
@@ -52,7 +39,6 @@ class ConfigValue:
     key: str
     value: Any
     source_name: str
-    priority: SourcePriority
     raw_value: Optional[Any] = None
 
     def __repr__(self) -> str:
@@ -68,17 +54,15 @@ class ConfigValue:
         key: str,
         raw_value: str,
         source_name: str,
-        priority: SourcePriority,
         value_parser: Optional[Callable[[str], Any]] = None,
     ) -> ConfigValue:
         """
-        Factory method to create ConfigValue from a source handler.
+        Factory method to create ConfigValue from a source.
 
         Args:
             key: Configuration key
             raw_value: Raw string value from the source
             source_name: Name of the configuration source
-            priority: Source priority level
             value_parser: Optional parser function; if None, raw_value is used as-is
 
         Returns:
@@ -89,15 +73,15 @@ class ConfigValue:
             key=key,
             value=parsed_value,
             source_name=source_name,
-            priority=priority,
             raw_value=raw_value,
         )
 
 
 class ValueSource(ABC):
     """
-    Common interface for all configuration sources and handlers.
+    Common interface for all configuration sources.
     All implementations are READ-ONLY discovery mechanisms.
+    Precedence is determined by the order sources are provided to the resolver.
     """
 
     @property
@@ -105,14 +89,8 @@ class ValueSource(ABC):
     def source_name(self) -> str:
         """
         Unique identifier for this source.
-        Examples: "cli_arguments", "snowflake_cli_env", "toml:connections"
+        Examples: "cli_arguments", "snowsql_config", "cli_env"
         """
-        ...
-
-    @property
-    @abstractmethod
-    def priority(self) -> SourcePriority:
-        """Top-level priority for this source."""
         ...
 
     @abstractmethod
@@ -241,7 +219,6 @@ class ResolutionHistory:
                     "source": entry.config_value.source_name,
                     "value": entry.config_value.value,
                     "raw_value": entry.config_value.raw_value,
-                    "priority": entry.config_value.priority.name,
                     "was_used": entry.was_used,
                     "overridden_by": entry.overridden_by,
                     "timestamp": entry.timestamp.isoformat(),

@@ -13,320 +13,471 @@
 # limitations under the License.
 
 """
-Top-level configuration sources.
+Configuration sources for the Snowflake CLI.
 
-This module implements the top-level configuration sources that orchestrate
-handlers and provide configuration values according to precedence rules.
+This module implements concrete configuration sources that discover values from:
+- SnowSQL configuration files (INI format, merged from multiple locations)
+- CLI configuration files (TOML format, first-found)
+- Connections configuration files (dedicated connections.toml)
+- SnowSQL environment variables (SNOWSQL_* prefix)
+- CLI environment variables (SNOWFLAKE_* and SNOWFLAKE_CONNECTION_* patterns)
+- CLI command-line parameters
+
+Precedence is determined by the order sources are provided to the resolver.
 """
 
 from __future__ import annotations
 
+import configparser
 import logging
-from abc import abstractmethod
+import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from snowflake.cli.api.config_ng.core import ConfigValue, SourcePriority, ValueSource
-
-if TYPE_CHECKING:
-    from snowflake.cli.api.config_ng.handlers import SourceHandler
+from snowflake.cli.api.config_ng.core import ConfigValue, ValueSource
 
 log = logging.getLogger(__name__)
 
+# Try to import tomllib (Python 3.11+) or fall back to tomli
+try:
+    import tomllib
+except ImportError:
+    import tomli as tomllib  # type: ignore
 
-class ConfigurationSource(ValueSource):
+
+class SnowSQLConfigFile(ValueSource):
     """
-    Base class for top-level sources that may delegate to handlers.
-    Handlers are tried IN ORDER - first handler with value wins.
+    SnowSQL configuration file source.
+
+    Reads multiple config files in order and MERGES them (SnowSQL behavior).
+    Later files override earlier files for the same keys.
+
+    Config files searched (in order):
+    1. Bundled default config (if in package)
+    2. /etc/snowsql.cnf (system-wide)
+    3. /etc/snowflake/snowsql.cnf (alternative system)
+    4. /usr/local/etc/snowsql.cnf (local system)
+    5. ~/.snowsql.cnf (legacy user config)
+    6. ~/.snowsql/config (current user config)
     """
 
-    def __init__(self, handlers: Optional[List["SourceHandler"]] = None):
+    def __init__(self, connection_name: str = "default"):
         """
-        Initialize with ordered list of sub-handlers.
+        Initialize SnowSQL config file source.
 
         Args:
-            handlers: List of handlers in priority order (first = highest)
+            connection_name: Name of the connection to read from
         """
-        self._handlers = handlers or []
+        self._connection_name = connection_name
+        self._config_files = [
+            Path("/etc/snowsql.cnf"),
+            Path("/etc/snowflake/snowsql.cnf"),
+            Path("/usr/local/etc/snowsql.cnf"),
+            Path.home() / ".snowsql.cnf",
+            Path.home() / ".snowsql" / "config",
+        ]
 
-    @abstractmethod
-    def discover_direct(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
-        """
-        Discover values directly from this source (without handlers).
-        Direct values always take precedence over handler values.
-
-        Returns:
-            Dictionary of directly discovered values
-        """
-        ...
+    @property
+    def source_name(self) -> str:
+        return "snowsql_config"
 
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
         """
-        Discover values from handlers and direct sources.
-
-        Precedence within this source:
-        1. Direct values (highest)
-        2. First handler with value
-        3. Second handler with value
-        4. ... and so on
-
-        Args:
-            key: Specific key to discover, or None for all
-
-        Returns:
-            Dictionary of all discovered values with precedence applied
+        Read and MERGE all SnowSQL config files.
+        Later files override earlier files (SnowSQL merging behavior).
         """
-        discovered: Dict[str, ConfigValue] = {}
+        merged_values: Dict[str, ConfigValue] = {}
 
-        # Process handlers in ORDER (first wins for same key)
-        for handler in self._handlers:
+        for config_file in self._config_files:
+            if not config_file.exists():
+                continue
+
             try:
-                handler_values = handler.discover(key)
-                for k, v in handler_values.items():
-                    if k not in discovered:  # First handler wins
-                        discovered[k] = v
+                config = configparser.ConfigParser()
+                config.read(config_file)
+
+                # Try connection-specific section first: [connections.prod]
+                section_name = f"connections.{self._connection_name}"
+                if config.has_section(section_name):
+                    section_data = dict(config[section_name])
+                # Fall back to default [connections] section
+                elif config.has_section("connections"):
+                    section_data = dict(config["connections"])
+                else:
+                    continue
+
+                # Merge values (later file wins for conflicts)
+                for k, v in section_data.items():
+                    if key is None or k == key:
+                        merged_values[k] = ConfigValue(
+                            key=k,
+                            value=v,
+                            source_name=self.source_name,
+                            raw_value=v,
+                        )
+
             except Exception as e:
-                log.debug("Handler %s failed: %s", handler.source_name, e)
+                log.debug("Failed to read SnowSQL config %s: %s", config_file, e)
 
-        # Direct values override all handlers
-        direct_values = self.discover_direct(key)
-        discovered.update(direct_values)
+        return merged_values
 
-        return discovered
+    def supports_key(self, key: str) -> bool:
+        return key in self.discover()
 
-    def add_handler(self, handler: "SourceHandler", position: int = -1) -> None:
+
+class CliConfigFile(ValueSource):
+    """
+    CLI config.toml file source.
+
+    Scans for config.toml files in order and uses FIRST file found (CLI behavior).
+    Does NOT merge multiple files - first found wins.
+
+    Search order:
+    1. ./config.toml (current directory)
+    2. ~/.snowflake/config.toml (user config)
+    """
+
+    def __init__(self, connection_name: str = "default"):
         """
-        Add handler at specific position.
+        Initialize CLI config file source.
 
         Args:
-            handler: Handler to add
-            position: Insert position (-1 = append, 0 = prepend)
+            connection_name: Name of the connection to read from
         """
-        if position == -1:
-            self._handlers.append(handler)
-        else:
-            self._handlers.insert(position, handler)
+        self._connection_name = connection_name
+        self._search_paths = [
+            Path.cwd() / "config.toml",
+            Path.home() / ".snowflake" / "config.toml",
+        ]
 
-    def set_handlers(self, handlers: List["SourceHandler"]) -> None:
-        """Replace all handlers with new ordered list."""
-        self._handlers = handlers
+    @property
+    def source_name(self) -> str:
+        return "cli_config_toml"
 
-    def get_handlers(self) -> List["SourceHandler"]:
-        """Get current handler list (for inspection/reordering)."""
-        return self._handlers.copy()
+    def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
+        """
+        Find FIRST existing config file and use it (CLI behavior).
+        Does NOT merge multiple files.
+        """
+        for config_file in self._search_paths:
+            if config_file.exists():
+                return self._parse_toml_file(config_file, key)
+
+        return {}
+
+    def _parse_toml_file(
+        self, file_path: Path, key: Optional[str] = None
+    ) -> Dict[str, ConfigValue]:
+        """Parse TOML file and extract connection configuration."""
+        try:
+            with open(file_path, "rb") as f:
+                data = tomllib.load(f)
+
+            # Navigate to connections.<name>
+            conn_data = data.get("connections", {}).get(self._connection_name, {})
+
+            return {
+                k: ConfigValue(
+                    key=k, value=v, source_name=self.source_name, raw_value=v
+                )
+                for k, v in conn_data.items()
+                if key is None or k == key
+            }
+
+        except Exception as e:
+            log.debug("Failed to parse CLI config %s: %s", file_path, e)
+            return {}
+
+    def supports_key(self, key: str) -> bool:
+        return key in self.discover()
 
 
-class CliArgumentSource(ConfigurationSource):
+class ConnectionsConfigFile(ValueSource):
     """
-    Source for command-line arguments.
-    Highest priority source with no sub-handlers.
-    Values come directly from parsed CLI arguments.
+    Dedicated connections.toml file source.
+
+    Reads ~/.snowflake/connections.toml specifically.
+    """
+
+    def __init__(self, connection_name: str = "default"):
+        """
+        Initialize connections.toml source.
+
+        Args:
+            connection_name: Name of the connection to read from
+        """
+        self._connection_name = connection_name
+        self._file_path = Path.home() / ".snowflake" / "connections.toml"
+
+    @property
+    def source_name(self) -> str:
+        return "connections_toml"
+
+    def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
+        """Read connections.toml if it exists."""
+        if not self._file_path.exists():
+            return {}
+
+        try:
+            with open(self._file_path, "rb") as f:
+                data = tomllib.load(f)
+
+            conn_data = data.get("connections", {}).get(self._connection_name, {})
+
+            return {
+                k: ConfigValue(
+                    key=k, value=v, source_name=self.source_name, raw_value=v
+                )
+                for k, v in conn_data.items()
+                if key is None or k == key
+            }
+
+        except Exception as e:
+            log.debug("Failed to read connections.toml: %s", e)
+            return {}
+
+    def supports_key(self, key: str) -> bool:
+        return key in self.discover()
+
+
+class SnowSQLEnvironment(ValueSource):
+    """
+    SnowSQL environment variables source.
+
+    Discovers SNOWSQL_* environment variables only.
+    Simple prefix mapping without connection-specific variants.
+
+    Examples:
+        SNOWSQL_ACCOUNT -> account
+        SNOWSQL_USER -> user
+        SNOWSQL_PWD -> password
+    """
+
+    # Mapping of SNOWSQL_* env vars to configuration keys
+    ENV_VAR_MAPPING = {
+        "SNOWSQL_ACCOUNT": "account",
+        "SNOWSQL_ACCOUNTNAME": "account",  # Alternative
+        "SNOWSQL_USER": "user",
+        "SNOWSQL_USERNAME": "user",  # Alternative
+        "SNOWSQL_PWD": "password",
+        "SNOWSQL_PASSWORD": "password",  # Alternative
+        "SNOWSQL_DATABASE": "database",
+        "SNOWSQL_DBNAME": "database",  # Alternative
+        "SNOWSQL_SCHEMA": "schema",
+        "SNOWSQL_SCHEMANAME": "schema",  # Alternative
+        "SNOWSQL_ROLE": "role",
+        "SNOWSQL_ROLENAME": "role",  # Alternative
+        "SNOWSQL_WAREHOUSE": "warehouse",
+        "SNOWSQL_WAREHOUSENAME": "warehouse",  # Alternative
+        "SNOWSQL_PROTOCOL": "protocol",
+        "SNOWSQL_HOST": "host",
+        "SNOWSQL_PORT": "port",
+        "SNOWSQL_REGION": "region",
+        "SNOWSQL_AUTHENTICATOR": "authenticator",
+        "SNOWSQL_PRIVATE_KEY_PASSPHRASE": "private_key_passphrase",
+    }
+
+    @property
+    def source_name(self) -> str:
+        return "snowsql_env"
+
+    def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
+        """
+        Discover SNOWSQL_* environment variables.
+        No connection-specific variables supported.
+        """
+        values: Dict[str, ConfigValue] = {}
+
+        for env_var, config_key in self.ENV_VAR_MAPPING.items():
+            if key is not None and config_key != key:
+                continue
+
+            env_value = os.getenv(env_var)
+            if env_value is not None:
+                # Only set if not already set by a previous env var
+                # (e.g., SNOWSQL_ACCOUNT takes precedence over SNOWSQL_ACCOUNTNAME)
+                if config_key not in values:
+                    values[config_key] = ConfigValue(
+                        key=config_key,
+                        value=env_value,
+                        source_name=self.source_name,
+                        raw_value=env_value,
+                    )
+
+        return values
+
+    def supports_key(self, key: str) -> bool:
+        # Check if any env var for this key is set
+        for env_var, config_key in self.ENV_VAR_MAPPING.items():
+            if config_key == key and os.getenv(env_var) is not None:
+                return True
+        return False
+
+
+class CliEnvironment(ValueSource):
+    """
+    CLI environment variables source.
+
+    Discovers SNOWFLAKE_* environment variables with two patterns:
+    1. General: SNOWFLAKE_ACCOUNT (applies to all connections)
+    2. Connection-specific: SNOWFLAKE_CONNECTION_<name>_ACCOUNT (overrides general)
+
+    Connection-specific variables take precedence within this source.
+
+    Examples:
+        SNOWFLAKE_ACCOUNT -> account (general)
+        SNOWFLAKE_CONNECTION_PROD_ACCOUNT -> account (for "prod" connection)
+        SNOWFLAKE_USER -> user
+        SNOWFLAKE_CONNECTION_DEV_USER -> user (for "dev" connection)
+    """
+
+    # Base configuration keys that can be set via environment
+    CONFIG_KEYS = [
+        "account",
+        "user",
+        "password",
+        "database",
+        "schema",
+        "role",
+        "warehouse",
+        "protocol",
+        "host",
+        "port",
+        "region",
+        "authenticator",
+    ]
+
+    def __init__(self, connection_name: Optional[str] = None):
+        """
+        Initialize CLI environment source.
+
+        Args:
+            connection_name: Optional connection name for connection-specific vars
+        """
+        self._connection_name = connection_name
+
+    @property
+    def source_name(self) -> str:
+        if self._connection_name:
+            return f"cli_env:{self._connection_name}"
+        return "cli_env"
+
+    def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
+        """
+        Discover SNOWFLAKE_* environment variables.
+
+        Supports two patterns:
+        1. SNOWFLAKE_ACCOUNT (general)
+        2. SNOWFLAKE_CONNECTION_<name>_ACCOUNT (connection-specific, higher priority)
+        """
+        values: Dict[str, ConfigValue] = {}
+
+        # Pattern 1: General SNOWFLAKE_* variables
+        for config_key in self.CONFIG_KEYS:
+            if key is not None and config_key != key:
+                continue
+
+            env_var = f"SNOWFLAKE_{config_key.upper()}"
+            env_value = os.getenv(env_var)
+
+            if env_value is not None:
+                values[config_key] = ConfigValue(
+                    key=config_key,
+                    value=env_value,
+                    source_name=self.source_name,
+                    raw_value=env_value,
+                )
+
+        # Pattern 2: Connection-specific SNOWFLAKE_CONNECTION_<name>_* variables
+        # These override general variables
+        if self._connection_name:
+            conn_prefix = f"SNOWFLAKE_CONNECTION_{self._connection_name.upper()}_"
+
+            for config_key in self.CONFIG_KEYS:
+                if key is not None and config_key != key:
+                    continue
+
+                env_var = f"{conn_prefix}{config_key.upper()}"
+                env_value = os.getenv(env_var)
+
+                if env_value is not None:
+                    # Override general variable
+                    values[config_key] = ConfigValue(
+                        key=config_key,
+                        value=env_value,
+                        source_name=self.source_name,
+                        raw_value=env_value,
+                    )
+
+        return values
+
+    def supports_key(self, key: str) -> bool:
+        if key not in self.CONFIG_KEYS:
+            return False
+
+        # Check general var
+        if os.getenv(f"SNOWFLAKE_{key.upper()}") is not None:
+            return True
+
+        # Check connection-specific var
+        if self._connection_name:
+            conn_var = (
+                f"SNOWFLAKE_CONNECTION_{self._connection_name.upper()}_{key.upper()}"
+            )
+            if os.getenv(conn_var) is not None:
+                return True
+
+        return False
+
+
+class CliParameters(ValueSource):
+    """
+    CLI command-line parameters source.
+
+    Highest priority source that extracts values from parsed CLI arguments.
+    Values are already parsed by Typer/Click framework.
+
+    Examples:
+        --account my_account -> account: "my_account"
+        --user alice -> user: "alice"
+        -a my_account -> account: "my_account"
     """
 
     def __init__(self, cli_context: Optional[Dict[str, Any]] = None):
         """
-        Initialize with CLI context containing parsed arguments.
+        Initialize CLI parameters source.
 
         Args:
             cli_context: Dictionary of CLI arguments (key -> value)
         """
-        super().__init__(handlers=[])  # No handlers needed
         self._cli_context = cli_context or {}
 
     @property
     def source_name(self) -> str:
         return "cli_arguments"
 
-    @property
-    def priority(self) -> SourcePriority:
-        return SourcePriority.CLI_ARGUMENT
-
-    def discover_direct(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
+    def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
         """
         Extract non-None values from CLI context.
-        CLI arguments are already parsed by Typer/Click.
+        CLI arguments are already parsed by the framework.
         """
-        values = {}
+        values: Dict[str, ConfigValue] = {}
 
-        if key is not None:
-            # Discover specific key
-            if key in self._cli_context and self._cli_context[key] is not None:
-                values[key] = ConfigValue(
-                    key=key,
-                    value=self._cli_context[key],
+        for k, v in self._cli_context.items():
+            # Skip None values (not provided on CLI)
+            if v is None:
+                continue
+
+            if key is None or k == key:
+                values[k] = ConfigValue(
+                    key=k,
+                    value=v,
                     source_name=self.source_name,
-                    priority=self.priority,
-                    raw_value=self._cli_context[key],
+                    raw_value=v,
                 )
-        else:
-            # Discover all present values
-            for k, v in self._cli_context.items():
-                if v is not None:
-                    values[k] = ConfigValue(
-                        key=k,
-                        value=v,
-                        source_name=self.source_name,
-                        priority=self.priority,
-                        raw_value=v,
-                    )
 
         return values
 
     def supports_key(self, key: str) -> bool:
-        """Check if key is present in CLI context."""
-        return key in self._cli_context
-
-
-class EnvironmentSource(ConfigurationSource):
-    """
-    Source for environment variables with handler precedence.
-
-    Default Handler Order (supports migration):
-    1. SnowCliEnvHandler (SNOWFLAKE_*) ← Check first
-    2. SnowSqlEnvHandler (SNOWSQL_*)   ← Fallback for legacy
-
-    This allows users to:
-    - Start with only SNOWSQL_* vars (works)
-    - Add SNOWFLAKE_* vars (automatically override SNOWSQL_*)
-    - Gradually migrate without breaking anything
-    """
-
-    def __init__(self, handlers: Optional[List["SourceHandler"]] = None):
-        """
-        Initialize with ordered handlers.
-
-        Args:
-            handlers: Custom handler list, or None for default
-        """
-        super().__init__(handlers=handlers or [])
-
-    @property
-    def source_name(self) -> str:
-        return "environment"
-
-    @property
-    def priority(self) -> SourcePriority:
-        return SourcePriority.ENVIRONMENT
-
-    def discover_direct(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
-        """
-        Environment source has no direct values.
-        All values come from handlers.
-        """
-        return {}
-
-    def supports_key(self, key: str) -> bool:
-        """Check if any handler supports this key."""
-        return any(h.supports_key(key) for h in self._handlers)
-
-
-class FileSource(ConfigurationSource):
-    """
-    Source for configuration files with handler precedence.
-
-    Default Handler Order (supports migration):
-    1. SnowCLI TOML handlers (config.toml, connections.toml) ← Check first
-    2. SnowSQL config handler (~/.snowsql/config)           ← Fallback
-
-    File Path Order:
-    - Earlier paths take precedence over later ones
-    - Allows user-specific configs to override system configs
-    """
-
-    def __init__(
-        self,
-        file_paths: Optional[List[Path]] = None,
-        handlers: Optional[List["SourceHandler"]] = None,
-    ):
-        """
-        Initialize with file paths and handlers.
-
-        Args:
-            file_paths: Ordered list of file paths (first = highest precedence)
-            handlers: Ordered list of format handlers (first = highest precedence)
-        """
-        super().__init__(handlers=handlers or [])
-        self._file_paths = file_paths or []
-
-    @property
-    def source_name(self) -> str:
-        return "configuration_files"
-
-    @property
-    def priority(self) -> SourcePriority:
-        return SourcePriority.FILE
-
-    def discover_direct(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
-        """
-        File source has no direct values.
-        All values come from file handlers.
-        """
-        return {}
-
-    def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
-        """
-        Try each file path with each handler.
-
-        Precedence:
-        1. First file path with value
-           a. First handler that can read it with value
-        2. Second file path with value
-           a. First handler that can read it with value
-        ...
-
-        Args:
-            key: Specific key to discover, or None for all
-
-        Returns:
-            Dictionary of discovered values with precedence applied
-        """
-        discovered: Dict[str, ConfigValue] = {}
-
-        for file_path in self._file_paths:
-            if not file_path.exists():
-                continue
-
-            for handler in self._handlers:
-                if not handler.can_handle_file(file_path):
-                    continue
-
-                try:
-                    handler_values = handler.discover_from_file(file_path, key)
-                    # First file+handler combination wins
-                    for k, v in handler_values.items():
-                        if k not in discovered:
-                            discovered[k] = v
-                except Exception as e:
-                    log.debug(
-                        "Handler %s failed for %s: %s",
-                        handler.source_name,
-                        file_path,
-                        e,
-                    )
-
-        return discovered
-
-    def supports_key(self, key: str) -> bool:
-        """Check if any handler supports this key."""
-        return any(h.supports_key(key) for h in self._handlers)
-
-    def get_file_paths(self) -> List[Path]:
-        """Get current file paths list (for inspection)."""
-        return self._file_paths.copy()
-
-    def add_file_path(self, file_path: Path, position: int = -1) -> None:
-        """
-        Add file path at specific position.
-
-        Args:
-            file_path: Path to add
-            position: Insert position (-1 = append, 0 = prepend)
-        """
-        if position == -1:
-            self._file_paths.append(file_path)
-        else:
-            self._file_paths.insert(position, file_path)
-
-    def set_file_paths(self, file_paths: List[Path]) -> None:
-        """Replace all file paths with new ordered list."""
-        self._file_paths = file_paths
+        """Check if key is present in CLI context with non-None value."""
+        return key in self._cli_context and self._cli_context[key] is not None
