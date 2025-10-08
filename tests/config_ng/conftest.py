@@ -24,20 +24,13 @@ import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 import pytest
 import tomlkit
-from snowflake.cli.api.config_ng import (
-    CliArgumentSource,
-    ConfigurationResolver,
-    EnvironmentSource,
-    FileSource,
-    IniFileHandler,
-    SnowCliEnvHandler,
-    SnowSqlEnvHandler,
-    TomlFileHandler,
-)
+
+if TYPE_CHECKING:
+    from snowflake.cli.api.config_ng import ConfigurationResolver
 
 
 @dataclass
@@ -316,52 +309,72 @@ class ConfigSourcesContext:
         self.connections_toml_path = self.snowflake_dir / "connections.toml"
         self.connections_toml_path.write_text(config_content)
 
-    def get_resolver(self) -> ConfigurationResolver:
+    def get_resolver(self) -> "ConfigurationResolver":
         """
         Create a ConfigurationResolver with all configured sources.
 
         Returns:
             ConfigurationResolver instance with all sources configured
         """
+        from snowflake.cli.api.config_ng import (
+            CliConfigFile,
+            CliEnvironment,
+            CliParameters,
+            ConfigurationResolver,
+            ConnectionsConfigFile,
+            SnowSQLConfigFile,
+            SnowSQLEnvironment,
+        )
+
         sources_list: List[Any] = []
 
-        # CLI Arguments Source (highest priority)
-        if self.cli_args_dict:
-            cli_source = CliArgumentSource(cli_context=self.cli_args_dict)
-            sources_list.append(cli_source)
+        # Create sources in precedence order (lowest to highest)
 
-        # Environment Variables Source
-        env_handlers = [SnowCliEnvHandler(), SnowSqlEnvHandler()]
-        env_source = EnvironmentSource(handlers=env_handlers)
-        sources_list.append(env_source)
-
-        # File Sources
-        file_paths: List[Path] = []
-        file_handlers = []
-
-        # Add CLI config files (higher priority)
-        if self.cli_config_path and self.cli_config_path.exists():
-            file_paths.append(self.cli_config_path)
-            file_handlers.append(
-                TomlFileHandler(section_path=["connections", self.connection_name])
-            )
-
-        if self.connections_toml_path and self.connections_toml_path.exists():
-            file_paths.append(self.connections_toml_path)
-            file_handlers.append(
-                TomlFileHandler(section_path=["connections", self.connection_name])
-            )
-
-        # Add SnowSQL config files (lower priority)
+        # 1. SnowSQL config files (lowest priority) - if configured
         if self.snowsql_config_path and self.snowsql_config_path.exists():
-            file_paths.append(self.snowsql_config_path)
-            file_handlers.append(
-                IniFileHandler(section_path=["connections", self.connection_name])
+            # Create a custom SnowSQL source that reads from our test path
+            class TestSnowSQLConfig(SnowSQLConfigFile):
+                def __init__(self, config_path: Path, conn_name: str):
+                    super().__init__(connection_name=conn_name)
+                    self._config_files = [config_path]
+
+            sources_list.append(
+                TestSnowSQLConfig(self.snowsql_config_path, self.connection_name)
             )
 
-        if file_paths:
-            file_source = FileSource(file_paths=file_paths, handlers=file_handlers)
-            sources_list.append(file_source)
+        # 2. CLI config.toml - if configured
+        if self.cli_config_path and self.cli_config_path.exists():
+            # Create a custom CLI config source that reads from our test path
+            class TestCliConfig(CliConfigFile):
+                def __init__(self, config_path: Path, conn_name: str):
+                    super().__init__(connection_name=conn_name)
+                    self._search_paths = [config_path]
+
+            sources_list.append(
+                TestCliConfig(self.cli_config_path, self.connection_name)
+            )
+
+        # 3. Connections.toml - if configured
+        if self.connections_toml_path and self.connections_toml_path.exists():
+            # Create a custom connections source that reads from our test path
+            class TestConnectionsConfig(ConnectionsConfigFile):
+                def __init__(self, config_path: Path, conn_name: str):
+                    super().__init__(connection_name=conn_name)
+                    self._file_path = config_path
+
+            sources_list.append(
+                TestConnectionsConfig(self.connections_toml_path, self.connection_name)
+            )
+
+        # 4. SnowSQL environment variables
+        sources_list.append(SnowSQLEnvironment())
+
+        # 5. CLI environment variables
+        sources_list.append(CliEnvironment(connection_name=self.connection_name))
+
+        # 6. CLI arguments (highest priority) - if configured
+        if self.cli_args_dict:
+            sources_list.append(CliParameters(cli_context=self.cli_args_dict))
 
         return ConfigurationResolver(sources=sources_list, track_history=True)
 
