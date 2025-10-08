@@ -37,7 +37,7 @@ from snowflake.cli.api.config_ng.core import (
 from snowflake.cli.api.console import cli_console
 
 if TYPE_CHECKING:
-    from snowflake.cli.api.config_ng.sources import ConfigurationSource
+    from snowflake.cli.api.config_ng.core import ValueSource
 
 log = logging.getLogger(__name__)
 
@@ -268,14 +268,22 @@ class ConfigurationResolver:
     Orchestrates configuration sources with full resolution history tracking.
 
     This is the main entry point for configuration resolution. It:
-    - Manages multiple configuration sources (CLI, Environment, Files)
-    - Applies precedence rules (CLI > Env > Files)
+    - Manages multiple configuration sources in precedence order
+    - Applies precedence rules based on source list order
     - Tracks complete resolution history
     - Provides debugging and export utilities
 
+    Sources should be provided in precedence order (lowest to highest priority).
+    Later sources in the list override earlier sources.
+
     Example:
         resolver = ConfigurationResolver(
-            sources=[cli_source, env_source, file_source],
+            sources=[
+                snowsql_config,     # Lowest priority
+                cli_config,
+                env_source,
+                cli_arguments,      # Highest priority
+            ],
             track_history=True
         )
 
@@ -291,39 +299,34 @@ class ConfigurationResolver:
 
     def __init__(
         self,
-        sources: Optional[List[ConfigurationSource]] = None,
+        sources: Optional[List["ValueSource"]] = None,
         track_history: bool = True,
     ):
         """
         Initialize resolver with sources and history tracking.
 
         Args:
-            sources: List of configuration sources (will be sorted by priority)
+            sources: List of configuration sources in precedence order
+                    (first = lowest priority, last = highest priority)
             track_history: Enable resolution history tracking (default: True)
         """
         self._sources = sources or []
-        self._sort_sources()
         self._history_tracker = ResolutionHistoryTracker()
 
         if not track_history:
             self._history_tracker.disable()
 
-    def _sort_sources(self) -> None:
-        """Sort sources by priority (highest first)."""
-        self._sources.sort(key=lambda s: s.priority.value)
-
-    def add_source(self, source: ConfigurationSource) -> None:
+    def add_source(self, source: "ValueSource") -> None:
         """
-        Add a configuration source and re-sort.
+        Add a configuration source to the end of the list (highest priority).
 
         Args:
-            source: ConfigurationSource to add
+            source: ValueSource to add
         """
         self._sources.append(source)
-        self._sort_sources()
 
-    def get_sources(self) -> List[ConfigurationSource]:
-        """Get list of all sources (for inspection)."""
+    def get_sources(self) -> List["ValueSource"]:
+        """Get list of all sources in precedence order (for inspection)."""
         return self._sources.copy()
 
     def enable_history(self) -> None:
@@ -343,9 +346,9 @@ class ConfigurationResolver:
         Resolve configuration values from all sources with history tracking.
 
         Resolution Process:
-        1. Query all sources for the key (lowest to highest priority)
+        1. Iterate sources in order (lowest to highest priority)
         2. Record all discovered values in history
-        3. Apply precedence rules (higher priority overwrites lower)
+        3. Later sources overwrite earlier sources (simple dict update)
         4. Mark which value was selected
         5. Return final resolved values
 
@@ -358,9 +361,9 @@ class ConfigurationResolver:
         """
         all_values: Dict[str, ConfigValue] = {}
 
-        # Process sources in REVERSE priority order (lowest first)
-        # This way higher priority values will overwrite lower ones
-        for source in reversed(self._sources):
+        # Process sources in order (first = lowest priority, last = highest)
+        # Later sources overwrite earlier ones via dict.update()
+        for source in self._sources:
             try:
                 source_values = source.discover(key)
 
@@ -368,7 +371,7 @@ class ConfigurationResolver:
                 for k, config_value in source_values.items():
                     self._history_tracker.record_discovery(k, config_value)
 
-                # Update current values (higher priority overwrites)
+                # Update current values (later source overwrites earlier)
                 all_values.update(source_values)
 
             except Exception as e:
