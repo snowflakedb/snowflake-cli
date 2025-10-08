@@ -48,8 +48,8 @@ class TestSnowSqlConfigHandler:
         from pathlib import Path
         from tempfile import NamedTemporaryFile
 
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write('[connections]\naccount = "test"\n')
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
+            f.write("[connections]\naccount = test\n")
             f.flush()
             temp_path = Path(f.name)
 
@@ -66,8 +66,8 @@ class TestSnowSqlConfigHandler:
         from pathlib import Path
         from tempfile import NamedTemporaryFile
 
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write('[connections]\n[connections.prod]\naccount = "prod_account"\n')
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
+            f.write("[connections]\n\n[connections.prod]\naccount = prod_account\n")
             f.flush()
             temp_path = Path(f.name)
 
@@ -114,8 +114,8 @@ class TestSnowSqlConfigHandler:
 
     def test_key_mapping_accountname(self):
         """Should map accountname → account."""
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write('[connections]\naccountname = "my_account"\n')
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
+            f.write("[connections]\naccountname = my_account\n")
             f.flush()
             temp_path = Path(f.name)
 
@@ -133,8 +133,8 @@ class TestSnowSqlConfigHandler:
 
     def test_key_mapping_username(self):
         """Should map username → user."""
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write('[connections]\nusername = "my_user"\n')
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
+            f.write("[connections]\nusername = my_user\n")
             f.flush()
             temp_path = Path(f.name)
 
@@ -149,8 +149,8 @@ class TestSnowSqlConfigHandler:
 
     def test_key_mapping_multiple_database_keys(self):
         """Should map both dbname and databasename → database."""
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write('[connections]\ndatabasename = "my_db"\n')
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
+            f.write("[connections]\ndatabasename = my_db\n")
             f.flush()
             temp_path = Path(f.name)
 
@@ -164,12 +164,12 @@ class TestSnowSqlConfigHandler:
 
     def test_key_mapping_warehouse_schema_role(self):
         """Should map warehouse, schema, and role names."""
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
             f.write(
                 "[connections]\n"
-                'warehousename = "my_wh"\n'
-                'schemaname = "my_schema"\n'
-                'rolename = "my_role"\n'
+                "warehousename = my_wh\n"
+                "schemaname = my_schema\n"
+                "rolename = my_role\n"
             )
             f.flush()
             temp_path = Path(f.name)
@@ -186,8 +186,8 @@ class TestSnowSqlConfigHandler:
 
     def test_key_mapping_pwd_to_password(self):
         """Should map pwd → password (from env mappings)."""
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write('[connections]\npwd = "secret123"\n')
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
+            f.write("[connections]\npwd = secret123\n")
             f.flush()
             temp_path = Path(f.name)
 
@@ -203,8 +203,8 @@ class TestSnowSqlConfigHandler:
 
     def test_unmapped_keys_passthrough(self):
         """Keys without mappings should pass through."""
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write('[connections]\ncustom_key = "custom_value"\n')
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
+            f.write("[connections]\ncustom_key = custom_value\n")
             f.flush()
             temp_path = Path(f.name)
 
@@ -218,16 +218,16 @@ class TestSnowSqlConfigHandler:
 
     def test_discover_all_common_keys(self):
         """Should discover all common SnowSQL keys with mapping."""
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
             f.write(
                 "[connections]\n"
-                'accountname = "my_account"\n'
-                'username = "my_user"\n'
-                'pwd = "my_password"\n'
-                'databasename = "my_db"\n'
-                'schemaname = "my_schema"\n'
-                'warehousename = "my_wh"\n'
-                'rolename = "my_role"\n'
+                "accountname = my_account\n"
+                "username = my_user\n"
+                "pwd = my_password\n"
+                "databasename = my_db\n"
+                "schemaname = my_schema\n"
+                "warehousename = my_wh\n"
+                "rolename = my_role\n"
             )
             f.flush()
             temp_path = Path(f.name)
@@ -254,8 +254,8 @@ class TestSnowSqlConfigHandler:
 
     def test_discover_specific_key(self):
         """Should discover specific key with mapping."""
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write('[connections]\naccountname = "my_account"\nusername = "my_user"\n')
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
+            f.write("[connections]\naccountname = my_account\nusername = my_user\n")
             f.flush()
             temp_path = Path(f.name)
 
@@ -271,8 +271,8 @@ class TestSnowSqlConfigHandler:
 
     def test_discover_nonexistent_key(self):
         """Should return empty dict for nonexistent key."""
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write('[connections]\naccountname = "my_account"\n')
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
+            f.write("[connections]\naccountname = my_account\n")
             f.flush()
             temp_path = Path(f.name)
 
@@ -286,8 +286,8 @@ class TestSnowSqlConfigHandler:
 
     def test_discover_nonexistent_section(self):
         """Should return empty dict for nonexistent section."""
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write('accountname = "my_account"\n')
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
+            f.write("accountname = my_account\n")
             f.flush()
             temp_path = Path(f.name)
 
@@ -301,8 +301,8 @@ class TestSnowSqlConfigHandler:
 
     def test_values_have_correct_metadata(self):
         """Discovered values should have correct metadata."""
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write('[connections]\naccountname = "my_account"\n')
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
+            f.write("[connections]\naccountname = my_account\n")
             f.flush()
             temp_path = Path(f.name)
 
@@ -329,8 +329,8 @@ class TestSnowSqlConfigHandler:
 
     def test_reverse_mapping_for_specific_key_query(self):
         """Should use reverse mapping when querying specific key."""
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write('[connections]\naccountname = "my_account"\n')
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
+            f.write("[connections]\naccountname = my_account\n")
             f.flush()
             temp_path = Path(f.name)
 
@@ -355,8 +355,8 @@ class TestSnowSqlConfigHandler:
 
     def test_case_insensitive_key_mapping(self):
         """Key mappings should be case-insensitive."""
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write('[connections]\nAccountName = "my_account"\n')
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
+            f.write("[connections]\nAccountName = my_account\n")
             f.flush()
             temp_path = Path(f.name)
 
@@ -370,10 +370,10 @@ class TestSnowSqlConfigHandler:
         finally:
             temp_path.unlink()
 
-    def test_invalid_toml_returns_empty(self):
-        """Should handle invalid TOML gracefully."""
+    def test_invalid_ini_returns_empty(self):
+        """Should handle invalid INI gracefully."""
         with NamedTemporaryFile(mode="w", delete=False) as f:
-            f.write("invalid toml content [[[")
+            f.write("invalid ini content [[[")
             f.flush()
             temp_path = Path(f.name)
 
@@ -387,8 +387,8 @@ class TestSnowSqlConfigHandler:
 
     def test_caching_behavior(self):
         """Should cache file data for performance."""
-        with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
-            f.write('[connections]\naccountname = "my_account"\n')
+        with NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as f:
+            f.write("[connections]\naccountname = my_account\n")
             f.flush()
             temp_path = Path(f.name)
 
