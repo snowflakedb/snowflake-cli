@@ -33,8 +33,8 @@ from snowflake.cli.api.config_ng import (
     ConfigurationResolver,
     EnvironmentSource,
     FileSource,
+    IniFileHandler,
     SnowCliEnvHandler,
-    SnowSqlConfigHandler,
     SnowSqlEnvHandler,
     TomlFileHandler,
 )
@@ -356,7 +356,7 @@ class ConfigSourcesContext:
         if self.snowsql_config_path and self.snowsql_config_path.exists():
             file_paths.append(self.snowsql_config_path)
             file_handlers.append(
-                SnowSqlConfigHandler(section_path=["connections", self.connection_name])
+                IniFileHandler(section_path=["connections", self.connection_name])
             )
 
         if file_paths:
