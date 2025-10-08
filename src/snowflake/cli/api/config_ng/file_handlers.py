@@ -17,19 +17,34 @@ File format handlers for configuration system.
 
 This module implements handlers for:
 - TOML configuration files (SnowCLI format)
-- SnowSQL configuration files (INI format with key mapping)
+- INI configuration files (SnowSQL format with key mapping)
 """
 
 from __future__ import annotations
 
 import configparser
 from pathlib import Path
+from types import MappingProxyType
 from typing import Dict, List, Optional
 
 import tomlkit
 from snowflake.cli.api.config_ng.core import ConfigValue, SourcePriority
 from snowflake.cli.api.config_ng.env_handlers import SNOWSQL_TO_SNOWCLI_KEY_MAPPINGS
 from snowflake.cli.api.config_ng.handlers import SourceHandler
+
+# Key mappings from SnowSQL to SnowCLI config keys (immutable)
+SNOWSQL_CONFIG_KEY_MAPPINGS: MappingProxyType[str, str] = MappingProxyType(
+    {
+        **SNOWSQL_TO_SNOWCLI_KEY_MAPPINGS,  # Include env mappings (pwd → password)
+        "accountname": "account",
+        "username": "user",
+        "dbname": "database",
+        "databasename": "database",
+        "schemaname": "schema",
+        "warehousename": "warehouse",
+        "rolename": "role",
+    }
+)
 
 
 def get_snowsql_config_paths() -> List[Path]:
@@ -202,10 +217,10 @@ class TomlFileHandler(SourceHandler):
         return isinstance(key, str)
 
 
-class SnowSqlConfigHandler(SourceHandler):
+class IniFileHandler(SourceHandler):
     """
-    Handler for SnowSQL config files.
-    Format: INI format with SnowSQL-specific key naming.
+    Handler for INI format configuration files.
+    Supports SnowSQL-specific key naming and mappings.
 
     SnowSQL Multi-File Support:
         SnowSQL reads from multiple config file locations (system-wide, user home, etc.)
@@ -232,42 +247,38 @@ class SnowSqlConfigHandler(SourceHandler):
 
     Example usage with multiple files:
         from snowflake.cli.api.config_ng import (
-            FileSource, SnowSqlConfigHandler, get_snowsql_config_paths
+            FileSource, IniFileHandler, get_snowsql_config_paths
         )
 
+        snowsql_config_handler = IniFileHandler(source_name="snowsql_config")
         source = FileSource(
             file_paths=get_snowsql_config_paths(),
-            handlers=[SnowSqlConfigHandler()]
+            handlers=[snowsql_config_handler]
         )
     """
 
-    # Key mappings from SnowSQL to SnowCLI (in addition to env mappings)
-    SNOWSQL_CONFIG_KEY_MAPPINGS: Dict[str, str] = {
-        **SNOWSQL_TO_SNOWCLI_KEY_MAPPINGS,  # Include env mappings (pwd → password)
-        "accountname": "account",
-        "username": "user",
-        "dbname": "database",
-        "databasename": "database",
-        "schemaname": "schema",
-        "warehousename": "warehouse",
-        "rolename": "role",
-    }
-
-    def __init__(self, section_path: Optional[List[str]] = None):
+    def __init__(
+        self,
+        section_path: Optional[List[str]] = None,
+        source_name: str = "snowsql_config",
+    ):
         """
-        Initialize with optional section path.
+        Initialize with optional section path and source name.
 
         Args:
             section_path: Path to section in config file
                          Default: ["connections"] for SnowSQL compatibility
+            source_name: Name to identify this handler instance (e.g., "snowsql_config", "ini_config")
+                        Default: "snowsql_config" for backward compatibility
         """
         self._section_path = section_path or ["connections"]
+        self._source_name = source_name
         self._cached_data: Optional[configparser.ConfigParser] = None
         self._cached_file: Optional[Path] = None
 
     @property
     def source_name(self) -> str:
-        return "snowsql_config"
+        return self._source_name
 
     @property
     def priority(self) -> SourcePriority:
@@ -275,7 +286,7 @@ class SnowSqlConfigHandler(SourceHandler):
 
     @property
     def handler_type(self) -> str:
-        return "snowsql_config"
+        return "ini"
 
     def can_handle(self) -> bool:
         """SnowSQL handler is always available."""
@@ -295,7 +306,7 @@ class SnowSqlConfigHandler(SourceHandler):
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
         """Not directly called - file handlers use discover_from_file."""
         raise NotImplementedError(
-            "SnowSqlConfigHandler requires file_path. Use discover_from_file() instead."
+            "IniFileHandler requires file_path. Use discover_from_file() instead."
         )
 
     def discover_from_file(
@@ -372,7 +383,7 @@ class SnowSqlConfigHandler(SourceHandler):
 
                 # Map to SnowCLI key (lowercase)
                 snowsql_key_lower = snowsql_key.lower()
-                cli_key = self.SNOWSQL_CONFIG_KEY_MAPPINGS.get(
+                cli_key = SNOWSQL_CONFIG_KEY_MAPPINGS.get(
                     snowsql_key_lower, snowsql_key_lower
                 )
 
@@ -396,7 +407,7 @@ class SnowSqlConfigHandler(SourceHandler):
 
     def _get_snowsql_key(self, cli_key: str) -> str:
         """Reverse mapping: CLI key → SnowSQL key."""
-        for snowsql_key, cli_mapped_key in self.SNOWSQL_CONFIG_KEY_MAPPINGS.items():
+        for snowsql_key, cli_mapped_key in SNOWSQL_CONFIG_KEY_MAPPINGS.items():
             if cli_mapped_key == cli_key:
                 return snowsql_key
         return cli_key
@@ -404,6 +415,4 @@ class SnowSqlConfigHandler(SourceHandler):
     def get_cli_key(self, snowsql_key: str) -> str:
         """Forward mapping: SnowSQL key → CLI key."""
         snowsql_key_lower = snowsql_key.lower()
-        return self.SNOWSQL_CONFIG_KEY_MAPPINGS.get(
-            snowsql_key_lower, snowsql_key_lower
-        )
+        return SNOWSQL_CONFIG_KEY_MAPPINGS.get(snowsql_key_lower, snowsql_key_lower)

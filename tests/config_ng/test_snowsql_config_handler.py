@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-Unit tests for SnowSqlConfigHandler.
+Unit tests for IniFileHandler.
 
 Tests verify:
 - SnowSQL config file discovery
@@ -28,19 +28,19 @@ from tempfile import NamedTemporaryFile
 
 import pytest
 from snowflake.cli.api.config_ng.core import SourcePriority
-from snowflake.cli.api.config_ng.file_handlers import SnowSqlConfigHandler
+from snowflake.cli.api.config_ng.file_handlers import IniFileHandler
 
 
-class TestSnowSqlConfigHandler:
-    """Test suite for SnowSqlConfigHandler."""
+class TestIniFileHandler:
+    """Test suite for IniFileHandler."""
 
     def test_create_handler(self):
         """Should create handler with correct properties."""
-        handler = SnowSqlConfigHandler()
+        snowsql_config_handler = IniFileHandler()
 
-        assert handler.source_name == "snowsql_config"
-        assert handler.priority == SourcePriority.FILE
-        assert handler.handler_type == "snowsql_config"
+        assert snowsql_config_handler.source_name == "snowsql_config"
+        assert snowsql_config_handler.priority == SourcePriority.FILE
+        assert snowsql_config_handler.handler_type == "ini"
 
     def test_default_section_path(self):
         """Should default to connections section."""
@@ -54,8 +54,8 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler()
-            values = handler.discover_from_file(temp_path)
+            snowsql_config_handler = IniFileHandler()
+            values = snowsql_config_handler.discover_from_file(temp_path)
             # Should find value in [connections] section
             assert "account" in values
         finally:
@@ -72,8 +72,10 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler(section_path=["connections", "prod"])
-            values = handler.discover_from_file(temp_path)
+            snowsql_config_handler = IniFileHandler(
+                section_path=["connections", "prod"]
+            )
+            values = snowsql_config_handler.discover_from_file(temp_path)
             # Should find value in custom section path
             assert values["account"].value == "prod_account"
         finally:
@@ -81,34 +83,37 @@ class TestSnowSqlConfigHandler:
 
     def test_can_handle_always_true(self):
         """Should always return True."""
-        handler = SnowSqlConfigHandler()
-        assert handler.can_handle() is True
+        snowsql_config_handler = IniFileHandler()
+        assert snowsql_config_handler.can_handle() is True
 
     def test_can_handle_snowsql_config_files(self):
         """Should detect SnowSQL config files."""
-        handler = SnowSqlConfigHandler()
+        snowsql_config_handler = IniFileHandler()
 
         # Typical SnowSQL config path
-        assert handler.can_handle_file(Path("~/.snowsql/config")) is True
-        assert handler.can_handle_file(Path("/home/user/.snowsql/config")) is True
+        assert snowsql_config_handler.can_handle_file(Path("~/.snowsql/config")) is True
+        assert (
+            snowsql_config_handler.can_handle_file(Path("/home/user/.snowsql/config"))
+            is True
+        )
 
     def test_can_handle_toml_files(self):
         """Should also handle .toml files."""
-        handler = SnowSqlConfigHandler()
+        snowsql_config_handler = IniFileHandler()
 
-        assert handler.can_handle_file(Path("config.toml")) is True
+        assert snowsql_config_handler.can_handle_file(Path("config.toml")) is True
 
     def test_discover_raises_not_implemented(self):
         """Should raise NotImplementedError for discover() without file_path."""
-        handler = SnowSqlConfigHandler()
+        snowsql_config_handler = IniFileHandler()
 
         with pytest.raises(NotImplementedError, match="requires file_path"):
-            handler.discover()
+            snowsql_config_handler.discover()
 
     def test_discover_from_nonexistent_file(self):
         """Should return empty dict for nonexistent file."""
-        handler = SnowSqlConfigHandler()
-        values = handler.discover_from_file(Path("/nonexistent/config"))
+        snowsql_config_handler = IniFileHandler()
+        values = snowsql_config_handler.discover_from_file(Path("/nonexistent/config"))
 
         assert len(values) == 0
 
@@ -120,8 +125,8 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler()
-            values = handler.discover_from_file(temp_path)
+            snowsql_config_handler = IniFileHandler()
+            values = snowsql_config_handler.discover_from_file(temp_path)
 
             assert len(values) == 1
             assert "account" in values
@@ -139,8 +144,8 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler()
-            values = handler.discover_from_file(temp_path)
+            snowsql_config_handler = IniFileHandler()
+            values = snowsql_config_handler.discover_from_file(temp_path)
 
             assert values["user"].value == "my_user"
             assert values["user"].raw_value == "username=my_user"
@@ -155,8 +160,8 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler()
-            values = handler.discover_from_file(temp_path)
+            snowsql_config_handler = IniFileHandler()
+            values = snowsql_config_handler.discover_from_file(temp_path)
 
             assert values["database"].value == "my_db"
         finally:
@@ -175,8 +180,8 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler()
-            values = handler.discover_from_file(temp_path)
+            snowsql_config_handler = IniFileHandler()
+            values = snowsql_config_handler.discover_from_file(temp_path)
 
             assert values["warehouse"].value == "my_wh"
             assert values["schema"].value == "my_schema"
@@ -192,8 +197,8 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler()
-            values = handler.discover_from_file(temp_path)
+            snowsql_config_handler = IniFileHandler()
+            values = snowsql_config_handler.discover_from_file(temp_path)
 
             assert "password" in values
             assert "pwd" not in values
@@ -209,8 +214,8 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler()
-            values = handler.discover_from_file(temp_path)
+            snowsql_config_handler = IniFileHandler()
+            values = snowsql_config_handler.discover_from_file(temp_path)
 
             assert values["custom_key"].value == "custom_value"
         finally:
@@ -233,8 +238,8 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler()
-            values = handler.discover_from_file(temp_path)
+            snowsql_config_handler = IniFileHandler()
+            values = snowsql_config_handler.discover_from_file(temp_path)
 
             assert len(values) == 7
             assert all(
@@ -260,8 +265,8 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler()
-            values = handler.discover_from_file(temp_path, key="account")
+            snowsql_config_handler = IniFileHandler()
+            values = snowsql_config_handler.discover_from_file(temp_path, key="account")
 
             assert len(values) == 1
             assert "account" in values
@@ -277,8 +282,10 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler()
-            values = handler.discover_from_file(temp_path, key="nonexistent")
+            snowsql_config_handler = IniFileHandler()
+            values = snowsql_config_handler.discover_from_file(
+                temp_path, key="nonexistent"
+            )
 
             assert len(values) == 0
         finally:
@@ -292,8 +299,8 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler()  # Default section: connections
-            values = handler.discover_from_file(temp_path)
+            snowsql_config_handler = IniFileHandler()  # Default section: connections
+            values = snowsql_config_handler.discover_from_file(temp_path)
 
             assert len(values) == 0
         finally:
@@ -307,8 +314,8 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler()
-            values = handler.discover_from_file(temp_path)
+            snowsql_config_handler = IniFileHandler()
+            values = snowsql_config_handler.discover_from_file(temp_path)
 
             config_value = values["account"]
             assert config_value.source_name == "snowsql_config"
@@ -322,10 +329,10 @@ class TestSnowSqlConfigHandler:
 
     def test_supports_any_string_key(self):
         """Should support any string key."""
-        handler = SnowSqlConfigHandler()
+        snowsql_config_handler = IniFileHandler()
 
-        assert handler.supports_key("account") is True
-        assert handler.supports_key("any_key") is True
+        assert snowsql_config_handler.supports_key("account") is True
+        assert snowsql_config_handler.supports_key("any_key") is True
 
     def test_reverse_mapping_for_specific_key_query(self):
         """Should use reverse mapping when querying specific key."""
@@ -335,9 +342,9 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler()
+            snowsql_config_handler = IniFileHandler()
             # Query for "account" should find "accountname"
-            values = handler.discover_from_file(temp_path, key="account")
+            values = snowsql_config_handler.discover_from_file(temp_path, key="account")
 
             assert len(values) == 1
             assert values["account"].value == "my_account"
@@ -346,12 +353,12 @@ class TestSnowSqlConfigHandler:
 
     def test_get_cli_key_method(self):
         """Should convert SnowSQL keys to CLI keys."""
-        handler = SnowSqlConfigHandler()
+        snowsql_config_handler = IniFileHandler()
 
-        assert handler.get_cli_key("accountname") == "account"
-        assert handler.get_cli_key("username") == "user"
-        assert handler.get_cli_key("pwd") == "password"
-        assert handler.get_cli_key("unmapped") == "unmapped"
+        assert snowsql_config_handler.get_cli_key("accountname") == "account"
+        assert snowsql_config_handler.get_cli_key("username") == "user"
+        assert snowsql_config_handler.get_cli_key("pwd") == "password"
+        assert snowsql_config_handler.get_cli_key("unmapped") == "unmapped"
 
     def test_case_insensitive_key_mapping(self):
         """Key mappings should be case-insensitive."""
@@ -361,8 +368,8 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler()
-            values = handler.discover_from_file(temp_path)
+            snowsql_config_handler = IniFileHandler()
+            values = snowsql_config_handler.discover_from_file(temp_path)
 
             # Should still map to "account"
             assert "account" in values
@@ -378,8 +385,8 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler()
-            values = handler.discover_from_file(temp_path)
+            snowsql_config_handler = IniFileHandler()
+            values = snowsql_config_handler.discover_from_file(temp_path)
 
             assert len(values) == 0
         finally:
@@ -393,12 +400,12 @@ class TestSnowSqlConfigHandler:
             temp_path = Path(f.name)
 
         try:
-            handler = SnowSqlConfigHandler()
+            snowsql_config_handler = IniFileHandler()
 
             # First call loads file
-            values1 = handler.discover_from_file(temp_path)
+            values1 = snowsql_config_handler.discover_from_file(temp_path)
             # Second call uses cache
-            values2 = handler.discover_from_file(temp_path)
+            values2 = snowsql_config_handler.discover_from_file(temp_path)
 
             assert values1 == values2
             # Verify caching by checking results are consistent

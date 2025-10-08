@@ -35,7 +35,8 @@ from snowflake.cli.api.config_ng.env_handlers import (
     SnowSqlEnvHandler,
 )
 from snowflake.cli.api.config_ng.file_handlers import (
-    SnowSqlConfigHandler,
+    SNOWSQL_CONFIG_KEY_MAPPINGS,
+    IniFileHandler,
     TomlFileHandler,
     get_snowsql_config_paths,
 )
@@ -82,9 +83,10 @@ __all__ = [
     "show_all_resolution_chains",
     "show_resolution_chain",
     "SnowCliEnvHandler",
-    "SnowSqlConfigHandler",
+    "SNOWSQL_CONFIG_KEY_MAPPINGS",
     "SNOWSQL_TO_SNOWCLI_KEY_MAPPINGS",
     "SnowSqlEnvHandler",
+    "IniFileHandler",
     "SourcePriority",
     "TomlFileHandler",
     "ValueSource",
