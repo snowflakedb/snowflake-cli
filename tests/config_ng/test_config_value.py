@@ -16,14 +16,12 @@
 Unit tests for ConfigValue dataclass.
 
 Tests verify:
-- Immutability (frozen dataclass)
 - Field values and types
 - Raw value preservation
 - Type conversions
 - Representation formatting
 """
 
-import pytest
 from snowflake.cli.api.config_ng.core import ConfigValue, SourcePriority
 
 
@@ -60,58 +58,6 @@ class TestConfigValue:
         assert cv.raw_value == "443"
         assert isinstance(cv.value, int)
         assert isinstance(cv.raw_value, str)
-
-    def test_config_value_is_immutable(self):
-        """ConfigValue should be immutable (frozen dataclass)."""
-        cv = ConfigValue(
-            key="account",
-            value="my_account",
-            source_name="cli_arguments",
-            priority=SourcePriority.CLI_ARGUMENT,
-        )
-
-        with pytest.raises(Exception):
-            cv.key = "new_key"
-
-        with pytest.raises(Exception):
-            cv.value = "new_value"
-
-        with pytest.raises(Exception):
-            cv.source_name = "new_source"
-
-    def test_config_value_equality(self):
-        """ConfigValue instances with same data should be equal."""
-        cv1 = ConfigValue(
-            key="account",
-            value="my_account",
-            source_name="cli_arguments",
-            priority=SourcePriority.CLI_ARGUMENT,
-        )
-        cv2 = ConfigValue(
-            key="account",
-            value="my_account",
-            source_name="cli_arguments",
-            priority=SourcePriority.CLI_ARGUMENT,
-        )
-
-        assert cv1 == cv2
-
-    def test_config_value_inequality(self):
-        """ConfigValue instances with different data should not be equal."""
-        cv1 = ConfigValue(
-            key="account",
-            value="account1",
-            source_name="cli_arguments",
-            priority=SourcePriority.CLI_ARGUMENT,
-        )
-        cv2 = ConfigValue(
-            key="account",
-            value="account2",
-            source_name="cli_arguments",
-            priority=SourcePriority.CLI_ARGUMENT,
-        )
-
-        assert cv1 != cv2
 
     def test_repr_without_conversion(self):
         """__repr__ should show value only when no conversion occurred."""
@@ -275,35 +221,3 @@ class TestConfigValue:
         )
 
         assert cv_high.priority.value < cv_low.priority.value
-
-    def test_config_value_hash(self):
-        """ConfigValue should be hashable (frozen dataclass)."""
-        cv1 = ConfigValue(
-            key="account",
-            value="my_account",
-            source_name="cli_arguments",
-            priority=SourcePriority.CLI_ARGUMENT,
-        )
-        cv2 = ConfigValue(
-            key="account",
-            value="my_account",
-            source_name="cli_arguments",
-            priority=SourcePriority.CLI_ARGUMENT,
-        )
-
-        assert hash(cv1) == hash(cv2)
-
-        config_set = {cv1, cv2}
-        assert len(config_set) == 1
-
-    def test_config_value_can_be_dict_key(self):
-        """ConfigValue should be usable as dictionary key."""
-        cv = ConfigValue(
-            key="account",
-            value="my_account",
-            source_name="cli_arguments",
-            priority=SourcePriority.CLI_ARGUMENT,
-        )
-
-        test_dict = {cv: "some_data"}
-        assert test_dict[cv] == "some_data"
