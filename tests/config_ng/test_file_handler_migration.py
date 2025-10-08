@@ -26,7 +26,7 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from snowflake.cli.api.config_ng.file_handlers import (
-    SnowSqlConfigHandler,
+    IniFileHandler,
     TomlFileHandler,
 )
 from snowflake.cli.api.config_ng.sources import FileSource
@@ -47,7 +47,7 @@ class TestFileHandlerMigration:
                 file_paths=[toml_path],
                 handlers=[
                     TomlFileHandler(section_path=["default"]),
-                    SnowSqlConfigHandler(),
+                    IniFileHandler(),
                 ],
             )
 
@@ -76,7 +76,7 @@ class TestFileHandlerMigration:
                 file_paths=[snowsql_path],
                 handlers=[
                     TomlFileHandler(section_path=["default"]),
-                    SnowSqlConfigHandler(),
+                    IniFileHandler(),
                 ],
             )
 
@@ -113,7 +113,7 @@ class TestFileHandlerMigration:
                 file_paths=[toml_path, snowsql_path],
                 handlers=[
                     TomlFileHandler(section_path=["default"]),
-                    SnowSqlConfigHandler(),
+                    IniFileHandler(),
                 ],
             )
 
@@ -132,7 +132,7 @@ class TestFileHandlerMigration:
     def test_handler_ordering_within_same_file(self):
         """Handler order matters when both can handle same file."""
         # Create a pure TOML file that both handlers could potentially read
-        # TomlFileHandler will read [default], SnowSqlConfigHandler will read [connections]
+        # TomlFileHandler will read [default], IniFileHandler will read [connections]
         with NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
             # Pure TOML format file with both sections
             f.write(
@@ -221,7 +221,7 @@ class TestFileHandlerMigration:
                 file_paths=[snowsql_path],
                 handlers=[
                     TomlFileHandler(section_path=["default"]),
-                    SnowSqlConfigHandler(),
+                    IniFileHandler(),
                 ],
             )
 
@@ -247,7 +247,7 @@ class TestFileHandlerMigration:
                 file_paths=[toml_path, snowsql_path],
                 handlers=[
                     TomlFileHandler(section_path=["default"]),
-                    SnowSqlConfigHandler(),
+                    IniFileHandler(),
                 ],
             )
 
@@ -309,7 +309,7 @@ class TestFileHandlerMigration:
                 file_paths=[toml_path, snowsql_path],
                 handlers=[
                     TomlFileHandler(section_path=["default"]),
-                    SnowSqlConfigHandler(),
+                    IniFileHandler(),
                 ],
             )
 
@@ -355,7 +355,7 @@ class TestFileHandlerMigration:
                 handlers=[
                     TomlFileHandler(section_path=["connections"]),
                     TomlFileHandler(section_path=["cli"]),
-                    SnowSqlConfigHandler(),
+                    IniFileHandler(),
                 ],
             )
 
