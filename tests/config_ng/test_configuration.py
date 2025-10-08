@@ -215,6 +215,7 @@ class TestConfigurationResolution:
             assert len(history.entries) >= 2  # At least config file and CLI param
 
             # The selected entry should be from CLI
+            assert history.selected_entry
             assert history.selected_entry.config_value.source_name == "cli_arguments"
 
     def test_resolution_summary(self):

@@ -17,11 +17,12 @@ File format handlers for configuration system.
 
 This module implements handlers for:
 - TOML configuration files (SnowCLI format)
-- SnowSQL configuration files (Legacy format with key mapping)
+- SnowSQL configuration files (INI format with key mapping)
 """
 
 from __future__ import annotations
 
+import configparser
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -204,7 +205,7 @@ class TomlFileHandler(SourceHandler):
 class SnowSqlConfigHandler(SourceHandler):
     """
     Handler for SnowSQL config files.
-    Format: INI-like TOML with SnowSQL-specific key naming.
+    Format: INI format with SnowSQL-specific key naming.
 
     SnowSQL Multi-File Support:
         SnowSQL reads from multiple config file locations (system-wide, user home, etc.)
@@ -223,7 +224,7 @@ class SnowSqlConfigHandler(SourceHandler):
     - rolename → role
     - pwd → password
 
-    Example SnowSQL config:
+    Example SnowSQL config (INI format):
         [connections.default]
         accountname = my_account
         username = my_user
@@ -261,7 +262,7 @@ class SnowSqlConfigHandler(SourceHandler):
                          Default: ["connections"] for SnowSQL compatibility
         """
         self._section_path = section_path or ["connections"]
-        self._cached_data: Optional[Dict] = None
+        self._cached_data: Optional[configparser.ConfigParser] = None
         self._cached_file: Optional[Path] = None
 
     @property
@@ -281,12 +282,14 @@ class SnowSqlConfigHandler(SourceHandler):
         return True
 
     def can_handle_file(self, file_path: Path) -> bool:
-        """Check if file is SnowSQL config or TOML file."""
+        """Check if file is SnowSQL config file."""
         # SnowSQL config is typically ~/.snowsql/config (no extension)
-        # But for flexibility, also handle any TOML file
+        # or ~/.snowsql.cnf, /etc/snowsql.cnf, etc.
         if file_path.parent.name == ".snowsql" and file_path.name == "config":
             return True
-        # Also handle .toml files for testing and flexibility
+        if file_path.suffix.lower() == ".cnf":
+            return True
+        # For backward compatibility during migration, also handle .toml
         return file_path.suffix.lower() in (".toml", ".tml")
 
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
@@ -304,7 +307,7 @@ class SnowSqlConfigHandler(SourceHandler):
         Discover values from SnowSQL config with key mapping.
 
         Args:
-            file_path: Path to SnowSQL config file
+            file_path: Path to SnowSQL config file (INI format)
             key: Specific key to discover (SnowCLI format), or None
 
         Returns:
@@ -313,22 +316,35 @@ class SnowSqlConfigHandler(SourceHandler):
         # Load and cache file data
         if self._cached_file != file_path:
             try:
-                with open(file_path) as f:
-                    self._cached_data = tomlkit.load(f)
-                    self._cached_file = file_path
-            except (OSError, tomlkit.exceptions.TOMLKitError):
+                parser = configparser.ConfigParser()
+                parser.read(file_path)
+                self._cached_data = parser
+                self._cached_file = file_path
+            except (OSError, configparser.Error):
                 return {}
 
-        # Navigate to section
-        data = self._cached_data
-        for section in self._section_path:
-            if isinstance(data, dict) and section in data:
-                data = data[section]
-            else:
-                return {}  # Section doesn't exist
+        # Ensure we have cached data
+        if self._cached_data is None:
+            return {}
 
-        # Ensure data is a dictionary
-        if not isinstance(data, dict):
+        # Build the section name from section_path
+        # INI uses dot notation: connections.default becomes "connections.default"
+        section_name = ".".join(self._section_path) if self._section_path else None
+
+        # Get the data from the appropriate section
+        data = {}
+        if section_name:
+            if self._cached_data.has_section(section_name):
+                data = dict(self._cached_data.items(section_name))
+            else:
+                # Try to find subsections (e.g., if section_path is ["connections"])
+                # Look for all sections starting with "connections."
+                if len(self._section_path) == 1:
+                    base_section = self._section_path[0]
+                    if self._cached_data.has_section(base_section):
+                        data = dict(self._cached_data.items(base_section))
+
+        if not data:
             return {}
 
         # Extract and map keys
@@ -337,17 +353,18 @@ class SnowSqlConfigHandler(SourceHandler):
         if key is not None:
             # Reverse lookup: find SnowSQL key for CLI key
             snowsql_key = self._get_snowsql_key(key)
-            if snowsql_key in data:
-                raw = data[snowsql_key]
-                values[key] = ConfigValue(
-                    key=key,  # Normalized SnowCLI key
-                    value=raw,
-                    source_name=self.source_name,
-                    priority=self.priority,
-                    raw_value=f"{snowsql_key}={raw}"
-                    if snowsql_key != key
-                    else str(raw),
-                )
+            # Check both original case and lowercase
+            for k in [snowsql_key, snowsql_key.lower()]:
+                if k in data:
+                    raw = data[k]
+                    values[key] = ConfigValue(
+                        key=key,  # Normalized SnowCLI key
+                        value=raw,
+                        source_name=self.source_name,
+                        priority=self.priority,
+                        raw_value=f"{k}={raw}" if k != key else str(raw),
+                    )
+                    break
         else:
             for snowsql_key, value in data.items():
                 if not isinstance(snowsql_key, str):

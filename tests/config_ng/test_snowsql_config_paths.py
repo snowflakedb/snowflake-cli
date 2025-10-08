@@ -171,7 +171,7 @@ class TestSnowSqlConfigPathsIntegration:
             snowsql_dir.mkdir()
             user_config = snowsql_dir / "config"
             user_config.write_text(
-                '[connections]\naccountname = "user_account"\nusername = "user"\n'
+                "[connections]\naccountname = user_account\nusername = user\n"
             )
 
             # Get paths using helper
@@ -204,8 +204,8 @@ class TestSnowSqlConfigPathsIntegration:
             user_config = snowsql_dir / "config"
             user_config.write_text(
                 "[connections]\n"
-                'accountname = "priority1_account"\n'
-                'username = "priority1_user"\n'
+                "accountname = priority1_account\n"
+                "username = priority1_user\n"
             )
 
             # Create another config in snowsql dir (should have lower priority)
@@ -213,9 +213,9 @@ class TestSnowSqlConfigPathsIntegration:
             legacy_config = snowsql_dir / "legacy.toml"
             legacy_config.write_text(
                 "[connections]\n"
-                'accountname = "priority2_account"\n'
-                'username = "priority2_user"\n'
-                'databasename = "priority2_db"\n'
+                "accountname = priority2_account\n"
+                "username = priority2_user\n"
+                "databasename = priority2_db\n"
             )
 
             # Manually specify paths to test precedence
