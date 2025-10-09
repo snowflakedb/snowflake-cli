@@ -388,6 +388,10 @@ class CliEnvironment(ValueSource):
         "private_key_file",
         "private_key_path",  # Used by integration tests
         "private_key_raw",  # Used by integration tests
+        "private_key_passphrase",  # Private key passphrase for encrypted keys
+        "token",  # OAuth token
+        "session_token",  # Session token for session-based authentication
+        "master_token",  # Master token for advanced authentication
         "token_file_path",
         "oauth_client_id",
         "oauth_client_secret",
@@ -395,7 +399,7 @@ class CliEnvironment(ValueSource):
         "oauth_token_request_url",
         "oauth_redirect_uri",
         "oauth_scope",
-        "oatuh_enable_pkce",
+        "oauth_enable_pkce",  # Fixed typo: was "oatuh_enable_pkce"
         "oauth_enable_refresh_tokens",
         "oauth_enable_single_use_refresh_tokens",
         "client_store_temporary_credential",
