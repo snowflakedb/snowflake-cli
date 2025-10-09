@@ -147,9 +147,13 @@ def _find_command_info() -> TelemetryDict:
     format_value = None
     current_ctx: Optional[Context] = ctx
     while current_ctx:
-        for k, v in current_ctx.params.items():
-            if v and k not in command_flags and k not in INTERNAL_CLI_FLAGS:
-                command_flags[k] = current_ctx.get_parameter_source(k).name  # type: ignore[attr-defined]
+        for flag, flag_value in current_ctx.params.items():
+            if (
+                flag_value
+                and flag not in command_flags
+                and flag not in INTERNAL_CLI_FLAGS
+            ):
+                command_flags[flag] = current_ctx.get_parameter_source(flag).name  # type: ignore[attr-defined]
         if format_value is None and "format" in current_ctx.params:
             format_value = current_ctx.params["format"]
         current_ctx = current_ctx.parent

@@ -292,6 +292,12 @@ class CliAppFactory:
 
     @staticmethod
     def _validate_internal_flags_excluded_from_telemetry(callback_function):
+        """
+        We have not been interested in collecting telemetry data about root
+        command flags (most of which are internal flags). This method validates
+        that all new flags should be added to INTERNAL_CLI_FLAGS and thus
+        excluded from telemetry as well.
+        """
         sig = inspect.signature(callback_function)
         actual_params = {name for name in sig.parameters.keys() if name != "ctx"}
         if actual_params != INTERNAL_CLI_FLAGS:
