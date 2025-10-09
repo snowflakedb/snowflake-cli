@@ -160,18 +160,9 @@ class ConnectionContext:
                 module="snowflake.connector.config_manager",
             )
 
-        # Get connection parameters but exclude connection_name
-        # The Snowflake connector validates connection_name against its own
-        # config manager (only reads config.toml), which doesn't know about
-        # connections from SnowSQL config files. We handle connection resolution
-        # ourselves, so don't let the connector validate it.
+        # Get connection parameters and pass them directly to connect_to_snowflake
+        # This restores the original behavior before the change that enforced temporary_connection
         conn_params = self.present_values_as_dict()
-        conn_params.pop("connection_name", None)
-
-        # If we removed connection_name, mark as temporary_connection
-        # so the connector doesn't require it
-        if "connection_name" not in conn_params:
-            conn_params["temporary_connection"] = True
 
         return connect_to_snowflake(**conn_params)
 
