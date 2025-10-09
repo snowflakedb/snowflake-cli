@@ -70,6 +70,53 @@ class ConfigProvider(ABC):
         """Get all connection configurations."""
         ...
 
+    def _transform_private_key_raw(self, connection_dict: dict) -> dict:
+        """
+        Transform private_key_raw to private_key_file for ConnectionContext compatibility.
+
+        The ConnectionContext dataclass doesn't have a private_key_raw field, so it gets
+        filtered out by merge_with_config. To work around this, we write private_key_raw
+        content to a temporary file and return it as private_key_file.
+
+        Args:
+            connection_dict: Connection configuration dictionary
+
+        Returns:
+            Modified connection dictionary with private_key_raw transformed to private_key_file
+        """
+        if "private_key_raw" not in connection_dict:
+            return connection_dict
+
+        # Don't transform if private_key_file is already set
+        if "private_key_file" in connection_dict:
+            return connection_dict
+
+        import os
+        import tempfile
+
+        try:
+            # Create a temporary file with the private key content
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".pem", delete=False
+            ) as f:
+                f.write(connection_dict["private_key_raw"])
+                temp_file_path = f.name
+
+            # Set restrictive permissions on the temporary file
+            os.chmod(temp_file_path, 0o600)
+
+            # Create a copy of the connection dict with the transformation
+            result = connection_dict.copy()
+            result["private_key_file"] = temp_file_path
+            del result["private_key_raw"]
+
+            return result
+
+        except Exception:
+            # If transformation fails, return original dict
+            # The error will be handled downstream
+            return connection_dict
+
 
 class LegacyConfigProvider(ConfigProvider):
     """
@@ -113,7 +160,8 @@ class LegacyConfigProvider(ConfigProvider):
     def get_connection_dict(self, connection_name: str) -> dict:
         from snowflake.cli.api.config import get_connection_dict
 
-        return get_connection_dict(connection_name)
+        result = get_connection_dict(connection_name)
+        return self._transform_private_key_raw(result)
 
     def get_all_connections(self) -> dict:
         from snowflake.cli.api.config import get_all_connections
@@ -377,7 +425,8 @@ class AlternativeConfigProvider(ConfigProvider):
         Returns:
             Dictionary of connection parameters
         """
-        return self._get_connection_dict_internal(connection_name)
+        result = self._get_connection_dict_internal(connection_name)
+        return self._transform_private_key_raw(result)
 
     def _get_all_connections_dict(self) -> Dict[str, Dict[str, Any]]:
         """
