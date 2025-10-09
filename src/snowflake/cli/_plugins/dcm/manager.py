@@ -86,6 +86,7 @@ class DCMProjectManager(SqlExecutionMixin):
         dry_run: bool = False,
         alias: str | None = None,
         output_path: str | None = None,
+        skip_plan: bool = False,
     ):
         with self._collect_output(project_identifier, output_path) if (
             output_path and dry_run
@@ -109,6 +110,8 @@ class DCMProjectManager(SqlExecutionMixin):
             query += f" FROM {stage_path.absolute_path()}"
             if output_stage is not None:
                 query += f" OUTPUT_PATH {output_stage}"
+            if skip_plan:
+                query += f" SKIP PLAN"
             result = self.execute_query(query=query)
 
         return result
