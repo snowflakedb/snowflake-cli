@@ -89,7 +89,7 @@ UNSUPPORTED_OBJECTS = {
     ObjectType.APPLICATION.value.cli_name,
     ObjectType.APPLICATION_PACKAGE.value.cli_name,
     ObjectType.DCM_PROJECT.value.cli_name,
-    ObjectType.DBT_PROJECT.value.cli_name,
+    ObjectType.DBT_PROJECT.value.cli_name,  # ENABLE_DBT_GA_FEATURES
 }
 SUPPORTED_OBJECTS = sorted(OBJECT_TO_NAMES.keys() - UNSUPPORTED_OBJECTS)
 
