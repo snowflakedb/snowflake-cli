@@ -206,17 +206,27 @@ class TestConfigurationResolution:
             resolver = ctx.get_resolver()
             config = resolver.resolve()
 
-            # Check that account was overridden
+            # Check that account was overridden (flat key from CLI)
             assert config["account"] == "cli-account"
 
-            # Check resolution history
-            history = resolver.get_resolution_history("account")
-            assert history is not None
-            assert len(history.entries) >= 2  # At least config file and CLI param
+            # Also check that connection-specific key exists (from file sources)
+            assert config.get("connections.a.account") == "account-a"
 
-            # The selected entry should be from CLI
-            assert history.selected_entry
-            assert history.selected_entry.config_value.source_name == "cli_arguments"
+            # Check resolution history for flat key (from CLI params)
+            cli_history = resolver.get_resolution_history("account")
+            assert cli_history is not None
+            assert (
+                len(cli_history.entries) == 1
+            )  # Only CLI param provides flat "account"
+            assert cli_history.selected_entry
+            assert (
+                cli_history.selected_entry.config_value.source_name == "cli_arguments"
+            )
+
+            # Check resolution history for prefixed key (from file sources)
+            file_history = resolver.get_resolution_history("connections.a.account")
+            assert file_history is not None
+            assert len(file_history.entries) >= 1  # Config files provide prefixed key
 
     def test_resolution_summary(self):
         """Test that resolution summary provides useful statistics."""
