@@ -12,7 +12,7 @@ on:
       - features/*
 
 env:
-  TERM: unknown  # Disables colors in rich
+  TERM: unknown # Disables colors in rich
 
 permissions:
   contents: read
@@ -45,27 +45,27 @@ jobs:
       - uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24
 
   tests-ng:
-      needs: define-matrix
-      strategy:
-        fail-fast: true
-        matrix:
-          os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
-          python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
-      runs-on: ${{ matrix.os }}
-      env:
-        SNOWFLAKE_CLI_CONFIG_V2_ENABLED: 1
-      steps:
-        - uses: actions/checkout@v4
-          with:
-            persist-credentials: false
-        - name: Set up Python ${{ matrix.python-version }}
-          uses: actions/setup-python@v5
-          with:
-            python-version: ${{ matrix.python-version }}
-        - name: Install hatch
-          run: |
-            pip install -U click==8.2.1 hatch
-            hatch env create default
-        - name: Test with hatch
-          run: hatch run test-cov
-        - uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24
+    needs: define-matrix
+    strategy:
+      fail-fast: true
+      matrix:
+        os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
+        python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install hatch
+        run: |
+          pip install -U click==8.2.1 hatch
+          hatch env create default
+      - name: Test with hatch
+        run: hatch run test-cov
+      - uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24
+    env:
+      SNOWFLAKE_CLI_CONFIG_V2_ENABLED: 1
