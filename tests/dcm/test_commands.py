@@ -92,6 +92,7 @@ class TestDCMDeploy:
             variables=None,
             alias=None,
             output_path=None,
+            skip_plan=False,
         )
 
     @mock.patch(DCMProjectManager)
@@ -112,6 +113,7 @@ class TestDCMDeploy:
             variables=None,
             alias=None,
             output_path=None,
+            skip_plan=False,
         )
 
     @mock.patch(DCMProjectManager)
@@ -134,6 +136,7 @@ class TestDCMDeploy:
             variables=["key=value"],
             alias=None,
             output_path=None,
+            skip_plan=False,
         )
 
     @mock.patch(DCMProjectManager)
@@ -164,6 +167,7 @@ class TestDCMDeploy:
             variables=None,
             alias=None,
             output_path=None,
+            skip_plan=False,
         )
 
     @mock.patch(DCMProjectManager)
@@ -186,6 +190,7 @@ class TestDCMDeploy:
             variables=None,
             alias="my_alias",
             output_path=None,
+            skip_plan=False,
         )
 
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
