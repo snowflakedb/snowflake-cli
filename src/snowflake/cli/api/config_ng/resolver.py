@@ -348,9 +348,11 @@ class ConfigurationResolver:
         Resolution Process:
         1. Iterate sources in order (lowest to highest priority)
         2. Record all discovered values in history
-        3. Later sources overwrite earlier sources (simple dict update)
-        4. Mark which value was selected
-        5. Return final resolved values
+        3. For connection keys (connections.{name}.{param}):
+           - Merge connection-by-connection: later sources extend/overwrite individual params
+        4. For flat keys: later sources overwrite earlier sources
+        5. Mark which value was selected
+        6. Return final resolved values
 
         Args:
             key: Specific key to resolve (None = all keys)
@@ -360,9 +362,10 @@ class ConfigurationResolver:
             Dictionary of resolved values (key -> value)
         """
         all_values: Dict[str, ConfigValue] = {}
+        # Track connection values separately for intelligent merging
+        connections: Dict[str, Dict[str, ConfigValue]] = defaultdict(dict)
 
         # Process sources in order (first = lowest priority, last = highest)
-        # Later sources overwrite earlier ones via dict.update()
         for source in self._sources:
             try:
                 source_values = source.discover(key)
@@ -371,11 +374,28 @@ class ConfigurationResolver:
                 for k, config_value in source_values.items():
                     self._history_tracker.record_discovery(k, config_value)
 
-                # Update current values (later source overwrites earlier)
-                all_values.update(source_values)
+                # Separate connection keys from flat keys
+                for k, config_value in source_values.items():
+                    if k.startswith("connections."):
+                        # Parse: connections.{name}.{param}
+                        parts = k.split(".", 2)
+                        if len(parts) == 3:
+                            conn_name = parts[1]
+                            param = parts[2]
+                            param_key = f"connections.{conn_name}.{param}"
+
+                            # Merge at parameter level: later source overwrites/extends
+                            connections[conn_name][param_key] = config_value
+                    else:
+                        # Flat key: later source overwrites
+                        all_values[k] = config_value
 
             except Exception as e:
                 log.warning("Error from source %s: %s", source.source_name, e)
+
+        # Flatten connection data back into all_values
+        for conn_name, conn_params in connections.items():
+            all_values.update(conn_params)
 
         # Mark which values were selected in history
         for k, config_value in all_values.items():

@@ -334,43 +334,37 @@ class ConfigSourcesContext:
         if self.snowsql_config_path and self.snowsql_config_path.exists():
             # Create a custom SnowSQL source that reads from our test path
             class TestSnowSQLConfig(SnowSQLConfigFile):
-                def __init__(self, config_path: Path, conn_name: str):
-                    super().__init__(connection_name=conn_name)
+                def __init__(self, config_path: Path):
+                    super().__init__()
                     self._config_files = [config_path]
 
-            sources_list.append(
-                TestSnowSQLConfig(self.snowsql_config_path, self.connection_name)
-            )
+            sources_list.append(TestSnowSQLConfig(self.snowsql_config_path))
 
         # 2. CLI config.toml - if configured
         if self.cli_config_path and self.cli_config_path.exists():
             # Create a custom CLI config source that reads from our test path
             class TestCliConfig(CliConfigFile):
-                def __init__(self, config_path: Path, conn_name: str):
-                    super().__init__(connection_name=conn_name)
+                def __init__(self, config_path: Path):
+                    super().__init__()
                     self._search_paths = [config_path]
 
-            sources_list.append(
-                TestCliConfig(self.cli_config_path, self.connection_name)
-            )
+            sources_list.append(TestCliConfig(self.cli_config_path))
 
         # 3. Connections.toml - if configured
         if self.connections_toml_path and self.connections_toml_path.exists():
             # Create a custom connections source that reads from our test path
             class TestConnectionsConfig(ConnectionsConfigFile):
-                def __init__(self, config_path: Path, conn_name: str):
-                    super().__init__(connection_name=conn_name)
+                def __init__(self, config_path: Path):
+                    super().__init__()
                     self._file_path = config_path
 
-            sources_list.append(
-                TestConnectionsConfig(self.connections_toml_path, self.connection_name)
-            )
+            sources_list.append(TestConnectionsConfig(self.connections_toml_path))
 
         # 4. SnowSQL environment variables
         sources_list.append(SnowSQLEnvironment())
 
         # 5. CLI environment variables
-        sources_list.append(CliEnvironment(connection_name=self.connection_name))
+        sources_list.append(CliEnvironment())
 
         # 6. CLI arguments (highest priority) - if configured
         if self.cli_args_dict:
@@ -382,11 +376,31 @@ class ConfigSourcesContext:
         """
         Get the merged configuration from all sources.
 
+        Extracts connection-specific values for the configured connection.
+
         Returns:
-            Dictionary with resolved configuration values
+            Dictionary with resolved configuration values (flat keys)
         """
         resolver = self.get_resolver()
-        return resolver.resolve()
+        all_config = resolver.resolve()
+
+        # Extract connection-specific values similar to _get_connection_dict_internal
+        connection_dict: Dict[str, Any] = {}
+
+        # First, get connection-specific keys (from file sources)
+        connection_prefix = f"connections.{self.connection_name}."
+        for key, value in all_config.items():
+            if key.startswith(connection_prefix):
+                # Extract parameter name
+                param_name = key[len(connection_prefix) :]
+                connection_dict[param_name] = value
+
+        # Then, overlay flat keys (from env/CLI sources) - these have higher priority
+        for key, value in all_config.items():
+            if "." not in key:  # Flat key like "account", "user"
+                connection_dict[key] = value
+
+        return connection_dict
 
 
 @contextmanager

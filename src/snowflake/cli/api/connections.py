@@ -137,9 +137,15 @@ class ConnectionContext:
     def validate_and_complete(self):
         """
         Ensure we can create a connection from this context.
+        Loads connection parameters from config if not already set.
         """
         if not self.temporary_connection and not self.connection_name:
             self.connection_name = get_default_connection_name()
+
+        # Load connection parameters from config if we have a connection_name
+        # and haven't loaded them yet (e.g., user is still None)
+        if self.connection_name and not self.user:
+            self.update_from_config()
 
     def build_connection(self):
         from snowflake.cli._app.snow_connector import connect_to_snowflake
@@ -153,7 +159,20 @@ class ConnectionContext:
                 module="snowflake.connector.config_manager",
             )
 
-        return connect_to_snowflake(**self.present_values_as_dict())
+        # Get connection parameters but exclude connection_name
+        # The Snowflake connector validates connection_name against its own
+        # config manager (only reads config.toml), which doesn't know about
+        # connections from SnowSQL config files. We handle connection resolution
+        # ourselves, so don't let the connector validate it.
+        conn_params = self.present_values_as_dict()
+        conn_params.pop("connection_name", None)
+
+        # If we removed connection_name, mark as temporary_connection
+        # so the connector doesn't require it
+        if "connection_name" not in conn_params:
+            conn_params["temporary_connection"] = True
+
+        return connect_to_snowflake(**conn_params)
 
 
 class OpenConnectionCache:
