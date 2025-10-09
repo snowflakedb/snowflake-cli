@@ -18,11 +18,12 @@ import os
 import platform
 import sys
 from enum import Enum, unique
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 import click
 import typer
 from snowflake.cli import __about__
+from snowflake.cli._app.cli_app import INTERNAL_CLI_FLAGS
 from snowflake.cli._app.constants import PARAM_APPLICATION_NAME
 from snowflake.cli.api.cli_global_context import (
     _CliGlobalContextAccess,
@@ -38,6 +39,7 @@ from snowflake.connector.telemetry import (
     TelemetryField,
 )
 from snowflake.connector.time_util import get_time_millis
+from typer import Context
 
 
 @unique
@@ -140,17 +142,30 @@ def _get_command_metrics() -> TelemetryDict:
 def _find_command_info() -> TelemetryDict:
     ctx = click.get_current_context()
     command_path = ctx.command_path.split(" ")[1:]
+
+    command_flags = {}
+    format_value = None
+    current_ctx: Optional[Context] = ctx
+    while current_ctx:
+        for flag, flag_value in current_ctx.params.items():
+            if (
+                flag_value
+                and flag not in command_flags
+                and flag not in INTERNAL_CLI_FLAGS
+            ):
+                command_flags[flag] = current_ctx.get_parameter_source(flag).name  # type: ignore[attr-defined]
+        if format_value is None and "format" in current_ctx.params:
+            format_value = current_ctx.params["format"]
+        current_ctx = current_ctx.parent
+
+    if format_value is None:
+        format_value = OutputFormat.TABLE
+
     return {
         CLITelemetryField.COMMAND: command_path,
         CLITelemetryField.COMMAND_GROUP: command_path[0],
-        CLITelemetryField.COMMAND_FLAGS: {
-            k: ctx.get_parameter_source(k).name  # type: ignore[attr-defined]
-            for k, v in ctx.params.items()
-            if v  # noqa
-        },
-        CLITelemetryField.COMMAND_OUTPUT_TYPE: ctx.params.get(
-            "format", OutputFormat.TABLE
-        ).value,
+        CLITelemetryField.COMMAND_FLAGS: command_flags,
+        CLITelemetryField.COMMAND_OUTPUT_TYPE: format_value.value,
         CLITelemetryField.PROJECT_DEFINITION_VERSION: str(_get_definition_version()),
         CLITelemetryField.MODE: _get_cli_running_mode(),
     }

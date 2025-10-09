@@ -215,3 +215,28 @@ def test_cli_exception_classification(error: Exception, is_cli: bool):
     from snowflake.cli._app.telemetry import _is_cli_exception
 
     assert _is_cli_exception(error) == is_cli
+
+
+@mock.patch("uuid.uuid4")
+def test_flags_from_parent_contexts_are_captured(mock_uuid4, mock_connect, runner):
+    mock_uuid4.return_value = uuid.UUID("8a2225b3800c4017a4a9eab941db58fa")
+
+    result = runner.invoke(
+        ["dbt", "execute", "--run-async", "pipeline_name", "run", "--debug"]
+    )
+
+    assert result.exit_code == 0, result.output
+
+    usage_command_event = (
+        mock_connect.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+            0
+        ]
+        .args[0]
+        .to_dict()
+    )
+
+    command_flags = usage_command_event["message"]["command_flags"]
+    assert "run_async" in command_flags, (
+        f"run_async flag should be captured in telemetry. "
+        f"Found flags: {command_flags}"
+    )

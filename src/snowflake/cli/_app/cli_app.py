@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import inspect
 import logging
 import os
 import platform
@@ -46,6 +47,20 @@ from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector.config_manager import CONFIG_MANAGER
 
 log = logging.getLogger(__name__)
+
+INTERNAL_CLI_FLAGS = {
+    "custom_help",
+    "version",
+    "docs",
+    "structure",
+    "info",
+    "configuration_file",
+    "pycharm_debug_library_path",
+    "pycharm_debug_server_host",
+    "pycharm_debug_server_port",
+    "disable_external_command_plugins",
+    "commands_registration",
+}
 
 
 def _do_not_execute_on_completion(callback):
@@ -270,8 +285,36 @@ class CliAppFactory:
                 pycharm_debug_server_port=pycharm_debug_server_port,
             )
 
+        self._validate_internal_flags_excluded_from_telemetry(default)
+
         self._app = app
         return app
+
+    @staticmethod
+    def _validate_internal_flags_excluded_from_telemetry(callback_function):
+        """
+        We have not been interested in collecting telemetry data about root
+        command flags (most of which are internal flags). This method validates
+        that all new flags should be added to INTERNAL_CLI_FLAGS and thus
+        excluded from telemetry as well.
+        """
+        sig = inspect.signature(callback_function)
+        actual_params = {name for name in sig.parameters.keys() if name != "ctx"}
+        if actual_params != INTERNAL_CLI_FLAGS:
+            missing = actual_params - INTERNAL_CLI_FLAGS
+            extra = INTERNAL_CLI_FLAGS - actual_params
+            error_parts = []
+            if missing:
+                error_parts.append(
+                    f"Parameters in default() but not in INTERNAL_CLI_FLAGS: {missing}"
+                )
+            if extra:
+                error_parts.append(
+                    f"Flags in INTERNAL_CLI_FLAGS but not in default(): {extra}"
+                )
+            raise AssertionError(
+                "INTERNAL_CLI_FLAGS mismatch! " + ". ".join(error_parts)
+            )
 
     def get_click_context(self):
         return self._click_context
