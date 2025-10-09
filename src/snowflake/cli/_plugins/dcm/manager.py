@@ -87,6 +87,7 @@ class DCMProjectManager(SqlExecutionMixin):
         dry_run: bool = False,
         alias: str | None = None,
         output_path: str | None = None,
+        skip_plan: bool = False,
     ):
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier}"
         if dry_run:
@@ -105,6 +106,8 @@ class DCMProjectManager(SqlExecutionMixin):
             ).removeprefix(" using")
         stage_path = StagePath.from_stage_str(from_stage)
         query += f" FROM {stage_path.absolute_path()}"
+        if skip_plan:
+            query += f" SKIP PLAN"
 
         with self._collect_output(project_identifier, output_path) if (
             output_path and dry_run
