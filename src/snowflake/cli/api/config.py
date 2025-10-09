@@ -99,6 +99,10 @@ class ConnectionConfig:
     authenticator: Optional[str] = None
     workload_identity_provider: Optional[str] = None
     private_key_file: Optional[str] = None
+    private_key_passphrase: Optional[str] = field(default=None, repr=False)
+    token: Optional[str] = field(default=None, repr=False)
+    session_token: Optional[str] = field(default=None, repr=False)
+    master_token: Optional[str] = field(default=None, repr=False)
     token_file_path: Optional[str] = None
     oauth_client_id: Optional[str] = None
     oauth_client_secret: Optional[str] = None
@@ -106,7 +110,7 @@ class ConnectionConfig:
     oauth_token_request_url: Optional[str] = None
     oauth_redirect_uri: Optional[str] = None
     oauth_scope: Optional[str] = None
-    oatuh_enable_pkce: Optional[bool] = None
+    oauth_enable_pkce: Optional[bool] = None
     oauth_enable_refresh_tokens: Optional[bool] = None
     oauth_enable_single_use_refresh_tokens: Optional[bool] = None
     client_store_temporary_credential: Optional[bool] = None
