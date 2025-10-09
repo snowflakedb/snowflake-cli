@@ -119,6 +119,12 @@ def deploy(
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
     alias: Optional[str] = alias_option,
+    skip_plan: bool = typer.Option(
+        False,
+        "--skip-plan",
+        hidden=True,
+        help="Skips planning step",
+    ),
     **options,
 ):
     """
@@ -133,12 +139,15 @@ def deploy(
 
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Deploying dcm project {identifier}", total=None)
+        if skip_plan:
+            cli_console.warning("Skipping planning step")
         result = manager.deploy(
             project_identifier=identifier,
             configuration=configuration,
             from_stage=effective_stage,
             variables=variables,
             alias=alias,
+            skip_plan=skip_plan,
         )
 
     if source_directory:

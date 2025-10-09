@@ -173,12 +173,15 @@ class DCMProjectManager(SqlExecutionMixin):
         configuration: str | None = None,
         variables: List[str] | None = None,
         alias: str | None = None,
+        skip_plan: bool = False,
     ):
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} DEPLOY"
         if alias:
             query += f' AS "{alias}"'
         query += self._get_configuration_and_variables_query(configuration, variables)
         query += self._get_from_stage_query(from_stage)
+        if skip_plan:
+            query += f" SKIP PLAN"
         return self.execute_query(query=query)
 
     def plan(
