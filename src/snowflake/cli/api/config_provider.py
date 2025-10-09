@@ -154,30 +154,28 @@ class AlternativeConfigProvider(ConfigProvider):
             SnowSQLEnvironment,
         )
 
-        # Get CLI context and connection name safely
+        # Get CLI context safely
         try:
             cli_context = get_cli_context().connection_context
             cli_context_dict = cli_context.present_values_as_dict()
-            connection_name = cli_context_dict.get("connection", "default")
         except Exception:
             cli_context_dict = {}
-            connection_name = "default"
 
         # Create sources in precedence order (lowest to highest priority)
-        # Order: SnowSQL config -> CLI config -> connections.toml ->
-        #        SnowSQL env -> CLI env -> CLI arguments
+        # File sources return keys: connections.{name}.{param}
+        # Env/CLI sources return flat keys: account, user, etc.
 
         sources = [
             # 1. SnowSQL config files (lowest priority, merged)
-            SnowSQLConfigFile(connection_name=connection_name),
+            SnowSQLConfigFile(),
             # 2. CLI config.toml (first-found behavior)
-            CliConfigFile(connection_name=connection_name),
+            CliConfigFile(),
             # 3. Dedicated connections.toml
-            ConnectionsConfigFile(connection_name=connection_name),
+            ConnectionsConfigFile(),
             # 4. SnowSQL environment variables (SNOWSQL_*)
             SnowSQLEnvironment(),
-            # 5. CLI environment variables (SNOWFLAKE_* and SNOWFLAKE_CONNECTION_*)
-            CliEnvironment(connection_name=connection_name),
+            # 5. CLI environment variables (SNOWFLAKE_*)
+            CliEnvironment(),
             # 6. CLI command-line arguments (highest priority)
             CliParameters(cli_context=cli_context_dict),
         ]
@@ -329,6 +327,10 @@ class AlternativeConfigProvider(ConfigProvider):
         """
         Get connection configuration by name.
 
+        Merges two types of keys:
+        1. Connection-specific: connections.{name}.{param} (from files)
+        2. Flat keys: {param} (from env/CLI, applies to active connection)
+
         Args:
             connection_name: Name of the connection
 
@@ -341,15 +343,20 @@ class AlternativeConfigProvider(ConfigProvider):
             assert self._resolver is not None
             self._config_cache = self._resolver.resolve()
 
-        # Look for keys like "connections.{connection_name}.{param}"
-        connection_prefix = f"connections.{connection_name}."
         connection_dict: Dict[str, Any] = {}
 
+        # First, get connection-specific keys (from file sources)
+        connection_prefix = f"connections.{connection_name}."
         for key, value in self._config_cache.items():
             if key.startswith(connection_prefix):
                 # Extract parameter name
                 param_name = key[len(connection_prefix) :]
                 connection_dict[param_name] = value
+
+        # Then, overlay flat keys (from env/CLI sources) - these have higher priority
+        for key, value in self._config_cache.items():
+            if "." not in key:  # Flat key like "account", "user"
+                connection_dict[key] = value
 
         if not connection_dict:
             from snowflake.cli.api.exceptions import MissingConfigurationError
