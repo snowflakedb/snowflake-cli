@@ -53,13 +53,16 @@ class SnowSQLConfigFile(ValueSource):
     Later files override earlier files for the same keys.
     Returns configuration for ALL connections.
 
-    Config files searched (in order):
+    Config files searched (in order, when not in test mode):
     1. Bundled default config (if in package)
     2. /etc/snowsql.cnf (system-wide)
     3. /etc/snowflake/snowsql.cnf (alternative system)
     4. /usr/local/etc/snowsql.cnf (local system)
     5. ~/.snowsql.cnf (legacy user config)
     6. ~/.snowsql/config (current user config)
+
+    In test mode (when config_file_override is set), SnowSQL config files are skipped
+    to ensure test isolation.
     """
 
     # SnowSQL uses different key names - map them to CLI standard names
@@ -87,13 +90,31 @@ class SnowSQLConfigFile(ValueSource):
 
     def __init__(self):
         """Initialize SnowSQL config file source."""
-        self._config_files = [
-            Path("/etc/snowsql.cnf"),
-            Path("/etc/snowflake/snowsql.cnf"),
-            Path("/usr/local/etc/snowsql.cnf"),
-            Path.home() / ".snowsql.cnf",
-            Path.home() / ".snowsql" / "config",
-        ]
+        # Use SNOWFLAKE_HOME if set and directory exists, otherwise use standard paths
+        snowflake_home = os.environ.get("SNOWFLAKE_HOME")
+        if snowflake_home:
+            snowflake_home_path = Path(snowflake_home).expanduser()
+            if snowflake_home_path.exists():
+                # Use only the SnowSQL config file within SNOWFLAKE_HOME
+                self._config_files = [snowflake_home_path / "config"]
+            else:
+                # SNOWFLAKE_HOME set but doesn't exist, use standard paths
+                self._config_files = [
+                    Path("/etc/snowsql.cnf"),
+                    Path("/etc/snowflake/snowsql.cnf"),
+                    Path("/usr/local/etc/snowsql.cnf"),
+                    Path.home() / ".snowsql.cnf",
+                    Path.home() / ".snowsql" / "config",
+                ]
+        else:
+            # Standard paths when SNOWFLAKE_HOME not set
+            self._config_files = [
+                Path("/etc/snowsql.cnf"),
+                Path("/etc/snowflake/snowsql.cnf"),
+                Path("/usr/local/etc/snowsql.cnf"),
+                Path.home() / ".snowsql.cnf",
+                Path.home() / ".snowsql" / "config",
+            ]
 
     @property
     def source_name(self) -> str:
@@ -162,17 +183,46 @@ class CliConfigFile(ValueSource):
     Does NOT merge multiple files - first found wins.
     Returns configuration for ALL connections.
 
-    Search order:
+    Search order (when no override is set):
     1. ./config.toml (current directory)
     2. ~/.snowflake/config.toml (user config)
+
+    When config_file_override is set (e.g., in tests), only that file is used.
     """
 
     def __init__(self):
         """Initialize CLI config file source."""
-        self._search_paths = [
-            Path.cwd() / "config.toml",
-            Path.home() / ".snowflake" / "config.toml",
-        ]
+        # Check for config file override from CLI context first
+        try:
+            from snowflake.cli.api.cli_global_context import get_cli_context
+
+            cli_context = get_cli_context()
+            config_override = cli_context.config_file_override
+            if config_override:
+                self._search_paths = [Path(config_override)]
+                return
+        except Exception:
+            pass
+
+        # Use SNOWFLAKE_HOME if set and directory exists, otherwise use standard paths
+        snowflake_home = os.environ.get("SNOWFLAKE_HOME")
+        if snowflake_home:
+            snowflake_home_path = Path(snowflake_home).expanduser()
+            if snowflake_home_path.exists():
+                # Use only config.toml within SNOWFLAKE_HOME
+                self._search_paths = [snowflake_home_path / "config.toml"]
+            else:
+                # SNOWFLAKE_HOME set but doesn't exist, use standard paths
+                self._search_paths = [
+                    Path.cwd() / "config.toml",
+                    Path.home() / ".snowflake" / "config.toml",
+                ]
+        else:
+            # Standard paths when SNOWFLAKE_HOME not set
+            self._search_paths = [
+                Path.cwd() / "config.toml",
+                Path.home() / ".snowflake" / "config.toml",
+            ]
 
     @property
     def source_name(self) -> str:
@@ -234,7 +284,16 @@ class ConnectionsConfigFile(ValueSource):
 
     def __init__(self):
         """Initialize connections.toml source."""
-        self._file_path = Path.home() / ".snowflake" / "connections.toml"
+        # Use SNOWFLAKE_HOME if set and directory exists, otherwise use standard path
+        snowflake_home = os.environ.get("SNOWFLAKE_HOME")
+        if snowflake_home:
+            snowflake_home_path = Path(snowflake_home).expanduser()
+            if snowflake_home_path.exists():
+                self._file_path = snowflake_home_path / "connections.toml"
+            else:
+                self._file_path = Path.home() / ".snowflake" / "connections.toml"
+        else:
+            self._file_path = Path.home() / ".snowflake" / "connections.toml"
 
     @property
     def source_name(self) -> str:
@@ -244,6 +303,15 @@ class ConnectionsConfigFile(ValueSource):
         """
         Read connections.toml if it exists.
         Returns keys in format: connections.{name}.{param} for ALL connections.
+
+        Supports both legacy formats:
+        1. Direct connection sections (legacy):
+           [default]
+           database = "value"
+
+        2. Nested under [connections] section:
+           [connections.default]
+           database = "value"
         """
         if not self._file_path.exists():
             return {}
@@ -253,12 +321,13 @@ class ConnectionsConfigFile(ValueSource):
                 data = tomllib.load(f)
 
             result = {}
-            connections = data.get("connections", {})
 
-            for conn_name, conn_data in connections.items():
-                if isinstance(conn_data, dict):
-                    for param_key, param_value in conn_data.items():
-                        full_key = f"connections.{conn_name}.{param_key}"
+            # Check for direct connection sections (legacy format)
+            for section_name, section_data in data.items():
+                if isinstance(section_data, dict) and section_name != "connections":
+                    # This is a direct connection section like [default]
+                    for param_key, param_value in section_data.items():
+                        full_key = f"connections.{section_name}.{param_key}"
                         if key is None or full_key == key:
                             result[full_key] = ConfigValue(
                                 key=full_key,
@@ -266,6 +335,21 @@ class ConnectionsConfigFile(ValueSource):
                                 source_name=self.source_name,
                                 raw_value=param_value,
                             )
+
+            # Check for nested [connections] section format
+            connections_section = data.get("connections", {})
+            if isinstance(connections_section, dict):
+                for conn_name, conn_data in connections_section.items():
+                    if isinstance(conn_data, dict):
+                        for param_key, param_value in conn_data.items():
+                            full_key = f"connections.{conn_name}.{param_key}"
+                            if key is None or full_key == key:
+                                result[full_key] = ConfigValue(
+                                    key=full_key,
+                                    value=param_value,
+                                    source_name=self.source_name,
+                                    raw_value=param_value,
+                                )
 
             return result
 

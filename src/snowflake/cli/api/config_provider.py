@@ -158,10 +158,17 @@ class LegacyConfigProvider(ConfigProvider):
         config_manager.read_config()
 
     def get_connection_dict(self, connection_name: str) -> dict:
-        from snowflake.cli.api.config import get_connection_dict
+        from snowflake.cli.api.config import get_config_section
 
-        result = get_connection_dict(connection_name)
-        return self._transform_private_key_raw(result)
+        try:
+            result = get_config_section("connections", connection_name)
+            return self._transform_private_key_raw(result)
+        except KeyError:
+            from snowflake.cli.api.exceptions import MissingConfigurationError
+
+            raise MissingConfigurationError(
+                f"Connection {connection_name} is not configured"
+            )
 
     def get_all_connections(self) -> dict:
         from snowflake.cli.api.config import get_all_connections
@@ -375,15 +382,16 @@ class AlternativeConfigProvider(ConfigProvider):
         """
         Get connection configuration by name.
 
-        Merges two types of keys:
-        1. Connection-specific: connections.{name}.{param} (from files)
-        2. Flat keys: {param} (from env/CLI, applies to active connection)
+        Behavior is controlled by SNOWFLAKE_CLI_CONNECTIONS_TOML_REPLACE environment variable:
+        - If set to "true" (default): connections.toml completely replaces connections
+          from config.toml (legacy behavior)
+        - If set to "false": connections.toml values are merged with config.toml values
 
         Args:
             connection_name: Name of the connection
 
         Returns:
-            Dictionary of connection parameters
+            Dictionary of connection parameters from file sources only
         """
         self._ensure_initialized()
 
@@ -392,19 +400,58 @@ class AlternativeConfigProvider(ConfigProvider):
             self._config_cache = self._resolver.resolve()
 
         connection_dict: Dict[str, Any] = {}
-
-        # First, get connection-specific keys (from file sources)
         connection_prefix = f"connections.{connection_name}."
-        for key, value in self._config_cache.items():
-            if key.startswith(connection_prefix):
-                # Extract parameter name
-                param_name = key[len(connection_prefix) :]
-                connection_dict[param_name] = value
 
-        # Then, overlay flat keys (from env/CLI sources) - these have higher priority
-        for key, value in self._config_cache.items():
-            if "." not in key:  # Flat key like "account", "user"
-                connection_dict[key] = value
+        # Check if replacement behavior is enabled (default: true for backward compatibility)
+        import os
+
+        replace_behavior = os.environ.get(
+            "SNOWFLAKE_CLI_CONNECTIONS_TOML_REPLACE", "true"
+        ).lower() in ("true", "1", "yes", "on")
+
+        if replace_behavior:
+            # Legacy replacement behavior: if connections.toml has the connection,
+            # use ONLY values from connections.toml
+            has_connections_toml = False
+            if self._resolver is not None:
+                for key in self._config_cache.keys():
+                    if key.startswith(connection_prefix):
+                        # Check resolution history to see if this came from connections.toml
+                        history = self._resolver.get_resolution_history(key)
+                        if history and history.selected_entry:
+                            if (
+                                history.selected_entry.config_value.source_name
+                                == "connections_toml"
+                            ):
+                                has_connections_toml = True
+                                break
+
+            if has_connections_toml:
+                # Use ONLY connections.toml values (replacement behavior)
+                for key, value in self._config_cache.items():
+                    if key.startswith(connection_prefix):
+                        # Check if this specific value comes from connections.toml
+                        if self._resolver is not None:
+                            history = self._resolver.get_resolution_history(key)
+                            if history and history.selected_entry:
+                                if (
+                                    history.selected_entry.config_value.source_name
+                                    == "connections_toml"
+                                ):
+                                    param_name = key[len(connection_prefix) :]
+                                    connection_dict[param_name] = value
+            else:
+                # No connections.toml, use merged values from other sources
+                for key, value in self._config_cache.items():
+                    if key.startswith(connection_prefix):
+                        param_name = key[len(connection_prefix) :]
+                        connection_dict[param_name] = value
+        else:
+            # New merging behavior: merge all sources normally
+            for key, value in self._config_cache.items():
+                if key.startswith(connection_prefix):
+                    param_name = key[len(connection_prefix) :]
+                    connection_dict[param_name] = value
 
         if not connection_dict:
             from snowflake.cli.api.exceptions import MissingConfigurationError
