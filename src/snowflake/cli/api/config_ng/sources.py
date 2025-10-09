@@ -51,6 +51,7 @@ class SnowSQLConfigFile(ValueSource):
 
     Reads multiple config files in order and MERGES them (SnowSQL behavior).
     Later files override earlier files for the same keys.
+    Returns configuration for ALL connections.
 
     Config files searched (in order):
     1. Bundled default config (if in package)
@@ -61,14 +62,31 @@ class SnowSQLConfigFile(ValueSource):
     6. ~/.snowsql/config (current user config)
     """
 
-    def __init__(self, connection_name: str = "default"):
-        """
-        Initialize SnowSQL config file source.
+    # SnowSQL uses different key names - map them to CLI standard names
+    KEY_MAPPING = {
+        "accountname": "account",
+        "username": "user",
+        "rolename": "role",
+        "warehousename": "warehouse",
+        "schemaname": "schema",
+        "dbname": "database",
+        "pwd": "password",
+        # Keys that don't need mapping (already correct)
+        "password": "password",
+        "database": "database",
+        "schema": "schema",
+        "role": "role",
+        "warehouse": "warehouse",
+        "host": "host",
+        "port": "port",
+        "protocol": "protocol",
+        "authenticator": "authenticator",
+        "private_key_path": "private_key_path",
+        "private_key_passphrase": "private_key_passphrase",
+    }
 
-        Args:
-            connection_name: Name of the connection to read from
-        """
-        self._connection_name = connection_name
+    def __init__(self):
+        """Initialize SnowSQL config file source."""
         self._config_files = [
             Path("/etc/snowsql.cnf"),
             Path("/etc/snowflake/snowsql.cnf"),
@@ -85,6 +103,7 @@ class SnowSQLConfigFile(ValueSource):
         """
         Read and MERGE all SnowSQL config files.
         Later files override earlier files (SnowSQL merging behavior).
+        Returns keys in format: connections.{name}.{param} for ALL connections.
         """
         merged_values: Dict[str, ConfigValue] = {}
 
@@ -96,25 +115,35 @@ class SnowSQLConfigFile(ValueSource):
                 config = configparser.ConfigParser()
                 config.read(config_file)
 
-                # Try connection-specific section first: [connections.prod]
-                section_name = f"connections.{self._connection_name}"
-                if config.has_section(section_name):
-                    section_data = dict(config[section_name])
-                # Fall back to default [connections] section
-                elif config.has_section("connections"):
-                    section_data = dict(config["connections"])
-                else:
-                    continue
+                # Process all connection sections
+                for section in config.sections():
+                    if section.startswith("connections"):
+                        # Extract connection name
+                        if section == "connections":
+                            # This is default connection
+                            connection_name = "default"
+                        else:
+                            # Format: connections.qa6 -> qa6
+                            connection_name = (
+                                section.split(".", 1)[1]
+                                if "." in section
+                                else "default"
+                            )
 
-                # Merge values (later file wins for conflicts)
-                for k, v in section_data.items():
-                    if key is None or k == key:
-                        merged_values[k] = ConfigValue(
-                            key=k,
-                            value=v,
-                            source_name=self.source_name,
-                            raw_value=v,
-                        )
+                        section_data = dict(config[section])
+
+                        # Add all params for this connection
+                        for param_key, param_value in section_data.items():
+                            # Map SnowSQL key names to CLI standard names
+                            normalized_key = self.KEY_MAPPING.get(param_key, param_key)
+                            full_key = f"connections.{connection_name}.{normalized_key}"
+                            if key is None or full_key == key:
+                                merged_values[full_key] = ConfigValue(
+                                    key=full_key,
+                                    value=param_value,
+                                    source_name=self.source_name,
+                                    raw_value=f"{param_key}={param_value}",  # Show original key in raw_value
+                                )
 
             except Exception as e:
                 log.debug("Failed to read SnowSQL config %s: %s", config_file, e)
@@ -131,20 +160,15 @@ class CliConfigFile(ValueSource):
 
     Scans for config.toml files in order and uses FIRST file found (CLI behavior).
     Does NOT merge multiple files - first found wins.
+    Returns configuration for ALL connections.
 
     Search order:
     1. ./config.toml (current directory)
     2. ~/.snowflake/config.toml (user config)
     """
 
-    def __init__(self, connection_name: str = "default"):
-        """
-        Initialize CLI config file source.
-
-        Args:
-            connection_name: Name of the connection to read from
-        """
-        self._connection_name = connection_name
+    def __init__(self):
+        """Initialize CLI config file source."""
         self._search_paths = [
             Path.cwd() / "config.toml",
             Path.home() / ".snowflake" / "config.toml",
@@ -158,6 +182,7 @@ class CliConfigFile(ValueSource):
         """
         Find FIRST existing config file and use it (CLI behavior).
         Does NOT merge multiple files.
+        Returns keys in format: connections.{name}.{param} for ALL connections.
         """
         for config_file in self._search_paths:
             if config_file.exists():
@@ -168,21 +193,28 @@ class CliConfigFile(ValueSource):
     def _parse_toml_file(
         self, file_path: Path, key: Optional[str] = None
     ) -> Dict[str, ConfigValue]:
-        """Parse TOML file and extract connection configuration."""
+        """Parse TOML file and extract ALL connection configurations."""
         try:
             with open(file_path, "rb") as f:
                 data = tomllib.load(f)
 
-            # Navigate to connections.<name>
-            conn_data = data.get("connections", {}).get(self._connection_name, {})
+            result = {}
 
-            return {
-                k: ConfigValue(
-                    key=k, value=v, source_name=self.source_name, raw_value=v
-                )
-                for k, v in conn_data.items()
-                if key is None or k == key
-            }
+            # Get all connections
+            connections = data.get("connections", {})
+            for conn_name, conn_data in connections.items():
+                if isinstance(conn_data, dict):
+                    for param_key, param_value in conn_data.items():
+                        full_key = f"connections.{conn_name}.{param_key}"
+                        if key is None or full_key == key:
+                            result[full_key] = ConfigValue(
+                                key=full_key,
+                                value=param_value,
+                                source_name=self.source_name,
+                                raw_value=param_value,
+                            )
+
+            return result
 
         except Exception as e:
             log.debug("Failed to parse CLI config %s: %s", file_path, e)
@@ -197,16 +229,11 @@ class ConnectionsConfigFile(ValueSource):
     Dedicated connections.toml file source.
 
     Reads ~/.snowflake/connections.toml specifically.
+    Returns configuration for ALL connections.
     """
 
-    def __init__(self, connection_name: str = "default"):
-        """
-        Initialize connections.toml source.
-
-        Args:
-            connection_name: Name of the connection to read from
-        """
-        self._connection_name = connection_name
+    def __init__(self):
+        """Initialize connections.toml source."""
         self._file_path = Path.home() / ".snowflake" / "connections.toml"
 
     @property
@@ -214,7 +241,10 @@ class ConnectionsConfigFile(ValueSource):
         return "connections_toml"
 
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
-        """Read connections.toml if it exists."""
+        """
+        Read connections.toml if it exists.
+        Returns keys in format: connections.{name}.{param} for ALL connections.
+        """
         if not self._file_path.exists():
             return {}
 
@@ -222,15 +252,22 @@ class ConnectionsConfigFile(ValueSource):
             with open(self._file_path, "rb") as f:
                 data = tomllib.load(f)
 
-            conn_data = data.get("connections", {}).get(self._connection_name, {})
+            result = {}
+            connections = data.get("connections", {})
 
-            return {
-                k: ConfigValue(
-                    key=k, value=v, source_name=self.source_name, raw_value=v
-                )
-                for k, v in conn_data.items()
-                if key is None or k == key
-            }
+            for conn_name, conn_data in connections.items():
+                if isinstance(conn_data, dict):
+                    for param_key, param_value in conn_data.items():
+                        full_key = f"connections.{conn_name}.{param_key}"
+                        if key is None or full_key == key:
+                            result[full_key] = ConfigValue(
+                                key=full_key,
+                                value=param_value,
+                                source_name=self.source_name,
+                                raw_value=param_value,
+                            )
+
+            return result
 
         except Exception as e:
             log.debug("Failed to read connections.toml: %s", e)
@@ -347,73 +384,66 @@ class CliEnvironment(ValueSource):
         "authenticator",
     ]
 
-    def __init__(self, connection_name: Optional[str] = None):
-        """
-        Initialize CLI environment source.
-
-        Args:
-            connection_name: Optional connection name for connection-specific vars
-        """
-        self._connection_name = connection_name
-
     @property
     def source_name(self) -> str:
-        if self._connection_name:
-            return f"cli_env:{self._connection_name}"
         return "cli_env"
 
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
         """
         Discover SNOWFLAKE_* environment variables.
+        Returns both general (flat) and connection-specific (prefixed) keys.
 
-        Supports two patterns:
-        1. SNOWFLAKE_ACCOUNT (general)
-        2. SNOWFLAKE_CONNECTION_<name>_ACCOUNT (connection-specific, higher priority)
+        Patterns:
+        1. SNOWFLAKE_ACCOUNT=x -> account=x (flat key)
+        2. SNOWFLAKE_CONNECTION_PROD_ACCOUNT=y -> connections.prod.account=y
         """
         values: Dict[str, ConfigValue] = {}
 
-        # Pattern 1: General SNOWFLAKE_* variables
-        for config_key in self.CONFIG_KEYS:
-            if key is not None and config_key != key:
+        # Scan all environment variables
+        for env_name, env_value in os.environ.items():
+            if not env_name.startswith("SNOWFLAKE_"):
                 continue
 
-            env_var = f"SNOWFLAKE_{config_key.upper()}"
-            env_value = os.getenv(env_var)
+            # Check for connection-specific pattern: SNOWFLAKE_CONNECTION_<NAME>_<KEY>
+            if env_name.startswith("SNOWFLAKE_CONNECTION_"):
+                # Extract connection name and config key
+                remainder = env_name[len("SNOWFLAKE_CONNECTION_") :]
+                parts = remainder.split("_", 1)
+                if len(parts) == 2:
+                    conn_name_upper, config_key_upper = parts
+                    conn_name = conn_name_upper.lower()
+                    config_key = config_key_upper.lower()
 
-            if env_value is not None:
-                values[config_key] = ConfigValue(
-                    key=config_key,
-                    value=env_value,
-                    source_name=self.source_name,
-                    raw_value=env_value,
-                )
+                    if config_key in self.CONFIG_KEYS:
+                        full_key = f"connections.{conn_name}.{config_key}"
+                        if key is None or full_key == key:
+                            values[full_key] = ConfigValue(
+                                key=full_key,
+                                value=env_value,
+                                source_name=self.source_name,
+                                raw_value=f"{env_name}={env_value}",
+                            )
 
-        # Pattern 2: Connection-specific SNOWFLAKE_CONNECTION_<name>_* variables
-        # These override general variables
-        if self._connection_name:
-            conn_prefix = f"SNOWFLAKE_CONNECTION_{self._connection_name.upper()}_"
+            # Check for general pattern: SNOWFLAKE_<KEY>
+            else:
+                config_key_upper = env_name[len("SNOWFLAKE_") :]
+                config_key = config_key_upper.lower()
 
-            for config_key in self.CONFIG_KEYS:
-                if key is not None and config_key != key:
-                    continue
-
-                env_var = f"{conn_prefix}{config_key.upper()}"
-                env_value = os.getenv(env_var)
-
-                if env_value is not None:
-                    # Override general variable
-                    values[config_key] = ConfigValue(
-                        key=config_key,
-                        value=env_value,
-                        source_name=self.source_name,
-                        raw_value=env_value,
-                    )
+                if config_key in self.CONFIG_KEYS:
+                    if key is None or config_key == key:
+                        values[config_key] = ConfigValue(
+                            key=config_key,
+                            value=env_value,
+                            source_name=self.source_name,
+                            raw_value=f"{env_name}={env_value}",
+                        )
 
         return values
 
     def supports_key(self, key: str) -> bool:
-        if key not in self.CONFIG_KEYS:
-            return False
+        discovered = self.discover()
+        if key in discovered:
+            return True
 
         # Check general var
         if os.getenv(f"SNOWFLAKE_{key.upper()}") is not None:
