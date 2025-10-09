@@ -19,6 +19,7 @@ from typing import Optional
 
 import typer
 from click import types
+from snowflake.cli._app.telemetry import log_command_info
 from snowflake.cli._plugins.dbt.constants import (
     DBT_COMMANDS,
     OUTPUT_COLUMN_NAME,
@@ -26,6 +27,7 @@ from snowflake.cli._plugins.dbt.constants import (
     RESULT_COLUMN_NAME,
 )
 from snowflake.cli._plugins.dbt.manager import DBTManager
+from snowflake.cli._plugins.dbt.utils import _extract_dbt_args
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli.api.commands.decorators import global_options_with_connection
@@ -184,6 +186,13 @@ for cmd in DBT_COMMANDS:
         run_async = ctx.parent.params["run_async"]
         execute_args = (dbt_command, name, run_async, *dbt_cli_args)
         dbt_manager = DBTManager()
+
+        log_command_info(
+            {
+                "dbt_command": dbt_command,
+                "dbt_args": _extract_dbt_args(dbt_cli_args),
+            }
+        )
 
         if run_async is True:
             result = dbt_manager.execute(*execute_args)

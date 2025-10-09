@@ -23,7 +23,6 @@ from typing import Any, Dict, Optional, Union
 import click
 import typer
 from snowflake.cli import __about__
-from snowflake.cli._app.cli_app import INTERNAL_CLI_FLAGS
 from snowflake.cli._app.constants import PARAM_APPLICATION_NAME
 from snowflake.cli.api.cli_global_context import (
     _CliGlobalContextAccess,
@@ -75,6 +74,7 @@ class CLITelemetryField(Enum):
     ERROR_CAUSE = "error_cause"
     SQL_STATE = "sql_state"
     IS_CLI_EXCEPTION = "is_cli_exception"
+    EXTRA_INFO = "extra_info"
     # Project context
     PROJECT_DEFINITION_VERSION = "project_definition_version"
     MODE = "mode"
@@ -84,6 +84,7 @@ class TelemetryEvent(Enum):
     CMD_EXECUTION = "executing_command"
     CMD_EXECUTION_ERROR = "error_executing_command"
     CMD_EXECUTION_RESULT = "result_executing_command"
+    CMD_EXECUTION_INFO = "info_executing_command"
 
 
 TelemetryDict = Dict[Union[CLITelemetryField, TelemetryField], Any]
@@ -140,6 +141,8 @@ def _get_command_metrics() -> TelemetryDict:
 
 
 def _find_command_info() -> TelemetryDict:
+    from snowflake.cli._app.cli_app import INTERNAL_CLI_FLAGS
+
     ctx = click.get_current_context()
     command_path = ctx.command_path.split(" ")[1:]
 
@@ -299,6 +302,19 @@ def log_command_execution_error(exception: Exception, execution: ExecutionMetada
             CLITelemetryField.COMMAND_EXECUTION_TIME: execution.get_duration(),
             **_get_additional_exception_information(exception),
             **_get_command_metrics(),
+        }
+    )
+
+
+@ignore_exceptions()
+def log_command_info(custom_data: Dict[str, Any]):
+    """
+    Log custom telemetry data from any command.
+    """
+    _telemetry.send(
+        {
+            TelemetryField.KEY_TYPE: TelemetryEvent.CMD_EXECUTION_INFO.value,
+            CLITelemetryField.EXTRA_INFO: custom_data,
         }
     )
 
