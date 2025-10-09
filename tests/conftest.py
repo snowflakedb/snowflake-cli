@@ -106,6 +106,11 @@ def os_agnostic_snapshot(snapshot):
 def reset_global_context_and_setup_config_and_logging_levels(
     request, test_snowcli_config
 ):
+    # Reset config provider singleton to prevent test interference
+    from snowflake.cli.api.config_provider import reset_config_provider
+
+    reset_config_provider()
+
     with fork_cli_context():
         connection_cache = OpenConnectionCache()
         cli_context_manager = get_cli_context_manager()
