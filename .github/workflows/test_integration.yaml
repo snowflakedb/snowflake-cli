@@ -46,27 +46,6 @@ jobs:
       hatch-run: integration:test
     secrets: inherit
 
-  integration-trusted-ng:
-    needs: define-matrix
-    strategy:
-      fail-fast: false
-      matrix:
-        os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
-        python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
-    if: |
-      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    uses: ./.github/workflows/test_trusted.yaml
-    with:
-      runs-on: ${{ matrix.os }}
-      python-version: ${{ matrix.python-version }}
-      python-env: integration
-      hatch-run: integration:test
-    secrets: inherit
-    env:
-      SNOWFLAKE_CLI_CONFIG_V2_ENABLED: 1
-
-  # Repo owner has commented /ok-to-test on a (fork-based) pull request
   integration-fork:
     needs: define-matrix
     strategy:
