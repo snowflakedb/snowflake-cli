@@ -136,6 +136,10 @@ class DCMProjectManager(SqlExecutionMixin):
         query += f' "{deployment_name}"'
         return self.execute_query(query=query)
 
+    def test(self, project_identifier: FQN):
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} TEST ALL"
+        return self.execute_query(query=query)
+
     @staticmethod
     def sync_local_files(
         project_identifier: FQN, source_directory: str | None = None

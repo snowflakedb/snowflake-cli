@@ -11,9 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 from typing import List, Optional
 
 import typer
+from snowflake.cli._app.printing import print_result
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
@@ -34,8 +36,10 @@ from snowflake.cli.api.constants import (
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
+from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     MessageResult,
+    ObjectResult,
     QueryJsonValueResult,
     QueryResult,
 )
@@ -233,6 +237,35 @@ def drop_deployment(
     return MessageResult(
         f"Deployment '{deployment_name}' dropped from DCM Project '{identifier}'."
     )
+
+
+@app.command(requires_connection=True)
+def test(
+    identifier: FQN = dcm_identifier,
+    **options,
+):
+    """
+    Test all expectations set for tables, views and dynamic tables defined
+    in DCM project.
+    """
+    with cli_console.spinner() as spinner:
+        spinner.add_task(description=f"Testing dcm project {identifier}", total=None)
+        result = DCMProjectManager().test(project_identifier=identifier)
+
+    row = result.fetchone()
+    if not row:
+        return MessageResult("No data.")
+
+    result_data = row[0]
+    result_json = (
+        json.loads(result_data) if isinstance(result_data, str) else result_data
+    )
+
+    print_result(ObjectResult(result_json), OutputFormat.JSON)
+
+    if result_json.get("status") == "EXPECTATION_VIOLATED":
+        cli_console.warning("One or more tests failed.")
+        raise typer.Exit(1)
 
 
 def _get_effective_stage(identifier: FQN, from_location: Optional[str]):

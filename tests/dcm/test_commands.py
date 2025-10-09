@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import pytest
@@ -649,4 +650,103 @@ class TestDCMDescribe:
             queries[0]
             == queries[1]
             == "describe DCM Project IDENTIFIER('PROJECT_NAME')"
+        )
+
+
+class TestDCMTest:
+    @mock.patch(DCMProjectManager)
+    def test_test_success(self, mock_pm, runner, mock_cursor):
+        """Test the test command when all expectations pass."""
+        success_result = {
+            "status": "SUCCESS",
+            "expectations": [
+                {
+                    "table_name": "JW_DCM_TESTALL.ANALYTICS.EMPLOYEES",
+                    "metric_database": "JW_DCM_TESTALL",
+                    "metric_schema": "ANALYTICS",
+                    "metric_name": "COUNT_BELOW_2",
+                    "expectation_name": "LEVELS_MUST_BE_HIGHER_THAN_ZERO",
+                    "expectation_expression": "value = 0",
+                    "value": 0,
+                    "expectation_violated": False,
+                },
+            ],
+        }
+        mock_pm().test.return_value = mock_cursor(
+            rows=[(json.dumps(success_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "test", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        mock_pm().test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_test_with_violated_expectations(self, mock_pm, runner, mock_cursor):
+        """Test the test command when expectations are violated."""
+        violated_result = {
+            "status": "EXPECTATION_VIOLATED",
+            "expectations": [
+                {
+                    "table_name": "JW_DCM_TESTALL.ANALYTICS.EMPLOYEES",
+                    "metric_database": "JW_DCM_TESTALL",
+                    "metric_schema": "ANALYTICS",
+                    "metric_name": "COUNT_BELOW_2",
+                    "expectation_name": "LEVELS_MUST_BE_HIGHER_THAN_ZERO",
+                    "expectation_expression": "value = 0",
+                    "value": 0,
+                    "expectation_violated": False,
+                },
+                {
+                    "table_name": "JW_DCM_TESTALL.ANALYTICS.EMPLOYEES",
+                    "metric_database": "JW_DCM_TESTALL",
+                    "metric_schema": "ANALYTICS",
+                    "metric_name": "COUNT_BELOW_1",
+                    "expectation_name": "LEVELS_MUST_BE_HIGHER_THAN_ZERO",
+                    "expectation_expression": "value = 0",
+                    "value": 0,
+                    "expectation_violated": False,
+                },
+                {
+                    "table_name": "JW_DCM_TESTALL.ANALYTICS.EMPLOYEES",
+                    "metric_database": "JW_DCM_TESTALL",
+                    "metric_schema": "ANALYTICS",
+                    "metric_name": "COUNT_BELOW_5",
+                    "expectation_name": "LEVELS_MUST_BE_HIGHER_THAN_ZERO",
+                    "expectation_expression": "value = 0",
+                    "value": 4,
+                    "expectation_violated": True,
+                },
+            ],
+        }
+
+        mock_pm().test.return_value = mock_cursor(
+            rows=[(json.dumps(violated_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "test", "my_project"])
+
+        assert result.exit_code == 1, result.output
+        assert "EXPECTATION_VIOLATED" in result.output
+        assert "One or more tests failed." in result.output
+        mock_pm().test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_test_with_no_expectations(self, mock_pm, runner, mock_cursor):
+        """Test the test command when there are no expectations defined."""
+        no_expectations_result = {"status": "SUCCESS", "expectations": []}
+
+        mock_pm().test.return_value = mock_cursor(
+            rows=[(json.dumps(no_expectations_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "test", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        mock_pm().test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
         )

@@ -555,3 +555,91 @@ def test_dcm_plan_and_deploy_from_another_directory(
     # Clean up
     result = runner.invoke_with_connection(["dcm", "drop", project_name])
     assert result.exit_code == 0, result.output
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_test_command(
+    runner,
+    test_database,
+    project_directory,
+    object_name_provider,
+    sql_test_helper,
+):
+    project_name = object_name_provider.create_and_get_next_object_name()
+    table_name = f"{test_database}.PUBLIC.TestedTable"
+    dmf_name = "test_dmf"
+
+    with project_directory("dcm_project") as project_root:
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+
+        # 1) Without any data metric functions, run test command to assert that exitcode is 0 and no data is returned.
+        result = runner.invoke_with_connection_json(["dcm", "test", project_name])
+        assert result.exit_code == 0, result.output
+        assert result.json == {"status": "SUCCESS", "expectations": []}
+
+        # Define table and deploy
+        table_definition = f"""
+define table identifier('{table_name}') (
+  id int, name varchar, email varchar, level int
+) data_metric_schedule = '5 minute';
+"""
+        file_a_path = project_root / "file_a.sql"
+        original_content = file_a_path.read_text()
+        file_a_path.write_text(original_content + table_definition)
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.OutputTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Add some data
+        insert_data_sql = f"""
+INSERT INTO {table_name} (id, name, email, level) VALUES
+    (1, 'Alice Johnson', 'alice.j@example.com', 5),
+    (2, 'Bob Williams', 'bob.w@example.com', 3),
+    (3, 'Charlie Brown', 'charlie.b@example.com', 3),
+    (4, 'Diana Miller', 'diana.m@example.com', 4),
+    (5, 'Evan Davis', 'evan.d@example.com', 2);
+"""
+        sql_test_helper.execute_single_sql(insert_data_sql)
+
+        # 2) Set a DMF that'll fail and run test command - should return exit code 1
+        dmf_sql = f"""
+create or alter data metric function {dmf_name}(
+   arg_t table(arg_c int)
+)
+returns int
+as $$
+select count(*)
+from arg_t
+where arg_c < 5
+$$;
+
+alter table {table_name} add data metric function {dmf_name} on (level)
+expectation levels_must_be_higher_than_zero (value = 0);
+"""
+        sql_test_helper.execute_single_sql(dmf_sql)
+
+        result = runner.invoke_with_connection_json(["dcm", "test", project_name])
+        assert result.exit_code == 1, result.output
+        assert result.json["status"] == "EXPECTATION_VIOLATED"
+        assert any(e["expectation_violated"] for e in result.json["expectations"])
+
+        # 3) Fix the data and run test command again - should return exit code 0.
+        fix_data_sql = f"""
+UPDATE {table_name} SET level = 5 WHERE level < 5;
+"""
+        sql_test_helper.execute_single_sql(fix_data_sql)
+
+        result = runner.invoke_with_connection_json(["dcm", "test", project_name])
+        assert result.exit_code == 0, result.output
+        assert result.json["status"] == "SUCCESS"
+        assert not any(e["expectation_violated"] for e in result.json["expectations"])
