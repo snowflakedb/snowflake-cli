@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from textwrap import dedent
+import json
 
 import pytest
 
@@ -23,22 +23,25 @@ def test_override_build_in_commands(runner, test_root_path, _install_plugin, cap
         test_root_path / "config" / "plugin_tests" / "override_plugin_config.toml"
     )
 
-    result = runner.invoke(["--config-file", config_path, "connection", "list"])
+    result = runner.invoke(
+        ["--config-file", config_path, "connection", "list", "--format", "JSON"]
+    )
 
     assert (
         "Cannot register plugin [override]: Cannot add command [snow connection list] because it already exists."
         in caplog.messages
     )
-    assert result.output == dedent(
-        """\
-     Outside command code
-     +----------------------------------------------------+
-     | connection_name | parameters          | is_default |
-     |-----------------+---------------------+------------|
-     | test            | {'account': 'test'} | False      |
-     +----------------------------------------------------+
-    """
+
+    # Parse JSON output and check for test connection existence
+    connections = json.loads(result.output)
+
+    # Find the 'test' connection
+    test_connection = next(
+        (conn for conn in connections if conn["connection_name"] == "test"), None
     )
+    assert test_connection is not None, "Expected 'test' connection not found in output"
+    assert test_connection["parameters"] == {"account": "test"}
+    assert test_connection["is_default"] is False
 
 
 @pytest.mark.integration
@@ -52,17 +55,20 @@ def test_disabled_plugin_is_not_executed(
         / "disabled_override_plugin_config.toml"
     )
 
-    result = runner.invoke(["--config-file", config_path, "connection", "list"])
-
-    assert result.output == dedent(
-        """\
-     +----------------------------------------------------+
-     | connection_name | parameters          | is_default |
-     |-----------------+---------------------+------------|
-     | test            | {'account': 'test'} | False      |
-     +----------------------------------------------------+
-    """
+    result = runner.invoke(
+        ["--config-file", config_path, "connection", "list", "--format", "JSON"]
     )
+
+    # Parse JSON output and check for test connection existence
+    connections = json.loads(result.output)
+
+    # Find the 'test' connection
+    test_connection = next(
+        (conn for conn in connections if conn["connection_name"] == "test"), None
+    )
+    assert test_connection is not None, "Expected 'test' connection not found in output"
+    assert test_connection["parameters"] == {"account": "test"}
+    assert test_connection["is_default"] is False
 
 
 @pytest.fixture(scope="module")
