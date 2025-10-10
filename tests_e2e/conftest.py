@@ -210,3 +210,31 @@ def example_connection_config_file(test_root_path, prepare_test_config_file):
     yield prepare_test_config_file(
         SecurePath(test_root_path) / "config" / "example_connection.toml"
     )
+
+
+@pytest.fixture
+def config_mode(request, monkeypatch):
+    """
+    Fixture to switch between legacy and config_ng modes.
+
+    When parameterized with ["legacy", "config_ng"], this fixture sets the
+    appropriate environment variable to enable/disable the new config system.
+    Each parameter value creates a separate test instance with its own snapshot.
+
+    Usage:
+        @pytest.mark.parametrize("config_mode", ["legacy", "config_ng"], indirect=True)
+        def test_something(config_mode, snapshot):
+            # Test runs twice: once with legacy, once with config_ng
+            # Each gets its own snapshot: test_something[legacy] and test_something[config_ng]
+            ...
+    """
+    mode = getattr(request, "param", "config_ng")  # default to config_ng
+
+    if mode == "config_ng":
+        # Enable new config system
+        monkeypatch.setenv("SNOWFLAKE_CLI_CONFIG_V2_ENABLED", "true")
+    else:
+        # Ensure new config system is disabled (legacy mode)
+        monkeypatch.delenv("SNOWFLAKE_CLI_CONFIG_V2_ENABLED", raising=False)
+
+    return mode
