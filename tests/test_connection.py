@@ -293,6 +293,7 @@ def test_fails_if_existing_connection(runner):
 
 
 @mock.patch("snowflake.cli._plugins.connection.commands.get_default_connection_name")
+@mock.patch.dict(os.environ, {}, clear=True)
 def test_lists_connection_information(mock_get_default_conn_name, runner):
     mock_get_default_conn_name.return_value = "empty"
     result = runner.invoke(["connection", "list", "--format", "json"])
