@@ -20,7 +20,7 @@ This module implements concrete configuration sources that discover values from:
 - CLI configuration files (TOML format, first-found)
 - Connections configuration files (dedicated connections.toml)
 - SnowSQL environment variables (SNOWSQL_* prefix)
-- CLI environment variables (SNOWFLAKE_* and SNOWFLAKE_CONNECTION_* patterns)
+- CLI environment variables (SNOWFLAKE_* patterns)
 - CLI command-line parameters
 
 Precedence is determined by the order sources are provided to the resolver.
@@ -439,19 +439,17 @@ class CliEnvironment(ValueSource):
     """
     CLI environment variables source.
 
-    Discovers SNOWFLAKE_* environment variables with three patterns:
+    Discovers SNOWFLAKE_* environment variables with two patterns:
     1. General: SNOWFLAKE_ACCOUNT (applies to all connections)
-    2. Connection-specific: SNOWFLAKE_CONNECTION_<name>_ACCOUNT (overrides general)
-    3. Legacy connection-specific: SNOWFLAKE_CONNECTIONS_<name>_ACCOUNT (backward compatibility)
+    2. Connection-specific: SNOWFLAKE_CONNECTIONS_<name>_ACCOUNT (overrides general)
 
     Connection-specific variables take precedence within this source.
 
     Examples:
         SNOWFLAKE_ACCOUNT -> account (general)
-        SNOWFLAKE_CONNECTION_PROD_ACCOUNT -> account (for "prod" connection)
-        SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT -> account (for "integration" connection, legacy)
+        SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT -> account (for "integration" connection)
         SNOWFLAKE_USER -> user
-        SNOWFLAKE_CONNECTION_DEV_USER -> user (for "dev" connection)
+        SNOWFLAKE_CONNECTIONS_DEV_USER -> user (for "dev" connection)
     """
 
     # Base configuration keys that can be set via environment
@@ -500,8 +498,7 @@ class CliEnvironment(ValueSource):
 
         Patterns:
         1. SNOWFLAKE_ACCOUNT=x -> account=x (flat key)
-        2. SNOWFLAKE_CONNECTION_PROD_ACCOUNT=y -> connections.prod.account=y
-        3. SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT=z -> connections.integration.account=z (legacy)
+        2. SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT=y -> connections.integration.account=y
         """
         values: Dict[str, ConfigValue] = {}
 
@@ -510,28 +507,8 @@ class CliEnvironment(ValueSource):
             if not env_name.startswith("SNOWFLAKE_"):
                 continue
 
-            # Check for connection-specific pattern: SNOWFLAKE_CONNECTION_<NAME>_<KEY>
-            if env_name.startswith("SNOWFLAKE_CONNECTION_"):
-                # Extract connection name and config key
-                remainder = env_name[len("SNOWFLAKE_CONNECTION_") :]
-                parts = remainder.split("_", 1)
-                if len(parts) == 2:
-                    conn_name_upper, config_key_upper = parts
-                    conn_name = conn_name_upper.lower()
-                    config_key = config_key_upper.lower()
-
-                    if config_key in self.CONFIG_KEYS:
-                        full_key = f"connections.{conn_name}.{config_key}"
-                        if key is None or full_key == key:
-                            values[full_key] = ConfigValue(
-                                key=full_key,
-                                value=env_value,
-                                source_name=self.source_name,
-                                raw_value=f"{env_name}={env_value}",
-                            )
-
-            # Check for legacy connection-specific pattern: SNOWFLAKE_CONNECTIONS_<NAME>_<KEY>
-            elif env_name.startswith("SNOWFLAKE_CONNECTIONS_"):
+            # Check for connection-specific pattern: SNOWFLAKE_CONNECTIONS_<NAME>_<KEY>
+            if env_name.startswith("SNOWFLAKE_CONNECTIONS_"):
                 # Extract connection name and config key
                 remainder = env_name[len("SNOWFLAKE_CONNECTIONS_") :]
                 parts = remainder.split("_", 1)
@@ -551,7 +528,7 @@ class CliEnvironment(ValueSource):
                             )
 
             # Check for general pattern: SNOWFLAKE_<KEY>
-            else:
+            elif not env_name.startswith("SNOWFLAKE_CONNECTIONS_"):
                 config_key_upper = env_name[len("SNOWFLAKE_") :]
                 config_key = config_key_upper.lower()
 
@@ -575,19 +552,12 @@ class CliEnvironment(ValueSource):
         if os.getenv(f"SNOWFLAKE_{key.upper()}") is not None:
             return True
 
-        # Check connection-specific var (new pattern)
+        # Check connection-specific var
         if hasattr(self, "_connection_name") and self._connection_name:
             conn_var = (
-                f"SNOWFLAKE_CONNECTION_{self._connection_name.upper()}_{key.upper()}"
-            )
-            if os.getenv(conn_var) is not None:
-                return True
-
-            # Check legacy connection-specific var (legacy pattern)
-            legacy_conn_var = (
                 f"SNOWFLAKE_CONNECTIONS_{self._connection_name.upper()}_{key.upper()}"
             )
-            if os.getenv(legacy_conn_var) is not None:
+            if os.getenv(conn_var) is not None:
                 return True
 
         return False
