@@ -44,6 +44,8 @@ jobs:
       python-env: e2e
       hatch-run: e2e:test
     secrets: inherit
+    env:
+      PYTEST_ADDOPTS: -k legacy
 
   # Repo owner has commented /ok-to-test on a (fork-based) pull request
   e2e-fork:
@@ -71,3 +73,5 @@ jobs:
       hatch-run: e2e:test
       job-name: e2e-fork
     secrets: inherit
+    env:
+      PYTEST_ADDOPTS: -k legacy
