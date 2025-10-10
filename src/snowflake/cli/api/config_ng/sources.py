@@ -254,6 +254,7 @@ class CliConfigFile(ValueSource):
             connections = data.get("connections", {})
             for conn_name, conn_data in connections.items():
                 if isinstance(conn_data, dict):
+                    # Process parameters if they exist
                     for param_key, param_value in conn_data.items():
                         full_key = f"connections.{conn_name}.{param_key}"
                         if key is None or full_key == key:
@@ -262,6 +263,18 @@ class CliConfigFile(ValueSource):
                                 value=param_value,
                                 source_name=self.source_name,
                                 raw_value=param_value,
+                            )
+
+                    # For empty connections, we need to ensure they are recognized
+                    # even if they have no parameters. We add a special marker.
+                    if not conn_data:  # Empty connection section
+                        marker_key = f"connections.{conn_name}._empty_connection"
+                        if key is None or marker_key == key:
+                            result[marker_key] = ConfigValue(
+                                key=marker_key,
+                                value=True,
+                                source_name=self.source_name,
+                                raw_value=True,
                             )
 
             return result
