@@ -166,6 +166,10 @@ def test_connection_imported_from_snowsql(
     snowcli, test_root_path, empty_config_file, config_mode
 ):
     """Test that imported connection works."""
+    # In config_ng, an INTEGRATION connection may already exist via env vars.
+    # Confirm override explicitly to avoid interactive abort.
+    stdin = "y\n" if config_mode == "config_ng" else None
+
     result = subprocess_run(
         [
             snowcli,
@@ -176,6 +180,7 @@ def test_connection_imported_from_snowsql(
             "--snowsql-config-file",
             test_root_path / "config" / "snowsql" / "integration_config",
         ],
+        stdin=stdin,
     )
     assert result.returncode == 0
 
