@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from textwrap import dedent
+import json
 
 import pytest
 
@@ -23,21 +23,25 @@ def test_failing_plugin(runner, test_root_path, _install_plugin, caplog):
         test_root_path / "config" / "plugin_tests" / "failing_plugin_config.toml"
     )
 
-    result = runner.invoke(["--config-file", config_path, "connection", "list"])
+    result = runner.invoke(
+        ["--config-file", config_path, "connection", "list", "--format", "JSON"]
+    )
 
     assert (
         "Cannot register plugin [failing_plugin]: Some error in plugin"
         in caplog.messages
     )
-    assert result.output == dedent(
-        """\
-     +----------------------------------------------------+
-     | connection_name | parameters          | is_default |
-     |-----------------+---------------------+------------|
-     | test            | {'account': 'test'} | False      |
-     +----------------------------------------------------+
-    """
+
+    # Parse JSON output and check for test connection existence
+    connections = json.loads(result.output)
+
+    # Find the 'test' connection
+    test_connection = next(
+        (conn for conn in connections if conn["connection_name"] == "test"), None
     )
+    assert test_connection is not None, "Expected 'test' connection not found in output"
+    assert test_connection["parameters"] == {"account": "test"}
+    assert test_connection["is_default"] is False
 
 
 @pytest.fixture(scope="module")
