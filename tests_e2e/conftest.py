@@ -117,11 +117,14 @@ def isolate_environment_variables(monkeypatch):
     """
     Clear Snowflake-specific environment variables that could interfere with e2e tests.
     This ensures tests run in a clean environment and only use the config files they specify.
+    Exception: Keep INTEGRATION connection vars for e2e testing.
     """
-    # Clear all SNOWFLAKE_CONNECTIONS_* environment variables
+    # Clear all SNOWFLAKE_CONNECTIONS_* environment variables except INTEGRATION
     for env_var in list(os.environ.keys()):
         if env_var.startswith(("SNOWFLAKE_CONNECTIONS_", "SNOWSQL_")):
-            monkeypatch.delenv(env_var, raising=False)
+            # Preserve all INTEGRATION connection environment variables
+            if not env_var.startswith("SNOWFLAKE_CONNECTIONS_INTEGRATION_"):
+                monkeypatch.delenv(env_var, raising=False)
 
 
 def _create_venv(tmp_dir: Path) -> None:
