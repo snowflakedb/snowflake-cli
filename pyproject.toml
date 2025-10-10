@@ -203,6 +203,8 @@ markers = [
   "integration_experimental: experimental integration test",
   "no_qa: mark test as not to be run in QA",
   "qa_only: mark test as to be run only in QA",
+  "config_ng: mark test as using new config system",
+  "legacy: mark test as using legacy config system",
 ]
 
 

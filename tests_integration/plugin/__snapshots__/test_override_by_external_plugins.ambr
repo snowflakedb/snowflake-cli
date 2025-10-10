@@ -1,0 +1,85 @@
+# serializer version: 1
+# name: test_disabled_plugin_is_not_executed[config_ng]
+  '''
+  [
+      {
+          "connection_name": "test",
+          "parameters": {
+              "account": "test"
+          },
+          "is_default": false
+      },
+      {
+          "connection_name": "integration",
+          "parameters": {
+              "account": "po52878",
+              "user": "mraba",
+              "host": "po52878.snowflakecomputing.com",
+              "database": "SNOWCLI_DB",
+              "warehouse": "xsmall",
+              "role": "integration_tests",
+              "authenticator": "SNOWFLAKE_JWT"
+          },
+          "is_default": false
+      }
+  ]
+  
+  '''
+# ---
+# name: test_disabled_plugin_is_not_executed[legacy]
+  '''
+  [
+      {
+          "connection_name": "test",
+          "parameters": {
+              "account": "test"
+          },
+          "is_default": false
+      }
+  ]
+  
+  '''
+# ---
+# name: test_override_build_in_commands[config_ng]
+  '''
+  Outside command code
+  [
+      {
+          "connection_name": "test",
+          "parameters": {
+              "account": "test"
+          },
+          "is_default": false
+      },
+      {
+          "connection_name": "integration",
+          "parameters": {
+              "account": "po52878",
+              "user": "mraba",
+              "host": "po52878.snowflakecomputing.com",
+              "database": "SNOWCLI_DB",
+              "warehouse": "xsmall",
+              "role": "integration_tests",
+              "authenticator": "SNOWFLAKE_JWT"
+          },
+          "is_default": false
+      }
+  ]
+  
+  '''
+# ---
+# name: test_override_build_in_commands[legacy]
+  '''
+  Outside command code
+  [
+      {
+          "connection_name": "test",
+          "parameters": {
+              "account": "test"
+          },
+          "is_default": false
+      }
+  ]
+  
+  '''
+# ---
