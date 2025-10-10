@@ -12,13 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
-
 import pytest
 
 
+@pytest.mark.parametrize("config_mode", ["legacy", "config_ng"], indirect=True)
 @pytest.mark.integration
-def test_override_build_in_commands(runner, test_root_path, _install_plugin, caplog):
+def test_override_build_in_commands(
+    runner, test_root_path, _install_plugin, caplog, snapshot, config_mode
+):
+    """Test plugin override attempt with both legacy and config_ng systems."""
     config_path = (
         test_root_path / "config" / "plugin_tests" / "override_plugin_config.toml"
     )
@@ -32,22 +34,17 @@ def test_override_build_in_commands(runner, test_root_path, _install_plugin, cap
         in caplog.messages
     )
 
-    # Parse JSON output and check for test connection existence
-    connections = json.loads(result.output)
-
-    # Find the 'test' connection
-    test_connection = next(
-        (conn for conn in connections if conn["connection_name"] == "test"), None
-    )
-    assert test_connection is not None, "Expected 'test' connection not found in output"
-    assert test_connection["parameters"] == {"account": "test"}
-    assert test_connection["is_default"] is False
+    # Use snapshot to capture the output
+    # Each config_mode gets its own snapshot automatically
+    assert result.output == snapshot
 
 
+@pytest.mark.parametrize("config_mode", ["legacy", "config_ng"], indirect=True)
 @pytest.mark.integration
 def test_disabled_plugin_is_not_executed(
-    runner, test_root_path, _install_plugin, caplog
+    runner, test_root_path, _install_plugin, caplog, snapshot, config_mode
 ):
+    """Test disabled plugin with both legacy and config_ng systems."""
     config_path = (
         test_root_path
         / "config"
@@ -59,16 +56,9 @@ def test_disabled_plugin_is_not_executed(
         ["--config-file", config_path, "connection", "list", "--format", "JSON"]
     )
 
-    # Parse JSON output and check for test connection existence
-    connections = json.loads(result.output)
-
-    # Find the 'test' connection
-    test_connection = next(
-        (conn for conn in connections if conn["connection_name"] == "test"), None
-    )
-    assert test_connection is not None, "Expected 'test' connection not found in output"
-    assert test_connection["parameters"] == {"account": "test"}
-    assert test_connection["is_default"] is False
+    # Use snapshot to capture the output
+    # Each config_mode gets its own snapshot automatically
+    assert result.output == snapshot
 
 
 @pytest.fixture(scope="module")
