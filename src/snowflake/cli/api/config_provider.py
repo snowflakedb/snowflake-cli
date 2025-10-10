@@ -499,6 +499,13 @@ class AlternativeConfigProvider(ConfigProvider):
                     conn_name, param_name = parts
                     if conn_name not in connections:
                         connections[conn_name] = {}
+
+                    # Skip internal markers, but ensure connection exists
+                    if param_name == "_empty_connection":
+                        # This is just a marker for empty connections
+                        # Connection dict already created above
+                        continue
+
                     connections[conn_name][param_name] = value
 
         return connections

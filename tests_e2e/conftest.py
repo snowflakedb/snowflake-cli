@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import shutil
 import subprocess
 import sys
@@ -109,6 +110,18 @@ def snowcli(test_root_path):
 @pytest.fixture(autouse=True)
 def isolate_default_config_location(monkeypatch, temporary_directory):
     monkeypatch.setenv("SNOWFLAKE_HOME", temporary_directory)
+
+
+@pytest.fixture(autouse=True)
+def isolate_environment_variables(monkeypatch):
+    """
+    Clear Snowflake-specific environment variables that could interfere with e2e tests.
+    This ensures tests run in a clean environment and only use the config files they specify.
+    """
+    # Clear all SNOWFLAKE_CONNECTIONS_* environment variables
+    for env_var in list(os.environ.keys()):
+        if env_var.startswith(("SNOWFLAKE_CONNECTIONS_", "SNOWSQL_")):
+            monkeypatch.delenv(env_var, raising=False)
 
 
 def _create_venv(tmp_dir: Path) -> None:
