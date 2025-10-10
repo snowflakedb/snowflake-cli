@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import shutil
 import subprocess
 import sys
@@ -111,6 +112,21 @@ def isolate_default_config_location(monkeypatch, temporary_directory):
     monkeypatch.setenv("SNOWFLAKE_HOME", temporary_directory)
 
 
+@pytest.fixture(autouse=True)
+def isolate_environment_variables(monkeypatch):
+    """
+    Clear Snowflake-specific environment variables that could interfere with e2e tests.
+    This ensures tests run in a clean environment and only use the config files they specify.
+    Exception: Keep INTEGRATION connection vars for e2e testing.
+    """
+    # Clear all SNOWFLAKE_CONNECTIONS_* environment variables except INTEGRATION
+    for env_var in list(os.environ.keys()):
+        if env_var.startswith(("SNOWFLAKE_CONNECTIONS_", "SNOWSQL_")):
+            # Preserve all INTEGRATION connection environment variables
+            if not env_var.startswith("SNOWFLAKE_CONNECTIONS_INTEGRATION_"):
+                monkeypatch.delenv(env_var, raising=False)
+
+
 def _create_venv(tmp_dir: Path) -> None:
     subprocess_check_output(["python", "-m", "venv", tmp_dir])
 
@@ -194,3 +210,31 @@ def example_connection_config_file(test_root_path, prepare_test_config_file):
     yield prepare_test_config_file(
         SecurePath(test_root_path) / "config" / "example_connection.toml"
     )
+
+
+@pytest.fixture
+def config_mode(request, monkeypatch):
+    """
+    Fixture to switch between legacy and config_ng modes.
+
+    When parameterized with ["legacy", "config_ng"], this fixture sets the
+    appropriate environment variable to enable/disable the new config system.
+    Each parameter value creates a separate test instance with its own snapshot.
+
+    Usage:
+        @pytest.mark.parametrize("config_mode", ["legacy", "config_ng"], indirect=True)
+        def test_something(config_mode, snapshot):
+            # Test runs twice: once with legacy, once with config_ng
+            # Each gets its own snapshot: test_something[legacy] and test_something[config_ng]
+            ...
+    """
+    mode = getattr(request, "param", "config_ng")  # default to config_ng
+
+    if mode == "config_ng":
+        # Enable new config system
+        monkeypatch.setenv("SNOWFLAKE_CLI_CONFIG_V2_ENABLED", "true")
+    else:
+        # Ensure new config system is disabled (legacy mode)
+        monkeypatch.delenv("SNOWFLAKE_CLI_CONFIG_V2_ENABLED", raising=False)
+
+    return mode

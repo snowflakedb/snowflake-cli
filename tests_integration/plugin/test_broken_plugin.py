@@ -12,18 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from textwrap import dedent
-
 import pytest
 
 
+@pytest.mark.parametrize("config_mode", ["legacy", "config_ng"], indirect=True)
 @pytest.mark.integration
-def test_broken_command_path_plugin(runner, test_root_path, _install_plugin, caplog):
+def test_broken_command_path_plugin(
+    runner, test_root_path, _install_plugin, caplog, snapshot, config_mode
+):
+    """Test broken plugin with both legacy and config_ng systems."""
     config_path = (
         test_root_path / "config" / "plugin_tests" / "broken_plugin_config.toml"
     )
 
-    result = runner.invoke(["--config-file", config_path, "connection", "list"])
+    result = runner.invoke(
+        ["--config-file", config_path, "connection", "list", "--format", "JSON"]
+    )
     assert result.exit_code == 0, result.output
 
     assert "Loaded external plugin: broken_plugin" in caplog.messages
@@ -31,15 +35,10 @@ def test_broken_command_path_plugin(runner, test_root_path, _install_plugin, cap
         "Cannot register plugin [broken_plugin]: Invalid command path [snow broken run]. Command group [broken] does not exist."
         in caplog.messages
     )
-    assert result.output == dedent(
-        """\
-     +----------------------------------------------------+
-     | connection_name | parameters          | is_default |
-     |-----------------+---------------------+------------|
-     | test            | {'account': 'test'} | False      |
-     +----------------------------------------------------+
-    """
-    )
+
+    # Use snapshot to capture the output
+    # Each config_mode gets its own snapshot automatically
+    assert result.output == snapshot
 
 
 @pytest.fixture(scope="module")

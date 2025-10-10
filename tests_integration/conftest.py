@@ -120,6 +120,12 @@ class SnowCLIRunner(CliRunner):
             kw.update(catch_exceptions=False)
         kw = self._with_env_vars(kw)
 
+        # Reset config provider to ensure fresh config resolution
+        # This is critical for tests that set environment variables
+        from snowflake.cli.api.config_provider import reset_config_provider
+
+        reset_config_provider()
+
         # between every invocation, we need to reset the CLI context
         # and ensure no connections are cached going forward (to prevent
         # test cases from impacting each other / align with CLI usage)
@@ -302,3 +308,32 @@ def enable_snowpark_glob_support_feature_flag():
 def global_setup(monkeypatch):
     width = 81 if IS_WINDOWS else 80
     monkeypatch.setenv("COLUMNS", str(width))
+
+
+@pytest.fixture
+def config_mode(request, monkeypatch):
+    """
+    Fixture to switch between legacy and config_ng modes.
+
+    When parameterized with ["legacy", "config_ng"], this fixture sets the
+    appropriate environment variable to enable/disable the new config system.
+    Each parameter value creates a separate test instance with its own snapshot.
+
+    Usage:
+        @pytest.mark.parametrize("config_mode", ["legacy", "config_ng"], indirect=True)
+        @pytest.mark.integration
+        def test_something(runner, config_mode, snapshot):
+            # Test runs twice: once with legacy, once with config_ng
+            # Each gets its own snapshot
+            ...
+    """
+    mode = getattr(request, "param", "config_ng")  # default to config_ng
+
+    if mode == "config_ng":
+        # Enable new config system
+        monkeypatch.setenv("SNOWFLAKE_CLI_CONFIG_V2_ENABLED", "true")
+    else:
+        # Ensure new config system is disabled (legacy mode)
+        monkeypatch.delenv("SNOWFLAKE_CLI_CONFIG_V2_ENABLED", raising=False)
+
+    return mode
