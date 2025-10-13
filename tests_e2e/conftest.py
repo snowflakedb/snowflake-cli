@@ -114,7 +114,8 @@ def disable_colors_and_styles_in_output(monkeypatch):
     Also set consistent terminal width to avoid snapshot mismatches.
     """
     monkeypatch.setenv("TERM", "unknown")
-    monkeypatch.setenv("COLUMNS", "200")
+    width = 81 if IS_WINDOWS else 80
+    monkeypatch.setenv("COLUMNS", str(width))
 
 
 @pytest.fixture(scope="session")
