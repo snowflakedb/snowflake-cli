@@ -8,19 +8,6 @@
               "account": "test"
           },
           "is_default": false
-      },
-      {
-          "connection_name": "integration",
-          "parameters": {
-              "account": "po52878",
-              "user": "mraba",
-              "host": "po52878.snowflakecomputing.com",
-              "database": "SNOWCLI_DB",
-              "warehouse": "xsmall",
-              "role": "integration_tests",
-              "authenticator": "SNOWFLAKE_JWT"
-          },
-          "is_default": false
       }
   ]
   
