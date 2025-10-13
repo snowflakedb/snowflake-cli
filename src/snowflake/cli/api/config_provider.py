@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 if TYPE_CHECKING:
@@ -192,9 +193,24 @@ class AlternativeConfigProvider(ConfigProvider):
         self._resolver: Optional[ConfigurationResolver] = None
         self._config_cache: Dict[str, Any] = {}
         self._initialized: bool = False
+        self._last_config_override: Optional[Path] = None
 
     def _ensure_initialized(self) -> None:
         """Lazily initialize the resolver on first use."""
+        # Check if config_file_override has changed
+        try:
+            from snowflake.cli.api.cli_global_context import get_cli_context
+
+            current_override = get_cli_context().config_file_override
+
+            # If override changed, force re-initialization
+            if current_override != self._last_config_override:
+                self._initialized = False
+                self._config_cache.clear()
+                self._last_config_override = current_override
+        except Exception:
+            pass
+
         if self._initialized:
             return
 
@@ -247,6 +263,7 @@ class AlternativeConfigProvider(ConfigProvider):
         """
         self._initialized = False
         self._config_cache.clear()
+        self._last_config_override = None  # Reset cached override to force re-check
         self._ensure_initialized()
 
         # Resolve all configuration to populate cache
@@ -524,6 +541,17 @@ class AlternativeConfigProvider(ConfigProvider):
             name: ConnectionConfig.from_dict(config)
             for name, config in connections_dict.items()
         }
+
+    def invalidate_cache(self) -> None:
+        """
+        Invalidate the provider's cache, forcing it to re-read configuration on next access.
+
+        This is useful when configuration files are modified externally.
+        """
+        self._initialized = False
+        self._config_cache.clear()
+        if hasattr(self, "_last_config_override"):
+            self._last_config_override = None
 
 
 def _is_alternative_config_enabled() -> bool:
