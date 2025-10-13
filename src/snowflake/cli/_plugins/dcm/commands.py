@@ -20,6 +20,7 @@ from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.utils import (
     TestResultFormat,
     export_test_results,
+    format_refresh_results,
     format_test_failures,
 )
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
@@ -308,6 +309,33 @@ def test(
         raise CliError(error_message)
 
     return MessageResult(f"All {len(expectations)} expectation(s) passed successfully.")
+
+
+@app.command(requires_connection=True)
+def refresh(
+    identifier: FQN = dcm_identifier,
+    **options,
+):
+    """
+    Refreshes dynamic tables defined in DCM project.
+    """
+    with cli_console.spinner() as spinner:
+        spinner.add_task(description=f"Refreshing dcm project {identifier}", total=None)
+        result = DCMProjectManager().refresh(project_identifier=identifier)
+
+    row = result.fetchone()
+    if not row:
+        return MessageResult("No data.")
+
+    result_data = row[0]
+    result_json = (
+        json.loads(result_data) if isinstance(result_data, str) else result_data
+    )
+
+    refreshed_tables = result_json.get("refreshed_tables", [])
+    message = format_refresh_results(refreshed_tables)
+
+    return MessageResult(message)
 
 
 def _get_effective_stage(identifier: FQN, from_location: Optional[str]):
