@@ -58,7 +58,6 @@
   |--------------------+---------|
   | multilingual-hello | True    |
   +------------------------------+
-  
   '''
 # ---
 # name: test_disabling_and_enabling_command.2
@@ -71,7 +70,6 @@
   |--------------------+---------|
   | multilingual-hello | False   |
   +------------------------------+
-  
   '''
 # ---
 # name: test_disabling_and_enabling_command.4
@@ -169,7 +167,6 @@
   |--------------------+---------|
   | multilingual-hello | True    |
   +------------------------------+
-  
   '''
 # ---
 # name: test_disabling_and_enabling_command.8
@@ -254,6 +251,5 @@
   |------------------|
   | 2.3              |
   +------------------+
-  
   '''
 # ---
