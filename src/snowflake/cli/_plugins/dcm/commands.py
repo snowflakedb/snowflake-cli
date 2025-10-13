@@ -11,10 +11,14 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import json
 from typing import List, Optional
 
 import typer
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
+from snowflake.cli._plugins.dcm.utils import (
+    format_refresh_results,
+)
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
@@ -285,6 +289,33 @@ def preview(
         )
 
     return QueryResult(result)
+
+
+@app.command(requires_connection=True)
+def refresh(
+    identifier: FQN = dcm_identifier,
+    **options,
+):
+    """
+    Refreshes dynamic tables defined in DCM project.
+    """
+    with cli_console.spinner() as spinner:
+        spinner.add_task(description=f"Refreshing dcm project {identifier}", total=None)
+        result = DCMProjectManager().refresh(project_identifier=identifier)
+
+    row = result.fetchone()
+    if not row:
+        return MessageResult("No data.")
+
+    result_data = row[0]
+    result_json = (
+        json.loads(result_data) if isinstance(result_data, str) else result_data
+    )
+
+    refreshed_tables = result_json.get("refreshed_tables", [])
+    message = format_refresh_results(refreshed_tables)
+
+    return MessageResult(message)
 
 
 def _get_effective_stage(identifier: FQN, from_location: Optional[str]):
