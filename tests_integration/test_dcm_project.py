@@ -643,3 +643,93 @@ UPDATE {table_name} SET level = 5 WHERE level < 5;
         assert result.exit_code == 0, result.output
         assert result.json["status"] == "SUCCESS"
         assert not any(e["expectation_violated"] for e in result.json["expectations"])
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_refresh_command(
+    runner,
+    test_database,
+    project_directory,
+    object_name_provider,
+    sql_test_helper,
+):
+    project_name = object_name_provider.create_and_get_next_object_name()
+    base_table_name = f"{test_database}.PUBLIC.RefreshBaseTable"
+    dynamic_table_name = f"{test_database}.PUBLIC.RefreshDynamicTable"
+
+    with project_directory("dcm_project") as project_root:
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+
+        # Deploy the project.
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.OutputTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # 1) Without any dynamic tables, run refresh command - should return empty refreshed_tables.
+        result = runner.invoke_with_connection_json(["dcm", "refresh", project_name])
+        assert result.exit_code == 0, result.output
+        assert result.json == [{"refreshed_tables": []}]
+
+        # 2) Define base table and dynamic table with long refresh time.
+        table_definitions = f"""
+define table identifier('{base_table_name}') (
+  id int, name varchar, email varchar
+);
+
+define dynamic table identifier('{dynamic_table_name}')
+target_lag = '1000 minutes'
+WAREHOUSE = xs
+as select * from {base_table_name};
+"""
+        file_a_path = project_root / "file_a.sql"
+        original_content = file_a_path.read_text()
+        file_a_path.write_text(original_content + table_definitions)
+
+        # Deploy the project.
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.OutputTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # 3) Insert data into the base table.
+        insert_data_sql = f"""
+INSERT INTO {base_table_name} (id, name, email) VALUES
+    (1, 'Alice Johnson', 'alice.j@example.com'),
+    (2, 'Bob Williams', 'bob.w@example.com'),
+    (3, 'Charlie Brown', 'charlie.b@example.com');
+"""
+        sql_test_helper.execute_single_sql(insert_data_sql)
+
+        # 4) Verify that data is NOT yet in the dynamic table (due to long refresh time).
+        check_dt_sql = f"SELECT COUNT(*) as cnt FROM {dynamic_table_name}"
+        result = sql_test_helper.execute_single_sql(check_dt_sql)
+        count_before = result[0]["CNT"]
+        assert count_before == 0, "Dynamic table should be empty before refresh."
+
+        # 5) Run dcm refresh command.
+        result = runner.invoke_with_connection_json(["dcm", "refresh", project_name])
+        assert result.exit_code == 0, result.output
+        assert len(result.json[0]["refreshed_tables"]) > 0
+        refreshed_table = result.json[0]["refreshed_tables"][0]
+        assert dynamic_table_name.upper() in refreshed_table["dt_name"].upper()
+        assert refreshed_table["refreshed_dt_count"] >= 1
+
+        # 6) Verify that data is NOW in the dynamic table.
+        result = sql_test_helper.execute_single_sql(check_dt_sql)
+        count_after = result[0]["CNT"]
+        assert count_after == 3, "Dynamic table should have 3 rows after refresh."

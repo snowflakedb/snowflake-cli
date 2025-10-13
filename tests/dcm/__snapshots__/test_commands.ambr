@@ -1,0 +1,38 @@
+# serializer version: 1
+# name: TestDCMRefresh.test_refresh_with_fresh_tables
+  '''
+  
+  +------------------------------------------------------------------------------+
+  | refreshed_tables                                                             |
+  |------------------------------------------------------------------------------|
+  | [{'dt_name': 'JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES',                   |
+  | 'refreshed_dt_count': 0, 'data_timestamp': '1760356974.543', 'statistics':   |
+  | 'No new data'}]                                                              |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---
+# name: TestDCMRefresh.test_refresh_with_no_dynamic_tables
+  '''
+  
+  +------------------+
+  | refreshed_tables |
+  |------------------|
+  | []               |
+  +------------------+
+  
+  '''
+# ---
+# name: TestDCMRefresh.test_refresh_with_outdated_tables
+  '''
+  
+  +------------------------------------------------------------------------------+
+  | refreshed_tables                                                             |
+  |------------------------------------------------------------------------------|
+  | [{'dt_name': 'JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES',                   |
+  | 'refreshed_dt_count': 1, 'data_timestamp': '1760357032.175', 'statistics':   |
+  | '{"insertedRows":5,"copiedRows":0,"deletedRows":5}'}]                        |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---

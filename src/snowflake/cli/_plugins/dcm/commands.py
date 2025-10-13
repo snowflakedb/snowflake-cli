@@ -268,6 +268,21 @@ def test(
         raise typer.Exit(1)
 
 
+@app.command(requires_connection=True)
+def refresh(
+    identifier: FQN = dcm_identifier,
+    **options,
+):
+    """
+    Refreshes dynamic tables defined in DCM project.
+    """
+    with cli_console.spinner() as spinner:
+        spinner.add_task(description=f"Refreshing dcm project {identifier}", total=None)
+        result = DCMProjectManager().refresh(project_identifier=identifier)
+
+    return QueryJsonValueResult(result)
+
+
 def _get_effective_stage(identifier: FQN, from_location: Optional[str]):
     manager = DCMProjectManager()
     if not from_location:
