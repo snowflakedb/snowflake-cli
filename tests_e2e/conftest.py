@@ -110,9 +110,11 @@ def test_root_path():
 def disable_colors_and_styles_in_output(monkeypatch):
     """
     Colors and styles in output cause mismatches in asserts,
-    this environment variable turn off styling
+    this environment variable turn off styling.
+    Also set consistent terminal width to avoid snapshot mismatches.
     """
     monkeypatch.setenv("TERM", "unknown")
+    monkeypatch.setenv("COLUMNS", "200")
 
 
 @pytest.fixture(scope="session")
