@@ -67,8 +67,13 @@ class ConfigProvider(ABC):
         ...
 
     @abstractmethod
-    def get_all_connections(self) -> dict:
-        """Get all connection configurations."""
+    def get_all_connections(self, include_env_connections: bool = False) -> dict:
+        """Get all connection configurations.
+
+        Args:
+            include_env_connections: If True, include connections created from
+                                    environment variables. Default False.
+        """
         ...
 
     def _transform_private_key_raw(self, connection_dict: dict) -> dict:
@@ -171,9 +176,10 @@ class LegacyConfigProvider(ConfigProvider):
                 f"Connection {connection_name} is not configured"
             )
 
-    def get_all_connections(self) -> dict:
+    def get_all_connections(self, include_env_connections: bool = False) -> dict:
         from snowflake.cli.api.config import get_all_connections
 
+        # Legacy provider ignores the flag since it never had env connections
         return get_all_connections()
 
 
@@ -527,19 +533,76 @@ class AlternativeConfigProvider(ConfigProvider):
 
         return connections
 
-    def get_all_connections(self) -> dict:
+    def get_all_connections(self, include_env_connections: bool = False) -> dict:
         """
         Get all connection configurations.
+
+        Args:
+            include_env_connections: If True, include connections created from
+                                    environment variables. Default False for
+                                    backward compatibility with legacy behavior.
 
         Returns:
             Dictionary mapping connection names to ConnectionConfig objects
         """
         from snowflake.cli.api.config import ConnectionConfig
 
+        if not include_env_connections:
+            # Only return connections from file sources (matching legacy behavior)
+            return self._get_file_based_connections()
+
+        # Return all connections including environment-based ones
         connections_dict = self._get_all_connections_dict()
         return {
             name: ConnectionConfig.from_dict(config)
             for name, config in connections_dict.items()
+        }
+
+    def _get_file_based_connections(self) -> dict:
+        """
+        Get connections only from file sources.
+
+        Excludes connections that exist solely due to environment variables
+        or CLI parameters. Matches legacy behavior.
+
+        Returns:
+            Dictionary mapping connection names to ConnectionConfig objects
+        """
+        from snowflake.cli.api.config import ConnectionConfig
+
+        self._ensure_initialized()
+
+        # Only query file sources: SnowSQL config, CLI config.toml, connections.toml
+        file_source_names = {"snowsql_config", "cli_config_toml", "connections_toml"}
+
+        connections: Dict[str, Dict[str, Any]] = {}
+        connections_prefix = "connections."
+
+        assert self._resolver is not None
+        for source in self._resolver._sources:  # noqa: SLF001
+            if source.source_name not in file_source_names:
+                continue
+
+            try:
+                source_values = source.discover()
+                for key, config_value in source_values.items():
+                    if key.startswith(connections_prefix):
+                        parts = key[len(connections_prefix) :].split(".", 1)
+                        if len(parts) == 2:
+                            conn_name, param_name = parts
+                            if conn_name not in connections:
+                                connections[conn_name] = {}
+
+                            # Skip internal markers
+                            if param_name != "_empty_connection":
+                                connections[conn_name][param_name] = config_value.value
+            except Exception:
+                # Silently skip sources that fail to discover
+                pass
+
+        return {
+            name: ConnectionConfig.from_dict(config)
+            for name, config in connections.items()
         }
 
     def invalidate_cache(self) -> None:
