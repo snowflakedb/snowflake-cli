@@ -1,0 +1,15 @@
+# serializer version: 1
+# name: test_broken_command_path_plugin
+  '''
+  [
+      {
+          "connection_name": "test",
+          "parameters": {
+              "account": "test"
+          },
+          "is_default": false
+      }
+  ]
+  
+  '''
+# ---
