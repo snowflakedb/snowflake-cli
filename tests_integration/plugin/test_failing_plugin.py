@@ -15,12 +15,11 @@
 import pytest
 
 
-@pytest.mark.parametrize("config_mode", ["legacy", "config_ng"], indirect=True)
 @pytest.mark.integration
 def test_failing_plugin(
-    runner, test_root_path, _install_plugin, caplog, snapshot, config_mode
+    runner, test_root_path, _install_plugin, caplog, config_snapshot
 ):
-    """Test failing plugin with both legacy and config_ng systems."""
+    """Test failing plugin."""
     config_path = (
         test_root_path / "config" / "plugin_tests" / "failing_plugin_config.toml"
     )
@@ -35,8 +34,7 @@ def test_failing_plugin(
     )
 
     # Use snapshot to capture the output
-    # Each config_mode gets its own snapshot automatically
-    assert result.output == snapshot
+    assert result.output == config_snapshot
 
 
 @pytest.fixture(scope="module")
