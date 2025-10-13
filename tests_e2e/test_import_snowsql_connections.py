@@ -18,15 +18,14 @@ def _get_connections_list_output(snowcli, config_file) -> str:
     )
 
 
-@pytest.mark.parametrize("config_mode", ["legacy", "config_ng"], indirect=True)
 @pytest.mark.e2e
 def test_import_of_snowsql_connections(
-    snowcli, test_root_path, empty_config_file, snapshot, config_mode
+    snowcli, test_root_path, empty_config_file, config_snapshot
 ):
-    """Test connection import with both legacy and config_ng systems."""
+    """Test connection import."""
     # Initially should have empty or minimal connections list
     initial_output = _get_connections_list_output(snowcli, empty_config_file)
-    assert initial_output == snapshot
+    assert initial_output == config_snapshot
 
     # Import snowsql connections
     result = subprocess_run(
@@ -46,18 +45,17 @@ def test_import_of_snowsql_connections(
 
     # After import, should have multiple connections
     final_output = _get_connections_list_output(snowcli, empty_config_file)
-    assert final_output == snapshot
+    assert final_output == config_snapshot
 
 
-@pytest.mark.parametrize("config_mode", ["legacy", "config_ng"], indirect=True)
 @pytest.mark.e2e
 def test_import_prompt_for_different_default_connection_name_on_conflict(
-    snowcli, test_root_path, empty_config_file, snapshot, config_mode
+    snowcli, test_root_path, empty_config_file, config_snapshot
 ):
     """Test importing with different default connection name."""
     # Initially should have empty or minimal connections list
     initial_output = _get_connections_list_output(snowcli, empty_config_file)
-    assert initial_output == snapshot
+    assert initial_output == config_snapshot
 
     # Import with different default connection name
     result = subprocess_run(
@@ -80,24 +78,22 @@ def test_import_prompt_for_different_default_connection_name_on_conflict(
 
     # After import, snowsql2 should be the default
     final_output = _get_connections_list_output(snowcli, empty_config_file)
-    assert final_output == snapshot
+    assert final_output == config_snapshot
 
 
-@pytest.mark.parametrize("config_mode", ["legacy", "config_ng"], indirect=True)
 @pytest.mark.e2e
 def test_import_confirm_on_conflict_with_existing_cli_connection(
     snowcli,
     test_root_path,
     example_connection_config_file,
-    snapshot,
-    config_mode,
+    config_snapshot,
 ):
     """Test import with confirmation on conflict."""
     # Initially should have example and integration connections
     initial_output = _get_connections_list_output(
         snowcli, example_connection_config_file
     )
-    assert initial_output == snapshot
+    assert initial_output == config_snapshot
 
     # Import with confirmation (y)
     result = subprocess_run(
@@ -118,24 +114,22 @@ def test_import_confirm_on_conflict_with_existing_cli_connection(
 
     # After import, example connection should be overwritten with snowsql data
     final_output = _get_connections_list_output(snowcli, example_connection_config_file)
-    assert final_output == snapshot
+    assert final_output == config_snapshot
 
 
-@pytest.mark.parametrize("config_mode", ["legacy", "config_ng"], indirect=True)
 @pytest.mark.e2e
 def test_import_reject_on_conflict_with_existing_cli_connection(
     snowcli,
     test_root_path,
     example_connection_config_file,
-    snapshot,
-    config_mode,
+    config_snapshot,
 ):
     """Test import with rejection on conflict."""
     # Initially should have example and integration connections
     initial_output = _get_connections_list_output(
         snowcli, example_connection_config_file
     )
-    assert initial_output == snapshot
+    assert initial_output == config_snapshot
 
     # Import with rejection (n)
     result = subprocess_run(
@@ -157,18 +151,14 @@ def test_import_reject_on_conflict_with_existing_cli_connection(
     # After import, example connection should remain unchanged
     # But other connections should still be imported
     final_output = _get_connections_list_output(snowcli, example_connection_config_file)
-    assert final_output == snapshot
+    assert final_output == config_snapshot
 
 
-@pytest.mark.parametrize("config_mode", ["legacy", "config_ng"], indirect=True)
 @pytest.mark.e2e
-def test_connection_imported_from_snowsql(
-    snowcli, test_root_path, empty_config_file, config_mode
-):
+def test_connection_imported_from_snowsql(snowcli, test_root_path, empty_config_file):
     """Test that imported connection works."""
-    # In config_ng, an INTEGRATION connection may already exist via env vars.
-    # Confirm override explicitly to avoid interactive abort.
-    stdin = "y\n" if config_mode == "config_ng" else None
+    # Always provide confirmation to avoid interactive abort.
+    stdin = "y\n"
 
     result = subprocess_run(
         [
