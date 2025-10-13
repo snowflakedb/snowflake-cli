@@ -45,8 +45,6 @@ jobs:
       python-env: integration
       hatch-run: integration:test
     secrets: inherit
-    env:
-      PYTEST_ADDOPTS: -k legacy
 
   integration-fork:
     needs: define-matrix
@@ -73,5 +71,3 @@ jobs:
       hatch-run: integration:test
       job-name: integration-fork
     secrets: inherit
-    env:
-      PYTEST_ADDOPTS: -k legacy

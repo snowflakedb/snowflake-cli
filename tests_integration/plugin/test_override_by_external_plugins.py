@@ -15,12 +15,11 @@
 import pytest
 
 
-@pytest.mark.parametrize("config_mode", ["legacy", "config_ng"], indirect=True)
 @pytest.mark.integration
 def test_override_build_in_commands(
-    runner, test_root_path, _install_plugin, caplog, snapshot, config_mode
+    runner, test_root_path, _install_plugin, caplog, config_snapshot
 ):
-    """Test plugin override attempt with both legacy and config_ng systems."""
+    """Test plugin override attempt."""
     config_path = (
         test_root_path / "config" / "plugin_tests" / "override_plugin_config.toml"
     )
@@ -35,16 +34,14 @@ def test_override_build_in_commands(
     )
 
     # Use snapshot to capture the output
-    # Each config_mode gets its own snapshot automatically
-    assert result.output == snapshot
+    assert result.output == config_snapshot
 
 
-@pytest.mark.parametrize("config_mode", ["legacy", "config_ng"], indirect=True)
 @pytest.mark.integration
 def test_disabled_plugin_is_not_executed(
-    runner, test_root_path, _install_plugin, caplog, snapshot, config_mode
+    runner, test_root_path, _install_plugin, caplog, config_snapshot
 ):
-    """Test disabled plugin with both legacy and config_ng systems."""
+    """Test disabled plugin."""
     config_path = (
         test_root_path
         / "config"
@@ -57,8 +54,7 @@ def test_disabled_plugin_is_not_executed(
     )
 
     # Use snapshot to capture the output
-    # Each config_mode gets its own snapshot automatically
-    assert result.output == snapshot
+    assert result.output == config_snapshot
 
 
 @pytest.fixture(scope="module")

@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_broken_command_path_plugin[config_ng]
+# name: test_broken_command_path_plugin
   '''
   [
       {
@@ -19,20 +19,6 @@
               "warehouse": "xsmall",
               "role": "integration_tests",
               "authenticator": "SNOWFLAKE_JWT"
-          },
-          "is_default": false
-      }
-  ]
-  
-  '''
-# ---
-# name: test_broken_command_path_plugin[legacy]
-  '''
-  [
-      {
-          "connection_name": "test",
-          "parameters": {
-              "account": "test"
           },
           "is_default": false
       }
