@@ -124,12 +124,22 @@ def config_snapshot(snapshot):
 # In addition to its own CliContextManager, each test gets its own OpenConnectionCache
 # which is cleared after the test completes.
 def reset_global_context_and_setup_config_and_logging_levels(
-    request, test_snowcli_config
+    request, test_snowcli_config, monkeypatch
 ):
     # Reset config provider singleton to prevent test interference
     from snowflake.cli.api.config_provider import reset_config_provider
 
     reset_config_provider()
+
+    # Clear SNOWFLAKE_CONNECTIONS_* env vars for test isolation with config_ng
+    # These may be set in CI/dev environments and interfere with tests
+    import os
+
+    for key in list(os.environ.keys()):
+        if key.startswith("SNOWFLAKE_CONNECTIONS_") or key.startswith(
+            "SNOWSQL_CONNECTIONS_"
+        ):
+            monkeypatch.delenv(key, raising=False)
 
     with fork_cli_context():
         connection_cache = OpenConnectionCache()
