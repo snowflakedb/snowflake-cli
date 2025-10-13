@@ -23,8 +23,6 @@ permissions:
 jobs:
   tests-trusted:
     runs-on: ${{ inputs.runs-on }}
-    env:
-      PYTEST_ADDOPTS: -k legacy
     steps:
       - uses: actions/checkout@v4
         with:
@@ -53,7 +51,6 @@ jobs:
     runs-on: ${{ inputs.runs-on }}
     env:
       SNOWFLAKE_CLI_CONFIG_V2_ENABLED: 1
-      PYTEST_ADDOPTS: -k config_ng
     steps:
       - uses: actions/checkout@v4
         with:
