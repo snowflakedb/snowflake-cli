@@ -221,6 +221,16 @@ def _config_file():
     yield conf_file_cache
     _dump_config(conf_file_cache)
 
+    # Reset config provider cache after writing to ensure it re-reads on next access
+    try:
+        from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+        provider = get_config_provider_singleton()
+        if hasattr(provider, "invalidate_cache"):
+            provider.invalidate_cache()
+    except Exception:
+        pass
+
 
 def _read_config_file():
     config_manager = get_config_manager()
