@@ -94,11 +94,32 @@ def _mask_sensitive_parameters(connection_params: dict):
 
 
 @app.command(name="list")
-def list_connections(**options) -> CommandResult:
+def list_connections(
+    all_sources: bool = typer.Option(
+        False,
+        "--all",
+        "-a",
+        help="Include connections from all sources (environment variables, SnowSQL config). "
+        "By default, only shows connections from configuration files.",
+    ),
+    **options,
+) -> CommandResult:
     """
     Lists configured connections.
     """
-    connections = get_all_connections()
+    from snowflake.cli.api.config_provider import (
+        _is_alternative_config_enabled,
+        get_config_provider_singleton,
+    )
+
+    # Use provider directly for config_ng to pass the flag
+    if _is_alternative_config_enabled():
+        provider = get_config_provider_singleton()
+        connections = provider.get_all_connections(include_env_connections=all_sources)
+    else:
+        # Legacy provider ignores the flag
+        connections = get_all_connections()
+
     default_connection = get_default_connection_name()
     result = (
         {
