@@ -15,12 +15,11 @@
 import pytest
 
 
-@pytest.mark.parametrize("config_mode", ["legacy", "config_ng"], indirect=True)
 @pytest.mark.integration
 def test_broken_command_path_plugin(
-    runner, test_root_path, _install_plugin, caplog, snapshot, config_mode
+    runner, test_root_path, _install_plugin, caplog, config_snapshot
 ):
-    """Test broken plugin with both legacy and config_ng systems."""
+    """Test broken plugin."""
     config_path = (
         test_root_path / "config" / "plugin_tests" / "broken_plugin_config.toml"
     )
@@ -37,8 +36,7 @@ def test_broken_command_path_plugin(
     )
 
     # Use snapshot to capture the output
-    # Each config_mode gets its own snapshot automatically
-    assert result.output == snapshot
+    assert result.output == config_snapshot
 
 
 @pytest.fixture(scope="module")

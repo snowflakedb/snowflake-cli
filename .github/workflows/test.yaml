@@ -28,8 +28,6 @@ jobs:
         os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
         python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
     runs-on: ${{ matrix.os }}
-    env:
-      PYTEST_ADDOPTS: -k legacy
     steps:
       - uses: actions/checkout@v4
         with:
@@ -46,7 +44,7 @@ jobs:
         run: hatch run test-cov
       - uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24
 
-  tests-ng:
+  tests-config-ng:
     needs: define-matrix
     strategy:
       fail-fast: true
@@ -54,6 +52,8 @@ jobs:
         os: ${{ fromJSON(needs.define-matrix.outputs.os) }}
         python-version: ${{ fromJSON(needs.define-matrix.outputs.python) }}
     runs-on: ${{ matrix.os }}
+    env:
+      SNOWFLAKE_CLI_CONFIG_V2_ENABLED: 1
     steps:
       - uses: actions/checkout@v4
         with:
@@ -69,6 +69,3 @@ jobs:
       - name: Test with hatch
         run: hatch run test-cov
       - uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24
-    env:
-      SNOWFLAKE_CLI_CONFIG_V2_ENABLED: 1
-      PYTEST_ADDOPTS: -k config_ng

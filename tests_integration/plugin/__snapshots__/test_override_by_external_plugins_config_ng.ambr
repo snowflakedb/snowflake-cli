@@ -1,5 +1,5 @@
 # serializer version: 1
-# name: test_disabled_plugin_is_not_executed[config_ng]
+# name: test_disabled_plugin_is_not_executed
   '''
   [
       {
@@ -26,21 +26,7 @@
   
   '''
 # ---
-# name: test_disabled_plugin_is_not_executed[legacy]
-  '''
-  [
-      {
-          "connection_name": "test",
-          "parameters": {
-              "account": "test"
-          },
-          "is_default": false
-      }
-  ]
-  
-  '''
-# ---
-# name: test_override_build_in_commands[config_ng]
+# name: test_override_build_in_commands
   '''
   Outside command code
   [
@@ -61,21 +47,6 @@
               "warehouse": "xsmall",
               "role": "integration_tests",
               "authenticator": "SNOWFLAKE_JWT"
-          },
-          "is_default": false
-      }
-  ]
-  
-  '''
-# ---
-# name: test_override_build_in_commands[legacy]
-  '''
-  Outside command code
-  [
-      {
-          "connection_name": "test",
-          "parameters": {
-              "account": "test"
           },
           "is_default": false
       }
