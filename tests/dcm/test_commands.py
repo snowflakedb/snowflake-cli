@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import pytest
@@ -787,3 +788,70 @@ class TestDCMPreview:
 
         assert result.exit_code == 2
         assert "Missing option '--object'" in result.output
+
+
+class TestDCMRefresh:
+    @mock.patch(DCMProjectManager)
+    def test_refresh_with_outdated_tables(self, mock_pm, runner, mock_cursor, snapshot):
+        refresh_result = {
+            "refreshed_tables": [
+                {
+                    "dt_name": "JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES",
+                    "refreshed_dt_count": 1,
+                    "data_timestamp": "1760357032.175",
+                    "statistics": '{"insertedRows":5,"copiedRows":0,"deletedRows":5}',
+                }
+            ]
+        }
+        mock_pm().refresh.return_value = mock_cursor(
+            rows=[(json.dumps(refresh_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "refresh", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == snapshot
+        mock_pm().refresh.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_refresh_with_fresh_tables(self, mock_pm, runner, mock_cursor, snapshot):
+        refresh_result = {
+            "refreshed_tables": [
+                {
+                    "dt_name": "JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES",
+                    "refreshed_dt_count": 0,
+                    "data_timestamp": "1760356974.543",
+                    "statistics": "No new data",
+                }
+            ]
+        }
+        mock_pm().refresh.return_value = mock_cursor(
+            rows=[(json.dumps(refresh_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "refresh", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == snapshot
+        mock_pm().refresh.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_refresh_with_no_dynamic_tables(
+        self, mock_pm, runner, mock_cursor, snapshot
+    ):
+        refresh_result = {"refreshed_tables": []}
+        mock_pm().refresh.return_value = mock_cursor(
+            rows=[(json.dumps(refresh_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "refresh", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == snapshot
+        mock_pm().refresh.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )

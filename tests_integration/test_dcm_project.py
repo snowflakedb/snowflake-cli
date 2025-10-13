@@ -637,3 +637,92 @@ INSERT INTO {base_table_name} (fooBar) VALUES
         assert result.exit_code == 0, result.output
         assert isinstance(result.json, list)
         assert len(result.json) == 2
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_refresh_command(
+    runner,
+    test_database,
+    project_directory,
+    object_name_provider,
+    sql_test_helper,
+):
+    project_name = object_name_provider.create_and_get_next_object_name()
+    base_table_name = f"{test_database}.PUBLIC.RefreshBaseTable"
+    dynamic_table_name = f"{test_database}.PUBLIC.RefreshDynamicTable"
+
+    with project_directory("dcm_project") as project_root:
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+
+        # Deploy the project.
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.OutputTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # 1) Without any dynamic tables, run refresh command - should report no dynamic tables.
+        result = runner.invoke_with_connection(["dcm", "refresh", project_name])
+        assert result.exit_code == 0, result.output
+        assert "No dynamic tables found in the project." in result.output
+
+        # 2) Define base table and dynamic table with long refresh time.
+        table_definitions = f"""
+define table identifier('{base_table_name}') (
+  id int, name varchar, email varchar
+);
+
+define dynamic table identifier('{dynamic_table_name}')
+target_lag = '1000 minutes'
+WAREHOUSE = xs
+as select * from {base_table_name};
+"""
+        file_a_path = project_root / "file_a.sql"
+        original_content = file_a_path.read_text()
+        file_a_path.write_text(original_content + table_definitions)
+
+        # Deploy the project.
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.OutputTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # 3) Insert data into the base table.
+        insert_data_sql = f"""
+INSERT INTO {base_table_name} (id, name, email) VALUES
+    (1, 'Alice Johnson', 'alice.j@example.com'),
+    (2, 'Bob Williams', 'bob.w@example.com'),
+    (3, 'Charlie Brown', 'charlie.b@example.com');
+"""
+        sql_test_helper.execute_single_sql(insert_data_sql)
+
+        # 4) Run dcm refresh command.
+        result = runner.invoke_with_connection(["dcm", "refresh", project_name])
+        assert result.exit_code == 0, result.output
+        # Should show at least 1 table was refreshed
+        assert (
+            "1 dynamic table(s) refreshed" in result.output
+            or "dynamic table(s) refreshed" in result.output
+        )
+
+        # 5) Run dcm refresh command again. Response should be different because there's nothing to update
+        result = runner.invoke_with_connection(["dcm", "refresh", project_name])
+        assert result.exit_code == 0, result.output
+        # Should show at least 1 table was refreshed
+        assert (
+            "1 dynamic table(s) up-to-date." in result.output
+            or "dynamic table(s) up-to-date" in result.output
+        )
