@@ -168,6 +168,13 @@ class TestAlternativeConfigProviderBasicOperations:
         with mock.patch.object(provider, "_resolver") as mock_resolver:
             mock_resolver.resolve.return_value = {"account": "test_account"}
             provider._initialized = True
+            # Prevent re-initialization due to config_file_override check
+            from snowflake.cli.api.cli_global_context import get_cli_context
+
+            try:
+                provider._last_config_override = get_cli_context().config_file_override
+            except Exception:
+                provider._last_config_override = None
 
             value = provider.get_value(key="account")
             assert value == "test_account"
@@ -181,6 +188,13 @@ class TestAlternativeConfigProviderBasicOperations:
                 "connections.default.account": "test_account"
             }
             provider._initialized = True
+            # Prevent re-initialization due to config_file_override check
+            from snowflake.cli.api.cli_global_context import get_cli_context
+
+            try:
+                provider._last_config_override = get_cli_context().config_file_override
+            except Exception:
+                provider._last_config_override = None
 
             value = provider.get_value("connections", "default", key="account")
             assert value == "test_account"
@@ -204,6 +218,13 @@ class TestAlternativeConfigProviderBasicOperations:
             config_data = {"key1": "value1", "key2": "value2"}
             mock_resolver.resolve.return_value = config_data
             provider._initialized = True
+            # Prevent re-initialization due to config_file_override check
+            from snowflake.cli.api.cli_global_context import get_cli_context
+
+            try:
+                provider._last_config_override = get_cli_context().config_file_override
+            except Exception:
+                provider._last_config_override = None
 
             section = provider.get_section()
             assert section == config_data
@@ -219,6 +240,13 @@ class TestAlternativeConfigProviderBasicOperations:
                 "connections.prod.account": "prod_account",
             }
             provider._initialized = True
+            # Prevent re-initialization due to config_file_override check
+            from snowflake.cli.api.cli_global_context import get_cli_context
+
+            try:
+                provider._last_config_override = get_cli_context().config_file_override
+            except Exception:
+                provider._last_config_override = None
 
             section = provider.get_section("connections")
             assert "default" in section
@@ -236,6 +264,13 @@ class TestAlternativeConfigProviderBasicOperations:
                 "connections.default.user": "test_user",
             }
             provider._initialized = True
+            # Prevent re-initialization due to config_file_override check
+            from snowflake.cli.api.cli_global_context import get_cli_context
+
+            try:
+                provider._last_config_override = get_cli_context().config_file_override
+            except Exception:
+                provider._last_config_override = None
 
             section = provider.get_section("connections", "default")
             assert section == {"account": "test_account", "user": "test_user"}
@@ -255,6 +290,13 @@ class TestAlternativeConfigProviderConnectionOperations:
                 "connections.default.password": "secret",
             }
             provider._initialized = True
+            # Prevent re-initialization due to config_file_override check
+            from snowflake.cli.api.cli_global_context import get_cli_context
+
+            try:
+                provider._last_config_override = get_cli_context().config_file_override
+            except Exception:
+                provider._last_config_override = None
 
             conn_dict = provider.get_connection_dict("default")
             assert conn_dict == {
@@ -286,6 +328,13 @@ class TestAlternativeConfigProviderConnectionOperations:
                 "connections.prod.user": "prod_user",
             }
             provider._initialized = True
+            # Prevent re-initialization due to config_file_override check
+            from snowflake.cli.api.cli_global_context import get_cli_context
+
+            try:
+                provider._last_config_override = get_cli_context().config_file_override
+            except Exception:
+                provider._last_config_override = None
 
             all_conns = provider._get_all_connections_dict()
             assert "default" in all_conns
@@ -304,22 +353,21 @@ class TestAlternativeConfigProviderConnectionOperations:
         """Test get_all_connections returns ConnectionConfig objects."""
         provider = AlternativeConfigProvider()
 
-        with mock.patch.object(provider, "_resolver") as mock_resolver:
-            mock_resolver.resolve.return_value = {
-                "connections.default.account": "test_account",
-                "connections.default.user": "test_user",
-            }
-            provider._initialized = True
+        # Mock ConnectionConfig.from_dict
+        mock_config_instance = mock.Mock()
+        mock_connection_config.from_dict.return_value = mock_config_instance
 
-            # Mock ConnectionConfig.from_dict
-            mock_config_instance = mock.Mock()
-            mock_connection_config.from_dict.return_value = mock_config_instance
+        # Mock _get_file_based_connections to avoid resolver._sources access
+        with mock.patch.object(
+            provider, "_get_file_based_connections"
+        ) as mock_get_file_based:
+            mock_get_file_based.return_value = {"default": mock_config_instance}
 
             all_conns = provider.get_all_connections()
 
             assert "default" in all_conns
             assert all_conns["default"] == mock_config_instance
-            mock_connection_config.from_dict.assert_called_once()
+            mock_get_file_based.assert_called_once()
 
 
 class TestAlternativeConfigProviderWriteOperations:
@@ -387,3 +435,71 @@ password = "test_password"
         with mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "true"}):
             provider = get_config_provider_singleton()
             assert isinstance(provider, AlternativeConfigProvider)
+
+
+class TestAlternativeConfigProviderConnections:
+    """Tests for AlternativeConfigProvider connection filtering."""
+
+    def test_get_all_connections_excludes_env_by_default(self, monkeypatch):
+        """Test that get_all_connections excludes env-only connections by default."""
+        monkeypatch.setenv(ALTERNATIVE_CONFIG_ENV_VAR, "1")
+
+        # Set up environment variable for connection
+        monkeypatch.setenv("SNOWFLAKE_CONNECTIONS_ENVONLY_ACCOUNT", "test_account")
+        monkeypatch.setenv("SNOWFLAKE_CONNECTIONS_ENVONLY_USER", "test_user")
+
+        reset_config_provider()
+        provider = get_config_provider_singleton()
+
+        # Default: should not include env-only connection
+        connections = provider.get_all_connections(include_env_connections=False)
+        assert "envonly" not in connections
+
+        # With flag: should include env-only connection
+        reset_config_provider()
+        all_connections = provider.get_all_connections(include_env_connections=True)
+        assert "envonly" in all_connections
+        assert all_connections["envonly"].account == "test_account"
+        assert all_connections["envonly"].user == "test_user"
+
+    def test_get_all_connections_with_mixed_sources(self, monkeypatch):
+        """Test that file-based connections are included but env-only excluded by default."""
+        monkeypatch.setenv(ALTERNATIVE_CONFIG_ENV_VAR, "1")
+
+        # Set env variable for env-only connection
+        monkeypatch.setenv("SNOWFLAKE_CONNECTIONS_ENVCONN_ACCOUNT", "env_account")
+
+        reset_config_provider()
+        provider = get_config_provider_singleton()
+
+        # Without flag: should have file connections but not env-only connection
+        connections = provider.get_all_connections(include_env_connections=False)
+        # Test fixture connections should be present (from test.toml)
+        assert len(connections) > 0
+        assert "envconn" not in connections
+
+        # With flag: should have both file and env connections
+        reset_config_provider()
+        all_connections = provider.get_all_connections(include_env_connections=True)
+        assert "envconn" in all_connections
+        # Should have more connections when including env
+        assert len(all_connections) >= len(connections)
+
+    def test_legacy_provider_ignores_include_env_flag(self, monkeypatch):
+        """Test that LegacyConfigProvider ignores the include_env_connections flag."""
+        # Ensure legacy provider is used
+        monkeypatch.delenv(ALTERNATIVE_CONFIG_ENV_VAR, raising=False)
+
+        reset_config_provider()
+        provider = get_config_provider_singleton()
+
+        assert isinstance(provider, LegacyConfigProvider)
+
+        # Both calls should return the same result (flag is ignored)
+        connections_default = provider.get_all_connections(
+            include_env_connections=False
+        )
+        connections_all = provider.get_all_connections(include_env_connections=True)
+
+        # Should be same connections (legacy doesn't filter)
+        assert set(connections_default.keys()) == set(connections_all.keys())
