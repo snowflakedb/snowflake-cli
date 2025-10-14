@@ -21,6 +21,7 @@ from snowflake.cli._plugins.object.command_aliases import add_object_command_ali
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.commands.flags import (
+    IdentifierType,
     IfExistsOption,
     IfNotExistsOption,
     OverrideableOption,
@@ -126,13 +127,12 @@ def deploy(
 
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Deploying dcm project {identifier}", total=None)
-        result = manager.execute(
+        result = manager.deploy(
             project_identifier=identifier,
             configuration=configuration,
             from_stage=effective_stage,
             variables=variables,
             alias=alias,
-            output_path=None,
         )
     return QueryJsonValueResult(result)
 
@@ -156,11 +156,10 @@ def plan(
 
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Planning dcm project {identifier}", total=None)
-        result = manager.execute(
+        result = manager.plan(
             project_identifier=identifier,
             configuration=configuration,
             from_stage=effective_stage,
-            dry_run=True,
             variables=variables,
             output_path=output_path,
         )
@@ -281,6 +280,53 @@ def refresh(
         result = DCMProjectManager().refresh(project_identifier=identifier)
 
     return QueryJsonValueResult(result)
+
+
+@app.command(requires_connection=True)
+def preview(
+    identifier: FQN = dcm_identifier,
+    object_identifier: FQN = typer.Option(
+        ...,
+        "--object",
+        help="FQN of table/view/etc to be previewed.",
+        show_default=False,
+        click_type=IdentifierType(),
+    ),
+    from_location: Optional[str] = from_option,
+    variables: Optional[List[str]] = variables_flag,
+    configuration: Optional[str] = configuration_flag,
+    limit: Optional[int] = typer.Option(
+        None,
+        "--limit",
+        help="The maximum number of rows to be returned.",
+        show_default=False,
+    ),
+    **options,
+):
+    """
+    Returns rows from any table, view, dynamic table.
+
+    Examples:
+    \nsnow dcm preview MY_PROJECT --configuration DEV --object MY_DB.PUBLIC.MY_VIEW --limit 2
+    """
+    manager = DCMProjectManager()
+    effective_stage = _get_effective_stage(identifier, from_location)
+
+    with cli_console.spinner() as spinner:
+        spinner.add_task(
+            description=f"Previewing {object_identifier}.",
+            total=None,
+        )
+        result = manager.preview(
+            project_identifier=identifier,
+            object_identifier=object_identifier,
+            configuration=configuration,
+            from_stage=effective_stage,
+            variables=variables,
+            limit=limit,
+        )
+
+    return QueryResult(result)
 
 
 def _get_effective_stage(identifier: FQN, from_location: Optional[str]):

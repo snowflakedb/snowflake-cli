@@ -76,7 +76,7 @@ class TestDCMDeploy:
         mock_connect,
         mock_from_resource,
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
@@ -86,40 +86,38 @@ class TestDCMDeploy:
 
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage=mock_from_resource(),
             variables=None,
             alias=None,
-            output_path=None,
         )
 
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_from_stage(
         self, mock_pm, runner, project_directory, mock_cursor
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
 
         result = runner.invoke(["dcm", "deploy", "fooBar", "--from", "@my_stage"])
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="@my_stage",
             variables=None,
             alias=None,
-            output_path=None,
         )
 
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_variables(
         self, mock_pm, runner, project_directory, mock_cursor
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
 
@@ -128,20 +126,19 @@ class TestDCMDeploy:
         )
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="@my_stage",
             variables=["key=value"],
             alias=None,
-            output_path=None,
         )
 
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_configuration(
         self, mock_pm, runner, project_directory, mock_cursor
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
 
@@ -158,20 +155,19 @@ class TestDCMDeploy:
         )
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration="some_configuration",
             from_stage="@my_stage",
             variables=None,
             alias=None,
-            output_path=None,
         )
 
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_alias(
         self, mock_pm, runner, project_directory, mock_cursor
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
 
@@ -180,13 +176,12 @@ class TestDCMDeploy:
         )
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="@my_stage",
             variables=None,
             alias="my_alias",
-            output_path=None,
         )
 
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
@@ -201,7 +196,7 @@ class TestDCMDeploy:
         mock_connect,
     ):
         """Test that files are synced to project stage when from_stage is not provided."""
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = (
@@ -212,7 +207,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "my_project"])
             assert result.exit_code == 0, result.output
 
-        call_args = mock_pm().execute.call_args
+        call_args = mock_pm().deploy.call_args
         assert "DCM_FOOBAR" in call_args.kwargs["from_stage"]
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
@@ -226,7 +221,7 @@ class TestDCMDeploy:
         mock_connect,
         tmp_path,
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = (
@@ -250,7 +245,7 @@ class TestDCMDeploy:
             source_directory=str(source_dir),
         )
 
-        call_args = mock_pm().execute.call_args
+        call_args = mock_pm().deploy.call_args
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
 
@@ -265,7 +260,7 @@ class TestDCMPlan:
         mock_connect,
         mock_from_resource,
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().plan.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
@@ -284,11 +279,10 @@ class TestDCMPlan:
             )
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().plan.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration="some_configuration",
             from_stage=mock_from_resource(),
-            dry_run=True,
             variables=["key=value"],
             output_path=None,
         )
@@ -297,7 +291,7 @@ class TestDCMPlan:
     def test_plan_project_with_from_stage(
         self, mock_pm, runner, project_directory, mock_cursor
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().plan.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
 
@@ -316,11 +310,10 @@ class TestDCMPlan:
         )
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().plan.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration="some_configuration",
             from_stage="@my_stage",
-            dry_run=True,
             variables=["key=value"],
             output_path=None,
         )
@@ -329,7 +322,7 @@ class TestDCMPlan:
     def test_plan_project_with_output_path(
         self, mock_pm, runner, project_directory, mock_cursor
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().plan.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
 
@@ -346,11 +339,10 @@ class TestDCMPlan:
         )
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().plan.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="@my_stage",
-            dry_run=True,
             variables=None,
             output_path="@output_stage/results",
         )
@@ -359,7 +351,7 @@ class TestDCMPlan:
     def test_plan_project_with_output_path_and_configuration(
         self, mock_pm, runner, project_directory, mock_cursor
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().plan.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
 
@@ -378,11 +370,10 @@ class TestDCMPlan:
         )
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().plan.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration="some_config",
             from_stage="@my_stage",
-            dry_run=True,
             variables=None,
             output_path="@output_stage",
         )
@@ -399,7 +390,7 @@ class TestDCMPlan:
         mock_connect,
     ):
         """Test that files are synced to project stage when from_stage is not provided."""
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().plan.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = (
@@ -410,7 +401,7 @@ class TestDCMPlan:
             result = runner.invoke(["dcm", "plan", "my_project"])
             assert result.exit_code == 0, result.output
 
-            call_args = mock_pm().execute.call_args
+            call_args = mock_pm().plan.call_args
             assert "DCM_FOOBAR_" in call_args.kwargs["from_stage"]
             assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
@@ -424,7 +415,7 @@ class TestDCMPlan:
         mock_connect,
         tmp_path,
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().plan.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = (
@@ -447,7 +438,7 @@ class TestDCMPlan:
             source_directory=str(source_dir),
         )
 
-        call_args = mock_pm().execute.call_args
+        call_args = mock_pm().plan.call_args
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
 
@@ -817,3 +808,219 @@ class TestDCMRefresh:
         mock_pm().refresh.assert_called_once_with(
             project_identifier=FQN.from_string("my_project")
         )
+
+
+class TestDCMPreview:
+    @mock.patch(DCMProjectManager)
+    def test_preview_basic(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_from_resource,
+    ):
+        mock_pm().preview.return_value = mock_cursor(
+            rows=[(1, "Alice", "alice@example.com"), (2, "Bob", "bob@example.com")],
+            columns=("id", "name", "email"),
+        )
+        mock_pm().sync_local_files.return_value = mock_from_resource()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "preview", "my_project", "--object", "my_table"]
+            )
+
+        assert result.exit_code == 0, result.output
+
+        mock_pm().preview.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            object_identifier=FQN.from_string("my_table"),
+            configuration=None,
+            from_stage=mock_from_resource(),
+            variables=None,
+            limit=None,
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_preview_with_from_stage(
+        self, mock_pm, runner, project_directory, mock_cursor
+    ):
+        mock_pm().preview.return_value = mock_cursor(
+            rows=[(1, "Alice", "alice@example.com")],
+            columns=("id", "name", "email"),
+        )
+
+        result = runner.invoke(
+            [
+                "dcm",
+                "preview",
+                "my_project",
+                "--object",
+                "my_table",
+                "--from",
+                "@my_stage",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        mock_pm().preview.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            object_identifier=FQN.from_string("my_table"),
+            configuration=None,
+            from_stage="@my_stage",
+            variables=None,
+            limit=None,
+        )
+
+    @mock.patch(DCMProjectManager)
+    @pytest.mark.parametrize(
+        "extra_args,expected_config,expected_vars,expected_limit",
+        [
+            (
+                ["--configuration", "dev", "-D", "key=value", "--limit", "10"],
+                "dev",
+                ["key=value"],
+                10,
+            ),
+            (
+                ["--configuration", "prod"],
+                "prod",
+                None,
+                None,
+            ),
+            (
+                ["-D", "var1=val1", "-D", "var2=val2", "--limit", "5"],
+                None,
+                ["var1=val1", "var2=val2"],
+                5,
+            ),
+            (
+                ["--limit", "100"],
+                None,
+                None,
+                100,
+            ),
+        ],
+    )
+    def test_preview_with_various_options(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        extra_args,
+        expected_config,
+        expected_vars,
+        expected_limit,
+    ):
+        mock_pm().preview.return_value = mock_cursor(
+            rows=[(1, "Alice", "alice@example.com")],
+            columns=("id", "name", "email"),
+        )
+
+        result = runner.invoke(
+            [
+                "dcm",
+                "preview",
+                "my_project",
+                "--object",
+                "my_table",
+                "--from",
+                "@my_stage",
+            ]
+            + extra_args
+        )
+        assert result.exit_code == 0, result.output
+
+        mock_pm().preview.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            object_identifier=FQN.from_string("my_table"),
+            configuration=expected_config,
+            from_stage="@my_stage",
+            variables=expected_vars,
+            limit=expected_limit,
+        )
+
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    @mock.patch(DCMProjectManager)
+    def test_preview_with_sync(
+        self,
+        mock_pm,
+        _mock_create,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_pm().preview.return_value = mock_cursor(
+            rows=[(1, "Alice", "alice@example.com")],
+            columns=("id", "name", "email"),
+        )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "preview", "my_project", "--object", "my_table"]
+            )
+            assert result.exit_code == 0, result.output
+
+        call_args = mock_pm().preview.call_args
+        assert "DCM_FOOBAR_" in call_args.kwargs["from_stage"]
+        assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
+    @mock.patch(DCMProjectManager)
+    def test_preview_with_from_local_directory(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        mock_pm().preview.return_value = mock_cursor(
+            rows=[(1, "Alice", "alice@example.com")],
+            columns=("id", "name", "email"),
+        )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
+
+        source_dir = tmp_path / "source_project"
+        source_dir.mkdir()
+
+        manifest_file = source_dir / "manifest.yml"
+        manifest_file.write_text("type: dcm_project\n")
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                [
+                    "dcm",
+                    "preview",
+                    "my_project",
+                    "--object",
+                    "my_table",
+                    "--from",
+                    str(source_dir),
+                ]
+            )
+            assert result.exit_code == 0, result.output
+
+        mock_pm().sync_local_files.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            source_directory=str(source_dir),
+        )
+
+        call_args = mock_pm().preview.call_args
+        assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
+    def test_preview_without_object_fails(self, runner, project_directory):
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "preview", "my_project"])
+
+        assert result.exit_code == 2
+        assert "Missing option '--object'" in result.output
