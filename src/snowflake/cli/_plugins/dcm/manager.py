@@ -77,41 +77,42 @@ class DCMProjectManager(SqlExecutionMixin):
         else:
             cli_console.step(f"Plan output saved to: {output_path}")
 
-    def execute(
+    def deploy(
         self,
         project_identifier: FQN,
         from_stage: str,
         configuration: str | None = None,
         variables: List[str] | None = None,
-        dry_run: bool = False,
         alias: str | None = None,
-        output_path: str | None = None,
         skip_plan: bool = False,
     ):
-        with self._collect_output(project_identifier, output_path) if (
-            output_path and dry_run
-        ) else nullcontext() as output_stage:
-            query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier}"
-            if dry_run:
-                query += " PLAN"
-            else:
-                query += " DEPLOY"
-                if alias:
-                    query += f' AS "{alias}"'
-            if configuration or variables:
-                query += f" USING"
-            if configuration:
-                query += f" CONFIGURATION {configuration}"
-            if variables:
-                query += StageManager.parse_execute_variables(
-                    parse_key_value_variables(variables)
-                ).removeprefix(" using")
-            stage_path = StagePath.from_stage_str(from_stage)
-            query += f" FROM {stage_path.absolute_path()}"
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} DEPLOY"
+        if alias:
+            query += f' AS "{alias}"'
+        query += self._get_configuration_and_variables_query(configuration, variables)
+        query += self._get_from_stage_query(from_stage)
+        if skip_plan:
+            query += f" SKIP PLAN"
+        return self.execute_query(query=query)
+
+    def plan(
+        self,
+        project_identifier: FQN,
+        from_stage: str,
+        configuration: str | None = None,
+        variables: List[str] | None = None,
+        output_path: str | None = None,
+    ):
+        with self._collect_output(
+            project_identifier, output_path
+        ) if output_path else nullcontext() as output_stage:
+            query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PLAN"
+            query += self._get_configuration_and_variables_query(
+                configuration, variables
+            )
+            query += self._get_from_stage_query(from_stage)
             if output_stage is not None:
                 query += f" OUTPUT_PATH {output_stage}"
-            if skip_plan:
-                query += f" SKIP PLAN"
             result = self.execute_query(query=query)
 
         return result
@@ -146,6 +147,42 @@ class DCMProjectManager(SqlExecutionMixin):
     def refresh(self, project_identifier: FQN):
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} REFRESH ALL"
         return self.execute_query(query=query)
+
+    def preview(
+        self,
+        project_identifier: FQN,
+        object_identifier: FQN,
+        from_stage: str,
+        configuration: str | None = None,
+        variables: List[str] | None = None,
+        limit: int | None = None,
+    ):
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} PREVIEW {object_identifier.sql_identifier}"
+        query += self._get_configuration_and_variables_query(configuration, variables)
+        query += self._get_from_stage_query(from_stage)
+        if limit is not None:
+            query += f" LIMIT {limit}"
+        return self.execute_query(query=query)
+
+    @staticmethod
+    def _get_from_stage_query(from_stage: str) -> str:
+        stage_path = StagePath.from_stage_str(from_stage)
+        return f" FROM {stage_path.absolute_path()}"
+
+    @staticmethod
+    def _get_configuration_and_variables_query(
+        configuration: str | None, variables: List[str] | None
+    ) -> str:
+        query = ""
+        if configuration or variables:
+            query += f" USING"
+        if configuration:
+            query += f" CONFIGURATION {configuration}"
+        if variables:
+            query += StageManager.parse_execute_variables(
+                parse_key_value_variables(variables)
+            ).removeprefix(" using")
+        return query
 
     @staticmethod
     def sync_local_files(
