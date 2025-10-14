@@ -48,6 +48,7 @@ from snowflake.cli.api.config_ng.sources import (
     CliEnvironment,
     CliParameters,
     ConnectionsConfigFile,
+    ConnectionSpecificEnvironment,
     SnowSQLConfigFile,
     SnowSQLEnvironment,
 )
@@ -60,6 +61,7 @@ __all__ = [
     "ConfigurationResolver",
     "ConfigValue",
     "ConnectionsConfigFile",
+    "ConnectionSpecificEnvironment",
     "explain_configuration",
     "export_resolution_history",
     "format_summary_for_display",

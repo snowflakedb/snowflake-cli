@@ -13,467 +13,131 @@
 # limitations under the License.
 
 """
-Configuration testing utilities for testing merged configuration from multiple sources.
+Configuration testing utilities for config_ng tests.
 
-This module provides fixtures and utilities for testing configuration resolution
-from various sources (SnowSQL config, CLI config, environment variables, CLI params).
+Provides fixtures for setting up temporary configuration environments.
 """
 
+import copy
 import os
 import tempfile
 from contextlib import contextmanager
-from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
+from textwrap import dedent
+from typing import Dict, Optional
 
 import pytest
-import tomlkit
-
-if TYPE_CHECKING:
-    from snowflake.cli.api.config_ng import ConfigurationResolver
-
-
-@dataclass
-class SnowSQLConfig:
-    """
-    Represents SnowSQL INI-style config file content.
-
-    Args:
-        filename: Name of the config file in the configs/ directory
-    """
-
-    filename: str
-
-
-@dataclass
-class SnowSQLEnvs:
-    """
-    Represents SnowSQL environment variables from a file.
-
-    Args:
-        filename: Name of the env file in the configs/ directory
-    """
-
-    filename: str
-
-
-@dataclass
-class CliConfig:
-    """
-    Represents CLI TOML config file content.
-
-    Args:
-        filename: Name of the config.toml file in the configs/ directory
-    """
-
-    filename: str
-
-
-@dataclass
-class CliEnvs:
-    """
-    Represents CLI environment variables from a file.
-
-    Args:
-        filename: Name of the env file in the configs/ directory
-    """
-
-    filename: str
-
-
-@dataclass
-class CliParams:
-    """
-    Represents CLI command-line parameters.
-
-    Args:
-        args: Variable length list of CLI arguments (e.g., "--account", "value", "--user", "alice")
-    """
-
-    args: Tuple[str, ...]
-
-    def __init__(self, *args: str):
-        object.__setattr__(self, "args", args)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """
-        Convert CLI arguments to a dictionary.
-
-        Returns:
-            Dictionary with parsed CLI arguments
-        """
-        result: Dict[str, Any] = {}
-        i = 0
-        while i < len(self.args):
-            if self.args[i].startswith("--"):
-                key = self.args[i][2:].replace("-", "_")
-                if i + 1 < len(self.args) and not self.args[i + 1].startswith("--"):
-                    result[key] = self.args[i + 1]
-                    i += 2
-                else:
-                    result[key] = True
-                    i += 1
-            else:
-                i += 1
-        return result
-
-
-@dataclass
-class ConnectionsToml:
-    """
-    Represents connections.toml file content.
-
-    Args:
-        filename: Name of the connections.toml file in the configs/ directory
-    """
-
-    filename: str
-
-
-@dataclass
-class FinalConfig:
-    """
-    Represents the expected final merged configuration.
-
-    Args:
-        config_dict: Dictionary of expected configuration values
-        connection: Optional connection name to test (default: None for all connections)
-        toml_string: Optional TOML string representation for easy reading
-    """
-
-    config_dict: Dict[str, Any]
-    connection: Optional[str] = None
-    toml_string: Optional[str] = None
-
-    def __init__(
-        self,
-        config_dict: Optional[Dict[str, Any]] = None,
-        connection: Optional[str] = None,
-        toml_string: Optional[str] = None,
-    ):
-        """
-        Initialize FinalConfig from either a dict or TOML string.
-        """
-        if toml_string:
-            parsed = tomlkit.parse(toml_string)
-            object.__setattr__(self, "config_dict", dict(parsed))
-        elif config_dict:
-            object.__setattr__(self, "config_dict", config_dict)
-        else:
-            object.__setattr__(self, "config_dict", {})
-
-        object.__setattr__(self, "connection", connection)
-        object.__setattr__(self, "toml_string", toml_string)
-
-    def __eq__(self, other):
-        """Compare FinalConfig with another FinalConfig or dict."""
-        if isinstance(other, FinalConfig):
-            return self.config_dict == other.config_dict
-        if isinstance(other, dict):
-            return self.config_dict == other
-        return False
-
-    def __repr__(self):
-        """String representation for debugging."""
-        if self.toml_string:
-            return f"FinalConfig(connection={self.connection}):\n{self.toml_string}"
-        return f"FinalConfig({self.config_dict})"
-
-
-class ConfigSourcesContext:
-    """
-    Context manager for setting up configuration sources in a temporary environment.
-
-    This class:
-    - Creates temporary directories for config files
-    - Writes config files from source definitions
-    - Sets environment variables
-    - Manages cleanup
-    """
-
-    def __init__(
-        self,
-        sources: Tuple[Any, ...],
-        configs_dir: Path,
-        connection_name: Optional[str] = None,
-    ):
-        """
-        Initialize the config sources context.
-
-        Args:
-            sources: Tuple of source definitions (SnowSQLConfig, CliConfig, etc.)
-            configs_dir: Path to directory containing config file templates
-            connection_name: Optional connection name to resolve
-        """
-        self.sources = sources
-        self.configs_dir = configs_dir
-        self.connection_name = connection_name or "a"
-
-        self.temp_dir: Optional[Path] = None
-        self.snowsql_dir: Optional[Path] = None
-        self.snowflake_dir: Optional[Path] = None
-        self.original_env: Dict[str, Optional[str]] = {}
-        self.env_vars_to_set: Dict[str, str] = {}
-        self.cli_args_dict: Dict[str, Any] = {}
-
-        self.snowsql_config_path: Optional[Path] = None
-        self.cli_config_path: Optional[Path] = None
-        self.connections_toml_path: Optional[Path] = None
-
-    def __enter__(self):
-        """Set up the configuration environment."""
-        self.temp_dir = Path(tempfile.mkdtemp())
-        self.snowsql_dir = self.temp_dir / ".snowsql"
-        self.snowflake_dir = self.temp_dir / ".snowflake"
-
-        self.snowsql_dir.mkdir(exist_ok=True)
-        self.snowflake_dir.mkdir(exist_ok=True)
-
-        # Process sources
-        for source in self.sources:
-            if isinstance(source, SnowSQLConfig):
-                self._setup_snowsql_config(source)
-            elif isinstance(source, SnowSQLEnvs):
-                self._setup_snowsql_envs(source)
-            elif isinstance(source, CliConfig):
-                self._setup_cli_config(source)
-            elif isinstance(source, CliEnvs):
-                self._setup_cli_envs(source)
-            elif isinstance(source, CliParams):
-                self._setup_cli_params(source)
-            elif isinstance(source, ConnectionsToml):
-                self._setup_connections_toml(source)
-
-        # Set environment variables
-        for key, value in self.env_vars_to_set.items():
-            self.original_env[key] = os.environ.get(key)
-            os.environ[key] = value
-
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        """Clean up the configuration environment."""
-        # Restore original environment variables
-        for key, original_value in self.original_env.items():
-            if original_value is None:
-                os.environ.pop(key, None)
-            else:
-                os.environ[key] = original_value
-
-        # Clean up temp directory
-        if self.temp_dir:
-            import shutil
-
-            shutil.rmtree(self.temp_dir, ignore_errors=True)
-
-    def _setup_snowsql_config(self, source: SnowSQLConfig):
-        """Set up SnowSQL config file."""
-        assert self.snowsql_dir is not None
-        config_content = (self.configs_dir / source.filename).read_text()
-        self.snowsql_config_path = self.snowsql_dir / "config"
-        self.snowsql_config_path.write_text(config_content)
-
-    def _setup_snowsql_envs(self, source: SnowSQLEnvs):
-        """Set up SnowSQL environment variables from file."""
-        env_file = self.configs_dir / source.filename
-        for line in env_file.read_text().splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, value = line.split("=", 1)
-                self.env_vars_to_set[key.strip()] = value.strip()
-
-    def _setup_cli_config(self, source: CliConfig):
-        """Set up CLI config.toml file."""
-        assert self.snowflake_dir is not None
-        config_content = (self.configs_dir / source.filename).read_text()
-        self.cli_config_path = self.snowflake_dir / "config.toml"
-        self.cli_config_path.write_text(config_content)
-
-    def _setup_cli_envs(self, source: CliEnvs):
-        """Set up CLI environment variables from file."""
-        env_file = self.configs_dir / source.filename
-        for line in env_file.read_text().splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, value = line.split("=", 1)
-                self.env_vars_to_set[key.strip()] = value.strip()
-
-    def _setup_cli_params(self, source: CliParams):
-        """Set up CLI parameters."""
-        self.cli_args_dict = source.to_dict()
-
-    def _setup_connections_toml(self, source: ConnectionsToml):
-        """Set up connections.toml file."""
-        assert self.snowflake_dir is not None
-        config_content = (self.configs_dir / source.filename).read_text()
-        self.connections_toml_path = self.snowflake_dir / "connections.toml"
-        self.connections_toml_path.write_text(config_content)
-
-    def get_resolver(self) -> "ConfigurationResolver":
-        """
-        Create a ConfigurationResolver with all configured sources.
-
-        Returns:
-            ConfigurationResolver instance with all sources configured
-        """
-        from snowflake.cli.api.config_ng import (
-            CliConfigFile,
-            CliEnvironment,
-            CliParameters,
-            ConfigurationResolver,
-            ConnectionsConfigFile,
-            SnowSQLConfigFile,
-            SnowSQLEnvironment,
-        )
-
-        sources_list: List[Any] = []
-
-        # Create sources in precedence order (lowest to highest)
-
-        # 1. SnowSQL config files (lowest priority) - if configured
-        if self.snowsql_config_path and self.snowsql_config_path.exists():
-            # Create a custom SnowSQL source that reads from our test path
-            class TestSnowSQLConfig(SnowSQLConfigFile):
-                def __init__(self, config_path: Path):
-                    super().__init__()
-                    self._config_files = [config_path]
-
-            sources_list.append(TestSnowSQLConfig(self.snowsql_config_path))
-
-        # 2. CLI config.toml - if configured
-        if self.cli_config_path and self.cli_config_path.exists():
-            # Create a custom CLI config source that reads from our test path
-            class TestCliConfig(CliConfigFile):
-                def __init__(self, config_path: Path):
-                    super().__init__()
-                    self._search_paths = [config_path]
-
-            sources_list.append(TestCliConfig(self.cli_config_path))
-
-        # 3. Connections.toml - if configured
-        if self.connections_toml_path and self.connections_toml_path.exists():
-            # Create a custom connections source that reads from our test path
-            class TestConnectionsConfig(ConnectionsConfigFile):
-                def __init__(self, config_path: Path):
-                    super().__init__()
-                    self._file_path = config_path
-
-            sources_list.append(TestConnectionsConfig(self.connections_toml_path))
-
-        # 4. SnowSQL environment variables
-        sources_list.append(SnowSQLEnvironment())
-
-        # 5. CLI environment variables
-        sources_list.append(CliEnvironment())
-
-        # 6. CLI arguments (highest priority) - if configured
-        if self.cli_args_dict:
-            sources_list.append(CliParameters(cli_context=self.cli_args_dict))
-
-        return ConfigurationResolver(sources=sources_list, track_history=True)
-
-    def get_merged_config(self) -> Dict[str, Any]:
-        """
-        Get the merged configuration from all sources.
-
-        Extracts connection-specific values for the configured connection.
-
-        Returns:
-            Dictionary with resolved configuration values (flat keys)
-        """
-        resolver = self.get_resolver()
-        all_config = resolver.resolve()
-
-        # Extract connection-specific values similar to _get_connection_dict_internal
-        connection_dict: Dict[str, Any] = {}
-
-        # First, get connection-specific keys (from file sources)
-        connection_prefix = f"connections.{self.connection_name}."
-        for key, value in all_config.items():
-            if key.startswith(connection_prefix):
-                # Extract parameter name
-                param_name = key[len(connection_prefix) :]
-                connection_dict[param_name] = value
-
-        # Then, overlay flat keys (from env/CLI sources) - these have higher priority
-        for key, value in all_config.items():
-            if "." not in key:  # Flat key like "account", "user"
-                connection_dict[key] = value
-
-        return connection_dict
 
 
 @contextmanager
-def config_sources(
-    sources: Tuple[Any, ...],
-    configs_dir: Optional[Path] = None,
-    connection: Optional[str] = None,
-):
+def _temp_environment(env_vars: Dict[str, str]):
     """
-    Context manager for testing merged configuration from multiple sources.
+    Context manager for temporarily setting environment variables.
+
+    Saves the entire environment, applies new variables, then restores
+    the original environment completely on exit.
 
     Args:
-        sources: Tuple of source definitions (SnowSQLConfig, CliConfig, etc.)
-        configs_dir: Path to directory containing config file templates (defaults to ./configs/)
-        connection: Optional connection name to resolve (defaults to "a")
+        env_vars: Dictionary of environment variables to set
 
     Yields:
-        ConfigSourcesContext instance for accessing merged configuration
-
-    Example:
-        sources = (
-            SnowSQLConfig('config'),
-            SnowSQLEnvs('snowsql.env'),
-            CliConfig('config.toml'),
-            CliEnvs('cli.env'),
-            CliParams("--account", "test_account", "--user", "alice"),
-            ConnectionsToml('connections.toml'),
-        )
-
-        with config_sources(sources) as ctx:
-            merged = ctx.get_merged_config()
-            assert merged["account"] == "test_account"
+        None
     """
-    if configs_dir is None:
-        configs_dir = Path(__file__).parent / "configs"
-
-    context = ConfigSourcesContext(sources, configs_dir, connection)
-    with context as ctx:
-        yield ctx
+    original_env = copy.deepcopy(dict(os.environ))
+    try:
+        os.environ.update(env_vars)
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(original_env)
 
 
 @pytest.fixture
-def merged_cli_config():
+def config_ng_setup():
     """
-    Fixture that provides a function to get the merged CLI configuration.
+    Fixture that provides a context manager for setting up config_ng test environments.
 
-    This should be used inside a config_sources context manager.
+    Returns a context manager function that:
+    1. Creates temp SNOWFLAKE_HOME
+    2. Writes config files
+    3. Sets env vars
+    4. Enables config_ng
+    5. Resets provider
+    6. Yields (test can now call get_connection_dict())
+    7. Cleans up
 
-    Returns:
-        Function that returns the merged configuration dictionary
+    Usage:
+        def test_something(config_ng_setup):
+            with config_ng_setup(
+                cli_config="[connections.test]\\naccount = 'test'",
+                env_vars={"SNOWFLAKE_USER": "alice"}
+            ):
+                from snowflake.cli.api.config import get_connection_dict
+                conn = get_connection_dict("test")
+                assert conn["account"] == "test"
+
+    Args (to returned context manager):
+        snowsql_config: SnowSQL INI config content (will be dedented)
+        cli_config: CLI TOML config content (will be dedented)
+        connections_toml: Connections TOML content (will be dedented)
+        env_vars: Environment variables to set
     """
 
-    def _get_merged_config(ctx: ConfigSourcesContext) -> Dict[str, Any]:
-        """Get merged configuration from context."""
-        return ctx.get_merged_config()
+    @contextmanager
+    def _setup(
+        snowsql_config: Optional[str] = None,
+        cli_config: Optional[str] = None,
+        connections_toml: Optional[str] = None,
+        env_vars: Optional[Dict[str, str]] = None,
+    ):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            snowflake_home = Path(tmpdir) / ".snowflake"
+            snowflake_home.mkdir()
 
-    return _get_merged_config
+            # Write config files if provided
+            if snowsql_config:
+                (snowflake_home / "config").write_text(dedent(snowsql_config))
+            if cli_config:
+                (snowflake_home / "config.toml").write_text(dedent(cli_config))
+            if connections_toml:
+                (snowflake_home / "connections.toml").write_text(
+                    dedent(connections_toml)
+                )
 
+            # Prepare environment variables
+            env_to_set = {
+                "SNOWFLAKE_HOME": str(snowflake_home),
+                "SNOWFLAKE_CLI_CONFIG_V2_ENABLED": "true",
+            }
+            if env_vars:
+                env_to_set.update(env_vars)
 
-@pytest.fixture
-def make_cli_instance():
-    """
-    Fixture that provides a function to create a CLI instance.
+            # Set up environment and run test
+            with _temp_environment(env_to_set):
+                # Clear config_file_override to use SNOWFLAKE_HOME instead
+                from snowflake.cli.api.cli_global_context import (
+                    get_cli_context_manager,
+                )
 
-    Note: This is a placeholder for future implementation if needed.
-    For now, we work directly with the resolver.
+                cli_ctx_mgr = get_cli_context_manager()
+                original_config_override = cli_ctx_mgr.config_file_override
+                cli_ctx_mgr.config_file_override = None
 
-    Returns:
-        Function that creates a CLI instance (placeholder)
-    """
+                try:
+                    # Reset config provider to use new config
+                    from snowflake.cli.api.config_provider import reset_config_provider
 
-    def _make_cli():
-        """Create CLI instance placeholder."""
-        return None
+                    reset_config_provider()
 
-    return _make_cli
+                    yield
+
+                finally:
+                    # Restore config_file_override
+                    if original_config_override is not None:
+                        cli_ctx_mgr = get_cli_context_manager()
+                        cli_ctx_mgr.config_file_override = original_config_override
+
+                    # Reset config provider
+                    reset_config_provider()
+
+    return _setup
