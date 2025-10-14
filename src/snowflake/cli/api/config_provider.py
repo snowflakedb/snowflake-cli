@@ -227,6 +227,7 @@ class AlternativeConfigProvider(ConfigProvider):
             CliParameters,
             ConfigurationResolver,
             ConnectionsConfigFile,
+            ConnectionSpecificEnvironment,
             SnowSQLConfigFile,
             SnowSQLEnvironment,
         )
@@ -251,9 +252,11 @@ class AlternativeConfigProvider(ConfigProvider):
             ConnectionsConfigFile(),
             # 4. SnowSQL environment variables (SNOWSQL_*)
             SnowSQLEnvironment(),
-            # 5. CLI environment variables (SNOWFLAKE_*)
+            # 5. Connection-specific environment variables (SNOWFLAKE_CONNECTIONS_*)
+            ConnectionSpecificEnvironment(),
+            # 6. General CLI environment variables (SNOWFLAKE_*)
             CliEnvironment(),
-            # 6. CLI command-line arguments (highest priority)
+            # 7. CLI command-line arguments (highest priority)
             CliParameters(cli_context=cli_context_dict),
         ]
 
@@ -401,20 +404,30 @@ class AlternativeConfigProvider(ConfigProvider):
             for key in self._config_cache.keys()
         )
 
+    # Source priority levels (higher number = higher priority)
+    _SOURCE_PRIORITIES = {
+        "snowsql_config": 1,
+        "cli_config_toml": 2,
+        "connections_toml": 3,
+        "snowsql_env": 4,
+        "connection_specific_env": 5,
+        "cli_env": 6,
+        "cli_arguments": 7,
+    }
+
     def _get_connection_dict_internal(self, connection_name: str) -> Dict[str, Any]:
         """
         Get connection configuration by name.
 
-        Behavior is controlled by SNOWFLAKE_CLI_CONNECTIONS_TOML_REPLACE environment variable:
-        - If set to "true" (default): connections.toml completely replaces connections
-          from config.toml (legacy behavior)
-        - If set to "false": connections.toml values are merged with config.toml values
+        Merges configuration from all sources (files and environment variables)
+        based on the 7-level precedence order. For each parameter, the value
+        from the highest-priority source wins.
 
         Args:
             connection_name: Name of the connection
 
         Returns:
-            Dictionary of connection parameters from file sources only
+            Dictionary of connection parameters with all sources merged
         """
         self._ensure_initialized()
 
@@ -425,56 +438,55 @@ class AlternativeConfigProvider(ConfigProvider):
         connection_dict: Dict[str, Any] = {}
         connection_prefix = f"connections.{connection_name}."
 
-        # Check if replacement behavior is enabled (default: true for backward compatibility)
-        import os
+        # Collect all parameter names from both prefixed and flat keys
+        param_names = set()
 
-        replace_behavior = os.environ.get(
-            "SNOWFLAKE_CLI_CONNECTIONS_TOML_REPLACE", "true"
-        ).lower() in ("true", "1", "yes", "on")
+        # Get param names from prefixed keys (file sources, connection-specific env)
+        for key in self._config_cache.keys():
+            if key.startswith(connection_prefix):
+                param_name = key[len(connection_prefix) :]
+                param_names.add(param_name)
 
-        if replace_behavior:
-            # Legacy replacement behavior: if connections.toml has the connection,
-            # use ONLY values from connections.toml
-            has_connections_toml = False
-            if self._resolver is not None:
-                for key in self._config_cache.keys():
-                    if key.startswith(connection_prefix):
-                        # Check resolution history to see if this came from connections.toml
-                        history = self._resolver.get_resolution_history(key)
-                        if history and history.selected_entry:
-                            if (
-                                history.selected_entry.config_value.source_name
-                                == "connections_toml"
-                            ):
-                                has_connections_toml = True
-                                break
+        # Get param names from flat keys (general env vars, SnowSQL env, CLI params)
+        # Skip internal CLI arguments that aren't connection parameters
+        for key in self._config_cache.keys():
+            if "." not in key and key not in ("enable_diag", "temporary_connection"):
+                param_names.add(key)
 
-            if has_connections_toml:
-                # Use ONLY connections.toml values (replacement behavior)
-                for key, value in self._config_cache.items():
-                    if key.startswith(connection_prefix):
-                        # Check if this specific value comes from connections.toml
-                        if self._resolver is not None:
-                            history = self._resolver.get_resolution_history(key)
-                            if history and history.selected_entry:
-                                if (
-                                    history.selected_entry.config_value.source_name
-                                    == "connections_toml"
-                                ):
-                                    param_name = key[len(connection_prefix) :]
-                                    connection_dict[param_name] = value
-            else:
-                # No connections.toml, use merged values from other sources
-                for key, value in self._config_cache.items():
-                    if key.startswith(connection_prefix):
-                        param_name = key[len(connection_prefix) :]
-                        connection_dict[param_name] = value
-        else:
-            # New merging behavior: merge all sources normally
-            for key, value in self._config_cache.items():
-                if key.startswith(connection_prefix):
-                    param_name = key[len(connection_prefix) :]
-                    connection_dict[param_name] = value
+        # For each parameter, determine the best value based on source priority
+        for param_name in param_names:
+            prefixed_key = f"{connection_prefix}{param_name}"
+            flat_key = param_name
+
+            best_value = None
+            best_priority = -1
+
+            # Check prefixed key (from files and connection-specific env)
+            if prefixed_key in self._config_cache:
+                value = self._config_cache[prefixed_key]
+                if self._resolver is not None:
+                    history = self._resolver.get_resolution_history(prefixed_key)
+                    if history and history.selected_entry:
+                        source = history.selected_entry.config_value.source_name
+                        priority = self._SOURCE_PRIORITIES.get(source, 0)
+                        if priority > best_priority:
+                            best_value = value
+                            best_priority = priority
+
+            # Check flat key (from general env vars, SnowSQL env, CLI params)
+            if flat_key in self._config_cache:
+                value = self._config_cache[flat_key]
+                if self._resolver is not None:
+                    history = self._resolver.get_resolution_history(flat_key)
+                    if history and history.selected_entry:
+                        source = history.selected_entry.config_value.source_name
+                        priority = self._SOURCE_PRIORITIES.get(source, 0)
+                        if priority > best_priority:
+                            best_value = value
+                            best_priority = priority
+
+            if best_value is not None:
+                connection_dict[param_name] = best_value
 
         if not connection_dict:
             from snowflake.cli.api.exceptions import MissingConfigurationError
