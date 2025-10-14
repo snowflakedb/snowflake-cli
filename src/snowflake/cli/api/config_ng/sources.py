@@ -448,78 +448,69 @@ class SnowSQLEnvironment(ValueSource):
         return False
 
 
-class CliEnvironment(ValueSource):
+# Base configuration keys that can be set via environment
+_ENV_CONFIG_KEYS = [
+    "account",
+    "user",
+    "password",
+    "database",
+    "schema",
+    "role",
+    "warehouse",
+    "protocol",
+    "host",
+    "port",
+    "region",
+    "authenticator",
+    "workload_identity_provider",
+    "private_key_file",
+    "private_key_path",  # Used by integration tests
+    "private_key_raw",  # Used by integration tests
+    "private_key_passphrase",  # Private key passphrase for encrypted keys
+    "token",  # OAuth token
+    "session_token",  # Session token for session-based authentication
+    "master_token",  # Master token for advanced authentication
+    "token_file_path",
+    "oauth_client_id",
+    "oauth_client_secret",
+    "oauth_authorization_url",
+    "oauth_token_request_url",
+    "oauth_redirect_uri",
+    "oauth_scope",
+    "oauth_enable_pkce",  # Fixed typo: was "oatuh_enable_pkce"
+    "oauth_enable_refresh_tokens",
+    "oauth_enable_single_use_refresh_tokens",
+    "client_store_temporary_credential",
+]
+
+
+class ConnectionSpecificEnvironment(ValueSource):
     """
-    CLI environment variables source.
+    Connection-specific environment variables source.
 
-    Discovers SNOWFLAKE_* environment variables with two patterns:
-    1. General: SNOWFLAKE_ACCOUNT (applies to all connections)
-    2. Connection-specific: SNOWFLAKE_CONNECTIONS_<name>_ACCOUNT (overrides general)
-
-    Connection-specific variables take precedence within this source.
+    Discovers SNOWFLAKE_CONNECTIONS_<name>_<key> environment variables.
+    Returns prefixed keys: connections.{name}.{key}
 
     Examples:
-        SNOWFLAKE_ACCOUNT -> account (general)
-        SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT -> account (for "integration" connection)
-        SNOWFLAKE_USER -> user
-        SNOWFLAKE_CONNECTIONS_DEV_USER -> user (for "dev" connection)
+        SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT=x -> connections.integration.account=x
+        SNOWFLAKE_CONNECTIONS_DEV_USER=y -> connections.dev.user=y
     """
-
-    # Base configuration keys that can be set via environment
-    CONFIG_KEYS = [
-        "account",
-        "user",
-        "password",
-        "database",
-        "schema",
-        "role",
-        "warehouse",
-        "protocol",
-        "host",
-        "port",
-        "region",
-        "authenticator",
-        "workload_identity_provider",
-        "private_key_file",
-        "private_key_path",  # Used by integration tests
-        "private_key_raw",  # Used by integration tests
-        "private_key_passphrase",  # Private key passphrase for encrypted keys
-        "token",  # OAuth token
-        "session_token",  # Session token for session-based authentication
-        "master_token",  # Master token for advanced authentication
-        "token_file_path",
-        "oauth_client_id",
-        "oauth_client_secret",
-        "oauth_authorization_url",
-        "oauth_token_request_url",
-        "oauth_redirect_uri",
-        "oauth_scope",
-        "oauth_enable_pkce",  # Fixed typo: was "oatuh_enable_pkce"
-        "oauth_enable_refresh_tokens",
-        "oauth_enable_single_use_refresh_tokens",
-        "client_store_temporary_credential",
-    ]
 
     @property
     def source_name(self) -> str:
-        return "cli_env"
+        return "connection_specific_env"
 
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
         """
-        Discover SNOWFLAKE_* environment variables.
-        Returns both general (flat) and connection-specific (prefixed) keys.
+        Discover SNOWFLAKE_CONNECTIONS_* environment variables.
+        Returns connection-specific (prefixed) keys only.
 
-        Patterns:
-        1. SNOWFLAKE_ACCOUNT=x -> account=x (flat key)
-        2. SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT=y -> connections.integration.account=y
+        Pattern: SNOWFLAKE_CONNECTIONS_<NAME>_<KEY>=value -> connections.{name}.{key}=value
         """
         values: Dict[str, ConfigValue] = {}
 
         # Scan all environment variables
         for env_name, env_value in os.environ.items():
-            if not env_name.startswith("SNOWFLAKE_"):
-                continue
-
             # Check for connection-specific pattern: SNOWFLAKE_CONNECTIONS_<NAME>_<KEY>
             if env_name.startswith("SNOWFLAKE_CONNECTIONS_"):
                 # Extract connection name and config key
@@ -530,7 +521,7 @@ class CliEnvironment(ValueSource):
                     conn_name = conn_name_upper.lower()
                     config_key = config_key_upper.lower()
 
-                    if config_key in self.CONFIG_KEYS:
+                    if config_key in _ENV_CONFIG_KEYS:
                         full_key = f"connections.{conn_name}.{config_key}"
                         if key is None or full_key == key:
                             values[full_key] = ConfigValue(
@@ -540,40 +531,79 @@ class CliEnvironment(ValueSource):
                                 raw_value=f"{env_name}={env_value}",
                             )
 
-            # Check for general pattern: SNOWFLAKE_<KEY>
-            elif not env_name.startswith("SNOWFLAKE_CONNECTIONS_"):
-                config_key_upper = env_name[len("SNOWFLAKE_") :]
-                config_key = config_key_upper.lower()
+        return values
 
-                if config_key in self.CONFIG_KEYS:
-                    if key is None or config_key == key:
-                        values[config_key] = ConfigValue(
-                            key=config_key,
-                            value=env_value,
-                            source_name=self.source_name,
-                            raw_value=f"{env_name}={env_value}",
-                        )
+    def supports_key(self, key: str) -> bool:
+        # Check if key matches pattern connections.{name}.{param}
+        if key.startswith("connections."):
+            parts = key.split(".", 2)
+            if len(parts) == 3:
+                _, conn_name, config_key = parts
+                env_var = (
+                    f"SNOWFLAKE_CONNECTIONS_{conn_name.upper()}_{config_key.upper()}"
+                )
+                return os.getenv(env_var) is not None
+        return False
+
+
+class CliEnvironment(ValueSource):
+    """
+    CLI general environment variables source.
+
+    Discovers general SNOWFLAKE_* environment variables (not connection-specific).
+    Returns flat keys that apply to all connections.
+
+    Examples:
+        SNOWFLAKE_ACCOUNT -> account (general, applies to all connections)
+        SNOWFLAKE_USER -> user
+        SNOWFLAKE_PASSWORD -> password
+    """
+
+    @property
+    def source_name(self) -> str:
+        return "cli_env"
+
+    def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
+        """
+        Discover general SNOWFLAKE_* environment variables.
+        Returns general (flat) keys only.
+
+        Pattern: SNOWFLAKE_<KEY>=value -> {key}=value
+        """
+        values: Dict[str, ConfigValue] = {}
+
+        # Scan all environment variables
+        for env_name, env_value in os.environ.items():
+            if not env_name.startswith("SNOWFLAKE_"):
+                continue
+
+            # Skip connection-specific variables
+            if env_name.startswith("SNOWFLAKE_CONNECTIONS_"):
+                continue
+
+            # Check for general pattern: SNOWFLAKE_<KEY>
+            config_key_upper = env_name[len("SNOWFLAKE_") :]
+            config_key = config_key_upper.lower()
+
+            if config_key in _ENV_CONFIG_KEYS:
+                if key is None or config_key == key:
+                    values[config_key] = ConfigValue(
+                        key=config_key,
+                        value=env_value,
+                        source_name=self.source_name,
+                        raw_value=f"{env_name}={env_value}",
+                    )
 
         return values
 
     def supports_key(self, key: str) -> bool:
-        discovered = self.discover()
-        if key in discovered:
-            return True
+        # Only support flat keys (not prefixed with connections.)
+        if "." in key:
+            return False
 
-        # Check general var
-        if os.getenv(f"SNOWFLAKE_{key.upper()}") is not None:
-            return True
-
-        # Check connection-specific var
-        if hasattr(self, "_connection_name") and self._connection_name:
-            conn_var = (
-                f"SNOWFLAKE_CONNECTIONS_{self._connection_name.upper()}_{key.upper()}"
-            )
-            if os.getenv(conn_var) is not None:
-                return True
-
-        return False
+        # Check if the general env var exists
+        env_var = f"SNOWFLAKE_{key.upper()}"
+        return os.getenv(env_var) is not None
 
 
 class CliParameters(ValueSource):
