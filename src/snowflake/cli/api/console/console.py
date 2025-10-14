@@ -112,11 +112,16 @@ class CliConsole(AbstractConsole):
                 result = some_operation()
         """
         with Progress(
-            SpinnerColumn(),
+            SpinnerColumn(finished_text="✓"),
             TextColumn("[progress.description]{task.description}", style=SPINNER_STYLE),
-            transient=True,
+            transient=False,
         ) as progress:
-            yield progress
+            try:
+                yield progress
+            finally:
+                for task_id in progress.task_ids:
+                    if not progress.tasks[task_id].finished:
+                        progress.update(task_id, completed=1, total=1)
 
     def step(self, message: str):
         """Displays a message to output.

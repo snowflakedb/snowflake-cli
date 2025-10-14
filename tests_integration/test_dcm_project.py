@@ -555,3 +555,85 @@ def test_dcm_plan_and_deploy_from_another_directory(
     # Clean up
     result = runner.invoke_with_connection(["dcm", "drop", project_name])
     assert result.exit_code == 0, result.output
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_preview_command(
+    runner,
+    test_database,
+    project_directory,
+    object_name_provider,
+    sql_test_helper,
+):
+    project_name = object_name_provider.create_and_get_next_object_name()
+    view_name = f"{test_database}.PUBLIC.PreviewTestView"
+    base_table_name = f"{test_database}.PUBLIC.OutputTestTable"
+
+    with project_directory("dcm_project") as project_root:
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{base_table_name}'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Define a view that selects from OutputTestTable. Preview can work on views that are not yet deployed
+        view_definition = f"""
+define view identifier('{view_name}') as
+  select UPPER(fooBar) as upperFooBar from {{{{ table_name }}}};
+"""
+        file_a_path = project_root / "file_a.sql"
+        original_content = file_a_path.read_text()
+        file_a_path.write_text(original_content + view_definition)
+
+        # Insert sample data into the base table.
+        insert_data_sql = f"""
+INSERT INTO {base_table_name} (fooBar) VALUES
+    ('foo'),
+    ('bar'),
+    ('baz'),
+    ('foobar');
+"""
+        sql_test_helper.execute_single_sql(insert_data_sql)
+
+        # 1) Preview without limit - should return all rows (or system default).
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "preview",
+                project_name,
+                "--object",
+                view_name,
+                "-D",
+                f"table_name='{base_table_name}'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert isinstance(result.json, list)
+        assert len(result.json) == 4
+
+        # 2) Preview with limit - should return limited rows.
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "preview",
+                project_name,
+                "--object",
+                view_name,
+                "--limit",
+                "2",
+                "-D",
+                f"table_name='{base_table_name}'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert isinstance(result.json, list)
+        assert len(result.json) == 2
