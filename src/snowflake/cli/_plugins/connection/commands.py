@@ -108,12 +108,12 @@ def list_connections(
     Lists configured connections.
     """
     from snowflake.cli.api.config_provider import (
-        _is_alternative_config_enabled,
         get_config_provider_singleton,
+        is_alternative_config_enabled,
     )
 
     # Use provider directly for config_ng to pass the flag
-    if _is_alternative_config_enabled():
+    if is_alternative_config_enabled():
         provider = get_config_provider_singleton()
         connections = provider.get_all_connections(include_env_connections=all_sources)
     else:

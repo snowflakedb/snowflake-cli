@@ -195,8 +195,8 @@ def test_complete_7_level_chain(config_ng_setup):
         # Level 3 provides warehouse
         assert conn["warehouse"] == "level3-wh"
 
-        # Level 2 provides password
-        assert conn["password"] == "level2-pass"
+        # Level 2 (cli_config) is skipped because connections.toml defines this connection
+        # password from cli_config is NOT present
 
         # Level 1 provides user
         assert conn["user"] == "level1-user"
@@ -444,7 +444,7 @@ def test_all_file_sources_precedence(config_ng_setup):
 
         expected = {
             "account": "from-connections",  # Level 3 wins
-            "user": "cli-user",  # Level 2 wins
+            "user": "snowsql-user",  # Level 1 only (cli_config skipped)
             "warehouse": "snowsql-warehouse",  # Level 1 only source
             "password": "connections-pass",  # Level 3 wins
         }
@@ -575,7 +575,7 @@ def test_all_files_plus_snowsql_env(config_ng_setup):
         expected = {
             "account": "env-account",  # Level 4 wins
             "user": "snowsql-user",  # Level 1 only
-            "warehouse": "cli-warehouse",  # Level 2 only
+            # warehouse from cli_config is skipped (connections.toml replaces cli_config)
             "database": "toml-db",  # Level 3 only
         }
         assert conn == expected
@@ -619,7 +619,7 @@ def test_all_files_plus_general_env(config_ng_setup):
         expected = {
             "account": "env-account",  # Level 6 wins
             "user": "snowsql-user",  # Level 1 only
-            "role": "cli-role",  # Level 2 only
+            # role from cli_config is skipped (connections.toml replaces cli_config)
             "warehouse": "env-warehouse",  # Level 6 wins
         }
         assert conn == expected
@@ -739,7 +739,7 @@ def test_all_files_plus_two_env_types(config_ng_setup):
         expected = {
             "account": "conn-specific",  # Level 5 wins
             "user": "snowsql-user",  # Level 1 only
-            "password": "cli-password",  # Level 2 only
+            # password from cli_config is skipped (connections.toml replaces cli_config)
             "warehouse": "conn-warehouse",  # Level 5 wins
         }
         assert conn == expected
@@ -904,7 +904,7 @@ def test_multiple_connections_different_source_patterns(config_ng_setup):
         conn1 = get_connection_dict("conn1")
         expected1 = {
             "account": "conn1-env",  # Connection-specific env wins
-            "user": "conn1-user",  # CLI config
+            # user from cli_config is skipped (connections.toml replaces cli_config)
             "warehouse": "conn1-warehouse",  # Connections TOML
             "schema": "common-schema",  # General env
         }
