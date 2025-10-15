@@ -89,29 +89,9 @@ class CustomSnapshotExtension(AmberSnapshotExtension):
         )
 
 
-class ConfigModeSnapshotExtension(AmberSnapshotExtension):
-    """Snapshot extension that includes config mode in snapshot file name."""
-
-    @classmethod
-    def _get_file_basename(cls, *, test_location, index):
-        """Generate snapshot filename with config mode suffix."""
-        config_mode = (
-            "config_ng" if os.getenv("SNOWFLAKE_CLI_CONFIG_V2_ENABLED") else "legacy"
-        )
-        basename = super()._get_file_basename(test_location=test_location, index=index)
-        # Insert config mode before .ambr extension
-        return f"{basename}_{config_mode}"
-
-
 @pytest.fixture()
 def os_agnostic_snapshot(snapshot):
     return snapshot.use_extension(CustomSnapshotExtension)
-
-
-@pytest.fixture()
-def config_snapshot(snapshot):
-    """Config-mode-aware snapshot fixture for tests that differ between legacy and config_ng."""
-    return snapshot.use_extension(ConfigModeSnapshotExtension)
 
 
 @pytest.fixture(autouse=True)
