@@ -13,9 +13,10 @@
 # limitations under the License.
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
-from typing import Generator, List
+from typing import Dict, Generator, List
 
 import yaml
+from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
 from snowflake.cli.api.commands.utils import parse_key_value_variables
@@ -29,6 +30,7 @@ from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import ProjectPaths
 from snowflake.cli.api.project.schemas.entities.common import PathMapping
+from snowflake.cli.api.rendering.sql_templates import SQLTemplateSyntaxConfig
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.cli.api.stage_path import StagePath
@@ -36,9 +38,96 @@ from snowflake.cli.api.utils.path_utils import is_stage_path
 
 MANIFEST_FILE_NAME = "manifest.yml"
 DCM_PROJECT_TYPE = "dcm_project"
+HOOKS_DIR = "hooks"
+PRE_DEPLOY_HOOK = "pre.sql"
+POST_DEPLOY_HOOK = "post.sql"
 
 
 class DCMProjectManager(SqlExecutionMixin):
+    def _get_configuration_variables(
+        self, source_directory: Path, configuration: str | None
+    ) -> Dict[str, str]:
+        """Read configuration variables from manifest file."""
+        if not configuration:
+            return {}
+
+        manifest_path = source_directory / MANIFEST_FILE_NAME
+        if not manifest_path.exists():
+            return {}
+
+        with SecurePath(manifest_path).open(
+            read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB
+        ) as fd:
+            manifest_data = yaml.safe_load(fd)
+            if not manifest_data:
+                return {}
+
+            configurations = manifest_data.get("configurations", {})
+            if not configurations or configuration not in configurations:
+                return {}
+
+            config_vars = configurations[configuration]
+            if isinstance(config_vars, dict):
+                return {k: str(v) for k, v in config_vars.items()}
+
+            return {}
+
+    def _execute_hook(
+        self,
+        source_directory: Path,
+        hook_file: str,
+        configuration: str | None = None,
+        variables: List[str] | None = None,
+    ) -> None:
+        hook_path = source_directory / HOOKS_DIR / hook_file
+        if not hook_path.exists():
+            return
+
+        cli_console.step(f"Executing {hook_file} hook.")
+
+        # Start with configuration variables (lower precedence)
+        data = self._get_configuration_variables(source_directory, configuration)
+
+        # Override with command-line variables (higher precedence)
+        if variables:
+            cli_vars = {v.key: v.value for v in parse_key_value_variables(variables)}
+            data.update(cli_vars)
+
+        template_syntax_config = SQLTemplateSyntaxConfig(
+            enable_legacy_syntax=False,
+            enable_standard_syntax=False,
+            enable_jinja_syntax=True,
+        )
+
+        sql_manager = SqlManager()
+        _, cursors = sql_manager.execute(
+            query=None,
+            files=[hook_path],
+            std_in=False,
+            data=data,
+            retain_comments=False,
+            single_transaction=False,
+            template_syntax_config=template_syntax_config,
+        )
+
+        list(cursors)
+
+    def execute_pre_deploy_hook(
+        self,
+        source_directory: Path,
+        configuration: str | None = None,
+        variables: List[str] | None = None,
+    ) -> None:
+        self._execute_hook(source_directory, PRE_DEPLOY_HOOK, configuration, variables)
+
+    def execute_post_deploy_hook(
+        self,
+        source_directory: Path,
+        configuration: str | None = None,
+        variables: List[str] | None = None,
+    ) -> None:
+        self._execute_hook(source_directory, POST_DEPLOY_HOOK, configuration, variables)
+
     @contextmanager
     def _collect_output(
         self, project_identifier: FQN, output_path: str

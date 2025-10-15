@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+from pathlib import Path
 from typing import List, Optional
 
 import typer
@@ -44,6 +45,7 @@ from snowflake.cli.api.output.types import (
     QueryJsonValueResult,
     QueryResult,
 )
+from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.utils.path_utils import is_stage_path
 
 app = SnowTyperFactory(
@@ -123,7 +125,11 @@ def deploy(
     Applies changes defined in DCM Project to Snowflake.
     """
     manager = DCMProjectManager()
+    source_directory = _get_source_directory(from_location)
     effective_stage = _get_effective_stage(identifier, from_location)
+
+    if source_directory:
+        manager.execute_pre_deploy_hook(source_directory, configuration, variables)
 
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Deploying dcm project {identifier}", total=None)
@@ -134,6 +140,10 @@ def deploy(
             variables=variables,
             alias=alias,
         )
+
+    if source_directory:
+        manager.execute_post_deploy_hook(source_directory, configuration, variables)
+
     return QueryJsonValueResult(result)
 
 
@@ -327,6 +337,16 @@ def preview(
         )
 
     return QueryResult(result)
+
+
+def _get_source_directory(from_location: Optional[str]) -> Optional[Path]:
+    if from_location and is_stage_path(from_location):
+        return None
+
+    if from_location:
+        return SecurePath(from_location).resolve().path
+    else:
+        return SecurePath.cwd().path
 
 
 def _get_effective_stage(identifier: FQN, from_location: Optional[str]):
