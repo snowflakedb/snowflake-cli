@@ -26,7 +26,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Literal, Optional
 
 
 @dataclass(frozen=True)
@@ -84,9 +84,20 @@ class ValueSource(ABC):
     Precedence is determined by the order sources are provided to the resolver.
     """
 
+    # Allowed source names for config resolution
+    SourceName = Literal[
+        "snowsql_config",
+        "cli_config_toml",
+        "connections_toml",
+        "snowsql_env",
+        "connection_specific_env",
+        "cli_env",
+        "cli_arguments",
+    ]
+
     @property
     @abstractmethod
-    def source_name(self) -> str:
+    def source_name(self) -> SourceName:
         """
         Unique identifier for this source.
         Examples: "cli_arguments", "snowsql_config", "cli_env"
