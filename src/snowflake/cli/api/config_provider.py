@@ -603,7 +603,7 @@ class AlternativeConfigProvider(ConfigProvider):
         connections_prefix = "connections."
 
         assert self._resolver is not None
-        for source in self._resolver._sources:  # noqa: SLF001
+        for source in self._resolver.get_sources():
             if source.source_name not in file_source_names:
                 continue
 
