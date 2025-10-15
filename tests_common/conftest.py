@@ -23,6 +23,7 @@ from unittest import mock
 
 import pytest
 import yaml
+from syrupy.extensions.amber import AmberSnapshotExtension
 
 from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import StreamlitEntityModel
@@ -144,3 +145,23 @@ skip_snowpark_on_newest_python = pytest.mark.skipif(
     sys.version_info >= PYTHON_3_12,
     reason="requires python3.11 or lower",
 )
+
+
+class ConfigModeSnapshotExtension(AmberSnapshotExtension):
+    """Snapshot extension that includes config mode in snapshot file name."""
+
+    @classmethod
+    def _get_file_basename(cls, *, test_location, index):
+        """Generate snapshot filename with config mode suffix."""
+        config_mode = (
+            "config_ng" if os.getenv("SNOWFLAKE_CLI_CONFIG_V2_ENABLED") else "legacy"
+        )
+        basename = super()._get_file_basename(test_location=test_location, index=index)
+        # Insert config mode before .ambr extension
+        return f"{basename}_{config_mode}"
+
+
+@pytest.fixture()
+def config_snapshot(snapshot):
+    """Config-mode-aware snapshot fixture for tests that differ between legacy and config_ng."""
+    return snapshot.use_extension(ConfigModeSnapshotExtension)
