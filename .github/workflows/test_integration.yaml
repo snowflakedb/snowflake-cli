@@ -46,6 +46,7 @@ jobs:
       hatch-run: integration:test
     secrets: inherit
 
+  # Repo owner has commented /ok-to-test on a (fork-based) pull request
   integration-fork:
     needs: define-matrix
     strategy:
