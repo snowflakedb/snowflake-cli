@@ -322,35 +322,17 @@ def config_section_exists(*path) -> bool:
 
 
 def get_all_connections() -> dict[str, ConnectionConfig]:
-    # Use config provider if available
-    try:
-        from snowflake.cli.api.config_provider import get_config_provider_singleton
+    from snowflake.cli.api.config_provider import get_config_provider_singleton
 
-        provider = get_config_provider_singleton()
-        return provider.get_all_connections()
-    except Exception:
-        # Fall back to legacy implementation
-        return {
-            k: ConnectionConfig.from_dict(connection_dict)
-            for k, connection_dict in get_config_section("connections").items()
-        }
+    provider = get_config_provider_singleton()
+    return provider.get_all_connections()
 
 
 def get_connection_dict(connection_name: str) -> dict:
-    # Use config provider if available
-    try:
-        from snowflake.cli.api.config_provider import get_config_provider_singleton
+    from snowflake.cli.api.config_provider import get_config_provider_singleton
 
-        provider = get_config_provider_singleton()
-        return provider.get_connection_dict(connection_name)
-    except Exception:
-        # Fall back to legacy implementation
-        try:
-            return get_config_section(CONNECTIONS_SECTION, connection_name)
-        except KeyError:
-            raise MissingConfigurationError(
-                f"Connection {connection_name} is not configured"
-            )
+    provider = get_config_provider_singleton()
+    return provider.get_connection_dict(connection_name)
 
 
 def get_default_connection_name() -> str:
