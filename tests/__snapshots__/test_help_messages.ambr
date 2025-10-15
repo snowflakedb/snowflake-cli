@@ -4580,9 +4580,11 @@
                                                                                   
    Usage: root dbt deploy [OPTIONS] NAME                                          
                                                                                   
-   Copy dbt files and either recreate dbt on Snowflake if --force flag is         
-   provided; or create a new one if it doesn't exist; or update files and create  
-   a new version if it exists.                                                    
+   Upload local dbt project files and create or update a DBT project object on    
+   Snowflake.                                                                     
+                                                                                  
+   Examples: snow dbt deploy PROJECT snow dbt deploy PROJECT                      
+   --source=/Users/jdoe/project --force                                           
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   | *    name      TEXT  Identifier of the DBT Project; for example: my_pipeline |
@@ -7180,9 +7182,8 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | deploy     Copy dbt files and either recreate dbt on Snowflake if --force    |
-  |            flag is provided; or create a new one if it doesn't exist; or     |
-  |            update files and create a new version if it exists.               |
+  | deploy     Upload local dbt project files and create or update a DBT project |
+  |            object on Snowflake.                                              |
   | describe   Provides description of dbt project.                              |
   | drop       Drops dbt project with given name.                                |
   | execute    Execute a dbt command on Snowflake. Subcommand name and all       |
@@ -21923,9 +21924,8 @@
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
-  | deploy     Copy dbt files and either recreate dbt on Snowflake if --force    |
-  |            flag is provided; or create a new one if it doesn't exist; or     |
-  |            update files and create a new version if it exists.               |
+  | deploy     Upload local dbt project files and create or update a DBT project |
+  |            object on Snowflake.                                              |
   | describe   Provides description of dbt project.                              |
   | drop       Drops dbt project with given name.                                |
   | execute    Execute a dbt command on Snowflake. Subcommand name and all       |

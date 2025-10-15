@@ -17,7 +17,7 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import List, Optional, TypedDict
+from typing import Dict, List, Optional, TypedDict
 
 import yaml
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
@@ -26,6 +26,7 @@ from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -214,18 +215,16 @@ class DBTManager(SqlExecutionMixin):
         )
         return self.execute_query(query)
 
-    @staticmethod
     def _validate_profiles(
+        self,
         profiles_path: SecurePath,
-        target_profile: str,
+        profile_name: str,
         default_target: str | None = None,
     ) -> None:
         """
         Validates that:
          * profiles.yml exists
          * contain profile specified in dbt_project.yml
-         * no other profiles are defined there
-         * does not contain any confidential data like passwords
          * default_target (if specified) exists in the profile's outputs
         """
         profiles_file = profiles_path / PROFILES_FILENAME
@@ -236,55 +235,26 @@ class DBTManager(SqlExecutionMixin):
         with profiles_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
             profiles = yaml.safe_load(fd)
 
-        if target_profile not in profiles:
+        if profile_name not in profiles:
             raise CliError(
-                f"profile {target_profile} is not defined in {PROFILES_FILENAME}"
+                f"Profile {profile_name} is not defined in {PROFILES_FILENAME}."
             )
 
         errors = defaultdict(list)
-        if len(profiles.keys()) > 1:
-            for profile_name in profiles.keys():
-                if profile_name.lower() != target_profile.lower():
-                    errors[profile_name].append("Remove unnecessary profiles")
-
-        required_fields = {
-            "account",
-            "database",
-            "role",
-            "schema",
-            "type",
-            "user",
-            "warehouse",
-        }
-        supported_fields = {
-            "threads",
-        }
-        for target_name, target in profiles[target_profile]["outputs"].items():
-            if missing_keys := required_fields - set(target.keys()):
-                errors[target_profile].append(
-                    f"Missing required fields: {', '.join(sorted(missing_keys))} in target {target_name}"
-                )
-            if (
-                unsupported_keys := set(target.keys())
-                - required_fields
-                - supported_fields
-            ):
-                errors[target_profile].append(
-                    f"Unsupported fields found: {', '.join(sorted(unsupported_keys))} in target {target_name}"
-                )
-            if "type" in target and target["type"].lower() != "snowflake":
-                errors[target_profile].append(
-                    f"Value for type field is invalid. Should be set to `snowflake` in target {target_name}"
-                )
-
-        if default_target is not None:
-            available_targets = set(profiles[target_profile]["outputs"].keys())
-            if default_target not in available_targets:
-                available_targets_str = ", ".join(sorted(available_targets))
-                errors["default_target"].append(
-                    f"Default target '{default_target}' is not defined in profile '{target_profile}'. "
-                    f"Available targets: {available_targets_str}"
-                )
+        profile = profiles[profile_name]
+        target_name = default_target or profile.get("target")
+        available_targets = set(profile["outputs"].keys())
+        if target_name in available_targets:
+            target = profile["outputs"][target_name]
+            target_errors = self._validate_target(target_name, target)
+            if target_errors:
+                errors[profile_name].extend(target_errors)
+        else:
+            available_targets_str = ", ".join(sorted(available_targets))
+            errors[profile_name].append(
+                f"Target '{target_name}' is not defined in profile '{profile_name}'. "
+                f"Available targets: {available_targets_str}"
+            )
 
         if errors:
             message = f"Found following errors in {PROFILES_FILENAME}. Please fix them before proceeding:"
@@ -292,6 +262,37 @@ class DBTManager(SqlExecutionMixin):
                 message += f"\n{target}"
                 message += "\n * " + "\n * ".join(issues)
             raise CliError(message)
+
+    def _validate_target(
+        self, target_name: str, target_details: Dict[str, str]
+    ) -> List[str]:
+        errors = []
+        required_fields = {
+            "database",
+            "role",
+            "schema",
+            "type",
+        }
+        if FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled():
+            required_fields.add("account")
+            required_fields.add("user")
+            required_fields.add("warehouse")
+        if missing_keys := required_fields - set(target_details.keys()):
+            errors.append(
+                f"Missing required fields: {', '.join(sorted(missing_keys))} in target {target_name}"
+            )
+        if role := target_details.get("role"):
+            if not self._validate_role(role_name=role):
+                errors.append(f"Role '{role}' does not exist or is not accessible.")
+        return errors
+
+    def _validate_role(self, role_name: str) -> bool:
+        try:
+            with self.use_role(role_name):
+                self.execute_query("select 1")
+            return True
+        except ProgrammingError:
+            return False
 
     @staticmethod
     def _prepare_profiles_file(profiles_path: Path, tmp_path: Path):

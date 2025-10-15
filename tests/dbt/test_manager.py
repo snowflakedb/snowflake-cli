@@ -14,66 +14,9 @@ from snowflake.connector import ProgrammingError
 
 
 class TestDeploy:
-    @pytest.fixture()
-    def profile(self):
-        return {
-            "dev": {
-                "outputs": {
-                    "local": {
-                        "account": "test_account",
-                        "database": "testdb",
-                        "role": "test_role",
-                        "schema": "test_schema",
-                        "threads": 4,
-                        "type": "snowflake",
-                        "user": "test_user",
-                        "warehouse": "test_warehouse",
-                    },
-                    "prod": {
-                        "account": "test_account",
-                        "database": "testdb_prod",
-                        "role": "test_role",
-                        "schema": "test_schema",
-                        "threads": 4,
-                        "type": "snowflake",
-                        "user": "test_user",
-                        "warehouse": "test_warehouse",
-                    },
-                }
-            }
-        }
-
-    @pytest.fixture
-    def project_path(self, tmp_path_factory):
-        source_path = tmp_path_factory.mktemp("dbt_project")
-        yield source_path
-
-    @pytest.fixture
-    def dbt_project_path(self, project_path, profile):
-        dbt_project_file = project_path / "dbt_project.yml"
-        dbt_project_file.write_text(yaml.dump({"profile": "dev"}))
-        dbt_profiles_file = project_path / PROFILES_FILENAME
-        dbt_profiles_file.write_text(yaml.dump(profile))
-        yield project_path
-
     def _generate_profile(self, project_path, profile):
         dbt_profiles_file = project_path / PROFILES_FILENAME
         dbt_profiles_file.write_text(yaml.dump(profile))
-
-    @pytest.fixture
-    def mock_get_dbt_object_attributes(self):
-        with mock.patch(
-            "snowflake.cli._plugins.dbt.manager.DBTManager.get_dbt_object_attributes",
-            return_value=None,
-        ) as _fixture:
-            yield _fixture
-
-    @pytest.fixture
-    def mock_execute_query(self):
-        with mock.patch(
-            "snowflake.cli._plugins.dbt.manager.DBTManager.execute_query"
-        ) as _fixture:
-            yield _fixture
 
     @pytest.fixture
     def mock_get_cli_context(self, mock_connect):
@@ -85,13 +28,106 @@ class TestDeploy:
             cli_context().connection = mock_connect
             yield cli_context()
 
-    @pytest.fixture
-    def mock_from_resource(self):
-        with mock.patch(
-            "snowflake.cli._plugins.dbt.manager.FQN.from_resource",
-            return_value="@MockDatabase.MockSchema.DBT_PROJECT_TEST_PIPELINE_1757333281_STAGE",
-        ) as _fixture:
-            yield _fixture
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_dbt_from_default_directories(
+        self,
+        mock_put_recursive,
+        mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+        )
+
+        expected_query = f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()}"
+        mock_execute_query.assert_called_once_with(expected_query)
+        mock_create.assert_called_once_with(mock_from_resource(), temporary=True)
+        mock_put_recursive.assert_called_once()
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_force_flag_uses_create_or_replace(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=True,
+        )
+
+        expected_query = (
+            f"CREATE OR REPLACE DBT PROJECT test_project\nFROM {mock_from_resource()}"
+        )
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_alters_existing_object(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": None}
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+        )
+
+        expected_query = (
+            f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
+        )
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    @mock.patch("snowflake.cli.api.identifiers.time.time", return_value=1234567890)
+    def test_deploys_project_with_case_sensitive_name(
+        self,
+        mock_time,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_validate_role,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string('"MockDaTaBaSe"."PuBlIc"."caseSenSITIVEnAME"'),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+        )
+
+        expected_query = f'CREATE DBT PROJECT "MockDaTaBaSe"."PuBlIc"."caseSenSITIVEnAME"\nFROM @TestDB.TestSchema.DBT_PROJECT_caseSenSITIVEnAME_{mock_time()}_STAGE'
+        mock_execute_query.assert_called_once_with(expected_query)
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
@@ -104,6 +140,7 @@ class TestDeploy:
         mock_execute_query,
         mock_get_cli_context,
         mock_from_resource,
+        mock_validate_role,
     ):
         manager = DBTManager()
 
@@ -132,6 +169,7 @@ class TestDeploy:
         mock_execute_query,
         mock_get_cli_context,
         mock_from_resource,
+        mock_validate_role,
     ):
         mock_get_dbt_object_attributes.return_value = {"default_target": None}
         manager = DBTManager()
@@ -150,10 +188,187 @@ class TestDeploy:
         expected_query = f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}\nEXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration, dbt_hub_integration)"
         mock_execute_query.assert_called_once_with(expected_query)
 
-    def test_validate_profiles_raises_when_file_does_not_exist(self, project_path):
+    def test_deploy_raises_when_dbt_project_yml_is_not_available(
+        self, dbt_project_path
+    ):
+        dbt_file = dbt_project_path / "dbt_project.yml"
+        dbt_file.unlink()
 
         with pytest.raises(CliError) as exc_info:
-            DBTManager._validate_profiles(  # noqa: SLF001
+            DBTManager().deploy(
+                fqn=FQN.from_string("TEST_PIPELINE"),
+                path=SecurePath(dbt_project_path),
+                profiles_path=SecurePath(dbt_project_path),
+                force=False,
+            )
+
+        assert "dbt_project.yml does not exist in directory" in exc_info.value.message
+
+    def test_deploy_raises_when_dbt_project_yml_does_not_specify_profile(
+        self, dbt_project_path
+    ):
+        with open((dbt_project_path / "dbt_project.yml"), "w") as f:
+            yaml.dump({}, f)
+
+        with pytest.raises(CliError) as exc_info:
+            DBTManager().deploy(
+                fqn=FQN.from_string("TEST_PIPELINE"),
+                path=SecurePath(dbt_project_path),
+                profiles_path=SecurePath(dbt_project_path),
+                force=False,
+            )
+
+        assert "`profile` is not defined in dbt_project.yml" in exc_info.value.message
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_create_with_default_target(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            default_target="prod",
+        )
+
+        expected_query = f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()} DEFAULT_TARGET='prod'"
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_existing_project_sets_default_target(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": "dev"}
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("TEST_PIPELINE"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            default_target="prod",
+        )
+
+        calls = [call.args[0] for call in mock_execute_query.call_args_list]
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in calls[0]
+        )
+        assert "ALTER DBT PROJECT TEST_PIPELINE SET DEFAULT_TARGET='prod'" in calls[1]
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_existing_project_with_same_default_target(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": "prod"}
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("TEST_PIPELINE"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            default_target="prod",
+        )
+
+        query = mock_execute_query.call_args_list[0].args[0]
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in query
+        )
+        assert len(mock_execute_query.call_args_list) == 1
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_unset_default_target_when_project_exists_with_target(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": "prod"}
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("TEST_PIPELINE"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            unset_default_target=True,
+        )
+
+        calls = [call.args[0] for call in mock_execute_query.call_args_list]
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in calls[0]
+        )
+        assert "ALTER DBT PROJECT TEST_PIPELINE UNSET DEFAULT_TARGET" in calls[1]
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_unset_default_target_when_project_exists_without_target(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {"default_target": None}
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("TEST_PIPELINE"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            unset_default_target=True,
+        )
+
+        query = mock_execute_query.call_args_list[0].args[0]
+        assert (
+            f"ALTER DBT PROJECT TEST_PIPELINE ADD VERSION\nFROM {mock_from_resource()}"
+            in query
+        )
+        assert len(mock_execute_query.call_args_list) == 1
+
+    def test_validate_profiles_raises_when_file_does_not_exist(
+        self, mock_validate_role, project_path
+    ):
+        with pytest.raises(CliError) as exc_info:
+            DBTManager()._validate_profiles(  # noqa: SLF001
                 SecurePath(project_path), "dev"
             )
 
@@ -163,82 +378,35 @@ class TestDeploy:
         )
 
     def test_validate_profiles_raises_when_profile_is_not_in_the_file(
-        self, project_path, profile
+        self, mock_validate_role, project_path, profile
     ):
         self._generate_profile(project_path, profile)
 
         with pytest.raises(CliError) as exc_info:
-            DBTManager._validate_profiles(  # noqa: SLF001
+            DBTManager()._validate_profiles(  # noqa: SLF001
                 SecurePath(project_path), "another_profile_name"
             )
 
         assert (
             exc_info.value.message
-            == "profile another_profile_name is not defined in profiles.yml"
+            == "Profile another_profile_name is not defined in profiles.yml."
         )
 
-    def test_validate_profiles_raises_when_extra_profiles_are_defined(
-        self, project_path, profile
-    ):
-        profile["another_profile"] = {}
-        self._generate_profile(project_path, profile)
-
-        with pytest.raises(CliError) as exc_info:
-            DBTManager._validate_profiles(  # noqa: SLF001
-                SecurePath(project_path), "dev"
-            )
-
-        expected_error_message = """Found following errors in profiles.yml. Please fix them before proceeding:
-another_profile
- * Remove unnecessary profiles"""
-        assert exc_info.value.message == dedent(expected_error_message)
-
     def test_validate_profiles_raises_when_required_fields_are_missing(
-        self, project_path, profile
+        self, mock_validate_role, project_path, profile
     ):
-        profile["dev"]["outputs"]["local"].pop("warehouse", None)
+        profile["dev"]["outputs"]["local"].pop("database", None)
         profile["dev"]["outputs"]["local"].pop("role", None)
         self._generate_profile(project_path, profile)
 
         with pytest.raises(CliError) as exc_info:
-            DBTManager._validate_profiles(  # noqa: SLF001
+            DBTManager()._validate_profiles(  # noqa: SLF001
                 SecurePath(project_path), "dev"
             )
 
         expected_error_message = """Found following errors in profiles.yml. Please fix them before proceeding:
 dev
- * Missing required fields: role, warehouse in target local"""
-        assert exc_info.value.message == dedent(expected_error_message)
-
-    def test_validate_profiles_raises_when_unsupported_fields_are_provided(
-        self, project_path, profile
-    ):
-        profile["dev"]["outputs"]["local"]["password"] = "very secret password"
-        self._generate_profile(project_path, profile)
-
-        with pytest.raises(CliError) as exc_info:
-            DBTManager._validate_profiles(  # noqa: SLF001
-                SecurePath(project_path), "dev"
-            )
-
-        expected_error_message = """Found following errors in profiles.yml. Please fix them before proceeding:
-dev
- * Unsupported fields found: password in target local"""
-        assert exc_info.value.message == dedent(expected_error_message)
-        assert "very secret password" not in exc_info.value.message
-
-    def test_validate_profiles_raises_when_type_is_wrong(self, project_path, profile):
-        profile["dev"]["outputs"]["local"]["type"] = "sqlite"
-        self._generate_profile(project_path, profile)
-
-        with pytest.raises(CliError) as exc_info:
-            DBTManager._validate_profiles(  # noqa: SLF001
-                SecurePath(project_path), "dev"
-            )
-
-        expected_error_message = """Found following errors in profiles.yml. Please fix them before proceeding:
-dev
- * Value for type field is invalid. Should be set to `snowflake` in target local"""
+ * Missing required fields: database, role in target local"""
         assert exc_info.value.message == dedent(expected_error_message)
 
     def test_prepare_profiles_file_replaces_existing_symlink_with_file(
@@ -290,35 +458,66 @@ dev
                 assert "password" not in line
                 assert "# " not in line
 
-    def test_validate_profiles_with_valid_default_target(self, project_path, profile):
+    def test_validate_profiles_with_valid_default_target(
+        self, mock_validate_role, project_path, profile
+    ):
         self._generate_profile(project_path, profile)
 
-        # Should not raise an exception
-        DBTManager._validate_profiles(  # noqa: SLF001
+        DBTManager()._validate_profiles(  # noqa: SLF001
             SecurePath(project_path), "dev", "prod"
         )
 
-    def test_validate_profiles_with_invalid_default_target(self, project_path, profile):
+    def test_validate_profiles_with_invalid_default_target(
+        self, mock_validate_role, project_path, profile
+    ):
         self._generate_profile(project_path, profile)
 
         with pytest.raises(CliError) as exc_info:
-            DBTManager._validate_profiles(  # noqa: SLF001
+            DBTManager()._validate_profiles(  # noqa: SLF001
                 SecurePath(project_path), "dev", "invalid_target"
             )
 
         assert (
-            "Default target 'invalid_target' is not defined in profile 'dev'"
+            "Target 'invalid_target' is not defined in profile 'dev'"
             in exc_info.value.message
         )
         assert "Available targets: local, prod" in exc_info.value.message
 
-    def test_validate_profiles_without_default_target(self, project_path, profile):
+    def test_validate_profiles_without_default_target(
+        self, mock_validate_role, project_path, profile
+    ):
         self._generate_profile(project_path, profile)
 
-        # Should not raise an exception when default_target is None
-        DBTManager._validate_profiles(  # noqa: SLF001
+        DBTManager()._validate_profiles(  # noqa: SLF001
             SecurePath(project_path), "dev", None
         )
+
+    def test_validate_profiles_with_existing_role(
+        self, mock_validate_role, project_path, profile
+    ):
+        self._generate_profile(project_path, profile)
+
+        DBTManager()._validate_profiles(  # noqa: SLF001
+            SecurePath(project_path), "dev", None
+        )
+
+        mock_validate_role.assert_called_once()
+        assert mock_validate_role.call_args[1]["role_name"] == "test_role"
+
+    def test_validate_profiles_with_nonexistent_role(
+        self, mock_validate_role, project_path, profile
+    ):
+        mock_validate_role.return_value = False
+
+        self._generate_profile(project_path, profile)
+
+        with pytest.raises(CliError) as exc_info:
+            DBTManager()._validate_profiles(  # noqa: SLF001
+                SecurePath(project_path), "dev", None
+            )
+
+        assert "does not exist or is not accessible" in exc_info.value.message
+        assert "test_role" in exc_info.value.message
 
 
 class TestGetDBTObjectAttributes:
@@ -391,3 +590,36 @@ class TestGetDBTObjectAttributes:
         assert (
             result["default_target"] is None
         )  # Should default to None when key is missing
+
+
+class TestValidateRole:
+    @pytest.fixture
+    def mock_current_role(self):
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager.current_role"
+        ) as _fixture:
+            _fixture.return_value = "original_role"
+            yield _fixture
+
+    def test_validate_role_returns_true_when_role_is_valid(
+        self, mock_execute_query, mock_current_role
+    ):
+
+        result = DBTManager()._validate_role("test_role")  # noqa: SLF001
+
+        assert result is True
+        assert mock_execute_query.call_count == 3
+        calls = [call.args[0] for call in mock_execute_query.call_args_list]
+        assert calls[0] == "use role test_role"
+        assert calls[1] == "select 1"
+        assert calls[2] == "use role original_role"
+
+    def test_validate_role_returns_false_when_programming_error_raised(
+        self, mock_execute_query, mock_current_role
+    ):
+        mock_execute_query.side_effect = ProgrammingError("Role does not exist")
+
+        result = DBTManager()._validate_role("invalid_role")  # noqa: SLF001
+
+        assert result is False
+        mock_execute_query.assert_called_once_with("use role invalid_role")
