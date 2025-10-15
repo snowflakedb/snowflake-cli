@@ -28,15 +28,11 @@ from snowflake.cli.api.config import (
     get_env_variable_name,
     set_config_value,
 )
+from snowflake.cli.api.config_provider import is_alternative_config_enabled
 from snowflake.cli.api.exceptions import MissingConfigurationError
 
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
 from tests_common import IS_WINDOWS
-
-
-def is_config_ng_enabled():
-    """Check if config_ng is enabled via environment variable"""
-    return os.getenv("SNOWFLAKE_CLI_CONFIG_V2_ENABLED") == "true"
 
 
 def test_empty_config_file_is_created_if_not_present():
@@ -390,7 +386,7 @@ def test_correct_updates_of_connections_on_setting_default_connection_for_empty_
 
 # Legacy version - skip when config_ng is enabled
 @pytest.mark.skipif(
-    is_config_ng_enabled(),
+    is_alternative_config_enabled(),
     reason="Legacy behavior: connections.toml replaces all connections from config.toml",
 )
 def test_connections_toml_override_config_toml_legacy(
@@ -413,7 +409,7 @@ def test_connections_toml_override_config_toml_legacy(
 
 # Config_ng version - skip when config_ng is NOT enabled
 @pytest.mark.skipif(
-    not is_config_ng_enabled(),
+    not is_alternative_config_enabled(),
     reason="Config_ng behavior: connections.toml merges with config.toml per-key",
 )
 def test_connections_toml_override_config_toml_config_ng(
