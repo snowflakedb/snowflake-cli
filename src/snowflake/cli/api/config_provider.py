@@ -14,15 +14,17 @@
 
 from __future__ import annotations
 
+import atexit
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Final, Optional
 
 if TYPE_CHECKING:
+    from snowflake.cli.api.config_ng.core import ValueSource
     from snowflake.cli.api.config_ng.resolver import ConfigurationResolver
 
-ALTERNATIVE_CONFIG_ENV_VAR = "SNOWFLAKE_CLI_CONFIG_V2_ENABLED"
+ALTERNATIVE_CONFIG_ENV_VAR: Final[str] = "SNOWFLAKE_CLI_CONFIG_V2_ENABLED"
 
 
 class ConfigProvider(ABC):
@@ -97,7 +99,6 @@ class ConfigProvider(ABC):
         if "private_key_file" in connection_dict:
             return connection_dict
 
-        import os
         import tempfile
 
         try:
@@ -116,12 +117,34 @@ class ConfigProvider(ABC):
             result["private_key_file"] = temp_file_path
             del result["private_key_raw"]
 
+            # Track created temp file on the provider instance for cleanup
+            temp_files_attr = "_temp_private_key_files"
+            existing = getattr(self, temp_files_attr, None)
+            if existing is None:
+                setattr(self, temp_files_attr, {temp_file_path})
+            else:
+                existing.add(temp_file_path)
+
             return result
 
         except Exception:
             # If transformation fails, return original dict
             # The error will be handled downstream
             return connection_dict
+
+    def cleanup_temp_files(self) -> None:
+        """Delete any temporary files created from private_key_raw transformation."""
+        temp_files = getattr(self, "_temp_private_key_files", None)
+        if not temp_files:
+            return
+        to_remove = list(temp_files)
+        for path in to_remove:
+            try:
+                Path(path).unlink(missing_ok=True)
+            except Exception:
+                # Best-effort cleanup; ignore failures
+                pass
+        temp_files.clear()
 
 
 class LegacyConfigProvider(ConfigProvider):
@@ -409,7 +432,7 @@ class AlternativeConfigProvider(ConfigProvider):
         )
 
     # Source priority levels (higher number = higher priority)
-    _SOURCE_PRIORITIES = {
+    _SOURCE_PRIORITIES: Final[dict["ValueSource.SourceName", int]] = {
         "snowsql_config": 1,
         "cli_config_toml": 2,
         "connections_toml": 3,
@@ -683,4 +706,23 @@ def reset_config_provider():
     Useful for testing and when config source changes.
     """
     global _config_provider_instance
+    # Cleanup any temp files created by the current provider instance
+    if _config_provider_instance is not None:
+        try:
+            _config_provider_instance.cleanup_temp_files()
+        except Exception:
+            pass
     _config_provider_instance = None
+
+
+def _cleanup_provider_at_exit() -> None:
+    """Process-exit cleanup for provider-managed temporary files."""
+    global _config_provider_instance
+    if _config_provider_instance is not None:
+        try:
+            _config_provider_instance.cleanup_temp_files()
+        except Exception:
+            pass
+
+
+atexit.register(_cleanup_provider_at_exit)

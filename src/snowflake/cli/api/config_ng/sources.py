@@ -32,7 +32,7 @@ import configparser
 import logging
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Final, Optional
 
 from snowflake.cli.api.config_ng.core import ConfigValue, ValueSource
 
@@ -117,7 +117,7 @@ class SnowSQLConfigFile(ValueSource):
             ]
 
     @property
-    def source_name(self) -> str:
+    def source_name(self) -> "ValueSource.SourceName":
         return "snowsql_config"
 
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
@@ -225,7 +225,7 @@ class CliConfigFile(ValueSource):
             ]
 
     @property
-    def source_name(self) -> str:
+    def source_name(self) -> "ValueSource.SourceName":
         return "cli_config_toml"
 
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
@@ -309,7 +309,7 @@ class ConnectionsConfigFile(ValueSource):
             self._file_path = Path.home() / ".snowflake" / "connections.toml"
 
     @property
-    def source_name(self) -> str:
+    def source_name(self) -> "ValueSource.SourceName":
         return "connections_toml"
 
     @property
@@ -448,7 +448,7 @@ class SnowSQLEnvironment(ValueSource):
     }
 
     @property
-    def source_name(self) -> str:
+    def source_name(self) -> "ValueSource.SourceName":
         return "snowsql_env"
 
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
@@ -485,7 +485,7 @@ class SnowSQLEnvironment(ValueSource):
 
 
 # Base configuration keys that can be set via environment
-_ENV_CONFIG_KEYS = [
+_ENV_CONFIG_KEYS: Final[list[str]] = [
     "account",
     "user",
     "password",
@@ -533,7 +533,7 @@ class ConnectionSpecificEnvironment(ValueSource):
     """
 
     @property
-    def source_name(self) -> str:
+    def source_name(self) -> "ValueSource.SourceName":
         return "connection_specific_env"
 
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
@@ -608,7 +608,7 @@ class CliEnvironment(ValueSource):
     """
 
     @property
-    def source_name(self) -> str:
+    def source_name(self) -> "ValueSource.SourceName":
         return "cli_env"
 
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
@@ -677,7 +677,7 @@ class CliParameters(ValueSource):
         self._cli_context = cli_context or {}
 
     @property
-    def source_name(self) -> str:
+    def source_name(self) -> "ValueSource.SourceName":
         return "cli_arguments"
 
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:

@@ -404,13 +404,11 @@ class ConfigurationResolver:
         # Identify sources that connections.toml replaces
         # connections.toml only replaces cli_config_toml, not SnowSQL config
         cli_config_source = "cli_config_toml"
-        connections_file_source = None
         connections_to_replace: set[str] = set()
 
         # First pass: find connections.toml and identify connections to replace
         for source in self._sources:
             if hasattr(source, "is_connections_file") and source.is_connections_file:
-                connections_file_source = source
                 connections_to_replace = source.get_defined_connections()
                 break
 
