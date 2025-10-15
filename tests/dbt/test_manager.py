@@ -19,13 +19,6 @@ class TestDeploy:
         dbt_profiles_file.write_text(yaml.dump(profile))
 
     @pytest.fixture
-    def mock_execute_query(self):
-        with mock.patch(
-            "snowflake.cli._plugins.dbt.manager.DBTManager.execute_query"
-        ) as _fixture:
-            yield _fixture
-
-    @pytest.fixture
     def mock_get_cli_context(self, mock_connect):
         with mock.patch(
             "snowflake.cli.api.cli_global_context.get_cli_context"
@@ -375,7 +368,7 @@ class TestDeploy:
         self, mock_validate_role, project_path
     ):
         with pytest.raises(CliError) as exc_info:
-            DBTManager._validate_profiles(  # noqa: SLF001
+            DBTManager()._validate_profiles(  # noqa: SLF001
                 SecurePath(project_path), "dev"
             )
 
@@ -390,7 +383,7 @@ class TestDeploy:
         self._generate_profile(project_path, profile)
 
         with pytest.raises(CliError) as exc_info:
-            DBTManager._validate_profiles(  # noqa: SLF001
+            DBTManager()._validate_profiles(  # noqa: SLF001
                 SecurePath(project_path), "another_profile_name"
             )
 
@@ -407,7 +400,7 @@ class TestDeploy:
         self._generate_profile(project_path, profile)
 
         with pytest.raises(CliError) as exc_info:
-            DBTManager._validate_profiles(  # noqa: SLF001
+            DBTManager()._validate_profiles(  # noqa: SLF001
                 SecurePath(project_path), "dev"
             )
 
@@ -470,7 +463,7 @@ dev
     ):
         self._generate_profile(project_path, profile)
 
-        DBTManager._validate_profiles(  # noqa: SLF001
+        DBTManager()._validate_profiles(  # noqa: SLF001
             SecurePath(project_path), "dev", "prod"
         )
 
@@ -480,7 +473,7 @@ dev
         self._generate_profile(project_path, profile)
 
         with pytest.raises(CliError) as exc_info:
-            DBTManager._validate_profiles(  # noqa: SLF001
+            DBTManager()._validate_profiles(  # noqa: SLF001
                 SecurePath(project_path), "dev", "invalid_target"
             )
 
@@ -495,7 +488,7 @@ dev
     ):
         self._generate_profile(project_path, profile)
 
-        DBTManager._validate_profiles(  # noqa: SLF001
+        DBTManager()._validate_profiles(  # noqa: SLF001
             SecurePath(project_path), "dev", None
         )
 
@@ -504,7 +497,7 @@ dev
     ):
         self._generate_profile(project_path, profile)
 
-        DBTManager._validate_profiles(  # noqa: SLF001
+        DBTManager()._validate_profiles(  # noqa: SLF001
             SecurePath(project_path), "dev", None
         )
 
@@ -519,7 +512,7 @@ dev
         self._generate_profile(project_path, profile)
 
         with pytest.raises(CliError) as exc_info:
-            DBTManager._validate_profiles(  # noqa: SLF001
+            DBTManager()._validate_profiles(  # noqa: SLF001
                 SecurePath(project_path), "dev", None
             )
 
@@ -597,3 +590,36 @@ class TestGetDBTObjectAttributes:
         assert (
             result["default_target"] is None
         )  # Should default to None when key is missing
+
+
+class TestValidateRole:
+    @pytest.fixture
+    def mock_current_role(self):
+        with mock.patch(
+            "snowflake.cli._plugins.dbt.manager.DBTManager.current_role"
+        ) as _fixture:
+            _fixture.return_value = "original_role"
+            yield _fixture
+
+    def test_validate_role_returns_true_when_role_is_valid(
+        self, mock_execute_query, mock_current_role
+    ):
+
+        result = DBTManager()._validate_role("test_role")  # noqa: SLF001
+
+        assert result is True
+        assert mock_execute_query.call_count == 3
+        calls = [call.args[0] for call in mock_execute_query.call_args_list]
+        assert calls[0] == "use role test_role"
+        assert calls[1] == "select 1"
+        assert calls[2] == "use role original_role"
+
+    def test_validate_role_returns_false_when_programming_error_raised(
+        self, mock_execute_query, mock_current_role
+    ):
+        mock_execute_query.side_effect = ProgrammingError("Role does not exist")
+
+        result = DBTManager()._validate_role("invalid_role")  # noqa: SLF001
+
+        assert result is False
+        mock_execute_query.assert_called_once_with("use role invalid_role")

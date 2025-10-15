@@ -215,8 +215,8 @@ class DBTManager(SqlExecutionMixin):
         )
         return self.execute_query(query)
 
-    @staticmethod
     def _validate_profiles(
+        self,
         profiles_path: SecurePath,
         profile_name: str,
         default_target: str | None = None,
@@ -246,7 +246,7 @@ class DBTManager(SqlExecutionMixin):
         available_targets = set(profile["outputs"].keys())
         if target_name in available_targets:
             target = profile["outputs"][target_name]
-            target_errors = DBTManager._validate_target(target_name, target)
+            target_errors = self._validate_target(target_name, target)
             if target_errors:
                 errors[profile_name].extend(target_errors)
         else:
@@ -263,8 +263,9 @@ class DBTManager(SqlExecutionMixin):
                 message += "\n * " + "\n * ".join(issues)
             raise CliError(message)
 
-    @staticmethod
-    def _validate_target(target_name: str, target_details: Dict[str, str]) -> List[str]:
+    def _validate_target(
+        self, target_name: str, target_details: Dict[str, str]
+    ) -> List[str]:
         errors = []
         required_fields = {
             "database",
@@ -281,19 +282,17 @@ class DBTManager(SqlExecutionMixin):
                 f"Missing required fields: {', '.join(sorted(missing_keys))} in target {target_name}"
             )
         if role := target_details.get("role"):
-            if not DBTManager._validate_role(role_name=role):
-                errors.append(f"Role '{role}' does not exist or is not accessible")
+            if not self._validate_role(role_name=role):
+                errors.append(f"Role '{role}' does not exist or is not accessible.")
         return errors
 
-    @staticmethod
-    def _validate_role(role_name: str) -> bool:
-        # It's not possible to describe a role, so this method is a workaround
-        object_manager = ObjectManager()
-        role_fqn = FQN.from_string(role_name)
-        roles = object_manager.show(
-            object_type=ObjectType.ROLE.value.cli_name, like=str(role_fqn.identifier)
-        )
-        return bool(roles.rowcount == 1)
+    def _validate_role(self, role_name: str) -> bool:
+        try:
+            with self.use_role(role_name):
+                self.execute_query("select 1")
+            return True
+        except ProgrammingError:
+            return False
 
     @staticmethod
     def _prepare_profiles_file(profiles_path: Path, tmp_path: Path):

@@ -79,3 +79,11 @@ def mock_from_resource():
         return_value="@MockDatabase.MockSchema.DBT_PROJECT_TEST_PIPELINE_1757333281_STAGE",
     ) as _fixture:
         yield _fixture
+
+
+@pytest.fixture
+def mock_execute_query():
+    with mock.patch(
+        "snowflake.cli._plugins.dbt.manager.DBTManager.execute_query"
+    ) as _fixture:
+        yield _fixture
