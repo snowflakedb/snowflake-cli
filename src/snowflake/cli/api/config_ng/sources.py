@@ -312,6 +312,42 @@ class ConnectionsConfigFile(ValueSource):
     def source_name(self) -> str:
         return "connections_toml"
 
+    @property
+    def is_connections_file(self) -> bool:
+        """Mark this as the dedicated connections file source."""
+        return True
+
+    def get_defined_connections(self) -> set[str]:
+        """
+        Return set of connection names that are defined in connections.toml.
+        This is used by the resolver to implement replacement behavior.
+        """
+        if not self._file_path.exists():
+            return set()
+
+        try:
+            with open(self._file_path, "rb") as f:
+                data = tomllib.load(f)
+
+            connection_names = set()
+
+            # Check for direct connection sections (legacy format)
+            for section_name, section_data in data.items():
+                if isinstance(section_data, dict) and section_name != "connections":
+                    connection_names.add(section_name)
+
+            # Check for nested [connections] section format
+            connections_section = data.get("connections", {})
+            if isinstance(connections_section, dict):
+                for conn_name in connections_section.keys():
+                    connection_names.add(conn_name)
+
+            return connection_names
+
+        except Exception as e:
+            log.debug("Failed to read connections.toml: %s", e)
+            return set()
+
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
         """
         Read connections.toml if it exists.

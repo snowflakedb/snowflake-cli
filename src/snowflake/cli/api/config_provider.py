@@ -177,10 +177,14 @@ class LegacyConfigProvider(ConfigProvider):
             )
 
     def get_all_connections(self, include_env_connections: bool = False) -> dict:
-        from snowflake.cli.api.config import get_all_connections
+        from snowflake.cli.api.config import ConnectionConfig, get_config_section
 
         # Legacy provider ignores the flag since it never had env connections
-        return get_all_connections()
+        connections = get_config_section("connections")
+        return {
+            name: ConnectionConfig.from_dict(self._transform_private_key_raw(config))
+            for name, config in connections.items()
+        }
 
 
 class AlternativeConfigProvider(ConfigProvider):
