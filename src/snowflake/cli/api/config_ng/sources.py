@@ -549,23 +549,35 @@ class ConnectionSpecificEnvironment(ValueSource):
         for env_name, env_value in os.environ.items():
             # Check for connection-specific pattern: SNOWFLAKE_CONNECTIONS_<NAME>_<KEY>
             if env_name.startswith("SNOWFLAKE_CONNECTIONS_"):
-                # Extract connection name and config key
+                # Extract remainder after the prefix
                 remainder = env_name[len("SNOWFLAKE_CONNECTIONS_") :]
-                parts = remainder.split("_", 1)
-                if len(parts) == 2:
-                    conn_name_upper, config_key_upper = parts
-                    conn_name = conn_name_upper.lower()
-                    config_key = config_key_upper.lower()
 
-                    if config_key in _ENV_CONFIG_KEYS:
-                        full_key = f"connections.{conn_name}.{config_key}"
-                        if key is None or full_key == key:
-                            values[full_key] = ConfigValue(
-                                key=full_key,
-                                value=env_value,
-                                source_name=self.source_name,
-                                raw_value=f"{env_name}={env_value}",
-                            )
+                # Find the longest matching key suffix from known config keys to
+                # correctly handle underscores both in connection names and keys
+                match: tuple[str, str] | None = None
+                for candidate in sorted(_ENV_CONFIG_KEYS, key=len, reverse=True):
+                    key_suffix = "_" + candidate.upper()
+                    if remainder.endswith(key_suffix):
+                        conn_name_upper = remainder[: -len(key_suffix)]
+                        if conn_name_upper:  # ensure non-empty connection name
+                            match = (conn_name_upper, candidate)
+                            break
+
+                if not match:
+                    # Unknown/unsupported key suffix; ignore
+                    continue
+
+                conn_name_upper, config_key = match
+                conn_name = conn_name_upper.lower()
+
+                full_key = f"connections.{conn_name}.{config_key}"
+                if key is None or full_key == key:
+                    values[full_key] = ConfigValue(
+                        key=full_key,
+                        value=env_value,
+                        source_name=self.source_name,
+                        raw_value=f"{env_name}={env_value}",
+                    )
 
         return values
 
