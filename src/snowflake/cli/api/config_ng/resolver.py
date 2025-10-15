@@ -27,7 +27,7 @@ import logging
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple
 
 from snowflake.cli.api.config_ng.core import (
     ConfigValue,
@@ -35,6 +35,7 @@ from snowflake.cli.api.config_ng.core import (
     ResolutionHistory,
 )
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.output.types import CollectionResult, MessageResult
 
 if TYPE_CHECKING:
     from snowflake.cli.api.config_ng.core import ValueSource
@@ -60,6 +61,40 @@ PATH_KEYS = {
     "private_key_file",
     "private_key_path",
     "token_file_path",
+}
+
+# Fixed table columns ordered from most important (left) to least (right)
+SourceColumn = Literal[
+    "params",
+    "global_envs",
+    "connections_env",
+    "snowsql_env",
+    "connections.toml",
+    "config.toml",
+    "snowsql",
+]
+
+TABLE_COLUMNS: Tuple[str, ...] = (
+    "key",
+    "value",
+    "params",
+    "global_envs",
+    "connections_env",
+    "snowsql_env",
+    "connections.toml",
+    "config.toml",
+    "snowsql",
+)
+
+# Mapping of internal source names to fixed table columns
+SOURCE_TO_COLUMN: Dict[str, SourceColumn] = {
+    "cli_arguments": "params",
+    "cli_env": "global_envs",
+    "connection_specific_env": "connections_env",
+    "snowsql_env": "snowsql_env",
+    "connections_toml": "connections.toml",
+    "cli_config_toml": "config.toml",
+    "snowsql_config": "snowsql",
 }
 
 
@@ -507,6 +542,104 @@ class ConfigurationResolver:
             - source_wins (how many final values came from each source)
         """
         return self._history_tracker.get_summary()
+
+    def build_sources_table(self, key: Optional[str] = None) -> CollectionResult:
+        """
+        Build a tabular view of configuration sources per key.
+
+        Columns (left to right): key, value, params, env, connections.toml, cli_config.toml, snowsql.
+        - value: masked final selected value for the key
+        - presence columns: "+" if a given source provided a value for the key, empty otherwise
+        """
+        # Ensure history is populated
+        if key is None and not self._history_tracker.get_all_histories():
+            # Resolve all keys to populate history
+            self.resolve()
+        elif key is not None and self._history_tracker.get_history(key) is None:
+            # Resolve only the specific key
+            self.resolve(key=key)
+
+        histories = (
+            {key: self._history_tracker.get_history(key)}
+            if key is not None
+            else self._history_tracker.get_all_histories()
+        )
+
+        def _row_items():
+            for k, history in histories.items():
+                if history is None:
+                    continue
+                # Initialize row with fixed columns
+                row: Dict[str, Any] = {c: "" for c in TABLE_COLUMNS}
+                row["key"] = k
+
+                # Final value (masked)
+                masked_final = _mask_sensitive_value(k, history.final_value)
+                row["value"] = masked_final
+
+                # Mark presence per source
+                for entry in history.entries:
+                    source_column = SOURCE_TO_COLUMN.get(entry.config_value.source_name)
+                    if source_column is not None:
+                        row[source_column] = "+"
+
+                # Ensure result preserves the column order
+                ordered_row = {column: row[column] for column in TABLE_COLUMNS}
+                yield ordered_row
+
+        return CollectionResult(_row_items())
+
+    def format_history_message(self, key: Optional[str] = None) -> MessageResult:
+        """
+        Build a masked, human-readable history of merging as a single message.
+        If key is None, returns concatenated histories for all keys.
+        """
+        histories = (
+            {key: self.get_resolution_history(key)}
+            if key is not None
+            else self.get_all_histories()
+        )
+
+        if not histories:
+            return MessageResult("No resolution history available")
+
+        lines: List[str] = []
+        for k in sorted(histories.keys()):
+            history = histories[k]
+            if history is None:
+                continue
+            lines.append(f"{k} resolution chain ({len(history.entries)} sources):")
+            for i, entry in enumerate(history.entries, 1):
+                cv = entry.config_value
+                status_text = (
+                    "(SELECTED)"
+                    if entry.was_used
+                    else (
+                        f"(overridden by {entry.overridden_by})"
+                        if entry.overridden_by
+                        else "(not used)"
+                    )
+                )
+
+                masked_value = _mask_sensitive_value(cv.key, cv.value)
+                masked_raw = (
+                    _mask_sensitive_value(cv.key, cv.raw_value)
+                    if cv.raw_value is not None
+                    else None
+                )
+                value_display = f'"{masked_value}"'
+                if masked_raw is not None and cv.raw_value != cv.value:
+                    value_display = f'"{masked_raw}" → {masked_value}'
+
+                lines.append(f"  {i}. {cv.source_name}: {value_display} {status_text}")
+
+            if history.default_used:
+                masked_default = _mask_sensitive_value(k, history.final_value)
+                lines.append(f"  Default value used: {masked_default}")
+
+            lines.append("")
+
+        return MessageResult("\n".join(lines).rstrip())
 
     def format_resolution_chain(self, key: str) -> str:
         """

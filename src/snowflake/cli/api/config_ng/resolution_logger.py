@@ -31,6 +31,12 @@ from snowflake.cli.api.config_provider import (
     get_config_provider_singleton,
 )
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.output.types import (
+    CollectionResult,
+    CommandResult,
+    MessageResult,
+    MultipleResults,
+)
 
 if TYPE_CHECKING:
     from snowflake.cli.api.config_ng.resolver import ConfigurationResolver
@@ -304,3 +310,35 @@ def explain_configuration(key: Optional[str] = None, verbose: bool = False) -> N
 
             if verbose:
                 resolver.print_all_chains()
+
+
+def get_configuration_explanation_results(
+    key: Optional[str] = None, verbose: bool = False
+) -> CommandResult:
+    """
+    Build CommandResult(s) representing a fixed-column sources table and optional
+    masked history message, suitable for Snow's output formats.
+
+    Returns:
+        - CollectionResult for the table (always)
+        - If verbose is True, MultipleResults with the table and a MessageResult
+          containing the masked resolution history (for the key or all keys)
+    """
+    from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+    provider = get_config_provider_singleton()
+    provider.read_config()
+
+    resolver = get_resolver()
+    if resolver is None:
+        return MessageResult(
+            "Configuration resolution logging is not available. "
+            f"Set {ALTERNATIVE_CONFIG_ENV_VAR}=true to enable it."
+        )
+
+    table_result: CollectionResult = resolver.build_sources_table(key)
+    if not verbose:
+        return table_result
+
+    history_message: MessageResult = resolver.format_history_message(key)
+    return MultipleResults([table_result, history_message])

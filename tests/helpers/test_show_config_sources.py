@@ -71,65 +71,106 @@ class TestCommandFunctionality:
 
     @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
     @mock.patch("snowflake.cli.api.config_ng.is_resolution_logging_available")
-    @mock.patch("snowflake.cli.api.config_ng.explain_configuration")
+    @mock.patch(
+        "snowflake.cli.api.config_ng.resolution_logger.get_configuration_explanation_results"
+    )
     def test_command_shows_summary_without_arguments(
-        self, mock_explain, mock_is_available, runner
+        self, mock_get_results, mock_is_available, runner
     ):
         """Command should show configuration summary when called without arguments."""
+        from snowflake.cli.api.output.types import CollectionResult
+
         mock_is_available.return_value = True
+        mock_get_results.return_value = CollectionResult([])
         result = runner.invoke(["helpers", COMMAND])
         assert result.exit_code == 0
-        mock_explain.assert_called_once_with(key=None, verbose=False)
-        assert "Configuration resolution summary displayed above" in result.output
+        mock_get_results.assert_called_once_with(key=None, verbose=False)
 
     @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
     @mock.patch("snowflake.cli.api.config_ng.is_resolution_logging_available")
-    @mock.patch("snowflake.cli.api.config_ng.explain_configuration")
-    def test_command_shows_specific_key(self, mock_explain, mock_is_available, runner):
+    @mock.patch(
+        "snowflake.cli.api.config_ng.resolution_logger.get_configuration_explanation_results"
+    )
+    def test_command_shows_specific_key(
+        self, mock_get_results, mock_is_available, runner
+    ):
         """Command should show resolution for specific key when provided."""
+        from snowflake.cli.api.output.types import CollectionResult
+
         mock_is_available.return_value = True
+        mock_get_results.return_value = CollectionResult([])
         result = runner.invoke(["helpers", COMMAND, "account"])
         assert result.exit_code == 0
-        mock_explain.assert_called_once_with(key="account", verbose=False)
-        assert "Showing resolution for key: account" in result.output
+        mock_get_results.assert_called_once_with(key="account", verbose=False)
 
     @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
     @mock.patch("snowflake.cli.api.config_ng.is_resolution_logging_available")
-    @mock.patch("snowflake.cli.api.config_ng.explain_configuration")
+    @mock.patch(
+        "snowflake.cli.api.config_ng.resolution_logger.get_configuration_explanation_results"
+    )
     def test_command_shows_details_with_flag(
-        self, mock_explain, mock_is_available, runner
+        self, mock_get_results, mock_is_available, runner
     ):
         """Command should show detailed resolution when --show-details flag is used."""
+        from snowflake.cli.api.output.types import (
+            CollectionResult,
+            MessageResult,
+            MultipleResults,
+        )
+
         mock_is_available.return_value = True
+        mock_get_results.return_value = MultipleResults(
+            [CollectionResult([]), MessageResult("test history")]
+        )
         result = runner.invoke(["helpers", COMMAND, "--show-details"])
         assert result.exit_code == 0
-        mock_explain.assert_called_once_with(key=None, verbose=True)
-        assert "Configuration resolution summary displayed above" in result.output
+        mock_get_results.assert_called_once_with(key=None, verbose=True)
 
     @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
     @mock.patch("snowflake.cli.api.config_ng.is_resolution_logging_available")
-    @mock.patch("snowflake.cli.api.config_ng.explain_configuration")
+    @mock.patch(
+        "snowflake.cli.api.config_ng.resolution_logger.get_configuration_explanation_results"
+    )
     def test_command_shows_details_with_short_flag(
-        self, mock_explain, mock_is_available, runner
+        self, mock_get_results, mock_is_available, runner
     ):
         """Command should show detailed resolution when -d flag is used."""
+        from snowflake.cli.api.output.types import (
+            CollectionResult,
+            MessageResult,
+            MultipleResults,
+        )
+
         mock_is_available.return_value = True
+        mock_get_results.return_value = MultipleResults(
+            [CollectionResult([]), MessageResult("test history")]
+        )
         result = runner.invoke(["helpers", COMMAND, "-d"])
         assert result.exit_code == 0
-        mock_explain.assert_called_once_with(key=None, verbose=True)
+        mock_get_results.assert_called_once_with(key=None, verbose=True)
 
     @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
     @mock.patch("snowflake.cli.api.config_ng.is_resolution_logging_available")
-    @mock.patch("snowflake.cli.api.config_ng.explain_configuration")
+    @mock.patch(
+        "snowflake.cli.api.config_ng.resolution_logger.get_configuration_explanation_results"
+    )
     def test_command_shows_key_with_details(
-        self, mock_explain, mock_is_available, runner
+        self, mock_get_results, mock_is_available, runner
     ):
         """Command should show detailed resolution for specific key."""
+        from snowflake.cli.api.output.types import (
+            CollectionResult,
+            MessageResult,
+            MultipleResults,
+        )
+
         mock_is_available.return_value = True
+        mock_get_results.return_value = MultipleResults(
+            [CollectionResult([]), MessageResult("test history")]
+        )
         result = runner.invoke(["helpers", COMMAND, "user", "--show-details"])
         assert result.exit_code == 0
-        mock_explain.assert_called_once_with(key="user", verbose=True)
-        assert "Showing resolution for key: user" in result.output
+        mock_get_results.assert_called_once_with(key="user", verbose=True)
 
     @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
     @mock.patch("snowflake.cli.api.config_ng.is_resolution_logging_available")
