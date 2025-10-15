@@ -448,9 +448,17 @@ class AlternativeConfigProvider(ConfigProvider):
                 param_names.add(param_name)
 
         # Get param names from flat keys (general env vars, SnowSQL env, CLI params)
-        # Skip internal CLI arguments that aren't connection parameters
+        # Skip internal CLI arguments and global settings that aren't connection parameters
         for key in self._config_cache.keys():
-            if "." not in key and key not in ("enable_diag", "temporary_connection"):
+            if "." not in key and key not in (
+                "enable_diag",
+                "temporary_connection",
+                "default_connection_name",
+                "connection_name",
+                "diag_log_path",
+                "diag_allowlist_path",
+                "mfa_passcode",
+            ):
                 param_names.add(key)
 
         # For each parameter, determine the best value based on source priority
