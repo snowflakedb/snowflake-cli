@@ -349,7 +349,8 @@ class ConfigurationResolver:
         1. Iterate sources in order (lowest to highest priority)
         2. Record all discovered values in history
         3. For connection keys (connections.{name}.{param}):
-           - Merge connection-by-connection: later sources extend/overwrite individual params
+           - If connections.toml defines a connection, it REPLACES cli_config_toml only
+           - SnowSQL config, environment vars, and CLI parameters still override
         4. For flat keys: later sources overwrite earlier sources
         5. Mark which value was selected
         6. Return final resolved values
@@ -364,6 +365,19 @@ class ConfigurationResolver:
         all_values: Dict[str, ConfigValue] = {}
         # Track connection values separately for intelligent merging
         connections: Dict[str, Dict[str, ConfigValue]] = defaultdict(dict)
+
+        # Identify sources that connections.toml replaces
+        # connections.toml only replaces cli_config_toml, not SnowSQL config
+        cli_config_source = "cli_config_toml"
+        connections_file_source = None
+        connections_to_replace: set[str] = set()
+
+        # First pass: find connections.toml and identify connections to replace
+        for source in self._sources:
+            if hasattr(source, "is_connections_file") and source.is_connections_file:
+                connections_file_source = source
+                connections_to_replace = source.get_defined_connections()
+                break
 
         # Process sources in order (first = lowest priority, last = highest)
         for source in self._sources:
@@ -383,6 +397,22 @@ class ConfigurationResolver:
                             conn_name = parts[1]
                             param = parts[2]
                             param_key = f"connections.{conn_name}.{param}"
+
+                            # Replacement logic: Skip cli_config_toml if connection is in connections.toml
+                            # SnowSQL config is NOT replaced by connections.toml
+                            is_cli_config = source.source_name == cli_config_source
+                            connection_in_connections_toml = (
+                                conn_name in connections_to_replace
+                            )
+
+                            if is_cli_config and connection_in_connections_toml:
+                                # Skip this value - connections.toml replaces cli_config_toml
+                                log.debug(
+                                    "Skipping %s from %s (replaced by connections.toml)",
+                                    param_key,
+                                    source.source_name,
+                                )
+                                continue
 
                             # Merge at parameter level: later source overwrites/extends
                             connections[conn_name][param_key] = config_value
