@@ -28,7 +28,6 @@ from snowflake.cli.api.config import (
     get_env_variable_name,
     set_config_value,
 )
-from snowflake.cli.api.config_provider import is_alternative_config_enabled
 from snowflake.cli.api.exceptions import MissingConfigurationError
 
 from tests.testing_utils.files_and_dirs import assert_file_permissions_are_strict
@@ -384,12 +383,7 @@ def test_correct_updates_of_connections_on_setting_default_connection_for_empty_
         assert_correct_connections_loaded()
 
 
-# Legacy version - skip when config_ng is enabled
-@pytest.mark.skipif(
-    is_alternative_config_enabled(),
-    reason="Legacy behavior: connections.toml replaces all connections from config.toml",
-)
-def test_connections_toml_override_config_toml_legacy(
+def test_connections_toml_override_config_toml(
     test_snowcli_config, snowflake_home, config_manager
 ):
     connections_toml = snowflake_home / "connections.toml"
@@ -400,47 +394,12 @@ def test_connections_toml_override_config_toml_legacy(
     )
     config_init(test_snowcli_config)
 
-    # Legacy: Only connections from connections.toml are present
+    # Both legacy and config_ng: Only connections from connections.toml are present
+    # connections.toml REPLACES config.toml connections (not merge)
     assert get_default_connection_dict() == {"database": "overridden_database"}
     assert config_manager["connections"] == {
         "default": {"database": "overridden_database"}
     }
-
-
-# Config_ng version - skip when config_ng is NOT enabled
-@pytest.mark.skipif(
-    not is_alternative_config_enabled(),
-    reason="Config_ng behavior: connections.toml merges with config.toml per-key",
-)
-def test_connections_toml_override_config_toml_config_ng(
-    test_snowcli_config, snowflake_home, config_manager
-):
-    """Test config_ng behavior: connections.toml merges with config.toml per-key"""
-    connections_toml = snowflake_home / "connections.toml"
-    connections_toml.write_text(
-        """[default]
-    database = "overridden_database"
-    """
-    )
-    config_init(test_snowcli_config)
-
-    # Config_ng: Merged - database from connections.toml, other keys from config.toml
-    # The key difference from legacy: keys from config.toml are preserved
-    default_conn = get_default_connection_dict()
-
-    # Key from connections.toml (level 3) overrides
-    assert default_conn["database"] == "overridden_database"
-
-    # Keys from config.toml (level 2) are preserved
-    assert default_conn["schema"] == "test_public"
-    assert default_conn["role"] == "test_role"
-    assert default_conn["warehouse"] == "xs"
-    assert default_conn["password"] == "dummy_password"
-
-    # Verify other connections from config.toml are also accessible
-    full_conn = get_connection_dict("full")
-    assert full_conn["account"] == "dev_account"
-    assert full_conn["user"] == "dev_user"
 
 
 parametrize_chmod = pytest.mark.parametrize(
