@@ -375,9 +375,11 @@ def show_config_sources(
     Set SNOWFLAKE_CLI_CONFIG_V2_ENABLED=true to enable it.
     """
     from snowflake.cli.api.config_ng import (
-        explain_configuration,
         export_resolution_history,
         is_resolution_logging_available,
+    )
+    from snowflake.cli.api.config_ng.resolution_logger import (
+        get_configuration_explanation_results,
     )
 
     if not is_resolution_logging_available():
@@ -401,18 +403,4 @@ def show_config_sources(
             f"and can be attached to support tickets."
         )
 
-    # Show resolution information
-    explain_configuration(key=key, verbose=show_details)
-
-    if key:
-        return MessageResult(
-            f"\n✅ Showing resolution for key: {key}\n"
-            f"Use --show-details to see the complete resolution chain."
-        )
-    else:
-        return MessageResult(
-            "\n✅ Configuration resolution summary displayed above.\n"
-            "Use a specific key (e.g., 'snow helpers show-config-sources account') "
-            "to see detailed resolution for that key.\n"
-            "Use --show-details to see complete resolution chains for all keys."
-        )
+    return get_configuration_explanation_results(key=key, verbose=show_details)
