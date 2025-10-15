@@ -637,7 +637,7 @@ class AlternativeConfigProvider(ConfigProvider):
             self._last_config_override = None
 
 
-def _is_alternative_config_enabled() -> bool:
+def is_alternative_config_enabled() -> bool:
     """
     Check if alternative configuration handling is enabled via environment variable.
     Does not use the built-in feature flags mechanism.
@@ -655,7 +655,7 @@ def get_config_provider() -> ConfigProvider:
     Factory function to get the appropriate configuration provider
     based on environment variable.
     """
-    if _is_alternative_config_enabled():
+    if is_alternative_config_enabled():
         return AlternativeConfigProvider()
     return LegacyConfigProvider()
 
