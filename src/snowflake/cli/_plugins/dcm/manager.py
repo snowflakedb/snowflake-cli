@@ -18,7 +18,6 @@ from typing import Generator, List
 import yaml
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.artifacts.upload import sync_artifacts_with_stage
-from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import (
     DEFAULT_SIZE_LIMIT_MB,
@@ -102,8 +101,15 @@ class DCMProjectManager(SqlExecutionMixin):
             if configuration:
                 query += f" CONFIGURATION {configuration}"
             if variables:
+                from snowflake.cli.api.commands.common import Variable
+                from snowflake.cli.api.config_ng import get_merged_variables
+
+                # Get merged variables from SnowSQL config and CLI -D parameters
+                merged_vars_dict = get_merged_variables(variables)
+                # Convert dict to List[Variable] for compatibility with parse_execute_variables
+                parsed_variables = [Variable(k, v) for k, v in merged_vars_dict.items()]
                 query += StageManager.parse_execute_variables(
-                    parse_key_value_variables(variables)
+                    parsed_variables
                 ).removeprefix(" using")
             stage_path = StagePath.from_stage_str(from_stage)
             query += f" FROM {stage_path.absolute_path()}"
