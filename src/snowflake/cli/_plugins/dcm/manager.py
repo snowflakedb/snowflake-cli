@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from contextlib import contextmanager, nullcontext
+from enum import Enum
 from pathlib import Path
 from typing import Generator, List
 
@@ -36,6 +37,10 @@ from snowflake.cli.api.utils.path_utils import is_stage_path
 
 MANIFEST_FILE_NAME = "manifest.yml"
 DCM_PROJECT_TYPE = "dcm_project"
+
+
+class AnalysisType(str, Enum):
+    DEPENDENCIES = "dependencies"
 
 
 class DCMProjectManager(SqlExecutionMixin):
@@ -163,6 +168,31 @@ class DCMProjectManager(SqlExecutionMixin):
         if limit is not None:
             query += f" LIMIT {limit}"
         return self.execute_query(query=query)
+
+    def analyze(
+        self,
+        project_identifier: FQN,
+        from_stage: str,
+        configuration: str | None = None,
+        variables: List[str] | None = None,
+        analysis_type: AnalysisType | None = None,
+        output_path: str | None = None,
+    ):
+        with self._collect_output(
+            project_identifier, output_path
+        ) if output_path else nullcontext() as output_stage:
+            query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} ANALYZE"
+            if analysis_type:
+                query += f" {analysis_type.value.upper()}"
+            query += self._get_configuration_and_variables_query(
+                configuration, variables
+            )
+            query += self._get_from_stage_query(from_stage)
+            if output_stage is not None:
+                query += f" OUTPUT_PATH {output_stage}"
+            result = self.execute_query(query=query)
+
+        return result
 
     @staticmethod
     def _get_from_stage_query(from_stage: str) -> str:
