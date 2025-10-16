@@ -22,6 +22,7 @@ DBT_COMMANDS = [
     "deps",
     "list",
     "parse",
+    "retry",
     "run",
     "run-operation",
     "seed",
@@ -36,6 +37,5 @@ UNSUPPORTED_COMMANDS = [
     "debug",
     "docs",
     "init",
-    "retry",
     "source",
 ]
