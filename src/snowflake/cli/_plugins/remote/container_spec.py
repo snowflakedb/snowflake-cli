@@ -21,6 +21,8 @@ from typing import Any, Dict, Optional, Union
 import yaml
 from snowflake import snowpark
 from snowflake.cli._plugins.remote.constants import (
+    BLOCK_STORAGE_VOLUME_NAME,
+    DEFAULT_BLOCK_STORAGE_SIZE,
     DEFAULT_CONTAINER_NAME,
     DEFAULT_IMAGE_CPU,
     DEFAULT_IMAGE_GPU,
@@ -97,7 +99,8 @@ def generate_service_spec(
     Args:
         session: Snowflake session
         compute_pool: Compute pool for service execution
-        stage: Optional internal Snowflake stage to mount (e.g., @my_stage)
+        stage: Optional internal Snowflake stage to mount (e.g., @my_stage).
+               If not provided, a block storage volume will be created for persistent storage.
         image: Optional custom image (can be full path like 'repo/image:tag' or just tag like '1.7.1')
         ssh_public_key: Optional SSH public key to inject for secure authentication
 
@@ -168,7 +171,7 @@ def generate_service_spec(
         }
     )
 
-    # Mount user stage as volume if provided
+    # Mount user stage as volume if provided, otherwise use block storage
     if stage:
         # Mount user workspace volume
         user_workspace_mount = PurePath(USER_WORKSPACE_VOLUME_MOUNT_PATH)
@@ -205,6 +208,25 @@ def generate_service_spec(
             {
                 "name": USER_VSCODE_DATA_VOLUME_NAME,
                 "source": vscode_data_source,
+            }
+        )
+    else:
+        # Use block storage for persistent storage when no stage is provided
+        # Mount user workspace volume using block storage
+        user_workspace_mount = PurePath(USER_WORKSPACE_VOLUME_MOUNT_PATH)
+        volume_mounts.append(
+            {
+                "name": BLOCK_STORAGE_VOLUME_NAME,
+                "mountPath": user_workspace_mount.as_posix(),
+            }
+        )
+
+        # Define block storage volume
+        volumes.append(
+            {
+                "name": BLOCK_STORAGE_VOLUME_NAME,
+                "source": "block",
+                "size": DEFAULT_BLOCK_STORAGE_SIZE,
             }
         )
 
@@ -294,7 +316,8 @@ def generate_service_spec_yaml(
     Args:
         session: Snowflake session
         compute_pool: Compute pool for service execution
-        stage: Optional internal Snowflake stage to mount (e.g., @my_stage)
+        stage: Optional internal Snowflake stage to mount (e.g., @my_stage).
+               If not provided, a block storage volume will be created for persistent storage.
         image: Optional custom image (can be full path like 'repo/image:tag' or just tag like '1.7.1')
         ssh_public_key: Optional SSH public key to inject for secure authentication
 
