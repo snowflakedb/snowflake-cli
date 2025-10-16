@@ -815,3 +815,51 @@ INSERT INTO {base_table_name} (fooBar) VALUES
         assert result.exit_code == 0, result.output
         assert isinstance(result.json, list)
         assert len(result.json) == 2
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_analyze_command(
+    runner,
+    test_database,
+    project_directory,
+    object_name_provider,
+    sql_test_helper,
+):
+    project_name = object_name_provider.create_and_get_next_object_name()
+    table_name = f"{test_database}.PUBLIC.AnalyzeTestTable"
+    view_name = f"{test_database}.PUBLIC.AnalyzeTestView"
+
+    with project_directory("dcm_project") as project_root:
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+
+        table_definition = f"""
+define table identifier('{table_name}') (
+  id int, name varchar
+);
+
+define view identifier('{view_name}') as
+  select * from {table_name};
+"""
+        file_a_path = project_root / "file_a.sql"
+        original_content = file_a_path.read_text()
+        file_a_path.write_text(original_content + table_definition)
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.OutputTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(
+            ["dcm", "analyze", project_name, "--type", "dependencies"]
+        )
+        assert result.exit_code == 0, result.output
+        assert isinstance(result.json, list)
+        assert len(result.json) > 0

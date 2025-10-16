@@ -7,6 +7,7 @@ import yaml
 from snowflake.cli._plugins.dcm.manager import (
     DCM_PROJECT_TYPE,
     MANIFEST_FILE_NAME,
+    AnalysisType,
     DCMProjectManager,
 )
 from snowflake.cli.api.constants import PatternMatchingType
@@ -238,6 +239,148 @@ def test_preview_project_with_various_options(
         f"EXECUTE DCM PROJECT IDENTIFIER('my_project') PREVIEW IDENTIFIER('my_view')"
         + expected_suffix
     )
+    mock_execute_query.assert_called_once_with(query=expected_query)
+
+
+@mock.patch(execute_queries)
+def test_analyze_project_basic(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE FROM @test_stage"
+    )
+
+
+@mock.patch(execute_queries)
+def test_analyze_project_with_type(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        analysis_type=AnalysisType.DEPENDENCIES,
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE DEPENDENCIES FROM @test_stage"
+    )
+
+
+@mock.patch(execute_queries)
+def test_analyze_project_with_configuration(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        configuration="dev",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE USING CONFIGURATION dev FROM @test_stage"
+    )
+
+
+@mock.patch(execute_queries)
+def test_analyze_project_with_variables(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        variables=["key=value", "foo=bar"],
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE USING (key=>value, foo=>bar) FROM @test_stage"
+    )
+
+
+@mock.patch(execute_queries)
+def test_analyze_project_with_output_path_stage(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        output_path="@output_stage/results",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE FROM @test_stage OUTPUT_PATH @output_stage/results"
+    )
+
+
+@mock.patch(execute_queries)
+@mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.get_recursive")
+@mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+def test_analyze_project_with_output_path_local(
+    mock_create,
+    mock_get_recursive,
+    mock_execute_query,
+    project_directory,
+    mock_from_resource,
+):
+    mgr = DCMProjectManager()
+    mgr.analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        output_path="output_path/results",
+    )
+
+    temp_stage_fqn = mock_from_resource()
+    mock_execute_query.assert_called_once_with(
+        query=f"EXECUTE DCM PROJECT IDENTIFIER('my_project') ANALYZE FROM @test_stage OUTPUT_PATH @{temp_stage_fqn}"
+    )
+    mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
+    mock_get_recursive.assert_called_once_with(
+        stage_path=str(temp_stage_fqn), dest_path=Path("output_path/results")
+    )
+
+
+@mock.patch(execute_queries)
+@pytest.mark.parametrize(
+    "configuration,variables,analysis_type,expected_suffix",
+    [
+        (
+            "dev",
+            ["key=value"],
+            AnalysisType.DEPENDENCIES,
+            " ANALYZE DEPENDENCIES USING CONFIGURATION dev (key=>value) FROM @test_stage",
+        ),
+        (
+            "prod",
+            None,
+            None,
+            " ANALYZE USING CONFIGURATION prod FROM @test_stage",
+        ),
+        (
+            None,
+            ["var1=val1", "var2=val2"],
+            AnalysisType.DEPENDENCIES,
+            " ANALYZE DEPENDENCIES USING (var1=>val1, var2=>val2) FROM @test_stage",
+        ),
+        (
+            None,
+            None,
+            AnalysisType.DEPENDENCIES,
+            " ANALYZE DEPENDENCIES FROM @test_stage",
+        ),
+    ],
+)
+def test_analyze_project_with_various_options(
+    mock_execute_query, configuration, variables, analysis_type, expected_suffix
+):
+    mgr = DCMProjectManager()
+    mgr.analyze(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        configuration=configuration,
+        variables=variables,
+        analysis_type=analysis_type,
+    )
+
+    expected_query = f"EXECUTE DCM PROJECT IDENTIFIER('my_project')" + expected_suffix
     mock_execute_query.assert_called_once_with(query=expected_query)
 
 
