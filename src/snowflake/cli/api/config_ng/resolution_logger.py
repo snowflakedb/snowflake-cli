@@ -25,6 +25,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Dict, Optional
 
+from snowflake.cli.api.config_ng.presentation import ResolutionPresenter
 from snowflake.cli.api.config_provider import (
     ALTERNATIVE_CONFIG_ENV_VAR,
     AlternativeConfigProvider,
@@ -98,7 +99,8 @@ def show_resolution_chain(key: str) -> None:
         )
         return
 
-    resolver.print_resolution_chain(key)
+    presenter = ResolutionPresenter(resolver)
+    presenter.print_resolution_chain(key)
 
 
 def show_all_resolution_chains() -> None:
@@ -124,7 +126,8 @@ def show_all_resolution_chains() -> None:
         )
         return
 
-    resolver.print_all_chains()
+    presenter = ResolutionPresenter(resolver)
+    presenter.print_all_chains()
 
 
 def get_resolution_summary() -> Optional[Dict]:
@@ -153,7 +156,8 @@ def get_resolution_summary() -> Optional[Dict]:
     if resolver is None:
         return None
 
-    return resolver.get_history_summary()
+    presenter = ResolutionPresenter(resolver)
+    return presenter.get_summary()
 
 
 def export_resolution_history(output_path: Path) -> bool:
@@ -188,7 +192,8 @@ def export_resolution_history(output_path: Path) -> bool:
         return False
 
     try:
-        resolver.export_history(output_path)
+        presenter = ResolutionPresenter(resolver)
+        presenter.export_history(output_path)
         cli_console.message(f"✅ Resolution history exported to: {output_path}")
         return True
     except Exception as e:
@@ -290,6 +295,8 @@ def explain_configuration(key: Optional[str] = None, verbose: bool = False) -> N
         )
         return
 
+    presenter = ResolutionPresenter(resolver)
+
     if key:
         # Explain specific key
         with cli_console.phase(f"Configuration Resolution: {key}"):
@@ -300,7 +307,7 @@ def explain_configuration(key: Optional[str] = None, verbose: bool = False) -> N
                 cli_console.message("No value found for this key")
 
             if verbose:
-                resolver.print_resolution_chain(key)
+                presenter.print_resolution_chain(key)
     else:
         # Explain all configuration
         with cli_console.phase("Complete Configuration Resolution"):
@@ -309,7 +316,7 @@ def explain_configuration(key: Optional[str] = None, verbose: bool = False) -> N
                 cli_console.message(summary_text)
 
             if verbose:
-                resolver.print_all_chains()
+                presenter.print_all_chains()
 
 
 def get_configuration_explanation_results(
@@ -336,9 +343,10 @@ def get_configuration_explanation_results(
             f"Set {ALTERNATIVE_CONFIG_ENV_VAR}=true to enable it."
         )
 
-    table_result: CollectionResult = resolver.build_sources_table(key)
+    presenter = ResolutionPresenter(resolver)
+    table_result: CollectionResult = presenter.build_sources_table(key)
     if not verbose:
         return table_result
 
-    history_message: MessageResult = resolver.format_history_message(key)
+    history_message: MessageResult = presenter.format_history_message(key)
     return MultipleResults([table_result, history_message])

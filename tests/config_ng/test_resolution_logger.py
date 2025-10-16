@@ -137,12 +137,12 @@ class TestResolutionSummary:
         with mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "true"}):
             reset_config_provider()
 
-            # Mock the resolver to have some data
+            # Mock the resolver's tracker to have some data
             provider = AlternativeConfigProvider()
             provider._ensure_initialized()
 
             with mock.patch.object(
-                provider._resolver, "get_history_summary"
+                provider._resolver.get_tracker(), "get_summary"
             ) as mock_summary:
                 mock_summary.return_value = {
                     "total_keys_resolved": 5,

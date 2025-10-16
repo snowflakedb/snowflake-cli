@@ -34,7 +34,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Final, Optional
 
-from snowflake.cli.api.config_ng.core import ConfigValue, ValueSource
+from snowflake.cli.api.config_ng.core import ConfigValue, SourceType, ValueSource
 
 log = logging.getLogger(__name__)
 
@@ -119,6 +119,10 @@ class SnowSQLConfigFile(ValueSource):
     @property
     def source_name(self) -> "ValueSource.SourceName":
         return "snowsql_config"
+
+    @property
+    def source_type(self) -> SourceType:
+        return SourceType.FILE
 
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
         """
@@ -228,6 +232,10 @@ class CliConfigFile(ValueSource):
     def source_name(self) -> "ValueSource.SourceName":
         return "cli_config_toml"
 
+    @property
+    def source_type(self) -> SourceType:
+        return SourceType.FILE
+
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
         """
         Find FIRST existing config file and use it (CLI behavior).
@@ -313,6 +321,10 @@ class ConnectionsConfigFile(ValueSource):
         return "connections_toml"
 
     @property
+    def source_type(self) -> SourceType:
+        return SourceType.FILE
+
+    @property
     def is_connections_file(self) -> bool:
         """Mark this as the dedicated connections file source."""
         return True
@@ -375,23 +387,19 @@ class ConnectionsConfigFile(ValueSource):
             for section_name, section_data in data.items():
                 if isinstance(section_data, dict) and section_name != "connections":
                     # This is a direct connection section like [default]
-                    for param_key, param_value in section_data.items():
-                        full_key = f"connections.{section_name}.{param_key}"
-                        if key is None or full_key == key:
-                            result[full_key] = ConfigValue(
-                                key=full_key,
-                                value=param_value,
+                    if not section_data:
+                        # Empty connection section
+                        marker_key = f"connections.{section_name}._empty_connection"
+                        if key is None or marker_key == key:
+                            result[marker_key] = ConfigValue(
+                                key=marker_key,
+                                value=True,
                                 source_name=self.source_name,
-                                raw_value=param_value,
+                                raw_value=True,
                             )
-
-            # Check for nested [connections] section format
-            connections_section = data.get("connections", {})
-            if isinstance(connections_section, dict):
-                for conn_name, conn_data in connections_section.items():
-                    if isinstance(conn_data, dict):
-                        for param_key, param_value in conn_data.items():
-                            full_key = f"connections.{conn_name}.{param_key}"
+                    else:
+                        for param_key, param_value in section_data.items():
+                            full_key = f"connections.{section_name}.{param_key}"
                             if key is None or full_key == key:
                                 result[full_key] = ConfigValue(
                                     key=full_key,
@@ -399,6 +407,32 @@ class ConnectionsConfigFile(ValueSource):
                                     source_name=self.source_name,
                                     raw_value=param_value,
                                 )
+
+            # Check for nested [connections] section format
+            connections_section = data.get("connections", {})
+            if isinstance(connections_section, dict):
+                for conn_name, conn_data in connections_section.items():
+                    if isinstance(conn_data, dict):
+                        if not conn_data:
+                            # Empty connection section
+                            marker_key = f"connections.{conn_name}._empty_connection"
+                            if key is None or marker_key == key:
+                                result[marker_key] = ConfigValue(
+                                    key=marker_key,
+                                    value=True,
+                                    source_name=self.source_name,
+                                    raw_value=True,
+                                )
+                        else:
+                            for param_key, param_value in conn_data.items():
+                                full_key = f"connections.{conn_name}.{param_key}"
+                                if key is None or full_key == key:
+                                    result[full_key] = ConfigValue(
+                                        key=full_key,
+                                        value=param_value,
+                                        source_name=self.source_name,
+                                        raw_value=param_value,
+                                    )
 
             return result
 
@@ -450,6 +484,10 @@ class SnowSQLEnvironment(ValueSource):
     @property
     def source_name(self) -> "ValueSource.SourceName":
         return "snowsql_env"
+
+    @property
+    def source_type(self) -> SourceType:
+        return SourceType.OVERLAY
 
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
         """
@@ -536,6 +574,10 @@ class ConnectionSpecificEnvironment(ValueSource):
     def source_name(self) -> "ValueSource.SourceName":
         return "connection_specific_env"
 
+    @property
+    def source_type(self) -> SourceType:
+        return SourceType.OVERLAY
+
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
         """
         Discover SNOWFLAKE_CONNECTIONS_* environment variables.
@@ -611,6 +653,10 @@ class CliEnvironment(ValueSource):
     def source_name(self) -> "ValueSource.SourceName":
         return "cli_env"
 
+    @property
+    def source_type(self) -> SourceType:
+        return SourceType.OVERLAY
+
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
         """
         Discover general SNOWFLAKE_* environment variables.
@@ -679,6 +725,10 @@ class CliParameters(ValueSource):
     @property
     def source_name(self) -> "ValueSource.SourceName":
         return "cli_arguments"
+
+    @property
+    def source_type(self) -> SourceType:
+        return SourceType.OVERLAY
 
     def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
         """
