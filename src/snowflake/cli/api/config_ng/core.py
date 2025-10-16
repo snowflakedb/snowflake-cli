@@ -26,7 +26,20 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
 from typing import Any, Callable, Dict, List, Literal, Optional
+
+
+class SourceType(Enum):
+    """
+    Classification of configuration sources by merging behavior.
+
+    FILE sources use connection-level replacement (later file replaces entire connection).
+    OVERLAY sources use field-level overlay (add/override individual fields).
+    """
+
+    FILE = "file"
+    OVERLAY = "overlay"
 
 
 @dataclass(frozen=True)
@@ -101,6 +114,15 @@ class ValueSource(ABC):
         """
         Unique identifier for this source.
         Examples: "cli_arguments", "snowsql_config", "cli_env"
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def source_type(self) -> SourceType:
+        """
+        Classification of this source for merging behavior.
+        FILE sources replace entire connections, OVERLAY sources merge per-field.
         """
         ...
 
