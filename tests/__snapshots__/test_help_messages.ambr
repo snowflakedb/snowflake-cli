@@ -4289,6 +4289,9 @@
    Lists configured connections.                                                  
                                                                                   
   +- Options --------------------------------------------------------------------+
+  | --all   -a        Include connections from all sources (environment          |
+  |                   variables, SnowSQL config). By default, only shows         |
+  |                   connections from configuration files.                      |
   | --help  -h        Show this message and exit.                                |
   +------------------------------------------------------------------------------+
   +- Global configuration -------------------------------------------------------+

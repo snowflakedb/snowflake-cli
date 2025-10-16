@@ -12,18 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from textwrap import dedent
-
 import pytest
 
 
 @pytest.mark.integration
-def test_broken_command_path_plugin(runner, test_root_path, _install_plugin, caplog):
+def test_broken_command_path_plugin(
+    runner, test_root_path, _install_plugin, caplog, config_snapshot
+):
+    """Test broken plugin."""
     config_path = (
         test_root_path / "config" / "plugin_tests" / "broken_plugin_config.toml"
     )
 
-    result = runner.invoke(["--config-file", config_path, "connection", "list"])
+    result = runner.invoke(
+        ["--config-file", config_path, "connection", "list", "--format", "JSON"]
+    )
     assert result.exit_code == 0, result.output
 
     assert "Loaded external plugin: broken_plugin" in caplog.messages
@@ -31,15 +34,9 @@ def test_broken_command_path_plugin(runner, test_root_path, _install_plugin, cap
         "Cannot register plugin [broken_plugin]: Invalid command path [snow broken run]. Command group [broken] does not exist."
         in caplog.messages
     )
-    assert result.output == dedent(
-        """\
-     +----------------------------------------------------+
-     | connection_name | parameters          | is_default |
-     |-----------------+---------------------+------------|
-     | test            | {'account': 'test'} | False      |
-     +----------------------------------------------------+
-    """
-    )
+
+    # Use snapshot to capture the output
+    assert result.output == config_snapshot
 
 
 @pytest.fixture(scope="module")

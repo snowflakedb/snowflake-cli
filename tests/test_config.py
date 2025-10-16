@@ -398,8 +398,7 @@ def test_correct_updates_of_connections_on_setting_default_connection_for_empty_
 def test_connections_toml_override_config_toml(
     test_snowcli_config, snowflake_home, config_manager
 ):
-    # CONFIG_MANAGER is now accessed through the config_manager fixture
-
+    """Test that connections.toml replaces ALL connections from config.toml (both legacy and config_ng)"""
     connections_toml = snowflake_home / "connections.toml"
     connections_toml.write_text(
         """[default]
@@ -408,6 +407,8 @@ def test_connections_toml_override_config_toml(
     )
     config_init(test_snowcli_config)
 
+    # Both legacy and config_ng: Only connections from connections.toml are present
+    # connections.toml REPLACES config.toml connections (not merge)
     assert get_default_connection_dict() == {"database": "overridden_database"}
     assert config_manager["connections"] == {
         "default": {"database": "overridden_database"}

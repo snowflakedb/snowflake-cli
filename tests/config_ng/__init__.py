@@ -11,11 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import platform
 
-from tests_common.conftest import *
-from tests_common.path_utils import *
-
-IS_WINDOWS = platform.system() == "Windows"
-
-__all__ = ["IS_WINDOWS", "ConfigModeSnapshotExtension", "config_snapshot"]
+"""
+Tests for the Enhanced Configuration System (config_ng).
+"""
