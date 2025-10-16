@@ -335,6 +335,15 @@ class AlternativeConfigProvider(ConfigProvider):
             connection_name = path[1]
             return self._get_connection_dict_internal(connection_name)
 
+        # For variables section, return all variables as flat dict
+        if len(path) == 1 and path[0] == "variables":
+            result = {}
+            for key, value in self._config_cache.items():
+                if key.startswith("variables."):
+                    var_name = key[len("variables.") :]
+                    result[var_name] = value
+            return result
+
         # For other sections, try to resolve with path prefix
         section_prefix = ".".join(path)
         result = {}
