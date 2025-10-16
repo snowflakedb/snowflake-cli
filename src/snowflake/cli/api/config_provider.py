@@ -288,7 +288,7 @@ class AlternativeConfigProvider(ConfigProvider):
         ]
 
         # Create resolver with all sources in order
-        self._resolver = ConfigurationResolver(sources=sources, track_history=True)
+        self._resolver = ConfigurationResolver(sources=sources)
 
         self._initialized = True
 
