@@ -17,9 +17,12 @@ from unittest.mock import Mock, patch
 import pytest
 from snowflake import snowpark
 from snowflake.cli._plugins.remote.constants import (
+    BLOCK_STORAGE_VOLUME_NAME,
+    DEFAULT_BLOCK_STORAGE_SIZE,
     DEFAULT_IMAGE_TAG,
     RAY_DASHBOARD_ENDPOINT_NAME,
     SERVER_UI_ENDPOINT_NAME,
+    USER_WORKSPACE_VOLUME_MOUNT_PATH,
     WEBSOCKET_SSH_ENDPOINT_NAME,
 )
 from snowflake.cli._plugins.remote.container_spec import (
@@ -418,3 +421,119 @@ class TestContainerSpec:
             assert resources["limits"]["cpu"] == "8000m"
             assert resources["requests"]["memory"] == "32Gi"
             assert resources["limits"]["memory"] == "32Gi"
+
+    def test_generate_spec_without_stage_uses_block_storage(self, mock_session):
+        """Test that block storage is created when no stage is provided."""
+        spec = generate_service_spec(session=mock_session, compute_pool="test_pool")
+
+        # Check volumes
+        volumes = spec["spec"]["volumes"]
+        block_volume = next(
+            (v for v in volumes if v["name"] == BLOCK_STORAGE_VOLUME_NAME), None
+        )
+
+        # Block storage volume should exist
+        assert block_volume is not None
+        assert block_volume["source"] == "block"
+        assert block_volume["size"] == DEFAULT_BLOCK_STORAGE_SIZE
+
+        # Check volume mounts
+        container = spec["spec"]["containers"][0]
+        volume_mounts = container["volumeMounts"]
+        block_mount = next(
+            (vm for vm in volume_mounts if vm["name"] == BLOCK_STORAGE_VOLUME_NAME),
+            None,
+        )
+
+        # Block storage should be mounted at user workspace path
+        assert block_mount is not None
+        assert block_mount["mountPath"] == USER_WORKSPACE_VOLUME_MOUNT_PATH
+
+    def test_generate_spec_with_stage_no_block_storage(self, mock_session):
+        """Test that block storage is NOT created when stage is provided."""
+        spec = generate_service_spec(
+            session=mock_session, compute_pool="test_pool", stage="@my_stage"
+        )
+
+        # Check volumes
+        volumes = spec["spec"]["volumes"]
+        block_volume = next(
+            (v for v in volumes if v["name"] == BLOCK_STORAGE_VOLUME_NAME), None
+        )
+
+        # Block storage volume should NOT exist when stage is provided
+        assert block_volume is None
+
+        # Check that stage volumes are present instead
+        workspace_volume = next(v for v in volumes if v["name"] == "user-workspace")
+        assert workspace_volume["source"] == "@my_stage/user-default"
+
+    def test_generate_spec_block_storage_yaml_format(self, mock_session):
+        """Test that block storage is correctly formatted in YAML output."""
+        from snowflake.cli._plugins.remote.container_spec import (
+            generate_service_spec_yaml,
+        )
+
+        yaml_output = generate_service_spec_yaml(
+            session=mock_session, compute_pool="test_pool"
+        )
+
+        # Verify it's valid YAML
+        import yaml
+
+        parsed_spec = yaml.safe_load(yaml_output)
+
+        # Check block storage volume exists
+        volumes = parsed_spec["spec"]["volumes"]
+        block_volume = next(
+            (v for v in volumes if v["name"] == BLOCK_STORAGE_VOLUME_NAME), None
+        )
+
+        assert block_volume is not None
+        assert block_volume["source"] == "block"
+        assert block_volume["size"] == DEFAULT_BLOCK_STORAGE_SIZE
+
+        # Check that YAML string contains block storage references
+        assert BLOCK_STORAGE_VOLUME_NAME in yaml_output
+        assert "source: block" in yaml_output
+        assert DEFAULT_BLOCK_STORAGE_SIZE in yaml_output
+
+    def test_generate_spec_block_storage_size(self, mock_session):
+        """Test that block storage has correct default size."""
+        spec = generate_service_spec(session=mock_session, compute_pool="test_pool")
+
+        volumes = spec["spec"]["volumes"]
+        block_volume = next(
+            v for v in volumes if v["name"] == BLOCK_STORAGE_VOLUME_NAME
+        )
+
+        # Verify the default size is set correctly (10Gi as per constant)
+        assert block_volume["size"] == "10Gi"
+
+    def test_generate_spec_block_storage_only_one_workspace_mount(self, mock_session):
+        """Test that only block storage OR stage volumes are present, not both."""
+        # Test without stage - should have block storage
+        spec_no_stage = generate_service_spec(
+            session=mock_session, compute_pool="test_pool"
+        )
+
+        volumes_no_stage = spec_no_stage["spec"]["volumes"]
+        volume_names_no_stage = [v["name"] for v in volumes_no_stage]
+
+        # Should have block storage, but not stage-based volumes
+        assert BLOCK_STORAGE_VOLUME_NAME in volume_names_no_stage
+        assert "user-workspace" not in volume_names_no_stage
+        assert "user-vscode-data" not in volume_names_no_stage
+
+        # Test with stage - should have stage volumes
+        spec_with_stage = generate_service_spec(
+            session=mock_session, compute_pool="test_pool", stage="@my_stage"
+        )
+
+        volumes_with_stage = spec_with_stage["spec"]["volumes"]
+        volume_names_with_stage = [v["name"] for v in volumes_with_stage]
+
+        # Should have stage volumes, but not block storage
+        assert "user-workspace" in volume_names_with_stage
+        assert "user-vscode-data" in volume_names_with_stage
+        assert BLOCK_STORAGE_VOLUME_NAME not in volume_names_with_stage

@@ -51,6 +51,10 @@ USER_WORKSPACE_VOLUME_MOUNT_PATH = "/root/user-default"
 USER_VSCODE_DATA_VOLUME_NAME = "user-vscode-data"
 USER_VSCODE_DATA_VOLUME_MOUNT_PATH = "/root/.vscode-server/data"
 
+# Block storage constants
+BLOCK_STORAGE_VOLUME_NAME = "block-storage"
+DEFAULT_BLOCK_STORAGE_SIZE = "10Gi"  # Default size for block storage volumes
+
 # Service naming constants
 SERVICE_NAME_PREFIX = "SNOW_REMOTE"
 
