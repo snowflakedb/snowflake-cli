@@ -38,7 +38,6 @@ from snowflake.cli.api.commands.common import (
     OnErrorType,
     Variable,
 )
-from snowflake.cli.api.commands.utils import parse_key_value_variables
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import PYTHON_3_12
 from snowflake.cli.api.exceptions import CliError
@@ -608,7 +607,12 @@ class StageManager(SqlExecutionMixin):
             filtered_file_list, key=lambda f: (path.dirname(f), path.basename(f))
         )
 
-        parsed_variables = parse_key_value_variables(variables)
+        from snowflake.cli.api.config_ng import get_merged_variables
+
+        # Get merged variables from SnowSQL config and CLI -D parameters
+        merged_vars_dict = get_merged_variables(variables)
+        # Convert dict back to List[Variable] for compatibility with existing methods
+        parsed_variables = [Variable(k, v) for k, v in merged_vars_dict.items()]
         sql_variables = self.parse_execute_variables(parsed_variables)
         python_variables = self._parse_python_variables(parsed_variables)
         results = []
