@@ -198,8 +198,9 @@ def test_complete_7_level_chain(config_ng_setup):
         # Level 2 (cli_config) is skipped because connections.toml defines this connection
         # password from cli_config is NOT present
 
-        # Level 1 provides user
-        assert conn["user"] == "level1-user"
+        # user NOT in connection - connections_toml (level 3) replaced entire connection
+        # and didn't include user field
+        assert "user" not in conn
 
 
 def test_get_connection_dict_uses_config_ng_when_enabled(config_ng_setup):
@@ -443,10 +444,9 @@ def test_all_file_sources_precedence(config_ng_setup):
         conn = get_connection_dict("test")
 
         expected = {
-            "account": "from-connections",  # Level 3 wins
-            "user": "snowsql-user",  # Level 1 only (cli_config skipped)
-            "warehouse": "snowsql-warehouse",  # Level 1 only source
-            "password": "connections-pass",  # Level 3 wins
+            "account": "from-connections",  # connections_toml (Level 3) wins
+            # user and warehouse NOT inherited - connections_toml replaced entire connection
+            "password": "connections-pass",  # From connections_toml (FILE)
         }
         assert conn == expected
 
@@ -502,9 +502,9 @@ def test_file_and_env_mix_with_gaps(config_ng_setup):
         conn = get_connection_dict("test")
 
         expected = {
-            "account": "env-account",  # Level 6 wins
-            "user": "snowsql-user",  # Level 1 only source
-            "warehouse": "toml-warehouse",  # Level 3 only source
+            "account": "env-account",  # Level 6 OVERLAY wins
+            # user NOT inherited - connections_toml replaced entire snowsql connection
+            "warehouse": "toml-warehouse",  # From connections_toml (FILE)
         }
         assert conn == expected
 
@@ -573,10 +573,9 @@ def test_all_files_plus_snowsql_env(config_ng_setup):
         conn = get_connection_dict("test")
 
         expected = {
-            "account": "env-account",  # Level 4 wins
-            "user": "snowsql-user",  # Level 1 only
-            # warehouse from cli_config is skipped (connections.toml replaces cli_config)
-            "database": "toml-db",  # Level 3 only
+            "account": "env-account",  # Level 4 OVERLAY wins
+            # user NOT inherited - connections_toml replaced entire connection chain
+            "database": "toml-db",  # From connections_toml (FILE)
         }
         assert conn == expected
 
@@ -617,10 +616,10 @@ def test_all_files_plus_general_env(config_ng_setup):
         conn = get_connection_dict("test")
 
         expected = {
-            "account": "env-account",  # Level 6 wins
-            "user": "snowsql-user",  # Level 1 only
+            "account": "env-account",  # Level 6 OVERLAY wins
+            # user NOT inherited - connections_toml replaced entire connection chain
             # role from cli_config is skipped (connections.toml replaces cli_config)
-            "warehouse": "env-warehouse",  # Level 6 wins
+            "warehouse": "env-warehouse",  # Level 6 OVERLAY wins
         }
         assert conn == expected
 
@@ -688,11 +687,11 @@ def test_two_files_two_envs_with_gap(config_ng_setup):
         conn = get_connection_dict("test")
 
         expected = {
-            "account": "general-env",  # Level 6 wins
-            "user": "snowsql-user",  # Level 1 only
-            "warehouse": "toml-warehouse",  # Level 3 only
-            "database": "conn-db",  # Level 5 only
-            "schema": "general-schema",  # Level 6 only
+            "account": "general-env",  # Level 6 OVERLAY wins
+            # user NOT inherited - connections_toml replaced entire connection
+            "warehouse": "toml-warehouse",  # From connections_toml (FILE)
+            "database": "conn-db",  # Level 5 OVERLAY
+            "schema": "general-schema",  # Level 6 OVERLAY
         }
         assert conn == expected
 
@@ -737,10 +736,9 @@ def test_all_files_plus_two_env_types(config_ng_setup):
         conn = get_connection_dict("test")
 
         expected = {
-            "account": "conn-specific",  # Level 5 wins
-            "user": "snowsql-user",  # Level 1 only
-            # password from cli_config is skipped (connections.toml replaces cli_config)
-            "warehouse": "conn-warehouse",  # Level 5 wins
+            "account": "conn-specific",  # Level 5 OVERLAY wins
+            # user NOT inherited - connections_toml replaced entire connection
+            "warehouse": "conn-warehouse",  # Level 5 OVERLAY (on top of toml)
         }
         assert conn == expected
 
@@ -778,12 +776,12 @@ def test_two_files_all_envs(config_ng_setup):
         conn = get_connection_dict("test")
 
         expected = {
-            "account": "general-env",  # Level 6 wins
-            "user": "snowsql-user",  # Level 1 only
-            "password": "cli-password",  # Level 2 only
-            "database": "snowsql-db",  # Level 4 only
-            "role": "conn-role",  # Level 5 only
-            "warehouse": "general-warehouse",  # Level 6 only
+            "account": "general-env",  # Level 6 OVERLAY wins
+            # user NOT inherited - cli_config (level 2) replaced snowsql connection
+            "password": "cli-password",  # From cli_config (FILE)
+            "database": "snowsql-db",  # Level 4 OVERLAY
+            "role": "conn-role",  # Level 5 OVERLAY
+            "warehouse": "general-warehouse",  # Level 6 OVERLAY
         }
         assert conn == expected
 
@@ -856,12 +854,12 @@ def test_snowsql_and_connections_with_all_envs(config_ng_setup):
         conn = get_connection_dict("test")
 
         expected = {
-            "account": "general-env",  # Level 6 wins
-            "user": "snowsql-user",  # Level 1 only
-            "password": "conn-password",  # Level 5 wins
-            "warehouse": "snowsql-warehouse",  # Level 4 wins (overrides level 3)
-            "role": "conn-role",  # Level 5 only
-            "database": "general-db",  # Level 6 only
+            "account": "general-env",  # Level 6 OVERLAY wins
+            # user NOT inherited - connections_toml replaced snowsql connection
+            "password": "conn-password",  # Level 5 OVERLAY
+            "warehouse": "snowsql-warehouse",  # Level 4 OVERLAY (on top of toml FILE)
+            "role": "conn-role",  # Level 5 OVERLAY
+            "database": "general-db",  # Level 6 OVERLAY
         }
         assert conn == expected
 
@@ -961,12 +959,10 @@ def test_snowsql_key_mapping_with_precedence(config_ng_setup):
         conn = get_connection_dict("test")
 
         expected = {
-            "account": "env-account",  # Level 6 wins
-            "user": "snowsql-user",  # Level 1 only (mapped from username)
-            "database": "cli-db",  # Level 2 wins
-            "schema": "env-schema",  # Level 6 wins
-            "role": "snowsql-role",  # Level 1 only (mapped from rolename)
-            "warehouse": "snowsql-warehouse",  # Level 1 only (mapped from warehousename)
+            "account": "env-account",  # Level 6 OVERLAY wins
+            # user, role, warehouse NOT inherited - cli_config replaced snowsql connection
+            "database": "cli-db",  # From cli_config (FILE)
+            "schema": "env-schema",  # Level 6 OVERLAY
         }
         assert conn == expected
 
