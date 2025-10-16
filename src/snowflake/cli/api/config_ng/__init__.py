@@ -55,6 +55,8 @@ from snowflake.cli.api.config_ng.sources import (
     ConnectionSpecificEnvironment,
     SnowSQLConfigFile,
     SnowSQLEnvironment,
+    SnowSQLSection,
+    get_merged_variables,
 )
 
 __all__ = [
@@ -69,6 +71,7 @@ __all__ = [
     "explain_configuration",
     "export_resolution_history",
     "format_summary_for_display",
+    "get_merged_variables",
     "get_resolution_summary",
     "get_resolver",
     "is_resolution_logging_available",
@@ -80,6 +83,7 @@ __all__ = [
     "show_resolution_chain",
     "SnowSQLConfigFile",
     "SnowSQLEnvironment",
+    "SnowSQLSection",
     "SourceType",
     "ValueSource",
 ]

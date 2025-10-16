@@ -31,12 +31,26 @@ from __future__ import annotations
 import configparser
 import logging
 import os
+from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Final, Optional
+from typing import Any, Dict, Final, List, Optional
 
 from snowflake.cli.api.config_ng.core import ConfigValue, SourceType, ValueSource
 
 log = logging.getLogger(__name__)
+
+
+class SnowSQLSection(Enum):
+    """
+    SnowSQL configuration file section names.
+
+    These sections can be present in SnowSQL INI config files.
+    """
+
+    CONNECTIONS = "connections"
+    VARIABLES = "variables"
+    OPTIONS = "options"
+
 
 # Try to import tomllib (Python 3.11+) or fall back to tomli
 try:
@@ -142,9 +156,9 @@ class SnowSQLConfigFile(ValueSource):
 
                 # Process all connection sections
                 for section in config.sections():
-                    if section.startswith("connections"):
+                    if section.startswith(SnowSQLSection.CONNECTIONS.value):
                         # Extract connection name
-                        if section == "connections":
+                        if section == SnowSQLSection.CONNECTIONS.value:
                             # This is default connection
                             connection_name = "default"
                         else:
@@ -168,6 +182,19 @@ class SnowSQLConfigFile(ValueSource):
                                     value=param_value,
                                     source_name=self.source_name,
                                     raw_value=f"{param_key}={param_value}",  # Show original key in raw_value
+                                )
+
+                    elif section == SnowSQLSection.VARIABLES.value:
+                        # Process variables section (global, not connection-specific)
+                        section_data = dict(config[section])
+                        for var_key, var_value in section_data.items():
+                            full_key = f"variables.{var_key}"
+                            if key is None or full_key == key:
+                                merged_values[full_key] = ConfigValue(
+                                    key=full_key,
+                                    value=var_value,
+                                    source_name=self.source_name,
+                                    raw_value=f"{var_key}={var_value}",
                                 )
 
             except Exception as e:
@@ -755,3 +782,36 @@ class CliParameters(ValueSource):
     def supports_key(self, key: str) -> bool:
         """Check if key is present in CLI context with non-None value."""
         return key in self._cli_context and self._cli_context[key] is not None
+
+
+def get_merged_variables(cli_variables: Optional[List[str]] = None) -> Dict[str, str]:
+    """
+    Merge SnowSQL [variables] with CLI -D parameters.
+
+    Precedence: SnowSQL variables (lower) < -D parameters (higher)
+
+    Args:
+        cli_variables: List of "key=value" strings from -D parameters
+
+    Returns:
+        Dictionary of merged variables (key -> value)
+    """
+    from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+    # Start with SnowSQL variables from config
+    provider = get_config_provider_singleton()
+    try:
+        snowsql_vars = provider.get_section(SnowSQLSection.VARIABLES.value)
+    except Exception:
+        # If variables section doesn't exist or provider not initialized, start with empty dict
+        snowsql_vars = {}
+
+    # Parse and overlay -D parameters (higher precedence)
+    if cli_variables:
+        from snowflake.cli.api.commands.utils import parse_key_value_variables
+
+        cli_vars_parsed = parse_key_value_variables(cli_variables)
+        for var in cli_vars_parsed:
+            snowsql_vars[var.key] = var.value
+
+    return snowsql_vars
