@@ -16,6 +16,8 @@
 Enhanced Configuration System - Next Generation (NG)
 
 This package implements a simple, extensible configuration system with:
+- Two-phase resolution: file sources use connection-level replacement,
+  overlay sources (env/CLI) use field-level merging
 - List-order precedence (explicit ordering in source list)
 - Migration support (SnowCLI and SnowSQL compatibility)
 - Complete resolution history tracking
@@ -26,8 +28,10 @@ from snowflake.cli.api.config_ng.core import (
     ConfigValue,
     ResolutionEntry,
     ResolutionHistory,
+    SourceType,
     ValueSource,
 )
+from snowflake.cli.api.config_ng.presentation import ResolutionPresenter
 from snowflake.cli.api.config_ng.resolution_logger import (
     check_value_source,
     explain_configuration,
@@ -71,9 +75,11 @@ __all__ = [
     "ResolutionEntry",
     "ResolutionHistory",
     "ResolutionHistoryTracker",
+    "ResolutionPresenter",
     "show_all_resolution_chains",
     "show_resolution_chain",
     "SnowSQLConfigFile",
     "SnowSQLEnvironment",
+    "SourceType",
     "ValueSource",
 ]
