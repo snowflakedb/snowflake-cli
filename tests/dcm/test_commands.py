@@ -1,6 +1,8 @@
+import json
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.dcm.manager import AnalysisType
 from snowflake.cli.api.identifiers import FQN
 
 DCMProjectManager = "snowflake.cli._plugins.dcm.commands.DCMProjectManager"
@@ -75,7 +77,7 @@ class TestDCMDeploy:
         mock_connect,
         mock_from_resource,
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
@@ -85,40 +87,40 @@ class TestDCMDeploy:
 
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage=mock_from_resource(),
             variables=None,
             alias=None,
-            output_path=None,
+            skip_plan=False,
         )
 
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_from_stage(
         self, mock_pm, runner, project_directory, mock_cursor
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
 
         result = runner.invoke(["dcm", "deploy", "fooBar", "--from", "@my_stage"])
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="@my_stage",
             variables=None,
             alias=None,
-            output_path=None,
+            skip_plan=False,
         )
 
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_variables(
         self, mock_pm, runner, project_directory, mock_cursor
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
 
@@ -127,20 +129,20 @@ class TestDCMDeploy:
         )
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="@my_stage",
             variables=["key=value"],
             alias=None,
-            output_path=None,
+            skip_plan=False,
         )
 
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_configuration(
         self, mock_pm, runner, project_directory, mock_cursor
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
 
@@ -157,20 +159,20 @@ class TestDCMDeploy:
         )
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration="some_configuration",
             from_stage="@my_stage",
             variables=None,
             alias=None,
-            output_path=None,
+            skip_plan=False,
         )
 
     @mock.patch(DCMProjectManager)
     def test_deploy_project_with_alias(
         self, mock_pm, runner, project_directory, mock_cursor
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
 
@@ -179,13 +181,13 @@ class TestDCMDeploy:
         )
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().deploy.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="@my_stage",
             variables=None,
             alias="my_alias",
-            output_path=None,
+            skip_plan=False,
         )
 
     @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
@@ -200,7 +202,7 @@ class TestDCMDeploy:
         mock_connect,
     ):
         """Test that files are synced to project stage when from_stage is not provided."""
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = (
@@ -211,7 +213,7 @@ class TestDCMDeploy:
             result = runner.invoke(["dcm", "deploy", "my_project"])
             assert result.exit_code == 0, result.output
 
-        call_args = mock_pm().execute.call_args
+        call_args = mock_pm().deploy.call_args
         assert "DCM_FOOBAR" in call_args.kwargs["from_stage"]
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
@@ -225,7 +227,7 @@ class TestDCMDeploy:
         mock_connect,
         tmp_path,
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().deploy.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = (
@@ -249,7 +251,7 @@ class TestDCMDeploy:
             source_directory=str(source_dir),
         )
 
-        call_args = mock_pm().execute.call_args
+        call_args = mock_pm().deploy.call_args
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
 
@@ -264,7 +266,7 @@ class TestDCMPlan:
         mock_connect,
         mock_from_resource,
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().plan.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = mock_from_resource()
@@ -283,11 +285,10 @@ class TestDCMPlan:
             )
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().plan.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration="some_configuration",
             from_stage=mock_from_resource(),
-            dry_run=True,
             variables=["key=value"],
             output_path=None,
         )
@@ -296,7 +297,7 @@ class TestDCMPlan:
     def test_plan_project_with_from_stage(
         self, mock_pm, runner, project_directory, mock_cursor
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().plan.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
 
@@ -315,11 +316,10 @@ class TestDCMPlan:
         )
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().plan.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration="some_configuration",
             from_stage="@my_stage",
-            dry_run=True,
             variables=["key=value"],
             output_path=None,
         )
@@ -328,7 +328,7 @@ class TestDCMPlan:
     def test_plan_project_with_output_path(
         self, mock_pm, runner, project_directory, mock_cursor
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().plan.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
 
@@ -345,11 +345,10 @@ class TestDCMPlan:
         )
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().plan.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration=None,
             from_stage="@my_stage",
-            dry_run=True,
             variables=None,
             output_path="@output_stage/results",
         )
@@ -358,7 +357,7 @@ class TestDCMPlan:
     def test_plan_project_with_output_path_and_configuration(
         self, mock_pm, runner, project_directory, mock_cursor
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().plan.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
 
@@ -377,11 +376,10 @@ class TestDCMPlan:
         )
         assert result.exit_code == 0, result.output
 
-        mock_pm().execute.assert_called_once_with(
+        mock_pm().plan.assert_called_once_with(
             project_identifier=FQN.from_string("fooBar"),
             configuration="some_config",
             from_stage="@my_stage",
-            dry_run=True,
             variables=None,
             output_path="@output_stage",
         )
@@ -398,7 +396,7 @@ class TestDCMPlan:
         mock_connect,
     ):
         """Test that files are synced to project stage when from_stage is not provided."""
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().plan.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = (
@@ -409,7 +407,7 @@ class TestDCMPlan:
             result = runner.invoke(["dcm", "plan", "my_project"])
             assert result.exit_code == 0, result.output
 
-            call_args = mock_pm().execute.call_args
+            call_args = mock_pm().plan.call_args
             assert "DCM_FOOBAR_" in call_args.kwargs["from_stage"]
             assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
@@ -423,7 +421,7 @@ class TestDCMPlan:
         mock_connect,
         tmp_path,
     ):
-        mock_pm().execute.return_value = mock_cursor(
+        mock_pm().plan.return_value = mock_cursor(
             rows=[("[]",)], columns=("operations")
         )
         mock_pm().sync_local_files.return_value = (
@@ -446,7 +444,7 @@ class TestDCMPlan:
             source_directory=str(source_dir),
         )
 
-        call_args = mock_pm().execute.call_args
+        call_args = mock_pm().plan.call_args
         assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
 
 
@@ -650,3 +648,831 @@ class TestDCMDescribe:
             == queries[1]
             == "describe DCM Project IDENTIFIER('PROJECT_NAME')"
         )
+
+
+class TestDCMTest:
+    @mock.patch(DCMProjectManager)
+    def test_test_success(self, mock_pm, runner, mock_cursor):
+        """Test the test command when all expectations pass."""
+        success_result = {
+            "status": "SUCCESS",
+            "expectations": [
+                {
+                    "table_name": "JW_DCM_TESTALL.ANALYTICS.EMPLOYEES",
+                    "metric_database": "JW_DCM_TESTALL",
+                    "metric_schema": "ANALYTICS",
+                    "metric_name": "COUNT_BELOW_2",
+                    "expectation_name": "LEVELS_MUST_BE_HIGHER_THAN_ZERO",
+                    "expectation_expression": "value = 0",
+                    "value": 0,
+                    "expectation_violated": False,
+                },
+            ],
+        }
+        mock_pm().test.return_value = mock_cursor(
+            rows=[(json.dumps(success_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "test", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        assert "All 1 expectation(s) passed successfully." in result.output
+        mock_pm().test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_test_with_violated_expectations(self, mock_pm, runner, mock_cursor):
+        """Test the test command when expectations are violated."""
+        violated_result = {
+            "status": "EXPECTATION_VIOLATED",
+            "expectations": [
+                {
+                    "table_name": "JW_DCM_TESTALL.ANALYTICS.EMPLOYEES",
+                    "metric_database": "JW_DCM_TESTALL",
+                    "metric_schema": "ANALYTICS",
+                    "metric_name": "COUNT_BELOW_2",
+                    "expectation_name": "LEVELS_MUST_BE_HIGHER_THAN_ZERO",
+                    "expectation_expression": "value = 0",
+                    "value": 0,
+                    "expectation_violated": False,
+                },
+                {
+                    "table_name": "JW_DCM_TESTALL.ANALYTICS.EMPLOYEES",
+                    "metric_database": "JW_DCM_TESTALL",
+                    "metric_schema": "ANALYTICS",
+                    "metric_name": "COUNT_BELOW_1",
+                    "expectation_name": "LEVELS_MUST_BE_HIGHER_THAN_ZERO",
+                    "expectation_expression": "value = 0",
+                    "value": 0,
+                    "expectation_violated": False,
+                },
+                {
+                    "table_name": "JW_DCM_TESTALL.ANALYTICS.EMPLOYEES",
+                    "metric_database": "JW_DCM_TESTALL",
+                    "metric_schema": "ANALYTICS",
+                    "metric_name": "COUNT_BELOW_5",
+                    "expectation_name": "LEVELS_MUST_BE_HIGHER_THAN_ZERO",
+                    "expectation_expression": "value = 0",
+                    "value": 4,
+                    "expectation_violated": True,
+                },
+            ],
+        }
+
+        mock_pm().test.return_value = mock_cursor(
+            rows=[(json.dumps(violated_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "test", "my_project"])
+
+        assert result.exit_code == 1, result.output
+        assert "Tests completed: 2 passed, 1 failed out of 3 total." in result.output
+        assert "Failed expectations:" in result.output
+        assert "Table: JW_DCM_TESTALL.ANALYTICS.EMPLOYEES" in result.output
+        assert "Expectation: LEVELS_MUST_BE_HIGHER_THAN_ZERO" in result.output
+        assert "Metric: COUNT_BELOW_5" in result.output
+        mock_pm().test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_test_with_no_expectations(self, mock_pm, runner, mock_cursor):
+        """Test the test command when there are no expectations defined."""
+        no_expectations_result = {"status": "SUCCESS", "expectations": []}
+
+        mock_pm().test.return_value = mock_cursor(
+            rows=[(json.dumps(no_expectations_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "test", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        assert "No expectations defined in the project." in result.output
+        mock_pm().test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_test_with_multiple_failed_expectations(self, mock_pm, runner, mock_cursor):
+        """Test the test command with multiple failed expectations from different tables."""
+        violated_result = {
+            "status": "EXPECTATION_VIOLATED",
+            "expectations": [
+                {
+                    "table_name": "DB.SCHEMA.TABLE_A",
+                    "metric_database": "DB",
+                    "metric_schema": "SCHEMA",
+                    "metric_name": "ROW_COUNT",
+                    "expectation_name": "MIN_ROWS",
+                    "expectation_expression": "value >= 100",
+                    "value": 50,
+                    "expectation_violated": True,
+                },
+                {
+                    "table_name": "DB.SCHEMA.TABLE_B",
+                    "metric_database": "DB",
+                    "metric_schema": "SCHEMA",
+                    "metric_name": "NULL_COUNT",
+                    "expectation_name": "NO_NULLS",
+                    "expectation_expression": "value = 0",
+                    "value": 5,
+                    "expectation_violated": True,
+                },
+            ],
+        }
+
+        mock_pm().test.return_value = mock_cursor(
+            rows=[(json.dumps(violated_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "test", "my_project"])
+
+        assert result.exit_code == 1, result.output
+        assert "Tests completed: 0 passed, 2 failed out of 2 total." in result.output
+        assert "Failed expectations:" in result.output
+        assert "Table: DB.SCHEMA.TABLE_A" in result.output
+        assert "Table: DB.SCHEMA.TABLE_B" in result.output
+        mock_pm().test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+
+class TestDCMRefresh:
+    @mock.patch(DCMProjectManager)
+    def test_refresh_with_outdated_tables(self, mock_pm, runner, mock_cursor, snapshot):
+        refresh_result = {
+            "refreshed_tables": [
+                {
+                    "dt_name": "JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES",
+                    "refreshed_dt_count": 1,
+                    "data_timestamp": "1760357032.175",
+                    "statistics": '{"insertedRows":5,"copiedRows":0,"deletedRows":5}',
+                }
+            ]
+        }
+        mock_pm().refresh.return_value = mock_cursor(
+            rows=[(json.dumps(refresh_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "refresh", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == snapshot
+        mock_pm().refresh.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_refresh_with_fresh_tables(self, mock_pm, runner, mock_cursor, snapshot):
+        refresh_result = {
+            "refreshed_tables": [
+                {
+                    "dt_name": "JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES",
+                    "refreshed_dt_count": 0,
+                    "data_timestamp": "1760356974.543",
+                    "statistics": "No new data",
+                }
+            ]
+        }
+        mock_pm().refresh.return_value = mock_cursor(
+            rows=[(json.dumps(refresh_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "refresh", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == snapshot
+        mock_pm().refresh.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_refresh_with_no_dynamic_tables(
+        self, mock_pm, runner, mock_cursor, snapshot
+    ):
+        refresh_result = {"refreshed_tables": []}
+        mock_pm().refresh.return_value = mock_cursor(
+            rows=[(json.dumps(refresh_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "refresh", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == snapshot
+        mock_pm().refresh.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+
+class TestDCMPreview:
+    @mock.patch(DCMProjectManager)
+    def test_preview_basic(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_from_resource,
+    ):
+        mock_pm().preview.return_value = mock_cursor(
+            rows=[(1, "Alice", "alice@example.com"), (2, "Bob", "bob@example.com")],
+            columns=("id", "name", "email"),
+        )
+        mock_pm().sync_local_files.return_value = mock_from_resource()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "preview", "my_project", "--object", "my_table"]
+            )
+
+        assert result.exit_code == 0, result.output
+
+        mock_pm().preview.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            object_identifier=FQN.from_string("my_table"),
+            configuration=None,
+            from_stage=mock_from_resource(),
+            variables=None,
+            limit=None,
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_preview_with_from_stage(
+        self, mock_pm, runner, project_directory, mock_cursor
+    ):
+        mock_pm().preview.return_value = mock_cursor(
+            rows=[(1, "Alice", "alice@example.com")],
+            columns=("id", "name", "email"),
+        )
+
+        result = runner.invoke(
+            [
+                "dcm",
+                "preview",
+                "my_project",
+                "--object",
+                "my_table",
+                "--from",
+                "@my_stage",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        mock_pm().preview.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            object_identifier=FQN.from_string("my_table"),
+            configuration=None,
+            from_stage="@my_stage",
+            variables=None,
+            limit=None,
+        )
+
+    @mock.patch(DCMProjectManager)
+    @pytest.mark.parametrize(
+        "extra_args,expected_config,expected_vars,expected_limit",
+        [
+            (
+                ["--configuration", "dev", "-D", "key=value", "--limit", "10"],
+                "dev",
+                ["key=value"],
+                10,
+            ),
+            (
+                ["--configuration", "prod"],
+                "prod",
+                None,
+                None,
+            ),
+            (
+                ["-D", "var1=val1", "-D", "var2=val2", "--limit", "5"],
+                None,
+                ["var1=val1", "var2=val2"],
+                5,
+            ),
+            (
+                ["--limit", "100"],
+                None,
+                None,
+                100,
+            ),
+        ],
+    )
+    def test_preview_with_various_options(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        extra_args,
+        expected_config,
+        expected_vars,
+        expected_limit,
+    ):
+        mock_pm().preview.return_value = mock_cursor(
+            rows=[(1, "Alice", "alice@example.com")],
+            columns=("id", "name", "email"),
+        )
+
+        result = runner.invoke(
+            [
+                "dcm",
+                "preview",
+                "my_project",
+                "--object",
+                "my_table",
+                "--from",
+                "@my_stage",
+            ]
+            + extra_args
+        )
+        assert result.exit_code == 0, result.output
+
+        mock_pm().preview.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            object_identifier=FQN.from_string("my_table"),
+            configuration=expected_config,
+            from_stage="@my_stage",
+            variables=expected_vars,
+            limit=expected_limit,
+        )
+
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    @mock.patch(DCMProjectManager)
+    def test_preview_with_sync(
+        self,
+        mock_pm,
+        _mock_create,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        mock_pm().preview.return_value = mock_cursor(
+            rows=[(1, "Alice", "alice@example.com")],
+            columns=("id", "name", "email"),
+        )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "preview", "my_project", "--object", "my_table"]
+            )
+            assert result.exit_code == 0, result.output
+
+        call_args = mock_pm().preview.call_args
+        assert "DCM_FOOBAR_" in call_args.kwargs["from_stage"]
+        assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
+    @mock.patch(DCMProjectManager)
+    def test_preview_with_from_local_directory(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        mock_pm().preview.return_value = mock_cursor(
+            rows=[(1, "Alice", "alice@example.com")],
+            columns=("id", "name", "email"),
+        )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
+
+        source_dir = tmp_path / "source_project"
+        source_dir.mkdir()
+
+        manifest_file = source_dir / "manifest.yml"
+        manifest_file.write_text("type: dcm_project\n")
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                [
+                    "dcm",
+                    "preview",
+                    "my_project",
+                    "--object",
+                    "my_table",
+                    "--from",
+                    str(source_dir),
+                ]
+            )
+            assert result.exit_code == 0, result.output
+
+        mock_pm().sync_local_files.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            source_directory=str(source_dir),
+        )
+
+        call_args = mock_pm().preview.call_args
+        assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
+    def test_preview_without_object_fails(self, runner, project_directory):
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "preview", "my_project"])
+
+        assert result.exit_code == 2
+        assert "Missing option '--object'" in result.output
+
+
+class TestDCMAnalyze:
+    @staticmethod
+    def _create_analyze_result(has_errors=False):
+        """Helper to create properly structured analyze result matching real API response."""
+        result = {
+            "files": [
+                {
+                    "sourcePath": "definitions/test.sql",
+                    "definitions": [
+                        {
+                            "id": {
+                                "name": "TEST_TABLE",
+                                "schema": "PUBLIC",
+                                "database": "TEST_DB",
+                                "domain": "TABLE",
+                            },
+                            "renderedPosition": {"line": 1, "column": 1},
+                            "dependencies": [],
+                            "errors": [
+                                {
+                                    "sourcePosition": None,
+                                    "renderedPosition": {"line": 1, "column": 1},
+                                    "message": "DCM project ANALYZE error: Test error message.",
+                                    "code": "001597",
+                                    "type": "syntax_error",
+                                }
+                            ]
+                            if has_errors
+                            else [],
+                            "refinedDomain": "table",
+                        }
+                    ],
+                    "errors": [],
+                }
+            ]
+        }
+        return result
+
+    @mock.patch(DCMProjectManager)
+    def test_analyze_basic(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_from_resource,
+    ):
+        analyze_result = self._create_analyze_result(has_errors=False)
+        mock_pm().analyze.return_value = mock_cursor(
+            rows=[(json.dumps(analyze_result),)], columns=("result",)
+        )
+        mock_pm().sync_local_files.return_value = mock_from_resource()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "analyze", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        assert "✓ Analysis complete" in result.output
+        assert "1 file(s) analyzed" in result.output
+        assert "1 definition(s) found" in result.output
+        assert "No errors detected" in result.output
+
+        mock_pm().analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            configuration=None,
+            from_stage=mock_from_resource(),
+            variables=None,
+            analysis_type=None,
+            output_path=None,
+        )
+
+    @mock.patch(DCMProjectManager)
+    @pytest.mark.parametrize(
+        "type_value", ["dependencies", "DEPENDENCIES", "Dependencies"]
+    )
+    def test_analyze_with_type(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_from_resource,
+        type_value,
+    ):
+        analyze_result = self._create_analyze_result(has_errors=False)
+        mock_pm().analyze.return_value = mock_cursor(
+            rows=[(json.dumps(analyze_result),)], columns=("result",)
+        )
+        mock_pm().sync_local_files.return_value = mock_from_resource()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "analyze", "my_project", "--type", type_value]
+            )
+
+        assert result.exit_code == 0, result.output
+
+        mock_pm().analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            configuration=None,
+            from_stage=mock_from_resource(),
+            variables=None,
+            analysis_type=AnalysisType.DEPENDENCIES,
+            output_path=None,
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_analyze_with_from_stage(
+        self, mock_pm, runner, project_directory, mock_cursor
+    ):
+        analyze_result = self._create_analyze_result(has_errors=False)
+        mock_pm().analyze.return_value = mock_cursor(
+            rows=[(json.dumps(analyze_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "analyze", "my_project", "--from", "@my_stage"])
+        assert result.exit_code == 0, result.output
+
+        mock_pm().analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            configuration=None,
+            from_stage="@my_stage",
+            variables=None,
+            analysis_type=None,
+            output_path=None,
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_analyze_with_configuration_and_variables(
+        self, mock_pm, runner, project_directory, mock_cursor
+    ):
+        analyze_result = self._create_analyze_result(has_errors=False)
+        mock_pm().analyze.return_value = mock_cursor(
+            rows=[(json.dumps(analyze_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(
+            [
+                "dcm",
+                "analyze",
+                "my_project",
+                "--from",
+                "@my_stage",
+                "--configuration",
+                "dev",
+                "-D",
+                "key=value",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        mock_pm().analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            configuration="dev",
+            from_stage="@my_stage",
+            variables=["key=value"],
+            analysis_type=None,
+            output_path=None,
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_analyze_with_output_path_stage(
+        self, mock_pm, runner, project_directory, mock_cursor
+    ):
+        analyze_result = self._create_analyze_result(has_errors=False)
+        mock_pm().analyze.return_value = mock_cursor(
+            rows=[(json.dumps(analyze_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(
+            [
+                "dcm",
+                "analyze",
+                "my_project",
+                "--from",
+                "@my_stage",
+                "--output-path",
+                "@output_stage/results",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        mock_pm().analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            configuration=None,
+            from_stage="@my_stage",
+            variables=None,
+            analysis_type=None,
+            output_path="@output_stage/results",
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_analyze_with_all_options(
+        self, mock_pm, runner, project_directory, mock_cursor
+    ):
+        analyze_result = self._create_analyze_result(has_errors=False)
+        mock_pm().analyze.return_value = mock_cursor(
+            rows=[(json.dumps(analyze_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(
+            [
+                "dcm",
+                "analyze",
+                "my_project",
+                "--from",
+                "@my_stage",
+                "--type",
+                "dependencies",
+                "--configuration",
+                "prod",
+                "-D",
+                "var1=val1",
+                "-D",
+                "var2=val2",
+                "--output-path",
+                "@output_stage",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        mock_pm().analyze.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            configuration="prod",
+            from_stage="@my_stage",
+            variables=["var1=val1", "var2=val2"],
+            analysis_type=AnalysisType.DEPENDENCIES,
+            output_path="@output_stage",
+        )
+
+    @mock.patch("snowflake.cli._plugins.dcm.manager.StageManager.create")
+    @mock.patch(DCMProjectManager)
+    def test_analyze_with_sync(
+        self,
+        mock_pm,
+        _mock_create,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+    ):
+        analyze_result = self._create_analyze_result(has_errors=False)
+        mock_pm().analyze.return_value = mock_cursor(
+            rows=[(json.dumps(analyze_result),)], columns=("result",)
+        )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "analyze", "my_project"])
+            assert result.exit_code == 0, result.output
+
+        call_args = mock_pm().analyze.call_args
+        assert "DCM_FOOBAR_" in call_args.kwargs["from_stage"]
+        assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
+    @mock.patch(DCMProjectManager)
+    def test_analyze_with_from_local_directory(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        tmp_path,
+    ):
+        analyze_result = self._create_analyze_result(has_errors=False)
+        mock_pm().analyze.return_value = mock_cursor(
+            rows=[(json.dumps(analyze_result),)], columns=("result",)
+        )
+        mock_pm().sync_local_files.return_value = (
+            "MockDatabase.MockSchema.DCM_FOOBAR_1234567890_TMP_STAGE"
+        )
+
+        source_dir = tmp_path / "source_project"
+        source_dir.mkdir()
+
+        manifest_file = source_dir / "manifest.yml"
+        manifest_file.write_text("type: dcm_project\n")
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "analyze", "my_project", "--from", str(source_dir)]
+            )
+            assert result.exit_code == 0, result.output
+
+        mock_pm().sync_local_files.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project"),
+            source_directory=str(source_dir),
+        )
+
+        call_args = mock_pm().analyze.call_args
+        assert call_args.kwargs["from_stage"].endswith("_TMP_STAGE")
+
+    def test_analyze_with_invalid_type(self, runner, project_directory):
+        with project_directory("dcm_project"):
+            result = runner.invoke(
+                ["dcm", "analyze", "my_project", "--type", "invalid"]
+            )
+
+        assert result.exit_code == 2
+        assert "Invalid value for '--type'" in result.output
+        assert "'invalid' is not 'dependencies'" in result.output
+
+    @mock.patch(DCMProjectManager)
+    def test_analyze_with_errors_exits_with_code_1(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_from_resource,
+    ):
+        analyze_result = self._create_analyze_result(has_errors=True)
+        mock_pm().analyze.return_value = mock_cursor(
+            rows=[(json.dumps(analyze_result),)], columns=("result",)
+        )
+        mock_pm().sync_local_files.return_value = mock_from_resource()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "analyze", "my_project"])
+
+        assert result.exit_code == 1, result.output
+        assert "Error" in result.output
+        assert "Analysis found 1 error(s) in 1 file(s)" in result.output
+        assert "definitions/test.sql" in result.output
+        assert "DCM project ANALYZE error: Test error message" in result.output
+
+    @mock.patch(DCMProjectManager)
+    def test_analyze_with_file_level_errors(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_from_resource,
+    ):
+        analyze_result = {
+            "files": [
+                {
+                    "sourcePath": "definitions/test.sql",
+                    "definitions": [],
+                    "errors": [
+                        {
+                            "message": "File-level error",
+                            "code": "001598",
+                            "type": "parse_error",
+                        }
+                    ],
+                }
+            ]
+        }
+        mock_pm().analyze.return_value = mock_cursor(
+            rows=[(json.dumps(analyze_result),)], columns=("result",)
+        )
+        mock_pm().sync_local_files.return_value = mock_from_resource()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "analyze", "my_project"])
+
+        assert result.exit_code == 1, result.output
+        assert "Error" in result.output
+        assert "Analysis found 1 error(s) in 1 file(s)" in result.output
+        assert "definitions/test.sql" in result.output
+        assert "File-level error" in result.output
+
+    @mock.patch(DCMProjectManager)
+    def test_analyze_without_errors_exits_with_code_0(
+        self,
+        mock_pm,
+        runner,
+        project_directory,
+        mock_cursor,
+        mock_connect,
+        mock_from_resource,
+    ):
+        analyze_result = self._create_analyze_result(has_errors=False)
+        mock_pm().analyze.return_value = mock_cursor(
+            rows=[(json.dumps(analyze_result),)], columns=("result",)
+        )
+        mock_pm().sync_local_files.return_value = mock_from_resource()
+
+        with project_directory("dcm_project"):
+            result = runner.invoke(["dcm", "analyze", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        assert "✓ Analysis complete" in result.output
+        assert "1 file(s) analyzed" in result.output
+        assert "1 definition(s) found" in result.output
+        assert "No errors detected" in result.output
