@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, PropertyMock, patch
 
 import pytest
 from snowflake.cli._plugins.remote.constants import SERVICE_NAME_PREFIX
 from snowflake.cli._plugins.remote.manager import RemoteManager
+from snowflake.connector.cursor import DictCursor
 
 
 class TestRemoteManager:
@@ -201,3 +202,203 @@ class TestRemoteManager:
             match="Either 'name' \\(for service resumption\\) or 'compute_pool' \\(for service creation\\) must be provided",
         ):
             manager.start(name=None, compute_pool=None)
+
+
+class TestRemoteManagerSSH:
+    """Test SSH-related functionality in RemoteManager."""
+
+    @patch("snowflake.cli._plugins.remote.manager.cleanup_ssh_config")
+    @patch(
+        "snowflake.cli._plugins.remote.manager.RemoteManager._ssh_token_refresh_loop"
+    )
+    @patch("snowflake.cli._plugins.remote.manager.RemoteManager.get_endpoint_url")
+    @patch("snowflake.cli._plugins.remote.manager.get_ssh_key_paths")
+    def test_setup_ssh_connection_with_existing_key(
+        self, mock_get_paths, mock_get_endpoint, mock_refresh_loop, mock_cleanup
+    ):
+        """Test SSH connection setup when private key exists."""
+        manager = RemoteManager()
+
+        # Mock SSH key exists
+        mock_private_path = Mock()
+        mock_private_path.exists.return_value = True
+        mock_get_paths.return_value = (mock_private_path, Mock())
+        mock_get_endpoint.return_value = "example.com"
+
+        # Mock session setup - using PropertyMock to avoid click context issues
+        mock_session = Mock()
+        mock_session.sql.return_value.collect.return_value = []
+
+        with patch.object(
+            type(manager), "snowpark_session", new_callable=PropertyMock
+        ) as mock_session_prop:
+            mock_session_prop.return_value = mock_session
+
+            manager.setup_ssh_connection("test_service")
+
+            # Verify key detection
+            mock_get_paths.assert_called_once_with("test_service")
+            mock_private_path.exists.assert_called_once()
+
+            # Verify refresh loop called with private key path
+            mock_refresh_loop.assert_called_once()
+            args = mock_refresh_loop.call_args[0]
+            assert args[2] == str(mock_private_path)  # private_key_path argument
+
+            # Verify cleanup was called in finally block
+            mock_cleanup.assert_called_once_with("test_service")
+
+    @patch("snowflake.cli._plugins.remote.manager.cleanup_ssh_config")
+    @patch(
+        "snowflake.cli._plugins.remote.manager.RemoteManager._ssh_token_refresh_loop"
+    )
+    @patch("snowflake.cli._plugins.remote.manager.RemoteManager.get_endpoint_url")
+    @patch("snowflake.cli._plugins.remote.manager.get_ssh_key_paths")
+    def test_setup_ssh_connection_without_key(
+        self, mock_get_paths, mock_get_endpoint, mock_refresh_loop, mock_cleanup
+    ):
+        """Test SSH connection setup when no private key exists."""
+        manager = RemoteManager()
+
+        # Mock SSH key doesn't exist
+        mock_private_path = Mock()
+        mock_private_path.exists.return_value = False
+        mock_get_paths.return_value = (mock_private_path, Mock())
+        mock_get_endpoint.return_value = "example.com"
+
+        # Mock session setup - using PropertyMock to avoid click context issues
+        mock_session = Mock()
+        mock_session.sql.return_value.collect.return_value = []
+
+        with patch.object(
+            type(manager), "snowpark_session", new_callable=PropertyMock
+        ) as mock_session_prop:
+            mock_session_prop.return_value = mock_session
+
+            manager.setup_ssh_connection("test_service")
+
+            # Verify key detection
+            mock_get_paths.assert_called_once_with("test_service")
+            mock_private_path.exists.assert_called_once()
+
+            # Verify refresh loop called with None for private key path
+            mock_refresh_loop.assert_called_once()
+            args = mock_refresh_loop.call_args[0]
+            assert args[2] is None  # private_key_path argument
+
+            # Verify cleanup was called in finally block
+            mock_cleanup.assert_called_once_with("test_service")
+
+    @patch.object(RemoteManager, "execute_query")
+    def test_get_public_endpoint_urls(self, mock_execute_query):
+        """Test getting public endpoint URLs with DictCursor."""
+        manager = RemoteManager()
+
+        # Mock DictCursor data - each row is a dictionary
+        mock_cursor = Mock()
+        mock_cursor.__iter__ = Mock(
+            return_value=iter(
+                [
+                    {
+                        "name": "server-ui",
+                        "ingress_url": "https://example.com",
+                        "is_public": True,
+                    },
+                    {
+                        "name": "websocket-ssh",
+                        "ingress_url": "https://ssh.example.com",
+                        "is_public": True,
+                    },
+                    {
+                        "name": "internal-api",
+                        "ingress_url": "https://internal.example.com",
+                        "is_public": False,
+                    },
+                    {"name": "empty-url", "ingress_url": None, "is_public": True},
+                ]
+            )
+        )
+        mock_execute_query.return_value = mock_cursor
+
+        result = manager.get_public_endpoint_urls("test_service")
+
+        expected = {
+            "server-ui": "https://example.com",
+            "websocket-ssh": "https://ssh.example.com",
+        }
+        assert result == expected
+        mock_execute_query.assert_called_once_with(
+            "show endpoints in service test_service", cursor_class=DictCursor
+        )
+
+    @patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
+    @patch("snowflake.cli._plugins.remote.manager.get_cli_context")
+    def test_get_fresh_token_success(self, mock_get_context, mock_connect):
+        """Test successful fresh token retrieval."""
+        manager = RemoteManager()
+
+        # Mock context and connection
+        mock_context = Mock()
+        mock_context.connection_context.connection_name = "test_conn"
+        mock_context.connection_context.temporary_connection = False
+        mock_get_context.return_value = mock_context
+
+        mock_connection = Mock()
+        mock_connection.rest.token = "fresh_token_123"
+        mock_connection.is_closed.return_value = False
+        mock_cursor = Mock()
+        mock_connection.cursor.return_value = mock_cursor
+        mock_connect.return_value = mock_connection
+
+        result = manager._get_fresh_token()  # noqa: SLF001
+
+        assert result == "fresh_token_123"
+        mock_connect.assert_called_once_with(
+            connection_name="test_conn",
+            temporary_connection=False,
+            using_session_keep_alive=False,
+        )
+        mock_cursor.execute.assert_called_once_with(
+            "ALTER SESSION SET python_connector_query_result_format = 'JSON'"
+        )
+        # Connection is designed to expire naturally, no explicit close
+
+    @patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
+    @patch("snowflake.cli._plugins.remote.manager.get_cli_context")
+    def test_get_fresh_token_no_token(self, mock_get_context, mock_connect):
+        """Test fresh token retrieval when no token available."""
+        manager = RemoteManager()
+
+        # Mock context and connection
+        mock_context = Mock()
+        mock_context.connection_context.connection_name = "test_conn"
+        mock_context.connection_context.temporary_connection = False
+        mock_get_context.return_value = mock_context
+
+        mock_connection = Mock()
+        mock_connection.rest.token = None  # No token
+        mock_connection.is_closed.return_value = False
+        mock_cursor = Mock()
+        mock_connection.cursor.return_value = mock_cursor
+        mock_connect.return_value = mock_connection
+
+        result = manager._get_fresh_token()  # noqa: SLF001
+
+        assert result is None
+        # Connection is designed to expire naturally, no explicit close
+
+    @patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
+    @patch("snowflake.cli._plugins.remote.manager.get_cli_context")
+    def test_get_fresh_token_connection_error(self, mock_get_context, mock_connect):
+        """Test fresh token retrieval when connection fails."""
+        manager = RemoteManager()
+
+        # Mock context
+        mock_context = Mock()
+        mock_get_context.return_value = mock_context
+
+        mock_connect.side_effect = Exception("Connection failed")
+
+        result = manager._get_fresh_token()  # noqa: SLF001
+
+        assert result is None

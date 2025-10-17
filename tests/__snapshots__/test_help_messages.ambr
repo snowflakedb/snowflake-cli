@@ -12096,9 +12096,14 @@
    Container Service that provides a web-based development environment. Usage     
    examples: - Resume existing service: snow remote start myproject - Create new  
    service: snow remote start --compute-pool my_pool - Create named service: snow 
-   remote start myproject --compute-pool my_pool The --compute-pool parameter is  
-   only required when creating a new service. For resuming existing services, the 
-   compute pool is not needed.                                                    
+   remote start myproject --compute-pool my_pool - Start with SSH setup: snow     
+   remote start myproject --ssh - Start with SSH (no key): snow remote start      
+   myproject --ssh --no-ssh-key The --compute-pool parameter is only required     
+   when creating a new service. For resuming existing services, the compute pool  
+   is not needed. SSH Options: - Use --ssh to set up SSH configuration for secure 
+   terminal access - Use --no-ssh-key with --ssh for token-only authentication    
+   (less secure) - SSH setup is a blocking command that continuously refreshes    
+   authentication tokens                                                          
                                                                                   
   +- Arguments ------------------------------------------------------------------+
   |   name      [NAME]  Service name to resume, or leave empty to create a new   |
@@ -12117,6 +12122,12 @@
   | --image                 TEXT  Custom image to use (can be full path like     |
   |                               'repo/image:tag' or just tag like '1.7.1')     |
   |                               [default: None]                                |
+  | --ssh                         Set up SSH configuration for connecting to the |
+  |                               remote environment. This is a blocking command |
+  |                               that keeps SSH connections alive.              |
+  | --no-ssh-key                  When used with --ssh, skip SSH key generation  |
+  |                               and use token-only authentication (less        |
+  |                               secure)                                        |
   | --help          -h            Show this message and exit.                    |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
