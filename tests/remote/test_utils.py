@@ -22,6 +22,7 @@ from snowflake.cli._plugins.remote.utils import (
     get_current_region_id,
     get_node_resources,
     get_regions,
+    parse_image_string,
 )
 
 
@@ -268,3 +269,49 @@ class TestStagePathUtils:
         for path in invalid_paths:
             with pytest.raises(ValueError, match="Invalid|cannot be empty|missing"):
                 format_stage_path(path)
+
+
+class TestImageParsing:
+    """Test image string parsing functionality."""
+
+    def test_parse_image_string_just_tag(self):
+        """Test parsing a string that's just a tag."""
+        repo, image_name, tag = parse_image_string("1.7.1")
+        assert repo == ""
+        assert image_name == ""
+        assert tag == "1.7.1"
+
+    def test_parse_image_string_image_with_tag(self):
+        """Test parsing image:tag format."""
+        repo, image_name, tag = parse_image_string("myimage:latest")
+        assert repo == ""
+        assert image_name == "myimage"
+        assert tag == "latest"
+
+    def test_parse_image_string_repo_image_tag(self):
+        """Test parsing repo/image:tag format."""
+        repo, image_name, tag = parse_image_string("myrepo/myimage:v1.0")
+        assert repo == "myrepo"
+        assert image_name == "myimage"
+        assert tag == "v1.0"
+
+    def test_parse_image_string_full_registry_path(self):
+        """Test parsing full registry path with nested repo."""
+        repo, image_name, tag = parse_image_string("registry.com/myrepo/myimage:v1.0")
+        assert repo == "registry.com/myrepo"
+        assert image_name == "myimage"
+        assert tag == "v1.0"
+
+    def test_parse_image_string_repo_image_no_tag(self):
+        """Test parsing repo/image without tag."""
+        repo, image_name, tag = parse_image_string("myrepo/myimage")
+        assert repo == "myrepo"
+        assert image_name == "myimage"
+        assert tag == ""
+
+    def test_parse_image_string_complex_registry(self):
+        """Test parsing complex registry paths."""
+        repo, image_name, tag = parse_image_string("docker.io/library/ubuntu:20.04")
+        assert repo == "docker.io/library"
+        assert image_name == "ubuntu"
+        assert tag == "20.04"
