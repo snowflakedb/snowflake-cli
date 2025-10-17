@@ -64,6 +64,38 @@ class TestRemoteManager:
             result = manager._resolve_service_name("myproject")  # noqa: SLF001
         assert result == f"{SERVICE_NAME_PREFIX}_SNOWFLAKE_USER_MYPROJECT"
 
+    def test_resolve_service_name_sanitizes_username_special_chars(self):
+        """Username with invalid chars should be sanitized in service name."""
+        manager = RemoteManager()
+
+        with patch.object(
+            manager, "_get_current_snowflake_user", return_value="john.doe+eng@acme-co"
+        ):
+            result = manager._resolve_service_name("proj1")  # noqa: SLF001
+
+        # Expected: non-alphanumeric replaced with underscores and collapsed
+        # "john.doe+eng@acme-co" -> "john_doe_eng_acme_co" then full name uppercased
+        assert result == f"{SERVICE_NAME_PREFIX}_JOHN_DOE_ENG_ACME_CO_PROJ1"
+
+    def test_resolve_service_name_username_empty_uses_default(self):
+        """Empty username falls back to DEFAULT_USER in service name."""
+        manager = RemoteManager()
+
+        with patch.object(manager, "_get_current_snowflake_user", return_value=""):
+            result = manager._resolve_service_name("proj")  # noqa: SLF001
+
+        assert result == f"{SERVICE_NAME_PREFIX}_DEFAULT_USER_PROJ"
+
+    def test_resolve_service_name_keeps_project_name_unchanged_except_case(self):
+        """Project name is not sanitized, only uppercased in final name."""
+        manager = RemoteManager()
+
+        with patch.object(manager, "_get_current_snowflake_user", return_value="alice"):
+            # name contains dashes and dots; per current behavior, it is used as-is and then uppercased
+            result = manager._resolve_service_name("my-project.v1")  # noqa: SLF001
+
+        assert result == f"{SERVICE_NAME_PREFIX}_ALICE_MY-PROJECT.V1"
+
     def test_resolve_service_name_with_full_service_name(self):
         """Test that full service names are passed through unchanged."""
         manager = RemoteManager()
@@ -629,12 +661,11 @@ class TestRemoteManagerSSH:
         mock_connect.assert_called_once_with(
             connection_name="test_conn",
             temporary_connection=False,
-            using_session_keep_alive=False,
+            using_session_keep_alive=True,
         )
         mock_cursor.execute.assert_called_once_with(
             "ALTER SESSION SET python_connector_query_result_format = 'JSON'"
         )
-        # Connection is designed to expire naturally, no explicit close
 
     @patch("snowflake.cli._app.snow_connector.connect_to_snowflake")
     @patch("snowflake.cli._plugins.remote.manager.get_cli_context")

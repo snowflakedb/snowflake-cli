@@ -99,7 +99,7 @@ WEBSOCKET_SSH_ENDPOINT_NAME = "websocket-ssh"
 RAY_DASHBOARD_ENDPOINT_NAME = "ray-dashboard"
 
 # SSH Configuration
-DEFAULT_SSH_REFRESH_INTERVAL = 300  # 5 minutes
+DEFAULT_SSH_REFRESH_INTERVAL = 2700  # 45 minutes
 SSH_RETRY_INTERVAL = 30  # 30 seconds
 SSH_COUNTDOWN_INTERVAL = 30  # Show countdown every 30 seconds
 SSH_DIR_NAME = ".ssh"
@@ -113,7 +113,7 @@ ML_RUNTIME_HEALTH_CHECK_PORT = "5001"
 ENABLE_HEALTH_CHECKS = "false"
 
 # Endpoint readiness validation settings
-DEFAULT_ENDPOINT_TIMEOUT_MINUTES = 5  # Maximum time to wait for endpoint readiness
+DEFAULT_ENDPOINT_TIMEOUT_MINUTES = 2  # Maximum time to wait for endpoint readiness
 ENDPOINT_CHECK_INTERVAL_SECONDS = 5  # Interval between endpoint health checks
 ENDPOINT_REQUEST_TIMEOUT_SECONDS = 10  # HTTP request timeout for individual checks
 

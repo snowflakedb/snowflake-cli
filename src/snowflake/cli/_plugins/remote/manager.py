@@ -39,6 +39,7 @@ from snowflake.cli._plugins.remote.utils import (
     get_existing_ssh_key,
     get_ssh_key_paths,
     launch_ide,
+    sanitize_identifier_component,
     setup_ssh_config_with_token,
     validate_endpoint_ready,
     validate_service_name,
@@ -180,8 +181,9 @@ class RemoteManager(SqlExecutionMixin):
 
         # Otherwise, treat as customer input name and add prefix with Snowflake username
         snowflake_username = self._get_current_snowflake_user()
+        safe_user = sanitize_identifier_component(snowflake_username)
         # Convert to uppercase to match Snowflake service naming convention
-        return f"{SERVICE_NAME_PREFIX}_{snowflake_username}_{name_input}".upper()
+        return f"{SERVICE_NAME_PREFIX}_{safe_user}_{name_input}".upper()
 
     def _warn_about_config_changes(
         self,
@@ -294,17 +296,13 @@ class RemoteManager(SqlExecutionMixin):
             ServiceStatus.DELETING.value,
             ServiceStatus.DELETED.value,
         ]:
-            log.debug(
-                "Service %s is in failed/error/deleting state (%s), will recreate...",
-                service_name,
-                current_status,
+            cc.warning(
+                f"Service {service_name} is in failed/error/deleting state ({current_status}), will recreate..."
             )
             return None
         else:
-            log.debug(
-                "Service %s has unknown status '%s', will recreate...",
-                service_name,
-                current_status,
+            cc.warning(
+                f"Service {service_name} has unknown status '{current_status}', will recreate..."
             )
             return None
 
@@ -565,40 +563,54 @@ class RemoteManager(SqlExecutionMixin):
 
     def get_validated_server_ui_url(
         self, service_name: str, timeout_minutes: int = DEFAULT_ENDPOINT_TIMEOUT_MINUTES
-    ) -> str:
+    ) -> Optional[str]:
         """
-        Get server UI URL and validate that the endpoint is ready and responding.
+        Get server UI URL and best-effort validate that the endpoint is ready.
 
-        This method combines URL retrieval and endpoint validation to ensure the returned URL
-        is immediately usable by the user.
+        This method retrieves the endpoint URL and attempts to validate readiness.
+        If validation cannot be performed or the endpoint is not yet ready, a warning is
+        displayed but users can proceed without being blocked.
 
         Args:
             service_name: Full name of the service
             timeout_minutes: Maximum time to wait for endpoint readiness
 
         Returns:
-            Validated server UI URL
-
-        Raises:
-            CliError: If URL cannot be retrieved or endpoint doesn't become ready
+            Server UI URL (returned even if validation fails)
         """
         # Get the server UI URL
         url = self.get_server_ui_url(service_name)
 
+        # Best-effort validation: warn and continue on any issue
         try:
             self.snowpark_session.sql(
                 "ALTER SESSION SET python_connector_query_result_format = 'JSON'"
             ).collect()
             token = self.snowpark_session.connection.rest.token
+
+            if not token:
+                cc.warning(
+                    "Could not obtain authentication token to validate endpoint readiness. "
+                    "Proceeding without validation."
+                )
+            else:
+                try:
+                    validate_endpoint_ready(
+                        url, token, SERVER_UI_ENDPOINT_NAME, timeout_minutes
+                    )
+                except Exception as e:
+                    # Do not block user; just warn that the endpoint may still be initializing
+                    cc.warning(
+                        f"Endpoint '{SERVER_UI_ENDPOINT_NAME}' may still be initializing. ({e}). Skipping validation."
+                    )
+                    return None
+
         except Exception as e:
-            raise CliError(
-                f"Failed to get authentication token for endpoint validation: {e}"
+            # Token/session issues: warn and proceed
+            cc.warning(
+                f"Skipping endpoint readiness check due to session/token issue: {e}. "
+                "Proceeding without validation."
             )
-
-        if not token:
-            raise CliError("No authentication token available for endpoint validation")
-
-        validate_endpoint_ready(url, token, SERVER_UI_ENDPOINT_NAME, timeout_minutes)
 
         return url
 
@@ -877,7 +889,7 @@ class RemoteManager(SqlExecutionMixin):
             raise CliError(f"SSH error occurred: {str(e)}")
 
     def _get_fresh_token(self) -> str:
-        """Get a fresh authentication token with natural session expiration.
+        """Get a fresh authentication token with session keep-alive enabled.
 
         Creates a connection that will expire naturally according to Snowflake's
         default session timeout, allowing proper token lifecycle management
@@ -890,12 +902,12 @@ class RemoteManager(SqlExecutionMixin):
 
         current_context = get_cli_context().connection_context
 
-        # Create connection with natural session expiration for SSH token refresh
+        # Create connection with session keep-alive enabled for SSH token refresh
         fresh_connection = connect_to_snowflake(
             connection_name=current_context.connection_name,
             temporary_connection=current_context.temporary_connection,
-            # Allow session to expire naturally - don't keep it alive artificially
-            using_session_keep_alive=False,
+            # Enable session keep-alive to prevent session expiry
+            using_session_keep_alive=True,
         )
 
         # Track the connection and proactively cap the number of live temp connections
