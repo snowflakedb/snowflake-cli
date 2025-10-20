@@ -78,6 +78,60 @@ class ResolutionHistoryTracker:
         self._histories.clear()
         self._discoveries.clear()
 
+    def _flatten_nested_dict(
+        self, nested: Dict[str, Any], prefix: str = ""
+    ) -> Dict[str, Any]:
+        """
+        Flatten nested dict to dot-separated keys for internal storage.
+
+        Args:
+            nested: Nested dictionary structure
+            prefix: Current key prefix
+
+        Returns:
+            Flat dictionary with dot-separated keys
+
+        Example:
+            {"connections": {"test": {"account": "val"}}}
+            -> {"connections.test.account": "val"}
+        """
+        result = {}
+        for key, value in nested.items():
+            flat_key = f"{prefix}.{key}" if prefix else key
+
+            if isinstance(value, dict) and value:
+                # Recursively flatten nested dicts
+                result.update(self._flatten_nested_dict(value, flat_key))
+            else:
+                # Leaf value - store it
+                result[flat_key] = value
+
+        return result
+
+    def record_nested_discovery(
+        self, nested_data: Dict[str, Any], source_name: str
+    ) -> None:
+        """
+        Record discoveries from a source that returns nested dict.
+
+        Args:
+            nested_data: Nested dictionary from source
+            source_name: Name of the source providing this data
+        """
+        if not self._enabled:
+            return
+
+        # Flatten the nested data
+        flat_data = self._flatten_nested_dict(nested_data)
+
+        # Record each flat key
+        timestamp = datetime.now()
+        for flat_key, value in flat_data.items():
+            config_value = ConfigValue(
+                key=flat_key, value=value, source_name=source_name
+            )
+            self._discoveries[flat_key].append((config_value, timestamp))
+
     def record_discovery(self, key: str, config_value: ConfigValue) -> None:
         """
         Record a value discovery from a source.
@@ -167,6 +221,92 @@ class ResolutionHistoryTracker:
             Dictionary mapping keys to their ResolutionHistory objects
         """
         return self._histories.copy()
+
+    def finalize_with_result(self, final_config: Dict[str, Any]) -> None:
+        """
+        Mark which values were selected in the final configuration.
+
+        This method flattens the final nested config and marks the selected
+        source for each value.
+
+        Args:
+            final_config: The final resolved configuration (nested dict)
+        """
+        if not self._enabled:
+            return
+
+        # Flatten final config to identify which values were selected
+        flat_final = self._flatten_nested_dict(final_config)
+
+        # For each flat key in final config, find which source provided it
+        for flat_key, final_value in flat_final.items():
+            # Check if this key has discoveries
+            if flat_key not in self._discoveries:
+                continue
+
+            # Find the entry with matching value (should be highest priority)
+            discoveries = self._discoveries[flat_key]
+            for config_value, timestamp in reversed(
+                discoveries
+            ):  # Check from highest to lowest
+                if config_value.value == final_value:
+                    self.mark_selected(flat_key, config_value.source_name)
+                    break
+
+    def record_general_params_merged_to_connections(
+        self,
+        general_params: Dict[str, Any],
+        connection_names: List[str],
+        source_name: str,
+    ) -> None:
+        """
+        Record when general parameters are merged into connections.
+
+        When overlay sources provide general params (like SNOWFLAKE_ACCOUNT),
+        these get merged into each existing connection. This method records
+        that merge operation for history tracking.
+
+        Args:
+            general_params: Dictionary of general parameters
+            connection_names: List of connection names to merge into
+            source_name: Name of the source providing these params
+        """
+        if not self._enabled:
+            return
+
+        timestamp = datetime.now()
+        for param_key, param_value in general_params.items():
+            # Record for each connection
+            for conn_name in connection_names:
+                flat_key = f"connections.{conn_name}.{param_key}"
+                config_value = ConfigValue(
+                    key=flat_key, value=param_value, source_name=source_name
+                )
+                self._discoveries[flat_key].append((config_value, timestamp))
+
+    def replicate_root_level_discoveries_to_connection(
+        self, param_keys: List[str], connection_name: str
+    ) -> None:
+        """
+        Replicate discoveries from root-level keys to connection-specific keys.
+
+        This is used when creating a default connection from general parameters
+        (e.g., SNOWFLAKE_ACCOUNT -> connections.default.account).
+
+        Args:
+            param_keys: List of parameter keys that exist at root level
+            connection_name: Name of the connection to replicate discoveries to
+        """
+        if not self._enabled:
+            return
+
+        for param_key in param_keys:
+            # Check if we have discoveries for the root-level key
+            if param_key in self._discoveries:
+                conn_key = f"connections.{connection_name}.{param_key}"
+                # Copy all discoveries from root to connection location
+                for config_value, timestamp in self._discoveries[param_key]:
+                    self._discoveries[conn_key].append((config_value, timestamp))
 
     def get_summary(self) -> dict:
         """
@@ -417,11 +557,9 @@ class ConfigurationResolver:
             )
             file_connections[conn_name] = conn_params
 
-    def _resolve_file_sources(
-        self, key: Optional[str]
-    ) -> Tuple[Dict[str, Dict[str, ConfigValue]], Dict[str, ConfigValue]]:
+    def _resolve_file_sources(self, key: Optional[str] = None) -> Dict[str, Any]:
         """
-        Process all FILE sources with connection-level replacement semantics.
+        Process FILE sources with connection-level replacement semantics.
 
         FILE sources replace entire connections rather than merging fields.
         Later FILE sources override earlier ones completely.
@@ -430,34 +568,37 @@ class ConfigurationResolver:
             key: Specific key to resolve (None = all keys)
 
         Returns:
-            Tuple of (file_connections, file_flat_values):
-            - file_connections: Dict mapping connection name to its parameters
-            - file_flat_values: Dict of flat configuration keys
+            Nested dict with merged file source data
         """
-        file_connections: Dict[str, Dict[str, ConfigValue]] = defaultdict(dict)
-        file_flat_values: Dict[str, ConfigValue] = {}
+        result: Dict[str, Any] = {}
 
         for source in self._get_sources_by_type(SourceType.FILE):
             try:
-                source_values = source.discover(key)
-                self._record_discoveries(source_values)
+                source_data = source.discover(key)  # Already nested!
 
-                # Process this source's values
-                per_conn, empty_conns = self._group_by_connection(source_values)
-                flat_values = self._extract_flat_values(source_values)
-
-                # Replace connections (entire connection replacement)
-                self._replace_connections(
-                    file_connections, per_conn, empty_conns, source
+                # Record discoveries for history tracking
+                self._history_tracker.record_nested_discovery(
+                    source_data, source.source_name
                 )
 
-                # Update flat values
-                file_flat_values.update(flat_values)
+                # For FILE sources: connection-level replacement
+                if "connections" in source_data:
+                    if "connections" not in result:
+                        result["connections"] = {}
+
+                    # Replace entire connections (not merge)
+                    for conn_name, conn_data in source_data["connections"].items():
+                        result["connections"][conn_name] = conn_data
+
+                # Merge other top-level keys
+                for k, v in source_data.items():
+                    if k != "connections":
+                        result[k] = v
 
             except Exception as e:
                 log.warning("Error from source %s: %s", source.source_name, e)
 
-        return file_connections, file_flat_values
+        return result
 
     def _merge_file_results(
         self,
@@ -486,79 +627,190 @@ class ConfigurationResolver:
         return all_values
 
     def _apply_overlay_sources(
-        self, all_values: Dict[str, ConfigValue], key: Optional[str]
-    ) -> Dict[str, ConfigValue]:
+        self, base: Dict[str, Any], key: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
-        Apply OVERLAY sources with field-level overlay semantics.
+        Apply OVERLAY sources with field-level merging.
 
         OVERLAY sources (env vars, CLI args) add or override individual fields
-        without replacing entire connections.
+        without replacing entire connections. General params are merged into
+        each existing connection.
 
         Args:
-            all_values: Current configuration values (typically from file sources)
+            base: Base configuration (typically from file sources)
             key: Specific key to resolve (None = all keys)
 
         Returns:
             Updated dictionary with overlay values applied
         """
+        from snowflake.cli.api.config_ng.dict_utils import deep_merge
+        from snowflake.cli.api.config_ng.merge_operations import (
+            extract_root_level_connection_params,
+            merge_params_into_connections,
+        )
+
+        result = base.copy()
+
         for source in self._get_sources_by_type(SourceType.OVERLAY):
             try:
-                source_values = source.discover(key)
+                source_data = source.discover(key)
 
-                # Record and apply overlays (field-level)
-                for k, config_value in source_values.items():
-                    self._history_tracker.record_discovery(k, config_value)
-                    all_values[k] = config_value
+                # Record discoveries for history tracking
+                self._history_tracker.record_nested_discovery(
+                    source_data, source.source_name
+                )
+
+                # Separate general connection params from other data
+                general_params, other_data = extract_root_level_connection_params(
+                    source_data
+                )
+
+                # First, merge connection-specific data and internal params
+                result = deep_merge(result, other_data)
+
+                # Then, merge general params into all existing connections
+                if general_params and "connections" in result and result["connections"]:
+                    connection_names = [
+                        name
+                        for name in result["connections"]
+                        if isinstance(result["connections"][name], dict)
+                    ]
+
+                    # Record history for general params being merged into connections
+                    self._history_tracker.record_general_params_merged_to_connections(
+                        general_params, connection_names, source.source_name
+                    )
+
+                    # Merge general params into existing connections
+                    result["connections"] = merge_params_into_connections(
+                        result["connections"], general_params
+                    )
+                elif general_params:
+                    # No connections exist yet, keep general params at root
+                    # for default connection creation later
+                    result = deep_merge(result, general_params)
 
             except Exception as e:
                 log.warning("Error from source %s: %s", source.source_name, e)
 
-        return all_values
+        # Final cleanup: merge any remaining root-level general params into all connections
+        # This handles params from early sources that were added before connections existed
+        if "connections" in result and result["connections"]:
+            remaining_general_params, _ = extract_root_level_connection_params(result)
+
+            if remaining_general_params:
+                # Merge remaining params into connections (connection values take precedence)
+                for conn_name in result["connections"]:
+                    if isinstance(result["connections"][conn_name], dict):
+                        result["connections"][conn_name] = deep_merge(
+                            remaining_general_params, result["connections"][conn_name]
+                        )
+
+                # Remove general params from root since they're now in connections
+                for key in remaining_general_params:
+                    if key in result:
+                        result.pop(key)
+
+        return result
+
+    def _ensure_default_connection(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Ensure a default connection exists when general connection params are present.
+
+        Border conditions for creating default connection:
+        1. No connections exist in config (empty or missing "connections" key)
+        2. At least one general connection parameter exists at root level
+        3. General params are NOT internal CLI parameters or variables
+
+        This allows users to set SNOWFLAKE_ACCOUNT, SNOWFLAKE_USER etc. without
+        needing --temporary-connection flag or defining connections in config files.
+
+        Args:
+            config: Resolved configuration dictionary
+
+        Returns:
+            Configuration with default connection created if conditions are met
+        """
+        from snowflake.cli.api.config_ng.constants import INTERNAL_CLI_PARAMETERS
+
+        # Check if connections already exist
+        connections = config.get("connections", {})
+        if connections:
+            return config  # Connections exist, nothing to do
+
+        # Identify general connection parameters (root-level, non-internal)
+        general_params = {}
+        for key, value in config.items():
+            if (
+                key not in ("connections", "variables")
+                and key not in INTERNAL_CLI_PARAMETERS
+            ):
+                general_params[key] = value
+
+        # If no general params, nothing to create
+        if not general_params:
+            return config
+
+        # Create default connection with general params
+        result = config.copy()
+        result["connections"] = {"default": general_params.copy()}
+
+        # Record history for moved parameters
+        self._history_tracker.replicate_root_level_discoveries_to_connection(
+            list(general_params.keys()), "default"
+        )
+
+        # Remove general params from root level (they're now in default connection)
+        for key in general_params:
+            result.pop(key, None)
+
+        return result
 
     def resolve(self, key: Optional[str] = None, default: Any = None) -> Dict[str, Any]:
         """
-        Resolve configuration values from all sources with history tracking.
+        Resolve configuration to nested dict.
 
-        Resolution Process (Two-Phase):
+        Resolution Process (Four-Phase):
 
         Phase A - File Sources (Connection-Level Replacement):
-        1. Process FILE sources in precedence order (lowest to highest priority)
-        2. For each connection, later FILE sources completely REPLACE earlier ones
-        3. Fields from earlier file sources are NOT inherited
+        - Process FILE sources in precedence order (lowest to highest priority)
+        - For each connection, later FILE sources completely REPLACE earlier ones
+        - Fields from earlier file sources are NOT inherited
 
         Phase B - Overlay Sources (Field-Level Overlay):
-        4. Start with the file-derived connection snapshot
-        5. Process OVERLAY sources (env vars, CLI args) in precedence order
-        6. These add/override individual fields without replacing entire connections
-        7. For flat keys: later sources overwrite earlier sources
+        - Start with the file-derived configuration
+        - Process OVERLAY sources (env vars, CLI args) in precedence order
+        - These add/override individual fields without replacing entire connections
+        - Uses deep merge for nested structures
+
+        Phase C - Default Connection Creation:
+        - If no connections exist but general params present, create "default" connection
+        - Allows env-only configuration without --temporary-connection flag
+
+        Phase D - Resolution History Finalization:
+        - Mark which values were selected in the final configuration
+        - Enables debugging and diagnostics
 
         Args:
             key: Specific key to resolve (None = all keys)
             default: Default value if key not found
 
         Returns:
-            Dictionary of resolved values (key -> value)
+            Nested dictionary of resolved configuration
         """
-        # Phase A: Process FILE sources (connection-level replacement)
-        file_connections, file_flat_values = self._resolve_file_sources(key)
+        # Phase A: FILE sources (connection-level replacement)
+        result = self._resolve_file_sources(key)
 
-        # Start with file-derived snapshot
-        all_values = self._merge_file_results(file_connections, file_flat_values)
+        # Phase B: OVERLAY sources (field-level overlay with deep merge)
+        result = self._apply_overlay_sources(result, key)
 
-        # Phase B: Process OVERLAY sources (field-level overlay)
-        all_values = self._apply_overlay_sources(all_values, key)
+        # Phase C: Ensure default connection exists if general params present
+        result = self._ensure_default_connection(result)
 
-        # Mark selected values in history
-        self._finalize_history(all_values)
+        # Phase D: Finalize resolution history
+        self._finalize_resolution_history(result)
 
-        # Convert ConfigValue objects to plain values
-        resolved = {k: v.value for k, v in all_values.items()}
-
-        # Handle default for specific key
-        if key is not None and key not in resolved:
-            resolved = self._apply_default(resolved, key, default)
-
-        return resolved
+        return result
 
     def resolve_value(self, key: str, default: Any = None) -> Any:
         """
@@ -605,17 +857,46 @@ class ConfigurationResolver:
         """
         return self._history_tracker
 
+    def _finalize_resolution_history(self, final_config: Dict[str, Any]) -> None:
+        """
+        Mark which values were selected in final configuration.
+
+        Delegates to the history tracker which handles all history-related logic.
+
+        Args:
+            final_config: The final resolved configuration (nested dict)
+        """
+        self._history_tracker.finalize_with_result(final_config)
+
     def get_resolution_history(self, key: str) -> Optional[ResolutionHistory]:
         """
         Get complete resolution history for a key.
 
+        Supports both formats:
+        - Flat: "connections.test.account"
+        - Root-level: "account" (checks connections for this key)
+
         Args:
-            key: Configuration key
+            key: Configuration key (flat or simple)
 
         Returns:
             ResolutionHistory showing the full precedence chain
         """
-        return self._history_tracker.get_history(key)
+        # First, try exact match
+        history = self._history_tracker.get_history(key)
+        if history:
+            return history
+
+        # If not found and it's a simple key (no dots), search in connections
+        if "." not in key:
+            # Look for any connection that has this key
+            all_histories = self._history_tracker.get_all_histories()
+            for hist_key, hist in all_histories.items():
+                # Match pattern: "connections.*.{key}" or root level "{key}"
+                if hist_key.endswith(f".{key}"):
+                    return hist
+
+        return None
 
     def get_all_histories(self) -> Dict[str, ResolutionHistory]:
         """Get resolution histories for all keys."""

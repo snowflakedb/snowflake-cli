@@ -48,23 +48,20 @@ example_variable=27
 """
             )
 
-            source = SnowSQLConfigFile()
-            setattr(source, "_config_files", [config_file])
+            source = SnowSQLConfigFile(config_paths=[config_file])
 
             discovered = source.discover()
 
-            # Check that variables are discovered with proper prefix
-            assert "variables.var1" in discovered
-            assert "variables.var2" in discovered
-            assert "variables.example_variable" in discovered
+            # Check nested structure
+            assert "variables" in discovered
+            assert "var1" in discovered["variables"]
+            assert "var2" in discovered["variables"]
+            assert "example_variable" in discovered["variables"]
 
-            # Check values
-            assert discovered["variables.var1"].value == "value1"
-            assert discovered["variables.var2"].value == "value2"
-            assert discovered["variables.example_variable"].value == "27"
-
-            # Check source name
-            assert discovered["variables.var1"].source_name == "snowsql_config"
+            # Values are plain strings now (not ConfigValue objects)
+            assert discovered["variables"]["var1"] == "value1"
+            assert discovered["variables"]["var2"] == "value2"
+            assert discovered["variables"]["example_variable"] == "27"
 
     def test_variables_section_empty(self):
         """Test that empty [variables] section doesn't cause errors."""
@@ -79,14 +76,13 @@ accountname = test_account
 """
             )
 
-            source = SnowSQLConfigFile()
-            setattr(source, "_config_files", [config_file])
+            source = SnowSQLConfigFile(config_paths=[config_file])
 
             discovered = source.discover()
 
-            # Should have connections but no variables
-            assert any(k.startswith("connections.") for k in discovered.keys())
-            assert not any(k.startswith("variables.") for k in discovered.keys())
+            # Should have connections but no variables (or empty variables dict)
+            assert "connections" in discovered
+            assert not discovered.get("variables", {})
 
     def test_no_variables_section(self):
         """Test that config without [variables] section works correctly."""
@@ -100,14 +96,13 @@ username = test_user
 """
             )
 
-            source = SnowSQLConfigFile()
-            setattr(source, "_config_files", [config_file])
+            source = SnowSQLConfigFile(config_paths=[config_file])
 
             discovered = source.discover()
 
-            # Should have connections but no variables
-            assert any(k.startswith("connections.") for k in discovered.keys())
-            assert not any(k.startswith("variables.") for k in discovered.keys())
+            # Should have connections but no variables key
+            assert "connections" in discovered
+            assert "variables" not in discovered
 
     def test_variables_merged_from_multiple_files(self):
         """Test that variables from multiple SnowSQL config files are merged."""
@@ -130,19 +125,14 @@ var3=value3
 """
             )
 
-            source = SnowSQLConfigFile()
-            setattr(source, "_config_files", [config_file1, config_file2])
+            source = SnowSQLConfigFile(config_paths=[config_file1, config_file2])
 
             discovered = source.discover()
 
-            # var1 from file1 should be present
-            assert discovered["variables.var1"].value == "value1"
-
-            # var2 should be overridden by file2
-            assert discovered["variables.var2"].value == "overridden_value2"
-
-            # var3 from file2 should be present
-            assert discovered["variables.var3"].value == "value3"
+            # Check nested structure with merged values
+            assert discovered["variables"]["var1"] == "value1"
+            assert discovered["variables"]["var2"] == "overridden_value2"
+            assert discovered["variables"]["var3"] == "value3"
 
     def test_variables_with_special_characters(self):
         """Test that variables with special characters in values are handled."""
@@ -157,48 +147,48 @@ var_with_quotes='quoted value'
 """
             )
 
-            source = SnowSQLConfigFile()
-            setattr(source, "_config_files", [config_file])
+            source = SnowSQLConfigFile(config_paths=[config_file])
 
             discovered = source.discover()
 
-            assert discovered["variables.var_with_equals"].value == "key=value"
-            assert discovered["variables.var_with_spaces"].value == "value with spaces"
-            assert discovered["variables.var_with_quotes"].value == "'quoted value'"
+            assert discovered["variables"]["var_with_equals"] == "key=value"
+            assert discovered["variables"]["var_with_spaces"] == "value with spaces"
+            assert discovered["variables"]["var_with_quotes"] == "'quoted value'"
 
 
 class TestAlternativeConfigProviderVariables:
     """Tests for getting variables section from AlternativeConfigProvider."""
 
     def test_get_variables_section(self):
-        """Test get_section('variables') returns flat dict without prefix."""
+        """Test get_section('variables') returns nested dict."""
         from snowflake.cli.api.config_provider import AlternativeConfigProvider
 
         provider = AlternativeConfigProvider()
 
-        with mock.patch.object(provider, "_resolver") as mock_resolver:
-            mock_resolver.resolve.return_value = {
-                "variables.var1": "value1",
-                "variables.var2": "value2",
-                "connections.default.account": "test_account",
-            }
-            setattr(provider, "_initialized", True)
-            # Prevent re-initialization
-            from snowflake.cli.api.cli_global_context import get_cli_context
+        # Mock with nested structure
+        mock_cache = {
+            "variables": {"var1": "value1", "var2": "value2"},
+            "connections": {"default": {"account": "test_account"}},
+        }
 
-            try:
-                setattr(
-                    provider,
-                    "_last_config_override",
-                    get_cli_context().config_file_override,
-                )
-            except Exception:
-                setattr(provider, "_last_config_override", None)
+        setattr(provider, "_initialized", True)
+        setattr(provider, "_config_cache", mock_cache)
 
-            result = provider.get_section("variables")
+        from snowflake.cli.api.cli_global_context import get_cli_context
 
-            # Should return flat dict without variables. prefix
-            assert result == {"var1": "value1", "var2": "value2"}
+        try:
+            setattr(
+                provider,
+                "_last_config_override",
+                get_cli_context().config_file_override,
+            )
+        except Exception:
+            setattr(provider, "_last_config_override", None)
+
+        result = provider.get_section("variables")
+
+        # Should return nested dict under "variables" key
+        assert result == {"var1": "value1", "var2": "value2"}
 
     def test_get_variables_section_empty(self):
         """Test get_section('variables') with no variables returns empty dict."""
@@ -206,26 +196,27 @@ class TestAlternativeConfigProviderVariables:
 
         provider = AlternativeConfigProvider()
 
-        with mock.patch.object(provider, "_resolver") as mock_resolver:
-            mock_resolver.resolve.return_value = {
-                "connections.default.account": "test_account",
-            }
-            setattr(provider, "_initialized", True)
-            # Prevent re-initialization
-            from snowflake.cli.api.cli_global_context import get_cli_context
+        mock_cache = {
+            "connections": {"default": {"account": "test_account"}},
+        }
 
-            try:
-                setattr(
-                    provider,
-                    "_last_config_override",
-                    get_cli_context().config_file_override,
-                )
-            except Exception:
-                setattr(provider, "_last_config_override", None)
+        setattr(provider, "_initialized", True)
+        setattr(provider, "_config_cache", mock_cache)
 
-            result = provider.get_section("variables")
+        from snowflake.cli.api.cli_global_context import get_cli_context
 
-            assert result == {}
+        try:
+            setattr(
+                provider,
+                "_last_config_override",
+                get_cli_context().config_file_override,
+            )
+        except Exception:
+            setattr(provider, "_last_config_override", None)
+
+        result = provider.get_section("variables")
+
+        assert result == {}
 
 
 class TestGetMergedVariables:
@@ -353,16 +344,17 @@ var2=value2
 """
             )
 
-            source = SnowSQLConfigFile()
-            setattr(source, "_config_files", [config_file])
+            source = SnowSQLConfigFile(config_paths=[config_file])
 
             resolver = ConfigurationResolver(sources=[source])
             config = resolver.resolve()
 
-            assert "variables.var1" in config
-            assert "variables.var2" in config
-            assert config["variables.var1"] == "value1"
-            assert config["variables.var2"] == "value2"
+            # Check nested structure
+            assert "variables" in config
+            assert "var1" in config["variables"]
+            assert "var2" in config["variables"]
+            assert config["variables"]["var1"] == "value1"
+            assert config["variables"]["var2"] == "value2"
 
 
 class TestSnowSQLSectionEnum:
@@ -388,11 +380,11 @@ var1=value1
 """
             )
 
-            source = SnowSQLConfigFile()
-            setattr(source, "_config_files", [config_file])
+            source = SnowSQLConfigFile(config_paths=[config_file])
 
             # Should discover both connections and variables
             discovered = source.discover()
 
-            assert any(k.startswith("connections.") for k in discovered.keys())
-            assert any(k.startswith("variables.") for k in discovered.keys())
+            # Check nested structure contains both sections
+            assert "connections" in discovered
+            assert "variables" in discovered
