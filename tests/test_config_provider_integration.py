@@ -51,37 +51,13 @@ class TestProviderSelection:
             provider = get_config_provider()
             assert isinstance(provider, LegacyConfigProvider)
 
-    def test_alternative_provider_enabled_with_true(self):
-        """Test enabling alternative provider with 'true'."""
-        with mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "true"}):
-            provider = get_config_provider()
-            assert isinstance(provider, AlternativeConfigProvider)
-
-    def test_alternative_provider_enabled_with_1(self):
-        """Test enabling alternative provider with '1'."""
-        with mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}):
-            provider = get_config_provider()
-            assert isinstance(provider, AlternativeConfigProvider)
-
-    def test_alternative_provider_enabled_with_yes(self):
-        """Test enabling alternative provider with 'yes'."""
-        with mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "yes"}):
-            provider = get_config_provider()
-            assert isinstance(provider, AlternativeConfigProvider)
-
-    def test_alternative_provider_enabled_with_on(self):
-        """Test enabling alternative provider with 'on'."""
-        with mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "on"}):
-            provider = get_config_provider()
-            assert isinstance(provider, AlternativeConfigProvider)
-
-    def test_alternative_provider_case_insensitive(self):
-        """Test that environment variable is case-insensitive."""
-        with mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "TRUE"}):
-            provider = get_config_provider()
-            assert isinstance(provider, AlternativeConfigProvider)
-
-        with mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "Yes"}):
+    @pytest.mark.parametrize(
+        "env_value",
+        ["true", "1", "yes", "on", "TRUE", "True", "Yes", "YES", "ON"],
+    )
+    def test_alternative_provider_enabled_with_various_values(self, env_value):
+        """Test enabling alternative provider with various truthy values."""
+        with mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: env_value}):
             provider = get_config_provider()
             assert isinstance(provider, AlternativeConfigProvider)
 
@@ -152,10 +128,12 @@ class TestAlternativeConfigProviderBasicOperations:
 
         with mock.patch.object(provider, "_resolver") as mock_resolver:
             mock_resolver.resolve.return_value = {
-                "connections.default.account": "test_account",
-                "connections.default.user": "test_user",
+                "connections": {
+                    "default": {"account": "test_account", "user": "test_user"}
+                }
             }
             provider._initialized = True
+            provider._config_cache = mock_resolver.resolve.return_value
 
             assert provider.section_exists("connections")
             assert provider.section_exists("connections", "default")
@@ -168,6 +146,7 @@ class TestAlternativeConfigProviderBasicOperations:
         with mock.patch.object(provider, "_resolver") as mock_resolver:
             mock_resolver.resolve.return_value = {"account": "test_account"}
             provider._initialized = True
+            provider._config_cache = mock_resolver.resolve.return_value
             # Prevent re-initialization due to config_file_override check
             from snowflake.cli.api.cli_global_context import get_cli_context
 
@@ -185,9 +164,10 @@ class TestAlternativeConfigProviderBasicOperations:
 
         with mock.patch.object(provider, "_resolver") as mock_resolver:
             mock_resolver.resolve.return_value = {
-                "connections.default.account": "test_account"
+                "connections": {"default": {"account": "test_account"}}
             }
             provider._initialized = True
+            provider._config_cache = mock_resolver.resolve.return_value
             # Prevent re-initialization due to config_file_override check
             from snowflake.cli.api.cli_global_context import get_cli_context
 
@@ -218,6 +198,7 @@ class TestAlternativeConfigProviderBasicOperations:
             config_data = {"key1": "value1", "key2": "value2"}
             mock_resolver.resolve.return_value = config_data
             provider._initialized = True
+            provider._config_cache = config_data
             # Prevent re-initialization due to config_file_override check
             from snowflake.cli.api.cli_global_context import get_cli_context
 
@@ -235,11 +216,13 @@ class TestAlternativeConfigProviderBasicOperations:
 
         with mock.patch.object(provider, "_resolver") as mock_resolver:
             mock_resolver.resolve.return_value = {
-                "connections.default.account": "test_account",
-                "connections.default.user": "test_user",
-                "connections.prod.account": "prod_account",
+                "connections": {
+                    "default": {"account": "test_account", "user": "test_user"},
+                    "prod": {"account": "prod_account"},
+                }
             }
             provider._initialized = True
+            provider._config_cache = mock_resolver.resolve.return_value
             # Prevent re-initialization due to config_file_override check
             from snowflake.cli.api.cli_global_context import get_cli_context
 
@@ -260,10 +243,12 @@ class TestAlternativeConfigProviderBasicOperations:
 
         with mock.patch.object(provider, "_resolver") as mock_resolver:
             mock_resolver.resolve.return_value = {
-                "connections.default.account": "test_account",
-                "connections.default.user": "test_user",
+                "connections": {
+                    "default": {"account": "test_account", "user": "test_user"}
+                }
             }
             provider._initialized = True
+            provider._config_cache = mock_resolver.resolve.return_value
             # Prevent re-initialization due to config_file_override check
             from snowflake.cli.api.cli_global_context import get_cli_context
 
@@ -285,11 +270,16 @@ class TestAlternativeConfigProviderConnectionOperations:
 
         with mock.patch.object(provider, "_resolver") as mock_resolver:
             mock_resolver.resolve.return_value = {
-                "connections.default.account": "test_account",
-                "connections.default.user": "test_user",
-                "connections.default.password": "secret",
+                "connections": {
+                    "default": {
+                        "account": "test_account",
+                        "user": "test_user",
+                        "password": "secret",
+                    }
+                }
             }
             provider._initialized = True
+            provider._config_cache = mock_resolver.resolve.return_value
             # Prevent re-initialization due to config_file_override check
             from snowflake.cli.api.cli_global_context import get_cli_context
 
@@ -322,12 +312,13 @@ class TestAlternativeConfigProviderConnectionOperations:
 
         with mock.patch.object(provider, "_resolver") as mock_resolver:
             mock_resolver.resolve.return_value = {
-                "connections.default.account": "test_account",
-                "connections.default.user": "test_user",
-                "connections.prod.account": "prod_account",
-                "connections.prod.user": "prod_user",
+                "connections": {
+                    "default": {"account": "test_account", "user": "test_user"},
+                    "prod": {"account": "prod_account", "user": "prod_user"},
+                }
             }
             provider._initialized = True
+            provider._config_cache = mock_resolver.resolve.return_value
             # Prevent re-initialization due to config_file_override check
             from snowflake.cli.api.cli_global_context import get_cli_context
 
