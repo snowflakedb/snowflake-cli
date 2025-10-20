@@ -35,7 +35,8 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, Final, List, Optional
 
-from snowflake.cli.api.config_ng.core import ConfigValue, SourceType, ValueSource
+from snowflake.cli.api.config_ng.constants import SNOWFLAKE_HOME_ENV
+from snowflake.cli.api.config_ng.core import SourceType, ValueSource
 
 log = logging.getLogger(__name__)
 
@@ -52,83 +53,67 @@ class SnowSQLSection(Enum):
     OPTIONS = "options"
 
 
-# Try to import tomllib (Python 3.11+) or fall back to tomli
-try:
-    import tomllib
-except ImportError:
-    import tomli as tomllib  # type: ignore
-
-
 class SnowSQLConfigFile(ValueSource):
     """
-    SnowSQL configuration file source.
+    SnowSQL configuration file source with two-phase design.
+
+    Phase 1: Acquire content (read and merge multiple config files)
+    Phase 2: Parse content (using SnowSQLParser)
 
     Reads multiple config files in order and MERGES them (SnowSQL behavior).
     Later files override earlier files for the same keys.
     Returns configuration for ALL connections.
 
-    Config files searched (in order, when not in test mode):
-    1. Bundled default config (if in package)
-    2. /etc/snowsql.cnf (system-wide)
-    3. /etc/snowflake/snowsql.cnf (alternative system)
-    4. /usr/local/etc/snowsql.cnf (local system)
-    5. ~/.snowsql.cnf (legacy user config)
-    6. ~/.snowsql/config (current user config)
-
-    In test mode (when config_file_override is set), SnowSQL config files are skipped
-    to ensure test isolation.
+    Config files searched (in order):
+    1. /etc/snowsql.cnf (system-wide)
+    2. /etc/snowflake/snowsql.cnf (alternative system)
+    3. /usr/local/etc/snowsql.cnf (local system)
+    4. ~/.snowsql.cnf (legacy user config)
+    5. ~/.snowsql/config (current user config)
     """
 
-    # SnowSQL uses different key names - map them to CLI standard names
-    KEY_MAPPING = {
-        "accountname": "account",
-        "username": "user",
-        "rolename": "role",
-        "warehousename": "warehouse",
-        "schemaname": "schema",
-        "dbname": "database",
-        "pwd": "password",
-        # Keys that don't need mapping (already correct)
-        "password": "password",
-        "database": "database",
-        "schema": "schema",
-        "role": "role",
-        "warehouse": "warehouse",
-        "host": "host",
-        "port": "port",
-        "protocol": "protocol",
-        "authenticator": "authenticator",
-        "private_key_path": "private_key_path",
-        "private_key_passphrase": "private_key_passphrase",
-    }
+    def __init__(
+        self, content: Optional[str] = None, config_paths: Optional[List[Path]] = None
+    ):
+        """
+        Initialize SnowSQL config file source.
 
-    def __init__(self):
-        """Initialize SnowSQL config file source."""
-        # Use SNOWFLAKE_HOME if set and directory exists, otherwise use standard paths
-        snowflake_home = os.environ.get("SNOWFLAKE_HOME")
+        Args:
+            content: Optional string content for testing (bypasses file I/O)
+            config_paths: Optional custom config file paths
+        """
+        self._content = content
+        self._config_paths = config_paths or self._get_default_paths()
+
+    @staticmethod
+    def _get_default_paths() -> List[Path]:
+        """Get standard SnowSQL config file paths."""
+        snowflake_home = os.environ.get(SNOWFLAKE_HOME_ENV)
         if snowflake_home:
             snowflake_home_path = Path(snowflake_home).expanduser()
             if snowflake_home_path.exists():
-                # Use only the SnowSQL config file within SNOWFLAKE_HOME
-                self._config_files = [snowflake_home_path / "config"]
-            else:
-                # SNOWFLAKE_HOME set but doesn't exist, use standard paths
-                self._config_files = [
-                    Path("/etc/snowsql.cnf"),
-                    Path("/etc/snowflake/snowsql.cnf"),
-                    Path("/usr/local/etc/snowsql.cnf"),
-                    Path.home() / ".snowsql.cnf",
-                    Path.home() / ".snowsql" / "config",
-                ]
-        else:
-            # Standard paths when SNOWFLAKE_HOME not set
-            self._config_files = [
-                Path("/etc/snowsql.cnf"),
-                Path("/etc/snowflake/snowsql.cnf"),
-                Path("/usr/local/etc/snowsql.cnf"),
-                Path.home() / ".snowsql.cnf",
-                Path.home() / ".snowsql" / "config",
-            ]
+                return [snowflake_home_path / "config"]
+
+        return [
+            Path("/etc/snowsql.cnf"),
+            Path("/etc/snowflake/snowsql.cnf"),
+            Path("/usr/local/etc/snowsql.cnf"),
+            Path.home() / ".snowsql.cnf",
+            Path.home() / ".snowsql" / "config",
+        ]
+
+    @classmethod
+    def from_string(cls, content: str) -> "SnowSQLConfigFile":
+        """
+        Create source from string content (for testing).
+
+        Args:
+            content: INI format configuration as string
+
+        Returns:
+            SnowSQLConfigFile instance using string content
+        """
+        return cls(content=content)
 
     @property
     def source_name(self) -> "ValueSource.SourceName":
@@ -138,69 +123,49 @@ class SnowSQLConfigFile(ValueSource):
     def source_type(self) -> SourceType:
         return SourceType.FILE
 
-    def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
+    def discover(self, key: Optional[str] = None) -> Dict[str, Any]:
         """
-        Read and MERGE all SnowSQL config files.
-        Later files override earlier files (SnowSQL merging behavior).
-        Returns keys in format: connections.{name}.{param} for ALL connections.
+        Two-phase discovery: acquire content → parse.
+
+        Phase 1: Get content (from string or by reading and merging files)
+        Phase 2: Parse content using SnowSQLParser
+
+        Returns:
+            Nested dict structure: {"connections": {...}, "variables": {...}}
         """
-        merged_values: Dict[str, ConfigValue] = {}
+        from snowflake.cli.api.config_ng.parsers import SnowSQLParser
 
-        for config_file in self._config_files:
-            if not config_file.exists():
-                continue
+        # Phase 1: Content acquisition
+        if self._content is not None:
+            content = self._content
+        else:
+            content = self._read_and_merge_files()
 
-            try:
-                config = configparser.ConfigParser()
-                config.read(config_file)
+        # Phase 2: Parse content
+        return SnowSQLParser.parse(content)
 
-                # Process all connection sections
-                for section in config.sections():
-                    if section.startswith(SnowSQLSection.CONNECTIONS.value):
-                        # Extract connection name
-                        if section == SnowSQLSection.CONNECTIONS.value:
-                            # This is default connection
-                            connection_name = "default"
-                        else:
-                            # Format: connections.qa6 -> qa6
-                            connection_name = (
-                                section.split(".", 1)[1]
-                                if "." in section
-                                else "default"
-                            )
+    def _read_and_merge_files(self) -> str:
+        """
+        Read all config files and merge into single INI string.
 
-                        section_data = dict(config[section])
+        Returns:
+            Merged INI content as string
+        """
+        merged_config = configparser.ConfigParser()
 
-                        # Add all params for this connection
-                        for param_key, param_value in section_data.items():
-                            # Map SnowSQL key names to CLI standard names
-                            normalized_key = self.KEY_MAPPING.get(param_key, param_key)
-                            full_key = f"connections.{connection_name}.{normalized_key}"
-                            if key is None or full_key == key:
-                                merged_values[full_key] = ConfigValue(
-                                    key=full_key,
-                                    value=param_value,
-                                    source_name=self.source_name,
-                                    raw_value=f"{param_key}={param_value}",  # Show original key in raw_value
-                                )
+        for config_file in self._config_paths:
+            if config_file.exists():
+                try:
+                    merged_config.read(config_file)
+                except Exception as e:
+                    log.debug("Failed to read SnowSQL config %s: %s", config_file, e)
 
-                    elif section == SnowSQLSection.VARIABLES.value:
-                        # Process variables section (global, not connection-specific)
-                        section_data = dict(config[section])
-                        for var_key, var_value in section_data.items():
-                            full_key = f"variables.{var_key}"
-                            if key is None or full_key == key:
-                                merged_values[full_key] = ConfigValue(
-                                    key=full_key,
-                                    value=var_value,
-                                    source_name=self.source_name,
-                                    raw_value=f"{var_key}={var_value}",
-                                )
+        # Convert merged config to string
+        from io import StringIO
 
-            except Exception as e:
-                log.debug("Failed to read SnowSQL config %s: %s", config_file, e)
-
-        return merged_values
+        output = StringIO()
+        merged_config.write(output)
+        return output.getvalue()
 
     def supports_key(self, key: str) -> bool:
         return key in self.discover()
@@ -208,7 +173,10 @@ class SnowSQLConfigFile(ValueSource):
 
 class CliConfigFile(ValueSource):
     """
-    CLI config.toml file source.
+    CLI config.toml file source with two-phase design.
+
+    Phase 1: Acquire content (find and read first config file)
+    Phase 2: Parse content (using TOMLParser)
 
     Scans for config.toml files in order and uses FIRST file found (CLI behavior).
     Does NOT merge multiple files - first found wins.
@@ -217,12 +185,24 @@ class CliConfigFile(ValueSource):
     Search order (when no override is set):
     1. ./config.toml (current directory)
     2. ~/.snowflake/config.toml (user config)
-
-    When config_file_override is set (e.g., in tests), only that file is used.
     """
 
-    def __init__(self):
-        """Initialize CLI config file source."""
+    def __init__(
+        self, content: Optional[str] = None, search_paths: Optional[List[Path]] = None
+    ):
+        """
+        Initialize CLI config file source.
+
+        Args:
+            content: Optional string content for testing (bypasses file I/O)
+            search_paths: Optional custom search paths
+        """
+        self._content = content
+        self._search_paths = search_paths or self._get_default_paths()
+
+    @staticmethod
+    def _get_default_paths() -> List[Path]:
+        """Get standard CLI config search paths."""
         # Check for config file override from CLI context first
         try:
             from snowflake.cli.api.cli_global_context import get_cli_context
@@ -230,30 +210,35 @@ class CliConfigFile(ValueSource):
             cli_context = get_cli_context()
             config_override = cli_context.config_file_override
             if config_override:
-                self._search_paths = [Path(config_override)]
-                return
+                return [Path(config_override)]
         except Exception:
-            pass
+            log.debug("CLI context not available, using standard config paths")
 
-        # Use SNOWFLAKE_HOME if set and directory exists, otherwise use standard paths
-        snowflake_home = os.environ.get("SNOWFLAKE_HOME")
+        # Use SNOWFLAKE_HOME if set and directory exists
+        snowflake_home = os.environ.get(SNOWFLAKE_HOME_ENV)
         if snowflake_home:
             snowflake_home_path = Path(snowflake_home).expanduser()
             if snowflake_home_path.exists():
-                # Use only config.toml within SNOWFLAKE_HOME
-                self._search_paths = [snowflake_home_path / "config.toml"]
-            else:
-                # SNOWFLAKE_HOME set but doesn't exist, use standard paths
-                self._search_paths = [
-                    Path.cwd() / "config.toml",
-                    Path.home() / ".snowflake" / "config.toml",
-                ]
-        else:
-            # Standard paths when SNOWFLAKE_HOME not set
-            self._search_paths = [
-                Path.cwd() / "config.toml",
-                Path.home() / ".snowflake" / "config.toml",
-            ]
+                return [snowflake_home_path / "config.toml"]
+
+        # Standard paths
+        return [
+            Path.cwd() / "config.toml",
+            Path.home() / ".snowflake" / "config.toml",
+        ]
+
+    @classmethod
+    def from_string(cls, content: str) -> "CliConfigFile":
+        """
+        Create source from TOML string (for testing).
+
+        Args:
+            content: TOML format configuration as string
+
+        Returns:
+            CliConfigFile instance using string content
+        """
+        return cls(content=content)
 
     @property
     def source_name(self) -> "ValueSource.SourceName":
@@ -263,60 +248,45 @@ class CliConfigFile(ValueSource):
     def source_type(self) -> SourceType:
         return SourceType.FILE
 
-    def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
+    def discover(self, key: Optional[str] = None) -> Dict[str, Any]:
         """
-        Find FIRST existing config file and use it (CLI behavior).
-        Does NOT merge multiple files.
-        Returns keys in format: connections.{name}.{param} for ALL connections.
+        Two-phase discovery: acquire content → parse.
+
+        Phase 1: Get content (from string or by reading first existing file)
+        Phase 2: Parse content using TOMLParser
+
+        Returns:
+            Nested dict structure with all TOML sections preserved
+        """
+        from snowflake.cli.api.config_ng.parsers import TOMLParser
+
+        # Phase 1: Content acquisition
+        if self._content is not None:
+            content = self._content
+        else:
+            content = self._read_first_file()
+
+        if not content:
+            return {}
+
+        # Phase 2: Parse content
+        return TOMLParser.parse(content)
+
+    def _read_first_file(self) -> str:
+        """
+        Read first existing config file.
+
+        Returns:
+            File content as string, or empty string if no file found
         """
         for config_file in self._search_paths:
             if config_file.exists():
-                return self._parse_toml_file(config_file, key)
+                try:
+                    return config_file.read_text()
+                except Exception as e:
+                    log.debug("Failed to read CLI config %s: %s", config_file, e)
 
-        return {}
-
-    def _parse_toml_file(
-        self, file_path: Path, key: Optional[str] = None
-    ) -> Dict[str, ConfigValue]:
-        """Parse TOML file and extract ALL connection configurations."""
-        try:
-            with open(file_path, "rb") as f:
-                data = tomllib.load(f)
-
-            result = {}
-
-            # Get all connections
-            connections = data.get("connections", {})
-            for conn_name, conn_data in connections.items():
-                if isinstance(conn_data, dict):
-                    # Process parameters if they exist
-                    for param_key, param_value in conn_data.items():
-                        full_key = f"connections.{conn_name}.{param_key}"
-                        if key is None or full_key == key:
-                            result[full_key] = ConfigValue(
-                                key=full_key,
-                                value=param_value,
-                                source_name=self.source_name,
-                                raw_value=param_value,
-                            )
-
-                    # For empty connections, we need to ensure they are recognized
-                    # even if they have no parameters. We add a special marker.
-                    if not conn_data:  # Empty connection section
-                        marker_key = f"connections.{conn_name}._empty_connection"
-                        if key is None or marker_key == key:
-                            result[marker_key] = ConfigValue(
-                                key=marker_key,
-                                value=True,
-                                source_name=self.source_name,
-                                raw_value=True,
-                            )
-
-            return result
-
-        except Exception as e:
-            log.debug("Failed to parse CLI config %s: %s", file_path, e)
-            return {}
+        return ""
 
     def supports_key(self, key: str) -> bool:
         return key in self.discover()
@@ -324,24 +294,60 @@ class CliConfigFile(ValueSource):
 
 class ConnectionsConfigFile(ValueSource):
     """
-    Dedicated connections.toml file source.
+    Dedicated connections.toml file source with three-phase design.
+
+    Phase 1: Acquire content (read file)
+    Phase 2: Parse content (using TOMLParser)
+    Phase 3: Normalize legacy format (connections.toml specific)
 
     Reads ~/.snowflake/connections.toml specifically.
     Returns configuration for ALL connections.
+
+    Supports both legacy formats:
+    1. Direct connection sections (legacy):
+       [default]
+       database = "value"
+
+    2. Nested under [connections] section:
+       [connections.default]
+       database = "value"
+
+    Both are normalized to nested format: {"connections": {"default": {...}}}
     """
 
-    def __init__(self):
-        """Initialize connections.toml source."""
-        # Use SNOWFLAKE_HOME if set and directory exists, otherwise use standard path
-        snowflake_home = os.environ.get("SNOWFLAKE_HOME")
+    def __init__(self, content: Optional[str] = None, file_path: Optional[Path] = None):
+        """
+        Initialize connections.toml source.
+
+        Args:
+            content: Optional string content for testing (bypasses file I/O)
+            file_path: Optional custom file path
+        """
+        self._content = content
+        self._file_path = file_path or self._get_default_path()
+
+    @staticmethod
+    def _get_default_path() -> Path:
+        """Get standard connections.toml path."""
+        snowflake_home = os.environ.get(SNOWFLAKE_HOME_ENV)
         if snowflake_home:
             snowflake_home_path = Path(snowflake_home).expanduser()
             if snowflake_home_path.exists():
-                self._file_path = snowflake_home_path / "connections.toml"
-            else:
-                self._file_path = Path.home() / ".snowflake" / "connections.toml"
-        else:
-            self._file_path = Path.home() / ".snowflake" / "connections.toml"
+                return snowflake_home_path / "connections.toml"
+        return Path.home() / ".snowflake" / "connections.toml"
+
+    @classmethod
+    def from_string(cls, content: str) -> "ConnectionsConfigFile":
+        """
+        Create source from TOML string (for testing).
+
+        Args:
+            content: TOML format configuration as string
+
+        Returns:
+            ConnectionsConfigFile instance using string content
+        """
+        return cls(content=content)
 
     @property
     def source_name(self) -> "ValueSource.SourceName":
@@ -361,111 +367,86 @@ class ConnectionsConfigFile(ValueSource):
         Return set of connection names that are defined in connections.toml.
         This is used by the resolver to implement replacement behavior.
         """
-        if not self._file_path.exists():
-            return set()
-
         try:
-            with open(self._file_path, "rb") as f:
-                data = tomllib.load(f)
-
-            connection_names = set()
-
-            # Check for direct connection sections (legacy format)
-            for section_name, section_data in data.items():
-                if isinstance(section_data, dict) and section_name != "connections":
-                    connection_names.add(section_name)
-
-            # Check for nested [connections] section format
+            data = self.discover()
             connections_section = data.get("connections", {})
             if isinstance(connections_section, dict):
-                for conn_name in connections_section.keys():
-                    connection_names.add(conn_name)
-
-            return connection_names
-
+                return set(connections_section.keys())
+            return set()
         except Exception as e:
-            log.debug("Failed to read connections.toml: %s", e)
+            log.debug("Failed to get defined connections: %s", e)
             return set()
 
-    def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
+    def discover(self, key: Optional[str] = None) -> Dict[str, Any]:
         """
-        Read connections.toml if it exists.
-        Returns keys in format: connections.{name}.{param} for ALL connections.
+        Three-phase discovery: acquire content → parse → normalize.
 
-        Supports both legacy formats:
-        1. Direct connection sections (legacy):
-           [default]
-           database = "value"
+        Phase 1: Get content (from string or file)
+        Phase 2: Parse TOML (generic parser)
+        Phase 3: Normalize legacy format (connections.toml specific)
 
-        2. Nested under [connections] section:
-           [connections.default]
-           database = "value"
+        Returns:
+            Nested dict structure: {"connections": {"conn_name": {...}}}
         """
-        if not self._file_path.exists():
-            return {}
+        from snowflake.cli.api.config_ng.parsers import TOMLParser
 
+        # Phase 1: Content acquisition
+        if self._content is not None:
+            content = self._content
+        else:
+            if not self._file_path.exists():
+                return {}
+            try:
+                content = self._file_path.read_text()
+            except Exception as e:
+                log.debug("Failed to read connections.toml: %s", e)
+                return {}
+
+        # Phase 2: Parse TOML (generic parser)
         try:
-            with open(self._file_path, "rb") as f:
-                data = tomllib.load(f)
-
-            result = {}
-
-            # Check for direct connection sections (legacy format)
-            for section_name, section_data in data.items():
-                if isinstance(section_data, dict) and section_name != "connections":
-                    # This is a direct connection section like [default]
-                    if not section_data:
-                        # Empty connection section
-                        marker_key = f"connections.{section_name}._empty_connection"
-                        if key is None or marker_key == key:
-                            result[marker_key] = ConfigValue(
-                                key=marker_key,
-                                value=True,
-                                source_name=self.source_name,
-                                raw_value=True,
-                            )
-                    else:
-                        for param_key, param_value in section_data.items():
-                            full_key = f"connections.{section_name}.{param_key}"
-                            if key is None or full_key == key:
-                                result[full_key] = ConfigValue(
-                                    key=full_key,
-                                    value=param_value,
-                                    source_name=self.source_name,
-                                    raw_value=param_value,
-                                )
-
-            # Check for nested [connections] section format
-            connections_section = data.get("connections", {})
-            if isinstance(connections_section, dict):
-                for conn_name, conn_data in connections_section.items():
-                    if isinstance(conn_data, dict):
-                        if not conn_data:
-                            # Empty connection section
-                            marker_key = f"connections.{conn_name}._empty_connection"
-                            if key is None or marker_key == key:
-                                result[marker_key] = ConfigValue(
-                                    key=marker_key,
-                                    value=True,
-                                    source_name=self.source_name,
-                                    raw_value=True,
-                                )
-                        else:
-                            for param_key, param_value in conn_data.items():
-                                full_key = f"connections.{conn_name}.{param_key}"
-                                if key is None or full_key == key:
-                                    result[full_key] = ConfigValue(
-                                        key=full_key,
-                                        value=param_value,
-                                        source_name=self.source_name,
-                                        raw_value=param_value,
-                                    )
-
-            return result
-
+            data = TOMLParser.parse(content)
         except Exception as e:
-            log.debug("Failed to read connections.toml: %s", e)
+            log.debug("Failed to parse connections.toml: %s", e)
             return {}
+
+        # Phase 3: Normalize legacy format (connections.toml specific)
+        return self._normalize_connections_format(data)
+
+    @staticmethod
+    def _normalize_connections_format(data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Normalize connections.toml format to standard structure.
+
+        Supports:
+        - Legacy: [connection_name] → {"connections": {"connection_name": {...}}}
+        - New: [connections.connection_name] → {"connections": {"connection_name": {...}}}
+
+        Args:
+            data: Parsed TOML data
+
+        Returns:
+            Normalized structure with connections under "connections" key
+        """
+        result: Dict[str, Any] = {}
+
+        # Handle direct connection sections (legacy format)
+        # Any top-level section that's not "connections" is treated as a connection
+        for section_name, section_data in data.items():
+            if isinstance(section_data, dict) and section_name != "connections":
+                if "connections" not in result:
+                    result["connections"] = {}
+                result["connections"][section_name] = section_data
+
+        # Handle nested [connections] section (new format)
+        connections_section = data.get("connections", {})
+        if isinstance(connections_section, dict) and connections_section:
+            if "connections" not in result:
+                result["connections"] = {}
+            # Merge with any legacy connections found above
+            # (nested format takes precedence if there's overlap)
+            result["connections"].update(connections_section)
+
+        return result
 
     def supports_key(self, key: str) -> bool:
         return key in self.discover()
@@ -516,30 +497,22 @@ class SnowSQLEnvironment(ValueSource):
     def source_type(self) -> SourceType:
         return SourceType.OVERLAY
 
-    def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
+    def discover(self, key: Optional[str] = None) -> Dict[str, Any]:
         """
         Discover SNOWSQL_* environment variables.
-        No connection-specific variables supported.
+        Returns flat values at root level (no connection prefix).
         """
-        values: Dict[str, ConfigValue] = {}
+        result: Dict[str, Any] = {}
 
         for env_var, config_key in self.ENV_VAR_MAPPING.items():
-            if key is not None and config_key != key:
-                continue
-
             env_value = os.getenv(env_var)
             if env_value is not None:
                 # Only set if not already set by a previous env var
                 # (e.g., SNOWSQL_ACCOUNT takes precedence over SNOWSQL_ACCOUNTNAME)
-                if config_key not in values:
-                    values[config_key] = ConfigValue(
-                        key=config_key,
-                        value=env_value,
-                        source_name=self.source_name,
-                        raw_value=env_value,
-                    )
+                if config_key not in result:
+                    result[config_key] = env_value
 
-        return values
+        return result
 
     def supports_key(self, key: str) -> bool:
         # Check if any env var for this key is set
@@ -605,14 +578,15 @@ class ConnectionSpecificEnvironment(ValueSource):
     def source_type(self) -> SourceType:
         return SourceType.OVERLAY
 
-    def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
+    def discover(self, key: Optional[str] = None) -> Dict[str, Any]:
         """
         Discover SNOWFLAKE_CONNECTIONS_* environment variables.
-        Returns connection-specific (prefixed) keys only.
+        Returns nested dict structure.
 
-        Pattern: SNOWFLAKE_CONNECTIONS_<NAME>_<KEY>=value -> connections.{name}.{key}=value
+        Pattern: SNOWFLAKE_CONNECTIONS_<NAME>_<KEY>=value
+                 -> {"connections": {"{name}": {"{key}": value}}}
         """
-        values: Dict[str, ConfigValue] = {}
+        result: Dict[str, Any] = {}
 
         # Scan all environment variables
         for env_name, env_value in os.environ.items():
@@ -639,16 +613,15 @@ class ConnectionSpecificEnvironment(ValueSource):
                 conn_name_upper, config_key = match
                 conn_name = conn_name_upper.lower()
 
-                full_key = f"connections.{conn_name}.{config_key}"
-                if key is None or full_key == key:
-                    values[full_key] = ConfigValue(
-                        key=full_key,
-                        value=env_value,
-                        source_name=self.source_name,
-                        raw_value=f"{env_name}={env_value}",
-                    )
+                # Build nested structure
+                if "connections" not in result:
+                    result["connections"] = {}
+                if conn_name not in result["connections"]:
+                    result["connections"][conn_name] = {}
 
-        return values
+                result["connections"][conn_name][config_key] = env_value
+
+        return result
 
     def supports_key(self, key: str) -> bool:
         # Check if key matches pattern connections.{name}.{param}
@@ -684,14 +657,14 @@ class CliEnvironment(ValueSource):
     def source_type(self) -> SourceType:
         return SourceType.OVERLAY
 
-    def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
+    def discover(self, key: Optional[str] = None) -> Dict[str, Any]:
         """
         Discover general SNOWFLAKE_* environment variables.
-        Returns general (flat) keys only.
+        Returns flat values at root level.
 
-        Pattern: SNOWFLAKE_<KEY>=value -> {key}=value
+        Pattern: SNOWFLAKE_<KEY>=value -> {key: value}
         """
-        values: Dict[str, ConfigValue] = {}
+        result: Dict[str, Any] = {}
 
         # Scan all environment variables
         for env_name, env_value in os.environ.items():
@@ -707,15 +680,9 @@ class CliEnvironment(ValueSource):
             config_key = config_key_upper.lower()
 
             if config_key in _ENV_CONFIG_KEYS:
-                if key is None or config_key == key:
-                    values[config_key] = ConfigValue(
-                        key=config_key,
-                        value=env_value,
-                        source_name=self.source_name,
-                        raw_value=f"{env_name}={env_value}",
-                    )
+                result[config_key] = env_value
 
-        return values
+        return result
 
     def supports_key(self, key: str) -> bool:
         # Only support flat keys (not prefixed with connections.)
@@ -757,27 +724,22 @@ class CliParameters(ValueSource):
     def source_type(self) -> SourceType:
         return SourceType.OVERLAY
 
-    def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
+    def discover(self, key: Optional[str] = None) -> Dict[str, Any]:
         """
         Extract non-None values from CLI context.
         CLI arguments are already parsed by the framework.
+        Returns flat values at root level.
         """
-        values: Dict[str, ConfigValue] = {}
+        result: Dict[str, Any] = {}
 
         for k, v in self._cli_context.items():
             # Skip None values (not provided on CLI)
             if v is None:
                 continue
 
-            if key is None or k == key:
-                values[k] = ConfigValue(
-                    key=k,
-                    value=v,
-                    source_name=self.source_name,
-                    raw_value=v,
-                )
+            result[k] = v
 
-        return values
+        return result
 
     def supports_key(self, key: str) -> bool:
         """Check if key is present in CLI context with non-None value."""

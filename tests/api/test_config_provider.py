@@ -88,34 +88,3 @@ def test_reset_provider():
     reset_config_provider()
     provider2 = get_config_provider_singleton()
     assert provider1 is not provider2
-
-
-def test_alternative_provider_has_all_required_methods():
-    """AlternativeConfigProvider should have all ConfigProvider methods implemented."""
-    provider = AlternativeConfigProvider()
-
-    # Verify all abstract methods are implemented and callable
-    # Note: These are smoke tests - comprehensive tests are in test_config_provider_integration.py
-    assert callable(provider.get_section)
-    assert callable(provider.get_value)
-    assert callable(provider.set_value)
-    assert callable(provider.unset_value)
-    assert callable(provider.section_exists)
-    assert callable(provider.read_config)
-    assert callable(provider.get_connection_dict)
-    assert callable(provider.get_all_connections)
-
-
-def test_legacy_provider_has_all_required_methods():
-    """LegacyConfigProvider should have all ConfigProvider methods implemented."""
-    provider = LegacyConfigProvider()
-
-    # Verify all abstract methods are implemented and callable
-    assert callable(provider.get_section)
-    assert callable(provider.get_value)
-    assert callable(provider.set_value)
-    assert callable(provider.unset_value)
-    assert callable(provider.section_exists)
-    assert callable(provider.read_config)
-    assert callable(provider.get_connection_dict)
-    assert callable(provider.get_all_connections)

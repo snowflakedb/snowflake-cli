@@ -127,16 +127,26 @@ class ValueSource(ABC):
         ...
 
     @abstractmethod
-    def discover(self, key: Optional[str] = None) -> Dict[str, ConfigValue]:
+    def discover(self, key: Optional[str] = None) -> Dict[str, Any]:
         """
-        Discover configuration values from this source.
+        Discover configuration values as nested dict structure.
+
+        Sources return configuration as nested dictionaries that reflect
+        the natural structure of the configuration. For example:
+            {"connections": {"prod": {"account": "val"}}}
+
+        Empty connections are represented as empty dicts:
+            {"connections": {"prod": {}}}
+
+        General parameters (not connection-specific) are at the root level:
+            {"database": "mydb", "role": "myrole"}
 
         Args:
-            key: Specific key to discover, or None to discover all values
+            key: Specific key path to discover (dot-separated), or None for all
 
         Returns:
-            Dictionary mapping configuration keys to ConfigValue objects.
-            Returns empty dict if no values found.
+            Nested dictionary of configuration values. Returns empty dict
+            if no values found.
         """
         ...
 

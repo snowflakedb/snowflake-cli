@@ -21,8 +21,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Final, Optional
 
 if TYPE_CHECKING:
-    from snowflake.cli.api.config_ng.core import ValueSource
     from snowflake.cli.api.config_ng.resolver import ConfigurationResolver
+    from snowflake.cli.api.config_ng.source_manager import SourceManager
 
 ALTERNATIVE_CONFIG_ENV_VAR: Final[str] = "SNOWFLAKE_CLI_CONFIG_V2_ENABLED"
 
@@ -222,19 +222,40 @@ class AlternativeConfigProvider(ConfigProvider):
     Maintains backward compatibility with LegacyConfigProvider output format.
     """
 
-    def __init__(self) -> None:
-        self._resolver: Optional[ConfigurationResolver] = None
+    def __init__(
+        self,
+        source_manager: Optional["SourceManager"] = None,
+        cli_context_getter: Optional[Any] = None,
+    ) -> None:
+        """
+        Initialize provider with optional dependencies for testing.
+
+        Args:
+            source_manager: Optional source manager (for testing)
+            cli_context_getter: Optional CLI context getter function (for testing)
+        """
+        self._source_manager = source_manager
+        self._cli_context_getter = (
+            cli_context_getter or self._default_cli_context_getter
+        )
+        self._resolver: Optional["ConfigurationResolver"] = None
         self._config_cache: Dict[str, Any] = {}
         self._initialized: bool = False
         self._last_config_override: Optional[Path] = None
+
+    @staticmethod
+    def _default_cli_context_getter():
+        """Default implementation that accesses global CLI context."""
+        from snowflake.cli.api.cli_global_context import get_cli_context
+
+        return get_cli_context()
 
     def _ensure_initialized(self) -> None:
         """Lazily initialize the resolver on first use."""
         # Check if config_file_override has changed
         try:
-            from snowflake.cli.api.cli_global_context import get_cli_context
-
-            current_override = get_cli_context().config_file_override
+            cli_context = self._cli_context_getter()
+            current_override = cli_context.config_file_override
 
             # If override changed, force re-initialization
             if current_override != self._last_config_override:
@@ -247,120 +268,78 @@ class AlternativeConfigProvider(ConfigProvider):
         if self._initialized:
             return
 
-        from snowflake.cli.api.cli_global_context import get_cli_context
-        from snowflake.cli.api.config_ng import (
-            CliConfigFile,
-            CliEnvironment,
-            CliParameters,
-            ConfigurationResolver,
-            ConnectionsConfigFile,
-            ConnectionSpecificEnvironment,
-            SnowSQLConfigFile,
-            SnowSQLEnvironment,
-        )
+        from snowflake.cli.api.config_ng import ConfigurationResolver
+        from snowflake.cli.api.config_ng.source_factory import create_default_sources
+        from snowflake.cli.api.config_ng.source_manager import SourceManager
 
-        # Get CLI context safely
+        # Get CLI context
         try:
-            cli_context = get_cli_context().connection_context
-            cli_context_dict = cli_context.present_values_as_dict()
+            cli_context = self._cli_context_getter()
+            cli_context_dict = cli_context.connection_context.present_values_as_dict()
         except Exception:
             cli_context_dict = {}
 
-        # Create sources in precedence order (lowest to highest priority)
-        # File sources return keys: connections.{name}.{param}
-        # Env/CLI sources return flat keys: account, user, etc.
+        # Create or use provided source manager
+        if self._source_manager is None:
+            sources = create_default_sources(cli_context_dict)
+            self._source_manager = SourceManager(sources)
 
-        sources = [
-            # 1. SnowSQL config files (lowest priority, merged)
-            SnowSQLConfigFile(),
-            # 2. CLI config.toml (first-found behavior)
-            CliConfigFile(),
-            # 3. Dedicated connections.toml
-            ConnectionsConfigFile(),
-            # 4. SnowSQL environment variables (SNOWSQL_*)
-            SnowSQLEnvironment(),
-            # 5. Connection-specific environment variables (SNOWFLAKE_CONNECTIONS_*)
-            ConnectionSpecificEnvironment(),
-            # 6. General CLI environment variables (SNOWFLAKE_*)
-            CliEnvironment(),
-            # 7. CLI command-line arguments (highest priority)
-            CliParameters(cli_context=cli_context_dict),
-        ]
+        # Create resolver
+        self._resolver = ConfigurationResolver(
+            sources=self._source_manager.get_sources()
+        )
 
-        # Create resolver with all sources in order
-        self._resolver = ConfigurationResolver(sources=sources)
+        # Initialize cache (resolver returns nested dict)
+        if not self._config_cache:
+            self._config_cache = self._resolver.resolve()
 
         self._initialized = True
 
     def read_config(self) -> None:
         """
         Load configuration from all sources.
-        For config_ng, this means (re)initializing the resolver.
+        Resolver returns nested dict structure.
         """
         self._initialized = False
         self._config_cache.clear()
-        self._last_config_override = None  # Reset cached override to force re-check
+        self._last_config_override = None
         self._ensure_initialized()
 
-        # Resolve all configuration to populate cache
+        # Resolver returns nested dict
         assert self._resolver is not None
         self._config_cache = self._resolver.resolve()
 
     def get_section(self, *path) -> dict:
         """
-        Get configuration section at specified path.
+        Navigate nested dict to get configuration section.
 
         Args:
-            *path: Section path (e.g., "connections", "my_conn")
+            *path: Section path components (e.g., "connections", "prod")
 
         Returns:
             Dictionary of section contents
+
+        Example:
+            Cache: {"connections": {"prod": {"account": "val"}}}
+            get_section("connections", "prod") -> {"account": "val"}
         """
         self._ensure_initialized()
 
-        if not self._config_cache:
-            assert self._resolver is not None
-            self._config_cache = self._resolver.resolve()
-
-        # Navigate through path to find section
         if not path:
             return self._config_cache
 
-        # For connections section, return all connections as nested dicts
-        if len(path) == 1 and path[0] == "connections":
-            return self._get_all_connections_dict()
+        # Navigate nested structure
+        result = self._config_cache
+        for part in path:
+            if not isinstance(result, dict) or part not in result:
+                return {}
+            result = result[part]
 
-        # For specific connection, return connection dict
-        if len(path) == 2 and path[0] == "connections":
-            connection_name = path[1]
-            return self._get_connection_dict_internal(connection_name)
-
-        # For variables section, return all variables as flat dict
-        if len(path) == 1 and path[0] == "variables":
-            result = {}
-            for key, value in self._config_cache.items():
-                if key.startswith("variables."):
-                    var_name = key[len("variables.") :]
-                    result[var_name] = value
-            return result
-
-        # For other sections, try to resolve with path prefix
-        section_prefix = ".".join(path)
-        result = {}
-        for key, value in self._config_cache.items():
-            if key.startswith(section_prefix + "."):
-                # Strip prefix to get relative key
-                relative_key = key[len(section_prefix) + 1 :]
-                result[relative_key] = value
-            elif key == section_prefix:
-                # Exact match for section itself
-                return value if isinstance(value, dict) else {section_prefix: value}
-
-        return result
+        return result if isinstance(result, dict) else {}
 
     def get_value(self, *path, key: str, default: Optional[Any] = None) -> Any:
         """
-        Get single configuration value at path + key.
+        Get single configuration value by navigating nested dict.
 
         Args:
             *path: Path to section
@@ -372,19 +351,9 @@ class AlternativeConfigProvider(ConfigProvider):
         """
         self._ensure_initialized()
 
-        if not self._config_cache:
-            assert self._resolver is not None
-            self._config_cache = self._resolver.resolve()
-
-        # Build full key from path and key
-        if path:
-            full_key = ".".join(path) + "." + key
-        else:
-            full_key = key
-
-        # Try to resolve the value
-        value = self._config_cache.get(full_key, default)
-        return value
+        # Navigate to section, then get key
+        section = self.get_section(*path)
+        return section.get(key, default)
 
     def set_value(self, path: list[str], value: Any) -> None:
         """
@@ -416,130 +385,57 @@ class AlternativeConfigProvider(ConfigProvider):
 
     def section_exists(self, *path) -> bool:
         """
-        Check if configuration section exists.
+        Check if configuration section exists by navigating nested dict.
 
         Args:
             *path: Section path
 
         Returns:
-            True if section exists and has values
+            True if section exists
         """
         self._ensure_initialized()
-
-        if not self._config_cache:
-            assert self._resolver is not None
-            self._config_cache = self._resolver.resolve()
 
         if not path:
             return True
 
-        section_prefix = ".".join(path)
-        # Check if any key starts with this prefix
-        return any(
-            key == section_prefix or key.startswith(section_prefix + ".")
-            for key in self._config_cache.keys()
-        )
+        # Navigate nested structure
+        result = self._config_cache
+        for part in path:
+            if not isinstance(result, dict) or part not in result:
+                return False
+            result = result[part]
 
-    # Source priority levels (higher number = higher priority)
-    _SOURCE_PRIORITIES: Final[dict["ValueSource.SourceName", int]] = {
-        "snowsql_config": 1,
-        "cli_config_toml": 2,
-        "connections_toml": 3,
-        "snowsql_env": 4,
-        "connection_specific_env": 5,
-        "cli_env": 6,
-        "cli_arguments": 7,
-    }
+        return True
 
     def _get_connection_dict_internal(self, connection_name: str) -> Dict[str, Any]:
         """
-        Get connection configuration by name.
+        Get connection configuration by navigating nested dict.
 
-        Merges configuration from all sources (files and environment variables)
-        based on the 7-level precedence order. For each parameter, the value
-        from the highest-priority source wins.
+        Note: The resolver already merged general params into each connection
+        during the OVERLAY phase, so we just return the connection dict directly.
 
         Args:
             connection_name: Name of the connection
 
         Returns:
-            Dictionary of connection parameters with all sources merged
+            Dictionary of connection parameters
         """
+        from snowflake.cli.api.exceptions import MissingConfigurationError
+
         self._ensure_initialized()
 
-        if not self._config_cache:
-            assert self._resolver is not None
-            self._config_cache = self._resolver.resolve()
+        # Get connection from nested dict
+        connections = self._config_cache.get("connections", {})
+        if connection_name in connections and isinstance(
+            connections[connection_name], dict
+        ):
+            result = connections[connection_name]
+            if result:
+                return result
 
-        connection_dict: Dict[str, Any] = {}
-        connection_prefix = f"connections.{connection_name}."
-
-        # Collect all parameter names from both prefixed and flat keys
-        param_names = set()
-
-        # Get param names from prefixed keys (file sources, connection-specific env)
-        for key in self._config_cache.keys():
-            if key.startswith(connection_prefix):
-                param_name = key[len(connection_prefix) :]
-                param_names.add(param_name)
-
-        # Get param names from flat keys (general env vars, SnowSQL env, CLI params)
-        # Skip internal CLI arguments and global settings that aren't connection parameters
-        for key in self._config_cache.keys():
-            if "." not in key and key not in (
-                "enable_diag",
-                "temporary_connection",
-                "default_connection_name",
-                "connection_name",
-                "diag_log_path",
-                "diag_allowlist_path",
-                "mfa_passcode",
-            ):
-                param_names.add(key)
-
-        # For each parameter, determine the best value based on source priority
-        for param_name in param_names:
-            prefixed_key = f"{connection_prefix}{param_name}"
-            flat_key = param_name
-
-            best_value = None
-            best_priority = -1
-
-            # Check prefixed key (from files and connection-specific env)
-            if prefixed_key in self._config_cache:
-                value = self._config_cache[prefixed_key]
-                if self._resolver is not None:
-                    history = self._resolver.get_resolution_history(prefixed_key)
-                    if history and history.selected_entry:
-                        source = history.selected_entry.config_value.source_name
-                        priority = self._SOURCE_PRIORITIES.get(source, 0)
-                        if priority > best_priority:
-                            best_value = value
-                            best_priority = priority
-
-            # Check flat key (from general env vars, SnowSQL env, CLI params)
-            if flat_key in self._config_cache:
-                value = self._config_cache[flat_key]
-                if self._resolver is not None:
-                    history = self._resolver.get_resolution_history(flat_key)
-                    if history and history.selected_entry:
-                        source = history.selected_entry.config_value.source_name
-                        priority = self._SOURCE_PRIORITIES.get(source, 0)
-                        if priority > best_priority:
-                            best_value = value
-                            best_priority = priority
-
-            if best_value is not None:
-                connection_dict[param_name] = best_value
-
-        if not connection_dict:
-            from snowflake.cli.api.exceptions import MissingConfigurationError
-
-            raise MissingConfigurationError(
-                f"Connection {connection_name} is not configured"
-            )
-
-        return connection_dict
+        raise MissingConfigurationError(
+            f"Connection {connection_name} is not configured"
+        )
 
     def get_connection_dict(self, connection_name: str) -> dict:
         """
@@ -556,38 +452,15 @@ class AlternativeConfigProvider(ConfigProvider):
 
     def _get_all_connections_dict(self) -> Dict[str, Dict[str, Any]]:
         """
-        Get all connection configurations as nested dictionary.
+        Get all connections from nested dict.
 
         Returns:
             Dictionary mapping connection names to their configurations
         """
         self._ensure_initialized()
 
-        if not self._config_cache:
-            assert self._resolver is not None
-            self._config_cache = self._resolver.resolve()
-
-        connections: Dict[str, Dict[str, Any]] = {}
-        connections_prefix = "connections."
-
-        for key, value in self._config_cache.items():
-            if key.startswith(connections_prefix):
-                # Parse "connections.{name}.{param}"
-                parts = key[len(connections_prefix) :].split(".", 1)
-                if len(parts) == 2:
-                    conn_name, param_name = parts
-                    if conn_name not in connections:
-                        connections[conn_name] = {}
-
-                    # Skip internal markers, but ensure connection exists
-                    if param_name == "_empty_connection":
-                        # This is just a marker for empty connections
-                        # Connection dict already created above
-                        continue
-
-                    connections[conn_name][param_name] = value
-
-        return connections
+        connections = self._config_cache.get("connections", {})
+        return connections if isinstance(connections, dict) else {}
 
     def get_all_connections(self, include_env_connections: bool = False) -> dict:
         """
@@ -625,33 +498,23 @@ class AlternativeConfigProvider(ConfigProvider):
             Dictionary mapping connection names to ConnectionConfig objects
         """
         from snowflake.cli.api.config import ConnectionConfig
+        from snowflake.cli.api.config_ng.constants import FILE_SOURCE_NAMES
 
         self._ensure_initialized()
 
-        # Only query file sources: SnowSQL config, CLI config.toml, connections.toml
-        file_source_names = {"snowsql_config", "cli_config_toml", "connections_toml"}
-
         connections: Dict[str, Dict[str, Any]] = {}
-        connections_prefix = "connections."
 
         assert self._resolver is not None
         for source in self._resolver.get_sources():
-            if source.source_name not in file_source_names:
+            if source.source_name not in FILE_SOURCE_NAMES:
                 continue
 
             try:
-                source_values = source.discover()
-                for key, config_value in source_values.items():
-                    if key.startswith(connections_prefix):
-                        parts = key[len(connections_prefix) :].split(".", 1)
-                        if len(parts) == 2:
-                            conn_name, param_name = parts
-                            if conn_name not in connections:
-                                connections[conn_name] = {}
-
-                            # Skip internal markers
-                            if param_name != "_empty_connection":
-                                connections[conn_name][param_name] = config_value.value
+                source_data = source.discover()  # Returns nested dict
+                if "connections" in source_data:
+                    for conn_name, conn_config in source_data["connections"].items():
+                        if isinstance(conn_config, dict):
+                            connections[conn_name] = conn_config
             except Exception:
                 # Silently skip sources that fail to discover
                 pass
