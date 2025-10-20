@@ -24,6 +24,11 @@ This package implements a simple, extensible configuration system with:
 - Read-only, immutable configuration sources
 """
 
+from snowflake.cli.api.config_ng.constants import (
+    FILE_SOURCE_NAMES,
+    INTERNAL_CLI_PARAMETERS,
+    ConfigSection,
+)
 from snowflake.cli.api.config_ng.core import (
     ConfigValue,
     ResolutionEntry,
@@ -31,6 +36,13 @@ from snowflake.cli.api.config_ng.core import (
     SourceType,
     ValueSource,
 )
+from snowflake.cli.api.config_ng.dict_utils import deep_merge
+from snowflake.cli.api.config_ng.merge_operations import (
+    create_default_connection_from_params,
+    extract_root_level_connection_params,
+    merge_params_into_connections,
+)
+from snowflake.cli.api.config_ng.parsers import SnowSQLParser, TOMLParser
 from snowflake.cli.api.config_ng.presentation import ResolutionPresenter
 from snowflake.cli.api.config_ng.resolution_logger import (
     check_value_source,
@@ -47,6 +59,8 @@ from snowflake.cli.api.config_ng.resolver import (
     ConfigurationResolver,
     ResolutionHistoryTracker,
 )
+from snowflake.cli.api.config_ng.source_factory import create_default_sources
+from snowflake.cli.api.config_ng.source_manager import SourceManager
 from snowflake.cli.api.config_ng.sources import (
     CliConfigFile,
     CliEnvironment,
@@ -64,17 +78,25 @@ __all__ = [
     "CliConfigFile",
     "CliEnvironment",
     "CliParameters",
+    "ConfigSection",
     "ConfigurationResolver",
     "ConfigValue",
     "ConnectionsConfigFile",
     "ConnectionSpecificEnvironment",
+    "create_default_connection_from_params",
+    "create_default_sources",
+    "deep_merge",
     "explain_configuration",
     "export_resolution_history",
+    "extract_root_level_connection_params",
+    "FILE_SOURCE_NAMES",
     "format_summary_for_display",
     "get_merged_variables",
     "get_resolution_summary",
     "get_resolver",
+    "INTERNAL_CLI_PARAMETERS",
     "is_resolution_logging_available",
+    "merge_params_into_connections",
     "ResolutionEntry",
     "ResolutionHistory",
     "ResolutionHistoryTracker",
@@ -83,7 +105,10 @@ __all__ = [
     "show_resolution_chain",
     "SnowSQLConfigFile",
     "SnowSQLEnvironment",
+    "SnowSQLParser",
     "SnowSQLSection",
+    "SourceManager",
     "SourceType",
+    "TOMLParser",
     "ValueSource",
 ]
