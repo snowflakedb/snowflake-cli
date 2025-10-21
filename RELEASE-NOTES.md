@@ -22,7 +22,7 @@
 * Added global option `--decimal-precision` allowing setting arbitrary precision for Python's `Decimal` type.
 
 ## Fixes and improvements
-* Bumped `snowflake-connector-python==3.17.4`
+* Bumped `snowflake-connector-python==3.18.0`
 * Grant privileges defined in `snowflake.yml` after deploying Streamlit
 
 
