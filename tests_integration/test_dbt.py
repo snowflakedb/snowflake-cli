@@ -331,6 +331,15 @@ def test_deploy_with_default_target(
 
         _setup_dbt_profile(root_dir, snowflake_session)
 
+        result = runner.invoke_with_connection(
+            [
+                "sql",
+                "-q",
+                f"create schema if not exists {snowflake_session.schema}_PROD",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
         result = runner.invoke_with_connection_json(
             ["dbt", "deploy", name, "--default-target", "prod"]
         )
@@ -564,8 +573,10 @@ def test_deploy_project_with_local_deps(
             [
                 "sql",
                 "-q",
-                f"select name from {snowflake_session.database}.{snowflake_session.schema}.my_first_dbt_model;",
+                f"select uppercase_name from {snowflake_session.database}.{snowflake_session.schema}.first_model_with_local;",
             ]
         )
         assert result.exit_code == 0, result.output
-        assert all(map(lambda x: x["NAME"].isupper(), result.json)), result.json
+        assert all(
+            map(lambda x: x["UPPERCASE_NAME"].isupper(), result.json)
+        ), result.json
