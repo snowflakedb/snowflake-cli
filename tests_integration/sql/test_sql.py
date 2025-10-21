@@ -118,10 +118,12 @@ def test_multi_input_from_stdin(runner, test_root_path):
         input="select 1, 2, 3 union select 4, 5, 6; select 42",
     )
     assert result.exit_code == 0
-    assert result.json == [
-        [{"1": 1, "2": 2, "3": 3}, {"1": 4, "2": 5, "3": 6}],
-        [{"42": 42}],
+    assert len(result.json) == 2
+    assert sorted(result.json[0], key=lambda x: x["1"]) == [
+        {"1": 1, "2": 2, "3": 3},
+        {"1": 4, "2": 5, "3": 6},
     ]
+    assert result.json[1] == [{"42": 42}]
 
 
 def _round_values(results):
