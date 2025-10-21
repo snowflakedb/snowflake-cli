@@ -188,6 +188,60 @@ class TestDeploy:
         expected_query = f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}\nEXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration, dbt_hub_integration)"
         mock_execute_query.assert_called_once_with(expected_query)
 
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_with_only_local_deps(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        manager = DBTManager()
+
+        manager.deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            external_access_integrations=None,
+            install_local_deps=True,
+        )
+
+        expected_query = f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()}\nEXTERNAL_ACCESS_INTEGRATIONS = ()"
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_with_local_and_external_deps(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        manager = DBTManager()
+
+        manager.deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            external_access_integrations=["github_integration"],
+            install_local_deps=True,
+        )
+
+        expected_query = f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()}\nEXTERNAL_ACCESS_INTEGRATIONS = (github_integration)"
+        mock_execute_query.assert_called_once_with(expected_query)
+
     def test_deploy_raises_when_dbt_project_yml_is_not_available(
         self, dbt_project_path
     ):
