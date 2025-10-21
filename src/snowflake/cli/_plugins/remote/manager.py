@@ -1071,4 +1071,4 @@ class RemoteManager(SqlExecutionMixin):
             This permanently deletes the service and all associated data.
         """
         service_name = self._resolve_service_name(name_input)
-        return self.execute_query(f"DROP SERVICE {service_name}")
+        return self.execute_query(f"DROP SERVICE {service_name} FORCE")
