@@ -150,5 +150,5 @@ def test_skips_disabled_processors(test_proj_def, test_compiler):
     test_compiler = NativeAppCompiler(_get_bundle_context(pkg_model))
     test_compiler.register(AcmeProcessor)
 
-    # TestProcessor is never invoked, otherwise calling its methods will make the test fail
+    # AcmeProcessor is never invoked, otherwise calling its methods will make the test fail
     test_compiler.compile_artifacts()
