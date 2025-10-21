@@ -181,7 +181,7 @@ def package_create(
         if download_result.anaconda_packages:
             message += dedent(
                 f"""
-                The package {name} is successfully created, but depend on the following
+                The package {name} is successfully created, but depends on the following
                 Anaconda libraries. They need to be included in project requirements,
                 as they are not included in the .zip.
                 """
