@@ -72,6 +72,10 @@ from snowflake.cli.api.config_ng.sources import (
     SnowSQLSection,
     get_merged_variables,
 )
+from snowflake.cli.api.config_ng.telemetry_integration import (
+    get_config_telemetry_payload,
+    record_config_source_usage,
+)
 
 __all__ = [
     "check_value_source",
@@ -91,12 +95,14 @@ __all__ = [
     "extract_root_level_connection_params",
     "FILE_SOURCE_NAMES",
     "format_summary_for_display",
+    "get_config_telemetry_payload",
     "get_merged_variables",
     "get_resolution_summary",
     "get_resolver",
     "INTERNAL_CLI_PARAMETERS",
     "is_resolution_logging_available",
     "merge_params_into_connections",
+    "record_config_source_usage",
     "ResolutionEntry",
     "ResolutionHistory",
     "ResolutionHistoryTracker",
