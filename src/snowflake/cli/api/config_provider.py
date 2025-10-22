@@ -293,7 +293,25 @@ class AlternativeConfigProvider(ConfigProvider):
         if not self._config_cache:
             self._config_cache = self._resolver.resolve()
 
+        # Record telemetry about config sources used
+        self._record_config_telemetry()
+
         self._initialized = True
+
+    def _record_config_telemetry(self) -> None:
+        """Record configuration source usage to telemetry system."""
+        if self._resolver is None:
+            return
+
+        try:
+            from snowflake.cli.api.config_ng.telemetry_integration import (
+                record_config_source_usage,
+            )
+
+            record_config_source_usage(self._resolver)
+        except Exception:
+            # Don't break initialization if telemetry fails
+            pass
 
     def read_config(self) -> None:
         """

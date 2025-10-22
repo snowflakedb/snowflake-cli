@@ -76,6 +76,28 @@ class CLICounterField:
     EVENT_SHARING_ERROR = (
         f"{_TypePrefix.FEATURES}.{_DomainPrefix.APP}.event_sharing_error"
     )
+    # Config source usage tracking
+    CONFIG_SOURCE_SNOWSQL = (
+        f"{_TypePrefix.FEATURES}.{_DomainPrefix.GLOBAL}.config_source_snowsql"
+    )
+    CONFIG_SOURCE_CLI_TOML = (
+        f"{_TypePrefix.FEATURES}.{_DomainPrefix.GLOBAL}.config_source_cli_toml"
+    )
+    CONFIG_SOURCE_CONNECTIONS_TOML = (
+        f"{_TypePrefix.FEATURES}.{_DomainPrefix.GLOBAL}.config_source_connections_toml"
+    )
+    CONFIG_SOURCE_SNOWSQL_ENV = (
+        f"{_TypePrefix.FEATURES}.{_DomainPrefix.GLOBAL}.config_source_snowsql_env"
+    )
+    CONFIG_SOURCE_CONNECTION_ENV = (
+        f"{_TypePrefix.FEATURES}.{_DomainPrefix.GLOBAL}.config_source_connection_env"
+    )
+    CONFIG_SOURCE_CLI_ENV = (
+        f"{_TypePrefix.FEATURES}.{_DomainPrefix.GLOBAL}.config_source_cli_env"
+    )
+    CONFIG_SOURCE_CLI_ARGS = (
+        f"{_TypePrefix.FEATURES}.{_DomainPrefix.GLOBAL}.config_source_cli_args"
+    )
 
 
 @dataclass

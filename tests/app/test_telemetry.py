@@ -19,6 +19,10 @@ from unittest import mock
 import pytest
 import typer
 from click import ClickException
+from snowflake.cli.api.config_provider import (
+    ALTERNATIVE_CONFIG_ENV_VAR,
+    reset_config_provider,
+)
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import CouldNotUseObjectError
 from snowflake.cli.api.feature_flags import BooleanFlag, FeatureFlagMixin
@@ -41,52 +45,122 @@ class _TestFlags(FeatureFlagMixin):
 @mock.patch("snowflake.connector.connect")
 @mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
 @with_feature_flags({_TestFlags.FOO: False})
-def test_executing_command_sends_telemetry_usage_data(
+def test_executing_command_sends_telemetry_usage_data_legacy_config(
     _, mock_conn, mock_time, mock_uuid4, mock_platform, mock_version, runner
 ):
-    mock_time.return_value = "123"
-    mock_platform.return_value = "FancyOS"
-    mock_version.return_value = "2.3.4"
-    mock_uuid4.return_value = uuid.UUID("8a2225b3800c4017a4a9eab941db58fa")
-    result = runner.invoke(["connection", "test"], catch_exceptions=False)
-    assert result.exit_code == 0, result.output
-    # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
-    usage_command_event = (
-        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
-            0
-        ]
-        .args[0]
-        .to_dict()
-    )
+    """Test telemetry with legacy config provider."""
+    # Ensure legacy config is used
+    with mock.patch.dict(os.environ, {}, clear=False):
+        if ALTERNATIVE_CONFIG_ENV_VAR in os.environ:
+            del os.environ[ALTERNATIVE_CONFIG_ENV_VAR]
+        reset_config_provider()
 
-    del usage_command_event["message"][
-        "command_ci_environment"
-    ]  # to avoid side effect from CI
-    assert usage_command_event == {
-        "message": {
-            "driver_type": "PythonConnector",
-            "driver_version": ".".join(str(s) for s in DRIVER_VERSION[:3]),
-            "source": "snowcli",
-            "version_cli": "0.0.0-test_patched",
-            "version_os": "FancyOS",
-            "version_python": "2.3.4",
-            "installation_source": "pypi",
-            "command": ["connection", "test"],
-            "command_group": "connection",
-            "command_execution_id": "8a2225b3800c4017a4a9eab941db58fa",
-            "command_flags": {"diag_log_path": "DEFAULT", "format": "DEFAULT"},
-            "command_output_type": "TABLE",
-            "type": "executing_command",
-            "project_definition_version": "None",
-            "config_feature_flags": {
-                "dummy_flag": "True",
-                "foo": "False",
-                "wrong_type_flag": "UNKNOWN",
+        mock_time.return_value = "123"
+        mock_platform.return_value = "FancyOS"
+        mock_version.return_value = "2.3.4"
+        mock_uuid4.return_value = uuid.UUID("8a2225b3800c4017a4a9eab941db58fa")
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+        assert result.exit_code == 0, result.output
+        # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
+        usage_command_event = (
+            mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+                0
+            ]
+            .args[0]
+            .to_dict()
+        )
+
+        del usage_command_event["message"][
+            "command_ci_environment"
+        ]  # to avoid side effect from CI
+        assert usage_command_event == {
+            "message": {
+                "driver_type": "PythonConnector",
+                "driver_version": ".".join(str(s) for s in DRIVER_VERSION[:3]),
+                "source": "snowcli",
+                "version_cli": "0.0.0-test_patched",
+                "version_os": "FancyOS",
+                "version_python": "2.3.4",
+                "installation_source": "pypi",
+                "command": ["connection", "test"],
+                "command_group": "connection",
+                "command_execution_id": "8a2225b3800c4017a4a9eab941db58fa",
+                "command_flags": {"diag_log_path": "DEFAULT", "format": "DEFAULT"},
+                "command_output_type": "TABLE",
+                "type": "executing_command",
+                "project_definition_version": "None",
+                "config_feature_flags": {
+                    "dummy_flag": "True",
+                    "foo": "False",
+                    "wrong_type_flag": "UNKNOWN",
+                },
+                "config_provider_type": "legacy",
+                "mode": "cmd",
             },
-            "mode": "cmd",
-        },
-        "timestamp": "123",
-    }
+            "timestamp": "123",
+        }
+
+
+@mock.patch(
+    "snowflake.cli._app.telemetry.python_version",
+)
+@mock.patch("snowflake.cli._app.telemetry.platform.platform")
+@mock.patch("uuid.uuid4")
+@mock.patch("snowflake.cli._app.telemetry.get_time_millis")
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+@with_feature_flags({_TestFlags.FOO: False})
+def test_executing_command_sends_telemetry_usage_data_ng_config(
+    _, mock_conn, mock_time, mock_uuid4, mock_platform, mock_version, runner
+):
+    """Test telemetry with NG config provider."""
+    # Enable NG config
+    with mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "true"}):
+        reset_config_provider()
+
+        mock_time.return_value = "123"
+        mock_platform.return_value = "FancyOS"
+        mock_version.return_value = "2.3.4"
+        mock_uuid4.return_value = uuid.UUID("8a2225b3800c4017a4a9eab941db58fa")
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+        assert result.exit_code == 0, result.output
+
+        # The method is called with a TelemetryData type, so we cast it to dict for simpler comparison
+        usage_command_event = (
+            mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+                0
+            ]
+            .args[0]
+            .to_dict()
+        )
+
+        del usage_command_event["message"][
+            "command_ci_environment"
+        ]  # to avoid side effect from CI
+
+        # Verify common fields
+        message = usage_command_event["message"]
+        assert message["driver_type"] == "PythonConnector"
+        assert message["source"] == "snowcli"
+        assert message["version_cli"] == "0.0.0-test_patched"
+        assert message["version_os"] == "FancyOS"
+        assert message["version_python"] == "2.3.4"
+        assert message["command"] == ["connection", "test"]
+        assert message["command_group"] == "connection"
+        assert message["type"] == "executing_command"
+        assert message["config_provider_type"] == "ng"
+
+        # Verify NG-specific config fields are present
+        assert "config_sources_used" in message
+        assert "config_source_wins" in message
+        assert "config_total_keys_resolved" in message
+        assert "config_keys_with_overrides" in message
+
+        # These fields should be present (values will vary based on test config)
+        assert isinstance(message["config_sources_used"], list)
+        assert isinstance(message["config_source_wins"], dict)
+        assert isinstance(message["config_total_keys_resolved"], int)
+        assert isinstance(message["config_keys_with_overrides"], int)
 
 
 @pytest.mark.parametrize(
