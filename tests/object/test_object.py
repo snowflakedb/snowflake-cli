@@ -285,3 +285,53 @@ def test_replace_and_not_exists_cannot_be_used_together(runner, os_agnostic_snap
     )
     assert result.exit_code == 2, result.output
     assert result.output == os_agnostic_snapshot
+
+
+@mock.patch("snowflake.cli._plugins.object.manager.ObjectManager.execute_query")
+@pytest.mark.parametrize(
+    "terse, limit, expected_query",
+    [
+        (True, None, "show terse tables like '%%'"),
+        (False, 10, "show tables like '%%' limit 10"),
+        (False, 5, "show tables like '%%' limit 5"),
+        (True, 10, "show terse tables like '%%' limit 10"),
+    ],
+)
+def test_show_with_terse_and_limit_options(
+    mock_execute_query, terse, limit, expected_query, mock_cursor
+):
+    """Test TERSE and LIMIT functionality in ObjectManager.show method."""
+    from snowflake.cli._plugins.object.manager import ObjectManager
+
+    mock_execute_query.return_value = mock_cursor(["row"], [])
+
+    # Test ObjectManager.show method directly
+    manager = ObjectManager()
+    manager.show(
+        object_type="table",
+        like="%%",
+        terse=terse,
+        limit=limit,
+    )
+
+    mock_execute_query.assert_called_once_with(expected_query)
+
+
+@mock.patch("snowflake.cli._plugins.object.manager.ObjectManager.execute_query")
+def test_show_with_all_options_combined(mock_execute_query, mock_cursor):
+    """Test ObjectManager.show with all options (like, scope, terse, limit) combined."""
+    from snowflake.cli._plugins.object.manager import ObjectManager
+
+    mock_execute_query.return_value = mock_cursor(["row"], [])
+
+    manager = ObjectManager()
+    manager.show(
+        object_type="table",
+        like="test%",
+        scope=("database", "my_db"),
+        terse=True,
+        limit=25,
+    )
+
+    expected_query = "show terse tables like 'test%' in database my_db limit 25"
+    mock_execute_query.assert_called_once_with(expected_query)

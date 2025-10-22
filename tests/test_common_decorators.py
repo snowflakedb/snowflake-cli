@@ -25,6 +25,7 @@ _KNOWN_SIG_GLOBAL_PARAMETERS = [
     "debug",
     "silent",
     "enhanced_exit_codes",
+    "decimal_precision",
 ]
 _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "connection",
@@ -34,6 +35,7 @@ _KNOWN_SIG_GLOBAL_PARAMETERS_WITH_CONNECTION = [
     "user",
     "password",
     "authenticator",
+    "workload_identity_provider",
     "private_key_file",
     "session_token",
     "master_token",

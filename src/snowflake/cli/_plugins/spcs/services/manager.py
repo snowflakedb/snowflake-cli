@@ -318,11 +318,12 @@ class ServiceManager(SqlExecutionMixin):
 
                 if new_log_records:
                     dedup_log_records = new_logs_only(prev_log_records, new_log_records)
-                    for log in dedup_log_records:
-                        yield filter_log_timestamp(log, include_timestamps)
+                    if dedup_log_records:
+                        for log in dedup_log_records:
+                            yield filter_log_timestamp(log, include_timestamps)
 
-                    prev_timestamp = dedup_log_records[-1].split(" ", 1)[0]
-                    prev_log_records = dedup_log_records
+                        prev_timestamp = dedup_log_records[-1].split(" ", 1)[0]
+                        prev_log_records = dedup_log_records
 
                 time.sleep(interval_seconds)
 

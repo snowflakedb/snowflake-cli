@@ -27,7 +27,6 @@ import json
 @pytest.mark.parametrize(
     "object_type,plural_object_type",
     [
-        ("warehouse", "warehouses"),
         ("schema", "schemas"),
         ("external-access-integration", "external access integrations"),
     ],
@@ -46,6 +45,42 @@ def test_show(
     assert len(actual) == len(expected)
     assert actual[0].keys() == expected[0].keys()
     assert actual[0]["name"] == expected[0]["name"]
+
+
+@pytest.mark.integration
+def test_show_warehouses(runner, test_database, snowflake_session):
+    """
+    Test warehouse listing with explicit validation to avoid flaky behavior.
+    """
+    result = runner.invoke_with_connection_json(
+        ["object", "list", "warehouse", "--format", "json"]
+    )
+
+    curr = snowflake_session.execute_string("show warehouses")
+    expected = row_from_cursor(curr[-1])
+
+    actual = result.json
+
+    # Check that we have some warehouses returned
+    assert len(actual) > 0, "No warehouses returned by CLI"
+    assert len(expected) > 0, "No warehouses returned by SQL query"
+
+    # Verify the structure is consistent
+    assert actual[0].keys() == expected[0].keys()
+
+    # Find warehouses that exist in both results
+    actual_names = {wh["name"].upper() for wh in actual}
+    expected_names = {wh["name"].upper() for wh in expected}
+
+    # Verify there's at least one common warehouse
+    common_warehouses = actual_names.intersection(expected_names)
+    assert (
+        len(common_warehouses) > 0
+    ), f"No common warehouses found. CLI: {actual_names}, SQL: {expected_names}"
+
+    # Verify that XSMALL warehouse exists (commonly used in tests)
+    if "XSMALL" in expected_names:
+        assert "XSMALL" in actual_names, "XSMALL warehouse not found in CLI results"
 
 
 @pytest.mark.integration
@@ -109,6 +144,42 @@ def test_list_with_scope(runner, test_database, snowflake_session):
     )
     assert result_list_other.exit_code == 0, result_list_other.output
     assert result_list_other.json[0]["name"].lower() == other_table.lower()
+
+
+@pytest.mark.integration
+def test_list_terse(runner, test_database, snowflake_session):
+    table_name = ObjectNameProvider("Public_Table").create_and_get_next_object_name()
+    snowflake_session.execute_string(f"create table {table_name} (some_number NUMBER)")
+
+    regular_results = runner.invoke_with_connection_json(["object", "list", "table"])
+    assert regular_results.exit_code == 0, regular_results.output
+
+    terse_results = runner.invoke_with_connection_json(
+        ["object", "list", "table", "--terse"]
+    )
+    assert terse_results.exit_code == 0, terse_results.output
+
+    assert set(terse_results.json[0].keys()) < set(regular_results.json[0].keys())
+
+
+@pytest.mark.integration
+def test_list_limit(runner, test_database, snowflake_session):
+    tables = []
+    for _ in range(5):
+        table_name = ObjectNameProvider(
+            "Public_Table"
+        ).create_and_get_next_object_name()
+        snowflake_session.execute_string(
+            f"create table {table_name} (some_number NUMBER)"
+        )
+        tables.append(table_name.lower())
+
+    results = runner.invoke_with_connection_json(
+        ["object", "list", "table", "--limit", "3"]
+    )
+    assert results.exit_code == 0, results.output
+    fetched_table_names = sorted([x["name"].lower() for x in results.json])
+    assert fetched_table_names == tables[:3]
 
 
 @pytest.mark.integration

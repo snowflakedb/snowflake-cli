@@ -17,6 +17,7 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Dict, List, Optional, TypedDict
 
 import yaml
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
@@ -25,10 +26,16 @@ from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.exceptions import CliError
+from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
 from snowflake.connector.cursor import SnowflakeCursor
+from snowflake.connector.errors import ProgrammingError
+
+
+class DBTObjectEditableAttributes(TypedDict):
+    default_target: Optional[str]
 
 
 class DBTManager(SqlExecutionMixin):
@@ -42,12 +49,45 @@ class DBTManager(SqlExecutionMixin):
             object_type=ObjectType.DBT_PROJECT.value.cli_name, fqn=name
         )
 
+    @staticmethod
+    def describe(name: FQN) -> SnowflakeCursor:
+        return ObjectManager().describe(
+            object_type=ObjectType.DBT_PROJECT.value.cli_name, fqn=name
+        )
+
+    @staticmethod
+    def get_dbt_object_attributes(name: FQN) -> Optional[DBTObjectEditableAttributes]:
+        """Get editable attributes of an existing DBT project, or None if it doesn't exist."""
+        try:
+            cursor = DBTManager().describe(name)
+        except ProgrammingError as exc:
+            if "DBT PROJECT" in exc.msg and "does not exist" in exc.msg:
+                return None
+            raise exc
+
+        rows = list(cursor)
+        if not rows:
+            return None
+
+        row = rows[0]
+        # Convert row to dict using column names
+        columns = [desc[0] for desc in cursor.description]
+        row_dict = dict(zip(columns, row))
+
+        return DBTObjectEditableAttributes(
+            default_target=row_dict.get("default_target")
+        )
+
     def deploy(
         self,
         fqn: FQN,
         path: SecurePath,
         profiles_path: SecurePath,
         force: bool,
+        default_target: Optional[str] = None,
+        unset_default_target: bool = False,
+        external_access_integrations: Optional[List[str]] = None,
+        install_local_deps: bool = False,
     ) -> SnowflakeCursor:
         dbt_project_path = path / "dbt_project.yml"
         if not dbt_project_path.exists():
@@ -62,13 +102,13 @@ class DBTManager(SqlExecutionMixin):
             except KeyError:
                 raise CliError("`profile` is not defined in dbt_project.yml")
 
-        self._validate_profiles(profiles_path, profile)
+        self._validate_profiles(profiles_path, profile, default_target)
 
         with cli_console.phase("Creating temporary stage"):
             stage_manager = StageManager()
-            stage_fqn = FQN.from_string(f"dbt_{fqn.name}_stage").using_context()
-            stage_name = stage_manager.get_standard_stage_prefix(stage_fqn)
+            stage_fqn = FQN.from_resource(ObjectType.DBT_PROJECT, fqn, "STAGE")
             stage_manager.create(stage_fqn, temporary=True)
+            stage_name = stage_manager.get_standard_stage_prefix(stage_fqn)
 
         with cli_console.phase("Copying project files to stage"):
             with TemporaryDirectory() as tmp:
@@ -86,22 +126,124 @@ class DBTManager(SqlExecutionMixin):
 
         with cli_console.phase("Creating DBT project"):
             if force is True:
-                query = f"CREATE OR REPLACE DBT PROJECT {fqn}"
-            elif self.exists(name=fqn):
-                query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
+                return self._deploy_create_or_replace(
+                    fqn,
+                    stage_name,
+                    default_target,
+                    external_access_integrations,
+                    install_local_deps,
+                )
             else:
-                query = f"CREATE DBT PROJECT {fqn}"
-            query += f"\nFROM {stage_name}"
-            return self.execute_query(query)
+                dbt_object_attributes = self.get_dbt_object_attributes(fqn)
+                if dbt_object_attributes is not None:
+                    return self._deploy_alter(
+                        fqn,
+                        stage_name,
+                        dbt_object_attributes,
+                        default_target,
+                        unset_default_target,
+                        external_access_integrations,
+                        install_local_deps,
+                    )
+                else:
+                    return self._deploy_create(
+                        fqn,
+                        stage_name,
+                        default_target,
+                        external_access_integrations,
+                        install_local_deps,
+                    )
+
+    def _deploy_alter(
+        self,
+        fqn: FQN,
+        stage_name: str,
+        dbt_object_attributes: DBTObjectEditableAttributes,
+        default_target: Optional[str],
+        unset_default_target: bool,
+        external_access_integrations: Optional[List[str]],
+        install_local_deps: bool,
+    ) -> SnowflakeCursor:
+        query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
+        query += f"\nFROM {stage_name}"
+        query = self._handle_external_access_integrations_query(
+            query, external_access_integrations, install_local_deps
+        )
+        result = self.execute_query(query)
+        current_default_target = dbt_object_attributes.get("default_target")
+        if unset_default_target and current_default_target is not None:
+            unset_query = f"ALTER DBT PROJECT {fqn} UNSET DEFAULT_TARGET"
+            self.execute_query(unset_query)
+        elif default_target and (
+            current_default_target is None
+            or current_default_target.lower() != default_target.lower()
+        ):
+            set_default_query = (
+                f"ALTER DBT PROJECT {fqn} SET DEFAULT_TARGET='{default_target}'"
+            )
+            self.execute_query(set_default_query)
+        return result
+
+    def _deploy_create(
+        self,
+        fqn: FQN,
+        stage_name: str,
+        default_target: Optional[str],
+        external_access_integrations: Optional[List[str]],
+        install_local_deps: bool,
+    ) -> SnowflakeCursor:
+        # Project doesn't exist - create new one
+        query = f"CREATE DBT PROJECT {fqn}"
+        query += f"\nFROM {stage_name}"
+        if default_target:
+            query += f" DEFAULT_TARGET='{default_target}'"
+        query = self._handle_external_access_integrations_query(
+            query, external_access_integrations, install_local_deps
+        )
+        return self.execute_query(query)
 
     @staticmethod
-    def _validate_profiles(profiles_path: SecurePath, target_profile: str) -> None:
+    def _handle_external_access_integrations_query(
+        query: str,
+        external_access_integrations: Optional[List[str]],
+        install_local_deps: bool,
+    ) -> str:
+        # Providing external access integrations will trigger installation of local deps as well
+        if external_access_integrations:
+            integrations_str = ", ".join(external_access_integrations)
+            query += f"\nEXTERNAL_ACCESS_INTEGRATIONS = ({integrations_str})"
+        elif install_local_deps:
+            query += f"\nEXTERNAL_ACCESS_INTEGRATIONS = ()"
+        return query
+
+    def _deploy_create_or_replace(
+        self,
+        fqn: FQN,
+        stage_name: str,
+        default_target: Optional[str],
+        external_access_integrations: Optional[List[str]],
+        install_local_deps: bool,
+    ) -> SnowflakeCursor:
+        query = f"CREATE OR REPLACE DBT PROJECT {fqn}"
+        query += f"\nFROM {stage_name}"
+        if default_target:
+            query += f" DEFAULT_TARGET='{default_target}'"
+        query = self._handle_external_access_integrations_query(
+            query, external_access_integrations, install_local_deps
+        )
+        return self.execute_query(query)
+
+    def _validate_profiles(
+        self,
+        profiles_path: SecurePath,
+        profile_name: str,
+        default_target: str | None = None,
+    ) -> None:
         """
         Validates that:
          * profiles.yml exists
          * contain profile specified in dbt_project.yml
-         * no other profiles are defined there
-         * does not contain any confidential data like passwords
+         * default_target (if specified) exists in the profile's outputs
         """
         profiles_file = profiles_path / PROFILES_FILENAME
         if not profiles_file.exists():
@@ -111,46 +253,26 @@ class DBTManager(SqlExecutionMixin):
         with profiles_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
             profiles = yaml.safe_load(fd)
 
-        if target_profile not in profiles:
+        if profile_name not in profiles:
             raise CliError(
-                f"profile {target_profile} is not defined in {PROFILES_FILENAME}"
+                f"Profile {profile_name} is not defined in {PROFILES_FILENAME}."
             )
 
         errors = defaultdict(list)
-        if len(profiles.keys()) > 1:
-            for profile_name in profiles.keys():
-                if profile_name.lower() != target_profile.lower():
-                    errors[profile_name].append("Remove unnecessary profiles")
-
-        required_fields = {
-            "account",
-            "database",
-            "role",
-            "schema",
-            "type",
-            "user",
-            "warehouse",
-        }
-        supported_fields = {
-            "threads",
-        }
-        for target_name, target in profiles[target_profile]["outputs"].items():
-            if missing_keys := required_fields - set(target.keys()):
-                errors[target_profile].append(
-                    f"Missing required fields: {', '.join(sorted(missing_keys))} in target {target_name}"
-                )
-            if (
-                unsupported_keys := set(target.keys())
-                - required_fields
-                - supported_fields
-            ):
-                errors[target_profile].append(
-                    f"Unsupported fields found: {', '.join(sorted(unsupported_keys))} in target {target_name}"
-                )
-            if "type" in target and target["type"].lower() != "snowflake":
-                errors[target_profile].append(
-                    f"Value for type field is invalid. Should be set to `snowflake` in target {target_name}"
-                )
+        profile = profiles[profile_name]
+        target_name = default_target or profile.get("target")
+        available_targets = set(profile["outputs"].keys())
+        if target_name in available_targets:
+            target = profile["outputs"][target_name]
+            target_errors = self._validate_target(target_name, target)
+            if target_errors:
+                errors[profile_name].extend(target_errors)
+        else:
+            available_targets_str = ", ".join(sorted(available_targets))
+            errors[profile_name].append(
+                f"Target '{target_name}' is not defined in profile '{profile_name}'. "
+                f"Available targets: {available_targets_str}"
+            )
 
         if errors:
             message = f"Found following errors in {PROFILES_FILENAME}. Please fix them before proceeding:"
@@ -158,6 +280,37 @@ class DBTManager(SqlExecutionMixin):
                 message += f"\n{target}"
                 message += "\n * " + "\n * ".join(issues)
             raise CliError(message)
+
+    def _validate_target(
+        self, target_name: str, target_details: Dict[str, str]
+    ) -> List[str]:
+        errors = []
+        required_fields = {
+            "database",
+            "role",
+            "schema",
+            "type",
+        }
+        if FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled():
+            required_fields.add("account")
+            required_fields.add("user")
+            required_fields.add("warehouse")
+        if missing_keys := required_fields - set(target_details.keys()):
+            errors.append(
+                f"Missing required fields: {', '.join(sorted(missing_keys))} in target {target_name}"
+            )
+        if role := target_details.get("role"):
+            if not self._validate_role(role_name=role):
+                errors.append(f"Role '{role}' does not exist or is not accessible.")
+        return errors
+
+    def _validate_role(self, role_name: str) -> bool:
+        try:
+            with self.use_role(role_name):
+                self.execute_query("select 1")
+            return True
+        except ProgrammingError:
+            return False
 
     @staticmethod
     def _prepare_profiles_file(profiles_path: Path, tmp_path: Path):

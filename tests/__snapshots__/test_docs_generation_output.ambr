@@ -20,6 +20,7 @@
       --user <user>
       --password <password>
       --authenticator <authenticator>
+      --workload-identity-provider <workload_identity_provider>
       --private-key-file <private_key_file>
       --token <token>
       --token-file-path <token_file_path>
@@ -47,6 +48,7 @@
       --debug
       --silent
       --enhanced-exit-codes
+      --decimal-precision <decimal_precision>
   
   Arguments
   ===============================================================================
@@ -86,6 +88,9 @@
   
   :samp:`--authenticator {TEXT}`
     Snowflake authenticator. Overrides the value specified for the connection.
+  
+  :samp:`--workload-identity-provider {TEXT}`
+    Workload identity provider (AWS, AZURE, GCP, OIDC). Overrides the value specified for the connection.
   
   :samp:`--private-key-file, --private-key-path {TEXT}`
     Snowflake private key file path. Overrides the value specified for the connection.
@@ -167,6 +172,9 @@
   
   :samp:`--enhanced-exit-codes`
     Differentiate exit error codes based on failure type. Default: False.
+  
+  :samp:`--decimal-precision {INTEGER}`
+    Number of decimal places to display for decimal values. Uses Python's default precision if not specified.
   
   '''
 # ---

@@ -30,9 +30,9 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: "3.x"
       - name: Install pre-commit
-        run: python -m pip install pre-commit tomlkit
+        run: python -m pip install pre-commit tomlkit click==8.2.1 hatch uv
       - name: Check if pyproject.toml was changed
         id: pyproject_changed
         run: |
@@ -47,4 +47,4 @@ jobs:
         run: pre-commit run --all-files
       - name: Run pre-commit (skip dependency generation)
         if: steps.pyproject_changed.outputs.pyproject_changed != 'true'
-        run: SKIP=lock-subdependencies pre-commit run --all-files
+        run: SKIP=lock-dependencies pre-commit run --all-files

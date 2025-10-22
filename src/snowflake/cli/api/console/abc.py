@@ -29,11 +29,15 @@ from snowflake.cli.api.cli_global_context import (
 class AbstractConsole(ABC):
     """Interface for cli console implementation.
 
-    Each console should have three methods implemented:
+    Each console should have the following methods implemented:
     - `step` - for more detailed information on steps
     - `warning` - for displaying messages in a style that makes it
       visually stand out from other output
-    - `phase` a context manager for organising steps into logical group
+    - `phase` - a context manager for organising steps into logical group
+    - `indented` - a context manager for temporarily indenting messages and warnings
+    - 'message' - displays an informational message to output
+    - 'panel' - displays visually separated messages
+    - 'spinner' - context manager for indicating a long-running operation
     """
 
     _print_fn: Callable[[str], None]
@@ -98,3 +102,10 @@ class AbstractConsole(ABC):
         """Displays message in a panel that makes it visually stand out from other output.
 
         Intended for displaying visually separated messages."""
+
+    @contextmanager
+    @abstractmethod
+    def spinner(self):
+        """
+        A context manager for indicating a long-running operation.
+        """

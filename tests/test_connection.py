@@ -24,7 +24,6 @@ import tomlkit
 from snowflake.cli.api.config import ConnectionConfig
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.secret import SecretType
-from snowflake.cli.api.secure_utils import file_permissions_are_strict
 
 from tests_common import IS_WINDOWS
 
@@ -186,7 +185,7 @@ def test_port_has_cannot_be_float(runner):
 
 @pytest.mark.parametrize(
     "selected_option",
-    [9, 10],  # 9 - private_key_file prompt, 10 - token_file_path prompt
+    [10, 11],  # 10 - private_key_file prompt, 11 - token_file_path prompt
 )
 def test_file_paths_have_to_exist_when_given_in_prompt(selected_option, runner):
     result = _run_connection_add_with_path_provided_as_prompt(
@@ -1414,87 +1413,6 @@ def test_connection_add_no_interactive(mock_add, runner):
     )
 
 
-@mock.patch("snowflake.cli._plugins.auth.keypair.manager.AuthManager.execute_query")
-@mock.patch("snowflake.cli._plugins.object.manager.ObjectManager.execute_query")
-@mock.patch("snowflake.connector.connect")
-def test_connection_add_with_key_pair(
-    mock_connect,
-    mock_object_execute_query,
-    mock_auth_execute_query,
-    runner,
-    tmp_path,
-    mock_cursor,
-    test_snowcli_config,
-    enable_auth_keypair_feature_flag,
-):
-    mock_connect.return_value.user = "user"
-    mock_object_execute_query.return_value = mock_cursor(
-        rows=[
-            {"property": "RSA_PUBLIC_KEY", "value": None},
-            {"property": "RSA_PUBLIC_KEY_2", "value": None},
-        ],
-        columns=[],
-    )
-
-    result = runner.invoke(
-        [
-            "connection",
-            "add",
-        ],
-        input="conn\n"  # connection name: zz
-        "test\n"  # account:
-        "user\n"  # user:
-        "123\n"  # password:
-        "\n"  # role:
-        "\n"  # warehouse:
-        "\n"  # database:
-        "\n"  # schema:
-        "\n"  # host:
-        "\n"  # port:
-        "\n"  # region:
-        "\n"  # authenticator:
-        "\n"  # private key file:
-        "\n"  # token file path:
-        "y\n"  #
-        "4096\n"  # key_length
-        f"{tmp_path}\n"  # output_path
-        "123\n",  # passphrase
-    )
-
-    private_key_path = tmp_path / "conn.p8"
-    public_key_path = tmp_path / "conn.pub"
-    assert result.exit_code == 0, result.output
-    assert result.output == dedent(
-        f"""\
-        Enter connection name: conn
-        Enter account: test
-        Enter user: user
-        Enter password: 
-        Enter role: 
-        Enter warehouse: 
-        Enter database: 
-        Enter schema: 
-        Enter host: 
-        Enter port: 
-        Enter region: 
-        Enter authenticator: 
-        Enter private key file: 
-        Enter token file path: 
-        Do you want to configure key pair authentication? [y/N]: y
-        Key length [2048]: 4096
-        Output path [~/.ssh]: {tmp_path}
-        Private key passphrase: 
-        Set the `PRIVATE_KEY_PASSPHRASE` environment variable before using the connection.
-        Wrote new connection conn to {test_snowcli_config}
-        """
-    )
-    assert private_key_path.exists()
-    assert "BEGIN ENCRYPTED PRIVATE KEY" in private_key_path.read_text()
-    assert file_permissions_are_strict(private_key_path)
-    assert public_key_path.exists()
-    assert file_permissions_are_strict(public_key_path)
-
-
 def test_connection_add_no_key_pair_setup_if_private_key_provided(
     runner, test_snowcli_config, tmp_path
 ):
@@ -1518,6 +1436,7 @@ def test_connection_add_no_key_pair_setup_if_private_key_provided(
         "\n"  # port:
         "\n"  # region:
         "\n"  # authenticator:
+        "\n"  # workload identity provider:
         f"{key}\n"  # private key file:
         "\n",  # token file path:
     )
@@ -1536,6 +1455,7 @@ def test_connection_add_no_key_pair_setup_if_private_key_provided(
         Enter port: 
         Enter region: 
         Enter authenticator: 
+        Enter workload identity provider: 
         Enter private key file: {key.resolve()}
         Enter token file path: 
         Wrote new connection conn to {test_snowcli_config}
@@ -1565,91 +1485,141 @@ def test_connection_add_no_key_pair_setup_if_no_interactive(
     )
 
 
-@mock.patch("snowflake.cli._plugins.auth.keypair.manager.AuthManager.execute_query")
-@mock.patch("snowflake.cli._plugins.object.manager.ObjectManager.execute_query")
-@mock.patch("snowflake.connector.connect")
-def test_connection_add_with_key_pair_saves_password_if_keypair_is_set(
-    mock_connect,
-    mock_object_execute_query,
-    mock_auth_execute_query,
-    runner,
-    tmp_path,
-    mock_cursor,
-    test_snowcli_config,
-    enable_auth_keypair_feature_flag,
+@pytest.mark.parametrize(
+    "is_default",
+    [True, False],
+)
+def test_connection_remove_one(runner, os_agnostic_snapshot, is_default):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        _add_connection(
+            runner, tmp_file, "conn1", is_default=is_default, expected_to_fail=False
+        )
+        _remove_connection(runner, tmp_file, "conn1", expected_to_fail=False)
+        _remove_connection(runner, tmp_file, "conn1", expected_to_fail=True)
+
+        connections_list = _get_connections_list(runner, tmp_file)
+        assert connections_list == []
+
+
+@pytest.mark.parametrize(
+    "is_default",
+    [True, False],
+)
+def test_connection_remove_all(runner, os_agnostic_snapshot, is_default):
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        _add_connection(
+            runner, tmp_file, "conn1", is_default=is_default, expected_to_fail=False
+        )
+        _add_connection(
+            runner, tmp_file, "conn2", is_default=is_default, expected_to_fail=False
+        )
+        _remove_connection(runner, tmp_file, "conn1", expected_to_fail=False)
+        _remove_connection(runner, tmp_file, "conn2", expected_to_fail=False)
+
+        _remove_connection(runner, tmp_file, "conn1", expected_to_fail=True)
+        _remove_connection(runner, tmp_file, "conn2", expected_to_fail=True)
+
+        connections_list = _get_connections_list(runner, tmp_file)
+        assert connections_list == []
+
+
+@pytest.mark.parametrize(
+    "conn1_is_default",
+    [True, False],
+)
+@pytest.mark.parametrize(
+    "conn2_is_default",
+    [True, False],
+)
+def test_connection_remove_some(
+    runner, os_agnostic_snapshot, conn1_is_default, conn2_is_default
 ):
-    mock_connect.return_value.user = "user"
-    mock_object_execute_query.return_value = mock_cursor(
-        rows=[
-            {"property": "RSA_PUBLIC_KEY", "value": None},
-            {"property": "RSA_PUBLIC_KEY_2", "value": "public key..."},
-        ],
-        columns=[],
-    )
+    with NamedTemporaryFile("w+", suffix=".toml") as tmp_file:
+        _add_connection(
+            runner,
+            tmp_file,
+            "conn1",
+            is_default=conn1_is_default,
+            expected_to_fail=False,
+        )
+        _add_connection(
+            runner,
+            tmp_file,
+            "conn2",
+            is_default=conn2_is_default,
+            expected_to_fail=False,
+        )
+        remove_connection_result = _remove_connection(
+            runner, tmp_file, "conn2", expected_to_fail=False
+        )
 
-    result = runner.invoke(
-        [
-            "connection",
-            "add",
-        ],
-        input="conn\n"  # connection name: zz
-        "test\n"  # account:
-        "user\n"  # user:
-        "123\n"  # password:
-        "\n"  # role:
-        "\n"  # warehouse:
-        "\n"  # database:
-        "\n"  # schema:
-        "\n"  # host:
-        "\n"  # port:
-        "\n"  # region:
-        "\n"  # authenticator:
-        "\n"  # private key file:
-        "\n"  # token file path:
-        "y\n"  #
-        "\n"  # key_length
-        f"{tmp_path}\n"  # output_path
-        "123\n",  # passphrase
-    )
+        # `snow connection remove` should
+        # 1. Preserve existing connections
+        # 2. Keep default if it was set to a non-removed connection
+        connections_list = _get_connections_list(runner, tmp_file)
+        assert len(connections_list) == 1, connections_list
 
-    private_key_path = tmp_path / "conn.p8"
-    public_key_path = tmp_path / "conn.pub"
+        assert connections_list[0].get("connection_name") == "conn1", connections_list
+        assert connections_list[0].get("is_default") == (
+            conn1_is_default and not conn2_is_default
+        ), connections_list
+
+        # 3. Unset default if it was set to the removed connection
+        contained_default_msg = (
+            "It was the default connection, so default connection is now unset."
+            in remove_connection_result.output
+        )
+        assert (
+            contained_default_msg if conn2_is_default else not contained_default_msg
+        ), remove_connection_result.output
+
+        content = tmp_file.read()
+
+    assert content == os_agnostic_snapshot
+
+
+def _add_connection(runner, tmp_file, name, is_default=False, expected_to_fail=False):
+    args = [
+        "connection",
+        "add",
+        "--connection-name",
+        name,
+        "--username",
+        "user1",
+        "--password",
+        "password1",
+        "--account",
+        "account1",
+    ]
+    if is_default:
+        args.append("--default")
+
+    result = runner.invoke_with_config_file(tmp_file.name, args)
+    if expected_to_fail:
+        assert result.exit_code != 0, result.output
+        assert f"Connection {name} already exists." in result.output
+    else:
+        assert result.exit_code == 0, result.output
+        assert f"Wrote new connection {name} to {tmp_file.name}" in result.output
+    return result
+
+
+def _remove_connection(runner, tmp_file, name, expected_to_fail=False):
+    result = runner.invoke_with_config_file(
+        tmp_file.name, ["connection", "remove", name]
+    )
+    if expected_to_fail:
+        assert result.exit_code != 0, result.output
+        assert f"Connection {name} does not exist." in result.output
+    else:
+        assert result.exit_code == 0, result.output
+        assert f"Removed connection {name} from {tmp_file.name}" in result.output
+    return result
+
+
+def _get_connections_list(runner, tmp_file):
+    result = runner.invoke_with_config_file(
+        tmp_file.name, ["connection", "list", "--format", "json"]
+    )
     assert result.exit_code == 0, result.output
-    assert result.output == dedent(
-        f"""\
-        Enter connection name: conn
-        Enter account: test
-        Enter user: user
-        Enter password: 
-        Enter role: 
-        Enter warehouse: 
-        Enter database: 
-        Enter schema: 
-        Enter host: 
-        Enter port: 
-        Enter region: 
-        Enter authenticator: 
-        Enter private key file: 
-        Enter token file path: 
-        Do you want to configure key pair authentication? [y/N]: y
-        Key length [2048]: 
-        Output path [~/.ssh]: {tmp_path}
-        Private key passphrase: 
-        Wrote new password-based connection conn to {test_snowcli_config}, however there were some issues during key pair setup. Review the following error and check 'snow auth keypair' commands to setup key pair authentication:
-         * The public key is set already.
-        """
-    )
-    assert not private_key_path.exists()
-    assert not public_key_path.exists()
-    with open(test_snowcli_config, "r") as f:
-        connections = tomlkit.load(f)
-        assert connections["connections"]["conn"]["password"] == "123"
-
-
-@pytest.fixture
-def enable_auth_keypair_feature_flag():
-    with mock.patch(
-        f"snowflake.cli.api.feature_flags.FeatureFlag.ENABLE_AUTH_KEYPAIR.is_enabled",
-        return_value=True,
-    ):
-        yield
+    return json.loads(result.output)

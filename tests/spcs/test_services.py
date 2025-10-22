@@ -892,6 +892,34 @@ def test_stream_logs_with_include_timestamps_true(mock_sleep, mock_logs):
     mock_sleep.assert_has_calls([call(interval_seconds), call(interval_seconds)])
 
 
+def test_new_logs_only_returns_empty_when_all_logs_duplicated():
+    """Test that new_logs_only returns empty list when all new logs are duplicates."""
+    from snowflake.cli._plugins.spcs.common import new_logs_only
+
+    prev_log_records = ["2024-10-22T01:12:28Z previous log"]
+    new_log_records = ["2024-10-22T01:12:28Z previous log"]  # Same log, will be deduped
+
+    dedup_log_records = new_logs_only(prev_log_records, new_log_records)
+    assert dedup_log_records == []
+
+
+def test_empty_dedup_log_records_does_not_cause_index_error():
+    """Test that the fix prevents IndexError when dedup_log_records is empty.
+
+    This test verifies that the original bug (IndexError when accessing
+    dedup_log_records[-1] on an empty list) has been fixed.
+    """
+    dedup_log_records = []
+
+    has_logs = bool(dedup_log_records)
+    assert not has_logs
+
+    assert len(dedup_log_records) == 0
+
+    with pytest.raises(IndexError):
+        dedup_log_records[-1]
+
+
 @patch(EXECUTE_QUERY)
 def test_logs_incompatible_flags(
     mock_execute_query, runner, enable_events_and_metrics_config

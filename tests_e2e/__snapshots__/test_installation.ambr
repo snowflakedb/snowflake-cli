@@ -15,7 +15,6 @@
   
    Snowflake CLI tool for developers [v0.0.1-test_patched]
   
-  
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
@@ -23,7 +22,6 @@
   |                                     CLI                                      |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
-  |                                     [default: None]                          |
   | --install-completion                Install completion for the current       |
   |                                     shell.                                   |
   | --show-completion                   Show completion for the current shell,   |
@@ -32,6 +30,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app                  Manages a Snowflake Native App                          |
+  | auth                 Manages authentication methods.                         |
   | connection           Manages connections to Snowflake.                       |
   | cortex               Provides access to Snowflake Cortex.                    |
   | git                  Manages git repositories in Snowflake.                  |
@@ -79,7 +78,6 @@
   
    Snowflake CLI tool for developers [v0.0.1-test_patched]
   
-  
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
@@ -87,7 +85,6 @@
   |                                     CLI                                      |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
-  |                                     [default: None]                          |
   | --install-completion                Install completion for the current       |
   |                                     shell.                                   |
   | --show-completion                   Show completion for the current shell,   |
@@ -96,6 +93,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app          Manages a Snowflake Native App                                  |
+  | auth         Manages authentication methods.                                 |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |
@@ -124,7 +122,6 @@
   
    Snowflake CLI tool for developers [v0.0.1-test_patched]
   
-  
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
@@ -132,7 +129,6 @@
   |                                     CLI                                      |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
-  |                                     [default: None]                          |
   | --install-completion                Install completion for the current       |
   |                                     shell.                                   |
   | --show-completion                   Show completion for the current shell,   |
@@ -141,6 +137,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app                  Manages a Snowflake Native App                          |
+  | auth                 Manages authentication methods.                         |
   | connection           Manages connections to Snowflake.                       |
   | cortex               Provides access to Snowflake Cortex.                    |
   | git                  Manages git repositories in Snowflake.                  |
@@ -208,7 +205,6 @@
   
    Snowflake CLI tool for developers [v0.0.1-test_patched]
   
-  
   +- Options --------------------------------------------------------------------+
   | --help                -h            Show this message and exit.              |
   | --version                           Shows version of the Snowflake CLI       |
@@ -216,7 +212,6 @@
   |                                     CLI                                      |
   | --config-file                 FILE  Specifies Snowflake CLI configuration    |
   |                                     file that should be used                 |
-  |                                     [default: None]                          |
   | --install-completion                Install completion for the current       |
   |                                     shell.                                   |
   | --show-completion                   Show completion for the current shell,   |
@@ -225,6 +220,7 @@
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
   | app          Manages a Snowflake Native App                                  |
+  | auth         Manages authentication methods.                                 |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
   | git          Manages git repositories in Snowflake.                          |

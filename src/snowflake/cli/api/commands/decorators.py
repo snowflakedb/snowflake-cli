@@ -27,6 +27,7 @@ from snowflake.cli.api.commands.flags import (
     ConnectionOption,
     DatabaseOption,
     DebugOption,
+    DecimalPrecisionOption,
     DiagAllowlistPathOption,
     DiagLogPathOption,
     EnableDiagOption,
@@ -57,6 +58,7 @@ from snowflake.cli.api.commands.flags import (
     UserOption,
     VerboseOption,
     WarehouseOption,
+    WorkloadIdentityProviderOption,
     experimental_option,
     project_definition_option,
     project_env_overrides_option,
@@ -263,6 +265,12 @@ GLOBAL_CONNECTION_OPTIONS = [
         default=AuthenticatorOption,
     ),
     inspect.Parameter(
+        "workload_identity_provider",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[str],
+        default=WorkloadIdentityProviderOption,
+    ),
+    inspect.Parameter(
         "private_key_file",
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[str],
@@ -438,6 +446,12 @@ GLOBAL_OPTIONS = [
         inspect.Parameter.KEYWORD_ONLY,
         annotation=Optional[bool],
         default=EnhancedExitCodesOption,
+    ),
+    inspect.Parameter(
+        "decimal_precision",
+        inspect.Parameter.KEYWORD_ONLY,
+        annotation=Optional[int],
+        default=DecimalPrecisionOption,
     ),
 ]
 

@@ -96,3 +96,79 @@ def test_deploy_single_notebook(runner, project_directory, test_database):
                 "custom_stage/particular_notebook_path/notebook.ipynb",
             ],
         )
+
+
+@pytest.mark.integration
+def test_deploy_containerized_notebook_with_compute_pool(
+    runner, project_directory, test_database
+):
+    """Test deployment of containerized notebook with compute pool."""
+    with project_directory("notebook_containerized_v2"):
+        # Deploy the containerized notebook with compute pool
+        result = runner.invoke_with_connection(
+            ["notebook", "deploy", "containerized_notebook", "--replace"]
+        )
+        assert result.exit_code == 0, result.output
+        assert (
+            "Uploading artifacts to @notebooks/containerized_notebook" in result.output
+        )
+        assert "Notebook successfully deployed and available under" in result.output
+
+        # Verify the notebook was created with the correct artifacts
+        assert_stage_has_files(
+            runner,
+            "notebooks",
+            ["notebooks/containerized_notebook/notebook.ipynb"],
+        )
+
+        # Test that the notebook can be deployed again with --replace
+        result = runner.invoke_with_connection(
+            ["notebook", "deploy", "containerized_notebook", "--replace"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Notebook successfully deployed and available under" in result.output
+
+
+@pytest.mark.integration
+def test_deploy_notebook_with_runtime_environment_version(
+    runner, project_directory, test_database
+):
+    """Test deployment of notebook with runtime_environment_version field for warehouse (no compute pool)."""
+    with project_directory("notebook_with_runtime_env"):
+        # Deploy the notebook with runtime_environment_version
+        result = runner.invoke_with_connection(
+            ["notebook", "deploy", "warehouse_notebook", "--replace"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Uploading artifacts to @notebooks/warehouse_notebook" in result.output
+        assert "Notebook successfully deployed and available under" in result.output
+
+        # Verify the notebook was created with the correct artifacts
+        assert_stage_has_files(
+            runner,
+            "notebooks",
+            ["notebooks/warehouse_notebook/notebook.ipynb"],
+        )
+
+        # Test that the notebook can be deployed again with --replace
+        result = runner.invoke_with_connection(
+            ["notebook", "deploy", "warehouse_notebook", "--replace"]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Notebook successfully deployed and available under" in result.output
+
+        # Verify describe notebook shows runtime_environment_version is set using direct SQL
+        result = runner.invoke_with_connection_json(
+            ["sql", "-q", "DESCRIBE NOTEBOOK warehouse_notebook"]
+        )
+        assert result.exit_code == 0, result.output
+        # Check that runtime_environment_version appears in the describe result
+        describe_output = (
+            str(result.json).lower() if result.json else result.output.lower()
+        )
+        assert (
+            "runtime_environment_version" in describe_output
+        ), f"runtime_environment_version not found in describe output: {result.output}"
+        assert (
+            "wh-runtime-2.0" in describe_output
+        ), f"Expected runtime version 'WH-RUNTIME-2.0' not found in describe output: {result.output}"

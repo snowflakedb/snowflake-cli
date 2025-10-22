@@ -16,9 +16,8 @@ from __future__ import annotations
 
 import logging
 import os.path
-from copy import deepcopy
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Optional
 
 import typer
 from click import (  # type: ignore
@@ -29,14 +28,10 @@ from click import (  # type: ignore
 )
 from click.core import ParameterSource  # type: ignore
 from snowflake import connector
-from snowflake.cli._app.snow_connector import connect_to_snowflake
-from snowflake.cli._plugins.auth.keypair.commands import KEY_PAIR_DEFAULT_PATH
-from snowflake.cli._plugins.auth.keypair.manager import AuthManager
 from snowflake.cli._plugins.connection.util import (
     strip_if_value_present,
 )
 from snowflake.cli._plugins.object.manager import ObjectManager
-from snowflake.cli.api import exceptions
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.commands.flags import (
     PLAIN_PASSWORD_MSG,
@@ -53,6 +48,7 @@ from snowflake.cli.api.commands.flags import (
     TokenFilePathOption,
     UserOption,
     WarehouseOption,
+    WorkloadIdentityProviderOption,
 )
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.config import (
@@ -62,19 +58,18 @@ from snowflake.cli.api.config import (
     get_all_connections,
     get_connection_dict,
     get_default_connection_name,
+    remove_connection_from_proper_file,
     set_config_value,
+    unset_config_value,
 )
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
     MessageResult,
     ObjectResult,
 )
-from snowflake.cli.api.secret import SecretType
-from snowflake.cli.api.secure_path import SecurePath
 from snowflake.connector import ProgrammingError
 from snowflake.connector.constants import CONNECTIONS_FILE
 
@@ -220,6 +215,12 @@ def add(
         *AuthenticatorOption.param_decls,
         help="Chosen authenticator, if other than password-based",
     ),
+    workload_identity_provider: Optional[str] = typer.Option(
+        None,
+        "-W",
+        *WorkloadIdentityProviderOption.param_decls,
+        help="Workload identity provider type",
+    ),
     private_key_file: Optional[str] = typer.Option(
         None,
         "--private-key",
@@ -256,6 +257,7 @@ def add(
         "port": port,
         "region": region,
         "authenticator": authenticator,
+        "workload_identity_provider": workload_identity_provider,
         "private_key_file": private_key_file,
         "token_file_path": token_file_path,
     }
@@ -292,13 +294,6 @@ def add(
     if connection_exists(connection_name):
         raise UsageError(f"Connection {connection_name} already exists")
 
-    if FeatureFlag.ENABLE_AUTH_KEYPAIR.is_enabled() and not no_interactive:
-        connection_options, keypair_error = _extend_add_with_key_pair(
-            connection_name, connection_options
-        )
-    else:
-        keypair_error = ""
-
     connections_file = add_connection_to_proper_file(
         connection_name,
         ConnectionConfig(**connection_options),
@@ -306,14 +301,32 @@ def add(
     if set_as_default:
         set_config_value(path=["default_connection_name"], value=connection_name)
 
-    if keypair_error:
-        return MessageResult(
-            f"Wrote new password-based connection {connection_name} to {connections_file}, "
-            f"however there were some issues during key pair setup. Review the following error and check 'snow auth keypair' "
-            f"commands to setup key pair authentication:\n * {keypair_error}"
-        )
     return MessageResult(
         f"Wrote new connection {connection_name} to {connections_file}"
+    )
+
+
+@app.command(requires_connection=False)
+def remove(
+    connection_name: str = typer.Argument(
+        help="Name of the connection to remove.",
+        show_default=False,
+    ),
+    **options,
+):
+    """Removes a connection from configuration file."""
+    if not connection_exists(connection_name):
+        raise UsageError(f"Connection {connection_name} does not exist.")
+
+    is_default = get_default_connection_name() == connection_name
+    if is_default:
+        unset_config_value(path=["default_connection_name"])
+
+    connections_file = remove_connection_from_proper_file(connection_name)
+
+    return MessageResult(
+        f"Removed connection {connection_name} from {connections_file}."
+        f"{' It was the default connection, so default connection is now unset.' if is_default else ''}"
     )
 
 
@@ -355,9 +368,9 @@ def test(
         "Host": conn.host,
         "Account": conn.account,
         "User": conn.user,
-        "Role": f'{conn.role or "not set"}',
-        "Database": f'{conn.database or "not set"}',
-        "Warehouse": f'{conn.warehouse or "not set"}',
+        "Role": f"{conn.role or 'not set'}",
+        "Database": f"{conn.database or 'not set'}",
+        "Warehouse": f"{conn.warehouse or 'not set'}",
     }
 
     if conn_ctx.enable_diag:
@@ -425,59 +438,3 @@ def generate_jwt(
         return MessageResult(token)
     except (ValueError, TypeError) as err:
         raise ClickException(str(err))
-
-
-def _extend_add_with_key_pair(
-    connection_name: str, connection_options: Dict
-) -> Tuple[Dict, str]:
-    if not _should_extend_with_key_pair(connection_options):
-        return connection_options, ""
-
-    configure_key_pair = typer.confirm(
-        "Do you want to configure key pair authentication?",
-        default=False,
-    )
-    if not configure_key_pair:
-        return connection_options, ""
-
-    key_length = typer.prompt(
-        "Key length",
-        default=2048,
-        show_default=True,
-    )
-
-    output_path = typer.prompt(
-        "Output path",
-        default=KEY_PAIR_DEFAULT_PATH,
-        show_default=True,
-        value_proc=lambda value: SecurePath(value),
-    )
-    private_key_passphrase = typer.prompt(
-        "Private key passphrase",
-        default="",
-        hide_input=True,
-        show_default=False,
-        value_proc=lambda value: SecretType(value),
-    )
-    connection = connect_to_snowflake(temporary_connection=True, **connection_options)
-    try:
-        connection_options = AuthManager(connection=connection).extend_connection_add(
-            connection_name=connection_name,
-            connection_options=deepcopy(connection_options),
-            key_length=key_length,
-            output_path=output_path,
-            private_key_passphrase=private_key_passphrase,
-        )
-    except exceptions.CouldNotSetKeyPairError:
-        return connection_options, "The public key is set already."
-    except Exception as e:
-        return connection_options, str(e)
-    return connection_options, ""
-
-
-def _should_extend_with_key_pair(connection_options: Dict) -> bool:
-    return (
-        connection_options.get("password") is not None
-        and connection_options.get("private_key_file") is None
-        and connection_options.get("private_key_path") is None
-    )

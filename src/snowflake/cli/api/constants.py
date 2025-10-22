@@ -36,6 +36,7 @@ class ObjectNames:
 class ObjectType(Enum):
     COMPUTE_POOL = ObjectNames("compute-pool", "compute pool", "compute pools")
     DBT_PROJECT = ObjectNames("dbt-project", "dbt project", "dbt projects")
+    DCM_PROJECT = ObjectNames("dcm", "DCM Project", "DCM Projects")
     DATABASE = ObjectNames("database", "database", "databases")
     FUNCTION = ObjectNames("function", "function", "functions")
     INTEGRATION = ObjectNames("integration", "integration", "integrations")
@@ -48,7 +49,6 @@ class ObjectType(Enum):
     NETWORK_RULE = ObjectNames("network-rule", "network rule", "network rules")
     NOTEBOOK = ObjectNames("notebook", "notebook", "notebooks")
     PROCEDURE = ObjectNames("procedure", "procedure", "procedures")
-    PROJECT = ObjectNames("project", "project", "projects")
     ROLE = ObjectNames("role", "role", "roles")
     SCHEMA = ObjectNames("schema", "schema", "schemas")
     SERVICE = ObjectNames("service", "service", "services")
@@ -75,12 +75,21 @@ class ObjectType(Enum):
         return self.value.cli_name
 
 
+class PatternMatchingType(Enum):
+    """
+    Enum for different pattern matching types used in artifact resolution.
+    """
+
+    GLOB = "glob"
+    REGEX = "regex"
+
+
 OBJECT_TO_NAMES = {o.value.cli_name: o.value for o in ObjectType}
 UNSUPPORTED_OBJECTS = {
     ObjectType.APPLICATION.value.cli_name,
     ObjectType.APPLICATION_PACKAGE.value.cli_name,
-    ObjectType.PROJECT.value.cli_name,
-    ObjectType.DBT_PROJECT.value.cli_name,
+    ObjectType.DCM_PROJECT.value.cli_name,
+    ObjectType.DBT_PROJECT.value.cli_name,  # ENABLE_DBT_GA_FEATURES
 }
 SUPPORTED_OBJECTS = sorted(OBJECT_TO_NAMES.keys() - UNSUPPORTED_OBJECTS)
 

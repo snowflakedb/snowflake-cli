@@ -34,6 +34,7 @@ from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.secret import SecretType
 from snowflake.cli.api.stage_path import StagePath
+from snowflake.connector.auth.workload_identity import ApiFederatedAuthenticationType
 
 DEFAULT_CONTEXT_SETTINGS = {"help_option_names": ["--help", "-h"]}
 
@@ -150,6 +151,21 @@ def _password_callback(value: str):
     return _connection_callback("password")(value)
 
 
+def _workload_identity_provider_callback(value: str):
+    if value is not None:
+        try:
+            # Validate that the value is one of the enum values
+            ApiFederatedAuthenticationType(value)
+        except ValueError:
+            valid_values = [e.value for e in ApiFederatedAuthenticationType]
+            raise ClickException(
+                f"Invalid workload identity provider '{value}'. "
+                f"Valid values are: {', '.join(valid_values)}"
+            )
+
+    return _connection_callback("workload_identity_provider")(value)
+
+
 PasswordOption = typer.Option(
     None,
     "--password",
@@ -166,6 +182,16 @@ AuthenticatorOption = typer.Option(
     help="Snowflake authenticator. Overrides the value specified for the connection.",
     hide_input=True,
     callback=_connection_callback("authenticator"),
+    show_default=False,
+    rich_help_panel=_CONNECTION_SECTION,
+)
+
+WorkloadIdentityProviderOption = typer.Option(
+    None,
+    "--workload-identity-provider",
+    help="Workload identity provider (AWS, AZURE, GCP, OIDC). Overrides the value specified for the connection",
+    hide_input=True,
+    callback=_workload_identity_provider_callback,
     show_default=False,
     rich_help_panel=_CONNECTION_SECTION,
 )
@@ -485,6 +511,25 @@ EnhancedExitCodesOption = typer.Option(
     rich_help_panel=_CLI_BEHAVIOUR,
     is_eager=True,
     envvar="SNOWFLAKE_ENHANCED_EXIT_CODES",
+)
+
+
+def _decimal_precision_callback(value: int | None):
+    """Callback to set decimal precision globally when provided."""
+    if value is not None:
+        from decimal import getcontext
+
+        getcontext().prec = value
+    return value
+
+
+DecimalPrecisionOption = typer.Option(
+    None,
+    "--decimal-precision",
+    help="Number of decimal places to display for decimal values. Uses Python's default precision if not specified.",
+    callback=_decimal_precision_callback,
+    rich_help_panel=_CLI_BEHAVIOUR,
+    envvar="SNOWFLAKE_DECIMAL_PRECISION",
 )
 
 # If IfExistsOption, IfNotExistsOption, or ReplaceOption are used with names other than those in CREATE_MODE_OPTION_NAMES,

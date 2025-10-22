@@ -77,7 +77,6 @@ class SnowparkServicesTestSteps:
         )
 
     def create_second_service(self, service_name: str, database: str) -> None:
-
         result = self._setup.runner.invoke_with_connection_json(
             [
                 "spcs",
@@ -341,6 +340,20 @@ class SnowparkServicesTestSteps:
                 "name": "echoendpoint",
             },
         )
+
+    def warm_up(self, service_name: str):
+        """List spcs services and containers for warm_up before running tests.
+        The intend is to bring spcs to life when suspended.
+        """
+        instances_result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "service",
+                "list",
+                *self._database_schema_args(),
+            ]
+        )
+        assert instances_result.exit_code == 0, instances_result
 
     def list_instances_should_show_instances(self, service_name: str):
         result = self._setup.runner.invoke_with_connection_json(

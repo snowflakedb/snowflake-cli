@@ -648,7 +648,7 @@ def test_execute_raises_other_programming_error_as_user_error(mock_execute_queri
         (
             ServiceUnavailableError(),
             UnknownConnectorError,
-            "Unknown error occurred. Failed to run script test-user-sql-script.sql. HTTP 503: Service Unavailable",
+            "Unknown error occurred. Failed to run script test-user-sql-script.sql. 290000: HTTP 503: Service Unavailable",
         ),
     ],
 )
@@ -1021,7 +1021,7 @@ def test_use_schema_current_schema_empty(mock_execute_query, mock_cursor):
         (
             InternalServerError(),
             UnknownConnectorError,
-            "Unknown error occurred. Failed to use warehouse test_warehouse. HTTP 500: Internal Server Error",
+            "Unknown error occurred. Failed to use warehouse test_warehouse. 290000: HTTP 500: Internal Server Error",
         ),
         (
             Exception(),
@@ -1078,7 +1078,7 @@ def test_use_warehouse_bubbles_errors(
         (
             InternalServerError(),
             UnknownConnectorError,
-            "Unknown error occurred. Failed to use role test_role. HTTP 500: Internal Server Error",
+            "Unknown error occurred. Failed to use role test_role. 290000: HTTP 500: Internal Server Error",
         ),
         (
             Exception(),
@@ -1135,7 +1135,7 @@ def test_use_role_bubbles_errors(
         (
             InternalServerError(),
             UnknownConnectorError,
-            "Unknown error occurred. Failed to use database test_db. HTTP 500: Internal Server Error",
+            "Unknown error occurred. Failed to use database test_db. 290000: HTTP 500: Internal Server Error",
         ),
         (
             Exception(),
@@ -3257,7 +3257,6 @@ def test_show_release_channels_when_feature_enabled(
     package_name,
     expected_used_package_name,
 ):
-
     expected_query = (
         f"show release channels in application package {expected_used_package_name}"
     )
@@ -4350,7 +4349,6 @@ def test_drop_version_from_package_with_error(
     error_message = error_message.replace("ACTION_PLACEHOLDER", action_placeholder)
 
     with mock_release_channels(sql_facade, release_channels_enabled):
-
         with pytest.raises(error_caught) as err:
             sql_facade.drop_version_from_package(
                 package_name=package_name, version=version, role=role

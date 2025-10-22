@@ -5,7 +5,7 @@
    Usage: snow cmd_with_connection_options [OPTIONS] NAME                         
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  [default: None] [required]                              |
+  | *    name      TEXT  [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -35,6 +35,10 @@
   | --authenticator                       TEXT     Snowflake authenticator.      |
   |                                                Overrides the value specified |
   |                                                for the connection.           |
+  | --workload-identity-provider          TEXT     Workload identity provider    |
+  |                                                (AWS, AZURE, GCP, OIDC).      |
+  |                                                Overrides the value specified |
+  |                                                for the connection            |
   | --private-key-file,--privat…          TEXT     Snowflake private key file    |
   |                                                path. Overrides the value     |
   |                                                specified for the connection. |
@@ -119,6 +123,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -130,7 +142,7 @@
    Usage: snow cmd_with_global_options [OPTIONS] NAME                             
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  [default: None] [required]                              |
+  | *    name      TEXT  [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -154,6 +166,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   
@@ -165,7 +185,7 @@
    Usage: snow simple_cmd [OPTIONS] NAME                                          
                                                                                   
   +- Arguments ------------------------------------------------------------------+
-  | *    name      TEXT  [default: None] [required]                              |
+  | *    name      TEXT  [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
   | --help  -h        Show this message and exit.                                |
@@ -211,6 +231,14 @@
   |                                                       failure type.          |
   |                                                       [env var:              |
   |                                                       SNOWFLAKE_ENHANCED_EX… |
+  | --decimal-precision            INTEGER                Number of decimal      |
+  |                                                       places to display for  |
+  |                                                       decimal values. Uses   |
+  |                                                       Python's default       |
+  |                                                       precision if not       |
+  |                                                       specified.             |
+  |                                                       [env var:              |
+  |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
   

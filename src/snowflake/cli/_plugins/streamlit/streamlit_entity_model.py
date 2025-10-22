@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from snowflake.cli.api.project.schemas.entities.common import (
     Artifacts,
     EntityModelBaseWithArtifacts,
@@ -23,9 +23,10 @@ from snowflake.cli.api.project.schemas.entities.common import (
     GrantBaseModel,
     ImportsBaseModel,
 )
-from snowflake.cli.api.project.schemas.updatable_model import (
-    DiscriminatorField,
-)
+from snowflake.cli.api.project.schemas.updatable_model import DiscriminatorField
+
+# SPCS Runtime v2 constants
+SPCS_RUNTIME_V2_NAME = "SYSTEM$ST_CONTAINER_RUNTIME_PY3_11"
 
 
 class StreamlitEntityModel(
@@ -54,3 +55,22 @@ class StreamlitEntityModel(
         title="List of paths or file source/destination pairs to add to the deploy root",
         default=None,
     )
+    runtime_name: Optional[str] = Field(
+        title="The runtime name to run the streamlit app on", default=None
+    )
+    compute_pool: Optional[str] = Field(
+        title="The compute pool name of the snowservices running the streamlit app",
+        default=None,
+    )
+
+    @model_validator(mode="after")
+    def validate_spcs_runtime_fields(self):
+        """Validate that runtime_name and compute_pool are provided together for SPCS container runtime."""
+        # Only validate for SPCS container runtime, not warehouse runtime
+        if self.compute_pool and not self.runtime_name:
+            raise ValueError("compute_pool is specified without runtime_name")
+        if self.runtime_name == SPCS_RUNTIME_V2_NAME and not self.compute_pool:
+            raise ValueError(
+                f"compute_pool is required when using {SPCS_RUNTIME_V2_NAME}"
+            )
+        return self

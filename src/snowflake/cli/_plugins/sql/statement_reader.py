@@ -7,9 +7,10 @@ from typing import Any, Callable, Generator, List, Literal, Sequence, Tuple
 from urllib.request import urlopen
 
 from jinja2 import UndefinedError
-from snowflake.cli._plugins.sql.snowsql_commands import (
-    SnowSQLCommand,
-    compile_snowsql_command,
+from snowflake.cli._plugins.sql.repl_commands import (
+    ReplCommand,
+    UnknownCommandError,
+    compile_repl_command,
 )
 from snowflake.cli.api.secure_path import UNLIMITED, SecurePath
 from snowflake.connector.util_text import split_statements
@@ -38,7 +39,7 @@ class StatementType(enum.Enum):
     QUERY = "query"
     UNKNOWN = "unknown"
     URL = "url"
-    SNOWSQL_COMMAND = "snowsql_command"
+    REPL_COMMAND = "repl_command"
 
 
 class ParsedStatement:
@@ -88,12 +89,21 @@ class ParsedStatement:
     def __repr__(self):
         return f"{self.__class__.__name__}(statement_type={self.statement_type}, source_path={self.source_path}, error={self.error})"
 
+    @staticmethod
+    def drop_comments_from_path_parts(path_part: str) -> str:
+        """Clean up path_part from trailing comments."""
+        uncommented, _ = next(
+            split_statements(io.StringIO(path_part), remove_comments=True)
+        )
+        return uncommented
+
     @classmethod
     def from_url(cls, path_part: str, raw_source: str) -> "ParsedStatement":
         """Constructor for loading from URL."""
+        stripped_comments_path_part = cls.drop_comments_from_path_parts(path_part)
         try:
-            payload = urlopen(path_part, timeout=10.0).read().decode()
-            return cls(payload, StatementType.URL, path_part)
+            payload = urlopen(stripped_comments_path_part, timeout=10.0).read().decode()
+            return cls(payload, StatementType.URL, stripped_comments_path_part)
 
         except urllib.error.HTTPError as err:
             error = f"Could not fetch {path_part}: {err}"
@@ -102,14 +112,20 @@ class ParsedStatement:
     @classmethod
     def from_file(cls, path_part: str, raw_source: str) -> "ParsedStatement":
         """Constructor for loading from file."""
-        path = SecurePath(path_part)
+        stripped_comments_path_part = cls.drop_comments_from_path_parts(path_part)
+        path = SecurePath(stripped_comments_path_part)
 
         if path.is_file():
             payload = path.read_text(file_size_limit_mb=UNLIMITED)
             return cls(payload, StatementType.FILE, path.as_posix())
 
         error_msg = f"Could not read: {path_part}"
-        return cls(path_part, StatementType.FILE, raw_source, error_msg)
+        return cls(
+            path_part,
+            StatementType.FILE,
+            raw_source,
+            error_msg,
+        )
 
 
 RecursiveStatementReader = Generator[ParsedStatement, Any, Any]
@@ -154,7 +170,10 @@ def parse_statement(source: str, operators: OperatorFunctions) -> ParsedStatemen
             )
 
         case "queries" | "result" | "abort", (str(),):
-            return ParsedStatement(statement, StatementType.SNOWSQL_COMMAND, None)
+            return ParsedStatement(statement, StatementType.REPL_COMMAND, None)
+
+        case "edit", (str(),):
+            return ParsedStatement(statement, StatementType.REPL_COMMAND, command_args)
 
         case _:
             error_msg = f"Unknown command: {command}"
@@ -240,7 +259,7 @@ def query_reader(
 class CompiledStatement:
     statement: str | None = None
     execute_async: bool = False
-    command: SnowSQLCommand | None = None
+    command: ReplCommand | None = None
 
 
 def _is_empty_statement(statement: str) -> bool:
@@ -274,21 +293,26 @@ def compile_statements(
                 if not is_async:
                     expected_results_cnt += 1
 
-        if stmt.statement_type == StatementType.SNOWSQL_COMMAND:
+        if stmt.statement_type == StatementType.REPL_COMMAND:
             if not stmt.error:
-                cmd = (
+                command_text = (
                     stmt.statement.read()
                     .removesuffix(ASYNC_SUFFIX)
                     .removesuffix(";")
-                    .split()
+                    .strip()
                 )
-                parsed_command = compile_snowsql_command(
-                    command=cmd[0], cmd_args=cmd[1:]
-                )
-                if parsed_command.error_message:
-                    errors.append(parsed_command.error_message)
-                else:
-                    compiled.append(CompiledStatement(command=parsed_command.command))
+                try:
+                    parsed_command = compile_repl_command(command_text)
+                    if parsed_command.error_message:
+                        errors.append(parsed_command.error_message)
+                    else:
+                        compiled.append(
+                            CompiledStatement(command=parsed_command.command)
+                        )
+                except UnknownCommandError as e:
+                    errors.append(str(e))
+                except Exception as e:
+                    errors.append(f"Error parsing command: {e}")
 
         if stmt.error:
             errors.append(stmt.error)

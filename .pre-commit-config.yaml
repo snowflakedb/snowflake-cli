@@ -63,15 +63,19 @@ repos:
         pass_filenames: true
         files: ^src/.*\.py$
         exclude: ^src/snowflake/cli/_app/constants.py$
-      - id: lock-subdependencies
-        name: "Generate project.dependencies from cli.dependencies in pyproject.toml"
+      - id: lock-dependencies
+        name: "Lock project dependencies"
         language: system
-        entry: python scripts/lock_subdependencies.py
-        files: ^pyproject.toml$
+        entry: hatch
+        args: ["run", "lock-dependencies"]
+        pass_filenames: false
+        files: ^py(project|lock)\.toml$
       - id: dependencies-sync
         name: "Copy dependencies from pyproject.toml to requirements.txt"
         language: system
-        entry: python snyk/dependency-sync.py
+        entry: hatch
+        args: ["run", "sync-dependencies"]
+        pass_filenames: false
         files: ^pyproject.toml$
       - id: use-local-requirements-model
         language: pygrep
@@ -102,6 +106,7 @@ repos:
       - id: insert-license
         name: Add license for all toml files
         files: \.toml$
+        exclude: pylock\.toml$
         args:
           - --comment-style
           - "|#|"

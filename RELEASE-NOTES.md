@@ -19,10 +19,58 @@
 ## Deprecations
 
 ## New additions
+* Added global option `--decimal-precision` allowing setting arbitrary precision for Python's `Decimal` type.
 * Added support for `auto_suspend_secs` parameter in SPCS service commands (`deploy`, `set`, `unset`) to configure automatic service suspension after inactivity period.
 
 ## Fixes and improvements
+* Bumped `snowflake-connector-python==3.18.0`
+* Grant privileges defined in `snowflake.yml` after deploying Streamlit
+
+
+# v3.12.0
+
+## Deprecations
+
+## New additions
+* The `!edit` command for external editors was added to REPL
+* Added `--partial` flag to `snow logs` command for partial, case-insensitive object name matching
+
+## Fixes and improvements
+* Fixed crashes with older x86_64 Intel CPUs
+* Improved parsing `!source` with trailing comments
+* `!` commands no longer require trailing `;` for evaluation
+* Bumped to `typer=0.17.3`. Improved displaying help messages.
+* Fixed using `ctx.var` in `snow sql` with Jinja templating.
+* Fixed issues when pasting content with trailing new lines.
+* Improved output handling  with streaming
+* Bumped `snowflake-connector-python` to 3.17.3
+* Fixed `snow snowpark deploy` failing on duplicated packages
+* Fixed `snow spcs logs` `IndexOutOfRange` error
+
+
+# v3.11.0
+
+## Deprecations
+
+## New additions
+* Add `snow connection remove` command
+* Added support for `runtime_environment_version` field in notebook entity configuration, allowing specification of runtime environment version for containerized notebooks.
+* Added `snow auth oidc` command group for managing workload identity federation authentication:
+  * `snow auth oidc read-token` - Reads and displays OIDC tokens from CI/CD environments
+  * Supports GitHub Actions OIDC provider for passwordless authentication in CI/CD pipelines
+
+## Fixes and improvements
+
+
+# v3.10.1
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
 * Fixed DBT deploy command to properly handle fully qualified names
+* Fixed DBT deploy command to properly handle local directories with dots in names
 
 
 # v3.10.0
