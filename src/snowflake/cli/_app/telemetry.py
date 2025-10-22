@@ -61,6 +61,11 @@ class CLITelemetryField(Enum):
     COMMAND_CI_ENVIRONMENT = "command_ci_environment"
     # Configuration
     CONFIG_FEATURE_FLAGS = "config_feature_flags"
+    CONFIG_PROVIDER_TYPE = "config_provider_type"
+    CONFIG_SOURCES_USED = "config_sources_used"
+    CONFIG_SOURCE_WINS = "config_source_wins"
+    CONFIG_TOTAL_KEYS_RESOLVED = "config_total_keys_resolved"
+    CONFIG_KEYS_WITH_OVERRIDES = "config_keys_with_overrides"
     # Metrics
     COUNTERS = "counters"
     SPANS = "spans"
@@ -219,6 +224,55 @@ def python_version() -> str:
     return f"{py_ver.major}.{py_ver.minor}.{py_ver.micro}"
 
 
+def _get_config_telemetry() -> TelemetryDict:
+    """Get configuration resolution telemetry data."""
+    try:
+        from snowflake.cli.api.config_ng.telemetry_integration import (
+            get_config_telemetry_payload,
+        )
+        from snowflake.cli.api.config_provider import (
+            AlternativeConfigProvider,
+            get_config_provider_singleton,
+        )
+
+        provider = get_config_provider_singleton()
+
+        # Identify which config provider is being used
+        provider_type = (
+            "ng" if isinstance(provider, AlternativeConfigProvider) else "legacy"
+        )
+
+        result: TelemetryDict = {CLITelemetryField.CONFIG_PROVIDER_TYPE: provider_type}
+
+        # Get detailed telemetry if using ng config
+        if isinstance(provider, AlternativeConfigProvider):
+            provider._ensure_initialized()  # noqa: SLF001
+            payload = get_config_telemetry_payload(provider._resolver)  # noqa: SLF001
+
+            # Map payload keys to telemetry fields
+            if payload:
+                if "config_sources_used" in payload:
+                    result[CLITelemetryField.CONFIG_SOURCES_USED] = payload[
+                        "config_sources_used"
+                    ]
+                if "config_source_wins" in payload:
+                    result[CLITelemetryField.CONFIG_SOURCE_WINS] = payload[
+                        "config_source_wins"
+                    ]
+                if "config_total_keys_resolved" in payload:
+                    result[CLITelemetryField.CONFIG_TOTAL_KEYS_RESOLVED] = payload[
+                        "config_total_keys_resolved"
+                    ]
+                if "config_keys_with_overrides" in payload:
+                    result[CLITelemetryField.CONFIG_KEYS_WITH_OVERRIDES] = payload[
+                        "config_keys_with_overrides"
+                    ]
+
+        return result
+    except Exception:
+        return {}
+
+
 class CLITelemetryClient:
     @property
     def _ctx(self) -> _CliGlobalContextAccess:
@@ -239,6 +293,7 @@ class CLITelemetryClient:
                 k: str(v) for k, v in get_feature_flags_section().items()
             },
             **_find_command_info(),
+            **_get_config_telemetry(),
             **telemetry_payload,
         }
         # To map Enum to string, so we don't have to use .value every time
