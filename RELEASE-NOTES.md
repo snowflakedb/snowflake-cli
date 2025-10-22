@@ -20,6 +20,7 @@
 
 ## New additions
 * Added global option `--decimal-precision` allowing setting arbitrary precision for Python's `Decimal` type.
+* Added support for `auto_suspend_secs` parameter in SPCS service commands (`deploy`, `set`, `unset`) to configure automatic service suspension after inactivity period.
 
 ## Fixes and improvements
 * Bumped `snowflake-connector-python==3.18.0`

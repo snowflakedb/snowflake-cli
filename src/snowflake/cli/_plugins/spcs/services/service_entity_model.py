@@ -30,6 +30,11 @@ class ServiceEntityModel(EntityModelBaseWithArtifacts, ExternalAccessBaseModel):
         title="The service will automatically resume when a service function or ingress is called.",
         default=True,
     )
+    auto_suspend_secs: Optional[int] = Field(
+        title="Number of seconds of inactivity after which the service is automatically suspended.",
+        default=None,
+        ge=0,
+    )
     query_warehouse: Optional[str] = Field(
         title="Warehouse to use if a service container connects to Snowflake to execute a query without explicitly specifying a warehouse to use",
         default=None,

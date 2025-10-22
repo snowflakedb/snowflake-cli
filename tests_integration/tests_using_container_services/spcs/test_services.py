@@ -132,6 +132,49 @@ def test_job_services(_test_steps: Tuple[SnowparkServicesTestSteps, str]):
     test_steps.list_should_not_return_service(job_service_name)
 
 
+@pytest.mark.integration
+def test_service_auto_suspend_secs(
+    _test_steps: Tuple[SnowparkServicesTestSteps, str],
+    alter_snowflake_yml,
+    project_directory,
+):
+    test_steps, service_name = _test_steps
+    stage = f"{service_name}_stage"
+
+    with project_directory("spcs_service_no_public"):
+        alter_snowflake_yml("snowflake.yml", "entities.service.stage", stage)
+        alter_snowflake_yml(
+            "snowflake.yml", "entities.service.identifier.name", service_name
+        )
+
+        test_steps.deploy_service(service_name)
+        test_steps.describe_should_return_service(
+            service_name,
+            expected_values_contain={
+                "auto_suspend_secs": 600,
+            },
+        )
+
+        test_steps.set_service_auto_suspend_secs(service_name, auto_suspend_secs=1200)
+        test_steps.describe_should_return_service(
+            service_name,
+            expected_values_contain={
+                "auto_suspend_secs": 1200,
+            },
+        )
+
+        test_steps.unset_service_auto_suspend_secs(service_name)
+        test_steps.describe_should_return_service(
+            service_name,
+            expected_values_contain={
+                "auto_suspend_secs": 0,
+            },
+        )
+
+    test_steps.drop_service(service_name)
+    test_steps.list_should_not_return_service(service_name)
+
+
 @pytest.fixture
 def _test_setup(
     runner,

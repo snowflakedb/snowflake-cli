@@ -1,0 +1,17 @@
+definition_version: "2"
+
+entities:
+  service:
+    type: service
+    identifier:
+      name:
+    stage:
+    compute_pool: snowcli_compute_pool
+    spec_file: spec.yml
+    min_instances: 1
+    max_instances: 1
+    query_warehouse: xsmall
+    auto_suspend_secs: 600
+    comment: "Test service without public endpoint"
+    artifacts:
+      - spec.yml

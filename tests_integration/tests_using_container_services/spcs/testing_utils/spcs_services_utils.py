@@ -19,7 +19,7 @@ import time
 import re
 from pathlib import Path
 from textwrap import dedent
-from typing import List, Dict
+from typing import List, Dict, Optional, Union
 
 import pytest
 from snowflake.connector import SnowflakeConnection
@@ -195,15 +195,29 @@ class SnowparkServicesTestSteps:
         assert not_contains_row_with(result.json, {"name": service_name.upper()})
 
     def describe_should_return_service(
-        self, service_name: str, expected_values_contain: Dict[str, str] = {}
+        self,
+        service_name: str,
+        expected_values_contain: Optional[Dict[str, Union[str, int, None]]] = None,
     ) -> None:
         result = self._execute_describe(service_name)
         assert_that_result_is_successful(result)
         assert_that_result_is_successful_and_output_json_contains(
             result, {"name": service_name.upper()}
         )
-        for key, value in expected_values_contain.items():
-            assert value in result.json[0][key]
+        if expected_values_contain:
+            for key, value in expected_values_contain.items():
+                if value is None:
+                    assert (
+                        result.json[0][key] is None
+                    ), f"Expected {key} to be None, but got {result.json[0][key]}"
+                elif isinstance(value, int):
+                    assert (
+                        value == result.json[0][key]
+                    ), f"Expected {key} to contain {value}, but got {result.json[0][key]}"
+                else:
+                    assert value in str(
+                        result.json[0][key]
+                    ), f"Expected {key} to contain {value}, but got {result.json[0][key]}"
 
     def set_unset_service_property(self, service_name: str) -> None:
         comment = "test comment"
@@ -239,6 +253,35 @@ class SnowparkServicesTestSteps:
         )
         description = self._execute_describe(service_name)
         assert contains_row_with(description.json, {"comment": None})
+
+    def set_service_auto_suspend_secs(
+        self, service_name: str, auto_suspend_secs: int
+    ) -> None:
+        result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "service",
+                "set",
+                service_name,
+                "--auto-suspend-secs",
+                str(auto_suspend_secs),
+                *self._database_schema_args(),
+            ]
+        )
+        assert_that_result_is_successful_and_executed_successfully(result, is_json=True)
+
+    def unset_service_auto_suspend_secs(self, service_name: str) -> None:
+        result = self._setup.runner.invoke_with_connection_json(
+            [
+                "spcs",
+                "service",
+                "unset",
+                service_name,
+                "--auto-suspend-secs",
+                *self._database_schema_args(),
+            ]
+        )
+        assert_that_result_is_successful_and_executed_successfully(result, is_json=True)
 
     def drop_service(self, service_name: str) -> None:
         result = self._setup.runner.invoke_with_connection_json(

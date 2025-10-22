@@ -114,6 +114,7 @@ class ServiceManager(SqlExecutionMixin):
         min_instances: int,
         max_instances: int,
         auto_resume: bool,
+        auto_suspend_secs: Optional[int],
         external_access_integrations: Optional[List[str]],
         query_warehouse: Optional[str],
         tags: Optional[List[Tag]],
@@ -139,6 +140,7 @@ class ServiceManager(SqlExecutionMixin):
                 max_instances=max_instances,
                 query_warehouse=query_warehouse,
                 auto_resume=auto_resume,
+                auto_suspend_secs=auto_suspend_secs,
                 external_access_integrations=external_access_integrations,
                 comment=comment,
             )
@@ -162,6 +164,9 @@ class ServiceManager(SqlExecutionMixin):
 
             if max_instances:
                 query.append(f"MAX_INSTANCES = {max_instances}")
+
+            if auto_suspend_secs is not None:
+                query.append(f"AUTO_SUSPEND_SECS = {auto_suspend_secs}")
 
             if query_warehouse:
                 query.append(f"QUERY_WAREHOUSE = {query_warehouse}")
@@ -532,6 +537,7 @@ class ServiceManager(SqlExecutionMixin):
         max_instances: Optional[int],
         query_warehouse: Optional[str],
         auto_resume: Optional[bool],
+        auto_suspend_secs: Optional[int],
         external_access_integrations: Optional[List[str]],
         comment: Optional[str],
     ):
@@ -540,6 +546,7 @@ class ServiceManager(SqlExecutionMixin):
             ("max_instances", max_instances),
             ("query_warehouse", query_warehouse),
             ("auto_resume", auto_resume),
+            ("auto_suspend_secs", auto_suspend_secs),
             ("external_access_integrations", external_access_integrations),
             ("comment", comment),
         ]
@@ -563,6 +570,9 @@ class ServiceManager(SqlExecutionMixin):
         if auto_resume is not None:
             query.append(f" auto_resume = {auto_resume}")
 
+        if auto_suspend_secs is not None:
+            query.append(f" auto_suspend_secs = {auto_suspend_secs}")
+
         if external_access_integrations is not None:
             external_access_integration_list = ",".join(
                 f"{e}" for e in external_access_integrations
@@ -583,6 +593,7 @@ class ServiceManager(SqlExecutionMixin):
         max_instances: bool,
         query_warehouse: bool,
         auto_resume: bool,
+        auto_suspend_secs: bool,
         comment: bool,
     ):
         property_pairs = [
@@ -590,6 +601,7 @@ class ServiceManager(SqlExecutionMixin):
             ("max_instances", max_instances),
             ("query_warehouse", query_warehouse),
             ("auto_resume", auto_resume),
+            ("auto_suspend_secs", auto_suspend_secs),
             ("comment", comment),
         ]
 
