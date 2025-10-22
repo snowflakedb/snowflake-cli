@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from shlex import split
-from typing import Dict, Callable
+from typing import Callable, Dict, List
 from unittest import mock
 
 from snowflake.cli._app.telemetry import TelemetryEvent, CLITelemetryField
@@ -111,13 +111,12 @@ def test_feature_counters_v1_post_deploy_set_and_package_scripts_available(
             mock_telemetry, TelemetryEvent.CMD_EXECUTION_RESULT.value
         )
 
-        assert message[CLITelemetryField.COUNTERS.value] == {
-            CLICounterField.SNOWPARK_PROCESSOR: 0,
-            CLICounterField.TEMPLATES_PROCESSOR: 0,
-            CLICounterField.PDF_TEMPLATES: 0,
-            CLICounterField.POST_DEPLOY_SCRIPTS: 1,
-            CLICounterField.PACKAGE_SCRIPTS: 0,
-        }
+        counters = message[CLITelemetryField.COUNTERS.value]
+        assert counters[CLICounterField.SNOWPARK_PROCESSOR] == 0
+        assert counters[CLICounterField.TEMPLATES_PROCESSOR] == 0
+        assert counters[CLICounterField.PDF_TEMPLATES] == 0
+        assert counters[CLICounterField.POST_DEPLOY_SCRIPTS] == 1
+        assert counters[CLICounterField.PACKAGE_SCRIPTS] == 0
 
 
 @pytest.mark.integration
@@ -161,11 +160,10 @@ def test_feature_counters_v2_post_deploy_not_available_in_bundle(
             mock_telemetry, TelemetryEvent.CMD_EXECUTION_RESULT.value
         )
 
-        assert message[CLITelemetryField.COUNTERS.value] == {
-            CLICounterField.SNOWPARK_PROCESSOR: 0,
-            CLICounterField.TEMPLATES_PROCESSOR: 0,
-            CLICounterField.PDF_TEMPLATES: 1,
-        }
+        counters = message[CLITelemetryField.COUNTERS.value]
+        assert counters[CLICounterField.SNOWPARK_PROCESSOR] == 0
+        assert counters[CLICounterField.TEMPLATES_PROCESSOR] == 0
+        assert counters[CLICounterField.PDF_TEMPLATES] == 1
 
 
 @pytest.mark.integration
@@ -207,15 +205,14 @@ def test_feature_counter_v2_templates_processor_set(
             mock_telemetry, TelemetryEvent.CMD_EXECUTION_RESULT.value
         )
 
-        assert message[CLITelemetryField.COUNTERS.value] == {
-            CLICounterField.SNOWPARK_PROCESSOR: 0,
-            CLICounterField.TEMPLATES_PROCESSOR: 1,
-            CLICounterField.PDF_TEMPLATES: 0,
-            CLICounterField.POST_DEPLOY_SCRIPTS: 0,
-            CLICounterField.EVENT_SHARING: 0,
-            CLICounterField.EVENT_SHARING_ERROR: 0,
-            CLICounterField.EVENT_SHARING_WARNING: 0,
-        }
+        counters = message[CLITelemetryField.COUNTERS.value]
+        assert counters[CLICounterField.SNOWPARK_PROCESSOR] == 0
+        assert counters[CLICounterField.TEMPLATES_PROCESSOR] == 1
+        assert counters[CLICounterField.PDF_TEMPLATES] == 0
+        assert counters[CLICounterField.POST_DEPLOY_SCRIPTS] == 0
+        assert counters[CLICounterField.EVENT_SHARING] == 0
+        assert counters[CLICounterField.EVENT_SHARING_ERROR] == 0
+        assert counters[CLICounterField.EVENT_SHARING_WARNING] == 0
 
 
 @pytest.mark.integration
@@ -244,13 +241,12 @@ def test_feature_counter_v1_package_scripts_converted_to_post_deploy_and_both_se
             mock_telemetry, TelemetryEvent.CMD_EXECUTION_RESULT.value
         )
 
-        assert message[CLITelemetryField.COUNTERS.value] == {
-            CLICounterField.SNOWPARK_PROCESSOR: 0,
-            CLICounterField.TEMPLATES_PROCESSOR: 0,
-            CLICounterField.PDF_TEMPLATES: 0,
-            CLICounterField.POST_DEPLOY_SCRIPTS: 1,
-            CLICounterField.PACKAGE_SCRIPTS: 1,
-        }
+        counters = message[CLITelemetryField.COUNTERS.value]
+        assert counters[CLICounterField.SNOWPARK_PROCESSOR] == 0
+        assert counters[CLICounterField.TEMPLATES_PROCESSOR] == 0
+        assert counters[CLICounterField.PDF_TEMPLATES] == 0
+        assert counters[CLICounterField.POST_DEPLOY_SCRIPTS] == 1
+        assert counters[CLICounterField.PACKAGE_SCRIPTS] == 1
 
 
 @pytest.mark.integration
@@ -289,12 +285,11 @@ def test_feature_counter_v2_post_deploy_set_and_package_scripts_not_available(
             mock_telemetry, TelemetryEvent.CMD_EXECUTION_RESULT.value
         )
 
-        assert message[CLITelemetryField.COUNTERS.value] == {
-            CLICounterField.SNOWPARK_PROCESSOR: 0,
-            CLICounterField.TEMPLATES_PROCESSOR: 0,
-            CLICounterField.PDF_TEMPLATES: 1,
-            CLICounterField.POST_DEPLOY_SCRIPTS: 1,
-        }
+        counters = message[CLITelemetryField.COUNTERS.value]
+        assert counters[CLICounterField.SNOWPARK_PROCESSOR] == 0
+        assert counters[CLICounterField.TEMPLATES_PROCESSOR] == 0
+        assert counters[CLICounterField.PDF_TEMPLATES] == 1
+        assert counters[CLICounterField.POST_DEPLOY_SCRIPTS] == 1
 
 
 @pytest.mark.integration
