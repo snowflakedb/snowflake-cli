@@ -21,7 +21,7 @@ name = "snowflake-cli"
 authors = [{ name = "Snowflake Inc." }]
 license = { file = "LICENSE" }
 dynamic = ["version"]
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 description = "Snowflake CLI"
 readme = "README.md"
 dependencies = [

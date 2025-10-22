@@ -39,7 +39,7 @@ Feel free to file an issue or submit a PR here for general cases. For official s
 
 ### Install with uv (PyPi)
 
-We recommend installing Snowflake CLI in an isolated environment using [uv](https://docs.astral.sh/uv/guides/tools/#installing-tools). Requires Python >= 3.10
+We recommend installing Snowflake CLI in an isolated environment using [uv](https://docs.astral.sh/uv/guides/tools/#installing-tools). Requires Python >= 3.10 < 3.14
 
 ```bash
 uv tool install snowflake-cli
@@ -63,7 +63,7 @@ snow --help
 
 ### Install from source
 
-Requires Python >= 3.10 and git
+Requires Python >= 3.10 < 3.14 and git
 
 ```bash
 git clone https://github.com/snowflakedb/snowflake-cli
