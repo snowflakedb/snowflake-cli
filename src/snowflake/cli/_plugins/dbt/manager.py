@@ -26,7 +26,6 @@ from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import DEFAULT_SIZE_LIMIT_MB, ObjectType
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -291,10 +290,6 @@ class DBTManager(SqlExecutionMixin):
             "schema",
             "type",
         }
-        if FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled():
-            required_fields.add("account")
-            required_fields.add("user")
-            required_fields.add("warehouse")
         if missing_keys := required_fields - set(target_details.keys()):
             errors.append(
                 f"Missing required fields: {', '.join(sorted(missing_keys))} in target {target_name}"

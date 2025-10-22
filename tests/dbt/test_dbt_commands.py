@@ -23,10 +23,7 @@ from snowflake.cli._plugins.dbt.constants import (
     PROFILES_FILENAME,
     RESULT_COLUMN_NAME,
 )
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secure_path import SecurePath
-
-from tests_common.feature_flag_utils import with_feature_flags
 
 
 class TestDBTList:
@@ -195,7 +192,6 @@ class TestDBTDeploy:
         assert str(mock_deploy.call_args[0][0]) == "TEST_PIPELINE"
         assert call_kwargs["profiles_path"] == SecurePath(new_profiles_directory)
 
-    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
     def test_deploy_with_default_target_passes_to_manager(
         self, runner, dbt_project_path, mock_deploy
     ):
@@ -215,7 +211,6 @@ class TestDBTDeploy:
         assert call_kwargs["default_target"] == "prod"
         assert call_kwargs["unset_default_target"] is False
 
-    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
     def test_deploy_with_unset_default_target_passes_to_manager(
         self, runner, dbt_project_path, mock_deploy
     ):
@@ -235,7 +230,6 @@ class TestDBTDeploy:
         assert call_kwargs["default_target"] is None
         assert call_kwargs["unset_default_target"] is True
 
-    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
     def test_deploys_project_with_single_external_access_integration(
         self,
         runner,
@@ -261,7 +255,6 @@ class TestDBTDeploy:
         ]
         assert call_kwargs["install_local_deps"] is False
 
-    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
     def test_deploys_project_with_multiple_external_access_integrations(
         self,
         runner,
@@ -289,7 +282,6 @@ class TestDBTDeploy:
         )
         assert call_kwargs["install_local_deps"] is False
 
-    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
     def test_deploys_project_with_local_deps(
         self,
         runner,
@@ -312,7 +304,6 @@ class TestDBTDeploy:
         assert not call_kwargs["external_access_integrations"]
         assert call_kwargs["install_local_deps"] is True
 
-    @with_feature_flags({FeatureFlag.ENABLE_DBT_GA_FEATURES: True})
     def test_deploy_with_both_default_target_and_unset_default_target_fails(
         self,
         mock_connect,

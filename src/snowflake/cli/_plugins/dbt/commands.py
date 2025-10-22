@@ -35,7 +35,6 @@ from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.exceptions import CliError
-from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.output.types import (
     CommandResult,
@@ -47,8 +46,6 @@ from snowflake.cli.api.secure_path import SecurePath
 app = SnowTyperFactory(
     name="dbt",
     help="Manages dbt on Snowflake projects.",
-    is_hidden=FeatureFlag.ENABLE_DBT.is_disabled,
-    preview=True,
 )
 log = logging.getLogger(__name__)
 
@@ -105,25 +102,21 @@ def deploy_dbt(
     ),
     default_target: Optional[str] = DefaultTargetOption(
         help="Default target for the dbt project. Mutually exclusive with --unset-default-target.",
-        hidden=FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled(),
     ),
     unset_default_target: Optional[bool] = UnsetDefaultTargetOption(
         help="Unset the default target for the dbt project. Mutually exclusive with --default-target.",
-        hidden=FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled(),
     ),
     external_access_integrations: Optional[list[str]] = typer.Option(
         None,
         "--external-access-integration",
         show_default=False,
         help="External access integration to be used by the dbt object.",
-        hidden=FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled(),
     ),
     install_local_deps: Optional[bool] = typer.Option(
         False,
         "--install-local-deps",
         show_default=False,
         help="Installs local dependencies from project that don't require external access.",
-        hidden=FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled(),
     ),
     **options,
 ) -> CommandResult:
@@ -134,12 +127,6 @@ def deploy_dbt(
         snow dbt deploy PROJECT
         snow dbt deploy PROJECT --source=/Users/jdoe/project --force
     """
-    if FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled():
-        default_target = None
-        unset_default_target = False
-        external_access_integrations = None
-        install_local_deps = False
-
     project_path = SecurePath(source) if source is not None else SecurePath.cwd()
     profiles_dir_path = SecurePath(profiles_dir) if profiles_dir else project_path
     return QueryResult(
@@ -161,7 +148,6 @@ dbt_execute_app = SnowTyperFactory(
     help="Execute a dbt command on Snowflake. Subcommand name and all "
     "parameters following it will be passed over to dbt.",
     subcommand_metavar="DBT_COMMAND",
-    preview=True,
 )
 app.add_typer(dbt_execute_app)
 
@@ -188,7 +174,6 @@ for cmd in DBT_COMMANDS:
         context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
         help=f"Execute {cmd} command on Snowflake. Command name and all parameters following it will be passed over to dbt.",
         add_help_option=False,
-        preview=True,
     )
     def _dbt_execute(
         ctx: typer.Context,
