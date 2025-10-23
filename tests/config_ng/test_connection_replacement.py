@@ -320,7 +320,11 @@ def test_multiple_connections_independent_replacement(config_ng_setup):
 def test_empty_connection_replacement(config_ng_setup):
     """
     Test that an empty connection in a later FILE source still replaces
-    the entire connection from earlier sources, resulting in no configured connection.
+    the entire connection from earlier sources.
+
+    The empty connection is considered valid (it exists in config), but has
+    no parameters. Validation of required fields happens when actually using
+    the connection to connect to Snowflake.
     """
     cli_config = """
     [connections.test]
@@ -335,15 +339,16 @@ def test_empty_connection_replacement(config_ng_setup):
     """
 
     with config_ng_setup(cli_config=cli_config, connections_toml=connections_toml):
-        import pytest
         from snowflake.cli.api.config import get_connection_dict
-        from snowflake.cli.api.exceptions import MissingConfigurationError
 
-        # Empty connection replacement means no parameters, which raises an error
-        with pytest.raises(
-            MissingConfigurationError, match="Connection test is not configured"
-        ):
-            get_connection_dict("test")
+        # Empty connection replacement: connection exists but has no parameters
+        conn = get_connection_dict("test")
+        assert conn == {}  # Connection exists but is empty
+
+        # No parameters from cli_config are inherited (connection was replaced)
+        assert "account" not in conn
+        assert "user" not in conn
+        assert "warehouse" not in conn
 
 
 def test_overlay_precedence_connection_specific_over_global(config_ng_setup):
