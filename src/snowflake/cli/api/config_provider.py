@@ -448,8 +448,8 @@ class AlternativeConfigProvider(ConfigProvider):
             connections[connection_name], dict
         ):
             result = connections[connection_name]
-            if result:
-                return result
+            # Allow empty connections - they're valid (just have no parameters set)
+            return result
 
         raise MissingConfigurationError(
             f"Connection {connection_name} is not configured"
