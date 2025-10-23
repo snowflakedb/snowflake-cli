@@ -3,7 +3,6 @@ from unittest import mock
 import pytest
 import yaml
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
-from snowflake.cli.api.feature_flags import FeatureFlag
 
 
 @pytest.fixture
@@ -38,13 +37,6 @@ def profile():
             },
         }
     }
-    if FeatureFlag.ENABLE_DBT_GA_FEATURES.is_disabled():
-        profiles["dev"]["outputs"]["local"]["account"] = "test_account"
-        profiles["dev"]["outputs"]["local"]["user"] = "test_user"
-        profiles["dev"]["outputs"]["local"]["warehouse"] = "test_wh"
-        profiles["dev"]["outputs"]["prod"]["account"] = "test_account"
-        profiles["dev"]["outputs"]["prod"]["user"] = "test_user"
-        profiles["dev"]["outputs"]["prod"]["warehouse"] = "test_wh"
     return profiles
 
 

@@ -21,10 +21,18 @@
 ## New additions
 * Added global option `--decimal-precision` allowing setting arbitrary precision for Python's `Decimal` type.
 * Added support for `auto_suspend_secs` parameter in SPCS service commands (`deploy`, `set`, `unset`) to configure automatic service suspension after inactivity period.
+* Added `snow dbt describe` and `snow dbt drop` commands
+* Added `snow dbt execute ... retry` subcommand
+* Added new flags to `snow dbt deploy` command:
+  * `--default-target` to set a default target
+  * `--unset-default-target` to clear default
+  * `--external-access-integration` sets external access integrations (needed to pull external deps on altering dbt project object)
+  * `--install-local-deps` instructs to install dependencies located in the project
 
 ## Fixes and improvements
 * Bumped `snowflake-connector-python==3.18.0`
 * Grant privileges defined in `snowflake.yml` after deploying Streamlit
+* Relaxed dbt profiles.yml validation rules; added extra validation for role specified in profiles.yml
 
 
 # v3.12.0

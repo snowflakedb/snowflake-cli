@@ -24,6 +24,7 @@
   | auth         Manages authentication methods.                                 |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
+  | dbt          Manages dbt on Snowflake projects.                              |
   | git          Manages git repositories in Snowflake.                          |
   | helpers      Helper commands.                                                |
   | init         Creates project directory from template.                        |
@@ -4591,17 +4592,37 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --source                          TEXT  Path to directory containing dbt     |
-  |                                         files to deploy. Defaults to current |
-  |                                         working directory.                   |
-  | --profiles-dir                    TEXT  Path to directory containing         |
-  |                                         profiles.yml. Defaults to directory  |
-  |                                         provided in --source or current      |
-  |                                         working directory                    |
-  | --force             --no-force          Overwrites conflicting files in the  |
-  |                                         project, if any.                     |
-  |                                         [default: no-force]                  |
-  | --help          -h                      Show this message and exit.          |
+  | --source                                     TEXT  Path to directory         |
+  |                                                    containing dbt files to   |
+  |                                                    deploy. Defaults to       |
+  |                                                    current working           |
+  |                                                    directory.                |
+  | --profiles-dir                               TEXT  Path to directory         |
+  |                                                    containing profiles.yml.  |
+  |                                                    Defaults to directory     |
+  |                                                    provided in --source or   |
+  |                                                    current working directory |
+  | --force                        --no-force          Overwrites conflicting    |
+  |                                                    files in the project, if  |
+  |                                                    any.                      |
+  |                                                    [default: no-force]       |
+  | --default-target                             TEXT  Default target for the    |
+  |                                                    dbt project. Mutually     |
+  |                                                    exclusive with            |
+  |                                                    --unset-default-target.   |
+  | --unset-default-target                             Unset the default target  |
+  |                                                    for the dbt project.      |
+  |                                                    Mutually exclusive with   |
+  |                                                    --default-target.         |
+  | --external-access-integr…                    TEXT  External access           |
+  |                                                    integration to be used by |
+  |                                                    the dbt object.           |
+  | --install-local-deps                               Installs local            |
+  |                                                    dependencies from project |
+  |                                                    that don't require        |
+  |                                                    external access.          |
+  | --help                     -h                      Show this message and     |
+  |                                                    exit.                     |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -21765,6 +21786,7 @@
   | auth         Manages authentication methods.                                 |
   | connection   Manages connections to Snowflake.                               |
   | cortex       Provides access to Snowflake Cortex.                            |
+  | dbt          Manages dbt on Snowflake projects.                              |
   | git          Manages git repositories in Snowflake.                          |
   | helpers      Helper commands.                                                |
   | init         Creates project directory from template.                        |
