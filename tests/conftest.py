@@ -114,10 +114,9 @@ def reset_global_context_and_setup_config_and_logging_levels(
         cli_context_manager.enable_tracebacks = False
         cli_context_manager.connection_cache = connection_cache
 
-        # Set config file override in context for test isolation
         cli_context_manager.config_file_override = test_snowcli_config
 
-        config_init(None)  # No need to pass config file, it's in context
+        config_init(None)
         loggers.create_loggers(verbose=False, debug=False)
         try:
             yield
@@ -238,7 +237,6 @@ def app_zip(temporary_directory) -> Generator:
     yield create_temp_file(".zip", temporary_directory, [])
 
 
-# New fixtures for config manager testing
 @pytest.fixture
 def config_manager():
     """
@@ -325,7 +323,6 @@ def config_manager_factory():
 
     yield _create_manager
 
-    # Cleanup
     for file in created_files:
         file.unlink(missing_ok=True)
 
@@ -519,7 +516,6 @@ def build_runner(app_factory, test_snowcli_config):
 @contextmanager
 def _named_temporary_file(suffix=None, prefix=None):
     with tempfile.TemporaryDirectory() as tmp_dir:
-        # Resolve Windows short paths to prevent cleanup issues
         from snowflake.cli.api.utils.path_utils import path_resolver
 
         resolved_tmp_dir = path_resolver(tmp_dir)
@@ -531,7 +527,6 @@ def _named_temporary_file(suffix=None, prefix=None):
         try:
             yield f
         finally:
-            # Ensure all logging handlers are closed before temp directory cleanup
             clean_logging_handlers()
 
 
