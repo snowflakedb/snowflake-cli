@@ -82,8 +82,6 @@ PLUGINS_SECTION_PATH = [CLI_SECTION, PLUGINS_SECTION]
 PLUGIN_ENABLED_KEY = "enabled"
 FEATURE_FLAGS_SECTION_PATH = [CLI_SECTION, "features"]
 
-# CLI_SECTION option registration now handled in CLI context manager
-
 
 @dataclass
 class ConnectionConfig:
@@ -150,7 +148,6 @@ def config_init(config_file: Optional[Path]):
     from snowflake.cli._app.loggers import create_initial_loggers
     from snowflake.cli.api.cli_global_context import get_cli_context_manager
 
-    # Set config file override in context instead of direct assignment
     if config_file:
         get_cli_context_manager().config_file_override = config_file
     else:
@@ -199,7 +196,6 @@ def _get_default_logs_config() -> dict:
     from snowflake.cli.api.utils.path_utils import path_resolver
 
     config_parent_path = get_config_manager().file_path.parent
-    # Resolve Windows short paths to prevent issues with temp directory cleanup
     resolved_parent_path = path_resolver(str(config_parent_path))
 
     return {

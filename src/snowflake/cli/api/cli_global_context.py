@@ -67,7 +67,6 @@ class _CliGlobalContextManager:
     _definition_manager: DefinitionManager | None = None
     enhanced_exit_codes: bool = False
 
-    # Configuration management
     _config_manager: ConfigManager | None = None
     config_file_override: Path | None = None
     connections_file_override: Path | None = None
@@ -79,7 +78,6 @@ class _CliGlobalContextManager:
         "project_env_overrides_args",
     ]
 
-    # Dependencies that invalidate config manager
     CONFIG_MANAGER_DEPENDENCIES = ["config_file_override", "connections_file_override"]
 
     def reset(self):
@@ -180,24 +178,20 @@ class _CliGlobalContextManager:
         )
         from snowflake.connector.constants import CONFIG_FILE
 
-        # Get current connections file path (handles test env changes)
         connections_file = get_connections_file()
 
-        # Create ConfigSlice for connections.toml (same as singleton CONFIG_MANAGER)
         connections_slice = ConfigSlice(
             path=connections_file,
             options=ConfigSliceOptions(check_permissions=True, only_in_slice=False),
             section="connections",
         )
 
-        # Create manager instance with connections slice
         manager = ConfigManager(
             name="CONFIG_MANAGER",
             file_path=self.config_file_override or CONFIG_FILE,
             _slices=[connections_slice],
         )
 
-        # Add connector's default options (replicating connector's singleton setup)
         manager.add_option(
             name="connections",
             parse_str=tomlkit.parse,
@@ -208,7 +202,6 @@ class _CliGlobalContextManager:
             name="default_connection_name", parse_str=str, default="default"
         )
 
-        # Add CLI-specific options (current lines 66-70 in config.py)
         from snowflake.cli.api.config import CLI_SECTION
 
         manager.add_option(
