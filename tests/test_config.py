@@ -40,7 +40,6 @@ def test_empty_config_file_is_created_if_not_present():
     from tests.conftest import clean_logging_handlers
 
     with TemporaryDirectory() as tmp_dir:
-        # Resolve Windows short paths to prevent cleanup issues
         resolved_tmp_dir = path_resolver(tmp_dir)
         config_file = Path(resolved_tmp_dir) / "sub" / "config.toml"
         assert config_file.exists() is False
@@ -50,7 +49,6 @@ def test_empty_config_file_is_created_if_not_present():
             assert config_file.exists() is True
             assert_file_permissions_are_strict(config_file)
         finally:
-            # Ensure all logging handlers are closed before temp directory cleanup
             clean_logging_handlers()
 
 
@@ -176,19 +174,16 @@ def test_create_default_config_if_not_exists_with_proper_permissions(
 
     mock_get_config_section.return_value = {}
     with TemporaryDirectory() as tmp_dir:
-        # Resolve Windows short paths to prevent cleanup issues
         resolved_tmp_dir = path_resolver(tmp_dir)
         config_path = Path(f"{resolved_tmp_dir}/snowflake/config.toml")
 
         try:
-            # Test the config initialization with a specific path
             config_init(config_path)
 
             assert config_path.exists()
             assert_file_permissions_are_strict(config_path.parent)
             assert_file_permissions_are_strict(config_path)
         finally:
-            # Ensure all logging handlers are closed before temp directory cleanup
             clean_logging_handlers()
 
 
@@ -244,7 +239,6 @@ def test_not_found_default_connection_from_evn_variable(test_root_path):
 def test_correct_updates_of_connections_on_setting_default_connection(
     test_snowcli_config, snowflake_home
 ):
-    # Use isolated context for this test to avoid fixture conflicts
     with fork_cli_context() as ctx:
         config = test_snowcli_config
         connections_toml = snowflake_home / "connections.toml"
@@ -261,12 +255,10 @@ def test_correct_updates_of_connections_on_setting_default_connection(
         """
         )
 
-        # Set config file override in isolated context
         ctx.config_file_override = config
-        config_init(None)  # Use context's config file
+        config_init(None)
         set_config_value(path=["default_connection_name"], value="asdf_b")
 
-        # Get config manager from isolated context
         config_manager = ctx.config_manager
 
         def assert_correct_connections_loaded():
@@ -316,16 +308,13 @@ def test_correct_updates_of_connections_on_setting_default_connection(
                 config_toml_content.count("dummy_flag = true") == 1
             )  # other settings are not erased
 
-        # reinit config file and recheck loaded connections
-        config_init(None)  # Use context's config file
+        config_init(None)
         assert_correct_connections_loaded()
 
 
 def test_correct_updates_of_connections_on_setting_default_connection_for_empty_config_file(
     config_file, snowflake_home, config_manager
 ):
-    # CONFIG_MANAGER is now accessed through the config_manager fixture
-
     with config_file() as config:
         connections_toml = snowflake_home / "connections.toml"
         connections_toml.write_text(
@@ -390,7 +379,6 @@ def test_correct_updates_of_connections_on_setting_default_connection_for_empty_
                 config_toml_content.count("dummy_flag = true") == 0
             )  # other settings are not erased
 
-        # reinit config file and recheck loaded connections
         config_init(config)
         assert_correct_connections_loaded()
 
@@ -398,8 +386,6 @@ def test_correct_updates_of_connections_on_setting_default_connection_for_empty_
 def test_connections_toml_override_config_toml(
     test_snowcli_config, snowflake_home, config_manager
 ):
-    # CONFIG_MANAGER is now accessed through the config_manager fixture
-
     connections_toml = snowflake_home / "connections.toml"
     connections_toml.write_text(
         """[default]
@@ -520,7 +506,6 @@ def test_too_wide_permissions_on_custom_config_file_causes_warning_windows(permi
     from tests.conftest import clean_logging_handlers
 
     with TemporaryDirectory() as tmp_dir:
-        # Resolve Windows short paths to prevent cleanup issues
         resolved_tmp_dir = path_resolver(tmp_dir)
         config_path = Path(resolved_tmp_dir) / "config.toml"
         config_path.touch()
@@ -538,7 +523,6 @@ def test_too_wide_permissions_on_custom_config_file_causes_warning_windows(permi
             ):
                 config_init(config_file=config_path)
         finally:
-            # Ensure all logging handlers are closed before temp directory cleanup
             clean_logging_handlers()
 
 
