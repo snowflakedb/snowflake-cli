@@ -21,18 +21,24 @@ from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Iterator
 
+import tomlkit
 from snowflake.cli.api.connections import ConnectionContext, OpenConnectionCache
 from snowflake.cli.api.exceptions import MissingConfigurationError
 from snowflake.cli.api.metrics import CLIMetrics
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.rendering.jinja import CONTEXT_KEY
 from snowflake.connector import SnowflakeConnection
+from snowflake.connector.constants import CONFIG_FILE
 
 if TYPE_CHECKING:
     from snowflake.cli._plugins.sql.repl import Repl
     from snowflake.cli.api.project.definition_manager import DefinitionManager
     from snowflake.cli.api.project.schemas.project_definition import ProjectDefinition
-    from snowflake.connector.config_manager import ConfigManager
+    from snowflake.connector.config_manager import (
+        ConfigManager,
+        ConfigSlice,
+        ConfigSliceOptions,
+    )
 
 _CONNECTION_CACHE = OpenConnectionCache()
 
@@ -169,14 +175,7 @@ class _CliGlobalContextManager:
         Factory method to create ConfigManager instance with CLI-specific options.
         Replicates the behavior of the imported CONFIG_MANAGER singleton.
         """
-        import tomlkit
         from snowflake.cli.api.config import get_connections_file
-        from snowflake.connector.config_manager import (
-            ConfigManager,
-            ConfigSlice,
-            ConfigSliceOptions,
-        )
-        from snowflake.connector.constants import CONFIG_FILE
 
         connections_file = get_connections_file()
 
