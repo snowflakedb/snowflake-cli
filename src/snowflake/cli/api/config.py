@@ -35,6 +35,7 @@ from snowflake.cli.api.secure_utils import (
     windows_get_not_whitelisted_users_with_access,
 )
 from snowflake.cli.api.utils.dict_utils import remove_key_from_nested_dict_if_exists
+from snowflake.cli.api.utils.path_utils import path_resolver
 from snowflake.cli.api.utils.types import try_cast_to_bool
 from snowflake.connector.compat import IS_WINDOWS
 from snowflake.connector.constants import CONFIG_FILE
@@ -193,8 +194,6 @@ def remove_connection_from_proper_file(name: str):
 
 def _get_default_logs_config() -> dict:
     """Get default logs configuration with lazy evaluation to avoid circular imports."""
-    from snowflake.cli.api.utils.path_utils import path_resolver
-
     config_parent_path = get_config_manager().file_path.parent
     resolved_parent_path = path_resolver(str(config_parent_path))
 
