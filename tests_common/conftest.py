@@ -41,14 +41,12 @@ def temporary_directory():
     initial_dir = os.getcwd()
 
     with tempfile.TemporaryDirectory() as tmp_dir:
-        # Resolve Windows short paths to prevent cleanup issues
         resolved_tmp_dir = path_resolver(tmp_dir)
         try:
             os.chdir(resolved_tmp_dir)
             yield resolved_tmp_dir
         finally:
             os.chdir(initial_dir)
-            # Ensure all logging handlers are closed before temp directory cleanup
             clean_logging_handlers()
 
 
