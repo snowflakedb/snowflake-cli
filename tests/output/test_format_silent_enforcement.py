@@ -27,7 +27,6 @@ def test_table_result_with_silent_enabled(runner):
         | string | 42     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
         | string | 43     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
         +---------------------------------------------------------------------+
-
         """
     )
 
@@ -48,7 +47,6 @@ def test_table_result_with_silent_disabled(runner):
         | string | 42     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
         | string | 43     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
         +---------------------------------------------------------------------+
-
         """
     )
 
