@@ -73,7 +73,6 @@ def enable_events_and_metrics_config():
     from tests.conftest import clean_logging_handlers
 
     with TemporaryDirectory() as tempdir:
-        # Resolve Windows short paths to prevent cleanup issues
         resolved_tempdir = path_resolver(tempdir)
         config_toml = Path(resolved_tempdir) / "config.toml"
         config_toml.write_text(
@@ -84,7 +83,6 @@ def enable_events_and_metrics_config():
         try:
             yield config_toml
         finally:
-            # Ensure all logging handlers are closed before temp directory cleanup
             clean_logging_handlers()
 
 
