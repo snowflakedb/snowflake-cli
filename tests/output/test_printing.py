@@ -115,7 +115,6 @@ def test_single_collection_result(capsys, mock_cursor):
     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
     +---------------------------------------------------+
-
     """
     )
 
@@ -147,7 +146,6 @@ def test_print_markup_tags_in_output_do_not_raise_errors(capsys, mock_cursor):
     |------------------------------------------------|
     | [INST]footranscript[/INST]                     |
     +------------------------------------------------+
-
     """
     )
 
@@ -163,14 +161,12 @@ def test_print_multi_results_table(capsys, _multiple_results):
     | string | 42     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
     | string | 43     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
     +---------------------------------------------------------------------+
-
     +---------------------------------------------------------------------+
     | string | number | array     | object          | date                |
     |--------+--------+-----------+-----------------+---------------------|
     | string | 42     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
     | string | 43     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
     +---------------------------------------------------------------------+
-
     """
     )
 
@@ -203,14 +199,12 @@ def test_print_different_multi_results_table(capsys, _multiple_different_results
     | string | 42     |
     | string | 43     |
     +-----------------+
-
     +---------------------------------------------------+
     | array     | object          | date                |
     |-----------+-----------------+---------------------|
     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
     +---------------------------------------------------+
-
     """
     )
 
@@ -243,7 +237,6 @@ def test_print_different_data_sources_table(capsys, _multiple_data_sources):
     | string | 42     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
     | string | 43     | ['array'] | {'k': 'object'} | 2022-03-21 00:00:00 |
     +---------------------------------------------------------------------+
-
     Command done
     +---------+
     | key     |
@@ -251,7 +244,6 @@ def test_print_different_data_sources_table(capsys, _multiple_data_sources):
     | value_0 |
     | value_1 |
     +---------+
-
     """
     )
 
@@ -409,7 +401,6 @@ def test_print_bytearray(capsys, _bytearray_result):
     |----------------------------------|
     | 544849532053484f554c4420574f524b |
     +----------------------------------+
-
     """
     )
 
