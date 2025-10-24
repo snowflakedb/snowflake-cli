@@ -121,10 +121,8 @@ class ResolutionHistoryTracker:
         if not self._enabled:
             return
 
-        # Flatten the nested data
         flat_data = self._flatten_nested_dict(nested_data)
 
-        # Record each flat key
         timestamp = datetime.now()
         for flat_key, value in flat_data.items():
             config_value = ConfigValue(
@@ -157,7 +155,6 @@ class ResolutionHistoryTracker:
         if not self._enabled or key not in self._discoveries:
             return
 
-        # Build resolution history for this key
         entries: List[ResolutionEntry] = []
         selected_value = None
 
@@ -191,12 +188,10 @@ class ResolutionHistoryTracker:
         if not self._enabled:
             return
 
-        # Create or update history to indicate default usage
         if key in self._histories:
             self._histories[key].default_used = True
             self._histories[key].final_value = default_value
         else:
-            # No discoveries, only default
             self._histories[key] = ResolutionHistory(
                 key=key, entries=[], final_value=default_value, default_used=True
             )
@@ -235,20 +230,14 @@ class ResolutionHistoryTracker:
         if not self._enabled:
             return
 
-        # Flatten final config to identify which values were selected
         flat_final = self._flatten_nested_dict(final_config)
 
-        # For each flat key in final config, find which source provided it
         for flat_key, final_value in flat_final.items():
-            # Check if this key has discoveries
             if flat_key not in self._discoveries:
                 continue
 
-            # Find the entry with matching value (should be highest priority)
             discoveries = self._discoveries[flat_key]
-            for config_value, timestamp in reversed(
-                discoveries
-            ):  # Check from highest to lowest
+            for config_value, timestamp in reversed(discoveries):
                 if config_value.value == final_value:
                     self.mark_selected(flat_key, config_value.source_name)
                     break
@@ -276,7 +265,6 @@ class ResolutionHistoryTracker:
 
         timestamp = datetime.now()
         for param_key, param_value in general_params.items():
-            # Record for each connection
             for conn_name in connection_names:
                 flat_key = f"connections.{conn_name}.{param_key}"
                 config_value = ConfigValue(
@@ -301,10 +289,8 @@ class ResolutionHistoryTracker:
             return
 
         for param_key in param_keys:
-            # Check if we have discoveries for the root-level key
             if param_key in self._discoveries:
                 conn_key = f"connections.{connection_name}.{param_key}"
-                # Copy all discoveries from root to connection location
                 for config_value, timestamp in self._discoveries[param_key]:
                     self._discoveries[conn_key].append((config_value, timestamp))
 
@@ -574,23 +560,19 @@ class ConfigurationResolver:
 
         for source in self._get_sources_by_type(SourceType.FILE):
             try:
-                source_data = source.discover(key)  # Already nested!
+                source_data = source.discover(key)
 
-                # Record discoveries for history tracking
                 self._history_tracker.record_nested_discovery(
                     source_data, source.source_name
                 )
 
-                # For FILE sources: connection-level replacement
                 if "connections" in source_data:
                     if "connections" not in result:
                         result["connections"] = {}
 
-                    # Replace entire connections (not merge)
                     for conn_name, conn_data in source_data["connections"].items():
                         result["connections"][conn_name] = conn_data
 
-                # Merge other top-level keys
                 for k, v in source_data.items():
                     if k != "connections":
                         result[k] = v
@@ -617,11 +599,9 @@ class ConfigurationResolver:
         """
         all_values: Dict[str, ConfigValue] = {}
 
-        # Add all connection parameters
         for conn_params in file_connections.values():
             all_values.update(conn_params)
 
-        # Add flat values
         all_values.update(file_flat_values)
 
         return all_values
@@ -655,20 +635,16 @@ class ConfigurationResolver:
             try:
                 source_data = source.discover(key)
 
-                # Record discoveries for history tracking
                 self._history_tracker.record_nested_discovery(
                     source_data, source.source_name
                 )
 
-                # Separate general connection params from other data
                 general_params, other_data = extract_root_level_connection_params(
                     source_data
                 )
 
-                # First, merge connection-specific data and internal params
                 result = deep_merge(result, other_data)
 
-                # Then, merge general params into all existing connections
                 if general_params and "connections" in result and result["connections"]:
                     connection_names = [
                         name
@@ -676,37 +652,29 @@ class ConfigurationResolver:
                         if isinstance(result["connections"][name], dict)
                     ]
 
-                    # Record history for general params being merged into connections
                     self._history_tracker.record_general_params_merged_to_connections(
                         general_params, connection_names, source.source_name
                     )
 
-                    # Merge general params into existing connections
                     result["connections"] = merge_params_into_connections(
                         result["connections"], general_params
                     )
                 elif general_params:
-                    # No connections exist yet, keep general params at root
-                    # for default connection creation later
                     result = deep_merge(result, general_params)
 
             except Exception as e:
                 log.warning("Error from source %s: %s", source.source_name, e)
 
-        # Final cleanup: merge any remaining root-level general params into all connections
-        # This handles params from early sources that were added before connections existed
         if "connections" in result and result["connections"]:
             remaining_general_params, _ = extract_root_level_connection_params(result)
 
             if remaining_general_params:
-                # Merge remaining params into connections (connection values take precedence)
                 for conn_name in result["connections"]:
                     if isinstance(result["connections"][conn_name], dict):
                         result["connections"][conn_name] = deep_merge(
                             remaining_general_params, result["connections"][conn_name]
                         )
 
-                # Remove general params from root since they're now in connections
                 for key in remaining_general_params:
                     if key in result:
                         result.pop(key)
@@ -733,12 +701,10 @@ class ConfigurationResolver:
         """
         from snowflake.cli.api.config_ng.constants import INTERNAL_CLI_PARAMETERS
 
-        # Check if connections already exist
         connections = config.get("connections", {})
         if connections:
-            return config  # Connections exist, nothing to do
+            return config
 
-        # Identify general connection parameters (root-level, non-internal)
         general_params = {}
         for key, value in config.items():
             if (
@@ -747,20 +713,16 @@ class ConfigurationResolver:
             ):
                 general_params[key] = value
 
-        # If no general params, nothing to create
         if not general_params:
             return config
 
-        # Create default connection with general params
         result = config.copy()
         result["connections"] = {"default": general_params.copy()}
 
-        # Record history for moved parameters
         self._history_tracker.replicate_root_level_discoveries_to_connection(
             list(general_params.keys()), "default"
         )
 
-        # Remove general params from root level (they're now in default connection)
         for key in general_params:
             result.pop(key, None)
 
@@ -798,16 +760,12 @@ class ConfigurationResolver:
         Returns:
             Nested dictionary of resolved configuration
         """
-        # Phase A: FILE sources (connection-level replacement)
         result = self._resolve_file_sources(key)
 
-        # Phase B: OVERLAY sources (field-level overlay with deep merge)
         result = self._apply_overlay_sources(result, key)
 
-        # Phase C: Ensure default connection exists if general params present
         result = self._ensure_default_connection(result)
 
-        # Phase D: Finalize resolution history
         self._finalize_resolution_history(result)
 
         return result
@@ -882,7 +840,6 @@ class ConfigurationResolver:
         Returns:
             ResolutionHistory showing the full precedence chain
         """
-        # First, try exact match
         history = self._history_tracker.get_history(key)
         if history:
             return history
