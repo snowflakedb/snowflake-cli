@@ -17043,6 +17043,9 @@
   |                                     without explicitly specifying a          |
   |                                     warehouse to use.                        |
   |    --comment                  TEXT  Comment for the service.                 |
+  |    --async                    TEXT  [TRUE | FALSE] Specifies whether to      |
+  |                                     execute the job asynchronously.          |
+  |                                     [default: FALSE]                         |
   |    --help             -h            Show this message and exit.              |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
