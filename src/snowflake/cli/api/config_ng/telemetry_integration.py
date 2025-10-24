@@ -56,19 +56,15 @@ def record_config_source_usage(resolver: ConfigurationResolver) -> None:
         cli_context = get_cli_context()
         summary = resolver.get_tracker().get_summary()
 
-        # Track which sources won (provided final values)
         source_wins = summary.get("source_wins", {})
 
-        # Set counters for each source
         for source_name, counter_name in SOURCE_TO_COUNTER.items():
-            # Set to 1 if this source provided any winning values, 0 otherwise
             value = 1 if source_wins.get(source_name, 0) > 0 else 0
             counter_field = getattr(CLICounterField, counter_name.upper(), None)
             if counter_field:
                 cli_context.metrics.set_counter(counter_field, value)
 
     except Exception:
-        # Don't break execution if telemetry fails
         pass
 
 
