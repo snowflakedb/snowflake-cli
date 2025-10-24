@@ -99,6 +99,10 @@ class ConnectionConfig:
     authenticator: Optional[str] = None
     workload_identity_provider: Optional[str] = None
     private_key_file: Optional[str] = None
+    private_key_passphrase: Optional[str] = field(default=None, repr=False)
+    token: Optional[str] = field(default=None, repr=False)
+    session_token: Optional[str] = field(default=None, repr=False)
+    master_token: Optional[str] = field(default=None, repr=False)
     token_file_path: Optional[str] = None
     oauth_client_id: Optional[str] = None
     oauth_client_secret: Optional[str] = None
@@ -106,7 +110,7 @@ class ConnectionConfig:
     oauth_token_request_url: Optional[str] = None
     oauth_redirect_uri: Optional[str] = None
     oauth_scope: Optional[str] = None
-    oatuh_enable_pkce: Optional[bool] = None
+    oauth_enable_pkce: Optional[bool] = None
     oauth_enable_refresh_tokens: Optional[bool] = None
     oauth_enable_single_use_refresh_tokens: Optional[bool] = None
     client_store_temporary_credential: Optional[bool] = None
@@ -217,6 +221,16 @@ def _config_file():
     yield conf_file_cache
     _dump_config(conf_file_cache)
 
+    # Reset config provider cache after writing to ensure it re-reads on next access
+    try:
+        from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+        provider = get_config_provider_singleton()
+        if hasattr(provider, "invalidate_cache"):
+            provider.invalidate_cache()
+    except Exception:
+        pass
+
 
 def _read_config_file():
     config_manager = get_config_manager()
@@ -308,19 +322,17 @@ def config_section_exists(*path) -> bool:
 
 
 def get_all_connections() -> dict[str, ConnectionConfig]:
-    return {
-        k: ConnectionConfig.from_dict(connection_dict)
-        for k, connection_dict in get_config_section("connections").items()
-    }
+    from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+    provider = get_config_provider_singleton()
+    return provider.get_all_connections()
 
 
 def get_connection_dict(connection_name: str) -> dict:
-    try:
-        return get_config_section(CONNECTIONS_SECTION, connection_name)
-    except KeyError:
-        raise MissingConfigurationError(
-            f"Connection {connection_name} is not configured"
-        )
+    from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+    provider = get_config_provider_singleton()
+    return provider.get_connection_dict(connection_name)
 
 
 def get_default_connection_name() -> str:

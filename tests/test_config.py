@@ -394,6 +394,8 @@ def test_connections_toml_override_config_toml(
     )
     config_init(test_snowcli_config)
 
+    # Both legacy and config_ng: Only connections from connections.toml are present
+    # connections.toml REPLACES config.toml connections (not merge)
     assert get_default_connection_dict() == {"database": "overridden_database"}
     assert config_manager["connections"] == {
         "default": {"database": "overridden_database"}

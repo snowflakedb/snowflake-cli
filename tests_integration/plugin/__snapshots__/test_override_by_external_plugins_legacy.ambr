@@ -1,0 +1,30 @@
+# serializer version: 1
+# name: test_disabled_plugin_is_not_executed
+  '''
+  [
+      {
+          "connection_name": "test",
+          "parameters": {
+              "account": "test"
+          },
+          "is_default": false
+      }
+  ]
+  
+  '''
+# ---
+# name: test_override_build_in_commands
+  '''
+  Outside command code
+  [
+      {
+          "connection_name": "test",
+          "parameters": {
+              "account": "test"
+          },
+          "is_default": false
+      }
+  ]
+  
+  '''
+# ---

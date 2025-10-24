@@ -54,6 +54,7 @@ pytest_plugins = [
     "tests_integration.snowflake_connector",
 ]
 
+
 TEST_DIR = Path(__file__).parent
 DEFAULT_TEST_CONFIG = "connection_configs.toml"
 WORLD_READABLE_CONFIG = "world_readable.toml"
@@ -119,6 +120,12 @@ class SnowCLIRunner(CliRunner):
         if "catch_exceptions" not in kw:
             kw.update(catch_exceptions=False)
         kw = self._with_env_vars(kw)
+
+        # Reset config provider to ensure fresh config resolution
+        # This is critical for tests that set environment variables
+        from snowflake.cli.api.config_provider import reset_config_provider
+
+        reset_config_provider()
 
         # between every invocation, we need to reset the CLI context
         # and ensure no connections are cached going forward (to prevent
