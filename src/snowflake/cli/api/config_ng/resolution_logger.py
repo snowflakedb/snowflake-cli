@@ -65,7 +65,6 @@ def get_resolver() -> Optional[ConfigurationResolver]:
     if not isinstance(provider, AlternativeConfigProvider):
         return None
 
-    # Ensure provider is initialized
     provider._ensure_initialized()  # noqa: SLF001
     return provider._resolver  # noqa: SLF001
 
@@ -87,7 +86,6 @@ def show_resolution_chain(key: str) -> None:
 
     provider = get_config_provider_singleton()
 
-    # Force configuration resolution to populate history
     provider.read_config()
 
     resolver = get_resolver()
@@ -114,7 +112,6 @@ def show_all_resolution_chains() -> None:
 
     provider = get_config_provider_singleton()
 
-    # Force configuration resolution to populate history
     provider.read_config()
 
     resolver = get_resolver()
@@ -148,7 +145,6 @@ def get_resolution_summary() -> Optional[Dict]:
 
     provider = get_config_provider_singleton()
 
-    # Force configuration resolution to populate history
     provider.read_config()
 
     resolver = get_resolver()
@@ -179,7 +175,6 @@ def export_resolution_history(output_path: Path) -> bool:
 
     provider = get_config_provider_singleton()
 
-    # Force configuration resolution to populate history
     provider.read_config()
 
     resolver = get_resolver()
@@ -253,7 +248,6 @@ def check_value_source(key: str) -> Optional[str]:
 
     provider = get_config_provider_singleton()
 
-    # Force configuration resolution to populate history
     provider.read_config()
 
     resolver = get_resolver()
@@ -283,7 +277,6 @@ def explain_configuration(key: Optional[str] = None, verbose: bool = False) -> N
 
     provider = get_config_provider_singleton()
 
-    # Force configuration resolution to populate history
     provider.read_config()
 
     resolver = get_resolver()

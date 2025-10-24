@@ -95,19 +95,16 @@ class SnowSQLParser:
                         section.split(".", 1)[1] if "." in section else "default"
                     )
 
-                # Ensure connections dict exists
                 if "connections" not in result:
                     result["connections"] = {}
                 if conn_name not in result["connections"]:
                     result["connections"][conn_name] = {}
 
-                # Map keys and add to connection
                 for key, value in config[section].items():
                     mapped_key = cls.SNOWSQL_KEY_MAP.get(key, key)
                     result["connections"][conn_name][mapped_key] = value
 
             elif section == "variables":
-                # Process variables section
                 result["variables"] = dict(config[section])
 
         return result
