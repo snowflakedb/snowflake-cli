@@ -640,6 +640,7 @@ def test_execute_job_service_cli_defaults(
         external_access_integrations=None,
         query_warehouse=None,
         comment=None,
+        async_execution="FALSE",
     )
 
 
@@ -678,7 +679,7 @@ def test_execute_job_service_cli(mock_execute_job, temporary_directory, runner):
         external_access_integrations=["google_api", "salesforce_api"],
         query_warehouse="test_warehouse",
         comment=to_string_literal("this is a test"),
-        async_execution=to_string_literal("FALSE"),
+        async_execution="FALSE",
     )
 
 

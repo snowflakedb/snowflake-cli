@@ -144,7 +144,7 @@ QueryWarehouseOption = OverrideableOption(
     help=_QUERY_WAREHOUSE_HELP,
 )
 
-_ASYNC_HELP = "Specifies whether to execute the job asynchronously. Default is FALSE."
+_ASYNC_HELP = "[TRUE | FALSE] Specifies whether to execute the job asynchronously."
 AsyncOption = OverrideableOption(
     "FALSE",
     "--async",
