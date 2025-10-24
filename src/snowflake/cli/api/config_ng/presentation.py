@@ -99,11 +99,9 @@ def _should_mask_value(key: str) -> bool:
     """
     key_lower = key.lower()
 
-    # Check if it's a path key (paths are OK to display)
     if any(path_key in key_lower for path_key in PATH_KEYS):
         return False
 
-    # Check if it contains sensitive keywords
     return any(sensitive_key in key_lower for sensitive_key in SENSITIVE_KEYS)
 
 
@@ -168,13 +166,10 @@ class ResolutionPresenter:
         Args:
             key: Optional specific key to build table for, or None for all keys
         """
-        # Ensure history is populated
         tracker = self._resolver.get_tracker()
         if key is None and not tracker.get_all_histories():
-            # Resolve all keys to populate history
             self._resolver.resolve()
         elif key is not None and tracker.get_history(key) is None:
-            # Resolve only the specific key
             self._resolver.resolve(key=key)
 
         histories = (
@@ -187,21 +182,17 @@ class ResolutionPresenter:
             for k, history in histories.items():
                 if history is None:
                     continue
-                # Initialize row with fixed columns
                 row: Dict[str, Any] = {c: "" for c in TABLE_COLUMNS}
                 row["key"] = k
 
-                # Final value (masked)
                 masked_final = _mask_sensitive_value(k, history.final_value)
                 row["value"] = masked_final
 
-                # Mark presence per source
                 for entry in history.entries:
                     source_column = SOURCE_TO_COLUMN.get(entry.config_value.source_name)
                     if source_column is not None:
                         row[source_column] = "+"
 
-                # Ensure result preserves the column order
                 ordered_row = {column: row[column] for column in TABLE_COLUMNS}
                 yield ordered_row
 
