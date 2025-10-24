@@ -226,11 +226,13 @@ class ServiceManager(SqlExecutionMixin):
         external_access_integrations: Optional[List[str]],
         query_warehouse: Optional[str],
         comment: Optional[str],
+        async_execution: Optional[str]
     ) -> SnowflakeCursor:
         spec = self._read_yaml(spec_path)
         query = f"""\
                 EXECUTE JOB SERVICE
                 IN COMPUTE POOL {compute_pool}
+                ASYNC = {async_execution}
                 FROM SPECIFICATION $$
                 {spec}
                 $$

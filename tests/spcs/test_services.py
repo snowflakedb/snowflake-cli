@@ -582,6 +582,7 @@ def test_execute_job_service(mock_execute_query, temporary_directory):
     ]
     query_warehouse = "test_warehouse"
     comment = "'user\\'s comment'"
+    async_execution = "FALSE"
 
     cursor = Mock(spec=SnowflakeCursor)
     mock_execute_query.return_value = cursor
@@ -593,11 +594,13 @@ def test_execute_job_service(mock_execute_query, temporary_directory):
         external_access_integrations=external_access_integrations,
         query_warehouse=query_warehouse,
         comment=comment,
+        async_execution=async_execution,
     )
     expected_query = " ".join(
         [
             "EXECUTE JOB SERVICE",
             "IN COMPUTE POOL test_pool",
+            "ASYNC = FALSE",
             f"FROM SPECIFICATION $$ {json.dumps(SPEC_DICT)} $$",
             "NAME = test_job_service",
             "EXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration,salesforce_api_access_integration)",
@@ -663,6 +666,8 @@ def test_execute_job_service_cli(mock_execute_job, temporary_directory, runner):
             "test_warehouse",
             "--comment",
             "this is a test",
+            "--async",
+            "FALSE"
         ]
     )
     assert result.exit_code == 0, result.output
@@ -673,6 +678,7 @@ def test_execute_job_service_cli(mock_execute_job, temporary_directory, runner):
         external_access_integrations=["google_api", "salesforce_api"],
         query_warehouse="test_warehouse",
         comment=to_string_literal("this is a test"),
+        async_execution=to_string_literal("FALSE"),
     )
 
 
@@ -681,6 +687,7 @@ def test_execute_job_service_with_invalid_spec(mock_read_yaml):
     job_service_name = "test_job_service"
     compute_pool = "test_pool"
     spec_path = "/path/to/spec.yaml"
+    async_execution = "FALSE"
     external_access_integrations = query_warehouse = comment = None
     mock_read_yaml.side_effect = YAMLError("Invalid YAML")
 
@@ -692,6 +699,7 @@ def test_execute_job_service_with_invalid_spec(mock_read_yaml):
             external_access_integrations=external_access_integrations,
             query_warehouse=query_warehouse,
             comment=comment,
+            async_execution=async_execution,
         )
 
 
