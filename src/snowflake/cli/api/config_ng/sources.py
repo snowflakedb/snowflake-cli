@@ -135,13 +135,11 @@ class SnowSQLConfigFile(ValueSource):
         """
         from snowflake.cli.api.config_ng.parsers import SnowSQLParser
 
-        # Phase 1: Content acquisition
         if self._content is not None:
             content = self._content
         else:
             content = self._read_and_merge_files()
 
-        # Phase 2: Parse content
         return SnowSQLParser.parse(content)
 
     def _read_and_merge_files(self) -> str:
@@ -160,7 +158,6 @@ class SnowSQLConfigFile(ValueSource):
                 except Exception as e:
                     log.debug("Failed to read SnowSQL config %s: %s", config_file, e)
 
-        # Convert merged config to string
         from io import StringIO
 
         output = StringIO()
@@ -203,7 +200,6 @@ class CliConfigFile(ValueSource):
     @staticmethod
     def _get_default_paths() -> List[Path]:
         """Get standard CLI config search paths."""
-        # Check for config file override from CLI context first
         try:
             from snowflake.cli.api.cli_global_context import get_cli_context
 
@@ -214,14 +210,12 @@ class CliConfigFile(ValueSource):
         except Exception:
             log.debug("CLI context not available, using standard config paths")
 
-        # Use SNOWFLAKE_HOME if set and directory exists
         snowflake_home = os.environ.get(SNOWFLAKE_HOME_ENV)
         if snowflake_home:
             snowflake_home_path = Path(snowflake_home).expanduser()
             if snowflake_home_path.exists():
                 return [snowflake_home_path / "config.toml"]
 
-        # Standard paths
         return [
             Path.cwd() / "config.toml",
             Path.home() / ".snowflake" / "config.toml",
@@ -260,7 +254,6 @@ class CliConfigFile(ValueSource):
         """
         from snowflake.cli.api.config_ng.parsers import TOMLParser
 
-        # Phase 1: Content acquisition
         if self._content is not None:
             content = self._content
         else:
@@ -269,7 +262,6 @@ class CliConfigFile(ValueSource):
         if not content:
             return {}
 
-        # Phase 2: Parse content
         return TOMLParser.parse(content)
 
     def _read_first_file(self) -> str:
@@ -390,7 +382,6 @@ class ConnectionsConfigFile(ValueSource):
         """
         from snowflake.cli.api.config_ng.parsers import TOMLParser
 
-        # Phase 1: Content acquisition
         if self._content is not None:
             content = self._content
         else:
@@ -402,14 +393,12 @@ class ConnectionsConfigFile(ValueSource):
                 log.debug("Failed to read connections.toml: %s", e)
                 return {}
 
-        # Phase 2: Parse TOML (generic parser)
         try:
             data = TOMLParser.parse(content)
         except Exception as e:
             log.debug("Failed to parse connections.toml: %s", e)
             return {}
 
-        # Phase 3: Normalize legacy format (connections.toml specific)
         return self._normalize_connections_format(data)
 
     @staticmethod
@@ -429,21 +418,16 @@ class ConnectionsConfigFile(ValueSource):
         """
         result: Dict[str, Any] = {}
 
-        # Handle direct connection sections (legacy format)
-        # Any top-level section that's not "connections" is treated as a connection
         for section_name, section_data in data.items():
             if isinstance(section_data, dict) and section_name != "connections":
                 if "connections" not in result:
                     result["connections"] = {}
                 result["connections"][section_name] = section_data
 
-        # Handle nested [connections] section (new format)
         connections_section = data.get("connections", {})
         if isinstance(connections_section, dict) and connections_section:
             if "connections" not in result:
                 result["connections"] = {}
-            # Merge with any legacy connections found above
-            # (nested format takes precedence if there's overlap)
             result["connections"].update(connections_section)
 
         return result
@@ -507,15 +491,12 @@ class SnowSQLEnvironment(ValueSource):
         for env_var, config_key in self.ENV_VAR_MAPPING.items():
             env_value = os.getenv(env_var)
             if env_value is not None:
-                # Only set if not already set by a previous env var
-                # (e.g., SNOWSQL_ACCOUNT takes precedence over SNOWSQL_ACCOUNTNAME)
                 if config_key not in result:
                     result[config_key] = env_value
 
         return result
 
     def supports_key(self, key: str) -> bool:
-        # Check if any env var for this key is set
         for env_var, config_key in self.ENV_VAR_MAPPING.items():
             if config_key == key and os.getenv(env_var) is not None:
                 return True
@@ -588,15 +569,10 @@ class ConnectionSpecificEnvironment(ValueSource):
         """
         result: Dict[str, Any] = {}
 
-        # Scan all environment variables
         for env_name, env_value in os.environ.items():
-            # Check for connection-specific pattern: SNOWFLAKE_CONNECTIONS_<NAME>_<KEY>
             if env_name.startswith("SNOWFLAKE_CONNECTIONS_"):
-                # Extract remainder after the prefix
                 remainder = env_name[len("SNOWFLAKE_CONNECTIONS_") :]
 
-                # Find the longest matching key suffix from known config keys to
-                # correctly handle underscores both in connection names and keys
                 match: tuple[str, str] | None = None
                 for candidate in sorted(_ENV_CONFIG_KEYS, key=len, reverse=True):
                     key_suffix = "_" + candidate.upper()
@@ -607,13 +583,11 @@ class ConnectionSpecificEnvironment(ValueSource):
                             break
 
                 if not match:
-                    # Unknown/unsupported key suffix; ignore
                     continue
 
                 conn_name_upper, config_key = match
                 conn_name = conn_name_upper.lower()
 
-                # Build nested structure
                 if "connections" not in result:
                     result["connections"] = {}
                 if conn_name not in result["connections"]:
@@ -624,7 +598,6 @@ class ConnectionSpecificEnvironment(ValueSource):
         return result
 
     def supports_key(self, key: str) -> bool:
-        # Check if key matches pattern connections.{name}.{param}
         if key.startswith("connections."):
             parts = key.split(".", 2)
             if len(parts) == 3:
@@ -666,16 +639,13 @@ class CliEnvironment(ValueSource):
         """
         result: Dict[str, Any] = {}
 
-        # Scan all environment variables
         for env_name, env_value in os.environ.items():
             if not env_name.startswith("SNOWFLAKE_"):
                 continue
 
-            # Skip connection-specific variables
             if env_name.startswith("SNOWFLAKE_CONNECTIONS_"):
                 continue
 
-            # Check for general pattern: SNOWFLAKE_<KEY>
             config_key_upper = env_name[len("SNOWFLAKE_") :]
             config_key = config_key_upper.lower()
 
@@ -685,11 +655,9 @@ class CliEnvironment(ValueSource):
         return result
 
     def supports_key(self, key: str) -> bool:
-        # Only support flat keys (not prefixed with connections.)
         if "." in key:
             return False
 
-        # Check if the general env var exists
         env_var = f"SNOWFLAKE_{key.upper()}"
         return os.getenv(env_var) is not None
 
@@ -733,7 +701,6 @@ class CliParameters(ValueSource):
         result: Dict[str, Any] = {}
 
         for k, v in self._cli_context.items():
-            # Skip None values (not provided on CLI)
             if v is None:
                 continue
 
@@ -760,15 +727,12 @@ def get_merged_variables(cli_variables: Optional[List[str]] = None) -> Dict[str,
     """
     from snowflake.cli.api.config_provider import get_config_provider_singleton
 
-    # Start with SnowSQL variables from config
     provider = get_config_provider_singleton()
     try:
         snowsql_vars = provider.get_section(SnowSQLSection.VARIABLES.value)
     except Exception:
-        # If variables section doesn't exist or provider not initialized, start with empty dict
         snowsql_vars = {}
 
-    # Parse and overlay -D parameters (higher precedence)
     if cli_variables:
         from snowflake.cli.api.commands.utils import parse_key_value_variables
 
