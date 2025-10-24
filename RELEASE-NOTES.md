@@ -37,6 +37,7 @@
   * `--unset-default-target` to clear default
   * `--external-access-integration` sets external access integrations (needed to pull external deps on altering dbt project object)
   * `--install-local-deps` instructs to install dependencies located in the project
+* Added support for running Streamlit on SPCS runtime
 
 ## Fixes and improvements
 * Bumped `snowflake-connector-python==3.18.0`
