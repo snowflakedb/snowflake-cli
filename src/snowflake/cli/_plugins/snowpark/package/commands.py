@@ -183,7 +183,7 @@ def package_create(
                 f"""
                 The package {name} is successfully created, but depends on the following
                 Anaconda libraries. They need to be included in project requirements,
-                as their are not included in .zip.
+                as they are not included in the .zip.
                 """
             )
             message += "\n".join(
