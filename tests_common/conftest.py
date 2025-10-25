@@ -35,14 +35,19 @@ PROJECT_DIR = Path(__file__).parent / "test_data" / "projects"
 
 @pytest.fixture
 def temporary_directory():
+    from snowflake.cli.api.utils.path_utils import path_resolver
+    from tests.conftest import clean_logging_handlers
+
     initial_dir = os.getcwd()
 
     with tempfile.TemporaryDirectory() as tmp_dir:
+        resolved_tmp_dir = path_resolver(tmp_dir)
         try:
-            os.chdir(tmp_dir)
-            yield tmp_dir
+            os.chdir(resolved_tmp_dir)
+            yield resolved_tmp_dir
         finally:
             os.chdir(initial_dir)
+            clean_logging_handlers()
 
 
 # Borrowed from tests_integration/test_utils.py
@@ -100,6 +105,7 @@ def snowflake_home(monkeypatch):
             sys.modules["snowflake.connector.config_manager"],
             sys.modules["snowflake.connector.log_configuration"],
             sys.modules["snowflake.cli.api.config"],
+            sys.modules["snowflake.cli.api.cli_global_context"],
         ]:
             importlib.reload(module)
 

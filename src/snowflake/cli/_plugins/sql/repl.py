@@ -13,21 +13,27 @@ from snowflake.cli._plugins.sql.lexer import CliLexer, cli_completer
 from snowflake.cli._plugins.sql.manager import SqlManager
 from snowflake.cli._plugins.sql.repl_commands import detect_command
 from snowflake.cli.api.cli_global_context import get_cli_context_manager
+from snowflake.cli.api.config import get_config_manager
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import MultipleResults, QueryResult
 from snowflake.cli.api.rendering.sql_templates import SQLTemplateSyntaxConfig
 from snowflake.cli.api.secure_path import SecurePath
-from snowflake.connector.config_manager import CONFIG_MANAGER
 from snowflake.connector.cursor import SnowflakeCursor
 
 log = getLogger(__name__)
 
-HISTORY_FILE = SecurePath(
-    CONFIG_MANAGER.file_path.parent / "repl_history"
-).path.expanduser()
+
+def _get_history_file():
+    """Get history file path with lazy evaluation to avoid circular imports."""
+    return SecurePath(
+        get_config_manager().file_path.parent / "repl_history"
+    ).path.expanduser()
+
+
+HISTORY_FILE = None  # Will be set lazily
 EXIT_KEYWORDS = ("exit", "quit")
 
-log.debug("setting history file to: %s", HISTORY_FILE.as_posix())
+# History file path will be set when REPL is initialized
 
 
 @contextmanager
@@ -65,7 +71,7 @@ class Repl:
         self._data = data or {}
         self._retain_comments = retain_comments
         self._template_syntax_config = template_syntax_config
-        self._history = FileHistory(HISTORY_FILE)
+        self._history = FileHistory(_get_history_file())
         self._lexer = PygmentsLexer(CliLexer)
         self._completer = cli_completer
         self._repl_key_bindings = self._setup_key_bindings()
