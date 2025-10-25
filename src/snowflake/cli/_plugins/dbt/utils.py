@@ -12,32 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-RESULT_COLUMN_NAME = "SUCCESS"
-OUTPUT_COLUMN_NAME = "STDOUT"
-PROFILES_FILENAME = "profiles.yml"
+from snowflake.cli._plugins.dbt.constants import KNOWN_SUBCOMMANDS
 
-DBT_COMMANDS = [
-    "build",
-    "compile",
-    "deps",
-    "list",
-    "parse",
-    "retry",
-    "run",
-    "run-operation",
-    "seed",
-    "show",
-    "snapshot",
-    "test",
-]
 
-UNSUPPORTED_COMMANDS = [
-    "clean",
-    "clone",
-    "debug",
-    "docs",
-    "init",
-    "source",
-]
+def _extract_dbt_args(args: list[str]) -> list[str]:
+    flags = set()
 
-KNOWN_SUBCOMMANDS = {"generate", "serve", "freshness"}
+    for arg in args:
+        if arg.startswith("-"):
+            if "=" in arg:
+                flag_name = arg.split("=", 1)[0]
+                flags.add(flag_name)
+            else:
+                flags.add(arg)
+        elif arg in KNOWN_SUBCOMMANDS:
+            flags.add(arg)
+
+    return sorted(list(flags))

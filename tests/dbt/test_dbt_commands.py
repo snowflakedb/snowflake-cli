@@ -490,3 +490,36 @@ class TestDBTExecute:
 
         assert result.exit_code == 1, result.output
         assert "No data returned from server" in result.output
+
+    @mock.patch("snowflake.cli._plugins.dbt.commands.log_command_info")
+    def test_dbt_execute_telemetry_data_masking(
+        self, mock_log_command_info, mock_connect, mock_cursor, runner
+    ):
+        cursor = mock_cursor(
+            rows=[(True, "command output")],
+            columns=[RESULT_COLUMN_NAME, OUTPUT_COLUMN_NAME],
+        )
+        mock_connect.mocked_ctx.cs = cursor
+
+        result = runner.invoke(
+            [
+                "dbt",
+                "execute",
+                "pipeline_name",
+                "test",
+                "generate",
+                "--select",
+                "my_sensitive_model",
+                "--vars",
+                "'{api_key: secret123}'",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+
+        mock_log_command_info.assert_called_once()
+        call_args = mock_log_command_info.call_args[0][0]
+
+        assert call_args["dbt_command"] == "test"
+        actual_dbt_args = call_args["dbt_args"]
+        assert sorted(actual_dbt_args) == sorted(["generate", "--select", "--vars"])
