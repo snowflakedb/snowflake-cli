@@ -1,0 +1,22 @@
+# serializer version: 1
+# name: TestDCMRefresh.test_refresh_with_fresh_tables
+  '''
+  
+  0 dynamic table(s) refreshed. 1 dynamic table(s) up-to-date.
+  
+  '''
+# ---
+# name: TestDCMRefresh.test_refresh_with_no_dynamic_tables
+  '''
+  
+  No dynamic tables found in the project.
+  
+  '''
+# ---
+# name: TestDCMRefresh.test_refresh_with_outdated_tables
+  '''
+  
+  1 dynamic table(s) refreshed. 0 dynamic table(s) up-to-date.
+  
+  '''
+# ---
