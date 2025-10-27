@@ -56,7 +56,7 @@ six==1.17.0
 smmap==5.0.2
 snowflake-connector-python==3.18.0
 snowflake-core==1.7.0
-snowflake-snowpark-python==1.40.0
+snowflake-snowpark-python==1.41.0
 sortedcontainers==2.4.0
 tomlkit==0.13.3
 typer==0.17.3
