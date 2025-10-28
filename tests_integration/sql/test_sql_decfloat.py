@@ -18,6 +18,7 @@ Tests for DECFLOAT data type support and decimal precision configuration.
 
 import os
 from decimal import getcontext
+from pathlib import Path
 
 import pytest
 
@@ -159,8 +160,6 @@ def test_decimal_precision_param_overrides_env(runner, reset_decimal_precision):
 
 def test_decimal_precision_from_config(runner, reset_decimal_precision, temp_dir):
     """Test decimal precision reading from config.toml file."""
-    from pathlib import Path
-
     sql = """
         SELECT 
             CAST('1234.56789012345678901234567890' AS DECFLOAT) AS test_value,
@@ -195,8 +194,6 @@ def test_decimal_precision_cli_overrides_config(
     runner, reset_decimal_precision, temp_dir
 ):
     """Test that CLI parameter takes precedence over config file setting."""
-    from pathlib import Path
-
     sql = """
         SELECT 
             CAST('1234.56789012345678901234567890' AS DECFLOAT) AS test_value

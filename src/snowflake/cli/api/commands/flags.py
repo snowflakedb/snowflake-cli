@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+from decimal import getcontext
 from pathlib import Path
 from typing import Any, Callable, Optional
 
@@ -27,7 +28,7 @@ from snowflake.cli.api.cli_global_context import (
 from snowflake.cli.api.commands.common import OnErrorType
 from snowflake.cli.api.commands.overrideable_parameter import OverrideableOption
 from snowflake.cli.api.commands.utils import parse_key_value_variables
-from snowflake.cli.api.config import get_all_connections
+from snowflake.cli.api.config import get_all_connections, get_config_value
 from snowflake.cli.api.connections import ConnectionContext
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.identifiers import FQN
@@ -516,17 +517,13 @@ EnhancedExitCodesOption = typer.Option(
 
 def _decimal_precision_callback(value: int | None):
     """Callback to set decimal precision globally when provided."""
-    from snowflake.cli.api.config import CLI_SECTION, get_config_value
-
     if value is None:
         try:
-            value = get_config_value(CLI_SECTION, key="decimal_precision", default=None)
+            value = get_config_value(key="decimal_precision", default=None)
         except Exception:
             pass
 
     if value is not None:
-        from decimal import getcontext
-
         getcontext().prec = value
     return value
 
@@ -534,10 +531,9 @@ def _decimal_precision_callback(value: int | None):
 DecimalPrecisionOption = typer.Option(
     None,
     "--decimal-precision",
-    help="Number of decimal places to display for decimal values. Uses Python's default precision if not specified.",
+    help="Number of decimal places to display for decimal values. Uses Python's default precision if not specified. [env var: SNOWFLAKE_DECIMAL_PRECISION]",
     callback=_decimal_precision_callback,
     rich_help_panel=_CLI_BEHAVIOUR,
-    envvar="SNOWFLAKE_DECIMAL_PRECISION",
 )
 
 # If IfExistsOption, IfNotExistsOption, or ReplaceOption are used with names other than those in CREATE_MODE_OPTION_NAMES,
