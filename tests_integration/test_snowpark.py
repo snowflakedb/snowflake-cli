@@ -1261,7 +1261,6 @@ def test_build_skip_version_check(
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(sys.version_info >= (3, 12), reason="Unknown issues")
 @pytest.mark.parametrize(
     "flags",
     [
@@ -1310,7 +1309,6 @@ def test_build_with_non_anaconda_dependencies(
 
 
 @pytest.mark.integration
-@pytest.mark.skipif(sys.version_info >= (3, 12), reason="Unknown issues")
 def test_build_shared_libraries_error(
     runner, project_directory, alter_requirements_txt, test_database
 ):
