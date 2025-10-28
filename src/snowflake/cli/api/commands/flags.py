@@ -516,6 +516,14 @@ EnhancedExitCodesOption = typer.Option(
 
 def _decimal_precision_callback(value: int | None):
     """Callback to set decimal precision globally when provided."""
+    from snowflake.cli.api.config import CLI_SECTION, get_config_value
+
+    if value is None:
+        try:
+            value = get_config_value(CLI_SECTION, key="decimal_precision", default=None)
+        except Exception:
+            pass
+
     if value is not None:
         from decimal import getcontext
 
