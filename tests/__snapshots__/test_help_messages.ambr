@@ -88,8 +88,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -445,8 +444,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -1030,8 +1028,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -1186,8 +1183,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -1492,8 +1488,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -1648,8 +1643,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -1803,8 +1797,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -2133,8 +2126,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -2296,8 +2288,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -2454,8 +2445,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -2621,8 +2611,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -2775,8 +2764,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -3042,8 +3030,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -3217,8 +3204,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -3365,8 +3351,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -3586,8 +3571,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -3767,8 +3751,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -3915,8 +3898,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -4022,8 +4004,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -4133,8 +4114,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -4310,8 +4290,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -4356,8 +4335,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -4403,8 +4381,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -4735,8 +4712,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -4875,8 +4851,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -5158,8 +5133,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
@@ -5328,8 +5302,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
@@ -5498,8 +5471,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
@@ -6006,8 +5978,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
@@ -6176,8 +6147,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
@@ -6346,8 +6316,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
@@ -6685,8 +6654,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
@@ -6855,8 +6823,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
@@ -7025,8 +6992,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
@@ -7366,8 +7332,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -7964,8 +7929,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -8104,8 +8068,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -8392,8 +8355,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -8721,8 +8683,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -9000,8 +8961,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -9162,8 +9122,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -9303,8 +9262,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -9448,8 +9406,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -9594,8 +9551,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -10037,8 +9993,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -10125,8 +10080,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -10281,8 +10235,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -10717,8 +10670,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -10858,8 +10810,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -11181,8 +11132,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -11476,8 +11426,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -11635,8 +11584,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -11701,8 +11649,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -11746,8 +11693,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -11788,8 +11734,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -11965,8 +11910,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -12412,8 +12356,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -12560,8 +12503,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -12711,8 +12653,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -12866,8 +12807,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -13006,8 +12946,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -13149,8 +13088,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -13544,8 +13482,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -13685,8 +13622,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -13965,8 +13901,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -14106,8 +14041,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -14267,8 +14201,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -14409,8 +14342,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -14550,8 +14482,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -14841,8 +14772,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -15013,8 +14943,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -15299,8 +15228,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -15464,8 +15392,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -16038,8 +15965,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -16324,8 +16250,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -16549,8 +16474,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -16696,8 +16620,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -16836,8 +16759,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -16976,8 +16898,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -17129,8 +17050,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -17269,8 +17189,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -17409,8 +17328,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -17688,8 +17606,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -17834,8 +17751,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -17986,8 +17902,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -18136,8 +18051,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -18276,8 +18190,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -18606,8 +18519,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -18746,8 +18658,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -18903,8 +18814,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -19312,8 +19222,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -19484,8 +19393,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -19633,8 +19541,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -19773,8 +19680,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -20054,8 +19960,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -20356,8 +20261,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -20502,8 +20406,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -20644,8 +20547,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -20831,8 +20733,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -20972,8 +20873,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -21394,8 +21294,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -21540,8 +21439,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -21683,8 +21581,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   
@@ -22067,8 +21964,7 @@
   |                                                       decimal values. Uses   |
   |                                                       Python's default       |
   |                                                       precision if not       |
-  |                                                       specified.             |
-  |                                                       [env var:              |
+  |                                                       specified. [env var:   |
   |                                                       SNOWFLAKE_DECIMAL_PRE… |
   +------------------------------------------------------------------------------+
   +- Commands -------------------------------------------------------------------+
