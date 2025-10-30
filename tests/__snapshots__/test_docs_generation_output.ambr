@@ -174,7 +174,7 @@
     Differentiate exit error codes based on failure type. Default: False.
   
   :samp:`--decimal-precision {INTEGER}`
-    Number of decimal places to display for decimal values. Uses Python's default precision if not specified.
+    Number of decimal places to display for decimal values. Uses Python's default precision if not specified. [env var: SNOWFLAKE_DECIMAL_PRECISION].
   
   '''
 # ---
