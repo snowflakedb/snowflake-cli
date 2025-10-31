@@ -161,6 +161,76 @@ class RemoteManager(SqlExecutionMixin):
             # Service doesn't exist or other error
             return False, None
 
+    def _get_service_dns_name(self, service_name: str) -> Optional[str]:
+        """
+        Get service DNS name using DESC SERVICE.
+
+        Args:
+            service_name: Name of the service
+
+        Returns:
+            DNS name of the service, or None if not available
+        """
+        try:
+            log.debug("Getting DNS name for %s using DESC SERVICE", service_name)
+            desc_query = f"DESC SERVICE {service_name}"
+            cursor = self.execute_query(desc_query, cursor_class=DictCursor)
+            result = cursor.fetchone()
+
+            if result:
+                dns_name = result.get("dns_name")
+                log.debug("Found DNS name for service %s: %s", service_name, dns_name)
+                return dns_name
+            else:
+                log.debug("DESC SERVICE returned no result for %s", service_name)
+                return None
+
+        except Exception as e:
+            log.debug("Error getting DNS name for %s: %s", service_name, e)
+            return None
+
+    def _list_workers(self, head_service_name: str) -> List[Dict[str, str]]:
+        """
+        List all worker services for a head service.
+
+        Args:
+            head_service_name: Name of the head service
+
+        Returns:
+            List of dictionaries with worker service information (name, status)
+        """
+        # Workers follow the pattern: {HEAD_SERVICE_NAME}_WORKER_*
+        worker_pattern = f"{head_service_name}_WORKER_%"
+
+        query = f"SHOW SERVICES LIKE '{worker_pattern}'"
+        cursor = self.execute_query(query, cursor_class=DictCursor)
+
+        workers = []
+        for row in cursor:
+            worker_name = row.get("name")
+            worker_status = row.get("status")
+            if worker_name and worker_status:
+                workers.append({"name": worker_name, "status": worker_status})
+                log.debug(
+                    "Found worker: %s with status: %s", worker_name, worker_status
+                )
+
+        return workers
+
+    def _delete_worker_service(self, worker_name: str) -> None:
+        """
+        Delete a worker service.
+
+        Args:
+            worker_name: Name of the worker service to delete
+        """
+        try:
+            log.debug("Deleting worker service: %s", worker_name)
+            self.execute_query(f"DROP SERVICE {worker_name} FORCE")
+            cc.message(f"✓ Deleted worker service: {worker_name}")
+        except Exception as e:
+            cc.warning(f"Failed to delete worker service {worker_name}: {e}")
+
     def _resolve_service_name(self, name_input: str) -> str:
         """
         Resolve the service name from user input.
@@ -1059,7 +1129,7 @@ class RemoteManager(SqlExecutionMixin):
         return service_manager.suspend(service_name)
 
     def delete(self, name_input: str) -> SnowflakeCursor:
-        """Delete a remote development service.
+        """Delete a remote development service and all its workers.
 
         Args:
             name_input: Service name (can be short name or full service name)
@@ -1069,6 +1139,233 @@ class RemoteManager(SqlExecutionMixin):
 
         Warning:
             This permanently deletes the service and all associated data.
+            All worker services will be deleted first.
         """
         service_name = self._resolve_service_name(name_input)
-        return self.execute_query(f"DROP SERVICE {service_name} FORCE")
+
+        # First, delete all worker services
+        cc.step(f"Checking for worker services associated with {service_name}...")
+        workers = self._list_workers(service_name)
+
+        if workers:
+            cc.step(
+                f"Found {len(workers)} worker service(s). Deleting workers first..."
+            )
+            for worker in workers:
+                worker_name = worker["name"]
+                try:
+                    self._delete_worker_service(worker_name)
+                except Exception as e:
+                    cc.warning(f"Failed to delete worker {worker_name}: {e}")
+            cc.message(f"✓ Deleted {len(workers)} worker service(s)")
+        else:
+            cc.step("No worker services found.")
+
+        # Then delete the head service
+        cc.step(f"Deleting head service {service_name}...")
+        result = self.execute_query(f"DROP SERVICE {service_name} FORCE")
+        cc.message(f"✓ Deleted head service {service_name}")
+
+        return result
+
+    def scale_workers(
+        self,
+        head_service_name: str,
+        target_workers: int,
+    ) -> Dict[str, List[str]]:
+        """Scale worker services for a head service to a target count.
+
+        Args:
+            head_service_name: Name of the head service (can be short name or full service name)
+            target_workers: Target number of total worker services
+
+        Returns:
+            Dictionary with 'created', 'deleted', and 'existing' worker lists
+
+        Raises:
+            CliError: If head service doesn't exist, is not running, or scaling fails
+        """
+        import random
+        import string
+
+        # Resolve the head service name
+        resolved_head_name = self._resolve_service_name(head_service_name)
+        validate_service_name(resolved_head_name)
+
+        # Check if head service exists and is running
+        service_exists, current_status = self._get_service_status(resolved_head_name)
+        if not service_exists:
+            raise CliError(f"Head service '{head_service_name}' does not exist.")
+        if current_status != ServiceStatus.RUNNING.value:
+            raise CliError(
+                f"Head service '{head_service_name}' is not running (status: {current_status}). "
+                "Workers can only be scaled for running head services."
+            )
+
+        # List existing workers
+        all_workers = self._list_workers(resolved_head_name)
+
+        # Filter active workers (PENDING or RUNNING)
+        active_workers = [
+            w
+            for w in all_workers
+            if w["status"] in [ServiceStatus.PENDING.value, ServiceStatus.RUNNING.value]
+        ]
+
+        current_count = len(active_workers)
+        delta = target_workers - current_count
+
+        cc.step(
+            f"Current active workers: {current_count}, Target: {target_workers}, Delta: {delta:+d}"
+        )
+
+        created_workers = []
+        deleted_workers = []
+
+        if delta == 0:
+            cc.message(
+                f"✓ Already at target worker count ({target_workers}). No changes needed."
+            )
+            return {
+                "created": [],
+                "deleted": [],
+                "existing": [w["name"] for w in active_workers],
+            }
+
+        elif delta > 0:
+            # Scale up: create new workers
+            cc.step(f"Scaling up: creating {delta} new worker(s)...")
+
+            # Get DNS name of head service
+            dns_name = self._get_service_dns_name(resolved_head_name)
+            if not dns_name:
+                raise CliError(
+                    f"Could not retrieve DNS name for head service '{head_service_name}'."
+                )
+
+            # Get head service details to copy configuration
+            desc_cursor = self.execute_query(
+                f"DESC SERVICE {resolved_head_name}", cursor_class=DictCursor
+            )
+            head_service_details = desc_cursor.fetchone()
+
+            if not head_service_details:
+                raise CliError(
+                    f"Could not retrieve details for head service '{head_service_name}'."
+                )
+
+            # Extract configuration from head service
+            compute_pool = head_service_details.get("compute_pool")
+            external_access = head_service_details.get("external_access_integrations")
+            external_access_list = None
+            if external_access:
+                external_access_list = eval(external_access)
+
+            if not compute_pool:
+                raise CliError(
+                    f"Could not retrieve compute pool information from head service '{head_service_name}'."
+                )
+
+            # First, create all worker services without waiting
+            for i in range(delta):
+                # Generate random postfix for worker service name
+                random_postfix = "".join(
+                    random.choices(string.ascii_lowercase + string.digits, k=8)
+                )
+                worker_service_name = (
+                    f"{resolved_head_name}_worker_{random_postfix}".upper()
+                )
+
+                cc.step(
+                    f"Creating worker service {i+1}/{delta}: {worker_service_name}..."
+                )
+
+                # Prepare worker-specific environment variables
+                ray_head_address = f"{dns_name}:12001"
+                worker_env_vars = {
+                    "IS_REMOTE_DEV": "false",
+                    "NODE_TYPE": "worker",
+                    "SERVICE_NAME": worker_service_name,
+                    "RAY_HEAD_ADDRESS": ray_head_address,
+                }
+
+                # Generate worker service spec with custom environment variables
+                spec_content = generate_service_spec_yaml(
+                    session=self.snowpark_session,
+                    compute_pool=compute_pool,
+                    stage=None,  # Workers typically don't need stage mounts
+                    image=None,  # Use default image (same as head)
+                    ssh_public_key=None,  # Workers don't need SSH keys
+                    custom_env_vars=worker_env_vars,
+                )
+
+                # Create the worker service (without waiting)
+                try:
+                    self._create_service_with_spec(
+                        service_name=worker_service_name,
+                        compute_pool=compute_pool,
+                        spec_content=spec_content,
+                        external_access_integrations=external_access_list,
+                    )
+                    created_workers.append(worker_service_name)
+                    cc.message(f"✓ Worker service {worker_service_name} created")
+
+                except Exception as e:
+                    cc.warning(
+                        f"Failed to create worker service {worker_service_name}: {e}"
+                    )
+                    # Continue creating other workers even if one fails
+
+            # Now wait for all created workers to be ready together
+            if created_workers:
+                cc.step(f"Waiting for {len(created_workers)} worker(s) to be ready...")
+                failed_workers = []
+                for worker_name in created_workers:
+                    try:
+                        self.wait_for_service_ready(worker_name)
+                        cc.message(f"✓ {worker_name} is ready")
+                    except Exception as e:
+                        cc.warning(f"Worker {worker_name} failed to become ready: {e}")
+                        failed_workers.append(worker_name)
+
+                # Report final status
+                successful_count = len(created_workers) - len(failed_workers)
+                if successful_count > 0:
+                    cc.message(
+                        f"\n✓ Successfully scaled up: {successful_count} worker(s) ready!"
+                    )
+                if failed_workers:
+                    cc.warning(
+                        f"⚠ {len(failed_workers)} worker(s) failed to become ready: {', '.join(failed_workers)}"
+                    )
+
+        else:  # delta < 0
+            # Scale down: delete excess workers
+            workers_to_delete = abs(delta)
+            cc.step(f"Scaling down: deleting {workers_to_delete} worker(s)...")
+
+            # Delete the most recent workers first (by name, since they have timestamps)
+            workers_to_remove = sorted(
+                active_workers, key=lambda x: x["name"], reverse=True
+            )[:workers_to_delete]
+
+            for worker in workers_to_remove:
+                worker_name = worker["name"]
+                try:
+                    self._delete_worker_service(worker_name)
+                    deleted_workers.append(worker_name)
+                except Exception as e:
+                    cc.warning(f"Failed to delete worker {worker_name}: {e}")
+
+            if deleted_workers:
+                cc.message(
+                    f"\n✓ Successfully scaled down: deleted {len(deleted_workers)} worker(s)!"
+                )
+
+        return {
+            "created": created_workers,
+            "deleted": deleted_workers,
+            "existing": [
+                w["name"] for w in active_workers if w["name"] not in deleted_workers
+            ],
+        }

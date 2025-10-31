@@ -422,3 +422,71 @@ def cursor(
         ide_message="Opening Cursor connected to the remote environment...",
         validate_ide=True,
     )
+
+
+@app.command("scale", requires_connection=True)
+def scale(
+    head_service_name: str = typer.Argument(
+        help="Name of the head service (can be either a customer name or full service name)"
+    ),
+    target_workers: int = typer.Argument(
+        help="Target number of worker services", min=0
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Scale worker services for a head service to a target count.
+
+    This command scales the number of worker services to match the target count.
+    It will create new workers if the current count is less than the target,
+    or delete excess workers if the current count is greater than the target.
+
+    The worker services use the same compute pool and configuration as the head service,
+    with worker-specific environment variables set for Ray cluster coordination.
+
+    Workers are configured with:
+    - IS_REMOTE_DEV: false
+    - NODE_TYPE: worker
+    - SERVICE_NAME: <worker_service_name>
+    - RAY_HEAD_ADDRESS: <head_dns_name>:12001
+
+    Usage examples:
+    - Scale to 3 workers: snow remote scale myproject 3
+    - Scale down to 1 worker: snow remote scale myproject 1
+    - Scale down to 0 (remove all workers): snow remote scale myproject 0
+
+    The head service must be in RUNNING state for workers to be scaled.
+    Only workers in PENDING or RUNNING state are counted towards the current total.
+    """
+    try:
+        manager = RemoteManager()
+        result = manager.scale_workers(head_service_name, target_workers)
+
+        # Build result message
+        message_parts = []
+
+        if result["created"]:
+            message_parts.append(f"Created {len(result['created'])} worker(s):")
+            for worker in result["created"]:
+                message_parts.append(f"  + {worker}")
+
+        if result["deleted"]:
+            message_parts.append(f"Deleted {len(result['deleted'])} worker(s):")
+            for worker in result["deleted"]:
+                message_parts.append(f"  - {worker}")
+
+        if result["existing"]:
+            message_parts.append(f"Existing workers: {len(result['existing'])}")
+            for worker in result["existing"]:
+                message_parts.append(f"  • {worker}")
+
+        if not message_parts:
+            message_parts.append(f"Worker count unchanged at {target_workers}")
+
+        message = "\n".join(message_parts)
+        return MessageResult(message)
+
+    except ValueError as e:
+        raise CliError(f"Error: {e}")
+    except Exception as e:
+        raise CliError(f"Error scaling worker services: {e}")

@@ -199,3 +199,72 @@ class TestRemoteCommands:
         # Success is indicated in the returned data, not console messages
         assert "Service deleted successfully" in result.output
         mock_delete.assert_called_once_with("test_service")
+
+    @patch.object(RemoteManager, "scale_workers")
+    def test_scale_command_scale_up(self, mock_scale_workers, runner):
+        """Test scale command scaling up workers."""
+        mock_scale_workers.return_value = {
+            "created": [
+                "SNOW_REMOTE_USER_HEAD_WORKER_ABC123",
+                "SNOW_REMOTE_USER_HEAD_WORKER_DEF456",
+            ],
+            "deleted": [],
+            "existing": [],
+        }
+
+        result = runner.invoke(["remote", "scale", "head_service", "2"])
+
+        assert result.exit_code == 0
+        assert "Created 2 worker(s)" in result.output
+        assert "SNOW_REMOTE_USER_HEAD_WORKER_ABC123" in result.output
+        assert "SNOW_REMOTE_USER_HEAD_WORKER_DEF456" in result.output
+
+        mock_scale_workers.assert_called_once_with("head_service", 2)
+
+    @patch.object(RemoteManager, "scale_workers")
+    def test_scale_command_scale_down(self, mock_scale_workers, runner):
+        """Test scale command scaling down workers."""
+        mock_scale_workers.return_value = {
+            "created": [],
+            "deleted": ["SNOW_REMOTE_USER_HEAD_WORKER_XYZ789"],
+            "existing": ["SNOW_REMOTE_USER_HEAD_WORKER_ABC123"],
+        }
+
+        result = runner.invoke(["remote", "scale", "my_head_service", "1"])
+
+        assert result.exit_code == 0
+        assert "Deleted 1 worker(s)" in result.output
+        assert "SNOW_REMOTE_USER_HEAD_WORKER_XYZ789" in result.output
+        assert "Existing workers: 1" in result.output
+
+        mock_scale_workers.assert_called_once_with("my_head_service", 1)
+
+    @patch.object(RemoteManager, "scale_workers")
+    def test_scale_command_no_change(self, mock_scale_workers, runner):
+        """Test scale command when already at target."""
+        mock_scale_workers.return_value = {
+            "created": [],
+            "deleted": [],
+            "existing": ["SNOW_REMOTE_USER_HEAD_WORKER_ABC123"],
+        }
+
+        result = runner.invoke(["remote", "scale", "head_service", "1"])
+
+        assert result.exit_code == 0
+        assert "Existing workers: 1" in result.output
+
+        mock_scale_workers.assert_called_once_with("head_service", 1)
+
+    @patch.object(RemoteManager, "scale_workers")
+    def test_scale_command_error_handling(self, mock_scale_workers, runner):
+        """Test scale command error handling."""
+        from snowflake.cli.api.exceptions import CliError
+
+        mock_scale_workers.side_effect = CliError(
+            "Head service 'nonexistent' does not exist."
+        )
+
+        result = runner.invoke(["remote", "scale", "nonexistent", "2"])
+
+        assert result.exit_code != 0
+        assert "Head service 'nonexistent' does not exist" in result.output

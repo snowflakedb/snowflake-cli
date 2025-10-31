@@ -92,6 +92,7 @@ def generate_service_spec(
     stage: Optional[str] = None,
     image: Optional[str] = None,
     ssh_public_key: Optional[str] = None,
+    custom_env_vars: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
     Generate a service specification for a remote development environment.
@@ -103,6 +104,7 @@ def generate_service_spec(
                If not provided, a block storage volume will be created for persistent storage.
         image: Optional custom image (can be full path like 'repo/image:tag' or just tag like '1.7.1')
         ssh_public_key: Optional SSH public key to inject for secure authentication
+        custom_env_vars: Optional dictionary of custom environment variables to add/override
 
     Returns:
         Service specification dictionary
@@ -244,6 +246,10 @@ def generate_service_spec(
     if ssh_public_key:
         env_vars["SSH_PUBLIC_KEY"] = ssh_public_key
 
+    # Add/override with custom environment variables if provided
+    if custom_env_vars:
+        env_vars.update(custom_env_vars)
+
     # Setup Ray configuration
     endpoints = []
 
@@ -307,6 +313,7 @@ def generate_service_spec_yaml(
     stage: Optional[str] = None,
     image: Optional[str] = None,
     ssh_public_key: Optional[str] = None,
+    custom_env_vars: Optional[Dict[str, str]] = None,
 ) -> str:
     """
     Generate a service specification as YAML for a remote development environment.
@@ -320,6 +327,7 @@ def generate_service_spec_yaml(
                If not provided, a block storage volume will be created for persistent storage.
         image: Optional custom image (can be full path like 'repo/image:tag' or just tag like '1.7.1')
         ssh_public_key: Optional SSH public key to inject for secure authentication
+        custom_env_vars: Optional dictionary of custom environment variables to add/override
 
     Returns:
         YAML string containing the service specification
@@ -330,5 +338,6 @@ def generate_service_spec_yaml(
         stage=stage,
         image=image,
         ssh_public_key=ssh_public_key,
+        custom_env_vars=custom_env_vars,
     )
     return yaml.dump(spec, default_flow_style=False)
