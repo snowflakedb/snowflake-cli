@@ -242,7 +242,7 @@ class CLITelemetryClient:
             **telemetry_payload,
         }
         # To map Enum to string, so we don't have to use .value every time
-        return {getattr(k, "value", k): v for k, v in data.items()}  # type: ignore[arg-type]
+        return {getattr(k, "value", k): v for k, v in data.items()}  # type: ignore[arg-type, misc]
 
     @property
     def _telemetry(self):

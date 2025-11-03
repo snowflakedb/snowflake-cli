@@ -157,7 +157,7 @@ class SnowCLIRunner(CliRunner):
 
     def invoke_with_config(self, args, **kwargs) -> CommandResult:
         result = self.invoke(
-            [
+            [  # type: ignore[arg-type]
                 "--config-file",
                 self._test_config_path,
                 *args,

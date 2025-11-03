@@ -463,8 +463,36 @@ def test_dbt_deploy_with_external_access_integrations(
         )
         assert result.exit_code == 0, result.output
 
+        # Deploy dbt project once again to confirm that altering works
+        second_access_integration = f"SECOND_ACCESS_INTEGRATION"
+
+        # Setup external access integration for dbt hub access
+        _setup_external_access_integration(runner, second_access_integration)
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dbt",
+                "deploy",
+                name,
+                "--external-access-integration",
+                ext_access_integration,
+                "--external-access-integration",
+                second_access_integration,
+                "--default-target",
+                "prod",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(["dbt", "describe", name])
+        assert ext_access_integration in result.json[0]["external_access_integrations"]
+        assert (
+            second_access_integration in result.json[0]["external_access_integrations"]
+        )
+
         # Cleanup: Remove external access integration and network rule
         _cleanup_external_access_integration(runner, ext_access_integration)
+        _cleanup_external_access_integration(runner, second_access_integration)
 
 
 @pytest.mark.integration
