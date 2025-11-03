@@ -35,6 +35,7 @@ from snowflake.connector.errors import ProgrammingError
 
 class DBTObjectEditableAttributes(TypedDict):
     default_target: Optional[str]
+    external_access_integrations: Optional[List[str]]
 
 
 class DBTManager(SqlExecutionMixin):
@@ -70,11 +71,25 @@ class DBTManager(SqlExecutionMixin):
 
         row = rows[0]
         # Convert row to dict using column names
-        columns = [desc[0] for desc in cursor.description]
+        columns = [desc[0].lower() for desc in cursor.description]
         row_dict = dict(zip(columns, row))
 
+        external_access_integrations = row_dict.get("external_access_integrations")
+        if external_access_integrations:
+            if isinstance(external_access_integrations, str):
+                external_access_integrations = [
+                    x.strip()
+                    for x in external_access_integrations.strip("[]").split(",")
+                    if x.strip()
+                ]
+            elif not isinstance(external_access_integrations, list):
+                external_access_integrations = None
+        else:
+            external_access_integrations = None
+
         return DBTObjectEditableAttributes(
-            default_target=row_dict.get("default_target")
+            default_target=row_dict.get("default_target"),
+            external_access_integrations=external_access_integrations,
         )
 
     def deploy(
@@ -165,23 +180,66 @@ class DBTManager(SqlExecutionMixin):
     ) -> SnowflakeCursor:
         query = f"ALTER DBT PROJECT {fqn} ADD VERSION"
         query += f"\nFROM {stage_name}"
-        query = self._handle_external_access_integrations_query(
-            query, external_access_integrations, install_local_deps
-        )
         result = self.execute_query(query)
+
+        set_properties = []
+        unset_properties = []
+
         current_default_target = dbt_object_attributes.get("default_target")
         if unset_default_target and current_default_target is not None:
-            unset_query = f"ALTER DBT PROJECT {fqn} UNSET DEFAULT_TARGET"
-            self.execute_query(unset_query)
+            unset_properties.append("DEFAULT_TARGET")
         elif default_target and (
             current_default_target is None
             or current_default_target.lower() != default_target.lower()
         ):
-            set_default_query = (
-                f"ALTER DBT PROJECT {fqn} SET DEFAULT_TARGET='{default_target}'"
-            )
-            self.execute_query(set_default_query)
+            set_properties.append(f"DEFAULT_TARGET='{default_target}'")
+
+        current_external_access_integrations = dbt_object_attributes.get(
+            "external_access_integrations"
+        )
+        if self._should_update_external_access_integrations(
+            current_external_access_integrations,
+            external_access_integrations,
+            install_local_deps,
+        ):
+            if external_access_integrations:
+                integrations_str = ", ".join(sorted(external_access_integrations))
+                set_properties.append(
+                    f"EXTERNAL_ACCESS_INTEGRATIONS=({integrations_str})"
+                )
+            elif install_local_deps:
+                set_properties.append("EXTERNAL_ACCESS_INTEGRATIONS=()")
+
+        if set_properties or unset_properties:
+            self._execute_property_updates(fqn, set_properties, unset_properties)
+
         return result
+
+    @staticmethod
+    def _should_update_external_access_integrations(
+        current: Optional[List[str]],
+        requested: Optional[List[str]],
+        install_local_deps: bool,
+    ) -> bool:
+        if requested is not None:
+            current_set = set(current) if current else set()
+            requested_set = set(requested)
+            return current_set != requested_set
+        elif install_local_deps:
+            current_set = set(current) if current else set()
+            return current_set != set()
+        return False
+
+    def _execute_property_updates(
+        self, fqn: FQN, set_clauses: List[str], unset_properties: List[str]
+    ) -> None:
+        if set_clauses:
+            query = f"ALTER DBT PROJECT {fqn} SET {', '.join(set_clauses)}"
+            self.execute_query(query)
+
+        for property_name in unset_properties:
+            query = f"ALTER DBT PROJECT {fqn} UNSET {property_name}"
+            self.execute_query(query)
 
     def _deploy_create(
         self,
@@ -191,7 +249,6 @@ class DBTManager(SqlExecutionMixin):
         external_access_integrations: Optional[List[str]],
         install_local_deps: bool,
     ) -> SnowflakeCursor:
-        # Project doesn't exist - create new one
         query = f"CREATE DBT PROJECT {fqn}"
         query += f"\nFROM {stage_name}"
         if default_target:
