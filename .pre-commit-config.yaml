@@ -24,6 +24,7 @@ repos:
     rev: v1.18.2
     hooks:
       - id: mypy
+        exclude: ^(tests_integration|tests_e2e)/
         additional_dependencies: [types-pkg-resources==0.1.3, types-all==1.0.0]
   - repo: https://github.com/codespell-project/codespell
     rev: v2.2.4

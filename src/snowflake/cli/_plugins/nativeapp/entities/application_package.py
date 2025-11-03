@@ -1066,7 +1066,10 @@ class ApplicationPackageEntity(EntityBase[ApplicationPackageEntityModel]):
 
         for version in free_versions:
             last_updated = last_updated_map[version]
-            if not oldest_version or last_updated < oldest_version_last_updated_on:
+            if not oldest_version or (
+                oldest_version_last_updated_on is not None
+                and last_updated < oldest_version_last_updated_on
+            ):
                 oldest_version = version
                 oldest_version_last_updated_on = last_updated
 
