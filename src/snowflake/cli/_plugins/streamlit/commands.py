@@ -130,7 +130,7 @@ def _default_file_callback(param_name: str):
 LegacyOption = typer.Option(
     False,
     "--legacy",
-    help="Use legacy ROOT_LOCATION deployment instead of versioned deployment.",
+    help="Use legacy ROOT_LOCATION stages instead of versioned stages.",
     is_flag=True,
 )
 
