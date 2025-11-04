@@ -91,7 +91,10 @@ class TestDeploy:
         mock_from_resource,
         mock_validate_role,
     ):
-        mock_get_dbt_object_attributes.return_value = {"default_target": None}
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": None,
+            "external_access_integrations": None,
+        }
 
         DBTManager().deploy(
             fqn=FQN.from_string("test_project"),
@@ -171,7 +174,10 @@ class TestDeploy:
         mock_from_resource,
         mock_validate_role,
     ):
-        mock_get_dbt_object_attributes.return_value = {"default_target": None}
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": None,
+            "external_access_integrations": None,
+        }
         manager = DBTManager()
 
         manager.deploy(
@@ -185,8 +191,98 @@ class TestDeploy:
             ],
         )
 
-        expected_query = f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}\nEXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration, dbt_hub_integration)"
-        mock_execute_query.assert_called_once_with(expected_query)
+        assert mock_execute_query.call_count == 2
+        calls = mock_execute_query.call_args_list
+        assert (
+            calls[0][0][0]
+            == f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
+        )
+        assert (
+            calls[1][0][0]
+            == "ALTER DBT PROJECT test_project SET EXTERNAL_ACCESS_INTEGRATIONS=(dbt_hub_integration, google_apis_access_integration)"
+        )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_alter_project_with_both_default_target_and_external_access_integrations(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": "dev",
+            "external_access_integrations": ["old_integration"],
+        }
+        manager = DBTManager()
+
+        manager.deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            default_target="prod",
+            external_access_integrations=[
+                "google_apis_access_integration",
+                "dbt_hub_integration",
+            ],
+        )
+
+        assert mock_execute_query.call_count == 2
+        calls = mock_execute_query.call_args_list
+        assert (
+            calls[0][0][0]
+            == f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
+        )
+        assert (
+            calls[1][0][0]
+            == "ALTER DBT PROJECT test_project SET DEFAULT_TARGET='prod', EXTERNAL_ACCESS_INTEGRATIONS=(dbt_hub_integration, google_apis_access_integration)"
+        )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_alter_does_not_update_unchanged_external_access_integrations(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": None,
+            "external_access_integrations": [
+                "google_apis_access_integration",
+                "dbt_hub_integration",
+            ],
+        }
+        manager = DBTManager()
+
+        manager.deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            external_access_integrations=[
+                "google_apis_access_integration",
+                "dbt_hub_integration",
+            ],
+        )
+
+        assert mock_execute_query.call_count == 1
+        calls = mock_execute_query.call_args_list
+        assert (
+            calls[0][0][0]
+            == f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
+        )
 
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
     @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
@@ -311,7 +407,10 @@ class TestDeploy:
         mock_from_resource,
         mock_validate_role,
     ):
-        mock_get_dbt_object_attributes.return_value = {"default_target": "dev"}
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": "dev",
+            "external_access_integrations": None,
+        }
 
         DBTManager().deploy(
             fqn=FQN.from_string("TEST_PIPELINE"),
@@ -341,7 +440,10 @@ class TestDeploy:
         mock_from_resource,
         mock_validate_role,
     ):
-        mock_get_dbt_object_attributes.return_value = {"default_target": "prod"}
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": "prod",
+            "external_access_integrations": None,
+        }
 
         DBTManager().deploy(
             fqn=FQN.from_string("TEST_PIPELINE"),
@@ -371,7 +473,10 @@ class TestDeploy:
         mock_from_resource,
         mock_validate_role,
     ):
-        mock_get_dbt_object_attributes.return_value = {"default_target": "prod"}
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": "prod",
+            "external_access_integrations": None,
+        }
 
         DBTManager().deploy(
             fqn=FQN.from_string("TEST_PIPELINE"),
@@ -401,7 +506,10 @@ class TestDeploy:
         mock_from_resource,
         mock_validate_role,
     ):
-        mock_get_dbt_object_attributes.return_value = {"default_target": None}
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": None,
+            "external_access_integrations": None,
+        }
 
         DBTManager().deploy(
             fqn=FQN.from_string("TEST_PIPELINE"),
