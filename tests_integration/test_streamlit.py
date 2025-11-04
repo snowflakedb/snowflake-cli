@@ -25,9 +25,10 @@ def test_streamlit_flow(
             "app_1", snowflake_session
         )
 
+        stage_root = f"snow://streamlit/{snowflake_session.database}.{snowflake_session.schema}.app_1/versions/live/"
+
         _streamlit_test_steps.assert_that_only_those_files_were_uploaded(
-            ["app_1_stage/app_1/app_1.py", "app_1_stage/app_1/streamlit_app.py"],
-            f"{database}.public.app_1_stage",
+            ["app_1.py", "streamlit_app.py"], stage_root, uploaded_to_live_version=True
         )
         _streamlit_test_steps.assert_that_only_those_entities_are_listed(
             [f"{database}.PUBLIC.APP_1"], "APP_1"
@@ -45,8 +46,7 @@ def test_streamlit_flow(
         )
 
         _streamlit_test_steps.assert_that_only_those_files_were_uploaded(
-            ["app_1_stage/app_1/app_1.py", "app_1_stage/app_1/streamlit_app.py"],
-            f"{database}.public.app_1_stage",
+            ["app_1.py", "streamlit_app.py"], stage_root, uploaded_to_live_version=True
         )
 
         _streamlit_test_steps.streamlit_describe_should_show_proper_streamlit(

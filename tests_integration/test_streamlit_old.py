@@ -113,38 +113,53 @@ def test_streamlit_deploy(
 
 @pytest.mark.integration
 def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
-    stage_name = "streamlit"
+    # With versioned deployment (default), files are uploaded to a managed stage
+    # at snow://streamlit/{DB}.{SCHEMA}.{IDENTIFIER}/versions/live
+    streamlit_identifier = "TEST_STREAMLIT_DEPLOY_SNOWCLI"
+    versioned_stage_path = f"snow://streamlit/{test_database.upper()}.PUBLIC.{streamlit_identifier}/versions/live"
 
     def _assert_file_names_on_stage(expected_files: List[str]) -> None:
-        result = runner.invoke_with_connection_json(["stage", "list-files", stage_name])
+        result = runner.invoke_with_connection_json(
+            ["stage", "list-files", versioned_stage_path]
+        )
         assert result.exit_code == 0, result.output
-        assert set(file["name"] for file in result.json) == set(expected_files)
+        actual_files = set(
+            file["name"].removeprefix("/versions/live/") for file in result.json
+        )
+        assert actual_files == set(
+            expected_files
+        ), f"Expected {expected_files} but got {actual_files}"
 
     with project_directory(f"streamlit_v2") as project_root:
-        # upload unexpected file on stage
+        # deploy streamlit first to create the managed stage
+        result = runner.invoke_with_connection(
+            ["streamlit", "deploy", "my_streamlit", "--replace"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_file_names_on_stage(["streamlit_app.py"])
+
+        # upload unexpected file to the versioned stage
         unexpected_file = project_root / "unexpected.txt"
         unexpected_file.write_text("This is unexpected")
-        result = runner.invoke_with_connection(["stage", "create", f"@{stage_name}"])
-        assert result.exit_code == 0, result.output
         result = runner.invoke_with_connection(
             [
                 "stage",
                 "copy",
                 str(unexpected_file),
-                f"@{stage_name}/test_streamlit_deploy_snowcli",
+                versioned_stage_path,
             ]
         )
         assert result.exit_code == 0, result.output
 
-        # deploy streamlit - file should remain on stage
+        # deploy streamlit again without prune - unexpected file should remain on stage
         result = runner.invoke_with_connection(
             ["streamlit", "deploy", "my_streamlit", "--replace"]
         )
         assert result.exit_code == 0, result.output
         _assert_file_names_on_stage(
             [
-                "streamlit/test_streamlit_deploy_snowcli/unexpected.txt",
-                "streamlit/test_streamlit_deploy_snowcli/streamlit_app.py",
+                "unexpected.txt",
+                "streamlit_app.py",
             ]
         )
 
@@ -153,9 +168,7 @@ def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
             ["streamlit", "deploy", "my_streamlit", "--replace", "--prune"]
         )
         assert result.exit_code == 0, result.output
-        _assert_file_names_on_stage(
-            ["streamlit/test_streamlit_deploy_snowcli/streamlit_app.py"]
-        )
+        _assert_file_names_on_stage(["streamlit_app.py"])
 
 
 @pytest.mark.integration
