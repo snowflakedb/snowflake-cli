@@ -106,6 +106,15 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 f"Streamlit {self.model.fqn.sql_identifier} already exists. Use 'replace' option to overwrite."
             )
 
+        # Validate that SPCS runtime v2 is not used with legacy mode
+        if legacy and self._is_spcs_runtime_v2_mode():
+            raise ClickException(
+                "SPCS runtime v2 features (runtime_name and compute_pool) are not "
+                "compatible with --legacy flag. Please remove the --legacy flag to use "
+                "versioned deployment, or remove runtime_name and compute_pool from "
+                "your snowflake.yml to use legacy deployment."
+            )
+
         if legacy:
             self._deploy_legacy(bundle_map=bundle_map, replace=replace, prune=prune)
         else:

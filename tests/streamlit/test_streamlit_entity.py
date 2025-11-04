@@ -327,3 +327,38 @@ class TestStreamlitEntity(StreamlitTestClass):
         )
         assert model.runtime_name == SPCS_RUNTIME_V2_NAME
         assert model.compute_pool == "MYPOOL"
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    def test_deploy_with_spcs_runtime_v2_and_legacy_flag_raises_error(
+        self, mock_object_exists, workspace_context, action_context
+    ):
+        """Test that deploying with SPCS runtime v2 and --legacy flag raises a clear error"""
+        from click import ClickException
+
+        mock_object_exists.return_value = False
+
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            runtime_name=SPCS_RUNTIME_V2_NAME,
+            compute_pool="MYPOOL",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+
+        entity = StreamlitEntity(
+            workspace_ctx=workspace_context,
+            entity_model=model,
+            project_root=Path(__file__).parent / "test_data" / "projects",
+            entity_id="test_streamlit",
+        )
+
+        with pytest.raises(
+            ClickException,
+            match="SPCS runtime v2 features .* are not compatible with --legacy flag",
+        ):
+            entity.action_deploy(
+                action_context, _open=False, replace=False, legacy=True
+            )
