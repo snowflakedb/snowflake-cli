@@ -419,9 +419,7 @@ class TestStreamlitCommands(StreamlitTestClass):
                     parameter_path="entities.test_streamlit.artifacts",
                     value=["streamlit_app.py", "environment.yml", "pages/"],
                 )
-            result = runner.invoke(
-                ["streamlit", "deploy", "--replace"]
-            )
+            result = runner.invoke(["streamlit", "deploy", "--replace"])
 
         expected_query = dedent(
             f"""

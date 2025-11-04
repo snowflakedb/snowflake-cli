@@ -233,9 +233,7 @@ def test_streamlit_deploy_experimental_twice(
         assert result.exit_code == 0
 
         # Test that second deploy does not fail
-        result = runner.invoke_with_connection_json(
-            ["streamlit", "deploy"]
-        )
+        result = runner.invoke_with_connection_json(["streamlit", "deploy"])
         assert result.exit_code == 0
 
         result = runner.invoke_with_connection_json(["streamlit", "list"])

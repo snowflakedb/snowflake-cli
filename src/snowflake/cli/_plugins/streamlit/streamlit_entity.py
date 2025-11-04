@@ -68,8 +68,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
     def _is_spcs_runtime_v2_mode(self) -> bool:
         """Check if SPCS runtime v2 mode is enabled."""
         return (
-            self.model.runtime_name == SPCS_RUNTIME_V2_NAME
-            and self.model.compute_pool
+            self.model.runtime_name == SPCS_RUNTIME_V2_NAME and self.model.compute_pool
         )
 
     def bundle(self, output_dir: Optional[Path] = None) -> BundleMap:
