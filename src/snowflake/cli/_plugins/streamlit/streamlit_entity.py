@@ -219,7 +219,8 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         console = self._workspace_ctx.console
         console.step(f"Uploading artifacts to stage {self.model.stage}")
 
-        # We use a static method from StageManager here, but maybe this logic could be implemented elswhere, as we implement entities?
+        # We use a static method from StageManager here, but maybe this logic
+        # could be implemented elsewhere, as we implement entities?
         name = (
             self.model.identifier.name
             if isinstance(self.model.identifier, Identifier)

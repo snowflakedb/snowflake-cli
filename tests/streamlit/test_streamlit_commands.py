@@ -498,7 +498,9 @@ class TestStreamlitCommands(StreamlitTestClass):
     def test_selecting_streamlit_from_pdf(self, entity_id, project_directory, runner):
 
         with project_directory("example_streamlit_multiple_v2"):
-            result = runner.invoke(["streamlit", "deploy", entity_id, "--replace", "--legacy"])
+            result = runner.invoke(
+                ["streamlit", "deploy", entity_id, "--replace", "--legacy"]
+            )
 
         expected_query = dedent(
             f"""

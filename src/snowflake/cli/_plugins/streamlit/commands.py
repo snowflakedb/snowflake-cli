@@ -162,7 +162,8 @@ def streamlit_deploy(
     # Warn if --experimental is used
     if options.get("experimental"):
         workspace_ctx.console.warning(
-            "[Deprecation] The --experimental flag is deprecated. Versioned deployment is now the default behavior. "
+            "[Deprecation] The --experimental flag is deprecated. "
+            "Versioned deployment is now the default behavior. "
             "This flag will be removed in a future version."
         )
 
