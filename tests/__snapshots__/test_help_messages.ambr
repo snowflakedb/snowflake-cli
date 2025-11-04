@@ -20690,6 +20690,9 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
+  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
+  |                                                supplying the access tokens   |
+  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
