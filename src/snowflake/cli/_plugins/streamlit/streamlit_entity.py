@@ -110,38 +110,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         if not legacy:
             self._deploy_versioned(bundle_map=bundle_map, replace=replace, prune=prune)
         else:
-            console.step(f"Uploading artifacts to stage {self.model.stage}")
-
-            # We use a static method from StageManager here, but maybe this logic could be implemented elswhere, as we implement entities?
-            name = (
-                self.model.identifier.name
-                if isinstance(self.model.identifier, Identifier)
-                else self.model.identifier or self.entity_id
-            )
-            stage_root = StageManager.get_standard_stage_prefix(
-                f"{FQN.from_string(self.model.stage).using_connection(self._conn)}/{name}"
-            )
-            sync_deploy_root_with_stage(
-                console=self._workspace_ctx.console,
-                deploy_root=bundle_map.deploy_root(),
-                bundle_map=bundle_map,
-                prune=prune,
-                recursive=True,
-                stage_path_parts=StageManager().stage_path_parts_from_str(stage_root),
-                print_diff=True,
-            )
-
-            console.step(f"Creating Streamlit object {self.model.fqn.sql_identifier}")
-
-            self._execute_query(
-                self.get_deploy_sql(
-                    replace=replace,
-                    from_stage_name=stage_root,
-                    legacy=True,
-                )
-            )
-
-            StreamlitManager(connection=self._conn).grant_privileges(self.model)
+            self._deploy_legacy(bundle_map=bundle_map, replace=replace, prune=prune)
 
         return self.perform(EntityActions.GET_URL, action_context, *args, **kwargs)
 
@@ -243,6 +212,43 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             return True
         except ProgrammingError:
             return False
+
+    def _deploy_legacy(
+        self, bundle_map: BundleMap, replace: bool = False, prune: bool = False
+    ):
+        console = self._workspace_ctx.console
+        console.step(f"Uploading artifacts to stage {self.model.stage}")
+
+        # We use a static method from StageManager here, but maybe this logic could be implemented elswhere, as we implement entities?
+        name = (
+            self.model.identifier.name
+            if isinstance(self.model.identifier, Identifier)
+            else self.model.identifier or self.entity_id
+        )
+        stage_root = StageManager.get_standard_stage_prefix(
+            f"{FQN.from_string(self.model.stage).using_connection(self._conn)}/{name}"
+        )
+        sync_deploy_root_with_stage(
+            console=self._workspace_ctx.console,
+            deploy_root=bundle_map.deploy_root(),
+            bundle_map=bundle_map,
+            prune=prune,
+            recursive=True,
+            stage_path_parts=StageManager().stage_path_parts_from_str(stage_root),
+            print_diff=True,
+        )
+
+        console.step(f"Creating Streamlit object {self.model.fqn.sql_identifier}")
+
+        self._execute_query(
+            self.get_deploy_sql(
+                replace=replace,
+                from_stage_name=stage_root,
+                legacy=True,
+            )
+        )
+
+        StreamlitManager(connection=self._conn).grant_privileges(self.model)
 
     def _deploy_versioned(
         self, bundle_map: BundleMap, replace: bool = False, prune: bool = False
