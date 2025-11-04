@@ -137,6 +137,10 @@ LegacyOption = typer.Option(
 
 @app.command("deploy", requires_connection=True)
 @with_project_definition()
+# Note: @with_experimental_behaviour() is kept for backward compatibility only.
+# The --experimental flag is deprecated and hidden. It will be removed in a future version.
+# Default behavior: versioned deployment (formerly experimental)
+# Use --legacy to opt into the old ROOT_LOCATION stage behavior
 @with_experimental_behaviour()
 def streamlit_deploy(
     replace: bool = ReplaceOption(
@@ -151,7 +155,7 @@ def streamlit_deploy(
 ) -> CommandResult:
     """
     Deploys a Streamlit app defined in the project definition file (snowflake.yml). By default, the command uploads
-    environment.yml and any other pages or folders, if present. If you don’t specify a stage name, the `streamlit`
+    environment.yml and any other pages or folders, if present. If you don't specify a stage name, the `streamlit`
     stage is used. If the specified stage does not exist, the command creates it. If multiple Streamlits are defined
     in snowflake.yml and no entity_id is provided then command will raise an error.
     """
@@ -159,7 +163,12 @@ def streamlit_deploy(
     cli_context = get_cli_context()
     workspace_ctx = _get_current_workspace_context()
 
-    # Warn if --experimental is used
+    # Handle deprecated --experimental flag for backward compatibility
+    # Deployment mode priority:
+    # 1. --legacy flag → use legacy ROOT_LOCATION stages
+    # 2. Default (no flags) → use versioned stages (new default)
+    # 3. --experimental (deprecated) → ignored, versioned is now default
+    # TODO: Remove @with_experimental_behaviour() decorator and this check in next major version
     if options.get("experimental"):
         workspace_ctx.console.warning(
             "[Deprecation] The --experimental flag is deprecated. "

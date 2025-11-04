@@ -90,7 +90,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         replace: bool,
         prune: bool = False,
         bundle_map: Optional[BundleMap] = None,
-        legacy: bool = False,
+        legacy: bool = False,  # If True, use legacy ROOT_LOCATION stages; if False (default), use versioned stages
         *args,
         **kwargs,
     ):
@@ -115,6 +115,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 "your snowflake.yml to use legacy deployment."
             )
 
+        # Deploy using the appropriate method:
+        # - Legacy mode: Uses ROOT_LOCATION with stages (old behavior)
+        # - Versioned mode (default): Uses FROM syntax with versioned stages (new behavior)
         if legacy:
             self._deploy_legacy(bundle_map=bundle_map, replace=replace, prune=prune)
         else:
