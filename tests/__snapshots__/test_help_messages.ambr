@@ -252,9 +252,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -399,9 +396,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -601,9 +595,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -749,9 +740,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -983,9 +971,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -1138,9 +1123,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -1292,9 +1274,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -1443,9 +1422,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -1598,9 +1574,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -1752,9 +1725,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -1901,9 +1871,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -2081,9 +2048,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -2243,9 +2207,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -2400,9 +2361,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -2566,9 +2524,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -2719,9 +2674,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -2985,9 +2937,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -3159,9 +3108,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -3306,9 +3252,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -3526,9 +3469,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -3706,9 +3646,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -3853,9 +3790,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -4204,9 +4138,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -4471,9 +4402,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -4667,9 +4595,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -4806,9 +4731,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -4945,9 +4867,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -5088,9 +5007,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -5257,9 +5173,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -5426,9 +5339,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -5595,9 +5505,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -5764,9 +5671,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -5933,9 +5837,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -6102,9 +6003,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -6271,9 +6169,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -6440,9 +6335,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -6609,9 +6501,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -6778,9 +6667,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -6947,9 +6833,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -7116,9 +6999,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -7287,9 +7167,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -7451,9 +7328,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -7599,9 +7473,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -7738,9 +7609,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -7884,9 +7752,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -8023,9 +7888,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -8163,9 +8025,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -8310,9 +8169,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -8460,9 +8316,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -8638,9 +8491,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -8777,9 +8627,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -8916,9 +8763,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -9077,9 +8921,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -9217,9 +9058,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -9361,9 +9199,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -9506,9 +9341,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -9650,9 +9482,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -9796,9 +9625,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -9948,9 +9774,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -10190,9 +10013,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -10333,9 +10153,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -10485,9 +10302,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -10625,9 +10439,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -10765,9 +10576,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -10905,9 +10713,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -11087,9 +10892,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -11234,9 +11036,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -11381,9 +11180,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -11539,9 +11335,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -11865,9 +11658,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -12021,9 +11811,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -12166,9 +11953,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -12311,9 +12095,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -12458,9 +12239,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -12608,9 +12386,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -12762,9 +12537,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -12901,9 +12673,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -13043,9 +12812,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -13292,9 +13058,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -13437,9 +13200,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -13577,9 +13337,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -13717,9 +13474,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -13856,9 +13610,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -13996,9 +13747,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -14156,9 +13904,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -14297,9 +14042,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -14437,9 +14179,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -14578,9 +14317,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -14727,9 +14463,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -14898,9 +14631,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -15036,9 +14766,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -15183,9 +14910,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -15347,9 +15071,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -15490,9 +15211,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -15630,9 +15348,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -15774,9 +15489,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -15920,9 +15632,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -16065,9 +15774,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -16205,9 +15911,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -16429,9 +16132,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -16575,9 +16275,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -16714,9 +16411,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -16853,9 +16547,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -17005,9 +16696,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -17144,9 +16832,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -17283,9 +16968,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -17422,9 +17104,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -17561,9 +17240,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -17706,9 +17382,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -17857,9 +17530,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -18006,9 +17676,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -18145,9 +17812,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -18331,9 +17995,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -18474,9 +18135,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -18613,9 +18271,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -18769,9 +18424,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -18910,9 +18562,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -19177,9 +18826,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -19348,9 +18994,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -19496,9 +19139,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -19635,9 +19275,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -19776,9 +19413,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -19915,9 +19549,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -20073,9 +19704,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -20216,9 +19844,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -20361,9 +19986,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -20502,9 +20124,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -20607,6 +20226,8 @@
   |                                    [default: no-prune]                       |
   | --open                             Whether to open the Streamlit app in a    |
   |                                    browser.                                  |
+  | --legacy                           Use legacy ROOT_LOCATION stages instead   |
+  |                                    of versioned stages.                      |
   | --project  -p                TEXT  Path where the Snowflake project is       |
   |                                    stored. Defaults to the current working   |
   |                                    directory.                                |
@@ -20688,9 +20309,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -20828,9 +20446,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -20968,9 +20583,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -21108,9 +20720,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -21249,9 +20858,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -21394,9 +21000,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -21536,9 +21139,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
@@ -21919,9 +21519,6 @@
   | --oauth-authorization-url             TEXT     Identity Provider endpoint    |
   |                                                supplying the authorization   |
   |                                                code to the driver.           |
-  | --oauth-token-request-url             TEXT     Identity Provider endpoint    |
-  |                                                supplying the access tokens   |
-  |                                                to the driver.                |
   | --oauth-redirect-uri                  TEXT     URI to use for authorization  |
   |                                                code redirection.             |
   | --oauth-scope                         TEXT     Scope requested in the        |
