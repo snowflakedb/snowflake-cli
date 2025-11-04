@@ -225,16 +225,16 @@ def test_streamlit_deploy_experimental_twice(
 
     with project_directory(f"streamlit_v{pdf_version}"):
         if pdf_version == "1":
-            args = ["streamlit", "deploy", "--experimental"]
+            args = ["streamlit", "deploy"]
         else:
-            args = ["streamlit", "deploy", "my_streamlit", "--experimental"]
+            args = ["streamlit", "deploy", "my_streamlit"]
 
         result = runner.invoke_with_connection_json(args)
         assert result.exit_code == 0
 
         # Test that second deploy does not fail
         result = runner.invoke_with_connection_json(
-            ["streamlit", "deploy", "--experimental"]
+            ["streamlit", "deploy"]
         )
         assert result.exit_code == 0
 

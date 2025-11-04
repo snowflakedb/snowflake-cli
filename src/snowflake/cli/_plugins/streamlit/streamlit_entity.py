@@ -15,7 +15,6 @@ from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.entities.common import EntityBase
 from snowflake.cli.api.entities.utils import EntityActions, sync_deploy_root_with_stage
-from snowflake.cli.api.feature_flags import FeatureFlag as GlobalFeatureFlag
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import bundle_root
 from snowflake.cli.api.project.schemas.entities.common import Identifier, PathMapping
@@ -66,11 +65,10 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             self._conn, f"/#/streamlit-apps/{name.url_identifier}"
         )
 
-    def _is_spcs_runtime_v2_mode(self, experimental: bool = False) -> bool:
+    def _is_spcs_runtime_v2_mode(self) -> bool:
         """Check if SPCS runtime v2 mode is enabled."""
         return (
-            experimental
-            and self.model.runtime_name == SPCS_RUNTIME_V2_NAME
+            self.model.runtime_name == SPCS_RUNTIME_V2_NAME
             and self.model.compute_pool
         )
 
@@ -93,7 +91,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         replace: bool,
         prune: bool = False,
         bundle_map: Optional[BundleMap] = None,
-        experimental: bool = False,
+        legacy: bool = False,
         *args,
         **kwargs,
     ):
@@ -109,11 +107,8 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 f"Streamlit {self.model.fqn.sql_identifier} already exists. Use 'replace' option to overwrite."
             )
 
-        if (
-            experimental
-            or GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled()
-        ):
-            self._deploy_experimental(bundle_map=bundle_map, replace=replace)
+        if not legacy:
+            self._deploy_versioned(bundle_map=bundle_map, replace=replace, prune=prune)
         else:
             console.step(f"Uploading artifacts to stage {self.model.stage}")
 
@@ -142,7 +137,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 self.get_deploy_sql(
                     replace=replace,
                     from_stage_name=stage_root,
-                    experimental=False,
+                    legacy=True,
                 )
             )
 
@@ -172,7 +167,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         artifacts_dir: Optional[Path] = None,
         schema: Optional[str] = None,
         database: Optional[str] = None,
-        experimental: bool = False,
+        legacy: bool = False,
         *args,
         **kwargs,
     ) -> str:
@@ -218,7 +213,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         # SPCS runtime fields are only supported for FBE/versioned streamlits (FROM syntax)
         # Never add these fields for stage-based deployments (ROOT_LOCATION syntax)
-        if not from_stage_name and self._is_spcs_runtime_v2_mode(experimental):
+        if not from_stage_name and not legacy and self._is_spcs_runtime_v2_mode():
             query += f"\nRUNTIME_NAME = '{self.model.runtime_name}'"
             query += f"\nCOMPUTE_POOL = '{self.model.compute_pool}'"
 
@@ -249,14 +244,14 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         except ProgrammingError:
             return False
 
-    def _deploy_experimental(
+    def _deploy_versioned(
         self, bundle_map: BundleMap, replace: bool = False, prune: bool = False
     ):
         self._execute_query(
             self.get_deploy_sql(
                 if_not_exists=True,
                 replace=replace,
-                experimental=True,
+                legacy=False,
             )
         )
         try:

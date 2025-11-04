@@ -77,7 +77,7 @@ def test_streamlit_experimental_flow(
         _streamlit_test_steps.deploy_should_result_in_error_as_there_are_multiple_entities_in_project_file()
 
         _streamlit_test_steps.deploy_with_entity_id_specified_should_succeed(
-            "app_1", snowflake_session, experimental=True
+            "app_1", snowflake_session
         )
 
         stage_root = f"snow://streamlit/{snowflake_session.database}.{snowflake_session.schema}.app_1/versions/live/"
@@ -93,7 +93,7 @@ def test_streamlit_experimental_flow(
             "app_1", snowflake_session
         )
         _streamlit_test_steps.another_deploy_with_replace_flag_should_succeed(
-            "app_1", snowflake_session, experimental=True
+            "app_1", snowflake_session
         )
 
         _streamlit_test_steps.assert_that_only_those_entities_are_listed(
@@ -180,7 +180,7 @@ def test_streamlit_grants_experimental_flow(
         )
 
         _streamlit_test_steps.deploy_with_entity_id_specified_should_succeed(
-            entity_id, snowflake_session, experimental=True
+            entity_id, snowflake_session
         )
 
         _streamlit_test_steps.verify_grants_applied(entity_id, test_role)

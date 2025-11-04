@@ -56,9 +56,6 @@ class FeatureFlagMixin(Enum):
 
 @unique
 class FeatureFlag(FeatureFlagMixin):
-    ENABLE_STREAMLIT_VERSIONED_STAGE = BooleanFlag(
-        "ENABLE_STREAMLIT_VERSIONED_STAGE", False
-    )
     ENABLE_SEPARATE_AUTHENTICATION_POLICY_ID = BooleanFlag(
         "ENABLE_SEPARATE_AUTHENTICATION_POLICY_ID", False
     )

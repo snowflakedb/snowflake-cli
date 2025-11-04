@@ -127,6 +127,14 @@ def _default_file_callback(param_name: str):
     return _check_file_exists_if_not_default
 
 
+LegacyOption = typer.Option(
+    False,
+    "--legacy",
+    help="Use legacy ROOT_LOCATION deployment instead of versioned deployment.",
+    is_flag=True,
+)
+
+
 @app.command("deploy", requires_connection=True)
 @with_project_definition()
 @with_experimental_behaviour()
@@ -138,6 +146,7 @@ def streamlit_deploy(
     prune: bool = PruneOption(),
     entity_id: str = entity_argument("streamlit"),
     open_: bool = OpenOption,
+    legacy: bool = LegacyOption,
     **options,
 ) -> CommandResult:
     """
@@ -148,6 +157,15 @@ def streamlit_deploy(
     """
 
     cli_context = get_cli_context()
+    workspace_ctx = _get_current_workspace_context()
+
+    # Warn if --experimental is used
+    if options.get("experimental"):
+        workspace_ctx.console.warning(
+            "[Deprecation] The --experimental flag is deprecated. Versioned deployment is now the default behavior. "
+            "This flag will be removed in a future version."
+        )
+
     pd = cli_context.project_definition
     if not pd.meets_version_requirement("2"):
         if not pd.streamlit:
@@ -163,7 +181,7 @@ def streamlit_deploy(
             project_definition=pd,
             entity_type=ObjectType.STREAMLIT.value.cli_name,
         ),
-        workspace_ctx=_get_current_workspace_context(),
+        workspace_ctx=workspace_ctx,
     )
 
     url = streamlit.perform(
@@ -173,7 +191,7 @@ def streamlit_deploy(
         ),
         _open=open_,
         replace=replace,
-        experimental=options.get("experimental"),
+        legacy=legacy,
         prune=prune,
     )
 
