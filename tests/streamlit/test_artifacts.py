@@ -183,6 +183,7 @@ class TestArtifacts(StreamlitTestClass):
                     "streamlit",
                     "deploy",
                     "--replace",
+                    "--legacy",
                 ]
             )
             assert result.exit_code == 0, result.output
@@ -261,7 +262,9 @@ class TestArtifacts(StreamlitTestClass):
                 STREAMLIT_FILES + [artifacts],
             )
 
-            result = runner.invoke(["streamlit", "deploy", "-p", tmp, "--replace"])
+            result = runner.invoke(
+                ["streamlit", "deploy", "-p", tmp, "--replace", "--legacy"]
+            )
             assert result.exit_code == 0, result.output
 
             self._assert_that_exactly_those_files_were_put_to_stage(
