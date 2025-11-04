@@ -107,10 +107,10 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 f"Streamlit {self.model.fqn.sql_identifier} already exists. Use 'replace' option to overwrite."
             )
 
-        if not legacy:
-            self._deploy_versioned(bundle_map=bundle_map, replace=replace, prune=prune)
-        else:
+        if legacy:
             self._deploy_legacy(bundle_map=bundle_map, replace=replace, prune=prune)
+        else:
+            self._deploy_versioned(bundle_map=bundle_map, replace=replace, prune=prune)
 
         return self.perform(EntityActions.GET_URL, action_context, *args, **kwargs)
 
