@@ -55,7 +55,10 @@ class TestStreamlitEntity(StreamlitTestClass):
         mock_describe.return_value = False
         mock_get_url.return_value = "https://snowflake.com"
 
-        example_entity.action_deploy(action_context, _open=False, replace=False)
+        # Test legacy deployment behavior
+        example_entity.action_deploy(
+            action_context, _open=False, replace=False, legacy=True
+        )
 
         self.mock_execute.assert_called_with(
             f"CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')\nROOT_LOCATION = '@streamlit/test_streamlit'\nMAIN_FILE = 'streamlit_app.py'\nQUERY_WAREHOUSE = test_warehouse\nTITLE = 'My Fancy Streamlit';"
@@ -149,10 +152,8 @@ class TestStreamlitEntity(StreamlitTestClass):
 
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
-        # Test with FROM syntax (artifacts_dir provided)
-        sql = entity.get_deploy_sql(
-            artifacts_dir=Path("/tmp/artifacts"), experimental=True
-        )
+        # Test with FROM syntax (artifacts_dir provided) - versioned deployment
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
 
         assert f"RUNTIME_NAME = '{SPCS_RUNTIME_V2_NAME}'" in sql
         assert "COMPUTE_POOL = 'MYPOOL'" in sql
@@ -172,16 +173,16 @@ class TestStreamlitEntity(StreamlitTestClass):
 
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
-        # Test with stage-based deployment - should NOT include SPCS runtime fields
-        # even when experimental=True, as stage-based deployments are old-style
-        sql = entity.get_deploy_sql(from_stage_name="@stage/path", experimental=True)
+        # Test with stage-based deployment (ROOT_LOCATION) - should NOT include SPCS runtime fields
+        # as stage-based deployments are old-style
+        sql = entity.get_deploy_sql(from_stage_name="@stage/path", legacy=False)
 
         assert "ROOT_LOCATION = '@stage/path'" in sql
         assert "RUNTIME_NAME" not in sql
         assert "COMPUTE_POOL" not in sql
 
     def test_get_deploy_sql_without_spcs_runtime_v2(self, workspace_context):
-        """Test that get_deploy_sql works normally when experimental is False"""
+        """Test that get_deploy_sql works normally when legacy is True"""
         model = StreamlitEntityModel(
             type="streamlit",
             identifier="test_streamlit",
@@ -194,10 +195,8 @@ class TestStreamlitEntity(StreamlitTestClass):
 
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
-        # Test without experimental flag enabled
-        sql = entity.get_deploy_sql(
-            artifacts_dir=Path("/tmp/artifacts"), experimental=False
-        )
+        # Test with legacy flag - should not add SPCS runtime v2 fields
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=True)
 
         assert "RUNTIME_NAME" not in sql
         assert "COMPUTE_POOL" not in sql
@@ -216,26 +215,20 @@ class TestStreamlitEntity(StreamlitTestClass):
 
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
-        # Test with experimental=True and correct runtime_name
-        sql = entity.get_deploy_sql(
-            artifacts_dir=Path("/tmp/artifacts"), experimental=True
-        )
+        # Test with versioned deployment (default, legacy=False) and correct runtime_name
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
         assert f"RUNTIME_NAME = '{SPCS_RUNTIME_V2_NAME}'" in sql
         assert "COMPUTE_POOL = 'MYPOOL'" in sql
 
-        # Test with experimental=False, should not add SPCS fields
-        sql = entity.get_deploy_sql(
-            artifacts_dir=Path("/tmp/artifacts"), experimental=False
-        )
+        # Test with legacy=True, should not add SPCS fields
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=True)
         assert "RUNTIME_NAME" not in sql
         assert "COMPUTE_POOL" not in sql
 
         # Test with wrong runtime_name
         model.runtime_name = "SOME_OTHER_RUNTIME"
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
-        sql = entity.get_deploy_sql(
-            artifacts_dir=Path("/tmp/artifacts"), experimental=True
-        )
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
         assert "RUNTIME_NAME" not in sql
         assert "COMPUTE_POOL" not in sql
 
@@ -253,9 +246,7 @@ class TestStreamlitEntity(StreamlitTestClass):
         )
         model.set_entity_id("test_streamlit")
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
-        sql = entity.get_deploy_sql(
-            artifacts_dir=Path("/tmp/artifacts"), experimental=True
-        )
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
         assert f"RUNTIME_NAME = '{SPCS_RUNTIME_V2_NAME}'" in sql
         assert "COMPUTE_POOL = 'MYPOOL'" in sql
 
@@ -269,9 +260,7 @@ class TestStreamlitEntity(StreamlitTestClass):
         )
         model.set_entity_id("test_streamlit")
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
-        sql = entity.get_deploy_sql(
-            artifacts_dir=Path("/tmp/artifacts"), experimental=True
-        )
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
         # Warehouse runtime should not trigger SPCS runtime v2 mode
         assert "RUNTIME_NAME" not in sql
         assert "COMPUTE_POOL" not in sql
@@ -347,12 +336,11 @@ class TestStreamlitEntity(StreamlitTestClass):
             main_file="streamlit_app.py",
             artifacts=["streamlit_app.py"],
         )
+        model.set_entity_id("test_streamlit")
 
         entity = StreamlitEntity(
             workspace_ctx=workspace_context,
             entity_model=model,
-            project_root=Path(__file__).parent / "test_data" / "projects",
-            entity_id="test_streamlit",
         )
 
         with pytest.raises(
