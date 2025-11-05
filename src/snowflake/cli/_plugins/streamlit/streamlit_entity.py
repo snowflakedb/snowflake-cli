@@ -15,6 +15,7 @@ from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.entities.common import EntityBase
 from snowflake.cli.api.entities.utils import EntityActions, sync_deploy_root_with_stage
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import bundle_root
 from snowflake.cli.api.project.schemas.entities.common import Identifier, PathMapping
@@ -90,7 +91,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         replace: bool,
         prune: bool = False,
         bundle_map: Optional[BundleMap] = None,
-        legacy: bool = False,  # If True, use legacy ROOT_LOCATION stages; if False (default), use versioned stages
+        legacy: bool = False,
         *args,
         **kwargs,
     ):
@@ -106,18 +107,13 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 f"Streamlit {self.model.fqn.sql_identifier} already exists. Use 'replace' option to overwrite."
             )
 
-        # Validate that SPCS runtime v2 is not used with legacy mode
         if legacy and self._is_spcs_runtime_v2_mode():
-            raise ClickException(
-                "SPCS runtime v2 features (runtime_name and compute_pool) are not "
-                "compatible with --legacy flag. Please remove the --legacy flag to use "
-                "versioned deployment, or remove runtime_name and compute_pool from "
-                "your snowflake.yml to use legacy deployment."
+            raise CliError(
+                "runtime_name and compute_pool are not compatible with --legacy flag. "
+                "Please remove the --legacy flag to use versioned deployment, or remove "
+                "runtime_name and compute_pool from your snowflake.yml to use legacy deployment."
             )
 
-        # Deploy using the appropriate method:
-        # - Legacy mode: Uses ROOT_LOCATION with stages (old behavior)
-        # - Versioned mode (default): Uses FROM syntax with versioned stages (new behavior)
         if legacy:
             self._deploy_legacy(bundle_map=bundle_map, replace=replace, prune=prune)
         else:
@@ -230,8 +226,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         console = self._workspace_ctx.console
         console.step(f"Uploading artifacts to stage {self.model.stage}")
 
-        # We use a static method from StageManager here, but maybe this logic
-        # could be implemented elsewhere, as we implement entities?
+        # We use a static method from StageManager here, but maybe this logic could be implemented elswhere, as we implement entities?
         name = (
             self.model.identifier.name
             if isinstance(self.model.identifier, Identifier)

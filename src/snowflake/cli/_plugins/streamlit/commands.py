@@ -130,18 +130,14 @@ def _default_file_callback(param_name: str):
 LegacyOption = typer.Option(
     False,
     "--legacy",
-    help="Use legacy ROOT_LOCATION stages instead of versioned stages.",
+    help="Use legacy ROOT_LOCATION SQL syntax.",
     is_flag=True,
 )
 
 
 @app.command("deploy", requires_connection=True)
 @with_project_definition()
-# Note: @with_experimental_behaviour() is kept for backward compatibility only.
-# The --experimental flag is deprecated and hidden. It will be removed in a future version.
-# Default behavior: versioned deployment (formerly experimental)
-# Use --legacy to opt into the old ROOT_LOCATION stage behavior
-@with_experimental_behaviour()
+@with_experimental_behaviour()  # Kept for backward compatibility
 def streamlit_deploy(
     replace: bool = ReplaceOption(
         help="Replaces the Streamlit app if it already exists. It only uploads new and overwrites existing files, "
@@ -164,11 +160,6 @@ def streamlit_deploy(
     workspace_ctx = _get_current_workspace_context()
 
     # Handle deprecated --experimental flag for backward compatibility
-    # Deployment mode priority:
-    # 1. --legacy flag → use legacy ROOT_LOCATION stages
-    # 2. Default (no flags) → use versioned stages (new default)
-    # 3. --experimental (deprecated) → ignored, versioned is now default
-    # TODO: Remove @with_experimental_behaviour() decorator and this check in next major version
     if options.get("experimental"):
         workspace_ctx.console.warning(
             "[Deprecation] The --experimental flag is deprecated. "
