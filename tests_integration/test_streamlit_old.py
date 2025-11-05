@@ -147,6 +147,7 @@ def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
                 "copy",
                 str(unexpected_file),
                 versioned_stage_path,
+                "--overwrite",
             ]
         )
         assert result.exit_code == 0, result.output
