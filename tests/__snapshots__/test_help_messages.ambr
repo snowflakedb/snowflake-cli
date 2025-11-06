@@ -20607,8 +20607,7 @@
   |                                    [default: no-prune]                       |
   | --open                             Whether to open the Streamlit app in a    |
   |                                    browser.                                  |
-  | --legacy                           Use legacy ROOT_LOCATION stages instead   |
-  |                                    of versioned stages.                      |
+  | --legacy                           Use legacy ROOT_LOCATION SQL syntax.      |
   | --project  -p                TEXT  Path where the Snowflake project is       |
   |                                    stored. Defaults to the current working   |
   |                                    directory.                                |
