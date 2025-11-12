@@ -123,6 +123,15 @@ class SnowparkObjectManager(SqlExecutionMixin):
             )
             query.append(f"RESOURCE_CONSTRAINT=({constraints})")
 
+        if entity.log_level:
+            query.append(f"LOG_LEVEL = {entity.log_level}")
+
+        if entity.trace_level:
+            query.append(f"TRACE_LEVEL = {entity.trace_level}")
+
+        if entity.metric_level:
+            query.append(f"METRIC_LEVEL = {entity.metric_level}")
+
         if isinstance(entity, ProcedureEntityModel) and entity.execute_as_caller:
             query.append("execute as caller")
 
