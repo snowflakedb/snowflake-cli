@@ -7,6 +7,8 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     SPCS_RUNTIME_V2_NAME,
     StreamlitEntityModel,
 )
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
+from snowflake.cli.api.exceptions import CliError
 
 from tests.streamlit.streamlit_test_class import STREAMLIT_NAME, StreamlitTestClass
 
@@ -327,9 +329,6 @@ class TestStreamlitEntity(StreamlitTestClass):
         self, mock_bundle, mock_object_exists, workspace_context, action_context
     ):
         """Test that deploying with SPCS runtime v2 and --legacy flag raises a clear error"""
-        from snowflake.cli.api.artifacts.bundle_map import BundleMap
-        from snowflake.cli.api.exceptions import CliError
-
         mock_object_exists.return_value = False
         mock_bundle.return_value = BundleMap(
             project_root=workspace_context.project_root,
@@ -358,3 +357,104 @@ class TestStreamlitEntity(StreamlitTestClass):
             entity.action_deploy(
                 action_context, _open=False, replace=False, legacy=True
             )
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._deploy_versioned"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_replace_legacy_with_versioned_shows_warning(
+        self,
+        mock_bundle,
+        mock_deploy_versioned,
+        mock_is_legacy,
+        mock_object_exists,
+        workspace_context,
+        action_context,
+    ):
+        """Test that replacing a legacy deployment with versioned shows a warning"""
+        mock_object_exists.return_value = True
+        mock_is_legacy.return_value = True  # Existing is legacy
+        mock_bundle.return_value = BundleMap(
+            project_root=workspace_context.project_root,
+            deploy_root=workspace_context.project_root / "output",
+        )
+
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+
+        entity = StreamlitEntity(
+            workspace_ctx=workspace_context,
+            entity_model=model,
+        )
+
+        entity.action_deploy(action_context, _open=False, replace=True, legacy=False)
+
+        # Verify warning was shown
+        assert any(
+            "Replacing legacy ROOT_LOCATION deployment with versioned deployment"
+            in str(call)
+            for call in workspace_context.console.warning.call_args_list
+        )
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._deploy_legacy"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_replace_versioned_with_legacy_shows_warning(
+        self,
+        mock_bundle,
+        mock_deploy_legacy,
+        mock_is_legacy,
+        mock_object_exists,
+        workspace_context,
+        action_context,
+    ):
+        """Test that replacing a versioned deployment with legacy shows a warning"""
+        mock_object_exists.return_value = True
+        mock_is_legacy.return_value = False  # Existing is versioned
+        mock_bundle.return_value = BundleMap(
+            project_root=workspace_context.project_root,
+            deploy_root=workspace_context.project_root / "output",
+        )
+
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+
+        entity = StreamlitEntity(
+            workspace_ctx=workspace_context,
+            entity_model=model,
+        )
+
+        entity.action_deploy(action_context, _open=False, replace=True, legacy=True)
+
+        # Verify warning was shown
+        assert any(
+            "Deployment style is changing from versioned to legacy" in str(call)
+            for call in workspace_context.console.warning.call_args_list
+        )

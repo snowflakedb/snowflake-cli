@@ -102,7 +102,9 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         console = self._workspace_ctx.console
         console.step(f"Checking if object exists")
-        if self._object_exists() and not replace:
+        object_exists = self._object_exists()
+
+        if object_exists and not replace:
             raise ClickException(
                 f"Streamlit {self.model.fqn.sql_identifier} already exists. Use 'replace' option to overwrite."
             )
@@ -113,6 +115,22 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 "Please remove the --legacy flag to use versioned deployment, or remove "
                 "runtime_name and compute_pool from your snowflake.yml to use legacy deployment."
             )
+
+        # Warn if replacing with a different deployment style
+        if object_exists and replace:
+            existing_is_legacy = self._is_legacy_deployment()
+            if existing_is_legacy and not legacy:
+                console.warning(
+                    "Replacing legacy ROOT_LOCATION deployment with versioned deployment. "
+                    "Files from the old stage location will not be automatically migrated. "
+                    "The new deployment will use a separate versioned stage location."
+                )
+            elif not existing_is_legacy and legacy:
+                console.warning(
+                    "Deployment style is changing from versioned to legacy. "
+                    "Your existing files will remain in the versioned stage. "
+                    "If needed, manually copy any additional files to the legacy stage after deployment."
+                )
 
         if legacy:
             self._deploy_legacy(bundle_map=bundle_map, replace=replace, prune=prune)
@@ -218,6 +236,16 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             self.describe()
             return True
         except ProgrammingError:
+            return False
+
+    def _is_legacy_deployment(self) -> bool:
+        """Check if the existing streamlit uses legacy ROOT_LOCATION deployment."""
+        try:
+            result = self.describe().fetchone()
+            # Versioned deployments have live_version_location_uri, legacy ones don't
+            return result.get("live_version_location_uri") is None
+        except (ProgrammingError, AttributeError, KeyError):
+            # If we can't determine, assume it doesn't exist or is inaccessible
             return False
 
     def _deploy_legacy(
