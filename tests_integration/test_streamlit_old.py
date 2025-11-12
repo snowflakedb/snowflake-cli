@@ -141,17 +141,7 @@ def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
     with project_directory(f"streamlit_v2") as project_root:
         # deploy streamlit with legacy flag to use ROOT_LOCATION stages
         result = runner.invoke_with_connection(
-            [
-                "streamlit",
-                "deploy",
-                "my_streamlit",
-                "--replace",
-                "--legacy",
-                "--database",
-                test_database,
-                "--schema",
-                "public",
-            ]
+            ["streamlit", "deploy", "my_streamlit", "--replace", "--legacy"]
         )
         assert result.exit_code == 0, result.output
         _assert_file_names_on_stage(["streamlit_app.py"])
@@ -172,17 +162,7 @@ def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
 
         # deploy streamlit again without prune - unexpected file should remain on stage
         result = runner.invoke_with_connection(
-            [
-                "streamlit",
-                "deploy",
-                "my_streamlit",
-                "--replace",
-                "--legacy",
-                "--database",
-                test_database,
-                "--schema",
-                "public",
-            ]
+            ["streamlit", "deploy", "my_streamlit", "--replace", "--legacy"]
         )
         assert result.exit_code == 0, result.output
         _assert_file_names_on_stage(
@@ -194,18 +174,7 @@ def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
 
         # deploy with --prune flag - unexpected file should be removed
         result = runner.invoke_with_connection(
-            [
-                "streamlit",
-                "deploy",
-                "my_streamlit",
-                "--replace",
-                "--legacy",
-                "--prune",
-                "--database",
-                test_database,
-                "--schema",
-                "public",
-            ]
+            ["streamlit", "deploy", "my_streamlit", "--replace", "--legacy", "--prune"]
         )
         assert result.exit_code == 0, result.output
         _assert_file_names_on_stage(["streamlit_app.py"])
