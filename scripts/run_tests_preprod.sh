@@ -7,4 +7,4 @@ python -m hatch env create integration
 python -m hatch run e2e:cleanup
 
 echo "Run test"
-python -m hatch run integration:test
+python -m hatch run integration:test ${PYTEST_ARGS}
