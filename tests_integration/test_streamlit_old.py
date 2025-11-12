@@ -116,7 +116,7 @@ def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
     # Test prune functionality with legacy (ROOT_LOCATION) deployment
     # Versioned stages are managed differently and don't support manual file uploads well
     streamlit_identifier = "TEST_STREAMLIT_DEPLOY_SNOWCLI"
-    stage_name = "streamlit"
+    stage_name = f"{test_database}.public.streamlit"
     stage_path = f"@{stage_name}/test_streamlit_deploy_snowcli"
 
     def _assert_file_names_on_stage(expected_files: List[str]) -> None:
