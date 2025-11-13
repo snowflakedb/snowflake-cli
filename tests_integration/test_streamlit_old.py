@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import uuid
 from pathlib import Path
 from typing import List
@@ -116,7 +117,7 @@ def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
     # Test prune functionality with legacy (ROOT_LOCATION) deployment
     # Versioned stages are managed differently and don't support manual file uploads well
     streamlit_identifier = "TEST_STREAMLIT_DEPLOY_SNOWCLI"
-    stage_name = f"{test_database}.public.streamlit"
+    stage_name = "streamlit"
     stage_path = f"@{stage_name}/test_streamlit_deploy_snowcli"
 
     def _assert_file_names_on_stage(expected_files: List[str]) -> None:
@@ -125,15 +126,10 @@ def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
                 "stage",
                 "list-files",
                 stage_name,
-                "--pattern",
-                "test_streamlit_deploy_snowcli/.*",
             ]
         )
         assert result.exit_code == 0, result.output
-        actual_files = set(
-            file["name"].removeprefix("test_streamlit_deploy_snowcli/")
-            for file in result.json
-        )
+        actual_files = set(file["name"] for file in result.json)
         assert actual_files == set(
             expected_files
         ), f"Expected {expected_files} but got {actual_files}"
@@ -144,7 +140,9 @@ def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
             ["streamlit", "deploy", "my_streamlit", "--replace", "--legacy"]
         )
         assert result.exit_code == 0, result.output
-        _assert_file_names_on_stage(["streamlit_app.py"])
+        _assert_file_names_on_stage(
+            ["streamlit/test_streamlit_deploy_snowcli/streamlit_app.py"]
+        )
 
         # upload unexpected file to the stage
         unexpected_file = project_root / "unexpected.txt"
@@ -167,8 +165,8 @@ def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
         assert result.exit_code == 0, result.output
         _assert_file_names_on_stage(
             [
-                "unexpected.txt",
-                "streamlit_app.py",
+                "streamlit/test_streamlit_deploy_snowcli/unexpected.txt",
+                "streamlit/test_streamlit_deploy_snowcli/streamlit_app.py",
             ]
         )
 
@@ -177,7 +175,9 @@ def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
             ["streamlit", "deploy", "my_streamlit", "--replace", "--legacy", "--prune"]
         )
         assert result.exit_code == 0, result.output
-        _assert_file_names_on_stage(["streamlit_app.py"])
+        _assert_file_names_on_stage(
+            ["streamlit/test_streamlit_deploy_snowcli/streamlit_app.py"]
+        )
 
 
 @pytest.mark.integration
