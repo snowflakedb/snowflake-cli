@@ -236,6 +236,18 @@ def _check_if_replace_is_required(
         log.info("Packages do not match. Replacing the %s", object_type)
         return True
 
+    if entity.log_level != resource_json.get("log_level", None):
+        log.info("Log level does not match. Replacing the %s", object_type)
+        return True
+
+    if entity.trace_level != resource_json.get("trace_level", None):
+        log.info("Trace level does not match. Replacing the %s", object_type)
+        return True
+
+    if entity.metric_level != resource_json.get("metric_level", None):
+        log.info("Metric level does not match. Replacing the %s", object_type)
+        return True
+
     if isinstance(entity, ProcedureEntityModel):
         if resource_json.get("execute as", "OWNER") != (
             "CALLER" if entity.execute_as_caller else "OWNER"
