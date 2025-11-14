@@ -221,7 +221,6 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/7e/d4/7ebdbd039706778
 [[packages]]
 name = "cloudpickle"
 version = "3.0.0"
-marker = "python_full_version < '3.12'"
 sdist = { url = "https://files.pythonhosted.org/packages/c8/72/42a6570fc61b1f8913529728ad314c7cf5961540728dcad22c33fb2db6b6/cloudpickle-3.0.0.tar.gz", upload-time = 2023-10-16T12:51:26Z, size = 21231, hashes = { sha256 = "996d9a482c6fb4f33c1a35335cf8afd065d2a56e973270364840712d9131a882" } }
 wheels = [{ url = "https://files.pythonhosted.org/packages/96/43/dae06432d0c4b1dc9e9149ad37b4ca8384cf6eb7700cd9215b177b914f0a/cloudpickle-3.0.0-py3-none-any.whl", upload-time = 2023-10-16T12:51:24Z, size = 20088, hashes = { sha256 = "246ee7d0c295602a036e86369c77fecda4ab17b506496730f2f576d9016fd9c7" } }]
 
@@ -473,7 +472,6 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/ce/4f/5249960887b1fbe
 [[packages]]
 name = "protobuf"
 version = "5.29.5"
-marker = "python_full_version < '3.12'"
 sdist = { url = "https://files.pythonhosted.org/packages/43/29/d09e70352e4e88c9c7a198d5645d7277811448d76c23b00345670f7c8a38/protobuf-5.29.5.tar.gz", upload-time = 2025-05-28T23:51:59Z, size = 425226, hashes = { sha256 = "bc1463bafd4b0929216c35f437a8e28731a2b7fe3d98bb77a600efced5a15c84" } }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5f/11/6e40e9fc5bba02988a214c07cf324595789ca7820160bfd1f8be96e48539/protobuf-5.29.5-cp310-abi3-win32.whl", upload-time = 2025-05-28T23:51:41Z, size = 422963, hashes = { sha256 = "3f1c6468a2cfd102ff4703976138844f78ebd1fb45f49011afc5139e9e283079" } },
@@ -796,10 +794,9 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/c9/40/a08e639e8215a8c
 
 [[packages]]
 name = "snowflake-snowpark-python"
-version = "1.33.0"
-marker = "python_full_version < '3.12'"
-sdist = { url = "https://files.pythonhosted.org/packages/a7/ad/0d5f19532fd9435ae4435add27b47f8dbad054dac80fdb6824fbdc2143cf/snowflake_snowpark_python-1.33.0.tar.gz", upload-time = 2025-06-19T16:30:17Z, size = 1609407, hashes = { sha256 = "72eb074f5caf2aa129342a7bb35d5f4525689fee3e72064df843b713859e5720" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/74/01/dcf6115a397302e4eaa2dbdb47c1cf61a5190721c798073e11c7ebb5f048/snowflake_snowpark_python-1.33.0-py3-none-any.whl", upload-time = 2025-06-19T16:30:15Z, size = 1665564, hashes = { sha256 = "02478a5dc4bb6ea1946ffbb0a21f7fc7a021f6b5884fbe6a1c5d774c2e0612c7" } }]
+version = "1.41.0"
+sdist = { url = "https://files.pythonhosted.org/packages/f3/3c/cc3a4b4c02aa080dc13ec47f4069cfe08557f67f33f9cd772b42dc317175/snowflake_snowpark_python-1.41.0.tar.gz", upload-time = 2025-10-23T20:48:06Z, size = 1781618, hashes = { sha256 = "19c90354eb103c37c6502e5b880b47235db6abb0fac1910c022aa98740331785" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/13/a2/7e6a9f6a8a46e672f2129e2dcb091ca1d661773a5e069a2402323e2c4788/snowflake_snowpark_python-1.41.0-py3-none-any.whl", upload-time = 2025-10-23T20:48:05Z, size = 1825526, hashes = { sha256 = "8897937bae16d16d06c216c5835907a2aff711d20f82288233ad0700c1c278e7" } }]
 
 [[packages]]
 name = "sortedcontainers"
@@ -834,14 +831,13 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/17/69/cd203477f944c35
 [[packages]]
 name = "tzdata"
 version = "2025.2"
-marker = "python_full_version < '3.12' and sys_platform == 'win32'"
+marker = "sys_platform == 'win32'"
 sdist = { url = "https://files.pythonhosted.org/packages/95/32/1a225d6164441be760d75c2c42e2780dc0873fe382da3e98a2e1e48361e5/tzdata-2025.2.tar.gz", upload-time = 2025-03-23T13:54:43Z, size = 196380, hashes = { sha256 = "b60a638fcc0daffadf82fe0f57e53d06bdec2f36c4df66280ae79bce6bd6f2b9" } }
 wheels = [{ url = "https://files.pythonhosted.org/packages/5c/23/c7abc0ca0a1526a0774eca151daeb8de62ec457e77262b66b359c3c7679e/tzdata-2025.2-py2.py3-none-any.whl", upload-time = 2025-03-23T13:54:41Z, size = 347839, hashes = { sha256 = "1a403fada01ff9221ca8044d701868fa132215d84beb92242d9acd2147f667a8" } }]
 
 [[packages]]
 name = "tzlocal"
 version = "5.3.1"
-marker = "python_full_version < '3.12'"
 sdist = { url = "https://files.pythonhosted.org/packages/8b/2e/c14812d3d4d9cd1773c6be938f89e5735a1f11a9f184ac3639b93cef35d5/tzlocal-5.3.1.tar.gz", upload-time = 2025-03-05T21:17:41Z, size = 30761, hashes = { sha256 = "cceffc7edecefea1f595541dbd6e990cb1ea3d19bf01b2809f362a03dd7921fd" } }
 wheels = [{ url = "https://files.pythonhosted.org/packages/c2/14/e2a54fabd4f08cd7af1c07030603c3356b74da07f7cc056e600436edfa17/tzlocal-5.3.1-py3-none-any.whl", upload-time = 2025-03-05T21:17:39Z, size = 18026, hashes = { sha256 = "eb1a66c3ef5847adf7a834f1be0800581b683b5608e74f86ecbcef8ab91bb85d" } }]
 
@@ -860,7 +856,6 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/fd/84/fd2ba7aafacbad3
 [[packages]]
 name = "wheel"
 version = "0.45.1"
-marker = "python_full_version < '3.12'"
 sdist = { url = "https://files.pythonhosted.org/packages/8a/98/2d9906746cdc6a6ef809ae6338005b3f21bb568bea3165cfc6a243fdc25c/wheel-0.45.1.tar.gz", upload-time = 2024-11-23T00:18:23Z, size = 107545, hashes = { sha256 = "661e1abd9198507b1409a20c02106d9670b2576e916d58f520316666abca6729" } }
 wheels = [{ url = "https://files.pythonhosted.org/packages/0b/2c/87f3254fd8ffd29e4c02732eee68a83a1d3c346ae39bc6822dcbcb697f2b/wheel-0.45.1-py3-none-any.whl", upload-time = 2024-11-23T00:18:21Z, size = 72494, hashes = { sha256 = "708e7481cc80179af0e556bbf0cc00b8444c7321e2700b8d8580231d13017248" } }]
 

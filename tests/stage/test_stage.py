@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import sys
 from pathlib import Path
 from typing import Optional
 from unittest import mock
@@ -31,10 +30,6 @@ if IS_WINDOWS:
 
 
 STAGE_MANAGER = "snowflake.cli._plugins.stage.manager.StageManager"
-
-skip_python_3_12 = pytest.mark.skipif(
-    sys.version_info >= (3, 12), reason="Snowpark is not supported in Python >= 3.12"
-)
 
 
 @pytest.mark.parametrize(
@@ -919,7 +914,6 @@ def test_execute_from_user_stage(
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
 @mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
 @mock.patch(f"{STAGE_MANAGER}.snowpark_session")
-@skip_python_3_12
 def test_execute_with_variables(
     mock_snowpark_session, mock_bootstrap, mock_execute, mock_cursor, runner
 ):
@@ -1056,7 +1050,6 @@ def test_execute_no_files_for_stage_path(
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
 @mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
 @mock.patch(f"{STAGE_MANAGER}.snowpark_session")
-@skip_python_3_12
 def test_execute_stop_on_error(
     mock_snowpark_session, mock_bootstrap, mock_execute, mock_cursor, runner
 ):
@@ -1094,7 +1087,6 @@ def test_execute_stop_on_error(
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
 @mock.patch(f"{STAGE_MANAGER}._bootstrap_snowpark_execution_environment")
 @mock.patch(f"{STAGE_MANAGER}.snowpark_session")
-@skip_python_3_12
 def test_execute_continue_on_error(
     mock_snowpark_session,
     mock_bootstrap,
