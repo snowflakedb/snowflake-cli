@@ -555,3 +555,311 @@ def test_dcm_plan_and_deploy_from_another_directory(
     # Clean up
     result = runner.invoke_with_connection(["dcm", "drop", project_name])
     assert result.exit_code == 0, result.output
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_test_command(
+    runner,
+    test_database,
+    project_directory,
+    object_name_provider,
+    sql_test_helper,
+):
+    project_name = object_name_provider.create_and_get_next_object_name()
+    table_name = f"{test_database}.PUBLIC.TestedTable"
+    dmf_name = "test_dmf"
+
+    with project_directory("dcm_project") as project_root:
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+
+        # 1) Without any data metric functions, run test command to assert that exitcode is 0 and message is returned.
+        result = runner.invoke_with_connection(["dcm", "test", project_name])
+        assert result.exit_code == 0, result.output
+        assert "No expectations defined in the project." in result.output
+
+        # Define table and deploy
+        table_definition = f"""
+define table identifier('{table_name}') (
+  id int, name varchar, email varchar, level int
+) data_metric_schedule = '5 minute';
+"""
+        file_a_path = project_root / "file_a.sql"
+        original_content = file_a_path.read_text()
+        file_a_path.write_text(original_content + table_definition)
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.OutputTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Add some data
+        insert_data_sql = f"""
+INSERT INTO {table_name} (id, name, email, level) VALUES
+    (1, 'Alice Johnson', 'alice.j@example.com', 5),
+    (2, 'Bob Williams', 'bob.w@example.com', 3),
+    (3, 'Charlie Brown', 'charlie.b@example.com', 3),
+    (4, 'Diana Miller', 'diana.m@example.com', 4),
+    (5, 'Evan Davis', 'evan.d@example.com', 2);
+"""
+        sql_test_helper.execute_single_sql(insert_data_sql)
+
+        # 2) Set a DMF that'll fail and run test command - should return exit code 1 with error message
+        dmf_sql = f"""
+create or alter data metric function {dmf_name}(
+   arg_t table(arg_c int)
+)
+returns int
+as $$
+select count(*)
+from arg_t
+where arg_c < 5
+$$;
+
+alter table {table_name} add data metric function {dmf_name} on (level)
+expectation levels_must_be_higher_than_zero (value = 0);
+"""
+        sql_test_helper.execute_single_sql(dmf_sql)
+
+        result = runner.invoke_with_connection(["dcm", "test", project_name])
+        assert result.exit_code == 1, result.output
+        assert "Failed expectations:" in result.output
+        assert "levels_must_be_higher_than_zero" in result.output.lower()
+
+        # 3) Fix the data and run test command again
+        fix_data_sql = f"""
+UPDATE {table_name} SET level = 5 WHERE level < 5;
+"""
+        sql_test_helper.execute_single_sql(fix_data_sql)
+
+        result = runner.invoke_with_connection(["dcm", "test", project_name])
+        assert result.exit_code == 0, result.output
+        assert "expectation(s) passed successfully" in result.output
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_refresh_command(
+    runner,
+    test_database,
+    project_directory,
+    object_name_provider,
+    sql_test_helper,
+):
+    project_name = object_name_provider.create_and_get_next_object_name()
+    base_table_name = f"{test_database}.PUBLIC.RefreshBaseTable"
+    dynamic_table_name = f"{test_database}.PUBLIC.RefreshDynamicTable"
+
+    with project_directory("dcm_project") as project_root:
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+
+        # Deploy the project.
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.OutputTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # 1) Without any dynamic tables, run refresh command - should report no dynamic tables.
+        result = runner.invoke_with_connection(["dcm", "refresh", project_name])
+        assert result.exit_code == 0, result.output
+        assert "No dynamic tables found in the project." in result.output
+
+        # 2) Define base table and dynamic table with long refresh time.
+        table_definitions = f"""
+define table identifier('{base_table_name}') (
+  id int, name varchar, email varchar
+);
+
+define dynamic table identifier('{dynamic_table_name}')
+target_lag = '1000 minutes'
+WAREHOUSE = xs
+as select * from {base_table_name};
+"""
+        file_a_path = project_root / "file_a.sql"
+        original_content = file_a_path.read_text()
+        file_a_path.write_text(original_content + table_definitions)
+
+        # Deploy the project.
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.OutputTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # 3) Insert data into the base table.
+        insert_data_sql = f"""
+INSERT INTO {base_table_name} (id, name, email) VALUES
+    (1, 'Alice Johnson', 'alice.j@example.com'),
+    (2, 'Bob Williams', 'bob.w@example.com'),
+    (3, 'Charlie Brown', 'charlie.b@example.com');
+"""
+        sql_test_helper.execute_single_sql(insert_data_sql)
+
+        # 4) Verify that data is NOT yet in the dynamic table (due to long refresh time).
+        check_dt_sql = f"SELECT COUNT(*) as cnt FROM {dynamic_table_name}"
+        result = sql_test_helper.execute_single_sql(check_dt_sql)
+        count_before = result[0]["CNT"]
+        assert count_before == 0, "Dynamic table should be empty before refresh."
+
+        # 5) Run dcm refresh command.
+        result = runner.invoke_with_connection(["dcm", "refresh", project_name])
+        assert result.exit_code == 0, result.output
+        # Should show at least 1 table was refreshed
+        assert (
+            "1 dynamic table(s) refreshed" in result.output
+            or "dynamic table(s) refreshed" in result.output
+        )
+
+        # 6) Verify that data is NOW in the dynamic table.
+        result = sql_test_helper.execute_single_sql(check_dt_sql)
+        count_after = result[0]["CNT"]
+        assert count_after == 3, "Dynamic table should have 3 rows after refresh."
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_preview_command(
+    runner,
+    test_database,
+    project_directory,
+    object_name_provider,
+    sql_test_helper,
+):
+    project_name = object_name_provider.create_and_get_next_object_name()
+    view_name = f"{test_database}.PUBLIC.PreviewTestView"
+    base_table_name = f"{test_database}.PUBLIC.OutputTestTable"
+
+    with project_directory("dcm_project") as project_root:
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{base_table_name}'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Define a view that selects from OutputTestTable. Preview can work on views that are not yet deployed
+        view_definition = f"""
+define view identifier('{view_name}') as
+  select UPPER(fooBar) as upperFooBar from {{{{ table_name }}}};
+"""
+        file_a_path = project_root / "file_a.sql"
+        original_content = file_a_path.read_text()
+        file_a_path.write_text(original_content + view_definition)
+
+        # Insert sample data into the base table.
+        insert_data_sql = f"""
+INSERT INTO {base_table_name} (fooBar) VALUES
+    ('foo'),
+    ('bar'),
+    ('baz'),
+    ('foobar'),
+"""
+        sql_test_helper.execute_single_sql(insert_data_sql)
+
+        # 1) Preview without limit - should return all rows (or system default).
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "preview",
+                project_name,
+                "--object",
+                view_name,
+                "-D",
+                f"table_name='{base_table_name}'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert isinstance(result.json, list)
+        assert len(result.json) == 4
+
+        # 2) Preview with limit - should return limited rows.
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "preview",
+                project_name,
+                "--object",
+                view_name,
+                "--limit",
+                "2",
+                "-D",
+                f"table_name='{base_table_name}'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert isinstance(result.json, list)
+        assert len(result.json) == 2
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_analyze_command(
+    runner,
+    test_database,
+    project_directory,
+    object_name_provider,
+    sql_test_helper,
+):
+    project_name = object_name_provider.create_and_get_next_object_name()
+    table_name = f"{test_database}.PUBLIC.AnalyzeTestTable"
+    view_name = f"{test_database}.PUBLIC.AnalyzeTestView"
+
+    with project_directory("dcm_project") as project_root:
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+
+        table_definition = f"""
+define table identifier('{table_name}') (
+  id int, name varchar
+);
+
+define view identifier('{view_name}') as
+  select * from {table_name};
+"""
+        file_a_path = project_root / "file_a.sql"
+        original_content = file_a_path.read_text()
+        file_a_path.write_text(original_content + table_definition)
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.OutputTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(
+            ["dcm", "analyze", project_name, "--type", "dependencies"]
+        )
+        assert result.exit_code == 0, result.output
+        assert isinstance(result.json, list)
+        assert len(result.json) > 0
