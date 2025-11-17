@@ -542,3 +542,81 @@ def test_deploy_project_with_local_deps(
         assert all(
             map(lambda x: x["UPPERCASE_NAME"].isupper(), result.json)
         ), result.json
+
+
+@pytest.mark.integration
+def test_execute_with_variables(
+    runner,
+    snowflake_session,
+    test_database,
+    project_directory,
+):
+    with project_directory("dbt_project_with_variables") as root_dir:
+        # Given a local dbt project
+        ts = int(datetime.datetime.now().timestamp())
+        name = f"dbt_project_{ts}"
+
+        # deploy for the first time
+        _setup_dbt_profile(root_dir, snowflake_session)
+        result = runner.invoke_with_connection_json(["dbt", "deploy", name])
+        assert result.exit_code == 0, result.output
+
+        # 1. run and provide one variable with simplified syntax.
+        # The other variable should default to the value from dbt_project.yml
+        result = runner.invoke_passthrough_with_connection(
+            args=[
+                "dbt",
+                "execute",
+            ],
+            passthrough_args=[name, "run", "--vars", "env: local"],
+        )
+
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(
+            ["sql", "-q", "select env_tmpl, user_tmpl from my_second_dbt_model;"]
+        )
+        assert len(result.json) == 1, result.json
+        assert result.json[0]["ENV_TMPL"] == "local", result.json[0]
+        assert result.json[0]["USER_TMPL"] == "default", result.json[0]
+
+        # 2. run and provide both variables without double quotes
+        result = runner.invoke_passthrough_with_connection(
+            args=[
+                "dbt",
+                "execute",
+            ],
+            passthrough_args=[name, "run", "--vars", "{env: stage, user: stage_user}"],
+        )
+
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(
+            ["sql", "-q", "select env_tmpl, user_tmpl from my_second_dbt_model;"]
+        )
+        assert len(result.json) == 1, result.json
+        assert result.json[0]["ENV_TMPL"] == "stage", result.json[0]
+        assert result.json[0]["USER_TMPL"] == "stage_user", result.json[0]
+
+        # 3. run and provide both variables wrapped with double quotes
+        result = runner.invoke_passthrough_with_connection(
+            args=[
+                "dbt",
+                "execute",
+            ],
+            passthrough_args=[
+                name,
+                "run",
+                "--vars",
+                '{"env": "prod", "user": "prod_user"}',
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke_with_connection_json(
+            ["sql", "-q", "select env_tmpl, user_tmpl from my_second_dbt_model;"]
+        )
+        assert len(result.json) == 1, result.json
+        assert result.json[0]["ENV_TMPL"] == "prod", result.json[0]
+        assert result.json[0]["USER_TMPL"] == "prod_user", result.json[0]
