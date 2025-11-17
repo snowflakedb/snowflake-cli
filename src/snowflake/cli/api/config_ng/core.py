@@ -29,6 +29,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, List, Literal, Optional
 
+from snowflake.cli.api.config_ng.masking import mask_sensitive_value
+
 
 class SourceType(Enum):
     """
@@ -254,14 +256,18 @@ class ResolutionHistory:
         """Convert to dictionary for JSON serialization/export."""
         return {
             "key": self.key,
-            "final_value": self.final_value,
+            "final_value": mask_sensitive_value(self.key, self.final_value),
             "default_used": self.default_used,
             "sources_consulted": self.sources_consulted,
             "entries": [
                 {
                     "source": entry.config_value.source_name,
-                    "value": entry.config_value.value,
-                    "raw_value": entry.config_value.raw_value,
+                    "value": mask_sensitive_value(
+                        entry.config_value.key, entry.config_value.value
+                    ),
+                    "raw_value": mask_sensitive_value(
+                        entry.config_value.key, entry.config_value.raw_value
+                    ),
                     "was_used": entry.was_used,
                     "overridden_by": entry.overridden_by,
                     "timestamp": entry.timestamp.isoformat(),
