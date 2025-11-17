@@ -190,6 +190,39 @@ class TestCheckValueSource:
 class TestExportResolutionHistory:
     """Tests for exporting resolution history."""
 
+    def test_history_to_dict_masks_sensitive_data(self):
+        """ResolutionHistory.to_dict should mask sensitive fields."""
+        from datetime import datetime
+
+        from snowflake.cli.api.config_ng.core import (
+            ConfigValue,
+            ResolutionEntry,
+            ResolutionHistory,
+        )
+
+        entry = ResolutionEntry(
+            config_value=ConfigValue(
+                key="password",
+                value="secret_value",
+                source_name="cli_arguments",
+                raw_value="secret_value",
+            ),
+            timestamp=datetime.now(),
+            was_used=True,
+        )
+
+        history = ResolutionHistory(
+            key="password",
+            entries=[entry],
+            final_value="secret_value",
+        )
+
+        history_dict = history.to_dict()
+
+        assert history_dict["final_value"] == "****"
+        assert history_dict["entries"][0]["value"] == "****"
+        assert history_dict["entries"][0]["raw_value"] == "****"
+
     def test_export_returns_false_with_legacy_provider(self, capsys):
         """Test that export_resolution_history returns False with legacy provider."""
         with mock.patch.dict(os.environ, {}, clear=False):
