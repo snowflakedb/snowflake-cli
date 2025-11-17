@@ -25,32 +25,12 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Tuple
 
+from snowflake.cli.api.config_ng.masking import stringify_masked_value
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import CollectionResult, MessageResult
 
 if TYPE_CHECKING:
     from snowflake.cli.api.config_ng.resolver import ConfigurationResolver
-
-# Sensitive configuration keys that should be masked when displayed
-SENSITIVE_KEYS = {
-    "password",
-    "pwd",
-    "oauth_client_secret",
-    "token",
-    "session_token",
-    "master_token",
-    "mfa_passcode",
-    "private_key",  # Private key content (not path)
-    "passphrase",
-    "secret",
-}
-
-# Keys that contain file paths (paths are OK to display, but not file contents)
-PATH_KEYS = {
-    "private_key_file",
-    "private_key_path",
-    "token_file_path",
-}
 
 # Fixed table columns ordered from most important (left) to least (right)
 SourceColumn = Literal[
@@ -85,40 +65,6 @@ SOURCE_TO_COLUMN: Dict[str, SourceColumn] = {
     "cli_config_toml": "config.toml",
     "snowsql_config": "snowsql",
 }
-
-
-def _should_mask_value(key: str) -> bool:
-    """
-    Determine if a configuration value should be masked for security.
-
-    Args:
-        key: Configuration key name
-
-    Returns:
-        True if the value should be masked, False if it can be displayed
-    """
-    key_lower = key.lower()
-
-    if any(path_key in key_lower for path_key in PATH_KEYS):
-        return False
-
-    return any(sensitive_key in key_lower for sensitive_key in SENSITIVE_KEYS)
-
-
-def _mask_sensitive_value(key: str, value: Any) -> str:
-    """
-    Mask sensitive configuration values for display.
-
-    Args:
-        key: Configuration key name
-        value: Value to potentially mask
-
-    Returns:
-        Masked string if sensitive, otherwise string representation of value
-    """
-    if _should_mask_value(key):
-        return "****"
-    return str(value)
 
 
 class ResolutionPresenter:
@@ -185,7 +131,7 @@ class ResolutionPresenter:
                 row: Dict[str, Any] = {c: "" for c in TABLE_COLUMNS}
                 row["key"] = k
 
-                masked_final = _mask_sensitive_value(k, history.final_value)
+                masked_final = stringify_masked_value(k, history.final_value)
                 row["value"] = masked_final
 
                 for entry in history.entries:
@@ -227,7 +173,7 @@ class ResolutionPresenter:
 
             lines.append(f"Key: {k}")
             lines.append(
-                f"Final Value: {_mask_sensitive_value(k, history.final_value)}"
+                f"Final Value: {stringify_masked_value(k, history.final_value)}"
             )
 
             if history.entries:
@@ -235,7 +181,7 @@ class ResolutionPresenter:
                 for i, entry in enumerate(history.entries, 1):
                     cv = entry.config_value
                     status = "SELECTED" if entry.was_used else "overridden"
-                    masked_value = _mask_sensitive_value(cv.key, cv.value)
+                    masked_value = stringify_masked_value(cv.key, cv.value)
                     lines.append(f"  {i}. [{status}] {cv.source_name}: {masked_value}")
 
             if history.default_used:
@@ -273,9 +219,9 @@ class ResolutionPresenter:
                     status_text = "(not used)"
 
                 # Mask sensitive values
-                masked_value = _mask_sensitive_value(cv.key, cv.value)
+                masked_value = stringify_masked_value(cv.key, cv.value)
                 masked_raw = (
-                    _mask_sensitive_value(cv.key, cv.raw_value)
+                    stringify_masked_value(cv.key, cv.raw_value)
                     if cv.raw_value is not None
                     else None
                 )
@@ -290,7 +236,7 @@ class ResolutionPresenter:
                 )
 
             if history.default_used:
-                masked_default = _mask_sensitive_value(key, history.final_value)
+                masked_default = stringify_masked_value(key, history.final_value)
                 cli_console.step(f"Default value used: {masked_default}")
 
     def print_all_chains(self) -> None:
@@ -324,9 +270,9 @@ class ResolutionPresenter:
                             status_text = "(not used)"
 
                         # Mask sensitive values
-                        masked_value = _mask_sensitive_value(cv.key, cv.value)
+                        masked_value = stringify_masked_value(cv.key, cv.value)
                         masked_raw = (
-                            _mask_sensitive_value(cv.key, cv.raw_value)
+                            stringify_masked_value(cv.key, cv.raw_value)
                             if cv.raw_value is not None
                             else None
                         )
@@ -341,7 +287,9 @@ class ResolutionPresenter:
                         )
 
                     if history.default_used:
-                        masked_default = _mask_sensitive_value(key, history.final_value)
+                        masked_default = stringify_masked_value(
+                            key, history.final_value
+                        )
                         cli_console.step(f"Default value used: {masked_default}")
 
     def export_history(self, filepath: Path) -> None:
