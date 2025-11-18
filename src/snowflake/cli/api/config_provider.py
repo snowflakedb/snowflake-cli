@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Final, Optional
@@ -506,6 +507,7 @@ def get_config_provider() -> ConfigProvider:
     return LegacyConfigProvider()
 
 
+_CONFIG_PROVIDER_LOCK: Final = threading.Lock()
 _config_provider_instance: Optional[ConfigProvider] = None
 
 
@@ -515,7 +517,9 @@ def get_config_provider_singleton() -> ConfigProvider:
     """
     global _config_provider_instance
     if _config_provider_instance is None:
-        _config_provider_instance = get_config_provider()
+        with _CONFIG_PROVIDER_LOCK:
+            if _config_provider_instance is None:
+                _config_provider_instance = get_config_provider()
     return _config_provider_instance
 
 
@@ -525,4 +529,5 @@ def reset_config_provider():
     Useful for testing and when config source changes.
     """
     global _config_provider_instance
-    _config_provider_instance = None
+    with _CONFIG_PROVIDER_LOCK:
+        _config_provider_instance = None
