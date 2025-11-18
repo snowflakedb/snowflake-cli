@@ -300,7 +300,6 @@ def test_dbt_deploy_options(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_deploy_with_default_target(
     runner,
     snowflake_session,
@@ -342,7 +341,6 @@ def test_deploy_with_default_target(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_execute_with_target(
     runner,
     snowflake_session,
@@ -424,7 +422,6 @@ def test_execute_with_target(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_dbt_deploy_with_external_access_integrations(
     runner,
     snowflake_session,
@@ -496,7 +493,6 @@ def test_dbt_deploy_with_external_access_integrations(
 
 
 @pytest.mark.integration
-@pytest.mark.qa_only
 def test_deploy_project_with_local_deps(
     runner,
     snowflake_session,
