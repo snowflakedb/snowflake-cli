@@ -111,6 +111,22 @@ def test_environment_variables_works_if_config_value_not_present(test_snowcli_co
     }
 
 
+def test_legacy_pkce_key_is_normalized(config_file):
+    config_content = """
+[connections.test]
+account = "legacy"
+oatuh_enable_pkce = true
+"""
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+
+        conn = get_connection_dict("test")
+
+        assert conn["account"] == "legacy"
+        assert conn["oauth_enable_pkce"] is True
+        assert "oatuh_enable_pkce" not in conn
+
+
 @mock.patch.dict(
     os.environ,
     {
