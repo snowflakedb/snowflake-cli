@@ -21,7 +21,9 @@ from unittest import mock
 
 import pytest
 import tomlkit
+from snowflake.cli._plugins.connection import commands as connection_commands
 from snowflake.cli.api.config import ConnectionConfig
+from snowflake.cli.api.config_ng.masking import MASKED_VALUE
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.secret import SecretType
 
@@ -364,6 +366,35 @@ def test_lists_connection_information(mock_get_default_conn_name, runner):
             },
         },
     ]
+
+
+def test_mask_sensitive_parameters_masks_all_known_sensitive_keys():
+    params = {
+        "password": "hunter2",
+        "oauth_client_secret": "secret1",
+        "token": "token-value",
+        "session_token": "session",
+        "master_token": "master",
+        "private_key_passphrase": "pk-pass",
+        "mfa_passcode": "code",
+        "warehouse": "xs",
+    }
+
+    masked = connection_commands.mask_sensitive_parameters(params)
+
+    for key in (
+        "password",
+        "oauth_client_secret",
+        "token",
+        "session_token",
+        "master_token",
+        "private_key_passphrase",
+        "mfa_passcode",
+    ):
+        assert masked[key] == MASKED_VALUE
+
+    assert masked["warehouse"] == "xs"
+    assert params["password"] == "hunter2"
 
 
 @mock.patch.dict(
