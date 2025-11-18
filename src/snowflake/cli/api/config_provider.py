@@ -165,6 +165,7 @@ class AlternativeConfigProvider(ConfigProvider):
             source_manager: Optional source manager (for testing)
             cli_context_getter: Optional CLI context getter function (for testing)
         """
+        self._owns_source_manager: bool = source_manager is None
         self._source_manager = source_manager
         self._cli_context_getter = (
             cli_context_getter or self._default_cli_context_getter
@@ -184,6 +185,7 @@ class AlternativeConfigProvider(ConfigProvider):
     def _ensure_initialized(self) -> None:
         """Lazily initialize the resolver on first use."""
         # Check if config_file_override has changed
+        override_changed = False
         try:
             cli_context = self._cli_context_getter()
             current_override = cli_context.config_file_override
@@ -193,8 +195,13 @@ class AlternativeConfigProvider(ConfigProvider):
                 self._initialized = False
                 self._config_cache.clear()
                 self._last_config_override = current_override
+                override_changed = True
         except Exception:
             pass
+
+        if override_changed and self._owns_source_manager:
+            # Discard cached sources so that new config override can take effect
+            self._source_manager = None
 
         if self._initialized:
             return
