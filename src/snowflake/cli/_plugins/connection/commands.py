@@ -62,6 +62,7 @@ from snowflake.cli.api.config import (
     set_config_value,
     unset_config_value,
 )
+from snowflake.cli.api.config_ng.masking import mask_sensitive_value
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import (
@@ -85,12 +86,11 @@ class EmptyInput:
         return "optional"
 
 
-def _mask_sensitive_parameters(connection_params: dict):
-    if "password" in connection_params:
-        connection_params["password"] = "****"
-    if "oauth_client_secret" in connection_params:
-        connection_params["oauth_client_secret"] = "****"
-    return connection_params
+def mask_sensitive_parameters(connection_params: dict):
+    return {
+        key: mask_sensitive_value(key, value)
+        for key, value in connection_params.items()
+    }
 
 
 @app.command(name="list")
@@ -124,7 +124,7 @@ def list_connections(
     result = (
         {
             "connection_name": connection_name,
-            "parameters": _mask_sensitive_parameters(
+            "parameters": mask_sensitive_parameters(
                 connection_config.to_dict_of_known_non_empty_values()
             ),
             "is_default": connection_name == default_connection,
