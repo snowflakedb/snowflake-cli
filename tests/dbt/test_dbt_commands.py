@@ -356,7 +356,7 @@ class TestDBTExecute:
             ),
             pytest.param(
                 ["dbt", "execute", "pipeline_name", "compile", "--vars '{foo:bar}'"],
-                "EXECUTE DBT PROJECT pipeline_name args='compile --vars ''{foo:bar}'''",
+                "EXECUTE DBT PROJECT pipeline_name args='compile --vars \\'{foo:bar}\\''",
                 id="with-dbt-vars",
             ),
             pytest.param(
@@ -405,7 +405,7 @@ class TestDBTExecute:
                     "--vars",
                     '{"key": "value"}',
                 ],
-                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''{\"key\": \"value\"}'''",
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars \\'{\"key\": \"value\"}\\''",
                 id="vars-json-format",
             ),
             pytest.param(
@@ -417,7 +417,7 @@ class TestDBTExecute:
                     "--vars",
                     '{"key": "value", "date": 20180101}',
                 ],
-                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''{\"key\": \"value\", \"date\": 20180101}'''",
+                'EXECUTE DBT PROJECT pipeline_name args=\'run --vars \\\'{"key": "value", "date": 20180101}\\\'\'',
                 id="vars-json-multiple-keys",
             ),
             pytest.param(
@@ -429,7 +429,7 @@ class TestDBTExecute:
                     "--vars",
                     "{key: value, date: 20180101}",
                 ],
-                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''{key: value, date: 20180101}'''",
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars \\'{key: value, date: 20180101}\\''",
                 id="vars-yaml-format",
             ),
             pytest.param(
@@ -441,7 +441,7 @@ class TestDBTExecute:
                     "--vars",
                     "key: value",
                 ],
-                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''key: value'''",
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars \\'key: value\\''",
                 id="vars-single-key-value",
             ),
             pytest.param(
@@ -453,7 +453,7 @@ class TestDBTExecute:
                     "--vars",
                     "{foo: foobar}",
                 ],
-                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''{foo: foobar}'''",
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars \\'{foo: foobar}\\''",
                 id="vars-yaml-with-braces",
             ),
             pytest.param(
@@ -467,7 +467,7 @@ class TestDBTExecute:
                     "--select",
                     "my_model",
                 ],
-                "EXECUTE DBT PROJECT pipeline_name args='run --vars ''start_date: 2016-06-01'' --select my_model'",
+                "EXECUTE DBT PROJECT pipeline_name args='run --vars \\'start_date: 2016-06-01\\' --select my_model'",
                 id="vars-with-other-flags",
             ),
         ],

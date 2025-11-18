@@ -384,7 +384,7 @@ class DBTManager(SqlExecutionMixin):
         if dbt_cli_args:
             processed_args = self._process_dbt_args(dbt_cli_args)
             dbt_command = f"{dbt_command} {processed_args}".strip()
-        dbt_command_escaped = dbt_command.replace("'", "''")
+        dbt_command_escaped = dbt_command.replace("'", "\\'")
         query = f"EXECUTE DBT PROJECT {name} args='{dbt_command_escaped}'"
         return self.execute_query(query, _exec_async=run_async)
 
