@@ -20,7 +20,14 @@ import warnings
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import (
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Union,
+)
 
 import tomlkit
 from click import ClickException
@@ -99,6 +106,7 @@ class ConnectionConfig:
     authenticator: Optional[str] = None
     workload_identity_provider: Optional[str] = None
     private_key_file: Optional[str] = None
+    private_key_raw: Optional[str] = field(default=None, repr=False)
     private_key_passphrase: Optional[str] = field(default=None, repr=False)
     token: Optional[str] = field(default=None, repr=False)
     session_token: Optional[str] = field(default=None, repr=False)
@@ -462,9 +470,6 @@ def _check_default_config_files_permissions() -> None:
             raise ConfigFileTooWidePermissionsError(connections_file)
         if CONFIG_FILE.exists() and not file_permissions_are_strict(CONFIG_FILE):
             raise ConfigFileTooWidePermissionsError(CONFIG_FILE)
-
-
-from typing import Literal
 
 
 def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:

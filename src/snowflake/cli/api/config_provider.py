@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import atexit
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -78,74 +77,6 @@ class ConfigProvider(ABC):
         """
         ...
 
-    def _transform_private_key_raw(self, connection_dict: dict) -> dict:
-        """
-        Transform private_key_raw to private_key_file for ConnectionContext compatibility.
-
-        The ConnectionContext dataclass doesn't have a private_key_raw field, so it gets
-        filtered out by merge_with_config. To work around this, we write private_key_raw
-        content to a temporary file and return it as private_key_file.
-
-        Args:
-            connection_dict: Connection configuration dictionary
-
-        Returns:
-            Modified connection dictionary with private_key_raw transformed to private_key_file
-        """
-        if "private_key_raw" not in connection_dict:
-            return connection_dict
-
-        # Don't transform if private_key_file is already set
-        if "private_key_file" in connection_dict:
-            return connection_dict
-
-        import tempfile
-
-        try:
-            # Create a temporary file with the private key content
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".pem", delete=False
-            ) as f:
-                f.write(connection_dict["private_key_raw"])
-                temp_file_path = f.name
-
-            # Set restrictive permissions on the temporary file
-            os.chmod(temp_file_path, 0o600)
-
-            # Create a copy of the connection dict with the transformation
-            result = connection_dict.copy()
-            result["private_key_file"] = temp_file_path
-            del result["private_key_raw"]
-
-            # Track created temp file on the provider instance for cleanup
-            temp_files_attr = "_temp_private_key_files"
-            existing = getattr(self, temp_files_attr, None)
-            if existing is None:
-                setattr(self, temp_files_attr, {temp_file_path})
-            else:
-                existing.add(temp_file_path)
-
-            return result
-
-        except Exception:
-            # If transformation fails, return original dict
-            # The error will be handled downstream
-            return connection_dict
-
-    def cleanup_temp_files(self) -> None:
-        """Delete any temporary files created from private_key_raw transformation."""
-        temp_files = getattr(self, "_temp_private_key_files", None)
-        if not temp_files:
-            return
-        to_remove = list(temp_files)
-        for path in to_remove:
-            try:
-                Path(path).unlink(missing_ok=True)
-            except Exception:
-                # Best-effort cleanup; ignore failures
-                pass
-        temp_files.clear()
-
 
 class LegacyConfigProvider(ConfigProvider):
     """
@@ -190,8 +121,7 @@ class LegacyConfigProvider(ConfigProvider):
         from snowflake.cli.api.config import get_config_section
 
         try:
-            result = get_config_section("connections", connection_name)
-            return self._transform_private_key_raw(result)
+            return get_config_section("connections", connection_name)
         except KeyError:
             from snowflake.cli.api.exceptions import MissingConfigurationError
 
@@ -205,7 +135,7 @@ class LegacyConfigProvider(ConfigProvider):
         # Legacy provider ignores the flag since it never had env connections
         connections = get_config_section("connections")
         return {
-            name: ConnectionConfig.from_dict(self._transform_private_key_raw(config))
+            name: ConnectionConfig.from_dict(config)
             for name, config in connections.items()
         }
 
@@ -465,8 +395,7 @@ class AlternativeConfigProvider(ConfigProvider):
         Returns:
             Dictionary of connection parameters
         """
-        result = self._get_connection_dict_internal(connection_name)
-        return self._transform_private_key_raw(result)
+        return self._get_connection_dict_internal(connection_name)
 
     def _get_all_connections_dict(self) -> Dict[str, Dict[str, Any]]:
         """
@@ -596,23 +525,4 @@ def reset_config_provider():
     Useful for testing and when config source changes.
     """
     global _config_provider_instance
-    # Cleanup any temp files created by the current provider instance
-    if _config_provider_instance is not None:
-        try:
-            _config_provider_instance.cleanup_temp_files()
-        except Exception:
-            pass
     _config_provider_instance = None
-
-
-def _cleanup_provider_at_exit() -> None:
-    """Process-exit cleanup for provider-managed temporary files."""
-    global _config_provider_instance
-    if _config_provider_instance is not None:
-        try:
-            _config_provider_instance.cleanup_temp_files()
-        except Exception:
-            pass
-
-
-atexit.register(_cleanup_provider_at_exit)
