@@ -422,6 +422,7 @@ def test_execute_with_target(
 
 
 @pytest.mark.integration
+@pytest.mark.qa_only
 def test_dbt_deploy_with_external_access_integrations(
     runner,
     snowflake_session,
