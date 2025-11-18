@@ -15,13 +15,9 @@
 """Configuration parsers - decouple parsing from file I/O."""
 
 import configparser
-from typing import Any, Dict
+from typing import Any, Dict, cast
 
-# Try to import tomllib (Python 3.11+) or fall back to tomli
-try:
-    import tomllib
-except ImportError:
-    import tomli as tomllib  # type: ignore
+import tomlkit
 
 
 class SnowSQLParser:
@@ -118,7 +114,7 @@ class TOMLParser:
         """
         Parse TOML format from string.
 
-        TOML is already nested, so this just wraps tomllib.loads().
+        TOML is already nested, so this wraps tomlkit.loads().unwrap().
         All TOML sources (CLI config, connections.toml) use this parser.
 
         Args:
@@ -136,4 +132,4 @@ class TOMLParser:
             Output:
                 {"connections": {"prod": {"account": "myaccount", "user": "myuser"}}}
         """
-        return tomllib.loads(content)
+        return cast(Dict[str, Any], tomlkit.loads(content).unwrap())
