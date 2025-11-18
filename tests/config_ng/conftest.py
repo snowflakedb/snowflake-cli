@@ -24,9 +24,17 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from textwrap import dedent
-from typing import Dict, Optional
+from typing import Dict, Literal, Optional
 
 import pytest
+from snowflake.connector.compat import IS_WINDOWS
+
+STRICT_FILE_PERMISSIONS: Literal[0o600] = 0o600
+
+
+def _restrict_permissions(path: Path) -> None:
+    if not IS_WINDOWS:
+        path.chmod(STRICT_FILE_PERMISSIONS)
 
 
 @contextmanager
@@ -96,13 +104,17 @@ def config_ng_setup():
 
             # Write config files if provided
             if snowsql_config:
-                (snowflake_home / "config").write_text(dedent(snowsql_config))
+                snowsql_path = snowflake_home / "config"
+                snowsql_path.write_text(dedent(snowsql_config))
+                _restrict_permissions(snowsql_path)
             if cli_config:
-                (snowflake_home / "config.toml").write_text(dedent(cli_config))
+                cli_config_path = snowflake_home / "config.toml"
+                cli_config_path.write_text(dedent(cli_config))
+                _restrict_permissions(cli_config_path)
             if connections_toml:
-                (snowflake_home / "connections.toml").write_text(
-                    dedent(connections_toml)
-                )
+                connections_path = snowflake_home / "connections.toml"
+                connections_path.write_text(dedent(connections_toml))
+                _restrict_permissions(connections_path)
 
             # Prepare environment variables
             env_to_set = {
