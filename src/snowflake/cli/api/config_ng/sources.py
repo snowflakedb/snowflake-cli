@@ -39,6 +39,7 @@ from snowflake.cli.api.config_ng.constants import SNOWFLAKE_HOME_ENV
 from snowflake.cli.api.config_ng.core import SourceType, ValueSource
 from snowflake.cli.api.exceptions import ConfigFileTooWidePermissionsError
 from snowflake.cli.api.secure_utils import file_permissions_are_strict
+from snowflake.cli.api.utils.types import try_cast_to_bool
 from snowflake.connector.compat import IS_WINDOWS
 
 log = logging.getLogger(__name__)
@@ -513,7 +514,7 @@ class SnowSQLEnvironment(ValueSource):
             env_value = os.getenv(env_var)
             if env_value is not None:
                 if config_key not in result:
-                    result[config_key] = env_value
+                    result[config_key] = _coerce_env_value(config_key, env_value)
 
         return result
 
@@ -558,6 +559,37 @@ _ENV_CONFIG_KEYS: Final[list[str]] = [
     "oauth_enable_single_use_refresh_tokens",
     "client_store_temporary_credential",
 ]
+
+_BOOLEAN_ENV_CONFIG_KEYS: Final[set[str]] = {
+    "oauth_enable_pkce",
+    "oauth_enable_refresh_tokens",
+    "oauth_enable_single_use_refresh_tokens",
+    "client_store_temporary_credential",
+}
+
+
+def _coerce_env_value(config_key: str, env_value: Any) -> Any:
+    """
+    Convert string environment values to booleans when appropriate.
+
+    Args:
+        config_key: Configuration key associated with the value
+        env_value: Raw value from environment
+
+    Returns:
+        Parsed value if conversion is applicable, otherwise the original value.
+    """
+    if config_key in _BOOLEAN_ENV_CONFIG_KEYS:
+        try:
+            return try_cast_to_bool(env_value)
+        except ValueError:
+            log.warning(
+                "Expected boolean-compatible value for %s but got %r. "
+                "Using raw value without conversion.",
+                config_key,
+                env_value,
+            )
+    return env_value
 
 
 class ConnectionSpecificEnvironment(ValueSource):
@@ -614,7 +646,9 @@ class ConnectionSpecificEnvironment(ValueSource):
                 if conn_name not in result["connections"]:
                     result["connections"][conn_name] = {}
 
-                result["connections"][conn_name][config_key] = env_value
+                result["connections"][conn_name][config_key] = _coerce_env_value(
+                    config_key, env_value
+                )
 
         return result
 
@@ -671,7 +705,7 @@ class CliEnvironment(ValueSource):
             config_key = config_key_upper.lower()
 
             if config_key in _ENV_CONFIG_KEYS:
-                result[config_key] = env_value
+                result[config_key] = _coerce_env_value(config_key, env_value)
 
         return result
 
