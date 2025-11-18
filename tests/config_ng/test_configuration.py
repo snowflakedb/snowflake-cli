@@ -141,6 +141,34 @@ def test_level6_general_env_overrides_connection_specific(config_ng_setup):
         assert conn["schema"] == "general-schema"
 
 
+def test_connection_specific_env_boolean_values_cast(config_ng_setup):
+    """Boolean-like env values should be converted to bool for connection-specific vars."""
+    env_vars = {
+        "SNOWFLAKE_CONNECTIONS_TEST_CLIENT_STORE_TEMPORARY_CREDENTIAL": "0",
+    }
+
+    with config_ng_setup(env_vars=env_vars):
+        from snowflake.cli.api.config import get_connection_dict
+
+        conn = get_connection_dict("test")
+        assert conn["client_store_temporary_credential"] is False
+
+
+def test_general_env_boolean_values_cast(config_ng_setup):
+    """Boolean-like env values should be converted to bool for general vars."""
+    env_vars = {
+        "SNOWFLAKE_ACCOUNT": "env-account",
+        "SNOWFLAKE_CLIENT_STORE_TEMPORARY_CREDENTIAL": "true",
+    }
+
+    with config_ng_setup(env_vars=env_vars):
+        from snowflake.cli.api.config import get_connection_dict
+
+        conn = get_connection_dict("default")
+        assert conn["account"] == "env-account"
+        assert conn["client_store_temporary_credential"] is True
+
+
 def test_complete_7_level_chain(config_ng_setup):
     """All 7 levels with different keys showing complete precedence"""
     snowsql_config = """
