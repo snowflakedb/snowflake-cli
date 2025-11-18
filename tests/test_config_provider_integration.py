@@ -29,6 +29,7 @@ from tempfile import TemporaryDirectory
 from unittest import mock
 
 import pytest
+from snowflake.cli.api.cli_global_context import fork_cli_context
 from snowflake.cli.api.config_provider import (
     ALTERNATIVE_CONFIG_ENV_VAR,
     AlternativeConfigProvider,
@@ -107,6 +108,31 @@ class TestAlternativeConfigProviderInitialization:
 
         # Cache should be cleared during re-init
         assert provider._config_cache != {"old": "data"}
+
+
+class TestAlternativeConfigProviderOverrideHandling:
+    """Tests for handling config file overrides."""
+
+    def test_reinitializes_sources_when_config_override_changes(self, tmp_path):
+        """Ensure provider rebuilds sources after config override changes."""
+        provider = AlternativeConfigProvider()
+
+        first_config = tmp_path / "config_one.toml"
+        first_config.write_text('[connections.test]\naccount = "first"\n')
+        first_config.chmod(0o600)
+
+        second_config = tmp_path / "config_two.toml"
+        second_config.write_text('[connections.test]\naccount = "second"\n')
+        second_config.chmod(0o600)
+
+        with fork_cli_context() as ctx:
+            ctx.config_file_override = first_config
+            first_connections = provider.get_section("connections")
+            assert first_connections["test"]["account"] == "first"
+
+            ctx.config_file_override = second_config
+            second_connections = provider.get_section("connections")
+            assert second_connections["test"]["account"] == "second"
 
 
 class TestAlternativeConfigProviderBasicOperations:
