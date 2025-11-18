@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import (
     Any,
     Dict,
+    Final,
     List,
     Literal,
     Optional,
@@ -91,6 +92,12 @@ PLUGIN_ENABLED_KEY = "enabled"
 FEATURE_FLAGS_SECTION_PATH = [CLI_SECTION, "features"]
 
 
+LEGACY_OAUTH_PKCE_KEY: Literal["oatuh_enable_pkce"] = "oatuh_enable_pkce"
+LEGACY_CONNECTION_SETTING_ALIASES: Final[dict[str, str]] = {
+    LEGACY_OAUTH_PKCE_KEY: "oauth_enable_pkce",
+}
+
+
 @dataclass
 class ConnectionConfig:
     account: Optional[str] = None
@@ -130,11 +137,16 @@ class ConnectionConfig:
         known_settings = {}
         other_settings = {}
         for key, value in config_dict.items():
-            if key in cls.__dict__:
-                known_settings[key] = value
+            normalized_key = cls._normalize_setting_key(key)
+            if normalized_key in cls.__dict__:
+                known_settings[normalized_key] = value
             else:
                 other_settings[key] = value
         return cls(**known_settings, _other_settings=other_settings)
+
+    @staticmethod
+    def _normalize_setting_key(key: str) -> str:
+        return LEGACY_CONNECTION_SETTING_ALIASES.get(key, key)
 
     def to_dict_of_known_non_empty_values(self) -> dict:
         return {
@@ -340,7 +352,9 @@ def get_connection_dict(connection_name: str) -> dict:
     from snowflake.cli.api.config_provider import get_config_provider_singleton
 
     provider = get_config_provider_singleton()
-    return provider.get_connection_dict(connection_name)
+    connection_raw = provider.get_connection_dict(connection_name)
+    connection = ConnectionConfig.from_dict(connection_raw)
+    return connection.to_dict_of_all_non_empty_values()
 
 
 def get_default_connection_name() -> str:
