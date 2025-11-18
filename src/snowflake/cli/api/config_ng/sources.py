@@ -37,8 +37,26 @@ from typing import Any, Dict, Final, List, Optional
 
 from snowflake.cli.api.config_ng.constants import SNOWFLAKE_HOME_ENV
 from snowflake.cli.api.config_ng.core import SourceType, ValueSource
+from snowflake.cli.api.exceptions import ConfigFileTooWidePermissionsError
+from snowflake.cli.api.secure_utils import file_permissions_are_strict
+from snowflake.connector.compat import IS_WINDOWS
 
 log = logging.getLogger(__name__)
+
+
+def _ensure_strict_file_permissions(config_file: Path) -> None:
+    """
+    Validate that configuration files have strict permissions before reading.
+
+    Raises:
+        ConfigFileTooWidePermissionsError: If permissions are too wide on non-Windows.
+    """
+
+    if IS_WINDOWS or not config_file.exists():
+        return
+
+    if not file_permissions_are_strict(config_file):
+        raise ConfigFileTooWidePermissionsError(config_file)
 
 
 class SnowSQLSection(Enum):
@@ -153,6 +171,7 @@ class SnowSQLConfigFile(ValueSource):
 
         for config_file in self._config_paths:
             if config_file.exists():
+                _ensure_strict_file_permissions(config_file)
                 try:
                     merged_config.read(config_file)
                 except Exception as e:
@@ -273,6 +292,7 @@ class CliConfigFile(ValueSource):
         """
         for config_file in self._search_paths:
             if config_file.exists():
+                _ensure_strict_file_permissions(config_file)
                 try:
                     return config_file.read_text()
                 except Exception as e:
@@ -387,6 +407,7 @@ class ConnectionsConfigFile(ValueSource):
         else:
             if not self._file_path.exists():
                 return {}
+            _ensure_strict_file_permissions(self._file_path)
             try:
                 content = self._file_path.read_text()
             except Exception as e:

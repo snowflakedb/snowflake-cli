@@ -14,11 +14,18 @@
 
 """Tests for configuration sources with string-based testing."""
 
+from typing import Literal
+
+import pytest
 from snowflake.cli.api.config_ng.sources import (
     CliConfigFile,
     ConnectionsConfigFile,
     SnowSQLConfigFile,
 )
+from snowflake.cli.api.exceptions import ConfigFileTooWidePermissionsError
+from snowflake.connector.compat import IS_WINDOWS
+
+INSECURE_FILE_PERMISSIONS: Literal[0o644] = 0o644
 
 
 class TestSnowSQLConfigFileFromString:
@@ -378,3 +385,51 @@ class TestSourceProperties:
             not hasattr(snowsql_source, "is_connections_file")
             or not snowsql_source.is_connections_file
         )
+
+
+@pytest.mark.skipif(IS_WINDOWS, reason="Permission checks disabled on Windows")
+class TestFilePermissionValidation:
+    def test_snowsql_config_raises_on_insecure_file(self, tmp_path):
+        config_path = tmp_path / "snowsql.cnf"
+        config_path.write_text(
+            """
+[connections.test]
+accountname = test_account
+"""
+        )
+        config_path.chmod(INSECURE_FILE_PERMISSIONS)
+
+        source = SnowSQLConfigFile(config_paths=[config_path])
+
+        with pytest.raises(ConfigFileTooWidePermissionsError):
+            source.discover()
+
+    def test_cli_config_raises_on_insecure_file(self, tmp_path):
+        config_path = tmp_path / "config.toml"
+        config_path.write_text(
+            """
+[connections.test]
+account = "cli-account"
+"""
+        )
+        config_path.chmod(INSECURE_FILE_PERMISSIONS)
+
+        source = CliConfigFile(search_paths=[config_path])
+
+        with pytest.raises(ConfigFileTooWidePermissionsError):
+            source.discover()
+
+    def test_connections_config_raises_on_insecure_file(self, tmp_path):
+        config_path = tmp_path / "connections.toml"
+        config_path.write_text(
+            """
+[connections.test]
+account = "connections-account"
+"""
+        )
+        config_path.chmod(INSECURE_FILE_PERMISSIONS)
+
+        source = ConnectionsConfigFile(file_path=config_path)
+
+        with pytest.raises(ConfigFileTooWidePermissionsError):
+            source.discover()
