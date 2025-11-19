@@ -88,6 +88,21 @@ def test_snowcli_config_provider():
         yield TestConfigProvider(temp_dst)
 
 
+@pytest.fixture
+def secure_test_config(tmp_path):
+    """
+    Copy a test config to a private location so strict permission checks pass.
+    """
+
+    def _copy(source_path: Path) -> Path:
+        destination = tmp_path / source_path.name
+        shutil.copy2(source_path, destination)
+        destination.chmod(0o600)
+        return destination
+
+    return _copy
+
+
 @pytest.fixture(scope="session")
 def test_root_path():
     return TEST_DIR

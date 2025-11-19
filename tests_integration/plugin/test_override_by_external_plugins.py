@@ -17,10 +17,15 @@ import pytest
 
 @pytest.mark.integration
 def test_override_build_in_commands(
-    runner, test_root_path, _install_plugin, caplog, config_snapshot
+    runner,
+    test_root_path,
+    _install_plugin,
+    caplog,
+    config_snapshot,
+    secure_test_config,
 ):
     """Test plugin override attempt."""
-    config_path = (
+    config_path = secure_test_config(
         test_root_path / "config" / "plugin_tests" / "override_plugin_config.toml"
     )
 
@@ -39,10 +44,15 @@ def test_override_build_in_commands(
 
 @pytest.mark.integration
 def test_disabled_plugin_is_not_executed(
-    runner, test_root_path, _install_plugin, caplog, config_snapshot
+    runner,
+    test_root_path,
+    _install_plugin,
+    caplog,
+    config_snapshot,
+    secure_test_config,
 ):
     """Test disabled plugin."""
-    config_path = (
+    config_path = secure_test_config(
         test_root_path
         / "config"
         / "plugin_tests"
