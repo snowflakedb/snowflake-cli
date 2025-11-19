@@ -265,6 +265,23 @@ class AlternativeConfigProvider(ConfigProvider):
         assert self._resolver is not None
         self._config_cache = self._resolver.resolve()
 
+    @property
+    def resolution_summary(self) -> Dict[str, Any]:
+        """Summary of the configuration resolution process."""
+        self._ensure_initialized()
+
+        if self._resolver is None:
+            return {}
+
+        try:
+            from snowflake.cli.api.config_ng.telemetry_integration import (
+                get_config_telemetry_payload,
+            )
+
+            return get_config_telemetry_payload(self._resolver)
+        except Exception:
+            return {}
+
     def get_section(self, *path) -> dict:
         """
         Navigate nested dict to get configuration section.
@@ -454,10 +471,15 @@ class AlternativeConfigProvider(ConfigProvider):
         """
         from snowflake.cli.api.config import ConnectionConfig
         from snowflake.cli.api.config_ng.constants import FILE_SOURCE_NAMES
+        from snowflake.cli.api.config_ng.merge_operations import (
+            create_default_connection_from_params,
+            extract_root_level_connection_params,
+            merge_params_into_connections,
+        )
 
         self._ensure_initialized()
 
-        connections: Dict[str, Dict[str, Any]] = {}
+        file_data: Dict[str, Any] = {}
 
         assert self._resolver is not None
         for source in self._resolver.get_sources():
@@ -466,17 +488,48 @@ class AlternativeConfigProvider(ConfigProvider):
 
             try:
                 source_data = source.discover()  # Returns nested dict
-                if "connections" in source_data:
-                    for conn_name, conn_config in source_data["connections"].items():
-                        if isinstance(conn_config, dict):
-                            connections[conn_name] = conn_config
+                if not source_data:
+                    continue
+
+                connections_section = source_data.get("connections")
+                if isinstance(connections_section, dict):
+                    if "connections" not in file_data:
+                        file_data["connections"] = {}
+                    for conn_name, conn_config in connections_section.items():
+                        file_data["connections"][conn_name] = conn_config
+
+                for key, value in source_data.items():
+                    if key == "connections":
+                        continue
+                    file_data[key] = value
             except Exception:
                 # Silently skip sources that fail to discover
                 pass
 
+        general_params, remaining_config = extract_root_level_connection_params(
+            file_data
+        )
+        raw_connections = remaining_config.get("connections", {})
+
+        filtered_connections: Dict[str, Dict[str, Any]] = {}
+        if isinstance(raw_connections, dict):
+            for conn_name, conn_config in raw_connections.items():
+                if isinstance(conn_config, dict):
+                    filtered_connections[conn_name] = conn_config
+
+        if general_params:
+            if filtered_connections:
+                filtered_connections = merge_params_into_connections(
+                    filtered_connections, general_params
+                )
+            else:
+                filtered_connections = create_default_connection_from_params(
+                    general_params
+                )
+
         return {
             name: ConnectionConfig.from_dict(config)
-            for name, config in connections.items()
+            for name, config in filtered_connections.items()
         }
 
     def invalidate_cache(self) -> None:
