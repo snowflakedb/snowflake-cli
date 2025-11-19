@@ -67,15 +67,16 @@ class DCMProjectManager(SqlExecutionMixin):
         else:
             effective_output_path = StagePath.from_stage_str(output_path)
 
-        yield effective_output_path.absolute_path()
-
-        if should_download_files:
-            assert temp_stage_for_local_output is not None
-            stage_path, local_path = temp_stage_for_local_output
-            stage_manager.get_recursive(stage_path=stage_path, dest_path=local_path)
-            cli_console.step(f"Plan output saved to: {local_path.resolve()}")
-        else:
-            cli_console.step(f"Plan output saved to: {output_path}")
+        try:
+            yield effective_output_path.absolute_path()
+        finally:
+            if should_download_files:
+                assert temp_stage_for_local_output is not None
+                stage_path, local_path = temp_stage_for_local_output
+                stage_manager.get_recursive(stage_path=stage_path, dest_path=local_path)
+                cli_console.step(f"Plan output saved to: {local_path.resolve()}")
+            else:
+                cli_console.step(f"Plan output saved to: {output_path}")
 
     def execute(
         self,
@@ -87,26 +88,27 @@ class DCMProjectManager(SqlExecutionMixin):
         alias: str | None = None,
         output_path: str | None = None,
     ):
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier}"
+        if dry_run:
+            query += " PLAN"
+        else:
+            query += " DEPLOY"
+            if alias:
+                query += f' AS "{alias}"'
+        if configuration or variables:
+            query += f" USING"
+        if configuration:
+            query += f" CONFIGURATION {configuration}"
+        if variables:
+            query += StageManager.parse_execute_variables(
+                parse_key_value_variables(variables)
+            ).removeprefix(" using")
+        stage_path = StagePath.from_stage_str(from_stage)
+        query += f" FROM {stage_path.absolute_path()}"
+
         with self._collect_output(project_identifier, output_path) if (
             output_path and dry_run
         ) else nullcontext() as output_stage:
-            query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier}"
-            if dry_run:
-                query += " PLAN"
-            else:
-                query += " DEPLOY"
-                if alias:
-                    query += f' AS "{alias}"'
-            if configuration or variables:
-                query += f" USING"
-            if configuration:
-                query += f" CONFIGURATION {configuration}"
-            if variables:
-                query += StageManager.parse_execute_variables(
-                    parse_key_value_variables(variables)
-                ).removeprefix(" using")
-            stage_path = StagePath.from_stage_str(from_stage)
-            query += f" FROM {stage_path.absolute_path()}"
             if output_stage is not None:
                 query += f" OUTPUT_PATH {output_stage}"
             result = self.execute_query(query=query)
