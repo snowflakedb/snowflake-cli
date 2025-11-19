@@ -17,10 +17,15 @@ import pytest
 
 @pytest.mark.integration
 def test_failing_plugin(
-    runner, test_root_path, _install_plugin, caplog, config_snapshot
+    runner,
+    test_root_path,
+    _install_plugin,
+    caplog,
+    config_snapshot,
+    secure_test_config,
 ):
     """Test failing plugin."""
-    config_path = (
+    config_path = secure_test_config(
         test_root_path / "config" / "plugin_tests" / "failing_plugin_config.toml"
     )
 
