@@ -26,10 +26,12 @@ in test code to verify internal state and behavior.
 import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 from unittest import mock
 
 import pytest
 from snowflake.cli.api.cli_global_context import fork_cli_context
+from snowflake.cli.api.config_ng.core import SourceType, ValueSource
 from snowflake.cli.api.config_provider import (
     ALTERNATIVE_CONFIG_ENV_VAR,
     AlternativeConfigProvider,
@@ -38,6 +40,52 @@ from snowflake.cli.api.config_provider import (
     get_config_provider_singleton,
     reset_config_provider,
 )
+
+
+class _StubResolver:
+    """Minimal resolver stub that only exposes get_sources()."""
+
+    def __init__(self, sources: list[ValueSource]):
+        self._sources = sources
+
+    def get_sources(self) -> list[ValueSource]:
+        return self._sources
+
+
+class _StaticFileSource(ValueSource):
+    """Test-only file source that returns static data."""
+
+    def __init__(
+        self,
+        data: dict[str, Any],
+        source_name: ValueSource.SourceName = "cli_config_toml",
+    ):
+        self._data = data
+        self._source_name = source_name
+
+    @property
+    def source_name(self) -> ValueSource.SourceName:
+        return self._source_name
+
+    @property
+    def source_type(self) -> SourceType:
+        return SourceType.FILE
+
+    def discover(self, key: str | None = None) -> dict[str, Any]:
+        return self._data
+
+    def supports_key(self, key: str) -> bool:
+        return key in self._data
+
+
+def _sync_last_config_override(provider: AlternativeConfigProvider) -> None:
+    """Mirror logic from production code to avoid re-initialization in tests."""
+    from snowflake.cli.api.cli_global_context import get_cli_context
+
+    try:
+        provider._last_config_override = get_cli_context().config_file_override
+    except Exception:
+        provider._last_config_override = None
 
 
 class TestProviderSelection:
@@ -520,3 +568,77 @@ class TestAlternativeConfigProviderConnections:
 
         # Should be same connections (legacy doesn't filter)
         assert set(connections_default.keys()) == set(connections_all.keys())
+
+    def test_file_connections_include_root_level_defaults(self):
+        """Root-level file parameters should merge into connection definitions."""
+        provider = AlternativeConfigProvider()
+        provider._resolver = _StubResolver(
+            [
+                _StaticFileSource(
+                    {
+                        "connections": {"dev": {"database": "sample_db"}},
+                        "account": "acct_from_file",
+                        "user": "user_from_file",
+                    }
+                )
+            ]
+        )
+        provider._initialized = True
+        _sync_last_config_override(provider)
+
+        connections = provider.get_all_connections(include_env_connections=False)
+
+        assert "dev" in connections
+        dev_conn = connections["dev"]
+        assert dev_conn.account == "acct_from_file"
+        assert dev_conn.user == "user_from_file"
+        assert dev_conn.database == "sample_db"
+
+    def test_file_connections_create_default_from_root_params(self):
+        """Root-level file params should create a default connection when needed."""
+        provider = AlternativeConfigProvider()
+        provider._resolver = _StubResolver(
+            [
+                _StaticFileSource(
+                    {
+                        "account": "acct_only",
+                        "user": "user_only",
+                        "password": "secret",
+                    }
+                )
+            ]
+        )
+        provider._initialized = True
+        _sync_last_config_override(provider)
+
+        connections = provider.get_all_connections(include_env_connections=False)
+
+        assert list(connections.keys()) == ["default"]
+        default_conn = connections["default"]
+        assert default_conn.account == "acct_only"
+        assert default_conn.user == "user_only"
+        assert default_conn.password == "secret"
+
+    def test_file_connections_preserve_unknown_root_keys(self):
+        """Unknown root-level keys should be preserved in connection _other_settings."""
+        provider = AlternativeConfigProvider()
+        provider._resolver = _StubResolver(
+            [
+                _StaticFileSource(
+                    {
+                        "account": "acct_only",
+                        "user": "user_only",
+                        "custom_option": "custom_value",
+                    }
+                )
+            ]
+        )
+        provider._initialized = True
+        _sync_last_config_override(provider)
+
+        connections = provider.get_all_connections(include_env_connections=False)
+
+        assert "default" in connections
+        default_conn = connections["default"]
+        assert default_conn.account == "acct_only"
+        assert default_conn._other_settings["custom_option"] == "custom_value"
