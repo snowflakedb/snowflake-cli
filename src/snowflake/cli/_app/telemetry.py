@@ -227,9 +227,6 @@ def python_version() -> str:
 def _get_config_telemetry() -> TelemetryDict:
     """Get configuration resolution telemetry data."""
     try:
-        from snowflake.cli.api.config_ng.telemetry_integration import (
-            get_config_telemetry_payload,
-        )
         from snowflake.cli.api.config_provider import (
             AlternativeConfigProvider,
             get_config_provider_singleton,
@@ -246,8 +243,7 @@ def _get_config_telemetry() -> TelemetryDict:
 
         # Get detailed telemetry if using ng config
         if isinstance(provider, AlternativeConfigProvider):
-            provider._ensure_initialized()  # noqa: SLF001
-            payload = get_config_telemetry_payload(provider._resolver)  # noqa: SLF001
+            payload = provider.resolution_summary
 
             # Map payload keys to telemetry fields
             if payload:
