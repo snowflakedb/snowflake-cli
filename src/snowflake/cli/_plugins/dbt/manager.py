@@ -382,6 +382,30 @@ class DBTManager(SqlExecutionMixin):
         self, dbt_command: str, name: FQN, run_async: bool, *dbt_cli_args
     ) -> SnowflakeCursor:
         if dbt_cli_args:
-            dbt_command = " ".join([dbt_command, *dbt_cli_args]).strip()
-        query = f"EXECUTE DBT PROJECT {name} args='{dbt_command}'"
+            processed_args = self._process_dbt_args(dbt_cli_args)
+            dbt_command = f"{dbt_command} {processed_args}".strip()
+        dbt_command_escaped = dbt_command.replace("'", "\\'")
+        query = f"EXECUTE DBT PROJECT {name} args='{dbt_command_escaped}'"
         return self.execute_query(query, _exec_async=run_async)
+
+    @staticmethod
+    def _process_dbt_args(dbt_cli_args: tuple) -> str:
+        """
+        Process dbt CLI arguments, handling special cases like --vars flag.
+        """
+        if not dbt_cli_args:
+            return ""
+
+        processed_args = []
+        i = 0
+        while i < len(dbt_cli_args):
+            arg = dbt_cli_args[i]
+            if arg == "--vars" and i + 1 < len(dbt_cli_args):
+                vars_value = dbt_cli_args[i + 1]
+                processed_args.append("--vars")
+                processed_args.append(f"'{vars_value}'")
+                i += 2
+            else:
+                processed_args.append(arg)
+                i += 1
+        return " ".join(processed_args)
