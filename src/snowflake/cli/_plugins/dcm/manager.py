@@ -72,15 +72,16 @@ class DCMProjectManager(SqlExecutionMixin):
         else:
             effective_output_path = StagePath.from_stage_str(output_path)
 
-        yield effective_output_path.absolute_path()
-
-        if should_download_files:
-            assert temp_stage_for_local_output is not None
-            stage_path, local_path = temp_stage_for_local_output
-            stage_manager.get_recursive(stage_path=stage_path, dest_path=local_path)
-            cli_console.step(f"Plan output saved to: {local_path.resolve()}")
-        else:
-            cli_console.step(f"Plan output saved to: {output_path}")
+        try:
+            yield effective_output_path.absolute_path()
+        finally:
+            if should_download_files:
+                assert temp_stage_for_local_output is not None
+                stage_path, local_path = temp_stage_for_local_output
+                stage_manager.get_recursive(stage_path=stage_path, dest_path=local_path)
+                cli_console.step(f"Plan output saved to: {local_path.resolve()}")
+            else:
+                cli_console.step(f"Plan output saved to: {output_path}")
 
     def deploy(
         self,

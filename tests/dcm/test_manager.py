@@ -428,6 +428,37 @@ def test_plan_project_with_output_path__local_path(
 
 
 @mock.patch(execute_queries)
+@mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.get_recursive")
+@mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+def test_plan_project_with_output_path__exception_handling(
+    mock_create,
+    mock_get_recursive,
+    mock_execute_query,
+    project_directory,
+    mock_from_resource,
+):
+    mock_execute_query.side_effect = Exception("Query execution failed")
+
+    mgr = DCMProjectManager()
+
+    with pytest.raises(Exception, match="Query execution failed"):
+        mgr.plan(
+            project_identifier=TEST_PROJECT,
+            from_stage="@test_stage",
+            configuration="some_configuration",
+            output_path="output_path/results",
+        )
+
+    # But the output should still be downloaded before exception is reraised
+    temp_stage_fqn = mock_from_resource()
+    mock_execute_query.assert_called_once()
+    mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
+    mock_get_recursive.assert_called_once_with(
+        stage_path=str(temp_stage_fqn), dest_path=Path("output_path/results")
+    )
+
+
+@mock.patch(execute_queries)
 @pytest.mark.parametrize(
     "alias,expected_alias",
     [
