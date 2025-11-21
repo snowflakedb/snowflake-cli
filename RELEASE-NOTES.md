@@ -21,6 +21,16 @@
 ## New additions
 
 ## Fixes and improvements
+
+
+# v3.13.1
+## Backward incompatibility
+
+## Deprecations
+
+## New additions
+
+## Fixes and improvements
 * Fixed parsing of --vars provided to `snow dbt execute` subcommands. This allows to pass variables in the same way as to dbt cli, i.e. --vars '{"key": "value"}'
 
 
