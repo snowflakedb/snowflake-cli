@@ -18,10 +18,14 @@
 
 ## Deprecations
 
+* `snow streamlit deploy --experimental` flag is deprecated. Versioned deployment is now the default behavior.
+
 ## New additions
 
-## Fixes and improvements
+* `snow streamlit deploy` now uses versioned stages by default (modern FROM syntax with automatic version management)
+* Added `snow streamlit deploy --legacy` flag to use the legacy ROOT_LOCATION deployment for backward compatibility
 
+## Fixes and improvements
 
 # v3.13.1
 ## Backward incompatibility
@@ -55,33 +59,34 @@
 * Grant privileges defined in `snowflake.yml` after deploying Streamlit
 * Relaxed dbt profiles.yml validation rules; added extra validation for role specified in profiles.yml
 
-
 # v3.12.0
 
 ## Deprecations
 
 ## New additions
+
 * The `!edit` command for external editors was added to REPL
 * Added `--partial` flag to `snow logs` command for partial, case-insensitive object name matching
 
 ## Fixes and improvements
+
 * Fixed crashes with older x86_64 Intel CPUs
 * Improved parsing `!source` with trailing comments
 * `!` commands no longer require trailing `;` for evaluation
 * Bumped to `typer=0.17.3`. Improved displaying help messages.
 * Fixed using `ctx.var` in `snow sql` with Jinja templating.
 * Fixed issues when pasting content with trailing new lines.
-* Improved output handling  with streaming
+* Improved output handling with streaming
 * Bumped `snowflake-connector-python` to 3.17.3
 * Fixed `snow snowpark deploy` failing on duplicated packages
 * Fixed `snow spcs logs` `IndexOutOfRange` error
-
 
 # v3.11.0
 
 ## Deprecations
 
 ## New additions
+
 * Add `snow connection remove` command
 * Added support for `runtime_environment_version` field in notebook entity configuration, allowing specification of runtime environment version for containerized notebooks.
 * Added `snow auth oidc` command group for managing workload identity federation authentication:
@@ -90,7 +95,6 @@
 
 ## Fixes and improvements
 
-
 # v3.10.1
 
 ## Deprecations
@@ -98,16 +102,18 @@
 ## New additions
 
 ## Fixes and improvements
+
 * Fixed DBT deploy command to properly handle fully qualified names
 * Fixed DBT deploy command to properly handle local directories with dots in names
-
 
 # v3.10.0
 
 ## Deprecations
+
 * Snowpark processor in Native Apps.
 
 ## New additions
+
 * Add support for passing OAuth token via `--token` flag.
 * Added feature to allow suppressing the new version warning message in the Snowflake CLI, configurable via a configuration file or environment variable.
 * Add support for `--format=CSV`.
@@ -120,42 +126,43 @@
 * DBT commands: `deploy`, `execute` and `list` are now available in preview.
 
 ## Fixes and improvements
+
 * Fixed failing snow sql command when snowflake.yml is invalid and query has no templating.
 * Fix JSON serialization for `Decimal`, `time` and `binary`.
 * Added `--format=JSON_EXT` option to return JSON objects as proper JSON structures rather than strings.
 * Refactored Streamlit app deployment (using `FROM <stage>` syntax); removed deprecated Streamlit features
-
 
 # v3.9.1
 
 ## Deprecations
 
 ## New additions
+
 * Added `--private-link` flag to `snow spcs image-registry login` command to login using private link URLs.
 
 ## Fixes and improvements
-
 
 # v3.9.0
 
 ## Deprecations
 
 ## New additions
+
 * Added `--encryption` flag to `snow stage create` command defining the type of encryption for all files on the stage.
 
 ## Fixes and improvements
-* Fix `use` commands error if current database is not set.
 
+* Fix `use` commands error if current database is not set.
 
 # v3.8.3
 
 ## Deprecations
 
 ## New additions
+
 * Added `--private-link` flag to `snow spcs image-registry url` command for retrieving private link URLs.
 
 ## Fixes and improvements
-
 
 # v3.8.2
 
@@ -164,8 +171,8 @@
 ## New additions
 
 ## Fixes and improvements
-* Fix `enable_release_channels` property in application package definition to default to `None` instead of `False`.
 
+* Fix `enable_release_channels` property in application package definition to default to `None` instead of `False`.
 
 # v3.8.1
 
@@ -174,15 +181,16 @@
 ## New additions
 
 ## Fixes and improvements
+
 * Upgrade message is printed to stderr.
 * Fixed `snowflake.core` import issue on newer Python versions
-
 
 # v3.8.0
 
 ## Deprecations
 
 ## New additions
+
 * Added support for OAuth tokens.
 * Cleaning up the output directory after coping files to the stage for Streamlit, Notebook, SPCS Service and project.
 * Added interactive mode for `snow sql`.
@@ -192,11 +200,11 @@
 * Added `--single-transaction` flag to `snow sql`. Wraps BEGIN/COMMIT around statements to execute them as a single transaction, ensuring all commands complete successfully or no change is applied.
 
 ## Fixes and improvements
+
 * Fix for deploying Snowpark project using `!=` operator in `requirements.txt`.
 * Fix escaping identifiers for `use` commands.
 * Move `enable_release_channels` from global feature flag to project level.
 * Fixed `snow spcs service metrics` command to accept fully qualified service names.
-
 
 # v3.7.2
 
@@ -205,8 +213,8 @@
 ## New additions
 
 ## Fixes and improvements
-* Fix error appearing on help messages after click BCR update.
 
+* Fix error appearing on help messages after click BCR update.
 
 # v3.7.1
 
@@ -215,32 +223,35 @@
 ## New additions
 
 ## Fixes and improvements
+
 * Fix certificate connection issues.
 * Fix `snow spcs image-registry login` slow query problem.
-
 
 # v3.7.0
 
 ## Deprecations
 
 ## New additions
+
 * Added `--prune` flag to `deploy` commands, which removes files that exist in the stage,
   but not in the local filesystem.
 * Added `snow logs` command for retrieving and streaming logs from the server.
 * Added `snow helper check-snowsql-env-vars` which reports environment variables from SnowSQL with replacements in CLI.
 
 ## Fixes and improvements
-* Updated MacOS postinstall script to update PATH if snow not exist.
 
+* Updated MacOS postinstall script to update PATH if snow not exist.
 
 # v3.6.0
 
 ## Deprecations
 
 ## New additions
+
 * Added support for `!source` command in SQL. This command allows to execute SQL from a local file.
 
 ## Fixes and improvements
+
 * Fix for incompatible options in `snow spcs compute-pool` commands didn't raise error.
 * Change binary builds to embed whole Python environment.
 * Fixed recursive copying to stage for unbalanced directory trees.
@@ -252,6 +263,7 @@
 ## Deprecations
 
 ## New additions
+
 * Extended snowflake.yml support for new entities:
   * SPCS compute pool
   * SPCS service
@@ -262,9 +274,11 @@
 * Added support for creating native applications with manifest version 2.
 
 ## Fixes and improvements
+
 * Fix handling of date types in `snow sql` command when using JSON for output format
 
 # v3.4.1
+
 ## Backward incompatibility
 
 ## Deprecations
@@ -290,9 +304,9 @@
   * Added notebooks to `snow object` commands.
 
 ## Fixes and improvements
+
 * Fixed MFA caching issue in binaries.
 * Fixed auto-completion issue in binaries.
-
 
 # v3.3.0
 
@@ -446,7 +460,7 @@
   * `snow snowpark build` creates a .zip file for each specified artifact that is a directory. Non-Anaconda
     dependencies are packaged once as `dependencies.zip`.
   * `snow snowpark deploy` uploads all artifacts created during build step. Dependencies zip is upload once to
-     every Snowpark stage specified in project definition.
+    every Snowpark stage specified in project definition.
   * The changes are compatible with V1 projects definition though the result state (file layout) is different.
   * `snow snowpark package` commands no longer fallback to Anaconda Channel metadata when fetching available packages info fails.
   * Added `snow streamlit execute app-name` command to run Streamlit apps in a Snowflake environment in headless mode.
@@ -540,7 +554,7 @@
 ## Deprecations
 
 * `snow snowpark init` and `snow streamlit init` are marked as deprecated. The commands are still functional,
-but should be replaced with `snow init`
+  but should be replaced with `snow init`
 
 ## New additions
 
@@ -594,9 +608,9 @@ but should be replaced with `snow init`
   * Overrides `env` variables values when used in templating.
   * Can be referenced in templating through `ctx.env.<key_name>`.
   * Templating will read env vars in this order of priority (highest priority to lowest priority):
-    * vars from `--env` command line argument.
-    * vars from shell environment variables.
-    * vars from `env` section of project definition file.
+    - vars from `--env` command line argument.
+    - vars from shell environment variables.
+    - vars from `env` section of project definition file.
 
 ## Fixes and improvements
 
@@ -666,19 +680,19 @@ but should be replaced with `snow init`
   * `snow spcs image-repository` for image repositories
   * `snow spcs service` for services
 * `snow sql` works now with `snowflake.yml` file. The variables defined in the new `env` section
-       of `snowflake.yml` will be used to expand templates.
+  of `snowflake.yml` will be used to expand templates.
 * `snow sql` support executing multiple files. Users can use `-f/--file` flag more than once to execute queries
-      from many files.
+  from many files.
 * `snow git execute` and `snow stage execute` support passing input variables for SQL execution.
 * Added `snow cortex` commands:
   * `complete` - Given a prompt, the command generates a response using your choice of language model.
-      In the simplest use case, the prompt is a single string. You may also provide a JSON file with conversation history including multiple prompts and responses for interactive chat-style usage.
+    In the simplest use case, the prompt is a single string. You may also provide a JSON file with conversation history including multiple prompts and responses for interactive chat-style usage.
   * `extract-answer` - Extracts an answer to a given question from a text document.
-      The document may be a plain-English document or a string representation of a semi-structured (JSON) data object.
+    The document may be a plain-English document or a string representation of a semi-structured (JSON) data object.
   * `sentiment` - Returns sentiment as a score between -1 to 1 (with -1 being the most negative and 1 the most positive, with values around 0 neutral) for the given English-language input text.
   * `summarize` - Summarizes the given English-language input text.
   * `translate` - Translates text from the indicated or detected source language to a target language.
-  * `search`    - for integration with Cortex Search Service
+  * `search` - for integration with Cortex Search Service
 * When invoked without command help is displayed by default with list of available commands.
 * Add tab-completion for `snow` command.
 
@@ -747,7 +761,7 @@ but should be replaced with `snow init`
   * `--check-anaconda-for-pypi-depts` is deprecated and using it will cause warning, the functionality is replaced by `--ignore-anaconda`
   * `--package-native-libraries` is deprecated and using it will cause warning, the functionality is replaced by `--allow-shared-libraries`
 * `snow object stage` commands are deprecated and using them will cause a warning.
-   Functionality is replaced by `snow stage` commands.
+  Functionality is replaced by `snow stage` commands.
 
 ## New additions
 
@@ -846,6 +860,7 @@ but should be replaced with `snow init`
   The `SNOWFLAKE_CONNECTION_<NAME>_<KEY>` variable takes precedence before the generic flag. For example if
   `SNOWFLAKE_PASSWORD` and `SNOWFLAKE_CONNECTIONS_FOO_PASSWORD` are present and user tries to use connection
   "foo" then the later variable will be used.
+
 * Testing connection using `snow connection test` validates also access to database, schema, role and warehouse
   specified in the connection details.
 * Added `snow connection set-default` command for changing default connection.
@@ -872,10 +887,12 @@ but should be replaced with `snow init`
 * `snow connection test` now outputs all connection details (except for the password), along with connection status
 * `snow sql` requires explicit `-i` flag to read input from stdin: `cat my.sql | snow sql -i`
 * Switched to Python Connector default connection <https://docs.snowflake.com/en/developer-guide/python-connector/python-connector-connect#setting-a-default-connection>
+
   * Default connection name changed from `dev` to `default`
   * Environment variable for default connection name changed from `SNOWFLAKE_OPTIONS_DEFAULT_CONNECTION` to `SNOWFLAKE_DEFAULT_CONNECTION_NAME`
 
 * Snowpark changes
+
   * Removed `procedure` and `function` subgroups.
   * Removed `snow snowpark function package` and `snow snowpark procedure package` in favour of `snow snowpark build`.
   * Removed `snow snowpark function create` and `snow snowpark function update`. Functions can be deployed using `snow snowpark deploy`.
@@ -887,6 +904,7 @@ but should be replaced with `snow init`
   * Coverage commands were removed. To measure coverage of your procedures or functions use coverage locally.
 
 * Snowpark Containers services commands
+
   * `cp` alias for `compute-pool` commands was removed.
   * `services` commands were renamed to `service`
   * `registry` commands were renamed to `image-registry`

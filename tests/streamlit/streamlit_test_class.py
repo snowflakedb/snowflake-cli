@@ -53,6 +53,16 @@ class StreamlitTestClass:
             lambda _, **kwargs: False,
         ).start()
 
+        # Mock describe() to return a versioned stage path for versioned deployments
+        self.mock_describe = mock.patch(
+            "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.describe"
+        ).start()
+        mock_cursor = mock.Mock()
+        mock_cursor.fetchone.return_value = {
+            "live_version_location_uri": f"snow://streamlit/DB.PUBLIC.{STREAMLIT_NAME}/versions/live/"
+        }
+        self.mock_describe.return_value = mock_cursor
+
     def teardown_method(self):
         mock.patch.stopall()
 

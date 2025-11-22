@@ -20589,7 +20589,7 @@
                                                                                   
    Deploys a Streamlit app defined in the project definition file                 
    (snowflake.yml). By default, the command uploads environment.yml and any other 
-   pages or folders, if present. If you don’t specify a stage name, the streamlit 
+   pages or folders, if present. If you don't specify a stage name, the streamlit 
    stage is used. If the specified stage does not exist, the command creates it.  
    If multiple Streamlits are defined in snowflake.yml and no entity_id is        
    provided then command will raise an error.                                     
@@ -20607,6 +20607,7 @@
   |                                    [default: no-prune]                       |
   | --open                             Whether to open the Streamlit app in a    |
   |                                    browser.                                  |
+  | --legacy                           Use legacy ROOT_LOCATION SQL syntax.      |
   | --project  -p                TEXT  Path where the Snowflake project is       |
   |                                    stored. Defaults to the current working   |
   |                                    directory.                                |
@@ -21601,7 +21602,7 @@
   +- Commands -------------------------------------------------------------------+
   | deploy     Deploys a Streamlit app defined in the project definition file    |
   |            (snowflake.yml). By default, the command uploads environment.yml  |
-  |            and any other pages or folders, if present. If you don’t specify  |
+  |            and any other pages or folders, if present. If you don't specify  |
   |            a stage name, the streamlit stage is used. If the specified stage |
   |            does not exist, the command creates it. If multiple Streamlits    |
   |            are defined in snowflake.yml and no entity_id is provided then    |
@@ -22378,7 +22379,7 @@
   +- Commands -------------------------------------------------------------------+
   | deploy     Deploys a Streamlit app defined in the project definition file    |
   |            (snowflake.yml). By default, the command uploads environment.yml  |
-  |            and any other pages or folders, if present. If you don’t specify  |
+  |            and any other pages or folders, if present. If you don't specify  |
   |            a stage name, the streamlit stage is used. If the specified stage |
   |            does not exist, the command creates it. If multiple Streamlits    |
   |            are defined in snowflake.yml and no entity_id is provided then    |

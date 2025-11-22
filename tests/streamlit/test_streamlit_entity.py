@@ -7,6 +7,8 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     SPCS_RUNTIME_V2_NAME,
     StreamlitEntityModel,
 )
+from snowflake.cli.api.artifacts.bundle_map import BundleMap
+from snowflake.cli.api.exceptions import CliError
 
 from tests.streamlit.streamlit_test_class import STREAMLIT_NAME, StreamlitTestClass
 
@@ -55,7 +57,10 @@ class TestStreamlitEntity(StreamlitTestClass):
         mock_describe.return_value = False
         mock_get_url.return_value = "https://snowflake.com"
 
-        example_entity.action_deploy(action_context, _open=False, replace=False)
+        # Test legacy deployment behavior
+        example_entity.action_deploy(
+            action_context, _open=False, replace=False, legacy=True
+        )
 
         self.mock_execute.assert_called_with(
             f"CREATE STREAMLIT IDENTIFIER('{STREAMLIT_NAME}')\nROOT_LOCATION = '@streamlit/test_streamlit'\nMAIN_FILE = 'streamlit_app.py'\nQUERY_WAREHOUSE = test_warehouse\nTITLE = 'My Fancy Streamlit';"
@@ -149,10 +154,8 @@ class TestStreamlitEntity(StreamlitTestClass):
 
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
-        # Test with FROM syntax (artifacts_dir provided)
-        sql = entity.get_deploy_sql(
-            artifacts_dir=Path("/tmp/artifacts"), experimental=True
-        )
+        # Test with FROM syntax (artifacts_dir provided) - versioned deployment
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
 
         assert f"RUNTIME_NAME = '{SPCS_RUNTIME_V2_NAME}'" in sql
         assert "COMPUTE_POOL = 'MYPOOL'" in sql
@@ -172,16 +175,16 @@ class TestStreamlitEntity(StreamlitTestClass):
 
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
-        # Test with stage-based deployment - should NOT include SPCS runtime fields
-        # even when experimental=True, as stage-based deployments are old-style
-        sql = entity.get_deploy_sql(from_stage_name="@stage/path", experimental=True)
+        # Test with stage-based deployment (ROOT_LOCATION) - should NOT include SPCS runtime fields
+        # as stage-based deployments are old-style
+        sql = entity.get_deploy_sql(from_stage_name="@stage/path", legacy=False)
 
         assert "ROOT_LOCATION = '@stage/path'" in sql
         assert "RUNTIME_NAME" not in sql
         assert "COMPUTE_POOL" not in sql
 
     def test_get_deploy_sql_without_spcs_runtime_v2(self, workspace_context):
-        """Test that get_deploy_sql works normally when experimental is False"""
+        """Test that get_deploy_sql works normally when legacy is True"""
         model = StreamlitEntityModel(
             type="streamlit",
             identifier="test_streamlit",
@@ -194,10 +197,8 @@ class TestStreamlitEntity(StreamlitTestClass):
 
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
-        # Test without experimental flag enabled
-        sql = entity.get_deploy_sql(
-            artifacts_dir=Path("/tmp/artifacts"), experimental=False
-        )
+        # Test with legacy flag - should not add SPCS runtime v2 fields
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=True)
 
         assert "RUNTIME_NAME" not in sql
         assert "COMPUTE_POOL" not in sql
@@ -216,26 +217,20 @@ class TestStreamlitEntity(StreamlitTestClass):
 
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
 
-        # Test with experimental=True and correct runtime_name
-        sql = entity.get_deploy_sql(
-            artifacts_dir=Path("/tmp/artifacts"), experimental=True
-        )
+        # Test with versioned deployment (default, legacy=False) and correct runtime_name
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
         assert f"RUNTIME_NAME = '{SPCS_RUNTIME_V2_NAME}'" in sql
         assert "COMPUTE_POOL = 'MYPOOL'" in sql
 
-        # Test with experimental=False, should not add SPCS fields
-        sql = entity.get_deploy_sql(
-            artifacts_dir=Path("/tmp/artifacts"), experimental=False
-        )
+        # Test with legacy=True, should not add SPCS fields
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=True)
         assert "RUNTIME_NAME" not in sql
         assert "COMPUTE_POOL" not in sql
 
         # Test with wrong runtime_name
         model.runtime_name = "SOME_OTHER_RUNTIME"
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
-        sql = entity.get_deploy_sql(
-            artifacts_dir=Path("/tmp/artifacts"), experimental=True
-        )
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
         assert "RUNTIME_NAME" not in sql
         assert "COMPUTE_POOL" not in sql
 
@@ -253,9 +248,7 @@ class TestStreamlitEntity(StreamlitTestClass):
         )
         model.set_entity_id("test_streamlit")
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
-        sql = entity.get_deploy_sql(
-            artifacts_dir=Path("/tmp/artifacts"), experimental=True
-        )
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
         assert f"RUNTIME_NAME = '{SPCS_RUNTIME_V2_NAME}'" in sql
         assert "COMPUTE_POOL = 'MYPOOL'" in sql
 
@@ -269,9 +262,7 @@ class TestStreamlitEntity(StreamlitTestClass):
         )
         model.set_entity_id("test_streamlit")
         entity = StreamlitEntity(workspace_ctx=workspace_context, entity_model=model)
-        sql = entity.get_deploy_sql(
-            artifacts_dir=Path("/tmp/artifacts"), experimental=True
-        )
+        sql = entity.get_deploy_sql(artifacts_dir=Path("/tmp/artifacts"), legacy=False)
         # Warehouse runtime should not trigger SPCS runtime v2 mode
         assert "RUNTIME_NAME" not in sql
         assert "COMPUTE_POOL" not in sql
@@ -327,3 +318,143 @@ class TestStreamlitEntity(StreamlitTestClass):
         )
         assert model.runtime_name == SPCS_RUNTIME_V2_NAME
         assert model.compute_pool == "MYPOOL"
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_deploy_with_spcs_runtime_v2_and_legacy_flag_raises_error(
+        self, mock_bundle, mock_object_exists, workspace_context, action_context
+    ):
+        """Test that deploying with SPCS runtime v2 and --legacy flag raises a clear error"""
+        mock_object_exists.return_value = False
+        mock_bundle.return_value = BundleMap(
+            project_root=workspace_context.project_root,
+            deploy_root=workspace_context.project_root / "output",
+        )
+
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            runtime_name=SPCS_RUNTIME_V2_NAME,
+            compute_pool="MYPOOL",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+
+        entity = StreamlitEntity(
+            workspace_ctx=workspace_context,
+            entity_model=model,
+        )
+
+        with pytest.raises(
+            CliError,
+            match="runtime_name and compute_pool are not compatible with --legacy flag",
+        ):
+            entity.action_deploy(
+                action_context, _open=False, replace=False, legacy=True
+            )
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._deploy_versioned"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_replace_legacy_with_versioned_shows_warning(
+        self,
+        mock_bundle,
+        mock_deploy_versioned,
+        mock_is_legacy,
+        mock_object_exists,
+        workspace_context,
+        action_context,
+    ):
+        """Test that replacing a legacy deployment with versioned shows a warning"""
+        mock_object_exists.return_value = True
+        mock_is_legacy.return_value = True  # Existing is legacy
+        mock_bundle.return_value = BundleMap(
+            project_root=workspace_context.project_root,
+            deploy_root=workspace_context.project_root / "output",
+        )
+
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+
+        entity = StreamlitEntity(
+            workspace_ctx=workspace_context,
+            entity_model=model,
+        )
+
+        entity.action_deploy(action_context, _open=False, replace=True, legacy=False)
+
+        # Verify warning was shown
+        assert any(
+            "Replacing legacy ROOT_LOCATION deployment with versioned deployment"
+            in str(call)
+            for call in workspace_context.console.warning.call_args_list
+        )
+
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._is_legacy_deployment"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._deploy_legacy"
+    )
+    @mock.patch(
+        "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity.bundle"
+    )
+    def test_replace_versioned_with_legacy_shows_warning(
+        self,
+        mock_bundle,
+        mock_deploy_legacy,
+        mock_is_legacy,
+        mock_object_exists,
+        workspace_context,
+        action_context,
+    ):
+        """Test that replacing a versioned deployment with legacy shows a warning"""
+        mock_object_exists.return_value = True
+        mock_is_legacy.return_value = False  # Existing is versioned
+        mock_bundle.return_value = BundleMap(
+            project_root=workspace_context.project_root,
+            deploy_root=workspace_context.project_root / "output",
+        )
+
+        model = StreamlitEntityModel(
+            type="streamlit",
+            identifier="test_streamlit",
+            main_file="streamlit_app.py",
+            artifacts=["streamlit_app.py"],
+        )
+        model.set_entity_id("test_streamlit")
+
+        entity = StreamlitEntity(
+            workspace_ctx=workspace_context,
+            entity_model=model,
+        )
+
+        entity.action_deploy(action_context, _open=False, replace=True, legacy=True)
+
+        # Verify warning was shown
+        assert any(
+            "Deployment style is changing from versioned to legacy" in str(call)
+            for call in workspace_context.console.warning.call_args_list
+        )

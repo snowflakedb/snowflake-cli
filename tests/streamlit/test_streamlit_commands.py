@@ -3,14 +3,12 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
-from snowflake.cli.api.feature_flags import FeatureFlag
 
 from tests.streamlit.streamlit_test_class import (
     STREAMLIT_NAME,
     TYPER,
     StreamlitTestClass,
 )
-from tests_common.feature_flag_utils import with_feature_flags
 
 
 @pytest.fixture
@@ -42,7 +40,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         with project_directory("example_streamlit") as tmp_dir:
             (tmp_dir / "environment.yml").unlink()
             shutil.rmtree(tmp_dir / "pages")
-            result = runner.invoke(["streamlit", "deploy"])
+            result = runner.invoke(["streamlit", "deploy", "--legacy"])
 
         expected_query = dedent(
             f"""
@@ -67,7 +65,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         with project_directory("example_streamlit_no_stage") as tmp_dir:
             (tmp_dir / "environment.yml").unlink()
             shutil.rmtree(tmp_dir / "pages")
-            result = runner.invoke(["streamlit", "deploy"])
+            result = runner.invoke(["streamlit", "deploy", "--legacy"])
 
         expected_query = dedent(
             f"""
@@ -87,7 +85,7 @@ class TestStreamlitCommands(StreamlitTestClass):
     def test_deploy_with_empty_pages(self, project_directory, runner):
         with project_directory("streamlit_empty_pages") as tmp_dir:
             (tmp_dir / "pages").mkdir(parents=True, exist_ok=True)
-            result = runner.invoke(["streamlit", "deploy"])
+            result = runner.invoke(["streamlit", "deploy", "--legacy"])
 
         expected_query = dedent(
             f"""
@@ -113,7 +111,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         with project_directory("example_streamlit") as tmp_dir:
             (tmp_dir / "environment.yml").unlink()
             shutil.rmtree(tmp_dir / "pages")
-            result = runner.invoke(["streamlit", "deploy", "--replace"])
+            result = runner.invoke(["streamlit", "deploy", "--replace", "--legacy"])
 
         expected_query = dedent(
             f"""
@@ -161,7 +159,7 @@ class TestStreamlitCommands(StreamlitTestClass):
                     value=["streamlit_app.py", "environment.yml"],
                 )
 
-            result = runner.invoke(["streamlit", "deploy"])
+            result = runner.invoke(["streamlit", "deploy", "--legacy"])
 
         expected_query = dedent(
             f"""
@@ -194,7 +192,7 @@ class TestStreamlitCommands(StreamlitTestClass):
                     parameter_path="entities.test_streamlit.artifacts",
                     value=["streamlit_app.py", "pages/"],
                 )
-            result = runner.invoke(["streamlit", "deploy"])
+            result = runner.invoke(["streamlit", "deploy", "--legacy"])
 
         expected_query = dedent(
             f"""
@@ -219,7 +217,7 @@ class TestStreamlitCommands(StreamlitTestClass):
     )
     def test_deploy_all_streamlit_files(self, project_name, project_directory, runner):
         with project_directory(project_name) as tmp_dir:
-            result = runner.invoke(["streamlit", "deploy"])
+            result = runner.invoke(["streamlit", "deploy", "--legacy"])
 
         expected_query = dedent(
             f"""
@@ -271,7 +269,7 @@ class TestStreamlitCommands(StreamlitTestClass):
             project_name,
             merge_project_definition=merge_definition,
         ) as tmp_dir:
-            result = runner.invoke(["streamlit", "deploy"])
+            result = runner.invoke(["streamlit", "deploy", "--legacy"])
 
         expected_query = dedent(
             f"""
@@ -299,7 +297,7 @@ class TestStreamlitCommands(StreamlitTestClass):
         self, project_name, project_directory, runner
     ):
         with project_directory(project_name) as tmp_dir:
-            result = runner.invoke(["streamlit", "deploy"])
+            result = runner.invoke(["streamlit", "deploy", "--legacy"])
 
         expected_query = dedent(
             f"""
@@ -325,34 +323,27 @@ class TestStreamlitCommands(StreamlitTestClass):
     @pytest.mark.parametrize(
         "project_name", ["example_streamlit", "example_streamlit_v2"]
     )
-    @pytest.mark.parametrize("enable_streamlit_versioned_stage", [True, False])
     def test_deploy_streamlit_main_and_pages_files_experimental(
         self,
         os_agnostic_snapshot,
-        enable_streamlit_versioned_stage,
         project_name,
         project_directory,
         runner,
         alter_snowflake_yml,
         mock_live_version_location_uri,
     ):
-        with with_feature_flags(
-            {
-                FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE: enable_streamlit_versioned_stage
-            }
-        ):
-            with project_directory(project_name) as tmp_dir:
-                if project_name == "example_streamlit_v2":
-                    alter_snowflake_yml(
-                        tmp_dir / "snowflake.yml",
-                        parameter_path="entities.test_streamlit.artifacts",
-                        value=[
-                            "streamlit_app.py",
-                            "environment.yml",
-                            "pages/my_page.py",
-                        ],
-                    )
-                result = runner.invoke(["streamlit", "deploy", "--experimental"])
+        with project_directory(project_name) as tmp_dir:
+            if project_name == "example_streamlit_v2":
+                alter_snowflake_yml(
+                    tmp_dir / "snowflake.yml",
+                    parameter_path="entities.test_streamlit.artifacts",
+                    value=[
+                        "streamlit_app.py",
+                        "environment.yml",
+                        "pages/my_page.py",
+                    ],
+                )
+            result = runner.invoke(["streamlit", "deploy"])
 
         post_create_command = (
             f"ALTER STREAMLIT {STREAMLIT_NAME} ADD LIVE VERSION FROM LAST;"
@@ -379,22 +370,15 @@ class TestStreamlitCommands(StreamlitTestClass):
     @pytest.mark.parametrize(
         "project_name", ["example_streamlit_no_stage", "example_streamlit_no_stage_v2"]
     )
-    @pytest.mark.parametrize("enable_streamlit_versioned_stage", [True, False])
     def test_deploy_streamlit_main_and_pages_files_experimental_no_stage(
         self,
-        enable_streamlit_versioned_stage,
         project_name,
         project_directory,
         runner,
         mock_live_version_location_uri,
     ):
-        with with_feature_flags(
-            {
-                FeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE: enable_streamlit_versioned_stage
-            }
-        ):
-            with project_directory(project_name) as tmp_dir:
-                result = runner.invoke(["streamlit", "deploy", "--experimental"])
+        with project_directory(project_name) as tmp_dir:
+            result = runner.invoke(["streamlit", "deploy"])
 
         post_create_command = (
             f"ALTER STREAMLIT {STREAMLIT_NAME} ADD LIVE VERSION FROM LAST;"
@@ -435,9 +419,7 @@ class TestStreamlitCommands(StreamlitTestClass):
                     parameter_path="entities.test_streamlit.artifacts",
                     value=["streamlit_app.py", "environment.yml", "pages/"],
                 )
-            result = runner.invoke(
-                ["streamlit", "deploy", "--experimental", "--replace"]
-            )
+            result = runner.invoke(["streamlit", "deploy", "--replace"])
 
         expected_query = dedent(
             f"""
@@ -514,7 +496,9 @@ class TestStreamlitCommands(StreamlitTestClass):
     def test_selecting_streamlit_from_pdf(self, entity_id, project_directory, runner):
 
         with project_directory("example_streamlit_multiple_v2"):
-            result = runner.invoke(["streamlit", "deploy", entity_id, "--replace"])
+            result = runner.invoke(
+                ["streamlit", "deploy", entity_id, "--replace", "--legacy"]
+            )
 
         expected_query = dedent(
             f"""
@@ -543,7 +527,7 @@ class TestStreamlitCommands(StreamlitTestClass):
 
     def test_deploy_streamlit_with_comment_v2(self, project_directory, runner):
         with project_directory("example_streamlit_with_comment_v2") as tmp_dir:
-            result = runner.invoke(["streamlit", "deploy", "--replace"])
+            result = runner.invoke(["streamlit", "deploy", "--replace", "--legacy"])
 
         expected_query = dedent(
             f"""

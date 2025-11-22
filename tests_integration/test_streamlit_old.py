@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import uuid
 from pathlib import Path
+from typing import List
 
 import pytest
 
@@ -23,7 +25,6 @@ from tests_integration.test_utils import (
     rows_from_snowflake_session,
 )
 from tests_integration.testing_utils import assert_that_result_is_successful
-from typing import List
 
 
 @pytest.mark.integration
@@ -113,32 +114,53 @@ def test_streamlit_deploy(
 
 @pytest.mark.integration
 def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
+    # Test prune functionality with legacy (ROOT_LOCATION) deployment
+    # Versioned stages are managed differently and don't support manual file uploads well
+    streamlit_identifier = "TEST_STREAMLIT_DEPLOY_SNOWCLI"
     stage_name = "streamlit"
+    stage_path = f"@{stage_name}/test_streamlit_deploy_snowcli"
 
     def _assert_file_names_on_stage(expected_files: List[str]) -> None:
-        result = runner.invoke_with_connection_json(["stage", "list-files", stage_name])
+        result = runner.invoke_with_connection_json(
+            [
+                "stage",
+                "list-files",
+                stage_name,
+            ]
+        )
         assert result.exit_code == 0, result.output
-        assert set(file["name"] for file in result.json) == set(expected_files)
+        actual_files = set(file["name"] for file in result.json)
+        assert actual_files == set(
+            expected_files
+        ), f"Expected {expected_files} but got {actual_files}"
 
     with project_directory(f"streamlit_v2") as project_root:
-        # upload unexpected file on stage
+        # deploy streamlit with legacy flag to use ROOT_LOCATION stages
+        result = runner.invoke_with_connection(
+            ["streamlit", "deploy", "my_streamlit", "--replace", "--legacy"]
+        )
+        assert result.exit_code == 0, result.output
+        _assert_file_names_on_stage(
+            ["streamlit/test_streamlit_deploy_snowcli/streamlit_app.py"]
+        )
+
+        # upload unexpected file to the stage
         unexpected_file = project_root / "unexpected.txt"
         unexpected_file.write_text("This is unexpected")
-        result = runner.invoke_with_connection(["stage", "create", f"@{stage_name}"])
-        assert result.exit_code == 0, result.output
         result = runner.invoke_with_connection(
             [
                 "stage",
                 "copy",
                 str(unexpected_file),
-                f"@{stage_name}/test_streamlit_deploy_snowcli",
+                stage_path,
+                "--overwrite",
             ]
         )
         assert result.exit_code == 0, result.output
 
-        # deploy streamlit - file should remain on stage
+        # deploy streamlit again without prune - unexpected file should remain on stage
         result = runner.invoke_with_connection(
-            ["streamlit", "deploy", "my_streamlit", "--replace"]
+            ["streamlit", "deploy", "my_streamlit", "--replace", "--legacy"]
         )
         assert result.exit_code == 0, result.output
         _assert_file_names_on_stage(
@@ -150,7 +172,7 @@ def test_streamlit_deploy_prune_flag(runner, test_database, project_directory):
 
         # deploy with --prune flag - unexpected file should be removed
         result = runner.invoke_with_connection(
-            ["streamlit", "deploy", "my_streamlit", "--replace", "--prune"]
+            ["streamlit", "deploy", "my_streamlit", "--replace", "--legacy", "--prune"]
         )
         assert result.exit_code == 0, result.output
         _assert_file_names_on_stage(
@@ -225,17 +247,15 @@ def test_streamlit_deploy_experimental_twice(
 
     with project_directory(f"streamlit_v{pdf_version}"):
         if pdf_version == "1":
-            args = ["streamlit", "deploy", "--experimental"]
+            args = ["streamlit", "deploy"]
         else:
-            args = ["streamlit", "deploy", "my_streamlit", "--experimental"]
+            args = ["streamlit", "deploy", "my_streamlit"]
 
         result = runner.invoke_with_connection_json(args)
         assert result.exit_code == 0
 
         # Test that second deploy does not fail
-        result = runner.invoke_with_connection_json(
-            ["streamlit", "deploy", "--experimental"]
-        )
+        result = runner.invoke_with_connection_json(["streamlit", "deploy"])
         assert result.exit_code == 0
 
         result = runner.invoke_with_connection_json(["streamlit", "list"])

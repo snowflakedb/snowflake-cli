@@ -15,7 +15,7 @@ from snowflake.cli._plugins.workspace.context import ActionContext
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
 from snowflake.cli.api.entities.common import EntityBase
 from snowflake.cli.api.entities.utils import EntityActions, sync_deploy_root_with_stage
-from snowflake.cli.api.feature_flags import FeatureFlag as GlobalFeatureFlag
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.project.project_paths import bundle_root
 from snowflake.cli.api.project.schemas.entities.common import Identifier, PathMapping
@@ -66,12 +66,10 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
             self._conn, f"/#/streamlit-apps/{name.url_identifier}"
         )
 
-    def _is_spcs_runtime_v2_mode(self, experimental: bool = False) -> bool:
+    def _is_spcs_runtime_v2_mode(self) -> bool:
         """Check if SPCS runtime v2 mode is enabled."""
         return (
-            experimental
-            and self.model.runtime_name == SPCS_RUNTIME_V2_NAME
-            and self.model.compute_pool
+            self.model.runtime_name == SPCS_RUNTIME_V2_NAME and self.model.compute_pool
         )
 
     def bundle(self, output_dir: Optional[Path] = None) -> BundleMap:
@@ -93,7 +91,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         replace: bool,
         prune: bool = False,
         bundle_map: Optional[BundleMap] = None,
-        experimental: bool = False,
+        legacy: bool = False,
         *args,
         **kwargs,
     ):
@@ -104,49 +102,40 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         console = self._workspace_ctx.console
         console.step(f"Checking if object exists")
-        if self._object_exists() and not replace:
+        object_exists = self._object_exists()
+
+        if object_exists and not replace:
             raise ClickException(
                 f"Streamlit {self.model.fqn.sql_identifier} already exists. Use 'replace' option to overwrite."
             )
 
-        if (
-            experimental
-            or GlobalFeatureFlag.ENABLE_STREAMLIT_VERSIONED_STAGE.is_enabled()
-        ):
-            self._deploy_experimental(bundle_map=bundle_map, replace=replace)
-        else:
-            console.step(f"Uploading artifacts to stage {self.model.stage}")
-
-            # We use a static method from StageManager here, but maybe this logic could be implemented elswhere, as we implement entities?
-            name = (
-                self.model.identifier.name
-                if isinstance(self.model.identifier, Identifier)
-                else self.model.identifier or self.entity_id
-            )
-            stage_root = StageManager.get_standard_stage_prefix(
-                f"{FQN.from_string(self.model.stage).using_connection(self._conn)}/{name}"
-            )
-            sync_deploy_root_with_stage(
-                console=self._workspace_ctx.console,
-                deploy_root=bundle_map.deploy_root(),
-                bundle_map=bundle_map,
-                prune=prune,
-                recursive=True,
-                stage_path_parts=StageManager().stage_path_parts_from_str(stage_root),
-                print_diff=True,
+        if legacy and self._is_spcs_runtime_v2_mode():
+            raise CliError(
+                "runtime_name and compute_pool are not compatible with --legacy flag. "
+                "Please remove the --legacy flag to use versioned deployment, or remove "
+                "runtime_name and compute_pool from your snowflake.yml to use legacy deployment."
             )
 
-            console.step(f"Creating Streamlit object {self.model.fqn.sql_identifier}")
-
-            self._execute_query(
-                self.get_deploy_sql(
-                    replace=replace,
-                    from_stage_name=stage_root,
-                    experimental=False,
+        # Warn if replacing with a different deployment style
+        if object_exists and replace:
+            existing_is_legacy = self._is_legacy_deployment()
+            if existing_is_legacy and not legacy:
+                console.warning(
+                    "Replacing legacy ROOT_LOCATION deployment with versioned deployment. "
+                    "Files from the old stage location will not be automatically migrated. "
+                    "The new deployment will use a separate versioned stage location."
                 )
-            )
+            elif not existing_is_legacy and legacy:
+                console.warning(
+                    "Deployment style is changing from versioned to legacy. "
+                    "Your existing files will remain in the versioned stage. "
+                    "If needed, manually copy any additional files to the legacy stage after deployment."
+                )
 
-            StreamlitManager(connection=self._conn).grant_privileges(self.model)
+        if legacy:
+            self._deploy_legacy(bundle_map=bundle_map, replace=replace, prune=prune)
+        else:
+            self._deploy_versioned(bundle_map=bundle_map, replace=replace, prune=prune)
 
         return self.perform(EntityActions.GET_URL, action_context, *args, **kwargs)
 
@@ -172,7 +161,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         artifacts_dir: Optional[Path] = None,
         schema: Optional[str] = None,
         database: Optional[str] = None,
-        experimental: bool = False,
+        legacy: bool = False,
         *args,
         **kwargs,
     ) -> str:
@@ -218,7 +207,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
 
         # SPCS runtime fields are only supported for FBE/versioned streamlits (FROM syntax)
         # Never add these fields for stage-based deployments (ROOT_LOCATION syntax)
-        if not from_stage_name and self._is_spcs_runtime_v2_mode(experimental):
+        if not from_stage_name and not legacy and self._is_spcs_runtime_v2_mode():
             query += f"\nRUNTIME_NAME = '{self.model.runtime_name}'"
             query += f"\nCOMPUTE_POOL = '{self.model.compute_pool}'"
 
@@ -249,14 +238,61 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         except ProgrammingError:
             return False
 
-    def _deploy_experimental(
+    def _is_legacy_deployment(self) -> bool:
+        """Check if the existing streamlit uses legacy ROOT_LOCATION deployment."""
+        try:
+            result = self.describe().fetchone()
+            # Versioned deployments have live_version_location_uri, legacy ones don't
+            return result.get("live_version_location_uri") is None
+        except (ProgrammingError, AttributeError, KeyError):
+            # If we can't determine, assume it doesn't exist or is inaccessible
+            return False
+
+    def _deploy_legacy(
+        self, bundle_map: BundleMap, replace: bool = False, prune: bool = False
+    ):
+        console = self._workspace_ctx.console
+        console.step(f"Uploading artifacts to stage {self.model.stage}")
+
+        # We use a static method from StageManager here, but maybe this logic could be implemented elswhere, as we implement entities?
+        name = (
+            self.model.identifier.name
+            if isinstance(self.model.identifier, Identifier)
+            else self.model.identifier or self.entity_id
+        )
+        stage_root = StageManager.get_standard_stage_prefix(
+            f"{FQN.from_string(self.model.stage).using_connection(self._conn)}/{name}"
+        )
+        sync_deploy_root_with_stage(
+            console=self._workspace_ctx.console,
+            deploy_root=bundle_map.deploy_root(),
+            bundle_map=bundle_map,
+            prune=prune,
+            recursive=True,
+            stage_path_parts=StageManager().stage_path_parts_from_str(stage_root),
+            print_diff=True,
+        )
+
+        console.step(f"Creating Streamlit object {self.model.fqn.sql_identifier}")
+
+        self._execute_query(
+            self.get_deploy_sql(
+                replace=replace,
+                from_stage_name=stage_root,
+                legacy=True,
+            )
+        )
+
+        StreamlitManager(connection=self._conn).grant_privileges(self.model)
+
+    def _deploy_versioned(
         self, bundle_map: BundleMap, replace: bool = False, prune: bool = False
     ):
         self._execute_query(
             self.get_deploy_sql(
                 if_not_exists=True,
                 replace=replace,
-                experimental=True,
+                legacy=False,
             )
         )
         try:

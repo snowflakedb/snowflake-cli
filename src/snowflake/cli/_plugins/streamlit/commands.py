@@ -127,9 +127,17 @@ def _default_file_callback(param_name: str):
     return _check_file_exists_if_not_default
 
 
+LegacyOption = typer.Option(
+    False,
+    "--legacy",
+    help="Use legacy ROOT_LOCATION SQL syntax.",
+    is_flag=True,
+)
+
+
 @app.command("deploy", requires_connection=True)
 @with_project_definition()
-@with_experimental_behaviour()
+@with_experimental_behaviour()  # Kept for backward compatibility
 def streamlit_deploy(
     replace: bool = ReplaceOption(
         help="Replaces the Streamlit app if it already exists. It only uploads new and overwrites existing files, "
@@ -138,16 +146,27 @@ def streamlit_deploy(
     prune: bool = PruneOption(),
     entity_id: str = entity_argument("streamlit"),
     open_: bool = OpenOption,
+    legacy: bool = LegacyOption,
     **options,
 ) -> CommandResult:
     """
     Deploys a Streamlit app defined in the project definition file (snowflake.yml). By default, the command uploads
-    environment.yml and any other pages or folders, if present. If you don’t specify a stage name, the `streamlit`
+    environment.yml and any other pages or folders, if present. If you don't specify a stage name, the `streamlit`
     stage is used. If the specified stage does not exist, the command creates it. If multiple Streamlits are defined
     in snowflake.yml and no entity_id is provided then command will raise an error.
     """
 
     cli_context = get_cli_context()
+    workspace_ctx = _get_current_workspace_context()
+
+    # Handle deprecated --experimental flag for backward compatibility
+    if options.get("experimental"):
+        workspace_ctx.console.warning(
+            "[Deprecation] The --experimental flag is deprecated. "
+            "Versioned deployment is now the default behavior. "
+            "This flag will be removed in a future version."
+        )
+
     pd = cli_context.project_definition
     if not pd.meets_version_requirement("2"):
         if not pd.streamlit:
@@ -163,7 +182,7 @@ def streamlit_deploy(
             project_definition=pd,
             entity_type=ObjectType.STREAMLIT.value.cli_name,
         ),
-        workspace_ctx=_get_current_workspace_context(),
+        workspace_ctx=workspace_ctx,
     )
 
     url = streamlit.perform(
@@ -173,7 +192,7 @@ def streamlit_deploy(
         ),
         _open=open_,
         replace=replace,
-        experimental=options.get("experimental"),
+        legacy=legacy,
         prune=prune,
     )
 

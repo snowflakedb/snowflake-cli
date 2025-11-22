@@ -1,0 +1,2 @@
+# Ensure snapshot files are treated as text with LF line endings and UTF-8 encoding
+*.ambr text eol=lf

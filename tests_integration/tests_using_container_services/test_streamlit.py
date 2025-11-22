@@ -36,7 +36,7 @@ def test_streamlit_spcs_runtime_v2_flow(
     with project_directory("streamlit_spcs_v2"):
         _streamlit_test_steps.list_streamlit_should_return_empty_list()
         result = _streamlit_test_steps.setup.runner.invoke_with_connection_json(
-            ["streamlit", "deploy", "--experimental", entity_name]
+            ["streamlit", "deploy", entity_name]
         )
         assert result.exit_code == 0, f"Deploy failed: {result.output}"
 
