@@ -39,7 +39,6 @@ from snowflake.cli.api.config_ng.constants import SNOWFLAKE_HOME_ENV
 from snowflake.cli.api.config_ng.core import SourceType, ValueSource
 from snowflake.cli.api.exceptions import (
     ConfigFileTooWidePermissionsError,
-    UnsupportedConfigSectionTypeError,
 )
 from snowflake.cli.api.secure_utils import file_permissions_are_strict
 from snowflake.cli.api.utils.types import try_cast_to_bool
@@ -911,7 +910,7 @@ def get_merged_variables(cli_variables: Optional[List[str]] = None) -> Dict[str,
     provider = get_config_provider_singleton()
     try:
         snowsql_vars = provider.get_section(SnowSQLSection.VARIABLES.value)
-    except UnsupportedConfigSectionTypeError as exc:
+    except Exception as exc:  # noqa: BLE001 - legacy providers can raise custom errors
         log.warning("Failed to load SnowSQL variables: %s", exc)
         snowsql_vars = {}
 
