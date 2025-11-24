@@ -33,40 +33,12 @@ from snowflake.cli.api.config_ng.core import (
     ResolutionHistory,
     SourceType,
 )
+from snowflake.cli.api.sanitizers import sanitize_source_error
 
 if TYPE_CHECKING:
     from snowflake.cli.api.config_ng.core import ValueSource
 
 log = logging.getLogger(__name__)
-
-
-def _sanitize_source_error(exc: Exception) -> str:
-    """
-    Produce a logging-safe description of discovery errors.
-
-    Keys and structural metadata (section/key/line) are preserved, but raw
-    values are never rendered so sensitive data cannot leak through logs.
-    """
-
-    safe_parts: List[str] = [exc.__class__.__name__]
-    attribute_labels = (
-        ("section", "section"),
-        ("option", "key"),
-        ("key", "key"),
-        ("lineno", "line"),
-        ("colno", "column"),
-        ("pos", "position"),
-    )
-
-    for attr_name, label in attribute_labels:
-        attr_value = getattr(exc, attr_name, None)
-        if attr_value:
-            safe_parts.append(f"{label}={attr_value}")
-
-    if len(safe_parts) == 1:
-        safe_parts.append("details_masked")
-
-    return ", ".join(safe_parts)
 
 
 class ResolutionHistoryTracker:
@@ -607,7 +579,7 @@ class ConfigurationResolver:
                         result[k] = v
 
             except Exception as exc:
-                sanitized_error = _sanitize_source_error(exc)
+                sanitized_error = sanitize_source_error(exc)
                 log.warning(
                     "Error from source %s: %s", source.source_name, sanitized_error
                 )
@@ -700,7 +672,7 @@ class ConfigurationResolver:
                     result = deep_merge(result, general_params)
 
             except Exception as exc:
-                sanitized_error = _sanitize_source_error(exc)
+                sanitized_error = sanitize_source_error(exc)
                 log.warning(
                     "Error from source %s: %s", source.source_name, sanitized_error
                 )
