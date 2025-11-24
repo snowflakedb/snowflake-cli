@@ -37,6 +37,7 @@ from snowflake.cli.api.exceptions import (
     MissingConfigurationError,
     UnsupportedConfigSectionTypeError,
 )
+from snowflake.cli.api.sanitizers import sanitize_source_error
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.secure_utils import (
     file_permissions_are_strict,
@@ -248,8 +249,10 @@ def _config_file():
         provider = get_config_provider_singleton()
         if hasattr(provider, "invalidate_cache"):
             provider.invalidate_cache()
-    except Exception:
-        pass
+    except Exception as exc:
+        sanitized_error = sanitize_source_error(exc)
+        log.error("Failed to invalidate configuration cache: %s", sanitized_error)
+        raise
 
 
 def _read_config_file():
