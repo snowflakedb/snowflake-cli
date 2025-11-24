@@ -433,3 +433,62 @@ account = "connections-account"
 
         with pytest.raises(ConfigFileTooWidePermissionsError):
             source.discover()
+
+
+class TestFileSourceCaching:
+    @pytest.mark.parametrize(
+        ("source_cls", "read_method", "sample_content", "key_to_check"),
+        [
+            (
+                SnowSQLConfigFile,
+                "_read_and_merge_files",
+                """
+[connections.default]
+accountname = cached_account
+""",
+                "connections.default.account",
+            ),
+            (
+                CliConfigFile,
+                "_read_first_file",
+                """
+[connections.default]
+account = "cli_account"
+""",
+                "connections.default.account",
+            ),
+        ],
+    )
+    def test_file_sources_cache_file_reads(
+        self, monkeypatch, source_cls, read_method, sample_content, key_to_check
+    ):
+        call_counter = {"count": 0}
+
+        def fake_reader(self):  # type: ignore[override]
+            call_counter["count"] += 1
+            return sample_content
+
+        monkeypatch.setattr(source_cls, read_method, fake_reader)
+
+        source = source_cls()
+        assert source.supports_key(key_to_check) is True
+        assert source.supports_key(key_to_check) is True
+        assert call_counter["count"] == 1
+
+    def test_connections_config_file_caches_parse(self, monkeypatch):
+        parse_calls = {"count": 0}
+
+        def fake_parse(content):
+            parse_calls["count"] += 1
+            return {"connections": {"shared": {"account": "shared_account"}}}
+
+        monkeypatch.setattr(
+            "snowflake.cli.api.config_ng.parsers.TOMLParser.parse",
+            staticmethod(fake_parse),
+        )
+
+        source = ConnectionsConfigFile(content="[connections.shared]\naccount = 'x'\n")
+
+        assert source.supports_key("connections.shared.account") is True
+        assert source.supports_key("connections.shared.account") is True
+        assert parse_calls["count"] == 1
