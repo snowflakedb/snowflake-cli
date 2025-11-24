@@ -33,7 +33,7 @@ import logging
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Final, List, Optional
+from typing import Any, Dict, Final, List, Optional, Tuple
 
 from snowflake.cli.api.config_ng.constants import SNOWFLAKE_HOME_ENV
 from snowflake.cli.api.config_ng.core import SourceType, ValueSource
@@ -43,6 +43,46 @@ from snowflake.cli.api.utils.types import try_cast_to_bool
 from snowflake.connector.compat import IS_WINDOWS
 
 log = logging.getLogger(__name__)
+
+
+def _slice_nested_dict(
+    data: Dict[str, Any], dotted_key: Optional[str]
+) -> Dict[str, Any]:
+    """
+    Return subtree for dotted_key or full data if key not provided.
+    """
+
+    if not dotted_key:
+        return data
+
+    parts = dotted_key.split(".")
+    current: Any = data
+    for part in parts:
+        if not isinstance(current, dict) or part not in current:
+            return {}
+        current = current[part]
+
+    subtree: Any = current
+    for part in reversed(parts):
+        subtree = {part: subtree}
+    return subtree
+
+
+def _has_nested_key(data: Dict[str, Any], dotted_key: str) -> bool:
+    """Check if dotted_key exists inside nested dict."""
+
+    current: Any = data
+    for part in dotted_key.split("."):
+        if not isinstance(current, dict) or part not in current:
+            return False
+        current = current[part]
+    return True
+
+
+NestedConfigData = Dict[str, Any]
+CachedConfigValues = Optional[NestedConfigData]
+FileSignature = Tuple[str, Optional[float], Optional[int]]
+CachedSignature = Optional[Tuple[FileSignature, ...]]
 
 
 def _ensure_strict_file_permissions(config_file: Path) -> None:
@@ -103,6 +143,8 @@ class SnowSQLConfigFile(ValueSource):
         """
         self._content = content
         self._config_paths = config_paths or self._get_default_paths()
+        self._cache: CachedConfigValues = None
+        self._cache_signature: CachedSignature = None
 
     @staticmethod
     def _get_default_paths() -> List[Path]:
@@ -142,24 +184,46 @@ class SnowSQLConfigFile(ValueSource):
     def source_type(self) -> SourceType:
         return SourceType.FILE
 
-    def discover(self, key: Optional[str] = None) -> Dict[str, Any]:
+    def _current_signature(self) -> Tuple[FileSignature, ...]:
+        """Return tuple describing current config files."""
+
+        signature: List[FileSignature] = []
+        for config_path in self._config_paths:
+            try:
+                stat_result = config_path.stat()
+            except OSError:
+                signature.append((config_path.as_posix(), None, None))
+                continue
+            signature.append(
+                (config_path.as_posix(), stat_result.st_mtime, stat_result.st_size)
+            )
+        return tuple(signature)
+
+    def _load_data(self) -> NestedConfigData:
         """
-        Two-phase discovery: acquire content → parse.
-
-        Phase 1: Get content (from string or by reading and merging files)
-        Phase 2: Parse content using SnowSQLParser
-
-        Returns:
-            Nested dict structure: {"connections": {...}, "variables": {...}}
+        Load and cache SnowSQL configuration data.
         """
         from snowflake.cli.api.config_ng.parsers import SnowSQLParser
 
         if self._content is not None:
-            content = self._content
-        else:
-            content = self._read_and_merge_files()
+            if self._cache is None:
+                self._cache = SnowSQLParser.parse(self._content)
+            return self._cache
 
-        return SnowSQLParser.parse(content)
+        signature = self._current_signature()
+        if self._cache is not None and self._cache_signature == signature:
+            return self._cache
+
+        content = self._read_and_merge_files()
+        self._cache = SnowSQLParser.parse(content)
+        self._cache_signature = signature
+        return self._cache
+
+    def discover(self, key: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Discover configuration values, optionally scoped to a dotted key.
+        """
+        return _slice_nested_dict(self._load_data(), key)
 
     def _read_and_merge_files(self) -> str:
         """
@@ -185,7 +249,7 @@ class SnowSQLConfigFile(ValueSource):
         return output.getvalue()
 
     def supports_key(self, key: str) -> bool:
-        return key in self.discover()
+        return _has_nested_key(self._load_data(), key)
 
 
 class CliConfigFile(ValueSource):
@@ -216,6 +280,8 @@ class CliConfigFile(ValueSource):
         """
         self._content = content
         self._search_paths = search_paths or self._get_default_paths()
+        self._cache: CachedConfigValues = None
+        self._cache_signature: CachedSignature = None
 
     @staticmethod
     def _get_default_paths() -> List[Path]:
@@ -262,27 +328,51 @@ class CliConfigFile(ValueSource):
     def source_type(self) -> SourceType:
         return SourceType.FILE
 
-    def discover(self, key: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Two-phase discovery: acquire content → parse.
+    def _current_signature(self) -> Tuple[FileSignature, ...]:
+        """Return tuple describing search path state."""
 
-        Phase 1: Get content (from string or by reading first existing file)
-        Phase 2: Parse content using TOMLParser
+        signature: List[FileSignature] = []
+        for config_path in self._search_paths:
+            try:
+                stat_result = config_path.stat()
+            except OSError:
+                signature.append((config_path.as_posix(), None, None))
+                continue
+            signature.append(
+                (config_path.as_posix(), stat_result.st_mtime, stat_result.st_size)
+            )
+        return tuple(signature)
 
-        Returns:
-            Nested dict structure with all TOML sections preserved
-        """
+    def _load_data(self) -> NestedConfigData:
+        """Load and cache CLI config TOML data."""
+
         from snowflake.cli.api.config_ng.parsers import TOMLParser
 
         if self._content is not None:
-            content = self._content
-        else:
-            content = self._read_first_file()
+            if self._cache is None:
+                if self._content:
+                    self._cache = TOMLParser.parse(self._content)
+                else:
+                    self._cache = {}
+            return self._cache
 
+        signature = self._current_signature()
+        if self._cache is not None and self._cache_signature == signature:
+            return self._cache
+
+        content = self._read_first_file()
         if not content:
-            return {}
+            self._cache = {}
+        else:
+            self._cache = TOMLParser.parse(content)
+        self._cache_signature = signature
+        return self._cache
 
-        return TOMLParser.parse(content)
+    def discover(self, key: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Discover configuration values, optionally scoped to a dotted key.
+        """
+        return _slice_nested_dict(self._load_data(), key)
 
     def _read_first_file(self) -> str:
         """
@@ -302,7 +392,7 @@ class CliConfigFile(ValueSource):
         return ""
 
     def supports_key(self, key: str) -> bool:
-        return key in self.discover()
+        return _has_nested_key(self._load_data(), key)
 
 
 class ConnectionsConfigFile(ValueSource):
@@ -338,6 +428,8 @@ class ConnectionsConfigFile(ValueSource):
         """
         self._content = content
         self._file_path = file_path or self._get_default_path()
+        self._cache: CachedConfigValues = None
+        self._cache_signature: CachedSignature = None
 
     @staticmethod
     def _get_default_path() -> Path:
@@ -381,7 +473,7 @@ class ConnectionsConfigFile(ValueSource):
         This is used by the resolver to implement replacement behavior.
         """
         try:
-            data = self.discover()
+            data = self._load_data()
             connections_section = data.get("connections", {})
             if isinstance(connections_section, dict):
                 return set(connections_section.keys())
@@ -390,38 +482,69 @@ class ConnectionsConfigFile(ValueSource):
             log.debug("Failed to get defined connections: %s", e)
             return set()
 
-    def discover(self, key: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Three-phase discovery: acquire content → parse → normalize.
-
-        Phase 1: Get content (from string or file)
-        Phase 2: Parse TOML (generic parser)
-        Phase 3: Normalize legacy format (connections.toml specific)
-
-        Returns:
-            Nested dict structure: {"connections": {"conn_name": {...}}}
-        """
-        from snowflake.cli.api.config_ng.parsers import TOMLParser
-
-        if self._content is not None:
-            content = self._content
-        else:
-            if not self._file_path.exists():
-                return {}
-            _ensure_strict_file_permissions(self._file_path)
-            try:
-                content = self._file_path.read_text()
-            except Exception as e:
-                log.debug("Failed to read connections.toml: %s", e)
-                return {}
+    def _current_signature(self) -> Tuple[FileSignature, ...]:
+        """Return tuple describing the connections file state."""
 
         try:
-            data = TOMLParser.parse(content)
-        except Exception as e:
-            log.debug("Failed to parse connections.toml: %s", e)
-            return {}
+            stat_result = self._file_path.stat()
+        except OSError:
+            return ((self._file_path.as_posix(), None, None),)
+        return (
+            (
+                self._file_path.as_posix(),
+                stat_result.st_mtime,
+                stat_result.st_size,
+            ),
+        )
 
-        return self._normalize_connections_format(data)
+    def _load_data(self) -> NestedConfigData:
+        """Load and cache connections TOML data (normalized)."""
+
+        from snowflake.cli.api.config_ng.parsers import TOMLParser
+
+        def _normalize_content(content: str) -> Dict[str, Any]:
+            try:
+                if not content:
+                    parsed: Dict[str, Any] = {}
+                else:
+                    parsed = TOMLParser.parse(content)
+            except Exception as exc:
+                log.debug("Failed to parse connections.toml: %s", exc)
+                return {}
+            return self._normalize_connections_format(parsed)
+
+        if self._content is not None:
+            if self._cache is None:
+                self._cache = _normalize_content(self._content)
+            return self._cache
+
+        signature = self._current_signature()
+        if self._cache is not None and self._cache_signature == signature:
+            return self._cache
+
+        if not self._file_path.exists():
+            self._cache = {}
+            self._cache_signature = signature
+            return self._cache
+
+        _ensure_strict_file_permissions(self._file_path)
+        try:
+            content = self._file_path.read_text()
+        except Exception as exc:
+            log.debug("Failed to read connections.toml: %s", exc)
+            self._cache = {}
+            self._cache_signature = signature
+            return self._cache
+
+        self._cache = _normalize_content(content)
+        self._cache_signature = signature
+        return self._cache
+
+    def discover(self, key: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Discover configuration values, optionally scoped to a dotted key.
+        """
+        return _slice_nested_dict(self._load_data(), key)
 
     @staticmethod
     def _normalize_connections_format(data: Dict[str, Any]) -> Dict[str, Any]:
@@ -455,7 +578,7 @@ class ConnectionsConfigFile(ValueSource):
         return result
 
     def supports_key(self, key: str) -> bool:
-        return key in self.discover()
+        return _has_nested_key(self._load_data(), key)
 
 
 class SnowSQLEnvironment(ValueSource):
