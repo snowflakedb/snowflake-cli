@@ -14,17 +14,22 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import threading
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, Final, Optional
 
+from snowflake.cli.api.sanitizers import sanitize_source_error
+
 if TYPE_CHECKING:
     from snowflake.cli.api.config_ng.resolver import ConfigurationResolver
     from snowflake.cli.api.config_ng.source_manager import SourceManager
 
 ALTERNATIVE_CONFIG_ENV_VAR: Final[str] = "SNOWFLAKE_CLI_CONFIG_V2_ENABLED"
+
+log = logging.getLogger(__name__)
 
 
 class ConfigProvider(ABC):
@@ -196,8 +201,12 @@ class AlternativeConfigProvider(ConfigProvider):
                 self._config_cache.clear()
                 self._last_config_override = current_override
                 override_changed = True
-        except Exception:
-            pass
+        except Exception as exc:
+            sanitized_error = sanitize_source_error(exc)
+            log.warning(
+                "Failed to inspect CLI config override; continuing with cached value: %s",
+                sanitized_error,
+            )
 
         if override_changed and self._owns_source_manager:
             # Discard cached sources so that new config override can take effect
@@ -502,9 +511,13 @@ class AlternativeConfigProvider(ConfigProvider):
                     if key == "connections":
                         continue
                     file_data[key] = value
-            except Exception:
-                # Silently skip sources that fail to discover
-                pass
+            except Exception as exc:
+                sanitized_error = sanitize_source_error(exc)
+                log.warning(
+                    "Skipping config source %s due to discovery error: %s",
+                    source.source_name,
+                    sanitized_error,
+                )
 
         general_params, remaining_config = extract_root_level_connection_params(
             file_data
