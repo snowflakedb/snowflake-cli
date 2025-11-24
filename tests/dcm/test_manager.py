@@ -60,6 +60,23 @@ def test_execute_project(mock_execute_query):
 
 
 @mock.patch(execute_queries)
+def test_execute_project_with_skip_plan(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.execute(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        variables=["key=value", "aaa=bbb"],
+        configuration="some_configuration",
+        skip_plan=True,
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION some_configuration"
+        " (key=>value, aaa=>bbb) FROM @test_stage SKIP PLAN"
+    )
+
+
+@mock.patch(execute_queries)
 def test_execute_project_with_from_stage(mock_execute_query):
     mgr = DCMProjectManager()
     mgr.execute(
