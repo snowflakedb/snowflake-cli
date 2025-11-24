@@ -62,7 +62,9 @@ class DCMProjectManager(SqlExecutionMixin):
                 ObjectType.DCM_PROJECT, project_identifier, "OUTPUT_TMP_STAGE"
             )
             stage_manager.create(temp_stage_fqn, temporary=True)
-            effective_output_path = StagePath.from_stage_str(temp_stage_fqn.identifier)
+            effective_output_path = StagePath.from_stage_str(
+                temp_stage_fqn.identifier
+            ).joinpath("/outputs")
             temp_stage_for_local_output = (temp_stage_fqn.identifier, Path(output_path))
         else:
             effective_output_path = StagePath.from_stage_str(output_path)
@@ -73,7 +75,10 @@ class DCMProjectManager(SqlExecutionMixin):
             if should_download_files:
                 assert temp_stage_for_local_output is not None
                 stage_path, local_path = temp_stage_for_local_output
-                stage_manager.get_recursive(stage_path=stage_path, dest_path=local_path)
+                stage_manager.get_recursive(
+                    stage_path=effective_output_path.absolute_path(),
+                    dest_path=local_path,
+                )
                 cli_console.step(f"Plan output saved to: {local_path.resolve()}")
             else:
                 cli_console.step(f"Plan output saved to: {output_path}")
@@ -87,6 +92,7 @@ class DCMProjectManager(SqlExecutionMixin):
         dry_run: bool = False,
         alias: str | None = None,
         output_path: str | None = None,
+        skip_plan: bool = False,
     ):
         query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier}"
         if dry_run:
@@ -105,6 +111,8 @@ class DCMProjectManager(SqlExecutionMixin):
             ).removeprefix(" using")
         stage_path = StagePath.from_stage_str(from_stage)
         query += f" FROM {stage_path.absolute_path()}"
+        if skip_plan:
+            query += f" SKIP PLAN"
 
         with self._collect_output(project_identifier, output_path) if (
             output_path and dry_run
@@ -168,7 +176,9 @@ class DCMProjectManager(SqlExecutionMixin):
 
             definitions = list(dcm_manifest.get("include_definitions", list()))
             if MANIFEST_FILE_NAME not in definitions:
-                definitions.append(MANIFEST_FILE_NAME)
+                # append manifest file, but avoid sending it multiple times if
+                # there are manifests from previous runs stored in output path
+                definitions.append(rf"^{MANIFEST_FILE_NAME}")
 
         with cli_console.phase(f"Uploading definition files"):
             stage_fqn = FQN.from_resource(

@@ -60,6 +60,23 @@ def test_execute_project(mock_execute_query):
 
 
 @mock.patch(execute_queries)
+def test_execute_project_with_skip_plan(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.execute(
+        project_identifier=TEST_PROJECT,
+        from_stage="@test_stage",
+        variables=["key=value", "aaa=bbb"],
+        configuration="some_configuration",
+        skip_plan=True,
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY USING CONFIGURATION some_configuration"
+        " (key=>value, aaa=>bbb) FROM @test_stage SKIP PLAN"
+    )
+
+
+@mock.patch(execute_queries)
 def test_execute_project_with_from_stage(mock_execute_query):
     mgr = DCMProjectManager()
     mgr.execute(
@@ -196,11 +213,12 @@ def test_plan_project_with_output_path__local_path(
 
     temp_stage_fqn = mock_from_resource()
     mock_execute_query.assert_called_once_with(
-        query=f"EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration FROM @test_stage OUTPUT_PATH @{temp_stage_fqn}"
+        query=f"EXECUTE DCM PROJECT IDENTIFIER('my_project') PLAN USING CONFIGURATION some_configuration FROM @test_stage OUTPUT_PATH @{temp_stage_fqn}/outputs"
     )
     mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
     mock_get_recursive.assert_called_once_with(
-        stage_path=str(temp_stage_fqn), dest_path=Path("output_path/results")
+        stage_path=f"@{str(temp_stage_fqn)}/outputs",
+        dest_path=Path("output_path/results"),
     )
 
 
@@ -232,7 +250,8 @@ def test_plan_project_with_output_path__exception_handling(
     mock_execute_query.assert_called_once()
     mock_create.assert_called_once_with(temp_stage_fqn, temporary=True)
     mock_get_recursive.assert_called_once_with(
-        stage_path=str(temp_stage_fqn), dest_path=Path("output_path/results")
+        stage_path=f"@{str(temp_stage_fqn)}/outputs",
+        dest_path=Path("output_path/results"),
     )
 
 
@@ -339,7 +358,7 @@ class TestSyncLocalFiles:
             assert call_args.kwargs["stage_root"] == str(mock_from_resource())
             assert call_args.kwargs["artifacts"] == [
                 PathMapping(src="definitions/my_query.sql"),
-                PathMapping(src="manifest.yml", dest=None, processors=[]),
+                PathMapping(src="^manifest.yml", dest=None, processors=[]),
             ]
             assert call_args.kwargs["pattern_type"] == PatternMatchingType.REGEX
             assert call_args.kwargs["use_temporary_stage"] is True
