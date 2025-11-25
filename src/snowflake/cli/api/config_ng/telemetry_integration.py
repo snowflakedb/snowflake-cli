@@ -54,7 +54,7 @@ def record_config_source_usage(resolver: ConfigurationResolver) -> None:
         from snowflake.cli.api.metrics import CLICounterField
 
         cli_context = get_cli_context()
-        summary = resolver.get_tracker().get_summary()
+        summary = resolver.get_resolution_summary()
 
         source_wins = summary.get("source_wins", {})
 
@@ -84,7 +84,11 @@ def get_config_telemetry_payload(
         return {}
 
     try:
-        summary = resolver.get_tracker().get_summary()
+        if hasattr(resolver, "get_resolution_summary"):
+            summary = resolver.get_resolution_summary()
+        else:
+            tracker = resolver.get_tracker()
+            summary = tracker.get_summary()
 
         return {
             "config_sources_used": list(summary.get("source_usage", {}).keys()),

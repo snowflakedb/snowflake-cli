@@ -275,3 +275,14 @@ class ResolutionHistory:
                 for entry in self.entries
             ],
         }
+
+
+@dataclass(frozen=True)
+class SourceDiagnostic:
+    """
+    Diagnostic message emitted while discovering configuration sources.
+    """
+
+    source_name: str
+    level: Literal["info", "warning", "error"]
+    message: str
