@@ -354,14 +354,17 @@ class TestIntegrationWithRealConfig:
 class TestConfigurationExplanationResults:
     """Tests for get_configuration_explanation_results helper."""
 
-    @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
     @mock.patch("snowflake.cli.api.config_ng.resolution_logger.ResolutionPresenter")
     @mock.patch("snowflake.cli.api.config_ng.resolution_logger.get_resolver")
     @mock.patch(
         "snowflake.cli.api.config_ng.resolution_logger.get_config_provider_singleton"
     )
     def test_includes_diagnostics_message_non_verbose(
-        self, mock_provider, mock_get_resolver, mock_presenter_cls
+        self,
+        mock_provider,
+        mock_get_resolver,
+        mock_presenter_cls,
+        windows_home_env,
     ):
         from snowflake.cli.api.output.types import (
             CollectionResult,
@@ -377,19 +380,24 @@ class TestConfigurationExplanationResults:
         table_result = CollectionResult([])
         presenter.build_sources_table.return_value = table_result
 
-        result = get_configuration_explanation_results(verbose=False)
+        env_vars = {ALTERNATIVE_CONFIG_ENV_VAR: "1", **windows_home_env}
+        with mock.patch.dict(os.environ, env_vars, clear=True):
+            result = get_configuration_explanation_results(verbose=False)
         assert isinstance(result, MultipleResults)
         outputs = list(result.result)
         assert outputs == [diag_message, table_result]
 
-    @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
     @mock.patch("snowflake.cli.api.config_ng.resolution_logger.ResolutionPresenter")
     @mock.patch("snowflake.cli.api.config_ng.resolution_logger.get_resolver")
     @mock.patch(
         "snowflake.cli.api.config_ng.resolution_logger.get_config_provider_singleton"
     )
     def test_includes_diagnostics_message_verbose(
-        self, mock_provider, mock_get_resolver, mock_presenter_cls
+        self,
+        mock_provider,
+        mock_get_resolver,
+        mock_presenter_cls,
+        windows_home_env,
     ):
         from snowflake.cli.api.output.types import (
             CollectionResult,
@@ -408,7 +416,9 @@ class TestConfigurationExplanationResults:
         presenter.build_sources_table.return_value = table_result
         presenter.format_history_message.return_value = history_message
 
-        result = get_configuration_explanation_results(verbose=True)
+        env_vars = {ALTERNATIVE_CONFIG_ENV_VAR: "1", **windows_home_env}
+        with mock.patch.dict(os.environ, env_vars, clear=True):
+            result = get_configuration_explanation_results(verbose=True)
         assert isinstance(result, MultipleResults)
         outputs = list(result.result)
         assert outputs == [diag_message, table_result, history_message]
