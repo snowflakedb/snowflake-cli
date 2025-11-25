@@ -20,6 +20,7 @@ Provides fixtures for setting up temporary configuration environments.
 
 import copy
 import os
+import os.path
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
@@ -58,6 +59,36 @@ def _temp_environment(env_vars: Dict[str, str]):
     finally:
         os.environ.clear()
         os.environ.update(original_env)
+
+
+@pytest.fixture
+def windows_home_env(tmp_path) -> Dict[str, str]:
+    """
+    Provide temporary Windows-specific home environment variables when needed.
+
+    Returns an empty dict on non-Windows platforms to avoid polluting tests.
+    """
+
+    if not IS_WINDOWS:
+        return {}
+
+    home_dir = tmp_path / "win_home"
+    home_dir.mkdir()
+
+    snowflake_home = home_dir / ".snowflake"
+    snowflake_home.mkdir()
+
+    resolved_home = home_dir.resolve()
+    drive, tail = os.path.splitdrive(str(resolved_home))
+    homedrive = drive or os.environ.get("HOMEDRIVE", "C:")
+    homepath = tail or os.environ.get("HOMEPATH", "\\")
+
+    return {
+        "SNOWFLAKE_HOME": str(snowflake_home),
+        "USERPROFILE": str(resolved_home),
+        "HOMEDRIVE": homedrive,
+        "HOMEPATH": homepath,
+    }
 
 
 @pytest.fixture
