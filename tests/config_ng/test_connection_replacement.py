@@ -408,6 +408,9 @@ def test_resolution_history_shows_replacement(config_ng_setup):
         resolver = get_resolver()
         assert resolver is not None
 
+        if resolver.ensure_history_tracking():
+            resolver.resolve()
+
         # account: both sources provide, cli_config wins
         account_history = resolver.get_resolution_history("connections.test.account")
         assert account_history is not None

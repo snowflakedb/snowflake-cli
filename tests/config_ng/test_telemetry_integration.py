@@ -150,7 +150,7 @@ class TestGetConfigTelemetryPayload:
     def test_handles_resolver_errors_gracefully(self):
         """Test that function handles resolver errors gracefully."""
         mock_resolver = MagicMock()
-        mock_resolver.get_tracker.side_effect = Exception("Tracker error")
+        mock_resolver.get_resolution_summary.side_effect = Exception("Summary error")
 
         result = get_config_telemetry_payload(mock_resolver)
         assert result == {}

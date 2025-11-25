@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, Dict, Final, List, Optional, Tuple
 
 from snowflake.cli.api.config_ng.constants import SNOWFLAKE_HOME_ENV
-from snowflake.cli.api.config_ng.core import SourceType, ValueSource
+from snowflake.cli.api.config_ng.core import SourceDiagnostic, SourceType, ValueSource
 from snowflake.cli.api.exceptions import (
     ConfigFileTooWidePermissionsError,
 )
@@ -147,6 +147,8 @@ class SnowSQLConfigFile(ValueSource):
         self._config_paths = config_paths or self._get_default_paths()
         self._cache: CachedConfigValues = None
         self._cache_signature: CachedSignature = None
+        self._diagnostics: List[SourceDiagnostic] = []
+        self._last_diagnostics: List[SourceDiagnostic] = []
 
     @staticmethod
     def _get_default_paths() -> List[Path]:
@@ -237,12 +239,26 @@ class SnowSQLConfigFile(ValueSource):
         merged_config = configparser.ConfigParser()
 
         for config_file in self._config_paths:
-            if config_file.exists():
+            if not config_file.exists():
+                self._record_diagnostic(
+                    "info", f"{config_file} not found; skipping SnowSQL location"
+                )
+                continue
+
+            try:
                 _ensure_strict_file_permissions(config_file)
-                try:
-                    merged_config.read(config_file)
-                except Exception as e:
-                    log.debug("Failed to read SnowSQL config %s: %s", config_file, e)
+            except ConfigFileTooWidePermissionsError as exc:
+                message = f"{config_file} skipped: {exc}"
+                log.warning(message)
+                self._record_diagnostic("warning", message)
+                continue
+
+            try:
+                merged_config.read(config_file)
+                self._record_diagnostic("info", f"{config_file} loaded")
+            except Exception as e:
+                log.debug("Failed to read SnowSQL config %s: %s", config_file, e)
+                self._record_diagnostic("warning", f"{config_file} failed to load: {e}")
 
         from io import StringIO
 
@@ -252,6 +268,17 @@ class SnowSQLConfigFile(ValueSource):
 
     def supports_key(self, key: str) -> bool:
         return _has_nested_key(self._load_data(), key)
+
+    def consume_diagnostics(self) -> List[SourceDiagnostic]:
+        diagnostics = self._diagnostics or self._last_diagnostics
+        self._diagnostics = []
+        self._last_diagnostics = diagnostics.copy()
+        return diagnostics
+
+    def _record_diagnostic(self, level: str, message: str) -> None:
+        self._diagnostics.append(
+            SourceDiagnostic(source_name=self.source_name, level=level, message=message)
+        )
 
 
 class CliConfigFile(ValueSource):
