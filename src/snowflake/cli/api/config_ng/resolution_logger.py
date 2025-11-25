@@ -255,6 +255,9 @@ def check_value_source(key: str) -> Optional[str]:
     if resolver is None:
         return None
 
+    if resolver.ensure_history_tracking():
+        resolver.resolve()
+
     history = resolver.get_resolution_history(key)
     if history and history.selected_entry:
         return history.selected_entry.config_value.source_name
@@ -321,8 +324,10 @@ def get_configuration_explanation_results(
 
     Returns:
         - CollectionResult for the table (always)
-        - If verbose is True, MultipleResults with the table and a MessageResult
-          containing the masked resolution history (for the key or all keys)
+        - Optional MessageResult describing source diagnostics
+        - If verbose is True, MultipleResults with diagnostics (when present),
+          the table, and a MessageResult containing the masked resolution history
+          (for the key or all keys)
     """
     from snowflake.cli.api.config_provider import get_config_provider_singleton
 
@@ -337,9 +342,14 @@ def get_configuration_explanation_results(
         )
 
     presenter = ResolutionPresenter(resolver)
+    diagnostics_message = presenter.build_source_diagnostics_message()
     table_result: CollectionResult = presenter.build_sources_table(key)
     if not verbose:
+        if diagnostics_message:
+            return MultipleResults([diagnostics_message, table_result])
         return table_result
 
     history_message: MessageResult = presenter.format_history_message(key)
-    return MultipleResults([table_result, history_message])
+    results = [diagnostics_message, table_result, history_message]
+    filtered_results = [result for result in results if result is not None]
+    return MultipleResults(filtered_results)

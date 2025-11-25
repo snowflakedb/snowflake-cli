@@ -389,7 +389,7 @@ class TestSourceProperties:
 
 @pytest.mark.skipif(IS_WINDOWS, reason="Permission checks disabled on Windows")
 class TestFilePermissionValidation:
-    def test_snowsql_config_raises_on_insecure_file(self, tmp_path):
+    def test_snowsql_config_skips_insecure_file(self, tmp_path):
         config_path = tmp_path / "snowsql.cnf"
         config_path.write_text(
             """
@@ -401,8 +401,10 @@ accountname = test_account
 
         source = SnowSQLConfigFile(config_paths=[config_path])
 
-        with pytest.raises(ConfigFileTooWidePermissionsError):
-            source.discover()
+        assert source.discover() == {}
+        diagnostics = source.consume_diagnostics()
+        assert diagnostics
+        assert any("skipped" in diag.message for diag in diagnostics)
 
     def test_cli_config_raises_on_insecure_file(self, tmp_path):
         config_path = tmp_path / "config.toml"
