@@ -111,6 +111,22 @@ def test_environment_variables_works_if_config_value_not_present(test_snowcli_co
     }
 
 
+def test_legacy_pkce_key_is_normalized(config_file):
+    config_content = """
+[connections.test]
+account = "legacy"
+oatuh_enable_pkce = true
+"""
+    with config_file(config_content) as cfg:
+        config_init(cfg)
+
+        conn = get_connection_dict("test")
+
+        assert conn["account"] == "legacy"
+        assert conn["oauth_enable_pkce"] is True
+        assert "oatuh_enable_pkce" not in conn
+
+
 @mock.patch.dict(
     os.environ,
     {
@@ -394,6 +410,8 @@ def test_connections_toml_override_config_toml(
     )
     config_init(test_snowcli_config)
 
+    # Both legacy and config_ng: Only connections from connections.toml are present
+    # connections.toml REPLACES config.toml connections (not merge)
     assert get_default_connection_dict() == {"database": "overridden_database"}
     assert config_manager["connections"] == {
         "default": {"database": "overridden_database"}

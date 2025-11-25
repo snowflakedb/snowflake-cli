@@ -62,6 +62,7 @@ from snowflake.cli.api.config import (
     set_config_value,
     unset_config_value,
 )
+from snowflake.cli.api.config_ng.masking import mask_sensitive_value
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.output.types import (
@@ -85,25 +86,45 @@ class EmptyInput:
         return "optional"
 
 
-def _mask_sensitive_parameters(connection_params: dict):
-    if "password" in connection_params:
-        connection_params["password"] = "****"
-    if "oauth_client_secret" in connection_params:
-        connection_params["oauth_client_secret"] = "****"
-    return connection_params
+def mask_sensitive_parameters(connection_params: dict):
+    return {
+        key: mask_sensitive_value(key, value)
+        for key, value in connection_params.items()
+    }
 
 
 @app.command(name="list")
-def list_connections(**options) -> CommandResult:
+def list_connections(
+    all_sources: bool = typer.Option(
+        False,
+        "--all",
+        "-a",
+        help="Include connections from all sources (environment variables, SnowSQL config). "
+        "By default, only shows connections from configuration files.",
+    ),
+    **options,
+) -> CommandResult:
     """
     Lists configured connections.
     """
-    connections = get_all_connections()
+    from snowflake.cli.api.config_provider import (
+        get_config_provider_singleton,
+        is_alternative_config_enabled,
+    )
+
+    # Use provider directly for config_ng to pass the flag
+    if is_alternative_config_enabled():
+        provider = get_config_provider_singleton()
+        connections = provider.get_all_connections(include_env_connections=all_sources)
+    else:
+        # Legacy provider ignores the flag
+        connections = get_all_connections()
+
     default_connection = get_default_connection_name()
     result = (
         {
             "connection_name": connection_name,
-            "parameters": _mask_sensitive_parameters(
+            "parameters": mask_sensitive_parameters(
                 connection_config.to_dict_of_known_non_empty_values()
             ),
             "is_default": connection_name == default_connection,

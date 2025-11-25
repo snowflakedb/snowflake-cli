@@ -20,7 +20,15 @@ import warnings
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import (
+    Any,
+    Dict,
+    Final,
+    List,
+    Literal,
+    Optional,
+    Union,
+)
 
 import tomlkit
 from click import ClickException
@@ -29,6 +37,7 @@ from snowflake.cli.api.exceptions import (
     MissingConfigurationError,
     UnsupportedConfigSectionTypeError,
 )
+from snowflake.cli.api.sanitizers import sanitize_source_error
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.secure_utils import (
     file_permissions_are_strict,
@@ -84,6 +93,12 @@ PLUGIN_ENABLED_KEY = "enabled"
 FEATURE_FLAGS_SECTION_PATH = [CLI_SECTION, "features"]
 
 
+LEGACY_OAUTH_PKCE_KEY: Literal["oatuh_enable_pkce"] = "oatuh_enable_pkce"
+LEGACY_CONNECTION_SETTING_ALIASES: Final[dict[str, str]] = {
+    LEGACY_OAUTH_PKCE_KEY: "oauth_enable_pkce",
+}
+
+
 @dataclass
 class ConnectionConfig:
     account: Optional[str] = None
@@ -99,6 +114,11 @@ class ConnectionConfig:
     authenticator: Optional[str] = None
     workload_identity_provider: Optional[str] = None
     private_key_file: Optional[str] = None
+    private_key_raw: Optional[str] = field(default=None, repr=False)
+    private_key_passphrase: Optional[str] = field(default=None, repr=False)
+    token: Optional[str] = field(default=None, repr=False)
+    session_token: Optional[str] = field(default=None, repr=False)
+    master_token: Optional[str] = field(default=None, repr=False)
     token_file_path: Optional[str] = None
     oauth_client_id: Optional[str] = None
     oauth_client_secret: Optional[str] = None
@@ -106,7 +126,7 @@ class ConnectionConfig:
     oauth_token_request_url: Optional[str] = None
     oauth_redirect_uri: Optional[str] = None
     oauth_scope: Optional[str] = None
-    oatuh_enable_pkce: Optional[bool] = None
+    oauth_enable_pkce: Optional[bool] = None
     oauth_enable_refresh_tokens: Optional[bool] = None
     oauth_enable_single_use_refresh_tokens: Optional[bool] = None
     client_store_temporary_credential: Optional[bool] = None
@@ -118,11 +138,16 @@ class ConnectionConfig:
         known_settings = {}
         other_settings = {}
         for key, value in config_dict.items():
-            if key in cls.__dict__:
-                known_settings[key] = value
+            normalized_key = cls._normalize_setting_key(key)
+            if normalized_key in cls.__dict__:
+                known_settings[normalized_key] = value
             else:
                 other_settings[key] = value
         return cls(**known_settings, _other_settings=other_settings)
+
+    @staticmethod
+    def _normalize_setting_key(key: str) -> str:
+        return LEGACY_CONNECTION_SETTING_ALIASES.get(key, key)
 
     def to_dict_of_known_non_empty_values(self) -> dict:
         return {
@@ -217,6 +242,18 @@ def _config_file():
     yield conf_file_cache
     _dump_config(conf_file_cache)
 
+    # Reset config provider cache after writing to ensure it re-reads on next access
+    try:
+        from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+        provider = get_config_provider_singleton()
+        if hasattr(provider, "invalidate_cache"):
+            provider.invalidate_cache()
+    except Exception as exc:
+        sanitized_error = sanitize_source_error(exc)
+        log.error("Failed to invalidate configuration cache: %s", sanitized_error)
+        raise
+
 
 def _read_config_file():
     config_manager = get_config_manager()
@@ -308,19 +345,19 @@ def config_section_exists(*path) -> bool:
 
 
 def get_all_connections() -> dict[str, ConnectionConfig]:
-    return {
-        k: ConnectionConfig.from_dict(connection_dict)
-        for k, connection_dict in get_config_section("connections").items()
-    }
+    from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+    provider = get_config_provider_singleton()
+    return provider.get_all_connections()
 
 
 def get_connection_dict(connection_name: str) -> dict:
-    try:
-        return get_config_section(CONNECTIONS_SECTION, connection_name)
-    except KeyError:
-        raise MissingConfigurationError(
-            f"Connection {connection_name} is not configured"
-        )
+    from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+    provider = get_config_provider_singleton()
+    connection_raw = provider.get_connection_dict(connection_name)
+    connection = ConnectionConfig.from_dict(connection_raw)
+    return connection.to_dict_of_all_non_empty_values()
 
 
 def get_default_connection_name() -> str:
@@ -450,9 +487,6 @@ def _check_default_config_files_permissions() -> None:
             raise ConfigFileTooWidePermissionsError(connections_file)
         if CONFIG_FILE.exists() and not file_permissions_are_strict(CONFIG_FILE):
             raise ConfigFileTooWidePermissionsError(CONFIG_FILE)
-
-
-from typing import Literal
 
 
 def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:

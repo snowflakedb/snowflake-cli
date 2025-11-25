@@ -21,7 +21,9 @@ from unittest import mock
 
 import pytest
 import tomlkit
+from snowflake.cli._plugins.connection import commands as connection_commands
 from snowflake.cli.api.config import ConnectionConfig
+from snowflake.cli.api.config_ng.masking import MASKED_VALUE
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.secret import SecretType
 
@@ -293,6 +295,7 @@ def test_fails_if_existing_connection(runner):
 
 
 @mock.patch("snowflake.cli._plugins.connection.commands.get_default_connection_name")
+@mock.patch.dict(os.environ, {}, clear=True)
 def test_lists_connection_information(mock_get_default_conn_name, runner):
     mock_get_default_conn_name.return_value = "empty"
     result = runner.invoke(["connection", "list", "--format", "json"])
@@ -363,6 +366,35 @@ def test_lists_connection_information(mock_get_default_conn_name, runner):
             },
         },
     ]
+
+
+def test_mask_sensitive_parameters_masks_all_known_sensitive_keys():
+    params = {
+        "password": "hunter2",
+        "oauth_client_secret": "secret1",
+        "token": "token-value",
+        "session_token": "session",
+        "master_token": "master",
+        "private_key_passphrase": "pk-pass",
+        "mfa_passcode": "code",
+        "warehouse": "xs",
+    }
+
+    masked = connection_commands.mask_sensitive_parameters(params)
+
+    for key in (
+        "password",
+        "oauth_client_secret",
+        "token",
+        "session_token",
+        "master_token",
+        "private_key_passphrase",
+        "mfa_passcode",
+    ):
+        assert masked[key] == MASKED_VALUE
+
+    assert masked["warehouse"] == "xs"
+    assert params["password"] == "hunter2"
 
 
 @mock.patch.dict(
@@ -448,6 +480,52 @@ def test_connection_list_does_not_print_too_many_env_variables(
             },
         },
     ]
+
+
+@mock.patch.dict(
+    os.environ,
+    {
+        "SNOWFLAKE_CLI_CONFIG_V2_ENABLED": "1",
+        "SNOWFLAKE_CONNECTIONS_INTEGRATION_ACCOUNT": "test_account",
+        "SNOWFLAKE_CONNECTIONS_INTEGRATION_USER": "test_user",
+    },
+    clear=True,
+)
+@mock.patch("snowflake.cli._plugins.connection.commands.get_default_connection_name")
+def test_connection_list_all_flag_includes_env_connections(
+    mock_get_default_conn_name, runner
+):
+    """Test that --all flag shows environment-based connections in config_ng mode."""
+    from snowflake.cli.api.config_provider import reset_config_provider
+
+    mock_get_default_conn_name.return_value = "empty"
+
+    # Reset config provider to pick up new environment
+    reset_config_provider()
+
+    # Without --all: should not show env-only connections
+    result = runner.invoke(["connection", "list", "--format", "json"])
+    assert result.exit_code == 0, result.output
+    connections = json.loads(result.output)
+    connection_names = {c["connection_name"] for c in connections}
+    assert "integration" not in connection_names
+
+    # Reset for second call
+    reset_config_provider()
+
+    # With --all: should show env-based connections
+    result_all = runner.invoke(["connection", "list", "--all", "--format", "json"])
+    assert result_all.exit_code == 0, result_all.output
+    connections_all = json.loads(result_all.output)
+    connection_names_all = {c["connection_name"] for c in connections_all}
+    assert "integration" in connection_names_all
+
+    # Verify integration connection has expected parameters
+    integration_conn = next(
+        c for c in connections_all if c["connection_name"] == "integration"
+    )
+    assert integration_conn["parameters"]["account"] == "test_account"
+    assert integration_conn["parameters"]["user"] == "test_user"
 
 
 def test_second_connection_not_update_default_connection(runner, os_agnostic_snapshot):
