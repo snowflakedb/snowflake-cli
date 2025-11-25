@@ -33,6 +33,7 @@ from snowflake.cli.api.config_ng.core import (
     ConfigValue,
     ResolutionEntry,
     ResolutionHistory,
+    SourceDiagnostic,
     SourceType,
     ValueSource,
 )
@@ -41,6 +42,12 @@ from snowflake.cli.api.config_ng.merge_operations import (
     create_default_connection_from_params,
     extract_root_level_connection_params,
     merge_params_into_connections,
+)
+from snowflake.cli.api.config_ng.observers import (
+    ResolutionHistoryTracker,
+    ResolutionObserver,
+    TelemetryObserver,
+    create_observer_bundle,
 )
 from snowflake.cli.api.config_ng.parsers import SnowSQLParser, TOMLParser
 from snowflake.cli.api.config_ng.presentation import ResolutionPresenter
@@ -55,10 +62,7 @@ from snowflake.cli.api.config_ng.resolution_logger import (
     show_all_resolution_chains,
     show_resolution_chain,
 )
-from snowflake.cli.api.config_ng.resolver import (
-    ConfigurationResolver,
-    ResolutionHistoryTracker,
-)
+from snowflake.cli.api.config_ng.resolver import ConfigurationResolver
 from snowflake.cli.api.config_ng.source_factory import create_default_sources
 from snowflake.cli.api.config_ng.source_manager import SourceManager
 from snowflake.cli.api.config_ng.sources import (
@@ -84,6 +88,7 @@ __all__ = [
     "CliParameters",
     "ConfigSection",
     "ConfigurationResolver",
+    "create_observer_bundle",
     "ConfigValue",
     "ConnectionsConfigFile",
     "ConnectionSpecificEnvironment",
@@ -106,6 +111,8 @@ __all__ = [
     "ResolutionEntry",
     "ResolutionHistory",
     "ResolutionHistoryTracker",
+    "SourceDiagnostic",
+    "ResolutionObserver",
     "ResolutionPresenter",
     "show_all_resolution_chains",
     "show_resolution_chain",
@@ -115,6 +122,8 @@ __all__ = [
     "SnowSQLSection",
     "SourceManager",
     "SourceType",
+    "SourceDiagnostic",
+    "TelemetryObserver",
     "TOMLParser",
     "ValueSource",
 ]

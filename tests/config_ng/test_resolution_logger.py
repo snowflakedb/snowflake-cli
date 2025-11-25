@@ -30,6 +30,7 @@ from snowflake.cli.api.config_ng.resolution_logger import (
     explain_configuration,
     export_resolution_history,
     format_summary_for_display,
+    get_configuration_explanation_results,
     get_resolution_summary,
     get_resolver,
     is_resolution_logging_available,
@@ -142,7 +143,7 @@ class TestResolutionSummary:
             provider._ensure_initialized()
 
             with mock.patch.object(
-                provider._resolver.get_tracker(), "get_summary"
+                provider._resolver, "get_resolution_summary"
             ) as mock_summary:
                 mock_summary.return_value = {
                     "total_keys_resolved": 5,
@@ -348,3 +349,66 @@ class TestIntegrationWithRealConfig:
             # Should be from environment (snowflake_cli_env or similar)
             assert source is not None
             assert "env" in source.lower()
+
+
+class TestConfigurationExplanationResults:
+    """Tests for get_configuration_explanation_results helper."""
+
+    @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
+    @mock.patch("snowflake.cli.api.config_ng.resolution_logger.ResolutionPresenter")
+    @mock.patch("snowflake.cli.api.config_ng.resolution_logger.get_resolver")
+    @mock.patch(
+        "snowflake.cli.api.config_ng.resolution_logger.get_config_provider_singleton"
+    )
+    def test_includes_diagnostics_message_non_verbose(
+        self, mock_provider, mock_get_resolver, mock_presenter_cls
+    ):
+        from snowflake.cli.api.output.types import (
+            CollectionResult,
+            MessageResult,
+            MultipleResults,
+        )
+
+        mock_provider.return_value.read_config.return_value = None
+        mock_get_resolver.return_value = object()
+        presenter = mock_presenter_cls.return_value
+        diag_message = MessageResult("diag")
+        presenter.build_source_diagnostics_message.return_value = diag_message
+        table_result = CollectionResult([])
+        presenter.build_sources_table.return_value = table_result
+
+        result = get_configuration_explanation_results(verbose=False)
+        assert isinstance(result, MultipleResults)
+        outputs = list(result.result)
+        assert outputs == [diag_message, table_result]
+
+    @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
+    @mock.patch("snowflake.cli.api.config_ng.resolution_logger.ResolutionPresenter")
+    @mock.patch("snowflake.cli.api.config_ng.resolution_logger.get_resolver")
+    @mock.patch(
+        "snowflake.cli.api.config_ng.resolution_logger.get_config_provider_singleton"
+    )
+    def test_includes_diagnostics_message_verbose(
+        self, mock_provider, mock_get_resolver, mock_presenter_cls
+    ):
+        from snowflake.cli.api.output.types import (
+            CollectionResult,
+            MessageResult,
+            MultipleResults,
+        )
+
+        mock_provider.return_value.read_config.return_value = None
+        mock_get_resolver.return_value = object()
+        presenter = mock_presenter_cls.return_value
+        diag_message = MessageResult("diag")
+        history_message = MessageResult("history")
+        table_result = CollectionResult([])
+
+        presenter.build_source_diagnostics_message.return_value = diag_message
+        presenter.build_sources_table.return_value = table_result
+        presenter.format_history_message.return_value = history_message
+
+        result = get_configuration_explanation_results(verbose=True)
+        assert isinstance(result, MultipleResults)
+        outputs = list(result.result)
+        assert outputs == [diag_message, table_result, history_message]

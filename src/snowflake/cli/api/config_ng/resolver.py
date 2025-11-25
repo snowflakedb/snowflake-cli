@@ -24,14 +24,19 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
-from datetime import datetime
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 from snowflake.cli.api.config_ng.core import (
     ConfigValue,
-    ResolutionEntry,
     ResolutionHistory,
+    SourceDiagnostic,
     SourceType,
+)
+from snowflake.cli.api.config_ng.observers import (
+    ResolutionHistoryTracker,
+    ResolutionObserver,
+    TelemetryObserver,
+    create_observer_bundle,
 )
 from snowflake.cli.api.sanitizers import sanitize_source_error
 
@@ -39,296 +44,6 @@ if TYPE_CHECKING:
     from snowflake.cli.api.config_ng.core import ValueSource
 
 log = logging.getLogger(__name__)
-
-
-class ResolutionHistoryTracker:
-    """
-    Tracks the complete resolution process for all configuration keys.
-
-    This class records:
-    - Every value discovered from every source
-    - The order in which values were considered
-    - Which value was ultimately selected
-    - Which values were overridden and by what
-
-    Provides debugging utilities and export functionality.
-    """
-
-    def __init__(self):
-        """Initialize empty history tracker."""
-        self._histories: Dict[str, ResolutionHistory] = {}
-        self._discoveries: Dict[str, List[tuple[ConfigValue, datetime]]] = defaultdict(
-            list
-        )
-        self._enabled = True
-
-    def enable(self) -> None:
-        """Enable history tracking."""
-        self._enabled = True
-
-    def disable(self) -> None:
-        """Disable history tracking for performance."""
-        self._enabled = False
-
-    def is_enabled(self) -> bool:
-        """Check if history tracking is enabled."""
-        return self._enabled
-
-    def clear(self) -> None:
-        """Clear all recorded history."""
-        self._histories.clear()
-        self._discoveries.clear()
-
-    def _flatten_nested_dict(
-        self, nested: Dict[str, Any], prefix: str = ""
-    ) -> Dict[str, Any]:
-        """
-        Flatten nested dict to dot-separated keys for internal storage.
-
-        Args:
-            nested: Nested dictionary structure
-            prefix: Current key prefix
-
-        Returns:
-            Flat dictionary with dot-separated keys
-
-        Example:
-            {"connections": {"test": {"account": "val"}}}
-            -> {"connections.test.account": "val"}
-        """
-        result = {}
-        for key, value in nested.items():
-            flat_key = f"{prefix}.{key}" if prefix else key
-
-            if isinstance(value, dict) and value:
-                # Recursively flatten nested dicts
-                result.update(self._flatten_nested_dict(value, flat_key))
-            else:
-                # Leaf value - store it
-                result[flat_key] = value
-
-        return result
-
-    def record_nested_discovery(
-        self, nested_data: Dict[str, Any], source_name: str
-    ) -> None:
-        """
-        Record discoveries from a source that returns nested dict.
-
-        Args:
-            nested_data: Nested dictionary from source
-            source_name: Name of the source providing this data
-        """
-        if not self._enabled:
-            return
-
-        flat_data = self._flatten_nested_dict(nested_data)
-
-        timestamp = datetime.now()
-        for flat_key, value in flat_data.items():
-            config_value = ConfigValue(
-                key=flat_key, value=value, source_name=source_name
-            )
-            self._discoveries[flat_key].append((config_value, timestamp))
-
-    def record_discovery(self, key: str, config_value: ConfigValue) -> None:
-        """
-        Record a value discovery from a source.
-
-        Args:
-            key: Configuration key
-            config_value: The discovered ConfigValue with metadata
-        """
-        if not self._enabled:
-            return
-
-        timestamp = datetime.now()
-        self._discoveries[key].append((config_value, timestamp))
-
-    def mark_selected(self, key: str, source_name: str) -> None:
-        """
-        Mark which source's value was selected for a key.
-
-        Args:
-            key: Configuration key
-            source_name: Name of the source whose value was selected
-        """
-        if not self._enabled or key not in self._discoveries:
-            return
-
-        entries: List[ResolutionEntry] = []
-        selected_value = None
-
-        for config_value, timestamp in self._discoveries[key]:
-            was_selected = config_value.source_name == source_name
-            overridden_by = source_name if not was_selected else None
-
-            entry = ResolutionEntry(
-                config_value=config_value,
-                timestamp=timestamp,
-                was_used=was_selected,
-                overridden_by=overridden_by,
-            )
-            entries.append(entry)
-
-            if was_selected:
-                selected_value = config_value.value
-
-        self._histories[key] = ResolutionHistory(
-            key=key, entries=entries, final_value=selected_value, default_used=False
-        )
-
-    def mark_default_used(self, key: str, default_value: Any) -> None:
-        """
-        Mark that a default value was used for a key.
-
-        Args:
-            key: Configuration key
-            default_value: The default value used
-        """
-        if not self._enabled:
-            return
-
-        if key in self._histories:
-            self._histories[key].default_used = True
-            self._histories[key].final_value = default_value
-        else:
-            self._histories[key] = ResolutionHistory(
-                key=key, entries=[], final_value=default_value, default_used=True
-            )
-
-    def get_history(self, key: str) -> Optional[ResolutionHistory]:
-        """
-        Get resolution history for a specific key.
-
-        Args:
-            key: Configuration key
-
-        Returns:
-            ResolutionHistory object or None if key not tracked
-        """
-        return self._histories.get(key)
-
-    def get_all_histories(self) -> Dict[str, ResolutionHistory]:
-        """
-        Get all resolution histories.
-
-        Returns:
-            Dictionary mapping keys to their ResolutionHistory objects
-        """
-        return self._histories.copy()
-
-    def finalize_with_result(self, final_config: Dict[str, Any]) -> None:
-        """
-        Mark which values were selected in the final configuration.
-
-        This method flattens the final nested config and marks the selected
-        source for each value.
-
-        Args:
-            final_config: The final resolved configuration (nested dict)
-        """
-        if not self._enabled:
-            return
-
-        flat_final = self._flatten_nested_dict(final_config)
-
-        for flat_key, final_value in flat_final.items():
-            if flat_key not in self._discoveries:
-                continue
-
-            discoveries = self._discoveries[flat_key]
-            for config_value, timestamp in reversed(discoveries):
-                if config_value.value == final_value:
-                    self.mark_selected(flat_key, config_value.source_name)
-                    break
-
-    def record_general_params_merged_to_connections(
-        self,
-        general_params: Dict[str, Any],
-        connection_names: List[str],
-        source_name: str,
-    ) -> None:
-        """
-        Record when general parameters are merged into connections.
-
-        When overlay sources provide general params (like SNOWFLAKE_ACCOUNT),
-        these get merged into each existing connection. This method records
-        that merge operation for history tracking.
-
-        Args:
-            general_params: Dictionary of general parameters
-            connection_names: List of connection names to merge into
-            source_name: Name of the source providing these params
-        """
-        if not self._enabled:
-            return
-
-        timestamp = datetime.now()
-        for param_key, param_value in general_params.items():
-            for conn_name in connection_names:
-                flat_key = f"connections.{conn_name}.{param_key}"
-                config_value = ConfigValue(
-                    key=flat_key, value=param_value, source_name=source_name
-                )
-                self._discoveries[flat_key].append((config_value, timestamp))
-
-    def replicate_root_level_discoveries_to_connection(
-        self, param_keys: List[str], connection_name: str
-    ) -> None:
-        """
-        Replicate discoveries from root-level keys to connection-specific keys.
-
-        This is used when creating a default connection from general parameters
-        (e.g., SNOWFLAKE_ACCOUNT -> connections.default.account).
-
-        Args:
-            param_keys: List of parameter keys that exist at root level
-            connection_name: Name of the connection to replicate discoveries to
-        """
-        if not self._enabled:
-            return
-
-        for param_key in param_keys:
-            if param_key in self._discoveries:
-                conn_key = f"connections.{connection_name}.{param_key}"
-                for config_value, timestamp in self._discoveries[param_key]:
-                    self._discoveries[conn_key].append((config_value, timestamp))
-
-    def get_summary(self) -> dict:
-        """
-        Get summary statistics about configuration resolution.
-
-        Returns:
-            Dictionary with statistics:
-            - total_keys_resolved: Number of keys resolved
-            - keys_with_overrides: Number of keys where values were overridden
-            - keys_using_defaults: Number of keys using default values
-            - source_usage: Dict of source_name -> count of values provided
-            - source_wins: Dict of source_name -> count of values selected
-        """
-        total_keys = len(self._histories)
-        keys_with_overrides = sum(
-            1 for h in self._histories.values() if len(h.overridden_entries) > 0
-        )
-        keys_using_defaults = sum(1 for h in self._histories.values() if h.default_used)
-
-        source_usage: Dict[str, int] = defaultdict(int)
-        source_wins: Dict[str, int] = defaultdict(int)
-
-        for history in self._histories.values():
-            for entry in history.entries:
-                source_usage[entry.config_value.source_name] += 1
-                if entry.was_used:
-                    source_wins[entry.config_value.source_name] += 1
-
-        return {
-            "total_keys_resolved": total_keys,
-            "keys_with_overrides": keys_with_overrides,
-            "keys_using_defaults": keys_using_defaults,
-            "source_usage": dict(source_usage),
-            "source_wins": dict(source_wins),
-        }
 
 
 class ConfigurationResolver:
@@ -371,16 +86,82 @@ class ConfigurationResolver:
     def __init__(
         self,
         sources: Optional[List["ValueSource"]] = None,
+        observers: Optional[List[ResolutionObserver]] = None,
+        enable_history: bool = True,
     ):
         """
-        Initialize resolver with sources and history tracking.
+        Initialize resolver with sources and optional observers.
 
         Args:
-            sources: List of configuration sources in precedence order
-                    (first = lowest priority, last = highest priority)
+            sources: Configuration sources in precedence order
+            observers: Optional list of observers to attach
+            enable_history: Whether to attach the history tracker by default
         """
         self._sources = sources or []
-        self._history_tracker = ResolutionHistoryTracker()
+        (
+            self._observers,
+            self._telemetry_observer,
+            self._history_observer,
+        ) = self._initialize_observers(observers, enable_history)
+        self._source_diagnostics: List[SourceDiagnostic] = []
+
+    def _initialize_observers(
+        self,
+        observers: Optional[List[ResolutionObserver]],
+        enable_history: bool,
+    ) -> tuple[
+        list[ResolutionObserver], TelemetryObserver, Optional[ResolutionHistoryTracker]
+    ]:
+        if observers is None:
+            return create_observer_bundle(enable_history=enable_history)
+
+        observer_list = list(observers)
+        telemetry = next(
+            (obs for obs in observer_list if isinstance(obs, TelemetryObserver)), None
+        )
+        history = next(
+            (obs for obs in observer_list if isinstance(obs, ResolutionHistoryTracker)),
+            None,
+        )
+
+        if telemetry is None:
+            telemetry = TelemetryObserver()
+            observer_list.append(telemetry)
+
+        if history is None and enable_history:
+            history = ResolutionHistoryTracker()
+            observer_list.append(history)
+
+        return observer_list, telemetry, history
+
+    def attach_observer(self, observer: ResolutionObserver) -> None:
+        """Attach a new observer at runtime."""
+        self._observers.append(observer)
+        if isinstance(observer, TelemetryObserver):
+            self._telemetry_observer = observer
+        if isinstance(observer, ResolutionHistoryTracker):
+            self._history_observer = observer
+
+    def ensure_history_tracking(self) -> bool:
+        """
+        Ensure a history tracker is attached.
+
+        Returns:
+            True if a new tracker was attached and observers should be reset.
+        """
+        if self._history_observer is not None:
+            return False
+        history = ResolutionHistoryTracker()
+        self.attach_observer(history)
+        return True
+
+    def _reset_observers(self) -> None:
+        for observer in self._observers:
+            observer.reset()
+
+    def _notify(self, method_name: str, *args, **kwargs) -> None:
+        for observer in self._observers:
+            getattr(observer, method_name)(*args, **kwargs)
 
     def add_source(self, source: "ValueSource") -> None:
         """
@@ -433,8 +214,39 @@ class ConfigurationResolver:
         Args:
             source_values: Dictionary of discovered configuration values
         """
+        if self._history_observer is None:
+            return
         for k, config_value in source_values.items():
-            self._history_tracker.record_discovery(k, config_value)
+            self._history_observer.record_discovery(k, config_value)
+
+    def _collect_source_diagnostics(self, source: "ValueSource") -> None:
+        diagnostics = []
+        consumer = getattr(source, "consume_diagnostics", None)
+        if callable(consumer):
+            diagnostics = consumer()
+        elif hasattr(source, "get_diagnostics"):
+            getter = getattr(source, "get_diagnostics")
+            diagnostics = getter() if callable(getter) else getter  # type: ignore[misc]
+
+        if not diagnostics:
+            return
+
+        for diagnostic in diagnostics:
+            if isinstance(diagnostic, SourceDiagnostic):
+                entry = diagnostic
+            elif isinstance(diagnostic, dict):
+                entry = SourceDiagnostic(
+                    source_name=diagnostic.get("source_name", source.source_name),
+                    level=diagnostic.get("level", "info"),
+                    message=diagnostic.get("message", ""),
+                )
+            else:
+                entry = SourceDiagnostic(
+                    source_name=source.source_name,
+                    level="info",
+                    message=str(diagnostic),
+                )
+            self._source_diagnostics.append(entry)
 
     def _finalize_history(self, all_values: Dict[str, ConfigValue]) -> None:
         """
@@ -443,8 +255,10 @@ class ConfigurationResolver:
         Args:
             all_values: Final dictionary of selected configuration values
         """
+        if self._history_observer is None:
+            return
         for k, config_value in all_values.items():
-            self._history_tracker.mark_selected(k, config_value.source_name)
+            self._history_observer.mark_selected(k, config_value.source_name)
 
     def _apply_default(
         self, resolved: Dict[str, Any], key: str, default: Any
@@ -462,7 +276,7 @@ class ConfigurationResolver:
         """
         if default is not None:
             resolved[key] = default
-            self._history_tracker.mark_default_used(key, default)
+            self._notify("mark_default_used", key, default)
         return resolved
 
     def _group_by_connection(
@@ -563,9 +377,8 @@ class ConfigurationResolver:
             try:
                 source_data = source.discover(key)
 
-                self._history_tracker.record_nested_discovery(
-                    source_data, source.source_name
-                )
+                self._notify("record_nested_discovery", source_data, source.source_name)
+                self._collect_source_diagnostics(source)
 
                 if "connections" in source_data:
                     if "connections" not in result:
@@ -644,9 +457,8 @@ class ConfigurationResolver:
             try:
                 source_data = source.discover(key)
 
-                self._history_tracker.record_nested_discovery(
-                    source_data, source.source_name
-                )
+                self._notify("record_nested_discovery", source_data, source.source_name)
+                self._collect_source_diagnostics(source)
 
                 general_params, other_data = extract_root_level_connection_params(
                     source_data
@@ -661,8 +473,11 @@ class ConfigurationResolver:
                         if isinstance(result["connections"][name], dict)
                     ]
 
-                    self._history_tracker.record_general_params_merged_to_connections(
-                        general_params, connection_names, source.source_name
+                    self._notify(
+                        "record_general_params_merged_to_connections",
+                        general_params,
+                        connection_names,
+                        source.source_name,
                     )
 
                     result["connections"] = merge_params_into_connections(
@@ -736,8 +551,10 @@ class ConfigurationResolver:
         result = config.copy()
         result["connections"] = {"default": general_params.copy()}
 
-        self._history_tracker.replicate_root_level_discoveries_to_connection(
-            list(general_params.keys()), "default"
+        self._notify(
+            "replicate_root_level_discoveries_to_connection",
+            list(general_params.keys()),
+            "default",
         )
 
         for key in general_params:
@@ -777,6 +594,8 @@ class ConfigurationResolver:
         Returns:
             Nested dictionary of resolved configuration
         """
+        self._reset_observers()
+        self._source_diagnostics.clear()
         result = self._resolve_file_sources(key)
 
         result = self._apply_overlay_sources(result, key)
@@ -811,9 +630,11 @@ class ConfigurationResolver:
         Returns:
             ConfigValue for the selected value, or None if not found
         """
-        history = self._history_tracker.get_history(key)
-        if history and history.selected_entry:
-            return history.selected_entry.config_value
+        tracker = self._history_observer
+        if tracker:
+            history = tracker.get_history(key)
+            if history and history.selected_entry:
+                return history.selected_entry.config_value
 
         # Fallback to live query if history not available
         for source in self._sources:
@@ -823,14 +644,30 @@ class ConfigurationResolver:
 
         return None
 
-    def get_tracker(self) -> ResolutionHistoryTracker:
+    def get_tracker(self) -> Optional[ResolutionHistoryTracker]:
         """
         Get the history tracker for direct access to resolution data.
 
         Returns:
             ResolutionHistoryTracker instance
         """
-        return self._history_tracker
+        return self._history_observer
+
+    def get_source_diagnostics(self) -> List[SourceDiagnostic]:
+        """Diagnostics captured during source discovery."""
+        return self._source_diagnostics.copy()
+
+    def has_history_tracking(self) -> bool:
+        """Return True when a history observer is attached."""
+        return self._history_observer is not None
+
+    def get_resolution_summary(self) -> Dict[str, Any]:
+        """
+        Get resolution summary from the history tracker or telemetry observer.
+        """
+        if self._history_observer:
+            return self._history_observer.get_summary()
+        return self._telemetry_observer.get_summary()
 
     def _finalize_resolution_history(self, final_config: Dict[str, Any]) -> None:
         """
@@ -841,7 +678,7 @@ class ConfigurationResolver:
         Args:
             final_config: The final resolved configuration (nested dict)
         """
-        self._history_tracker.finalize_with_result(final_config)
+        self._notify("finalize_with_result", final_config)
 
     def get_resolution_history(self, key: str) -> Optional[ResolutionHistory]:
         """
@@ -857,16 +694,17 @@ class ConfigurationResolver:
         Returns:
             ResolutionHistory showing the full precedence chain
         """
-        history = self._history_tracker.get_history(key)
+        tracker = self._history_observer
+        if not tracker:
+            return None
+
+        history = tracker.get_history(key)
         if history:
             return history
 
-        # If not found and it's a simple key (no dots), search in connections
         if "." not in key:
-            # Look for any connection that has this key
-            all_histories = self._history_tracker.get_all_histories()
+            all_histories = tracker.get_all_histories()
             for hist_key, hist in all_histories.items():
-                # Match pattern: "connections.*.{key}" or root level "{key}"
                 if hist_key.endswith(f".{key}"):
                     return hist
 
@@ -874,4 +712,5 @@ class ConfigurationResolver:
 
     def get_all_histories(self) -> Dict[str, ResolutionHistory]:
         """Get resolution histories for all keys."""
-        return self._history_tracker.get_all_histories()
+        tracker = self._history_observer
+        return tracker.get_all_histories() if tracker else {}
