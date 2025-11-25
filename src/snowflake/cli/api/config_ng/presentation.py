@@ -27,9 +27,11 @@ from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Tuple
 
 from snowflake.cli.api.config_ng.masking import stringify_masked_value
 from snowflake.cli.api.console import cli_console
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.output.types import CollectionResult, MessageResult
 
 if TYPE_CHECKING:
+    from snowflake.cli.api.config_ng.observers import ResolutionHistoryTracker
     from snowflake.cli.api.config_ng.resolver import ConfigurationResolver
 
 # Fixed table columns ordered from most important (left) to least (right)
@@ -87,6 +89,24 @@ class ResolutionPresenter:
         """
         self._resolver = resolver
 
+    def _ensure_tracker(self) -> "ResolutionHistoryTracker":
+        if self._resolver.ensure_history_tracking():
+            self._resolver.resolve()
+
+        tracker = self._resolver.get_tracker()
+        if tracker is None:
+            raise CliError(
+                "Resolution history is disabled. Re-run the command with history tracking enabled."
+            )
+        return tracker
+
+    def _ensure_tracker_with_data(self) -> "ResolutionHistoryTracker":
+        tracker = self._ensure_tracker()
+        if not tracker.get_all_histories():
+            self._resolver.resolve()
+            tracker = self._ensure_tracker()
+        return tracker
+
     def get_summary(self) -> dict:
         """
         Get summary statistics about configuration resolution.
@@ -99,7 +119,7 @@ class ResolutionPresenter:
             - source_usage (how many values each source provided)
             - source_wins (how many final values came from each source)
         """
-        return self._resolver.get_tracker().get_summary()
+        return self._resolver.get_resolution_summary()
 
     def build_sources_table(self, key: Optional[str] = None) -> CollectionResult:
         """
@@ -112,11 +132,7 @@ class ResolutionPresenter:
         Args:
             key: Optional specific key to build table for, or None for all keys
         """
-        tracker = self._resolver.get_tracker()
-        if key is None and not tracker.get_all_histories():
-            self._resolver.resolve()
-        elif key is not None and tracker.get_history(key) is None:
-            self._resolver.resolve(key=key)
+        tracker = self._ensure_tracker_with_data()
 
         histories = (
             {key: tracker.get_history(key)}
@@ -144,6 +160,21 @@ class ResolutionPresenter:
 
         return CollectionResult(_row_items())
 
+    def build_source_diagnostics_message(self) -> Optional[MessageResult]:
+        """
+        Build a message describing diagnostics collected while discovering sources.
+        """
+        diagnostics = self._resolver.get_source_diagnostics()
+        if not diagnostics:
+            return None
+
+        lines = ["Source diagnostics:", ""]
+        for diag in diagnostics:
+            level = diag.level.upper()
+            lines.append(f"- [{level}] {diag.source_name}: {diag.message}")
+
+        return MessageResult("\n".join(lines))
+
     def format_history_message(self, key: Optional[str] = None) -> MessageResult:
         """
         Build a masked, human-readable history of merging as a single message.
@@ -152,6 +183,7 @@ class ResolutionPresenter:
         Args:
             key: Optional specific key to format, or None for all keys
         """
+        self._ensure_tracker_with_data()
         histories = (
             {key: self._resolver.get_resolution_history(key)}
             if key is not None
@@ -199,6 +231,7 @@ class ResolutionPresenter:
         Args:
             key: Configuration key
         """
+        self._ensure_tracker_with_data()
         history = self._resolver.get_resolution_history(key)
         if not history:
             cli_console.warning(f"No resolution history found for key: {key}")
@@ -244,6 +277,7 @@ class ResolutionPresenter:
         Print resolution chains for all keys using cli_console formatting.
         Sensitive values (passwords, tokens, etc.) are automatically masked.
         """
+        self._ensure_tracker_with_data()
         histories = self._resolver.get_all_histories()
         if not histories:
             cli_console.warning("No resolution history available")
@@ -299,6 +333,7 @@ class ResolutionPresenter:
         Args:
             filepath: Path to output file
         """
+        self._ensure_tracker_with_data()
         histories = self._resolver.get_all_histories()
         data = {
             "summary": self.get_summary(),

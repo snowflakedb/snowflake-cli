@@ -189,6 +189,7 @@ class AlternativeConfigProvider(ConfigProvider):
 
     def _ensure_initialized(self) -> None:
         """Lazily initialize the resolver on first use."""
+        cli_context: Optional[Any] = None
         # Check if config_file_override has changed
         override_changed = False
         try:
@@ -220,10 +221,22 @@ class AlternativeConfigProvider(ConfigProvider):
         from snowflake.cli.api.config_ng.source_manager import SourceManager
 
         # Get CLI context
-        try:
-            cli_context = self._cli_context_getter()
-            cli_context_dict = cli_context.connection_context.present_values_as_dict()
-        except Exception:
+        history_enabled = False
+        if cli_context is None:
+            try:
+                cli_context = self._cli_context_getter()
+            except Exception:
+                cli_context = None
+
+        if cli_context is not None:
+            try:
+                cli_context_dict = (
+                    cli_context.connection_context.present_values_as_dict()
+                )
+            except Exception:
+                cli_context_dict = {}
+            history_enabled = self._should_enable_history(cli_context)
+        else:
             cli_context_dict = {}
 
         # Create or use provided source manager
@@ -233,7 +246,8 @@ class AlternativeConfigProvider(ConfigProvider):
 
         # Create resolver
         self._resolver = ConfigurationResolver(
-            sources=self._source_manager.get_sources()
+            sources=self._source_manager.get_sources(),
+            enable_history=history_enabled,
         )
 
         # Initialize cache (resolver returns nested dict)
@@ -259,6 +273,16 @@ class AlternativeConfigProvider(ConfigProvider):
         except Exception:
             # Don't break initialization if telemetry fails
             pass
+
+    def _should_enable_history(self, cli_context: Optional[Any]) -> bool:
+        """
+        Determine if resolution history tracking should be enabled immediately.
+        Enabled automatically when CLI runs with --debug logging.
+        """
+        try:
+            return bool(getattr(cli_context, "enable_tracebacks", False))
+        except Exception:
+            return False
 
     def read_config(self) -> None:
         """
