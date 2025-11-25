@@ -13,9 +13,10 @@
 # limitations under the License.
 
 import json
+from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from xml.etree import ElementTree
 
 
@@ -23,36 +24,6 @@ class TestResultFormat(str, Enum):
     JSON = "json"
     JUNIT = "junit"
     TAP = "tap"
-
-
-def format_test_failures(
-    failed_expectations: list, total_tests: int, failed_count: int
-) -> str:
-    """Format test failures into a nice error message."""
-    lines = [
-        "Failed expectations:",
-    ]
-
-    for failed in failed_expectations:
-        table_name = failed.get("table_name", "Unknown")
-        expectation_name = failed.get("expectation_name", "Unknown")
-        metric_name = failed.get("metric_name", "Unknown")
-        expectation_expr = failed.get("expectation_expression", "N/A")
-        value = failed.get("value", "N/A")
-
-        lines.append(f"  Table: {table_name}")
-        lines.append(f"  Expectation: {expectation_name}")
-        lines.append(f"  Metric: {metric_name}")
-        lines.append(f"  Expression: {expectation_expr}")
-        lines.append(f"  Actual value: {value}")
-        lines.append("")
-
-    passed_tests = total_tests - failed_count
-    lines.append(
-        f"Tests completed: {passed_tests} passed, {failed_count} failed out of {total_tests} total."
-    )
-
-    return "\n".join(lines)
 
 
 def _normalize_table_name(table_name: str) -> str:
@@ -226,15 +197,29 @@ def export_test_results(
     return saved_files
 
 
-def format_refresh_results(refreshed_tables: list) -> str:
-    """Format refresh results into a concise user-friendly message."""
-    if not refreshed_tables:
-        return "No dynamic tables found in the project."
+def dump_json_result(
+    command_name: str, result_data: Any, output_dir: Optional[Path] = None
+) -> Path:
+    """
+    Dump raw JSON result to a timestamped file.
 
-    total_tables = len(refreshed_tables)
-    refreshed_count = sum(
-        1 for table in refreshed_tables if table.get("refreshed_dt_count", 0) > 0
-    )
-    up_to_date_count = total_tables - refreshed_count
+    Args:
+        command_name: Name of the command (e.g., 'plan', 'test', 'deploy')
+        result_data: The result data to dump
+        output_dir: Directory to save the file (defaults to ./dcm_output)
 
-    return f"{refreshed_count} dynamic table(s) refreshed. {up_to_date_count} dynamic table(s) up-to-date."
+    Returns:
+        Path to the saved file
+    """
+    if output_dir is None:
+        output_dir = Path.cwd() / "dcm_output"
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_file = output_dir / f"{command_name}-{timestamp}.json"
+
+    with open(output_file, "w") as f:
+        json.dump(result_data, f, indent=2)
+
+    return output_file
