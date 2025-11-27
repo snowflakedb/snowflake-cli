@@ -44,9 +44,9 @@ def test_create(mock_execute_query):
 
 
 @mock.patch(execute_queries)
-def test_execute_project(mock_execute_query):
+def test_deploy_project(mock_execute_query):
     mgr = DCMProjectManager()
-    mgr.execute(
+    mgr.deploy(
         project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
         variables=["key=value", "aaa=bbb"],
@@ -60,9 +60,9 @@ def test_execute_project(mock_execute_query):
 
 
 @mock.patch(execute_queries)
-def test_execute_project_with_skip_plan(mock_execute_query):
+def test_deploy_project_with_skip_plan(mock_execute_query):
     mgr = DCMProjectManager()
-    mgr.execute(
+    mgr.deploy(
         project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
         variables=["key=value", "aaa=bbb"],
@@ -77,9 +77,9 @@ def test_execute_project_with_skip_plan(mock_execute_query):
 
 
 @mock.patch(execute_queries)
-def test_execute_project_with_from_stage(mock_execute_query):
+def test_deploy_project_with_from_stage(mock_execute_query):
     mgr = DCMProjectManager()
-    mgr.execute(
+    mgr.deploy(
         project_identifier=TEST_PROJECT,
         from_stage="@my_stage",
         variables=["key=value", "aaa=bbb"],
@@ -93,9 +93,9 @@ def test_execute_project_with_from_stage(mock_execute_query):
 
 
 @mock.patch(execute_queries)
-def test_execute_project_with_from_stage_without_prefix(mock_execute_query):
+def test_deploy_project_with_from_stage_without_prefix(mock_execute_query):
     mgr = DCMProjectManager()
-    mgr.execute(
+    mgr.deploy(
         project_identifier=TEST_PROJECT,
         from_stage="my_stage",
         variables=["key=value", "aaa=bbb"],
@@ -109,10 +109,10 @@ def test_execute_project_with_from_stage_without_prefix(mock_execute_query):
 
 
 @mock.patch(execute_queries)
-def test_execute_project_with_default_deployment(mock_execute_query, project_directory):
+def test_deploy_project_with_default_deployment(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
 
-    mgr.execute(project_identifier=TEST_PROJECT, from_stage="@test_stage")
+    mgr.deploy(project_identifier=TEST_PROJECT, from_stage="@test_stage")
 
     mock_execute_query.assert_called_once_with(
         query="EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY FROM @test_stage"
@@ -122,10 +122,9 @@ def test_execute_project_with_default_deployment(mock_execute_query, project_dir
 @mock.patch(execute_queries)
 def test_plan_project(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
-    mgr.execute(
+    mgr.plan(
         project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
-        dry_run=True,
         configuration="some_configuration",
     )
 
@@ -137,10 +136,9 @@ def test_plan_project(mock_execute_query, project_directory):
 @mock.patch(execute_queries)
 def test_plan_project_with_from_stage(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
-    mgr.execute(
+    mgr.plan(
         project_identifier=TEST_PROJECT,
         from_stage="@my_stage",
-        dry_run=True,
         configuration="some_configuration",
     )
 
@@ -177,12 +175,75 @@ def test_drop_deployment(mock_execute_query, if_exists):
 
 
 @mock.patch(execute_queries)
+def test_preview_project_basic(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.preview(
+        project_identifier=TEST_PROJECT,
+        object_identifier=FQN.from_string("my_table"),
+        from_stage="@test_stage",
+    )
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') PREVIEW IDENTIFIER('my_table') FROM @test_stage"
+    )
+
+
+@mock.patch(execute_queries)
+@pytest.mark.parametrize(
+    "configuration,variables,limit,expected_suffix",
+    [
+        (
+            "dev",
+            ["key=value"],
+            10,
+            " USING CONFIGURATION dev (key=>value) FROM @test_stage LIMIT 10",
+        ),
+        (
+            "prod",
+            None,
+            None,
+            " USING CONFIGURATION prod FROM @test_stage",
+        ),
+        (
+            None,
+            ["var1=val1", "var2=val2"],
+            5,
+            " USING (var1=>val1, var2=>val2) FROM @test_stage LIMIT 5",
+        ),
+        (
+            None,
+            None,
+            100,
+            " FROM @test_stage LIMIT 100",
+        ),
+    ],
+)
+def test_preview_project_with_various_options(
+    mock_execute_query, configuration, variables, limit, expected_suffix
+):
+    mgr = DCMProjectManager()
+    mgr.preview(
+        project_identifier=TEST_PROJECT,
+        object_identifier=FQN.from_string("my_view"),
+        from_stage="@test_stage",
+        configuration=configuration,
+        variables=variables,
+        limit=limit,
+    )
+
+    expected_query = (
+        f"EXECUTE DCM PROJECT IDENTIFIER('my_project') PREVIEW IDENTIFIER('my_view')"
+        + expected_suffix
+    )
+    mock_execute_query.assert_called_once_with(query=expected_query)
+
+
+@mock.patch(execute_queries)
 def test_plan_project_with_output_path__stage(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
-    mgr.execute(
+    mgr.plan(
         project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
-        dry_run=True,
         configuration="some_configuration",
         output_path="@output_stage/results",
     )
@@ -203,10 +264,9 @@ def test_plan_project_with_output_path__local_path(
     mock_from_resource,
 ):
     mgr = DCMProjectManager()
-    mgr.execute(
+    mgr.plan(
         project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
-        dry_run=True,
         configuration="some_configuration",
         output_path="output_path/results",
     )
@@ -237,10 +297,9 @@ def test_plan_project_with_output_path__exception_handling(
     mgr = DCMProjectManager()
 
     with pytest.raises(Exception, match="Query execution failed"):
-        mgr.execute(
+        mgr.plan(
             project_identifier=TEST_PROJECT,
             from_stage="@test_stage",
-            dry_run=True,
             configuration="some_configuration",
             output_path="output_path/results",
         )
@@ -252,22 +311,6 @@ def test_plan_project_with_output_path__exception_handling(
     mock_get_recursive.assert_called_once_with(
         stage_path=f"@{str(temp_stage_fqn)}/outputs",
         dest_path=Path("output_path/results"),
-    )
-
-
-@mock.patch(execute_queries)
-def test_deploy_project_with_output_path(mock_execute_query, project_directory):
-    mgr = DCMProjectManager()
-    mgr.execute(
-        project_identifier=TEST_PROJECT,
-        from_stage="@test_stage",
-        dry_run=False,
-        alias="v1",
-        output_path="@output_stage",
-    )
-
-    mock_execute_query.assert_called_once_with(
-        query=f"EXECUTE DCM PROJECT IDENTIFIER('my_project') DEPLOY AS \"v1\" FROM @test_stage"
     )
 
 
@@ -286,7 +329,7 @@ def test_deploy_project_with_alias_special_characters(
     mock_execute_query, alias, expected_alias
 ):
     mgr = DCMProjectManager()
-    mgr.execute(
+    mgr.deploy(
         project_identifier=TEST_PROJECT,
         from_stage="@test_stage",
         alias=alias,
