@@ -21,6 +21,7 @@
 * `snow streamlit deploy --experimental` flag is deprecated. Versioned deployment is now the default behavior.
 
 ## New additions
+* Add `snow spcs compute-pool show-instance-families` command.
 
 * `snow streamlit deploy` now uses versioned stages by default (modern FROM syntax with automatic version management)
 * Added `snow streamlit deploy --legacy` flag to use the legacy ROOT_LOCATION deployment for backward compatibility
