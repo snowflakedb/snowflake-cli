@@ -375,6 +375,12 @@ def preview(
 def analyze(
     identifier: FQN = dcm_identifier,
     from_location: Optional[str] = from_option,
+    files: Optional[List[Path]] = typer.Option(
+        None,
+        "--files",
+        help="Files to analyze. Can be specified multiple times for multiple files.",
+        show_default=False,
+    ),
     variables: Optional[List[str]] = variables_flag,
     configuration: Optional[str] = configuration_flag,
     analysis_type: Optional[AnalysisType] = typer.Option(
@@ -398,7 +404,7 @@ def analyze(
         return DCMCommandResult(debug_cursor, AnalyzeReporter()).process()
 
     manager = DCMProjectManager()
-    effective_stage = _get_effective_stage(identifier, from_location)
+    effective_stage = _get_effective_stage(identifier, from_location, files)
 
     with cli_console.spinner() as spinner:
         spinner.add_task(description=f"Analyzing dcm project {identifier}", total=None)
@@ -409,19 +415,24 @@ def analyze(
             variables=variables,
             analysis_type=analysis_type,
             output_path=output_path,
+            files=files,
         )
 
     return DCMCommandResult(result, AnalyzeReporter()).process()
 
 
-def _get_effective_stage(identifier: FQN, from_location: Optional[str]):
+def _get_effective_stage(
+    identifier: FQN, from_location: Optional[str], files: Optional[List[Path]] = None
+):
     manager = DCMProjectManager()
     if not from_location:
-        from_stage = manager.sync_local_files(project_identifier=identifier)
+        from_stage = manager.sync_local_files(
+            project_identifier=identifier, files=files
+        )
     elif is_stage_path(from_location):
         from_stage = from_location
     else:
         from_stage = manager.sync_local_files(
-            project_identifier=identifier, source_directory=from_location
+            project_identifier=identifier, source_directory=from_location, files=files
         )
     return from_stage

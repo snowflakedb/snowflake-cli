@@ -177,6 +177,7 @@ class DCMProjectManager(SqlExecutionMixin):
         variables: List[str] | None = None,
         analysis_type: AnalysisType | None = None,
         output_path: str | None = None,
+        files: List[Path] | None = None,
     ):
         with self._collect_output(
             project_identifier, output_path
@@ -187,6 +188,9 @@ class DCMProjectManager(SqlExecutionMixin):
             query += self._get_configuration_and_variables_query(
                 configuration, variables
             )
+            if files:
+                files_str = ", ".join([f"'{file}'" for file in files])
+                query += f" FILES ({files_str})"
             query += self._get_from_stage_query(from_stage)
             if output_stage is not None:
                 query += f" OUTPUT_PATH {output_stage}"
@@ -216,7 +220,9 @@ class DCMProjectManager(SqlExecutionMixin):
 
     @staticmethod
     def sync_local_files(
-        project_identifier: FQN, source_directory: str | None = None
+        project_identifier: FQN,
+        source_directory: str | None = None,
+        files: List[Path] | None = None,
     ) -> str:
         source_path = (
             SecurePath(source_directory).resolve()
@@ -230,6 +236,7 @@ class DCMProjectManager(SqlExecutionMixin):
                 f"{MANIFEST_FILE_NAME} was not found in directory {source_path.path}"
             )
 
+        definitions: set[str] = set()
         with dcm_manifest_file.open(read_file_limit_mb=DEFAULT_SIZE_LIMIT_MB) as fd:
             dcm_manifest = yaml.safe_load(fd)
             object_type = dcm_manifest.get("type") if dcm_manifest else None
@@ -241,10 +248,10 @@ class DCMProjectManager(SqlExecutionMixin):
                 raise CliError(
                     f"Manifest file is defined for type {object_type}. Expected {DCM_PROJECT_TYPE}"
                 )
-
-            definitions = list(dcm_manifest.get("include_definitions", list()))
-            if MANIFEST_FILE_NAME not in definitions:
-                definitions.append(MANIFEST_FILE_NAME)
+            definitions = set((dcm_manifest.get("include_definitions", definitions)))
+        if files:
+            definitions = definitions.intersection({file.as_posix() for file in files})
+        definitions.add(MANIFEST_FILE_NAME)
 
         with cli_console.phase(f"Uploading definition files"):
             stage_fqn = FQN.from_resource(
