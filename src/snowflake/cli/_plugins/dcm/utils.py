@@ -200,19 +200,8 @@ def export_test_results(
 def dump_json_result(
     command_name: str, result_data: Any, output_dir: Optional[Path] = None
 ) -> Path:
-    """
-    Dump raw JSON result to a timestamped file.
-
-    Args:
-        command_name: Name of the command (e.g., 'plan', 'test', 'deploy')
-        result_data: The result data to dump
-        output_dir: Directory to save the file (defaults to ./dcm_output)
-
-    Returns:
-        Path to the saved file
-    """
     if output_dir is None:
-        output_dir = Path.cwd() / "dcm_output"
+        output_dir = Path.cwd() / ".out"
 
     output_dir.mkdir(parents=True, exist_ok=True)
 

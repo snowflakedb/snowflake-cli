@@ -28,6 +28,7 @@ from rich import box, get_console
 from rich import print as rich_print
 from rich.live import Live
 from rich.table import Table
+from snowflake.cli._plugins.dcm.reporting import DCMMessageResult
 from snowflake.cli.api.cli_global_context import get_cli_context
 from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
@@ -317,6 +318,8 @@ def print_unstructured(obj: CommandResult | None):
         rich_print("Done", flush=True)
     elif not obj.result:
         rich_print("No data", flush=True)
+    elif isinstance(obj, DCMMessageResult):
+        rich_print(obj.message)
     elif isinstance(obj, MessageResult):
         rich_print(sanitize_for_terminal(obj.message), flush=True)
     else:

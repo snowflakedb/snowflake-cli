@@ -14,10 +14,10 @@
 
 import json
 from abc import ABC, abstractmethod
+from collections import defaultdict
 from typing import Any, Dict, Iterator, Optional
 
 from rich.console import Group
-from rich.style import Style
 from rich.table import Table
 from rich.text import Text
 from rich.tree import Tree
@@ -29,32 +29,28 @@ from snowflake.cli._plugins.dcm.styles import (
     DROP_STYLE,
     ERROR_STYLE,
     FAIL_STYLE,
+    INSERTED_STYLE,
     OK_STYLE,
     PASS_STYLE,
-    REFRESHED_STYLE,
-    UP_TO_DATE_STYLE,
+    REMOVED_STYLE,
+    STATUS_STYLE,
 )
 from snowflake.cli._plugins.dcm.utils import dump_json_result
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.output.types import MessageResult
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
+
+
+class DCMMessageResult(MessageResult):
+    def __init__(self, message: Text | str) -> None:
+        super().__init__(message)
+        self._message = message
 
 
 class Reporter(ABC):
-    """
-    Base class for DCM command reporters.
-
-    A reporter knows how to:
-    - Extract relevant data from the result JSON
-    - Generate formatted output using Rich renderables
-    - Create summary lines
-    - Check for errors and generate appropriate error messages
-    """
-
-    @abstractmethod
-    def get_command_name(self) -> str:
-        """Return the command name for JSON file naming."""
-        pass
+    def __init__(self) -> None:
+        self.command_name = ""
 
     @abstractmethod
     def extract_data(self, result_json: Dict[str, Any]) -> Any:
@@ -71,21 +67,15 @@ class Reporter(ABC):
         """Generate a summary Text object."""
         pass
 
-    def check_for_errors(self, result_json: Dict[str, Any]) -> Optional[str]:
+    def check_for_errors(self, result_json: Dict[str, Any]) -> bool:
         """
-        Check if result contains errors and return error message if so.
+        Check if result contains errors and return True if so.
+        """
+        return False
 
-        Returns None if no errors, otherwise returns error message string.
-        """
-        return None
-
-    def handle_empty_result(self) -> Optional[MessageResult]:
-        """
-        Handle case when no data is returned.
-
-        Returns MessageResult if command should exit early, None to continue processing.
-        """
-        return MessageResult("No data returned from command.")
+    @staticmethod
+    def handle_empty_result() -> Optional[MessageResult]:
+        return MessageResult("No data.")
 
 
 class PlanReporter(Reporter):
@@ -93,13 +83,15 @@ class PlanReporter(Reporter):
 
     # Column widths for consistent formatting
     OPERATION_WIDTH = 8  # "CREATE" or "ALTER" or "DROP" (with padding)
-    TYPE_WIDTH = 32  # "WAREHOUSE", "TABLE", etc.
+    TYPE_WIDTH = 15  # "WAREHOUSE", "TABLE", etc.
 
     def __init__(self, command_name: str = "plan"):
+        super().__init__()
         self.command_name = command_name
 
-    def get_command_name(self) -> str:
-        return self.command_name
+    @property
+    def is_plan(self) -> bool:
+        return True if self.command_name == "plan" else False
 
     def extract_data(self, result_json: Dict[str, Any]) -> Any:
         # For plan/deploy, the result is already a list of operations
@@ -139,131 +131,131 @@ class PlanReporter(Reporter):
                 target_domain = target.get("objectDomain", "")
 
                 if association == "GRANT":
-                    privilege = subject.get("objectPrivilege", "")
-
-                    # Use Table for GRANT - single line with "to/from" connector
-                    grant_table = Table(
-                        show_header=False, box=None, padding=(0, 1, 0, 0)
-                    )
-                    grant_table.add_column(
-                        "Operation", width=self.OPERATION_WIDTH, no_wrap=True
-                    )
-                    grant_table.add_column("Type", width=self.TYPE_WIDTH, no_wrap=True)
-                    grant_table.add_column("Name", no_wrap=True)
-
-                    operation_text = Text(operation_type, style=op_style)
-
-                    # Determine connector based on operation type
-                    connector = "to" if operation_type == "CREATE" else "from"
-
-                    if privilege:
-                        type_text = Text(f"GRANT {privilege}")  # Type neutral
-                    else:
-                        type_text = Text("GRANT ROLE")  # Type neutral
-
-                    # Build name with source → connector → target, all entity names in cyan
-                    name_text = Text()
-                    name_text.append(subject_name, style=DOMAIN_STYLE)  # Source in cyan
-                    name_text.append(f" {connector} ")  # Connector neutral
-                    name_text.append(target_name, style=DOMAIN_STYLE)  # Target in cyan
-
-                    grant_table.add_row(operation_text, type_text, name_text)
-                    yield grant_table
+                    yield from self._render_grant(op_style, op)
 
                 elif association == "DMF_ATTACHMENT":
-                    expectations = details.get("expectations", {})
-                    columns = target.get("columns", [])
-
-                    # Use Table for EXPECTATION main line
-                    exp_table = Table(show_header=False, box=None, padding=(0, 1, 0, 0))
-                    exp_table.add_column(
-                        "Operation", width=self.OPERATION_WIDTH, no_wrap=True
+                    yield from self._render_attachment(
+                        details,
+                        op_style,
+                        operation_type,
+                        target,
+                        target_domain,
+                        target_name,
                     )
-                    exp_table.add_column("Type", width=self.TYPE_WIDTH, no_wrap=True)
-                    exp_table.add_column("Name", no_wrap=True)
-
-                    operation_text = Text(operation_type, style=op_style)
-                    type_text = Text(f"EXPECTATION on {target_domain}")  # Type neutral
-
-                    # Build name with optional columns
-                    name_parts = [target_name]
-                    if columns:
-                        name_parts.append(f" ({', '.join(columns)})")
-                    name_text = Text(
-                        "".join(name_parts), style=DOMAIN_STYLE
-                    )  # Name in cyan
-
-                    exp_table.add_row(operation_text, type_text, name_text)
-
-                    yield exp_table
                 else:
-                    # Other associations - use Table
-                    assoc_table = Table(
-                        show_header=False, box=None, padding=(0, 1, 0, 0)
-                    )
-                    assoc_table.add_column(
-                        "Operation", width=self.OPERATION_WIDTH, no_wrap=True
-                    )
-                    assoc_table.add_column("Type", width=self.TYPE_WIDTH, no_wrap=True)
-                    assoc_table.add_column("Name", no_wrap=True)
-
-                    operation_text = Text(operation_type, style=op_style)
-                    type_text = Text(association)  # Association type neutral
-                    name_text = Text(
-                        f"{subject_name} → {target_name}", style=DOMAIN_STYLE
-                    )  # Names in cyan
-
-                    assoc_table.add_row(operation_text, type_text, name_text)
-                    yield assoc_table
+                    raise CliError(f"Unknown association: {association}")
             else:
-                # Handle regular objects using Table for proper alignment
-                row_table = Table(show_header=False, box=None, padding=(0, 1, 0, 0))
-                row_table.add_column(
-                    "Operation", width=self.OPERATION_WIDTH, no_wrap=True
+                yield from self._handle_basic_entities(
+                    details, object_domain, object_name, op_style, operation_type
                 )
-                row_table.add_column("Type", width=self.TYPE_WIDTH, no_wrap=True)
-                row_table.add_column("Name", no_wrap=True)
 
-                # Operation in color (green/yellow/red)
-                operation_text = Text(operation_type, style=op_style)
+    def _handle_basic_entities(
+        self, details, object_domain, object_name, op_style, operation_type
+    ):
+        # Handle regular objects using Table for proper alignment
+        row_table = Table(show_header=False, box=None, padding=(0, 1, 0, 0))
+        row_table.add_column("Operation", width=self.OPERATION_WIDTH, no_wrap=True)
+        row_table.add_column("Type", width=self.TYPE_WIDTH, no_wrap=True)
+        row_table.add_column("Name", no_wrap=True)
+        # Operation in color (green/yellow/red)
+        operation_text = Text(operation_type, style=op_style)
+        # Object domain/type neutral (informative)
+        type_text = Text(object_domain)
+        # Object name in cyan for quick identification
+        name_text = Text(object_name, style=DOMAIN_STYLE)
+        row_table.add_row(operation_text, type_text, name_text)
+        # For ALTER operations with property changes, combine table and tree in Group
+        if operation_type == "ALTER" and details:
+            properties = details.get("properties", {})
+            if properties:
+                # Create tree for properties
+                prop_tree = Tree("")
 
-                # Object domain/type neutral (informative)
-                type_text = Text(object_domain)
-
-                # Object name in cyan for quick identification
-                name_text = Text(object_name, style=DOMAIN_STYLE)
-
-                row_table.add_row(operation_text, type_text, name_text)
-
-                # For ALTER operations with property changes, combine table and tree in Group
-                if operation_type == "ALTER" and details:
-                    properties = details.get("properties", {})
-                    if properties:
-                        # Create tree for properties
-                        prop_tree = Tree("")
-
-                        for prop_name, prop_value in properties.items():
-                            if isinstance(prop_value, dict):
-                                change_from = prop_value.get("changeFrom", "")
-                                change_to = prop_value.get("changeTo", "")
-                                if change_to == "<unset>":
-                                    change_text = Text(
-                                        f"{prop_name}: {change_from} → (unset)"
-                                    )
-                                else:
-                                    change_text = Text(
-                                        f"{prop_name}: {change_from} → {change_to}"
-                                    )
-                            else:
-                                change_text = Text(f"{prop_name}: {prop_value}")
-                            prop_tree.add(change_text)
-
-                        # Yield table and tree together in a Group to prevent blank line
-                        yield Group(row_table, prop_tree)
+                for prop_name, prop_value in properties.items():
+                    if isinstance(prop_value, dict):
+                        change_from = prop_value.get("changeFrom", "")
+                        change_to = prop_value.get("changeTo", "")
+                        if change_to == "<unset>":
+                            change_text = Text(f"{prop_name}: {change_from} → (unset)")
+                        else:
+                            change_text = Text(
+                                f"{prop_name}: {change_from} → {change_to}"
+                            )
                     else:
-                        yield row_table
-                else:
-                    yield row_table
+                        change_text = Text(f"{prop_name}: {prop_value}")
+                    prop_tree.add(change_text)
+
+                # Yield table and tree together in a Group to prevent blank line
+                yield Group(row_table, prop_tree)
+            else:
+                yield row_table
+        else:
+            yield row_table
+
+    def _handle_unknown_associations(
+        self, association, op_style, operation_type, subject_name, target_name
+    ):
+        # Other associations - use Table
+        assoc_table = Table(show_header=False, box=None, padding=(0, 1, 0, 0))
+        assoc_table.add_column("Operation", width=self.OPERATION_WIDTH, no_wrap=True)
+        assoc_table.add_column("Type", width=self.TYPE_WIDTH, no_wrap=True)
+        assoc_table.add_column("Name", no_wrap=True)
+        operation_text = Text(operation_type, style=op_style)
+        type_text = Text(association)  # Association type neutral
+        name_text = Text(
+            f"{subject_name} → {target_name}", style=DOMAIN_STYLE
+        )  # Names in cyan
+        assoc_table.add_row(operation_text, type_text, name_text)
+        yield assoc_table
+
+    def _render_attachment(
+        self, details, op_style, operation_type, target, target_domain, target_name
+    ):
+        expectations = details.get("expectations", {})
+        columns = target.get("columns", [])
+        # Use Table for EXPECTATION main line
+        exp_table = Table(show_header=False, box=None, padding=(0, 1, 0, 0))
+        exp_table.add_column("Operation", width=self.OPERATION_WIDTH, no_wrap=True)
+        exp_table.add_column("Type", width=self.TYPE_WIDTH, no_wrap=True)
+        exp_table.add_column("Name", no_wrap=True)
+        operation_text = Text(operation_type, style=op_style)
+        type_text = Text(f"EXPECTATION on {target_domain}")  # Type neutral
+        # Build name with optional columns
+        name_parts = [target_name]
+        if columns:
+            name_parts.append(f" ({', '.join(columns)})")
+        name_text = Text("".join(name_parts), style=DOMAIN_STYLE)  # Name in cyan
+        exp_table.add_row(operation_text, type_text, name_text)
+        yield exp_table
+
+    def _render_grant(self, op_style, operation) -> Table:
+        operation_type = operation.get("operationType", "UNKNOWN")
+        subject = operation.get("subject", {})
+        target = operation.get("target", {})
+
+        subject_name = subject.get("objectName", "")
+        subject_domain = subject.get("objectDomain", "")
+        target_name = target.get("objectName", "")
+        target_domain = target.get("objectDomain", "")
+        privilege = subject.get("objectPrivilege", "")
+        result = Table(show_header=False, box=None, padding=(0, 1, 0, 0))
+        result.add_column("Operation", width=self.OPERATION_WIDTH, no_wrap=True)
+        result.add_column("Type", width=self.TYPE_WIDTH, no_wrap=True)
+        result.add_column("Name", no_wrap=True)
+        operation_text = Text(operation_type, style=op_style)
+        connector = "to" if operation_type == "CREATE" else "from"
+        type_text = Text(f"GRANT")
+        # Build name with source → connector → target, all entity names in cyan
+        name_text = Text("")
+        name_text.append(privilege if privilege else "ALL", style=BOLD_STYLE)
+        name_text.append(" on ")
+        name_text.append(subject_domain, style=BOLD_STYLE)
+        name_text.append(f" {subject_name}", style=DOMAIN_STYLE)
+        name_text.append(f" {connector} ")
+        name_text.append(target_domain, style=BOLD_STYLE)
+        name_text.append(f" {target_name}", style=DOMAIN_STYLE)
+        result.add_row(operation_text, type_text, name_text)
+        yield result
 
     def generate_summary(self, data: Any) -> Text:
         """Generate summary for plan/deploy operations."""
@@ -275,7 +267,7 @@ class PlanReporter(Reporter):
         drop_count = sum(1 for op in operations if op.get("operationType") == "DROP")
 
         if create_count == 0 and alter_count == 0 and drop_count == 0:
-            return Text("No changes to apply.")
+            return Text(f"No changes to {'plan' if self.is_plan else 'apply'}.")
 
         # No "Summary:" prefix - start directly with counts
         summary = Text()
@@ -283,15 +275,21 @@ class PlanReporter(Reporter):
         parts = []
         if drop_count > 0:
             part = Text(str(drop_count), style=DROP_STYLE)
-            part.append(" to be dropped")
+            if self.is_plan:
+                part.append(" to be")
+            part.append(" dropped")
             parts.append(part)
         if create_count > 0:
             part = Text(str(create_count), style=CREATE_STYLE)
-            part.append(" to be created")
+            if self.is_plan:
+                part.append(" to be")
+            part.append(" created")
             parts.append(part)
         if alter_count > 0:
             part = Text(str(alter_count), style=ALTER_STYLE)
-            part.append(" to be altered")
+            if self.is_plan:
+                part.append(" to be")
+            part.append(" altered")
             parts.append(part)
 
         for i, part in enumerate(parts):
@@ -304,66 +302,46 @@ class PlanReporter(Reporter):
 
 
 class TestReporter(Reporter):
-    """Reporter for test command."""
+    STATUS_WIDTH = 11  # "✓ PASS" or "✗ FAIL" (unicode symbols + padding)
+    TABLE_WIDTH = 55
 
-    # Column widths for consistent formatting
-    STATUS_WIDTH = 13  # "✓ PASS" or "✗ FAIL" (unicode symbols + padding)
-    TABLE_WIDTH = 55  # Table name column
-
-    def __init__(self):
-        self._status = "SUCCESS"  # Store status for summary generation
-
-    def get_command_name(self) -> str:
-        return "test"
+    def __init__(self) -> None:
+        super().__init__()
+        self.command_name = "test"
+        self._summary_data: dict[str, int] = defaultdict(int)
 
     def extract_data(self, result_json: Dict[str, Any]) -> Any:
-        # Store status for use in summary
-        self._status = result_json.get("status", "SUCCESS")
         return result_json.get("expectations", [])
 
     def generate_renderables(self, data: Any) -> Iterator[Table | Text]:
-        """
-        Generate Rich Table for test expectations.
+        for exp in data:
+            table_name = sanitize_for_terminal(exp.get("table_name", "UNKNOWN"))
+            expectation_name = sanitize_for_terminal(
+                exp.get("expectation_name", "UNKNOWN")
+            )
+            has_failed = exp.get("expectation_violated", False)
 
-        Using single table exactly like RefreshReporter for proper style handling.
-        Shows failure details after the main table.
-        """
-        expectations = data
-
-        # Process each expectation and yield immediately (so details appear right after failures)
-        for exp in expectations:
-            table_name = exp.get("table_name", "UNKNOWN")
-            expectation_name = exp.get("expectation_name", "UNKNOWN")
-            violated = exp.get("expectation_violated", False)
-
-            # Truncate table name if too long
-            if len(table_name) > self.TABLE_WIDTH:
-                table_name = "..." + table_name[-(self.TABLE_WIDTH - 3) :]
-
-            # Create single-row table for this expectation
             row_table = Table(show_header=False, box=None, padding=(0, 1, 0, 0))
             row_table.add_column("Status", width=self.STATUS_WIDTH, no_wrap=True)
-            row_table.add_column("Table", width=self.TABLE_WIDTH, no_wrap=True)
-            row_table.add_column("Expectation", no_wrap=True)
+            row_table.add_column("Table", no_wrap=False)
 
-            # Build status cell - create Text with style (exactly like RefreshReporter)
-            if violated:
+            if has_failed:
                 status_text = Text("✗ FAIL", style=FAIL_STYLE)
+                self._summary_data["failed"] += 1
             else:
                 status_text = Text("✓ PASS", style=PASS_STYLE)
+                self._summary_data["passed"] += 1
 
-            # Build table name cell (cyan for visibility)
-            table_text = Text(table_name, style=DOMAIN_STYLE)
+            table_text = Text()
+            table_text.append(table_name, style=DOMAIN_STYLE)
+            table_text.append(" (")
+            table_text.append(expectation_name)
+            table_text.append(")")
 
-            # Build expectation cell (neutral style)
-            expectation_text = Text(expectation_name)
-
-            # Add row to table and yield immediately
-            row_table.add_row(status_text, table_text, expectation_text)
+            row_table.add_row(status_text, table_text)
             yield row_table
 
-            # If failed, show details immediately after THIS expectation
-            if violated:
+            if has_failed:
                 expectation_expr = exp.get("expectation_expression", "N/A")
                 value = exp.get("value", "N/A")
                 metric_name = exp.get("metric_name", "Unknown")
@@ -374,78 +352,43 @@ class TestReporter(Reporter):
                 yield detail_text
 
     def generate_summary(self, data: Any) -> Text:
-        """Generate summary for test results."""
-        expectations = data
-        total = len(expectations)
-        failed = sum(
-            1 for exp in expectations if exp.get("expectation_violated", False)
-        )
-        passed = total - failed
+        failed = self._summary_data["failed"]
+        passed = self._summary_data["passed"]
+        total = failed + passed
+        if total == 0:
+            return Text("No data expectations found.")
 
-        # No "Summary:" prefix - start directly with counts
         summary = Text()
-        summary.append(str(passed), style=PASS_STYLE)
-        summary.append(" passed")
-
-        if failed > 0:
-            summary.append(", ")
-            summary.append(str(failed), style=FAIL_STYLE)
-            summary.append(" failed")
-
+        summary.append(f"{str(passed)} passed", style=PASS_STYLE)
+        summary.append(", ")
+        summary.append(f"{str(failed)} failed", style=FAIL_STYLE)
         summary.append(" out of ")
         summary.append(str(total), style=BOLD_STYLE)
         summary.append(" total.")
 
         return summary
 
-    def check_for_errors(self, result_json: Dict[str, Any]) -> Optional[str]:
-        status = result_json.get("status", "SUCCESS")
-        expectations = result_json.get("expectations", [])
-
-        if status == "EXPECTATION_VIOLATED":
-            failed = sum(
-                1 for exp in expectations if exp.get("expectation_violated", False)
-            )
-            passed = len(expectations) - failed
-            return f"Test completed with failures: {passed} passed, {failed} failed out of {len(expectations)} total."
-        return None
-
-    def handle_empty_result(self) -> Optional[MessageResult]:
-        # For test, empty expectations is valid but should be handled specially
-        return None  # Let the handler check for empty expectations
+    def check_for_errors(self, result_json: Dict[str, Any]) -> bool:
+        if self._summary_data["failed"] > 0:
+            return True
+        return False
 
 
 class RefreshReporter(Reporter):
-    """Reporter for refresh command."""
+    STATUS_WIDTH = 11
+    STATS_WIDTH = 7
 
-    # Column widths for consistent formatting
-    STATUS_WIDTH = 13  # "✓ REFRESHED" or "○ UP-TO-DATE" (padding adds space)
-    STATS_WIDTH = 18  # "(+  123 -  456)" (padding adds space)
-
-    def get_command_name(self) -> str:
-        return "refresh"
+    def __init__(self):
+        super().__init__()
+        self.command_name = "refresh"
+        self._summary_data = defaultdict(int)
 
     def extract_data(self, result_json: Dict[str, Any]) -> Any:
         return result_json.get("refreshed_tables", [])
 
     @staticmethod
     def _format_number(num: int) -> str:
-        """
-        Format large numbers in human-readable format.
-
-        Supports:
-        - Thousands: 1k, 1.5k
-        - Millions: 1M, 1.2M
-        - Billions: 1B, 5.6B
-        - Trillions: 1T, 7.8T
-        - Quadrillions: 1P, 3.2P
-        - Quintillions: 1E, 2.5E
-
-        Removes trailing .0 for cleaner display (1.0k -> 1k)
-        """
         abs_num = abs(num)
-        sign = "-" if num < 0 else ""
-
         if abs_num >= 1_000_000_000_000_000_000:  # Quintillions (10^18)
             formatted = f"{abs_num / 1_000_000_000_000_000_000:.1f}E"
         elif abs_num >= 1_000_000_000_000_000:  # Quadrillions (10^15)
@@ -461,89 +404,90 @@ class RefreshReporter(Reporter):
         else:
             return str(num)
 
-        # Remove trailing .0 for cleaner display
         formatted = formatted.replace(".0", "")
-        return sign + formatted
+        return formatted
 
     def generate_renderables(self, data: Any) -> Iterator[Table]:
-        """
-        Generate Rich Table for refresh results.
+        result = Table(show_header=False, box=None, padding=(0, 1, 0, 0))
+        result.add_column("Status", width=self.STATUS_WIDTH, no_wrap=True)
+        result.add_column(
+            "Added", width=self.STATS_WIDTH, no_wrap=True, justify="right"
+        )
+        result.add_column(
+            "Removed", width=self.STATS_WIDTH, no_wrap=True, justify="right"
+        )
+        result.add_column("Name", no_wrap=True)
 
-        Using Table provides automatic column alignment without brittleness of hardcoded widths.
-        """
-        refreshed_tables = data
+        for table in data:
+            dt_name = table.get("dt_name", "UNKNOWN")
+            statistics = table.get("statistics", "")
 
-        # Create table without header or box for clean output
-        table = Table(show_header=False, box=None, padding=(0, 1, 0, 0))
-        table.add_column("Status", width=self.STATUS_WIDTH, no_wrap=True)
-        table.add_column("Stats", width=self.STATS_WIDTH, no_wrap=True)
-        table.add_column("Name", no_wrap=True)  # Don't wrap table names
-
-        for tbl in refreshed_tables:
-            dt_name = tbl.get("dt_name", "UNKNOWN")
-            refreshed_count = tbl.get("refreshed_dt_count", 0)
-            statistics = tbl.get("statistics", "")
-
-            # Build status cell
-            if refreshed_count > 0:
-                status_text = Text("✓ REFRESHED", style=REFRESHED_STYLE)
-            else:
-                status_text = Text("○ UP-TO-DATE", style=UP_TO_DATE_STYLE)
-
-            # Build statistics cell
-            stats_text = Text()
-            if (
-                refreshed_count > 0
-                and isinstance(statistics, str)
-                and statistics.startswith("{")
-            ):
+            inserted_text, deleted_text = Text(), Text()
+            stats_json = None
+            if isinstance(statistics, str) and statistics.startswith("{"):
                 try:
                     stats_json = json.loads(statistics)
-                    inserted = stats_json.get("insertedRows", 0)
-                    deleted = stats_json.get("deletedRows", 0)
-
-                    # Format with human-readable numbers
-                    inserted_str = self._format_number(inserted)
-                    deleted_str = self._format_number(deleted)
-
-                    stats_text.append(f"(+{inserted_str:>5s} ")
-                    stats_text.append(f"-{deleted_str:>5s}", style=Style(color="red"))
-                    stats_text.append(")")
                 except json.JSONDecodeError:
                     pass  # stats_text stays empty
+            elif isinstance(statistics, dict):
+                stats_json = statistics
 
-            # Build name cell
-            name_text = Text(dt_name, style=DOMAIN_STYLE)
+            if (
+                statistics == "No new data"
+                or stats_json is not None
+                and (
+                    not stats_json.get("insertedRows")
+                    and not stats_json.get("deletedRows")
+                )
+            ):
+                status_text = Text("UP-TO-DATE", style=STATUS_STYLE)
+                self._summary_data["up-to-date"] += 1
+            elif stats_json is not None and (
+                stats_json.get("insertedRows") or stats_json.get("deletedRows")
+            ):
+                status_text = Text("REFRESHED", style=STATUS_STYLE)
+                self._summary_data["refreshed"] += 1
+            else:
+                status_text = Text("UNKNOWN", style=STATUS_STYLE)
+                self._summary_data["unknown"] += 1
 
-            # Add row to table
-            table.add_row(status_text, stats_text, name_text)
+            if stats_json is not None:
+                inserted = stats_json.get("insertedRows", 0)
+                deleted = stats_json.get("deletedRows", 0)
 
-        # Yield the complete table as a single renderable
-        yield table
+                inserted_str = self._format_number(inserted)
+                if inserted_str != "0":
+                    inserted_str = "+" + inserted_str
+                deleted_str = self._format_number(deleted)
+                if deleted_str != "0":
+                    deleted_str = "-" + deleted_str
 
-    def generate_summary(self, data: Any) -> Text:
-        """Generate summary for refresh results."""
-        refreshed_tables = data
-        total = len(refreshed_tables)
-        refreshed = sum(
-            1 for t in refreshed_tables if t.get("refreshed_dt_count", 0) > 0
-        )
-        up_to_date = total - refreshed
+                inserted_text.append(inserted_str, style=INSERTED_STYLE)
+                deleted_text.append(deleted_str, style=REMOVED_STYLE)
 
+            name_text = Text(sanitize_for_terminal(dt_name), style=DOMAIN_STYLE)
+            result.add_row(status_text, inserted_text, deleted_text, name_text)
+        yield result
+
+    def generate_summary(self, *args, **kwargs) -> Text:
+        total = sum(self._summary_data.values())
         if total == 0:
             return Text("No dynamic tables found in the project.")
 
-        # No "Summary:" prefix - start directly with counts
         summary = Text()
 
         parts = []
-        if refreshed > 0:
-            part = Text(str(refreshed), style=REFRESHED_STYLE)
+        if (refreshed := self._summary_data.get("refreshed", 0)) > 0:
+            part = Text(str(refreshed))
             part.append(" refreshed")
             parts.append(part)
-        if up_to_date > 0:
-            part = Text(str(up_to_date), style=UP_TO_DATE_STYLE)
+        if (up_to_date := self._summary_data.get("up-to-date", 0)) > 0:
+            part = Text(str(up_to_date))
             part.append(" up-to-date")
+            parts.append(part)
+        if (unknown := self._summary_data.get("unknown", 0)) > 0:
+            part = Text(str(unknown))
+            part.append(" unknown")
             parts.append(part)
 
         for i, part in enumerate(parts):
@@ -558,8 +502,9 @@ class RefreshReporter(Reporter):
 class AnalyzeReporter(Reporter):
     """Reporter for analyze command."""
 
-    def get_command_name(self) -> str:
-        return "analyze"
+    def __init__(self):
+        super().__init__()
+        self.command_name = "analyze"
 
     def extract_data(self, result_json: Dict[str, Any]) -> Any:
         return result_json.get("files", [])
@@ -687,10 +632,8 @@ class AnalyzeReporter(Reporter):
 
         return summary
 
-    def check_for_errors(self, result_json: Dict[str, Any]) -> Optional[str]:
-        # Compute error summary
+    def check_for_errors(self, result_json: Dict[str, Any]) -> bool:
         files = result_json.get("files", [])
-        total_files = len(files)
         total_definitions = 0
         total_errors = 0
 
@@ -706,94 +649,38 @@ class AnalyzeReporter(Reporter):
                 total_errors += len(def_errors)
 
         if total_errors > 0:
-            return (
-                f"Analyze completed with errors: {total_files} files analyzed, "
-                f"{total_definitions} definitions found, {total_errors} errors."
-            )
-        return None
+            return True
+        return False
 
 
 class DCMCommandResult:
-    """
-    Handles DCM command result processing with a reporter.
-
-    Encapsulates the common pattern of:
-    1. Fetching and parsing result
-    2. Dumping JSON
-    3. Rendering output
-    4. Showing summary
-    5. Handling errors
-    """
-
-    def __init__(
-        self, cursor, reporter: Reporter, result_json: Optional[Dict[str, Any]] = None
-    ):
-        """
-        Initialize command result handler.
-
-        Args:
-            cursor: Database cursor with query result (if result_json not provided)
-            reporter: Reporter instance for this command type
-            result_json: Optional pre-parsed JSON result (skips cursor fetch if provided)
-        """
+    def __init__(self, cursor, reporter: Reporter):
         self.cursor = cursor
         self.reporter = reporter
-        self._result_json = result_json
-        self._skip_json_dump = (
-            result_json is not None
-        )  # If pre-parsed, assume JSON already dumped
 
-    def process(self, skip_json_dump: bool = False) -> MessageResult:
-        """
-        Process the command result and return MessageResult.
+    def process(self) -> MessageResult:
+        row = self.cursor.fetchone()
+        if not row:
+            if empty_message := self.reporter.handle_empty_result():
+                return empty_message
 
-        Args:
-            skip_json_dump: If True, skips dumping JSON to file (useful when already dumped)
+        result_data = row[0]
+        result_json = (
+            json.loads(result_data) if isinstance(result_data, str) else result_data
+        )
 
-        Raises CliError if the result indicates an error condition.
-        """
-        # Get result_json (either from constructor or by fetching)
-        if self._result_json is None:
-            # Fetch row
-            row = self.cursor.fetchone()
-            if not row:
-                early_exit = self.reporter.handle_empty_result()
-                if early_exit:
-                    return early_exit
-
-            # Extract and parse JSON
-            result_data = row[0]
-            result_json = (
-                json.loads(result_data) if isinstance(result_data, str) else result_data
-            )
-        else:
-            result_json = self._result_json
-
-        # Extract relevant data using reporter
         data = self.reporter.extract_data(result_json)
 
-        # Handle special case for test command with no expectations
-        if isinstance(self.reporter, TestReporter) and not data:
-            return MessageResult("No expectations defined in the project.")
+        output_file = dump_json_result(self.reporter.command_name, result_json)
+        cli_console.step(f"Raw JSON saved to: {output_file}")
 
-        # Dump raw JSON to file (unless skipped)
-        if not skip_json_dump and not self._skip_json_dump:
-            output_file = dump_json_result(
-                self.reporter.get_command_name(), result_json
-            )
-            cli_console.step(f"Raw JSON saved to: {output_file}")
-
-        # Render output
         for renderable in self.reporter.generate_renderables(data):
             cli_console._print(renderable)  # noqa: SLF001
 
-        # Print summary
         summary = self.reporter.generate_summary(data)
 
-        # Check for errors
-        error_message = self.reporter.check_for_errors(result_json)
-        if error_message:
-            raise CliError(error_message)
-        # cli_console._print(Text("\n") + summary)
+        if self.reporter.check_for_errors(result_json):
+            cli_console._print(Text("\n") + summary)  # noqa: SLF001
+            raise SystemExit(1)
 
-        return MessageResult(str(Text("\n") + summary))
+        return DCMMessageResult(Text("\n") + summary)
