@@ -182,7 +182,7 @@ class SnowSQLConfigFile(ValueSource):
 
     @property
     def source_name(self) -> "ValueSource.SourceName":
-        return "snowsql_config"
+        return ValueSource.SourceName.SNOWSQL_CONFIG
 
     @property
     def source_type(self) -> SourceType:
@@ -351,7 +351,7 @@ class CliConfigFile(ValueSource):
 
     @property
     def source_name(self) -> "ValueSource.SourceName":
-        return "cli_config_toml"
+        return ValueSource.SourceName.CLI_CONFIG_TOML
 
     @property
     def source_type(self) -> SourceType:
@@ -485,7 +485,7 @@ class ConnectionsConfigFile(ValueSource):
 
     @property
     def source_name(self) -> "ValueSource.SourceName":
-        return "connections_toml"
+        return ValueSource.SourceName.CONNECTIONS_TOML
 
     @property
     def source_type(self) -> SourceType:
@@ -649,7 +649,7 @@ class SnowSQLEnvironment(ValueSource):
 
     @property
     def source_name(self) -> "ValueSource.SourceName":
-        return "snowsql_env"
+        return ValueSource.SourceName.SNOWSQL_ENV
 
     @property
     def source_type(self) -> SourceType:
@@ -758,7 +758,7 @@ class ConnectionSpecificEnvironment(ValueSource):
 
     @property
     def source_name(self) -> "ValueSource.SourceName":
-        return "connection_specific_env"
+        return ValueSource.SourceName.CONNECTION_SPECIFIC_ENV
 
     @property
     def source_type(self) -> SourceType:
@@ -831,7 +831,7 @@ class CliEnvironment(ValueSource):
 
     @property
     def source_name(self) -> "ValueSource.SourceName":
-        return "cli_env"
+        return ValueSource.SourceName.CLI_ENV
 
     @property
     def source_type(self) -> SourceType:
@@ -893,7 +893,7 @@ class CliParameters(ValueSource):
 
     @property
     def source_name(self) -> "ValueSource.SourceName":
-        return "cli_arguments"
+        return ValueSource.SourceName.CLI_ARGUMENTS
 
     @property
     def source_type(self) -> SourceType:
