@@ -15,7 +15,7 @@
 """Constants for configuration system."""
 
 from enum import Enum
-from typing import Final, Literal
+from typing import Final
 
 
 class ConfigSection(str, Enum):
@@ -46,16 +46,26 @@ INTERNAL_CLI_PARAMETERS: Final[set[str]] = {
     "mfa_passcode",
 }
 
-# Define Literal type for file source names
-FileSourceName = Literal[
-    "snowsql_config",
-    "cli_config_toml",
-    "connections_toml",
-]
+
+class ConfigSourceName(str, Enum):
+    """Enumerates all configuration source identifiers."""
+
+    SNOWSQL_CONFIG = "snowsql_config"
+    CLI_CONFIG_TOML = "cli_config_toml"
+    CONNECTIONS_TOML = "connections_toml"
+    SNOWSQL_ENV = "snowsql_env"
+    CONNECTION_SPECIFIC_ENV = "connection_specific_env"
+    CLI_ENV = "cli_env"
+    CLI_ARGUMENTS = "cli_arguments"
+
+    def __str__(self) -> str:
+        """Return the raw string value for display/serialization."""
+        return self.value
+
 
 # Source names that represent file-based configuration sources
-FILE_SOURCE_NAMES: Final[set[str]] = {
-    "snowsql_config",
-    "cli_config_toml",
-    "connections_toml",
+FILE_SOURCE_NAMES: Final[set[ConfigSourceName]] = {
+    ConfigSourceName.SNOWSQL_CONFIG,
+    ConfigSourceName.CLI_CONFIG_TOML,
+    ConfigSourceName.CONNECTIONS_TOML,
 }

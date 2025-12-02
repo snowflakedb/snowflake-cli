@@ -199,13 +199,14 @@ class TestExportResolutionHistory:
             ConfigValue,
             ResolutionEntry,
             ResolutionHistory,
+            ValueSource,
         )
 
         entry = ResolutionEntry(
             config_value=ConfigValue(
                 key="password",
                 value="secret_value",
-                source_name="cli_arguments",
+                source_name=ValueSource.SourceName.CLI_ARGUMENTS,
                 raw_value="secret_value",
             ),
             timestamp=datetime.now(),

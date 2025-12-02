@@ -29,6 +29,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Callable, Dict, List, Literal, Optional
 
+from snowflake.cli.api.config_ng.constants import ConfigSourceName
 from snowflake.cli.api.config_ng.masking import mask_sensitive_value
 
 
@@ -53,7 +54,7 @@ class ConfigValue:
 
     key: str
     value: Any
-    source_name: str
+    source_name: ConfigSourceName
     raw_value: Optional[Any] = None
 
     def __repr__(self) -> str:
@@ -68,7 +69,7 @@ class ConfigValue:
         cls,
         key: str,
         raw_value: str,
-        source_name: str,
+        source_name: ConfigSourceName,
         value_parser: Optional[Callable[[str], Any]] = None,
     ) -> ConfigValue:
         """
@@ -100,19 +101,11 @@ class ValueSource(ABC):
     """
 
     # Allowed source names for config resolution
-    SourceName = Literal[
-        "snowsql_config",
-        "cli_config_toml",
-        "connections_toml",
-        "snowsql_env",
-        "connection_specific_env",
-        "cli_env",
-        "cli_arguments",
-    ]
+    SourceName = ConfigSourceName
 
     @property
     @abstractmethod
-    def source_name(self) -> SourceName:
+    def source_name(self) -> ConfigSourceName:
         """
         Unique identifier for this source.
         Examples: "cli_arguments", "snowsql_config", "cli_env"
@@ -176,7 +169,7 @@ class ResolutionEntry:
     config_value: ConfigValue
     timestamp: datetime
     was_used: bool
-    overridden_by: Optional[str] = None
+    overridden_by: Optional[ConfigSourceName] = None
 
 
 @dataclass
@@ -192,7 +185,7 @@ class ResolutionHistory:
     default_used: bool = False
 
     @property
-    def sources_consulted(self) -> List[str]:
+    def sources_consulted(self) -> List[ConfigSourceName]:
         """List of all source names that were consulted."""
         return [entry.config_value.source_name for entry in self.entries]
 

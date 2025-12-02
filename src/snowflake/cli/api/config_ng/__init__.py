@@ -28,6 +28,7 @@ from snowflake.cli.api.config_ng.constants import (
     FILE_SOURCE_NAMES,
     INTERNAL_CLI_PARAMETERS,
     ConfigSection,
+    ConfigSourceName,
 )
 from snowflake.cli.api.config_ng.core import (
     ConfigValue,
@@ -92,6 +93,7 @@ __all__ = [
     "ConfigValue",
     "ConnectionsConfigFile",
     "ConnectionSpecificEnvironment",
+    "ConfigSourceName",
     "create_default_connection_from_params",
     "create_default_sources",
     "deep_merge",

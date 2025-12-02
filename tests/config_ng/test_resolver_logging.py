@@ -16,7 +16,7 @@ class _BrokenSource(ValueSource):
         *,
         source_type: SourceType,
         exception: Exception,
-        source_name: ValueSource.SourceName = "cli_config_toml",
+        source_name: ValueSource.SourceName = ValueSource.SourceName.CLI_CONFIG_TOML,
     ):
         self._source_type = source_type
         self._exception = exception
@@ -71,7 +71,7 @@ def test_overlay_source_logs_include_only_structural_metadata(
             _BrokenSource(
                 source_type=SourceType.OVERLAY,
                 exception=StructuredError(),
-                source_name="cli_env",
+                source_name=ValueSource.SourceName.CLI_ENV,
             )
         ]
     )
