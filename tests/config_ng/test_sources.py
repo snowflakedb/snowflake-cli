@@ -17,6 +17,7 @@
 from typing import Literal
 
 import pytest
+from snowflake.cli.api.config_ng.core import ValueSource
 from snowflake.cli.api.config_ng.sources import (
     CliConfigFile,
     ConnectionsConfigFile,
@@ -353,17 +354,17 @@ class TestSourceProperties:
     def test_snowsql_config_source_name(self):
         """Test SnowSQLConfigFile source name."""
         source = SnowSQLConfigFile.from_string("")
-        assert source.source_name == "snowsql_config"
+        assert source.source_name is ValueSource.SourceName.SNOWSQL_CONFIG
 
     def test_cli_config_source_name(self):
         """Test CliConfigFile source name."""
         source = CliConfigFile.from_string("")
-        assert source.source_name == "cli_config_toml"
+        assert source.source_name is ValueSource.SourceName.CLI_CONFIG_TOML
 
     def test_connections_config_source_name(self):
         """Test ConnectionsConfigFile source name."""
         source = ConnectionsConfigFile.from_string("")
-        assert source.source_name == "connections_toml"
+        assert source.source_name is ValueSource.SourceName.CONNECTIONS_TOML
 
     def test_connections_file_marker(self):
         """Test that ConnectionsConfigFile is marked as connections file."""
