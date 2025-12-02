@@ -103,7 +103,33 @@ class SnowSQLParser:
             elif section == "variables":
                 result["variables"] = dict(config[section])
 
-        return result
+        return cls._apply_default_connection_fallback(result)
+
+    @classmethod
+    def _apply_default_connection_fallback(
+        cls, config: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Apply fallback of default connection parameters to other connections.
+
+        SnowSQL treats values declared directly under [connections] as defaults that
+        propagate to other named connections lacking those fields.
+        """
+        connections = config.get("connections")
+        if not isinstance(connections, dict):
+            return config
+
+        default_params = connections.get("default")
+        if not isinstance(default_params, dict) or not default_params:
+            return config
+
+        for conn_name, conn_params in connections.items():
+            if conn_name == "default" or not isinstance(conn_params, dict):
+                continue
+            for key, value in default_params.items():
+                conn_params.setdefault(key, value)
+
+        return config
 
 
 class TOMLParser:
