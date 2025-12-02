@@ -19,6 +19,7 @@ from snowflake.cli.api.config_ng.constants import (
     INTERNAL_CLI_PARAMETERS,
     SNOWFLAKE_HOME_ENV,
     ConfigSection,
+    ConfigSourceName,
 )
 
 
@@ -73,8 +74,8 @@ class TestConstants:
     def test_file_source_names(self):
         """Test FILE_SOURCE_NAMES set."""
         expected_sources = {
-            "snowsql_config",
-            "cli_config_toml",
-            "connections_toml",
+            ConfigSourceName.SNOWSQL_CONFIG,
+            ConfigSourceName.CLI_CONFIG_TOML,
+            ConfigSourceName.CONNECTIONS_TOML,
         }
         assert FILE_SOURCE_NAMES == expected_sources

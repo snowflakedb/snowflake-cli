@@ -22,7 +22,7 @@ Tests verify:
 - Representation formatting
 """
 
-from snowflake.cli.api.config_ng.core import ConfigValue
+from snowflake.cli.api.config_ng.core import ConfigValue, ValueSource
 
 
 class TestConfigValue:
@@ -33,7 +33,7 @@ class TestConfigValue:
         cv = ConfigValue(
             key="account",
             value="my_account",
-            source_name="cli_arguments",
+            source_name=ValueSource.SourceName.CLI_ARGUMENTS,
         )
 
         assert cv.key == "account"
@@ -46,7 +46,7 @@ class TestConfigValue:
         cv = ConfigValue(
             key="port",
             value=443,
-            source_name="cli_env",
+            source_name=ValueSource.SourceName.CLI_ENV,
             raw_value="443",
         )
 
@@ -61,7 +61,7 @@ class TestConfigValue:
         cv = ConfigValue(
             key="account",
             value="my_account",
-            source_name="cli_arguments",
+            source_name=ValueSource.SourceName.CLI_ARGUMENTS,
         )
 
         repr_str = repr(cv)
@@ -74,7 +74,7 @@ class TestConfigValue:
         cv = ConfigValue(
             key="port",
             value=443,
-            source_name="cli_env",
+            source_name=ValueSource.SourceName.CLI_ENV,
             raw_value="443",
         )
 
@@ -89,7 +89,7 @@ class TestConfigValue:
         cv = ConfigValue(
             key="account",
             value="my_account",
-            source_name="cli_arguments",
+            source_name=ValueSource.SourceName.CLI_ARGUMENTS,
             raw_value="my_account",
         )
 
@@ -101,7 +101,7 @@ class TestConfigValue:
         cv = ConfigValue(
             key="enable_diag",
             value=True,
-            source_name="cli_env",
+            source_name=ValueSource.SourceName.CLI_ENV,
             raw_value="true",
         )
 
@@ -115,7 +115,7 @@ class TestConfigValue:
         cv = ConfigValue(
             key="timeout",
             value=30,
-            source_name="cli_env",
+            source_name=ValueSource.SourceName.CLI_ENV,
             raw_value="30",
         )
 
@@ -129,7 +129,7 @@ class TestConfigValue:
         cv = ConfigValue(
             key="account",
             value="my_account",
-            source_name="snowsql_config",
+            source_name=ValueSource.SourceName.SNOWSQL_CONFIG,
             raw_value="accountname=my_account",
         )
 
@@ -142,7 +142,7 @@ class TestConfigValue:
         cv = ConfigValue(
             key="optional_field",
             value=None,
-            source_name="cli_arguments",
+            source_name=ValueSource.SourceName.CLI_ARGUMENTS,
         )
 
         assert cv.value is None
@@ -153,13 +153,13 @@ class TestConfigValue:
         cv_list = ConfigValue(
             key="tags",
             value=["tag1", "tag2"],
-            source_name="connections_toml",
+            source_name=ValueSource.SourceName.CONNECTIONS_TOML,
         )
 
         cv_dict = ConfigValue(
             key="metadata",
             value={"key1": "value1", "key2": "value2"},
-            source_name="connections_toml",
+            source_name=ValueSource.SourceName.CONNECTIONS_TOML,
         )
 
         assert cv_list.value == ["tag1", "tag2"]
@@ -170,21 +170,21 @@ class TestConfigValue:
         cv_cli = ConfigValue(
             key="account",
             value="cli_account",
-            source_name="cli_arguments",
+            source_name=ValueSource.SourceName.CLI_ARGUMENTS,
         )
 
         cv_env = ConfigValue(
             key="account",
             value="env_account",
-            source_name="cli_env",
+            source_name=ValueSource.SourceName.CLI_ENV,
         )
 
         cv_file = ConfigValue(
             key="account",
             value="file_account",
-            source_name="connections_toml",
+            source_name=ValueSource.SourceName.CONNECTIONS_TOML,
         )
 
-        assert cv_cli.source_name == "cli_arguments"
-        assert cv_env.source_name == "cli_env"
-        assert cv_file.source_name == "connections_toml"
+        assert cv_cli.source_name is ValueSource.SourceName.CLI_ARGUMENTS
+        assert cv_env.source_name is ValueSource.SourceName.CLI_ENV
+        assert cv_file.source_name is ValueSource.SourceName.CONNECTIONS_TOML

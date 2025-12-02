@@ -58,7 +58,7 @@ class _StaticFileSource(ValueSource):
     def __init__(
         self,
         data: dict[str, Any],
-        source_name: ValueSource.SourceName = "cli_config_toml",
+        source_name: ValueSource.SourceName = ValueSource.SourceName.CLI_CONFIG_TOML,
     ):
         self._data = data
         self._source_name = source_name
