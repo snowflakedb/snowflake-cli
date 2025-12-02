@@ -70,6 +70,27 @@ username = default_user
         assert "default" in result["connections"]
         assert result["connections"]["default"]["account"] == "default_account"
 
+    def test_default_connection_values_merge_into_named_connections(self):
+        """Test default connection params propagate to named connections."""
+        content = """
+[connections]
+accountname = shared_account
+username = shared_user
+
+[connections.bbb]
+warehousename = wh1
+
+[connections.ccc]
+accountname = specific_account
+"""
+        result = SnowSQLParser.parse(content)
+
+        assert result["connections"]["bbb"]["account"] == "shared_account"
+        assert result["connections"]["bbb"]["user"] == "shared_user"
+        assert result["connections"]["bbb"]["warehouse"] == "wh1"
+        assert result["connections"]["ccc"]["account"] == "specific_account"
+        assert result["connections"]["ccc"]["user"] == "shared_user"
+
     def test_key_mapping_accountname_to_account(self):
         """Test that accountname is mapped to account."""
         content = """
