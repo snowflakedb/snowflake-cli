@@ -18,6 +18,15 @@
 
 ## Deprecations
 
+## New additions
+
+## Fixes and improvements
+
+
+# v3.14.0
+
+## Deprecations
+
 * `snow streamlit deploy --experimental` flag is deprecated. Versioned deployment is now the default behavior.
 
 ## New additions
