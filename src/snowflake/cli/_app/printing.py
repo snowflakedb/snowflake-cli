@@ -33,6 +33,7 @@ from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
+    EmptyResult,
     MessageResult,
     MultipleResults,
     ObjectResult,
@@ -250,6 +251,8 @@ def _print_json_result_streaming(result: CommandResult):
         _stream_collection_as_json(result, indent=4)
     elif isinstance(result, (ObjectResult, MessageResult)):
         json.dump(result, sys.stdout, cls=StreamingJSONEncoder, indent=4)
+    elif isinstance(result, EmptyResult):
+        return
     else:
         json.dump(result, sys.stdout, cls=StreamingJSONEncoder, indent=4)
 
@@ -288,6 +291,8 @@ def _print_csv_result_streaming(result: CommandResult):
         _print_object_result_as_csv(result)
     elif isinstance(result, MessageResult):
         _print_message_result_as_csv(result)
+    elif isinstance(result, EmptyResult):
+        return
 
 
 def _stream_json(result):
@@ -341,7 +346,9 @@ def _print_single_table(obj):
 
 def print_result(cmd_result: CommandResult, output_format: OutputFormat | None = None):
     output_format = output_format or _get_format_type()
-    if is_structured_format(output_format):
+    if isinstance(cmd_result, EmptyResult):
+        return
+    elif is_structured_format(output_format):
         print_structured(cmd_result, output_format)
     elif isinstance(cmd_result, (MultipleResults, StreamResult)):
         for res in cmd_result.result:
