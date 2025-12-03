@@ -1,7 +1,7 @@
 # serializer version: 1
 # name: TestDCMRefresh.test_refresh_with_fresh_tables
   '''
-  ✓ Refreshing dcm project my_project
+  
   UP-TO-DATE                  JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES
   
   1 up-to-date.
@@ -10,7 +10,7 @@
 # ---
 # name: TestDCMRefresh.test_refresh_with_no_dynamic_tables
   '''
-  ✓ Refreshing dcm project my_project
+  
   
   No dynamic tables found in the project.
   
@@ -18,7 +18,7 @@
 # ---
 # name: TestDCMRefresh.test_refresh_with_outdated_tables
   '''
-  ✓ Refreshing dcm project my_project
+  
   REFRESHED    +12.3k  -1000B JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES
   
   1 refreshed.
