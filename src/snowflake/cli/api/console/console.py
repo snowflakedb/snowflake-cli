@@ -112,16 +112,11 @@ class CliConsole(AbstractConsole):
                 result = some_operation()
         """
         with Progress(
-            SpinnerColumn(finished_text="✓"),
+            SpinnerColumn(),
             TextColumn("[progress.description]{task.description}", style=SPINNER_STYLE),
-            transient=False,
+            transient=True,
         ) as progress:
-            try:
-                yield progress
-            finally:
-                for task_id in progress.task_ids:
-                    if not progress.tasks[task_id].finished:
-                        progress.update(task_id, completed=1, total=1)
+            yield progress
 
     def step(self, message: str):
         """Displays a message to output.
@@ -150,6 +145,12 @@ class CliConsole(AbstractConsole):
         style = self._styles.get(Output.PANEL, Style())
         panel = Panel(message, style=style)
         self._print(panel)
+
+    def safe_print(self, message: str | Text):
+        """Displays an already formatted message.
+
+        It's callers responsibility to call sanitize_for_terminal on any external data"""
+        self._print(message)
 
 
 def get_cli_console() -> AbstractConsole:
