@@ -46,6 +46,7 @@ GITHUB_TOKEN_ENV = "SNOWCLI_GITHUB_TOKEN"
 SNOWFLAKE_CLI_REPO = "snowflakedb/snowflake-cli"
 
 FinalOption = typer.Option(False, "--final", help="Use final release instead of -rc")
+RCOption = typer.Option(False, "--rc", help="Use rc release instead of latest")
 
 
 def _check_version_format_callback(version: str) -> str:
@@ -275,7 +276,9 @@ def snow_executable(tag: str):
 
 
 @app.command()
-def validate_pip_installation(version: str = VersionArgument, **options):
+def validate_pip_installation(
+    version: str = VersionArgument, is_rc: bool = RCOption, **options
+):
     """Validate pip installation from latest tag."""
     from subprocess import run
 
@@ -287,10 +290,18 @@ def validate_pip_installation(version: str = VersionArgument, **options):
     ]
 
     release_info = ReleaseInfo(version, repo=RepositoryManager())
-    if release_info.latest_released_tag is None:
+    if is_rc:
+        last_rc = release_info.last_released_rc
+        if last_rc is not None:
+            tag_name = release_info.rc_tag_name(last_rc)
+        else:
+            tag_name = None
+    else:
+        tag_name = release_info.latest_released_tag
+    if tag_name is None:
         raise ClickException(f"There is no tag released for version {version} yet.")
 
-    with snow_executable(release_info.latest_released_tag) as snow_cmd:
+    with snow_executable(tag_name) as snow_cmd:
         results = []
         for command in commands:
             cli_console.step(f"$> running `snow {' '.join(command)}`")
