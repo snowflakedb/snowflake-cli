@@ -16,6 +16,7 @@ from typing import List, Optional
 import typer
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
 from snowflake.cli._plugins.dcm.reporters import RefreshReporter
+from snowflake.cli._plugins.dcm.utils import mock_dcm_response
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
 from snowflake.cli._plugins.object.manager import ObjectManager
@@ -290,6 +291,7 @@ def preview(
 
 
 @app.command(requires_connection=True)
+@mock_dcm_response("refresh")
 def refresh(
     identifier: FQN = dcm_identifier,
     **options,
