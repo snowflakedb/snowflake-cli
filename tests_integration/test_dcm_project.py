@@ -713,16 +713,10 @@ INSERT INTO {base_table_name} (id, name, email) VALUES
         result = runner.invoke_with_connection(["dcm", "refresh", project_name])
         assert result.exit_code == 0, result.output
         # Should show at least 1 table was refreshed
-        assert (
-            "1 dynamic table(s) refreshed" in result.output
-            or "dynamic table(s) refreshed" in result.output
-        )
+        assert "1 refreshed." in result.output.strip().split("\n")[-1]
 
         # 5) Run dcm refresh command again. Response should be different because there's nothing to update
         result = runner.invoke_with_connection(["dcm", "refresh", project_name])
         assert result.exit_code == 0, result.output
         # Should show at least 1 table was refreshed
-        assert (
-            "1 dynamic table(s) up-to-date." in result.output
-            or "dynamic table(s) up-to-date" in result.output
-        )
+        assert "1 up-to-date." in result.output.strip().split("\n")[-1]
