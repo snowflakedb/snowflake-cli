@@ -799,7 +799,7 @@ class TestDCMRefresh:
                     "dt_name": "JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES",
                     "refreshed_dt_count": 1,
                     "data_timestamp": "1760357032.175",
-                    "statistics": '{"insertedRows":5,"copiedRows":0,"deletedRows":5}',
+                    "statistics": '{"insertedRows":12345,"copiedRows":0,"deletedRows":999999999995}',
                 }
             ]
         }
