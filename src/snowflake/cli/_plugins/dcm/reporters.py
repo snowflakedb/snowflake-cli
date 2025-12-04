@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import json
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, Iterator
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
 from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
@@ -22,23 +23,25 @@ from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.connector.cursor import SnowflakeCursor
 
+log = logging.getLogger(__name__)
+
 
 class Reporter(ABC):
     def __init__(self) -> None:
         self.command_name = ""
 
     @abstractmethod
-    def extract_data(self, result_json: Dict[str, Any]) -> Any:
+    def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Extract the relevant data from the result JSON."""
         pass
 
     @abstractmethod
-    def generate_renderables(self, data: Any) -> Iterator[Text]:
+    def generate_renderables(self, data: List[Dict[str, Any]]) -> Iterator[Text]:
         """Generate Rich renderables for the data."""
         pass
 
     @abstractmethod
-    def generate_summary(self, data: Any) -> Text:
+    def generate_summary(self) -> Text:
         """Generate a summary Text object."""
         pass
 
@@ -57,14 +60,14 @@ class Reporter(ABC):
         for renderable in self.generate_renderables(data):
             cli_console.safe_print(renderable)
 
-        summary = self.generate_summary(data)
+        summary = self.generate_summary()
         cli_console.safe_print(Text("\n") + summary)
 
 
 class RefreshReporter(Reporter):
     STATUS_WIDTH = 11
     STATS_WIDTH = 7
-    _EMPTY_RESULTSET = "No new data"
+    _EMPTY_STAT = "No new data"
 
     @dataclass
     class Summary:
@@ -81,29 +84,55 @@ class RefreshReporter(Reporter):
         self.command_name = "refresh"
         self._summary = self.Summary()
 
-    def extract_data(self, result_json: Dict[str, Any]) -> Any:
-        return result_json.get("refreshed_tables", [])
+    def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
+        if not isinstance(result_json, dict):
+            log.debug("Unexpected response type: %s, expected dict", type(result_json))
+            return []
+
+        refreshed_tables = result_json.get("refreshed_tables", list())
+
+        if not isinstance(refreshed_tables, list):
+            log.warning(
+                "Unexpected refreshed_tables type: %s, expected list",
+                type(refreshed_tables),
+            )
+            return []
+
+        return refreshed_tables
+
+    @staticmethod
+    def _safe_int(value: Any) -> int:
+        if value is None:
+            return 0
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            log.debug("Could not convert value to int: %r", value)
+            return 0
 
     @staticmethod
     def _format_number(num: int) -> str:
         abs_num = abs(num)
-        if abs_num >= 1_000_000_000_000_000_000:  # Quintillions (10^18)
-            formatted = f"{abs_num / 1_000_000_000_000_000_000:.1f}E"
-        elif abs_num >= 1_000_000_000_000_000:  # Quadrillions (10^15)
-            formatted = f"{abs_num / 1_000_000_000_000_000:.1f}P"
-        elif abs_num >= 1_000_000_000_000:  # Trillions
-            formatted = f"{abs_num / 1_000_000_000_000:.1f}T"
-        elif abs_num >= 1_000_000_000:  # Billions
-            formatted = f"{abs_num / 1_000_000_000:.1f}B"
-        elif abs_num >= 1_000_000:  # Millions
-            formatted = f"{abs_num / 1_000_000:.1f}M"
-        elif abs_num >= 1_000:  # Thousands
-            formatted = f"{abs_num / 1_000:.1f}k"
-        else:
-            return str(num)
 
-        formatted = formatted.replace(".0", "")
-        return formatted
+        units = [
+            (1_000_000_000_000_000_000, "E"),  # Quintillions (10^18)
+            (1_000_000_000_000_000, "P"),  # Quadrillions (10^15)
+            (1_000_000_000_000, "T"),  # Trillions
+            (1_000_000_000, "B"),  # Billions
+            (1_000_000, "M"),  # Millions
+            (1_000, "k"),  # Thousands
+        ]
+
+        for threshold, suffix in units:
+            if abs_num >= threshold:
+                value = abs_num / threshold
+                if round(value, 1) >= 1000:
+                    formatted = f"{int(value)}{suffix}"
+                else:
+                    formatted = f"{value:.1f}{suffix}".replace(".0", "")
+                return formatted
+
+        return str(num)
 
     def _build_row(self, status: str, inserted: str, deleted: str, name: str) -> Text:
         row = Text()
@@ -113,44 +142,60 @@ class RefreshReporter(Reporter):
         row.append(name, style=styles.DOMAIN_STYLE)
         return row
 
-    def generate_renderables(self, data: Any) -> Iterator[Text]:
+    def _parse_statistics(
+        self, statistics: Union[str, Dict[str, Any], None]
+    ) -> Optional[Dict[str, Any]]:
+        """Parse statistics from various formats into a normalized dict."""
+        if statistics is None:
+            return None
+
+        if isinstance(statistics, dict):
+            return statistics
+
+        if isinstance(statistics, str):
+            if statistics == self._EMPTY_STAT:
+                return {"insertedRows": 0, "deletedRows": 0}
+            if statistics.startswith("{"):
+                try:
+                    return json.loads(statistics)
+                except json.JSONDecodeError:
+                    log.debug("Failed to parse statistics JSON: %r", statistics)
+                    return None
+        return None
+
+    def _extract_stats(
+        self, stats_json: Optional[Dict[str, Any]]
+    ) -> Tuple[str, int, int]:
+        if stats_json is not None:
+            inserted = self._safe_int(stats_json.get("insertedRows", 0))
+            deleted = self._safe_int(stats_json.get("deletedRows", 0))
+            if inserted == 0 and deleted == 0:
+                self._summary.up_to_date += 1
+                return "UP-TO-DATE", inserted, deleted
+            else:
+                self._summary.refreshed += 1
+                return "REFRESHED", inserted, deleted
+
+        self._summary.unknown += 1
+        return "UNKNOWN", 0, 0
+
+    def generate_renderables(self, data: List[Dict[str, Any]]) -> Iterator[Text]:
+        if not data:
+            return
+
         for table in data:
-            dt_name = sanitize_for_terminal(table.get("dt_name", "UNKNOWN"))
-            statistics = table.get("statistics", "")
+            if not isinstance(table, dict):
+                log.debug("Unexpected table entry type: %s", type(table))
+                self._summary.unknown += 1
+                continue
+
+            raw_dt_name = table.get("dt_name", "UNKNOWN")
+            dt_name = sanitize_for_terminal(raw_dt_name)
+            stats_json = self._parse_statistics(table.get("statistics"))
+            status, inserted, deleted = self._extract_stats(stats_json)
 
             inserted_str, deleted_str = "", ""
-            stats_json = None
-            if isinstance(statistics, str) and statistics.startswith("{"):
-                try:
-                    stats_json = json.loads(statistics)
-                except json.JSONDecodeError:
-                    pass
-            elif isinstance(statistics, dict):
-                stats_json = statistics
-
-            if (
-                statistics == self._EMPTY_RESULTSET
-                or stats_json is not None
-                and (
-                    not stats_json.get("insertedRows")
-                    and not stats_json.get("deletedRows")
-                )
-            ):
-                status = "UP-TO-DATE"
-                self._summary.up_to_date += 1
-            elif stats_json is not None and (
-                stats_json.get("insertedRows") or stats_json.get("deletedRows")
-            ):
-                status = "REFRESHED"
-                self._summary.refreshed += 1
-            else:
-                status = "UNKNOWN"
-                self._summary.unknown += 1
-
             if stats_json is not None:
-                inserted = stats_json.get("insertedRows", 0)
-                deleted = stats_json.get("deletedRows", 0)
-
                 inserted_str = self._format_number(inserted)
                 if inserted_str != "0":
                     inserted_str = "+" + inserted_str
@@ -160,7 +205,7 @@ class RefreshReporter(Reporter):
 
             yield self._build_row(status, inserted_str, deleted_str, dt_name)
 
-    def generate_summary(self, *args, **kwargs) -> Text:
+    def generate_summary(self) -> Text:
         total = self._summary.total
         if total == 0:
             return Text("No dynamic tables found in the project.")
