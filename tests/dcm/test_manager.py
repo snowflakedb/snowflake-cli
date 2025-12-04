@@ -239,6 +239,16 @@ def test_preview_project_with_various_options(
 
 
 @mock.patch(execute_queries)
+def test_refresh_project(mock_execute_query):
+    mgr = DCMProjectManager()
+    mgr.refresh(project_identifier=TEST_PROJECT)
+
+    mock_execute_query.assert_called_once_with(
+        query="EXECUTE DCM PROJECT IDENTIFIER('my_project') REFRESH ALL"
+    )
+
+
+@mock.patch(execute_queries)
 def test_plan_project_with_output_path__stage(mock_execute_query, project_directory):
     mgr = DCMProjectManager()
     mgr.plan(
