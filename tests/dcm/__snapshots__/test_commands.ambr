@@ -2,7 +2,7 @@
 # name: TestDCMRefresh.test_refresh_with_fresh_tables
   '''
   
-  UP-TO-DATE                  JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES
+  UP-TO-DATE        0       0 JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES
   
   1 up-to-date.
   
@@ -19,7 +19,7 @@
 # name: TestDCMRefresh.test_refresh_with_outdated_tables
   '''
   
-  REFRESHED    +12.3k  -1000B JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES
+  REFRESHED    +12.3k   -999B JW_DCM_TESTALL.ANALYTICS.DYNAMIC_EMPLOYEES
   
   1 refreshed.
   
