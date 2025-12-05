@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Fix `externalbrowser` auth for headless systems.
 
 
 # v3.14.0
