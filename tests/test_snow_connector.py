@@ -12,12 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import io
 import os
 from contextlib import nullcontext
 from unittest import mock
 
 import pytest
 from snowflake.cli._app.constants import AUTHENTICATOR_WORKLOAD_IDENTITY
+from snowflake.cli._app.snow_connector import _SilentStdStream
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secret import SecretType
 from snowflake.connector.auth.workload_identity import ApiFederatedAuthenticationType
@@ -37,6 +39,33 @@ MOCK_CONNECTION = {
     "role": "roleValue",
     "show": "warehouseValue",
 }
+
+
+def test_silent_std_stream_buffers_without_mirror():
+    stream = _SilentStdStream()
+
+    written = stream.write("hello")
+    stream.flush()
+
+    assert written == 5
+    assert stream.getvalue() == "hello"
+    assert stream.isatty() is False
+
+
+def test_silent_std_stream_mirrors_output_and_respects_isatty():
+    class _Mirror(io.StringIO):
+        def isatty(self):
+            return True
+
+    mirror = _Mirror()
+    stream = _SilentStdStream(mirror)
+
+    stream.write("abc")
+    stream.flush()
+
+    assert mirror.getvalue() == "abc"
+    assert stream.getvalue() == "abc"
+    assert stream.isatty() is True
 
 
 @pytest.mark.parametrize(
