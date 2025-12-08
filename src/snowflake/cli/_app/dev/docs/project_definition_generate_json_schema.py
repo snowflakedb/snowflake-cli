@@ -38,8 +38,8 @@ class ProjectDefinitionProperty:
 
 
 class ProjectDefinitionGenerateJsonSchema(GenerateJsonSchema):
-    def __init__(self, by_alias: bool = False, ref_template: str = "{model}", **kwargs):
-        super().__init__(by_alias, ref_template, **kwargs)
+    def __init__(self, by_alias: bool = False, ref_template: str = "", **kwargs):
+        super().__init__(by_alias, "{model}", **kwargs)
         self._remapped_definitions: Dict[str, Any] = {}
 
     def generate(self, schema, mode="validation"):
