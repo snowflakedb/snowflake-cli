@@ -27,7 +27,7 @@ class BaseCliError(ClickException):
 
     0 Everything ran smoothly.
     1 Something went wrong with the client.
-    2 Something went wrong with command line arguments.
+    2 Something went wrong with command-line arguments.
     3 Cli could not connect to server.
     4 Cli could not communicate properly with server.
     5 The enhanced_exit_codes parameter was set and Cli exited because of error.
