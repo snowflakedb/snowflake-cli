@@ -32,6 +32,7 @@
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
   | snowpark     Manages procedures and functions.                               |
+  | spark        Manages Spark Applications.                                     |
   | spcs         Manages Snowpark Container Services compute pools, services,    |
   |              image registries, and image repositories.                       |
   | sql          Executes Snowflake query.                                       |
@@ -22517,6 +22518,7 @@
   | notebook     Manages notebooks in Snowflake.                                 |
   | object       Manages Snowflake objects like warehouses and stages            |
   | snowpark     Manages procedures and functions.                               |
+  | spark        Manages Spark Applications.                                     |
   | spcs         Manages Snowpark Container Services compute pools, services,    |
   |              image registries, and image repositories.                       |
   | sql          Executes Snowflake query.                                       |
@@ -22524,6 +22526,7 @@
   | streamlit    Manages a Streamlit app in Snowflake.                           |
   +------------------------------------------------------------------------------+
   
+
   
   '''
 # ---
