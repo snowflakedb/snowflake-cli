@@ -19,7 +19,7 @@ from unittest import mock
 
 import pytest
 from snowflake.cli._app.constants import AUTHENTICATOR_WORKLOAD_IDENTITY
-from snowflake.cli._app.snow_connector import _SilentStdStream
+from snowflake.cli._app.snow_connector import _BufferedMirrorStream
 from snowflake.cli.api.feature_flags import FeatureFlag
 from snowflake.cli.api.secret import SecretType
 from snowflake.connector.auth.workload_identity import ApiFederatedAuthenticationType
@@ -41,8 +41,8 @@ MOCK_CONNECTION = {
 }
 
 
-def test_silent_std_stream_buffers_without_mirror():
-    stream = _SilentStdStream()
+def test_buffered_mirror_stream_buffers_without_mirror():
+    stream = _BufferedMirrorStream()
 
     written = stream.write("hello")
     stream.flush()
@@ -52,13 +52,13 @@ def test_silent_std_stream_buffers_without_mirror():
     assert stream.isatty() is False
 
 
-def test_silent_std_stream_mirrors_output_and_respects_isatty():
+def test_buffered_mirror_stream_mirrors_output_and_respects_isatty():
     class _Mirror(io.StringIO):
         def isatty(self):
             return True
 
     mirror = _Mirror()
-    stream = _SilentStdStream(mirror)
+    stream = _BufferedMirrorStream(mirror)
 
     stream.write("abc")
     stream.flush()

@@ -54,6 +54,7 @@ log = logging.getLogger(__name__)
 ENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN ENCRYPTED PRIVATE KEY-----"
 UNENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN PRIVATE KEY-----"
 AUTHENTICATOR_EXTERNAL_BROWSER: Literal["externalbrowser"] = "externalbrowser"
+AUTHENTICATOR_PARAM: Literal["authenticator"] = "authenticator"
 
 # connection keys that can be set using SNOWFLAKE_* env vars
 SUPPORTED_ENV_OVERRIDES = [
@@ -89,16 +90,15 @@ SUPPORTED_ENV_OVERRIDES = [
 CONNECTION_KEY_ALIASES = {"private_key_path": "private_key_file"}
 
 
-class _SilentStdStream(io.StringIO):
+class _BufferedMirrorStream(io.StringIO):
     """Buffer connector chatter while optionally mirroring to another stream."""
 
     def __init__(self, mirror: Optional[TextIO] = None) -> None:
         super().__init__()
         self._mirror = mirror
 
-    def write(self, text: str) -> int:  # type: ignore[override]
-        if text is None:
-            text = ""
+    def write(self, text: str) -> int:
+        text = text or ""
         written = super().write(text)
         if self._mirror is not None:
             self._mirror.write(text)
@@ -121,6 +121,24 @@ def _resolve_alias(key_or_alias: str):
     Given the key of an override / env var, what key should it be set as in the connection parameters?
     """
     return CONNECTION_KEY_ALIASES.get(key_or_alias, key_or_alias)
+
+
+def _build_silent_streams(
+    connection_parameters: Dict,
+) -> tuple[_BufferedMirrorStream, _BufferedMirrorStream]:
+    """
+    Build stdout/stderr silent streams.
+
+    We must provide a writable stdout for authenticators (notably externalbrowser)
+    that prompt via input(); redirecting to None breaks sys.stdout.
+    For externalbrowser we mirror stdout to stderr so prompts remain visible
+    without polluting structured stdout (e.g., JSON output).
+    """
+    authenticator = str(connection_parameters.get(AUTHENTICATOR_PARAM, "")).lower()
+    mirror_stdout: Optional[TextIO] = (
+        sys.stderr if authenticator == AUTHENTICATOR_EXTERNAL_BROWSER else None
+    )
+    return _BufferedMirrorStream(mirror_stdout), _BufferedMirrorStream()
 
 
 def connect_to_snowflake(
@@ -214,18 +232,12 @@ def connect_to_snowflake(
 
     _update_internal_application_info(connection_parameters)
 
-    authenticator = str(connection_parameters.get("authenticator", "")).lower()
-    mirror_stdout: Optional[TextIO] = (
-        sys.stderr if authenticator == AUTHENTICATOR_EXTERNAL_BROWSER else None
-    )
-    silent_stdout = _SilentStdStream(mirror_stdout)
-    silent_stderr = _SilentStdStream()
+    silent_stdout, silent_stderr = _build_silent_streams(connection_parameters)
 
     try:
-        # Whatever output is generated when creating connection,
-        # we don't want it in our output. This is particularly important
-        # for cases when external browser and json format are used.
-        # Redirecting both stdout and stderr for offline usage.
+        # The output is redirected to silent stream for reuse
+        # in cases like externalbrowser auth not to pollute output
+        # in formats like JSON
         with (
             contextlib.redirect_stdout(silent_stdout),
             contextlib.redirect_stderr(silent_stderr),
