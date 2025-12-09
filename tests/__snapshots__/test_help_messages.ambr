@@ -229,7 +229,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -376,7 +376,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -578,7 +578,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -726,7 +726,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -960,7 +960,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -1115,7 +1115,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -1269,7 +1269,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -1420,7 +1420,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -1575,7 +1575,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -1729,7 +1729,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -1878,7 +1878,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -2058,7 +2058,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -2220,7 +2220,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -2377,7 +2377,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -2543,7 +2543,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -2696,7 +2696,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -2962,7 +2962,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -3136,7 +3136,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -3283,7 +3283,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -3503,7 +3503,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -3683,7 +3683,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -3830,7 +3830,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -4181,7 +4181,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -4448,7 +4448,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -4644,7 +4644,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -4783,7 +4783,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -4922,7 +4922,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -5065,7 +5065,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -5234,7 +5234,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -5403,7 +5403,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -5572,7 +5572,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -5741,7 +5741,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -5910,7 +5910,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -6079,7 +6079,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -6248,7 +6248,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -6417,7 +6417,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -6586,7 +6586,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -6755,7 +6755,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -6924,7 +6924,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -7093,7 +7093,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -7264,7 +7264,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -7428,7 +7428,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -7576,7 +7576,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -7715,7 +7715,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -7861,7 +7861,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -8000,7 +8000,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -8140,7 +8140,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -8287,7 +8287,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -8437,7 +8437,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -8590,7 +8590,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -8769,7 +8769,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -8908,7 +8908,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -9047,7 +9047,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -9208,7 +9208,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -9348,7 +9348,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -9492,7 +9492,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -9637,7 +9637,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -9781,7 +9781,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -9927,7 +9927,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -10079,7 +10079,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -10321,7 +10321,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -10464,7 +10464,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -10616,7 +10616,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -10756,7 +10756,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -10896,7 +10896,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -11036,7 +11036,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -11218,7 +11218,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -11365,7 +11365,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -11512,7 +11512,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -11670,7 +11670,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -11996,7 +11996,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -12152,7 +12152,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -12297,7 +12297,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -12442,7 +12442,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -12589,7 +12589,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -12739,7 +12739,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -12893,7 +12893,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -13032,7 +13032,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -13174,7 +13174,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -13423,7 +13423,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -13568,7 +13568,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -13708,7 +13708,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -13848,7 +13848,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -13987,7 +13987,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -14127,7 +14127,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -14287,7 +14287,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -14428,7 +14428,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -14568,7 +14568,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -14709,7 +14709,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -14858,7 +14858,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -15029,7 +15029,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -15167,7 +15167,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -15314,7 +15314,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -15478,7 +15478,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -15621,7 +15621,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -15761,7 +15761,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -15905,7 +15905,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -16051,7 +16051,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -16196,7 +16196,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -16336,7 +16336,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -16560,7 +16560,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -16706,7 +16706,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -16845,7 +16845,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -16984,7 +16984,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -17136,7 +17136,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -17275,7 +17275,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -17414,7 +17414,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -17553,7 +17553,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -17692,7 +17692,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -17837,7 +17837,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -17988,7 +17988,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -18137,7 +18137,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -18276,7 +18276,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -18462,7 +18462,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -18605,7 +18605,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -18744,7 +18744,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -18900,7 +18900,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -19041,7 +19041,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -19308,7 +19308,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -19479,7 +19479,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -19627,7 +19627,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -19766,7 +19766,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -19907,7 +19907,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -20046,7 +20046,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -20204,7 +20204,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -20347,7 +20347,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -20492,7 +20492,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -20633,7 +20633,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -20820,7 +20820,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -20960,7 +20960,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -21100,7 +21100,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -21240,7 +21240,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -21381,7 +21381,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -21526,7 +21526,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -21668,7 +21668,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |
@@ -22051,7 +22051,7 @@
   |                                                the value specified for the   |
   |                                                connection.                   |
   | --temporary-connection        -x               Uses a connection defined     |
-  |                                                with command line parameters, |
+  |                                                with command-line parameters, |
   |                                                instead of one defined in     |
   |                                                config                        |
   | --mfa-passcode                        TEXT     Token to use for multi-factor |

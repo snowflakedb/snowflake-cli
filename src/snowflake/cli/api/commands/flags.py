@@ -97,7 +97,7 @@ TemporaryConnectionOption = typer.Option(
     False,
     "--temporary-connection",
     "-x",
-    help="Uses a connection defined with command line parameters, instead of one defined in config",
+    help="Uses a connection defined with command-line parameters, instead of one defined in config",
     callback=_connection_callback("temporary_connection"),
     is_flag=True,
     rich_help_panel=_CONNECTION_SECTION,

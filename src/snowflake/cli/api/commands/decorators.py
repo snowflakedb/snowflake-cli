@@ -163,7 +163,7 @@ def _options_decorator_factory(
 ):
     """
     execute_before_command_using_new_options executes before command telemetry has been emitted,
-    but after command line options have been populated.
+    but after command-line options have been populated.
     """
 
     @wraps(func)
