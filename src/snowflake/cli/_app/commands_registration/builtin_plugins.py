@@ -25,6 +25,7 @@ from snowflake.cli._plugins.nativeapp import plugin_spec as nativeapp_plugin_spe
 from snowflake.cli._plugins.notebook import plugin_spec as notebook_plugin_spec
 from snowflake.cli._plugins.object import plugin_spec as object_plugin_spec
 from snowflake.cli._plugins.plugin import plugin_spec as plugin_plugin_spec
+from snowflake.cli._plugins.scls import plugin_spec as scls_plugin_spec
 from snowflake.cli._plugins.snowpark import plugin_spec as snowpark_plugin_spec
 from snowflake.cli._plugins.spcs import plugin_spec as spcs_plugin_spec
 from snowflake.cli._plugins.sql import plugin_spec as sql_plugin_spec
@@ -55,6 +56,7 @@ def get_builtin_plugin_name_to_plugin_spec():
         "plugin": plugin_plugin_spec,
         "dbt": dbt_plugin_spec,
         "logs": logs_plugin_spec,
+        "scls": scls_plugin_spec,
     }
 
     return plugin_specs
