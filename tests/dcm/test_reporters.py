@@ -16,7 +16,7 @@ from io import StringIO
 from unittest import mock
 
 import pytest
-from snowflake.cli._plugins.dcm.reporters import RefreshReporter
+from snowflake.cli._plugins.dcm.reporters import RefreshReporter, RefreshRow
 
 
 class FakeCursor:
@@ -252,7 +252,7 @@ class TestRefreshReporter:
         assert output == snapshot
 
 
-class TestRefreshReporterFormatNumber:
+class TestRefreshRowFormatNumber:
     """Unit tests for number formatting edge cases."""
 
     @pytest.mark.parametrize(
@@ -274,4 +274,4 @@ class TestRefreshReporterFormatNumber:
         ],
     )
     def test_format_number_boundaries(self, input_num, expected):
-        assert RefreshReporter._format_number(input_num) == expected  # noqa: SLF001
+        assert RefreshRow._format_number(input_num) == expected  # noqa: SLF001

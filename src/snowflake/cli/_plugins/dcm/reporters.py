@@ -14,8 +14,9 @@
 import json
 import logging
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Dict, Generic, Iterator, List, Optional, TypeVar, Union
 
 from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
@@ -25,8 +26,10 @@ from snowflake.connector.cursor import SnowflakeCursor
 
 log = logging.getLogger(__name__)
 
+T = TypeVar("T")
 
-class Reporter(ABC):
+
+class Reporter(ABC, Generic[T]):
     def __init__(self) -> None:
         self.command_name = ""
 
@@ -36,8 +39,13 @@ class Reporter(ABC):
         pass
 
     @abstractmethod
-    def generate_renderables(self, data: List[Dict[str, Any]]) -> Iterator[Text]:
-        """Generate Rich renderables for the data."""
+    def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[T]:
+        """Parse raw data into domain objects."""
+        pass
+
+    @abstractmethod
+    def generate_renderables(self, data: Iterator[T]) -> Iterator[Text]:
+        """Generate Rich renderables for the parsed data."""
         pass
 
     @abstractmethod
@@ -56,49 +64,27 @@ class Reporter(ABC):
             json.loads(result_data) if isinstance(result_data, str) else result_data
         )
 
-        data = self.extract_data(result_json)
-        for renderable in self.generate_renderables(data):
+        raw_data = self.extract_data(result_json)
+        parsed_data: Iterator[T] = self.parse_data(raw_data)
+        for renderable in self.generate_renderables(parsed_data):
             cli_console.safe_print(renderable)
 
         summary = self.generate_summary()
         cli_console.safe_print(Text("\n") + summary)
 
 
-class RefreshReporter(Reporter):
-    STATUS_WIDTH = 11
-    STATS_WIDTH = 7
-    _EMPTY_STAT = "No new data"
+class RefreshStatus(Enum):
+    UNKNOWN = "UNKNOWN"
+    UP_TO_DATE = "UP-TO-DATE"
+    REFRESHED = "REFRESHED"
 
-    @dataclass
-    class Summary:
-        up_to_date: int = 0
-        refreshed: int = 0
-        unknown: int = 0
 
-        @property
-        def total(self):
-            return self.up_to_date + self.refreshed + self.unknown
-
-    def __init__(self):
-        super().__init__()
-        self.command_name = "refresh"
-        self._summary = self.Summary()
-
-    def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
-        if not isinstance(result_json, dict):
-            log.debug("Unexpected response type: %s, expected dict", type(result_json))
-            return []
-
-        refreshed_tables = result_json.get("refreshed_tables", list())
-
-        if not isinstance(refreshed_tables, list):
-            log.warning(
-                "Unexpected refreshed_tables type: %s, expected list",
-                type(refreshed_tables),
-            )
-            return []
-
-        return refreshed_tables
+@dataclass
+class RefreshRow:
+    dt_name: str = "UNKNOWN"
+    status: RefreshStatus = RefreshStatus.UNKNOWN
+    _inserted: int = field(default=0, repr=False)
+    _deleted: int = field(default=0, repr=False)
 
     @staticmethod
     def _safe_int(value: Any) -> int:
@@ -134,76 +120,155 @@ class RefreshReporter(Reporter):
 
         return str(num)
 
-    def _build_row(self, status: str, inserted: str, deleted: str, name: str) -> Text:
+    @property
+    def inserted(self) -> int:
+        return self._inserted
+
+    @inserted.setter
+    def inserted(self, value: Any) -> None:
+        self._inserted = self._safe_int(value)
+
+    @property
+    def deleted(self) -> int:
+        return self._deleted
+
+    @deleted.setter
+    def deleted(self, value: Any) -> None:
+        self._deleted = self._safe_int(value)
+
+    @property
+    def formatted_inserted(self) -> str:
+        if self.status == RefreshStatus.UNKNOWN:
+            return ""
+        formatted = self._format_number(self._inserted)
+        if formatted != "0":
+            return "+" + formatted
+        return formatted
+
+    @property
+    def formatted_deleted(self) -> str:
+        if self.status == RefreshStatus.UNKNOWN:
+            return ""
+        formatted = self._format_number(self._deleted)
+        if formatted != "0":
+            return "-" + formatted
+        return formatted
+
+
+class RefreshReporter(Reporter[RefreshRow]):
+    STATUS_WIDTH = 11
+    STATS_WIDTH = 7
+    _EMPTY_STAT = "No new data"
+    _DATA_KEY = "refreshed_tables"
+    _STATISTICS_KEY = "statistics"
+    _DYNAMIC_TABLE_KEY = "dt_name"
+    _INSERTED_KEY = "insertedRows"
+    _DELETED_KEY = "deletedRows"
+
+    @dataclass
+    class Summary:
+        up_to_date: int = 0
+        refreshed: int = 0
+        unknown: int = 0
+
+        @property
+        def total(self):
+            return self.up_to_date + self.refreshed + self.unknown
+
+    def __init__(self):
+        super().__init__()
+        self.command_name = "refresh"
+        self._summary = self.Summary()
+
+    def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
+        if not isinstance(result_json, dict):
+            log.debug("Unexpected response type: %s, expected dict", type(result_json))
+            return []
+
+        refreshed_tables = result_json.get(self._DATA_KEY, list())
+
+        if not isinstance(refreshed_tables, list):
+            log.warning(
+                "Unexpected refreshed_tables type: %s, expected list",
+                type(refreshed_tables),
+            )
+            return []
+
+        return refreshed_tables
+
+    def _build_row(self, stats: RefreshRow) -> Text:
         row = Text()
-        row.append(status.ljust(self.STATUS_WIDTH) + " ", style=styles.STATUS_STYLE)
-        row.append(inserted.rjust(self.STATS_WIDTH) + " ", style=styles.INSERTED_STYLE)
-        row.append(deleted.rjust(self.STATS_WIDTH) + " ", style=styles.REMOVED_STYLE)
-        row.append(name, style=styles.DOMAIN_STYLE)
+        row.append(
+            stats.status.value.ljust(self.STATUS_WIDTH) + " ", style=styles.STATUS_STYLE
+        )
+        row.append(
+            stats.formatted_inserted.rjust(self.STATS_WIDTH) + " ",
+            style=styles.INSERTED_STYLE,
+        )
+        row.append(
+            stats.formatted_deleted.rjust(self.STATS_WIDTH) + " ",
+            style=styles.REMOVED_STYLE,
+        )
+        row.append(stats.dt_name, style=styles.DOMAIN_STYLE)
         return row
 
     def _parse_statistics(
-        self, statistics: Union[str, Dict[str, Any], None]
-    ) -> Optional[Dict[str, Any]]:
+        self, row: Union[Dict[str, Any], Any]
+    ) -> Optional[RefreshRow]:
         """Parse statistics from various formats into a normalized dict."""
-        if statistics is None:
+        if not isinstance(row, dict):
+            log.debug("Unexpected table entry type: %s", type(row))
+            self._summary.unknown += 1
             return None
 
+        raw_dt_name = row.get(self._DYNAMIC_TABLE_KEY, "UNKNOWN")
+        dt_name = sanitize_for_terminal(raw_dt_name)
+        new_row = RefreshRow(dt_name=dt_name)
+        statistics = row.get(self._STATISTICS_KEY, None)
+
+        if statistics is None:
+            self._summary.unknown += 1
+            return RefreshRow(dt_name=dt_name)
+
         if isinstance(statistics, dict):
-            return statistics
+            new_row.inserted = statistics.get(self._INSERTED_KEY, 0)
+            new_row.deleted = statistics.get(self._DELETED_KEY, 0)
 
         if isinstance(statistics, str):
             if statistics == self._EMPTY_STAT:
-                return {"insertedRows": 0, "deletedRows": 0}
-            if statistics.startswith("{"):
+                new_row.inserted = 0
+                new_row.deleted = 0
+            elif statistics.startswith("{"):
                 try:
-                    return json.loads(statistics)
+                    data = json.loads(statistics)
+                    new_row.inserted = data.get(self._INSERTED_KEY, 0)
+                    new_row.deleted = data.get(self._DELETED_KEY, 0)
                 except json.JSONDecodeError:
                     log.debug("Failed to parse statistics JSON: %r", statistics)
-                    return None
-        return None
-
-    def _extract_stats(
-        self, stats_json: Optional[Dict[str, Any]]
-    ) -> Tuple[str, int, int]:
-        if stats_json is not None:
-            inserted = self._safe_int(stats_json.get("insertedRows", 0))
-            deleted = self._safe_int(stats_json.get("deletedRows", 0))
-            if inserted == 0 and deleted == 0:
-                self._summary.up_to_date += 1
-                return "UP-TO-DATE", inserted, deleted
+                    self._summary.unknown += 1
+                    return RefreshRow(dt_name=dt_name)
             else:
-                self._summary.refreshed += 1
-                return "REFRESHED", inserted, deleted
-
-        self._summary.unknown += 1
-        return "UNKNOWN", 0, 0
-
-    def generate_renderables(self, data: List[Dict[str, Any]]) -> Iterator[Text]:
-        if not data:
-            return
-
-        for table in data:
-            if not isinstance(table, dict):
-                log.debug("Unexpected table entry type: %s", type(table))
+                log.debug("Unexpected statistics format: %r", statistics)
                 self._summary.unknown += 1
-                continue
+                return RefreshRow(dt_name=dt_name)
 
-            raw_dt_name = table.get("dt_name", "UNKNOWN")
-            dt_name = sanitize_for_terminal(raw_dt_name)
-            stats_json = self._parse_statistics(table.get("statistics"))
-            status, inserted, deleted = self._extract_stats(stats_json)
+        if new_row.inserted == 0 and new_row.deleted == 0:
+            new_row.status = RefreshStatus.UP_TO_DATE
+            self._summary.up_to_date += 1
+        else:
+            new_row.status = RefreshStatus.REFRESHED
+            self._summary.refreshed += 1
+        return new_row
 
-            inserted_str, deleted_str = "", ""
-            if stats_json is not None:
-                inserted_str = self._format_number(inserted)
-                if inserted_str != "0":
-                    inserted_str = "+" + inserted_str
-                deleted_str = self._format_number(deleted)
-                if deleted_str != "0":
-                    deleted_str = "-" + deleted_str
+    def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[RefreshRow]:
+        for row in data:
+            parsed = self._parse_statistics(row)
+            if parsed is not None:
+                yield parsed
 
-            yield self._build_row(status, inserted_str, deleted_str, dt_name)
+    def generate_renderables(self, data: Iterator[RefreshRow]) -> Iterator[Text]:
+        for row in data:
+            yield self._build_row(row)
 
     def generate_summary(self) -> Text:
         total = self._summary.total
