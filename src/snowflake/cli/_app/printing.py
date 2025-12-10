@@ -251,8 +251,6 @@ def _print_json_result_streaming(result: CommandResult):
         _stream_collection_as_json(result, indent=4)
     elif isinstance(result, (ObjectResult, MessageResult)):
         json.dump(result, sys.stdout, cls=StreamingJSONEncoder, indent=4)
-    elif isinstance(result, EmptyResult):
-        return
     else:
         json.dump(result, sys.stdout, cls=StreamingJSONEncoder, indent=4)
 
@@ -291,8 +289,6 @@ def _print_csv_result_streaming(result: CommandResult):
         _print_object_result_as_csv(result)
     elif isinstance(result, MessageResult):
         _print_message_result_as_csv(result)
-    elif isinstance(result, EmptyResult):
-        return
 
 
 def _stream_json(result):

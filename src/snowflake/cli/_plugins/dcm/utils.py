@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 from snowflake.cli._plugins.dcm.reporters import RefreshReporter
+from snowflake.cli.api.output.types import EmptyResult
 
 
 class FakeCursor:
@@ -77,7 +78,9 @@ def mock_dcm_response(command_name: str):
 
             cursor = FakeCursor(data)
             reporter_mapping = {"refresh": RefreshReporter}
-            return reporter_mapping[command_name]().process(cursor)
+
+            reporter_mapping[command_name]().process(cursor)
+            return EmptyResult()
 
         return wrapper
 

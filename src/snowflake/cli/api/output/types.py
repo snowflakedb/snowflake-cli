@@ -146,13 +146,9 @@ class QueryJsonValueResult(QueryResult):
     def _prepare_payload(self, cursor):
         results = list(QueryResult(cursor).result)
         if results:
-            # Parse the JSON value from the first tuple
-            parsed_value = json.loads(list(results[0].items())[0][1])
-            # If it's a list, yield each element; if it's a dict, yield the single dict
-            if isinstance(parsed_value, list):
-                yield from parsed_value
-            else:
-                yield parsed_value
+            # Return value of the first tuple
+            return json.loads(list(results[0].items())[0][1])
+        return None
 
 
 class MessageResult(CommandResult):
