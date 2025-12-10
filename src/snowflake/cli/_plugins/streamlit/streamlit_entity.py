@@ -73,6 +73,13 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
         )
 
     def bundle(self, output_dir: Optional[Path] = None) -> BundleMap:
+        artifacts = list(self._entity_model.artifacts or [])
+
+        # Ensure main_file is included in artifacts
+        main_file = self._entity_model.main_file
+        if main_file and not any(artifact.src == main_file for artifact in artifacts):
+            artifacts.insert(0, PathMapping(src=main_file))
+
         return build_bundle(
             self.root,
             output_dir or bundle_root(self.root, "streamlit") / self.entity_id,
@@ -80,7 +87,7 @@ class StreamlitEntity(EntityBase[StreamlitEntityModel]):
                 PathMapping(
                     src=artifact.src, dest=artifact.dest, processors=artifact.processors
                 )
-                for artifact in self._entity_model.artifacts
+                for artifact in artifacts
             ],
         )
 

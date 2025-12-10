@@ -47,6 +47,35 @@ class TestStreamlitEntity(StreamlitTestClass):
         assert (output / "environment.yml").exists()
         assert (output / "pages" / "my_page.py").exists()
 
+    def test_bundle_auto_includes_main_file(self, project_directory):
+        """Test that main_file is automatically included even if not in artifacts."""
+        from snowflake.cli._plugins.workspace.context import WorkspaceContext
+        from snowflake.cli.api.console.abc import AbstractConsole
+
+        with project_directory("example_streamlit_v2"):
+            # Create workspace context inside the context manager so project_root
+            # points to the temporary directory
+            workspace_ctx = WorkspaceContext(
+                console=mock.MagicMock(spec=AbstractConsole),
+                project_root=Path().resolve(),
+                get_default_role=lambda: "mock_role",
+                get_default_warehouse=lambda: "mock_warehouse",
+            )
+            model = StreamlitEntityModel(
+                type="streamlit",
+                identifier="test_streamlit",
+                main_file="streamlit_app.py",
+                artifacts=["environment.yml"],  # main_file NOT included
+            )
+            model.set_entity_id("test_streamlit")
+            entity = StreamlitEntity(workspace_ctx=workspace_ctx, entity_model=model)
+
+            entity.bundle()
+            output = entity.root / "output" / "bundle" / "streamlit" / "test_streamlit"
+
+            assert (output / "streamlit_app.py").exists()  # auto-included
+            assert (output / "environment.yml").exists()
+
     @mock.patch(
         "snowflake.cli._plugins.streamlit.streamlit_entity.StreamlitEntity._object_exists"
     )
