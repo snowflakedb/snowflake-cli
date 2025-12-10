@@ -15,9 +15,11 @@
 from __future__ import annotations
 
 import contextlib
+import io
 import logging
 import os
-from typing import Dict, Optional
+import sys
+from typing import Dict, Literal, Optional, TextIO
 
 import snowflake.connector
 from click.exceptions import ClickException
@@ -29,9 +31,7 @@ from snowflake.cli._app.constants import (
     PARAM_APPLICATION_NAME,
 )
 from snowflake.cli._app.telemetry import command_info
-from snowflake.cli._plugins.auth.oidc.manager import (
-    OidcManager,
-)
+from snowflake.cli._plugins.auth.oidc.manager import OidcManager
 from snowflake.cli.api.config import (
     get_connection_dict,
     get_env_value,
@@ -53,6 +53,8 @@ log = logging.getLogger(__name__)
 
 ENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN ENCRYPTED PRIVATE KEY-----"
 UNENCRYPTED_PKCS8_PK_HEADER = b"-----BEGIN PRIVATE KEY-----"
+AUTHENTICATOR_EXTERNAL_BROWSER: Literal["externalbrowser"] = "externalbrowser"
+AUTHENTICATOR_PARAM: Literal["authenticator"] = "authenticator"
 
 # connection keys that can be set using SNOWFLAKE_* env vars
 SUPPORTED_ENV_OVERRIDES = [
@@ -88,11 +90,55 @@ SUPPORTED_ENV_OVERRIDES = [
 CONNECTION_KEY_ALIASES = {"private_key_path": "private_key_file"}
 
 
+class _BufferedMirrorStream(io.StringIO):
+    """Buffer connector chatter while optionally mirroring to another stream."""
+
+    def __init__(self, mirror: Optional[TextIO] = None) -> None:
+        super().__init__()
+        self._mirror = mirror
+
+    def write(self, text: str) -> int:
+        text = text or ""
+        written = super().write(text)
+        if self._mirror is not None:
+            self._mirror.write(text)
+            self._mirror.flush()
+        return written
+
+    def flush(self) -> None:
+        super().flush()
+        if self._mirror is not None:
+            self._mirror.flush()
+
+    def isatty(self) -> bool:
+        if self._mirror is not None and hasattr(self._mirror, "isatty"):
+            return bool(self._mirror.isatty())
+        return False
+
+
 def _resolve_alias(key_or_alias: str):
     """
     Given the key of an override / env var, what key should it be set as in the connection parameters?
     """
     return CONNECTION_KEY_ALIASES.get(key_or_alias, key_or_alias)
+
+
+def _build_silent_streams(
+    connection_parameters: Dict,
+) -> tuple[_BufferedMirrorStream, _BufferedMirrorStream]:
+    """
+    Build stdout/stderr silent streams.
+
+    We must provide a writable stdout for authenticators (notably externalbrowser)
+    that prompt via input(); redirecting to None breaks sys.stdout.
+    For externalbrowser we mirror stdout to stderr so prompts remain visible
+    without polluting structured stdout (e.g., JSON output).
+    """
+    authenticator = str(connection_parameters.get(AUTHENTICATOR_PARAM, "")).lower()
+    mirror_stdout: Optional[TextIO] = (
+        sys.stderr if authenticator == AUTHENTICATOR_EXTERNAL_BROWSER else None
+    )
+    return _BufferedMirrorStream(mirror_stdout), _BufferedMirrorStream()
 
 
 def connect_to_snowflake(
@@ -186,12 +232,16 @@ def connect_to_snowflake(
 
     _update_internal_application_info(connection_parameters)
 
+    silent_stdout, silent_stderr = _build_silent_streams(connection_parameters)
+
     try:
-        # Whatever output is generated when creating connection,
-        # we don't want it in our output. This is particularly important
-        # for cases when external browser and json format are used.
-        # Redirecting both stdout and stderr for offline usage.
-        with contextlib.redirect_stdout(None), contextlib.redirect_stderr(None):
+        # The output is redirected to silent stream for reuse
+        # in cases like externalbrowser auth not to pollute output
+        # in formats like JSON
+        with (
+            contextlib.redirect_stdout(silent_stdout),
+            contextlib.redirect_stderr(silent_stderr),
+        ):
             return snowflake.connector.connect(
                 application=command_info(),
                 **connection_parameters,
