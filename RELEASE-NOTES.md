@@ -21,6 +21,7 @@
 ## New additions
 
 ## Fixes and improvements
+* Fix git repository path parsing to allow quotes around both repo and branch names (e.g., `@"example-repo"/branches/"feature/branch"/*`).
 * Fix `externalbrowser` auth for headless systems.
 
 
