@@ -17,6 +17,7 @@ from textwrap import dedent
 from unittest import mock
 
 import pytest
+from snowflake.cli._plugins.git.manager import GitManager
 from snowflake.cli._plugins.stage.manager import StageManager
 from snowflake.cli.api.errno import DOES_NOT_EXIST_OR_NOT_AUTHORIZED
 from snowflake.cli.api.stage_path import StagePath
@@ -34,6 +35,47 @@ def test_toplevel_help(runner):
     )
     result = runner.invoke(["git", "--help"])
     assert result.exit_code == 0, result.output
+
+
+@pytest.mark.parametrize(
+    "path, expected_parts",
+    [
+        (
+            '@"example-repo"/branches/feature/*',
+            ['@"example-repo"', "branches", "feature", "*"],
+        ),
+        (
+            '@example/branches/"feature/branch"/*',
+            ["@example", "branches", '"feature/branch"', "*"],
+        ),
+        (
+            '@"example-repo"/branches/"feature/branch"/*',
+            ['@"example-repo"', "branches", '"feature/branch"', "*"],
+        ),
+        (
+            '@"example-repo"/branches/"feature/branch"/',
+            ['@"example-repo"', "branches", '"feature/branch"'],
+        ),
+        (
+            '@"example-repo"/branches/"feature/branch"/file.txt',
+            ['@"example-repo"', "branches", '"feature/branch"', "file.txt"],
+        ),
+        (
+            '@"example-repo"/branches/"feature/branch"/nested/dir/',
+            ['@"example-repo"', "branches", '"feature/branch"', "nested", "dir"],
+        ),
+        (
+            '@"example-repo"/branches/"feature/branch"/nested/file.sql',
+            ['@"example-repo"', "branches", '"feature/branch"', "nested", "file.sql"],
+        ),
+        (
+            '@"example-repo"/branches/"feature/branch"/nested/*',
+            ['@"example-repo"', "branches", '"feature/branch"', "nested", "*"],
+        ),
+    ],
+)
+def test_split_git_path_allows_repo_and_branch_quotes(path, expected_parts):
+    assert GitManager.split_git_path(path) == expected_parts
 
 
 @mock.patch("snowflake.connector.connect")
@@ -838,7 +880,7 @@ def test_raise_error_for_invalid_quotes_number_in_path(runner):
     )
     assert result.exit_code == 2, result.output
     assert (
-        'Invalid string @repo/branches"/"ma"in/, too much " in path, expected 2.'
+        'Invalid string @repo/branches"/"ma"in/, too much " in path, expected 2 or 4.'
         in result.output
     )
 
