@@ -880,7 +880,7 @@ def test_raise_error_for_invalid_quotes_number_in_path(runner):
     )
     assert result.exit_code == 2, result.output
     assert (
-        'Invalid string @repo/branches"/"ma"in/, too much " in path, expected 2 or 4.'
+        'Invalid path "@repo/branches"/"ma"in/": expected 0, 2, or 4 double quotes.'
         in result.output
     )
 

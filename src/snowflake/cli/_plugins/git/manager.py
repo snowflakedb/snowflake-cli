@@ -132,7 +132,7 @@ class GitManager(StageManager):
                 tokens = GitManager._QUOTED_OR_TOKEN.findall(path)
             case _:
                 raise UsageError(
-                    f'Invalid string {path}, too much " in path, expected 2 or 4.'
+                    f'Invalid path "{path}": expected 0, 2, or 4 double quotes.'
                 )
 
         parts = []
