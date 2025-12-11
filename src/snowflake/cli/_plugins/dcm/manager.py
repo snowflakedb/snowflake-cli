@@ -160,6 +160,10 @@ class DCMProjectManager(SqlExecutionMixin):
             query += f" LIMIT {limit}"
         return self.execute_query(query=query)
 
+    def refresh(self, project_identifier: FQN):
+        query = f"EXECUTE DCM PROJECT {project_identifier.sql_identifier} REFRESH ALL"
+        return self.execute_query(query=query)
+
     @staticmethod
     def _get_from_stage_query(from_stage: str) -> str:
         stage_path = StagePath.from_stage_str(from_stage)

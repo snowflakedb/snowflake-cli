@@ -33,6 +33,7 @@ from snowflake.cli.api.output.formats import OutputFormat
 from snowflake.cli.api.output.types import (
     CollectionResult,
     CommandResult,
+    EmptyResult,
     MessageResult,
     MultipleResults,
     ObjectResult,
@@ -341,15 +342,16 @@ def _print_single_table(obj):
 
 def print_result(cmd_result: CommandResult, output_format: OutputFormat | None = None):
     output_format = output_format or _get_format_type()
-    if is_structured_format(output_format):
-        print_structured(cmd_result, output_format)
-    elif isinstance(cmd_result, (MultipleResults, StreamResult)):
-        for res in cmd_result.result:
-            print_result(res)
-    elif (
-        isinstance(cmd_result, (MessageResult, ObjectResult, CollectionResult))
-        or cmd_result is None
-    ):
-        print_unstructured(cmd_result)
-    else:
-        raise ValueError(f"Unexpected type {type(cmd_result)}")
+
+    match cmd_result:
+        case EmptyResult():
+            return
+        case _ if is_structured_format(output_format):
+            print_structured(cmd_result, output_format)
+        case MultipleResults() | StreamResult():
+            for res in cmd_result.result:
+                print_result(res)
+        case MessageResult() | ObjectResult() | CollectionResult() | None:
+            print_unstructured(cmd_result)
+        case _:
+            raise ValueError(f"Unexpected type {type(cmd_result)}")
