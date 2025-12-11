@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import PurePosixPath
 from textwrap import dedent
 
@@ -69,6 +70,16 @@ class GitStagePathParts(StagePathParts):
 
 
 class GitManager(StageManager):
+    """
+    Git stage manager utilities.
+
+    The `_QUOTED_OR_TOKEN` regex matches either a quoted span (double quotes
+    included) or a run of non-slash characters. We use it to tokenize git stage
+    paths while preserving quoted repo or branch names that may contain slashes.
+    """
+
+    _QUOTED_OR_TOKEN = re.compile(r'"[^"]*"|[^/]+')
+
     @staticmethod
     def build_path(stage_path: str) -> StagePathParts:
         return StagePath.from_git_str(stage_path)
@@ -114,32 +125,23 @@ class GitManager(StageManager):
 
     @staticmethod
     def split_git_path(path: str):
-        # Check if path contains quotes and split it accordingly
-        if '/"' in path and '"/' in path:
-            if path.count('"') > 2:
+        match path.count('"'):
+            case 0:
+                return GitManager._split_path_without_empty_parts(path)
+            case 2 | 4:
+                tokens = GitManager._QUOTED_OR_TOKEN.findall(path)
+            case _:
                 raise UsageError(
-                    f'Invalid string {path}, too much " in path, expected 2.'
+                    f'Invalid path "{path}": expected 0, 2, or 4 double quotes.'
                 )
 
-            path_parts = path.split('"')
-            before_quoted_part = GitManager._split_path_without_empty_parts(
-                path_parts[0]
-            )
-
-            if path_parts[2] == "/":
-                after_quoted_part = []
+        parts = []
+        for token in tokens:
+            if token.startswith('"') and token.endswith('"'):
+                parts.append(token)
             else:
-                after_quoted_part = GitManager._split_path_without_empty_parts(
-                    path_parts[2]
-                )
-
-            return [
-                *before_quoted_part,
-                f'"{path_parts[1]}"',
-                *after_quoted_part,
-            ]
-        else:
-            return GitManager._split_path_without_empty_parts(path)
+                parts.extend(GitManager._split_path_without_empty_parts(token))
+        return parts
 
     @staticmethod
     def _split_path_without_empty_parts(path: str):
