@@ -18,7 +18,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Generic, Iterator, List, Optional, TypeVar, Union
 
-from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
@@ -36,27 +35,27 @@ class Reporter(ABC, Generic[T]):
     @abstractmethod
     def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Extract the relevant data from the result JSON."""
-        pass
+        ...
 
     @abstractmethod
     def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[T]:
         """Parse raw data into domain objects."""
-        pass
+        ...
 
     @abstractmethod
-    def generate_renderables(self, data: Iterator[T]) -> Iterator[Text]:
-        """Generate Rich renderables for the parsed data."""
-        pass
+    def print_renderables(self, data: Iterator[T]) -> None:
+        """Print Rich renderables for the parsed data."""
+        ...
 
     @abstractmethod
-    def generate_summary(self) -> Text:
-        """Generate a summary Text object."""
-        pass
+    def print_summary(self) -> None:
+        """Print a summary."""
+        ...
 
     def process(self, cursor: SnowflakeCursor) -> None:
         row = cursor.fetchone()
         if not row:
-            cli_console.safe_print("No data.")
+            cli_console.styled_message("No data.\n")
             return
 
         result_data = row[0]
@@ -66,11 +65,8 @@ class Reporter(ABC, Generic[T]):
 
         raw_data = self.extract_data(result_json)
         parsed_data: Iterator[T] = self.parse_data(raw_data)
-        for renderable in self.generate_renderables(parsed_data):
-            cli_console.safe_print(renderable)
-
-        summary = self.generate_summary()
-        cli_console.safe_print(Text("\n") + summary)
+        self.print_renderables(parsed_data)
+        self.print_summary()
 
 
 class RefreshStatus(Enum):
@@ -196,22 +192,6 @@ class RefreshReporter(Reporter[RefreshRow]):
 
         return refreshed_tables
 
-    def _build_row(self, stats: RefreshRow) -> Text:
-        row = Text()
-        row.append(
-            stats.status.value.ljust(self.STATUS_WIDTH) + " ", style=styles.STATUS_STYLE
-        )
-        row.append(
-            stats.formatted_inserted.rjust(self.STATS_WIDTH) + " ",
-            style=styles.INSERTED_STYLE,
-        )
-        row.append(
-            stats.formatted_deleted.rjust(self.STATS_WIDTH) + " ",
-            style=styles.REMOVED_STYLE,
-        )
-        row.append(stats.dt_name, style=styles.DOMAIN_STYLE)
-        return row
-
     def _parse_statistics(
         self, row: Union[Dict[str, Any], Any]
     ) -> Optional[RefreshRow]:
@@ -266,35 +246,44 @@ class RefreshReporter(Reporter[RefreshRow]):
             if parsed is not None:
                 yield parsed
 
-    def generate_renderables(self, data: Iterator[RefreshRow]) -> Iterator[Text]:
+    def print_renderables(self, data: Iterator[RefreshRow]) -> None:
         for row in data:
-            yield self._build_row(row)
+            cli_console.styled_message(
+                row.status.value.ljust(self.STATUS_WIDTH) + " ",
+                style=styles.STATUS_STYLE,
+            )
+            cli_console.styled_message(
+                row.formatted_inserted.rjust(self.STATS_WIDTH) + " ",
+                style=styles.INSERTED_STYLE,
+            )
+            cli_console.styled_message(
+                row.formatted_deleted.rjust(self.STATS_WIDTH) + " ",
+                style=styles.REMOVED_STYLE,
+            )
+            cli_console.styled_message(row.dt_name, style=styles.DOMAIN_STYLE)
+            cli_console.styled_message("\n")
 
-    def generate_summary(self) -> Text:
+    def print_summary(self) -> None:
+        cli_console.styled_message("\n")
         total = self._summary.total
         if total == 0:
-            return Text("No dynamic tables found in the project.")
-
-        summary = Text()
+            return cli_console.styled_message(
+                "No dynamic tables found in the project.\n"
+            )
 
         parts = []
         if (refreshed := self._summary.refreshed) > 0:
-            part = Text(str(refreshed))
-            part.append(" refreshed")
-            parts.append(part)
+            parts.append(f"{refreshed} refreshed")
         if (up_to_date := self._summary.up_to_date) > 0:
-            part = Text(str(up_to_date))
-            part.append(" up-to-date")
-            parts.append(part)
+            parts.append(f"{up_to_date} up-to-date")
         if (unknown := self._summary.unknown) > 0:
-            part = Text(str(unknown))
-            part.append(" unknown")
-            parts.append(part)
+            parts.append(f"{unknown} unknown")
 
+        summary = ""
         for i, part in enumerate(parts):
             if i > 0:
-                summary.append(", ")
-            summary.append_text(part)
-        summary.append(".")
+                summary += ", "
+            summary += part
+        summary += ".\n"
 
-        return summary
+        cli_console.styled_message(summary)

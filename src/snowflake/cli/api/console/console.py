@@ -24,6 +24,7 @@ from rich.style import Style
 from rich.text import Text
 from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.console.enum import Output
+from snowflake.cli.api.sanitizers import sanitize_for_terminal
 
 # ensure we do not break URLs that wrap lines
 get_console().soft_wrap = True
@@ -41,7 +42,7 @@ INDENTATION_LEVEL: int = 2
 
 
 class CliConsole(AbstractConsole):
-    """An utility for displaying intermediate output.
+    """A utility for displaying intermediate output.
 
     Provides following methods for handling displaying messages:
     - `step` - for more detailed information on steps
@@ -116,7 +117,12 @@ class CliConsole(AbstractConsole):
             TextColumn("[progress.description]{task.description}", style=SPINNER_STYLE),
             transient=True,
         ) as progress:
-            yield progress
+            try:
+                yield progress
+            finally:
+                for task_id in progress.task_ids:
+                    if not progress.tasks[task_id].finished:
+                        progress.update(task_id, completed=1, total=1)
 
     def step(self, message: str):
         """Displays a message to output.
@@ -146,11 +152,11 @@ class CliConsole(AbstractConsole):
         panel = Panel(message, style=style)
         self._print(panel)
 
-    def safe_print(self, message: str | Text):
-        """Displays an already formatted message.
+    def styled_message(self, message: str, style: Style | str = ""):
+        """Displays a message with provided style.
 
-        It's callers responsibility to call sanitize_for_terminal on any external data"""
-        self._print(message)
+        Message gets sanitized before displaying."""
+        self._print(Text(sanitize_for_terminal(message), style=style), end="")
 
 
 def get_cli_console() -> AbstractConsole:

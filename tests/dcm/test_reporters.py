@@ -39,15 +39,14 @@ def capture_reporter_output(reporter, cursor):
     """Capture the output from a reporter's process method."""
     output = StringIO()
 
-    def mock_print(text):
+    def mock_print(text, style=""):
         if hasattr(text, "plain"):
             output.write(text.plain)
         else:
             output.write(str(text))
-        output.write("\n")
 
     with mock.patch(
-        "snowflake.cli._plugins.dcm.reporters.cli_console.safe_print",
+        "snowflake.cli._plugins.dcm.reporters.cli_console.styled_message",
         side_effect=mock_print,
     ):
         reporter.process(cursor)
