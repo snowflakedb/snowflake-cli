@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Callable, Iterator, Optional
+from typing import Any, Callable, Iterator, Optional
 
 from rich import print as rich_print
 from rich.jupyter import JupyterMixin
@@ -61,10 +61,10 @@ class AbstractConsole(ABC):
         """Indicated whether output should be grouped."""
         return self._in_phase
 
-    def _print(self, text: JupyterMixin):
+    def _print(self, text: JupyterMixin, end: str = "\n"):
         if self.is_silent:
             return
-        rich_print(text)
+        rich_print(text, end=end)
 
     @contextmanager
     @abstractmethod
@@ -109,3 +109,7 @@ class AbstractConsole(ABC):
         """
         A context manager for indicating a long-running operation.
         """
+
+    @abstractmethod
+    def styled_message(self, message: str, style: Any):
+        """Displays a message with provided style."""

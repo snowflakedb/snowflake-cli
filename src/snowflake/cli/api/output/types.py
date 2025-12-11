@@ -162,3 +162,9 @@ class MessageResult(CommandResult):
     @property
     def result(self):
         return {"message": self._message}
+
+
+class EmptyResult(CommandResult):
+    @property
+    def result(self):
+        return None

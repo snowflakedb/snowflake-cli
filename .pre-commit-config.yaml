@@ -36,7 +36,7 @@ repos:
       - id: check-print-in-code
         language: pygrep
         name: "Check for print statements"
-        entry: "print\\(|echo\\("
+        entry: "(?<!safe_)print\\(|echo\\("
         pass_filenames: true
         files: ^src/snowflake/.*\.py$
         exclude: >
