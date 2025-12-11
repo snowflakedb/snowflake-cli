@@ -7,7 +7,9 @@ from snowflake.cli._plugins.streamlit.streamlit_entity_model import (
     SPCS_RUNTIME_V2_NAME,
     StreamlitEntityModel,
 )
+from snowflake.cli._plugins.workspace.context import WorkspaceContext
 from snowflake.cli.api.artifacts.bundle_map import BundleMap
+from snowflake.cli.api.console.abc import AbstractConsole
 from snowflake.cli.api.exceptions import CliError
 
 from tests.streamlit.streamlit_test_class import STREAMLIT_NAME, StreamlitTestClass
@@ -49,8 +51,6 @@ class TestStreamlitEntity(StreamlitTestClass):
 
     def test_bundle_auto_includes_main_file(self, project_directory):
         """Test that main_file is automatically included even if not in artifacts."""
-        from snowflake.cli._plugins.workspace.context import WorkspaceContext
-        from snowflake.cli.api.console.abc import AbstractConsole
 
         with project_directory("example_streamlit_v2"):
             # Create workspace context inside the context manager so project_root
