@@ -20,6 +20,7 @@ from typing import Any, Dict, Generic, Iterator, List, Optional, TypeVar, Union
 
 from snowflake.cli._plugins.dcm import styles
 from snowflake.cli.api.console.console import cli_console
+from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.sanitizers import sanitize_for_terminal
 from snowflake.connector.cursor import SnowflakeCursor
 
@@ -58,10 +59,17 @@ class Reporter(ABC, Generic[T]):
             cli_console.styled_message("No data.\n")
             return
 
-        result_data = row[0]
-        result_json = (
-            json.loads(result_data) if isinstance(result_data, str) else result_data
-        )
+        try:
+            result_data = row[0]
+            result_json = (
+                json.loads(result_data) if isinstance(result_data, str) else result_data
+            )
+        except IndexError:
+            log.debug("Unexpected response format: %s", row)
+            raise CliError("Could not process response.")
+        except json.JSONDecodeError as e:
+            log.debug("Could not decode response: %s", e)
+            raise CliError("Could not process response.")
 
         raw_data = self.extract_data(result_json)
         parsed_data: Iterator[T] = self.parse_data(raw_data)
@@ -179,7 +187,7 @@ class RefreshReporter(Reporter[RefreshRow]):
     def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
         if not isinstance(result_json, dict):
             log.debug("Unexpected response type: %s, expected dict", type(result_json))
-            return []
+            raise CliError("Could not process response.")
 
         refreshed_tables = result_json.get(self._DATA_KEY, list())
 
@@ -188,7 +196,7 @@ class RefreshReporter(Reporter[RefreshRow]):
                 "Unexpected refreshed_tables type: %s, expected list",
                 type(refreshed_tables),
             )
-            return []
+            raise CliError("Could not process response.")
 
         return refreshed_tables
 
