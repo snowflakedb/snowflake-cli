@@ -14,6 +14,7 @@
 
 from contextlib import contextmanager
 
+from rich.text import Text
 from snowflake.cli.api.console.abc import AbstractConsole
 
 
@@ -45,6 +46,9 @@ def test_console_base_class(capsys):
         def spinner(self):
             yield
 
+        def styled_message(self, message: str, style: str = ""):
+            return self._print(Text(message), end="")
+
     console = TConsole()
     assert not console.is_silent
 
@@ -55,6 +59,7 @@ def test_console_base_class(capsys):
         with console.indented():
             console.message("e")
             console.warning("f")
+            console.styled_message("g\n")
 
     out, _ = capsys.readouterr()
-    assert out == "Enter\nb\nc\nd\ne\nf\nExit\n"
+    assert out == "Enter\nb\nc\nd\ne\nf\ng\nExit\n"
