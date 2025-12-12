@@ -855,3 +855,79 @@ class TestDCMRefresh:
         mock_pm().refresh.assert_called_once_with(
             project_identifier=FQN.from_string("my_project")
         )
+
+
+class TestDCMTest:
+    @mock.patch(DCMProjectManager)
+    def test_test_all_passing(self, mock_pm, runner, mock_cursor, snapshot):
+        test_result = {
+            "expectations": [
+                {
+                    "table_name": "DB.SCHEMA.EMPLOYEES",
+                    "expectation_name": "ROW_COUNT_CHECK",
+                    "expectation_violated": False,
+                },
+                {
+                    "table_name": "DB.SCHEMA.ORDERS",
+                    "expectation_name": "NULL_CHECK",
+                    "expectation_violated": False,
+                },
+            ]
+        }
+        mock_pm().test.return_value = mock_cursor(
+            rows=[(json.dumps(test_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "test", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == snapshot
+        mock_pm().test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_test_with_failures(self, mock_pm, runner, mock_cursor, snapshot):
+        test_result = {
+            "expectations": [
+                {
+                    "table_name": "DB.SCHEMA.EMPLOYEES",
+                    "expectation_name": "ROW_COUNT_CHECK",
+                    "expectation_violated": False,
+                },
+                {
+                    "table_name": "DB.SCHEMA.ORDERS",
+                    "expectation_name": "NULL_CHECK",
+                    "expectation_violated": True,
+                    "expectation_expression": "= 0",
+                    "metric_name": "null_count",
+                    "value": 15,
+                },
+            ]
+        }
+        mock_pm().test.return_value = mock_cursor(
+            rows=[(json.dumps(test_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "test", "my_project"])
+
+        assert result.exit_code == 1, result.output
+        assert result.output == snapshot
+        mock_pm().test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )
+
+    @mock.patch(DCMProjectManager)
+    def test_test_no_expectations(self, mock_pm, runner, mock_cursor, snapshot):
+        test_result = {"expectations": []}
+        mock_pm().test.return_value = mock_cursor(
+            rows=[(json.dumps(test_result),)], columns=("result",)
+        )
+
+        result = runner.invoke(["dcm", "test", "my_project"])
+
+        assert result.exit_code == 0, result.output
+        assert result.output == snapshot
+        mock_pm().test.assert_called_once_with(
+            project_identifier=FQN.from_string("my_project")
+        )

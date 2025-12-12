@@ -720,3 +720,95 @@ INSERT INTO {base_table_name} (id, name, email) VALUES
         assert result.exit_code == 0, result.output
         # Should show at least 1 table was refreshed
         assert "1 up-to-date." in result.output.strip().split("\n")[-1]
+
+
+@pytest.mark.qa_only
+@pytest.mark.integration
+def test_dcm_test_command(
+    runner,
+    test_database,
+    project_directory,
+    object_name_provider,
+    sql_test_helper,
+):
+    project_name = object_name_provider.create_and_get_next_object_name()
+    table_name = f"{test_database}.PUBLIC.TestedTable"
+    dmf_name = "test_dmf"
+
+    with project_directory("dcm_project") as project_root:
+        result = runner.invoke_with_connection(["dcm", "create", project_name])
+        assert result.exit_code == 0, result.output
+
+        # 1) Without any data metric functions, run test command to assert that exitcode is 0 and message is returned.
+        result = runner.invoke_with_connection(["dcm", "test", project_name])
+        assert result.exit_code == 0, result.output
+        assert "No expectations found in the project." in result.output
+
+        # Define table and deploy
+        table_definition = f"""
+define table identifier('{table_name}') (
+  id int, name varchar, email varchar, level int
+) data_metric_schedule = '5 minute';
+"""
+        file_a_path = project_root / "file_a.sql"
+        original_content = file_a_path.read_text()
+        file_a_path.write_text(original_content + table_definition)
+
+        result = runner.invoke_with_connection_json(
+            [
+                "dcm",
+                "deploy",
+                project_name,
+                "-D",
+                f"table_name='{test_database}.PUBLIC.OutputTestTable'",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+
+        # Add some data
+        insert_data_sql = f"""
+INSERT INTO {table_name} (id, name, email, level) VALUES
+    (1, 'Alice Johnson', 'alice.j@example.com', 5),
+    (2, 'Bob Williams', 'bob.w@example.com', 3),
+    (3, 'Charlie Brown', 'charlie.b@example.com', 3),
+    (4, 'Diana Miller', 'diana.m@example.com', 4),
+    (5, 'Evan Davis', 'evan.d@example.com', 2);
+"""
+        sql_test_helper.execute_single_sql(insert_data_sql)
+
+        # 2) Set a DMF that'll fail and run test command - should return exit code 1 with error message
+        dmf_sql = f"""
+create or alter data metric function {dmf_name}(
+   arg_t table(arg_c int)
+)
+returns int
+as $$
+select count(*)
+from arg_t
+where arg_c < 5
+$$;
+
+alter table {table_name} add data metric function {dmf_name} on (level)
+expectation levels_must_be_higher_than_zero (value = 0);
+"""
+        sql_test_helper.execute_single_sql(dmf_sql)
+
+        result = runner.invoke_with_connection(["dcm", "test", project_name])
+        assert result.exit_code == 1, result.output
+        assert (
+            "0 passed, 1 failed out of 1 total."
+            in result.output.strip().split("\n")[-1]
+        )
+
+        # 3) Fix the data and run test command again
+        fix_data_sql = f"""
+UPDATE {table_name} SET level = 5 WHERE level < 5;
+"""
+        sql_test_helper.execute_single_sql(fix_data_sql)
+
+        result = runner.invoke_with_connection(["dcm", "test", project_name])
+        assert result.exit_code == 0, result.output
+        assert (
+            "1 passed, 0 failed out of 1 total."
+            in result.output.strip().split("\n")[-1]
+        )
