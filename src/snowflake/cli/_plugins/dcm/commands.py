@@ -15,7 +15,7 @@ from typing import List, Optional
 
 import typer
 from snowflake.cli._plugins.dcm.manager import DCMProjectManager
-from snowflake.cli._plugins.dcm.reporters import RefreshReporter
+from snowflake.cli._plugins.dcm.reporters import RefreshReporter, TestReporter
 from snowflake.cli._plugins.dcm.utils import mock_dcm_response
 from snowflake.cli._plugins.object.command_aliases import add_object_command_aliases
 from snowflake.cli._plugins.object.commands import scope_option
@@ -304,6 +304,26 @@ def refresh(
         result = DCMProjectManager().refresh(project_identifier=identifier)
 
     RefreshReporter().process(result)
+    return EmptyResult()
+
+
+@app.command(requires_connection=True)
+@mock_dcm_response("test")
+def test(
+    identifier: FQN = dcm_identifier,
+    **options,
+):
+    """
+    Tests all expectations defined in DCM project.
+    """
+    with cli_console.spinner() as spinner:
+        spinner.add_task(description=f"Testing dcm project {identifier}", total=None)
+        result = DCMProjectManager().test(project_identifier=identifier)
+
+    reporter = TestReporter()
+    has_errors = reporter.process(result)
+    if has_errors:
+        raise typer.Exit(code=1)
     return EmptyResult()
 
 

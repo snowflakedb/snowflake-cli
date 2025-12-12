@@ -14,8 +14,13 @@
 from rich.style import Style
 
 DOMAIN_STYLE = Style(color="cyan")
+BOLD_STYLE = Style(bold=True)
 
 # Refresh
 STATUS_STYLE = Style(color="blue")
 REMOVED_STYLE = Style(color="red", italic=True)
 INSERTED_STYLE = Style(color="green", italic=True)
+
+# Test
+PASS_STYLE = Style(color="green")
+FAIL_STYLE = Style(color="red")
