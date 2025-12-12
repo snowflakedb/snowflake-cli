@@ -23,6 +23,7 @@
 ## Fixes and improvements
 * Fix git repository path parsing to allow quotes around both repo and branch names (e.g., `@"example-repo"/branches/"feature/branch"/*`).
 * Fix `externalbrowser` auth for headless systems.
+* Update project definition with supported python versions aligned with `snowflake-connector-python`
 
 
 # v3.14.0
