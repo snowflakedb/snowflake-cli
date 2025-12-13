@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added support for LOG_LEVEL, METRIC_LEVEL and TRACE_LEVEL
 
 ## Fixes and improvements
 * Fix git repository path parsing to allow quotes around both repo and branch names (e.g., `@"example-repo"/branches/"feature/branch"/*`).
