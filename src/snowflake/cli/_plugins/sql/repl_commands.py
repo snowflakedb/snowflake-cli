@@ -580,7 +580,9 @@ class SpoolCommand(ReplCommand):
                     f"[green]Spooling stopped. Output saved to: {spool_path}[/green]"
                 )
             else:
-                cli_console.message("[yellow]Spooling is not currently active.[/yellow]")
+                cli_console.message(
+                    "[yellow]Spooling is not currently active.[/yellow]"
+                )
         else:
             spool_path = Path(self.action).expanduser().resolve()
             try:
