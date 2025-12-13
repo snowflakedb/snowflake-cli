@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Add `snow spcs compute-pool show-instance-families` command.
 
 ## Fixes and improvements
 * Fix git repository path parsing to allow quotes around both repo and branch names (e.g., `@"example-repo"/branches/"feature/branch"/*`).
