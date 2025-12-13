@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added `!spool` command to SQL REPL for writing query output to a file (`!spool <filename>` to start, `!spool off` to stop).
 
 ## Fixes and improvements
 * Fix git repository path parsing to allow quotes around both repo and branch names (e.g., `@"example-repo"/branches/"feature/branch"/*`).
