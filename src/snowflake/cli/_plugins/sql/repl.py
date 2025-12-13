@@ -1,6 +1,9 @@
+import sys
 from contextlib import contextmanager
+from io import StringIO
 from logging import getLogger
-from typing import Iterable
+from pathlib import Path
+from typing import IO, Iterable, TextIO
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.filters import Condition, is_done, is_searching
@@ -45,6 +48,21 @@ def repl_context(repl_instance):
         context_manager.repl_instance = None
 
 
+class _TeeWriter:
+    """Write to both original stream and a capture buffer."""
+
+    def __init__(self, original: TextIO, capture: StringIO):
+        self.original = original
+        self.capture = capture
+
+    def write(self, text: str) -> int:
+        self.original.write(text)
+        return self.capture.write(text)
+
+    def flush(self) -> None:
+        self.original.flush()
+
+
 class Repl:
     """Basic REPL implementation for the Snowflake CLI."""
 
@@ -73,6 +91,8 @@ class Repl:
         self._sql_manager = sql_manager
         self.session = PromptSession(history=self._history)
         self._next_input: str | None = None
+        self._spool_file: IO[str] | None = None
+        self._spool_path: Path | None = None
 
     def _setup_key_bindings(self) -> KeyBindings:
         """Key bindings for repl. Helps detecting ; at end of buffer."""
@@ -220,6 +240,22 @@ class Repl:
         )
         return cursors
 
+    def _print_and_spool(self, result: MultipleResults, user_input: str) -> None:
+        """Print results to console and write to spool file if active."""
+        if self.is_spooling:
+            captured = StringIO()
+            tee = _TeeWriter(sys.stdout, captured)
+            sys.stdout = tee
+            try:
+                print_result(result)
+            finally:
+                sys.stdout = tee.original
+
+            self.write_to_spool(f"\n-- Query: {user_input}\n")
+            self.write_to_spool(captured.getvalue())
+        else:
+            print_result(result)
+
     def run(self):
         with repl_context(self):
             try:
@@ -228,6 +264,8 @@ class Repl:
                 self._repl_loop()
             except (KeyboardInterrupt, EOFError):
                 cli_console.message("\n[bold orange_red1]Leaving REPL, bye ...")
+            finally:
+                self.stop_spool()
 
     def _repl_loop(self):
         """Main REPL loop. Handles input and query execution.
@@ -248,7 +286,8 @@ class Repl:
                 try:
                     log.debug("executing query")
                     cursors = self._execute(user_input)
-                    print_result(MultipleResults(QueryResult(c) for c in cursors))
+                    result = MultipleResults(QueryResult(c) for c in cursors)
+                    self._print_and_spool(result, user_input)
 
                 except Exception as e:
                     log.debug("error occurred: %s", e)
@@ -283,6 +322,42 @@ class Repl:
     def history(self) -> FileHistory:
         """Get the FileHistory instance used by the REPL."""
         return self._history
+
+    @property
+    def spool_path(self) -> Path | None:
+        """Get the current spool file path, or None if not spooling."""
+        return self._spool_path
+
+    @property
+    def is_spooling(self) -> bool:
+        """Check if output is currently being spooled to a file."""
+        return self._spool_file is not None
+
+    def start_spool(self, path: Path) -> None:
+        """Start spooling output to the specified file.
+
+        If already spooling, closes the current file first.
+        """
+        if self._spool_file:
+            self.stop_spool()
+
+        self._spool_file = open(path, "w", encoding="utf-8")
+        self._spool_path = path
+        log.debug("Started spooling to: %s", path)
+
+    def stop_spool(self) -> None:
+        """Stop spooling output and close the spool file."""
+        if self._spool_file:
+            self._spool_file.close()
+            log.debug("Stopped spooling to: %s", self._spool_path)
+            self._spool_file = None
+            self._spool_path = None
+
+    def write_to_spool(self, text: str) -> None:
+        """Write text to the spool file if spooling is active."""
+        if self._spool_file:
+            self._spool_file.write(text)
+            self._spool_file.flush()
 
     def ask_yn(self, question: str) -> bool:
         """Asks user a Yes/No question."""
