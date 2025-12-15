@@ -22,6 +22,13 @@ log = logging.getLogger(__name__)
 
 
 class SclsManager(SqlExecutionMixin):
+    def _set_session_config(self):
+        session_config = [
+            """alter session set SPARK_APPLICATION_SPARK_IMAGES = '{"1.0.0":"qa6-scls.awsuswest2qa6.registry-dev.snowflakecomputing.com/scls_test_db/test_schema/scls_test_repo/cli_test:1.0"}'""",
+        ]
+        for session_config_query in session_config:
+            self.execute_query(session_config_query).fetchone()
+
     def submit(
         self,
         file_on_stage: str,
@@ -42,15 +49,11 @@ class SclsManager(SqlExecutionMixin):
             f"ENTRYPOINT_FILE='/tmp/entrypoint/{file_on_stage}'",
             f"CLASS = '{class_name}'",  # todo: support python
             "SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle', 'spark.eventLog.enabled' = 'false')",
-            "RESOURCE_CONSTRAINT='CPU_2X_X86';",
+            "RESOURCE_CONSTRAINT='CPU_2X_X86'",
         ]
-        query = "\n".join(query_parts)
-        session_config = [
-            """alter session set SPARK_APPLICATION_SPARK_IMAGES = '{"1.0.0":"qa6-scls.awsuswest2qa6.registry-dev.snowflakecomputing.com/scls_test_db/test_schema/scls_test_repo/cli_test:1.0"}'""",
-        ]
+        query = " ".join(query_parts)
         try:
-            for session_config_query in session_config:
-                self.execute_query(session_config_query).fetchone()
+            self._set_session_config()
             result = self.execute_query(query).fetchone()
             log.debug("Spark application submitted successfully")
             log.debug("Result: %s", result)
