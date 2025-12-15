@@ -45,3 +45,11 @@ jobs:
               },
               \"transition\": { \"id\": \"71\" }
             }"
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 400 ]; then
+            echo "Failed to close JIRA issue. HTTP status: $HTTP_CODE"
+            echo "Response: $BODY"
+            exit 1
+          fi

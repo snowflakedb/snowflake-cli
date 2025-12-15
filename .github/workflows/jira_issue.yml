@@ -104,7 +104,7 @@ jobs:
           }')
 
           # Update Github issue title with jira id
-          curl -s \
+          curl -s -f \
             -X PATCH \
             -H "Authorization: Bearer $GITHUB_TOKEN" \
             -H "Accept: application/vnd.github+json" \
