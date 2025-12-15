@@ -346,20 +346,6 @@ def show_config_sources(
     source (CLI arguments, environment variables, or config files) provided
     each configuration value. Useful for debugging configuration issues.
 
-    Examples:
-
-        # Show summary of all configuration resolution
-        snow helpers show-config-sources
-
-        # Show detailed resolution for all keys
-        snow helpers show-config-sources --show-details
-
-        # Show resolution for a specific key
-        snow helpers show-config-sources account
-
-        # Show detailed resolution for a specific key
-        snow helpers show-config-sources account --show-details
-
     Note: This command requires the enhanced configuration system to be enabled.
     Set SNOWFLAKE_CLI_CONFIG_V2_ENABLED=true to enable it.
     """
