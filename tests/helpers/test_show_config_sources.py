@@ -172,53 +172,6 @@ class TestCommandFunctionality:
         assert result.exit_code == 0
         mock_get_results.assert_called_once_with(key="user", verbose=True)
 
-    @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
-    @mock.patch("snowflake.cli.api.config_ng.is_resolution_logging_available")
-    @mock.patch("snowflake.cli.api.config_ng.export_resolution_history")
-    def test_command_exports_to_file_success(
-        self, mock_export, mock_is_available, runner, tmp_path
-    ):
-        """Command should export resolution history to file when --export is used."""
-        mock_is_available.return_value = True
-        mock_export.return_value = True
-        export_file = tmp_path / "config_debug.json"
-
-        result = runner.invoke(["helpers", COMMAND, "--export", str(export_file)])
-        assert result.exit_code == 0
-        mock_export.assert_called_once_with(export_file)
-        assert "Resolution history exported to:" in result.output
-        assert str(export_file) in result.output
-
-    @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
-    @mock.patch("snowflake.cli.api.config_ng.is_resolution_logging_available")
-    @mock.patch("snowflake.cli.api.config_ng.export_resolution_history")
-    def test_command_exports_to_file_with_short_flag(
-        self, mock_export, mock_is_available, runner, tmp_path
-    ):
-        """Command should export resolution history to file when -e is used."""
-        mock_is_available.return_value = True
-        mock_export.return_value = True
-        export_file = tmp_path / "debug.json"
-
-        result = runner.invoke(["helpers", COMMAND, "-e", str(export_file)])
-        assert result.exit_code == 0
-        mock_export.assert_called_once_with(export_file)
-
-    @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
-    @mock.patch("snowflake.cli.api.config_ng.is_resolution_logging_available")
-    @mock.patch("snowflake.cli.api.config_ng.export_resolution_history")
-    def test_command_export_failure(
-        self, mock_export, mock_is_available, runner, tmp_path
-    ):
-        """Command should show error message when export fails."""
-        mock_is_available.return_value = True
-        mock_export.return_value = False
-        export_file = tmp_path / "config_debug.json"
-
-        result = runner.invoke(["helpers", COMMAND, "--export", str(export_file)])
-        assert result.exit_code == 0
-        assert "Failed to export resolution history" in result.output
-
 
 class TestCommandHelp:
     """Test the command help output."""
@@ -230,7 +183,6 @@ class TestCommandHelp:
         assert result.exit_code == 0
         assert "Show where configuration values come from" in result.output
         assert "--show-details" in result.output
-        assert "--export" in result.output
         assert "Examples:" in result.output
 
     @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)

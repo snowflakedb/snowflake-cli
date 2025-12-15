@@ -337,14 +337,6 @@ def show_config_sources(
         "-d",
         help="Show detailed resolution chains for all sources consulted.",
     ),
-    export_file: Optional[Path] = typer.Option(
-        None,
-        "--export",
-        "-e",
-        help="Export complete resolution history to JSON file for support or debugging.",
-        file_okay=True,
-        dir_okay=False,
-    ),
     **options,
 ) -> CommandResult:
     """
@@ -368,14 +360,10 @@ def show_config_sources(
         # Show detailed resolution for a specific key
         snow helpers show-config-sources account --show-details
 
-        # Export complete resolution history to file
-        snow helpers show-config-sources --export config_debug.json
-
     Note: This command requires the enhanced configuration system to be enabled.
     Set SNOWFLAKE_CLI_CONFIG_V2_ENABLED=true to enable it.
     """
     from snowflake.cli.api.config_ng import (
-        export_resolution_history,
         is_resolution_logging_available,
     )
     from snowflake.cli.api.config_ng.resolution_logger import (
@@ -388,19 +376,6 @@ def show_config_sources(
             f"To enable it, set the environment variable:\n"
             f"    export {ALTERNATIVE_CONFIG_ENV_VAR}=true\n\n"
             f"Then run this command again to see where configuration values come from."
-        )
-
-    # Export if requested
-    if export_file:
-        success = export_resolution_history(export_file)
-        if not success:
-            return MessageResult(
-                f"❌ Failed to export resolution history to {export_file}"
-            )
-        return MessageResult(
-            f"✅ Resolution history exported to: {export_file}\n\n"
-            f"This file contains complete details about configuration resolution "
-            f"and can be attached to support tickets."
         )
 
     return get_configuration_explanation_results(key=key, verbose=show_details)
