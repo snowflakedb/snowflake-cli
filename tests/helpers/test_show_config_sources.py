@@ -20,9 +20,9 @@ from snowflake.cli.api.config_provider import ALTERNATIVE_CONFIG_ENV_VAR
 COMMAND = "show-config-sources"
 
 
-class TestHiddenLogic:
+class TestCommandVisibility:
     """
-    Test the logic that determines if the command should be hidden.
+    Validate the logic that determines whether the command is visible or hidden.
 
     Note: The 'hidden' parameter in Typer decorators is evaluated at module import time,
     so we test the logic itself rather than the runtime visibility in help output.
@@ -177,18 +177,15 @@ class TestCommandHelp:
     """Test the command help output."""
 
     @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
-    def test_command_help_message(self, runner):
+    def test_command_help_message(self, runner, snapshot):
         """Command help should display correctly."""
         result = runner.invoke(["helpers", COMMAND, "--help"])
         assert result.exit_code == 0
-        assert "Show where configuration values come from" in result.output
-        assert "--show-details" in result.output
-        assert "Examples:" in result.output
+        assert result.output == snapshot
 
     @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
-    def test_command_help_shows_key_argument(self, runner):
+    def test_command_help_shows_key_argument(self, runner, snapshot):
         """Command help should show the optional key argument."""
         result = runner.invoke(["helpers", COMMAND, "--help"])
         assert result.exit_code == 0
-        assert "KEY" in result.output or "key" in result.output.lower()
-        assert "account" in result.output or "user" in result.output
+        assert result.output == snapshot

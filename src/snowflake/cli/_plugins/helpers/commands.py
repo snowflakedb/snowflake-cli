@@ -19,9 +19,9 @@ import os
 from pathlib import Path
 from typing import Any, List, Optional
 
+import click
 import typer
 import yaml
-from click import ClickException
 from snowflake.cli._plugins.helpers.snowsl_vars_reader import check_env_vars
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.config import (
@@ -77,7 +77,7 @@ def v1_to_v2(
     has_local_yml = local_yml_path in manager.project_config_paths
     if has_local_yml:
         if migrate_local_yml is None:
-            raise ClickException(
+            raise click.ClickException(
                 "snowflake.local.yml file detected, "
                 "please specify --migrate-local-overrides to include "
                 "or --no-migrate-local-overrides to exclude its values."
