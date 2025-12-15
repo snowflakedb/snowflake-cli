@@ -15,6 +15,7 @@
 from typing import List, Optional
 
 import typer
+from click import ClickException
 from snowflake.cli._plugins.scls import COMMAND_GROUP_NAME
 from snowflake.cli._plugins.scls.manager import SclsManager
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
@@ -66,8 +67,10 @@ def submit(
         return QueryResult(SclsManager().check_status(status))
     else:
         # validate required arguments
-        assert entrypoint_file, "Entrypoint file path is required"
-        assert scls_file_stage, f"--{COMMAND_GROUP_NAME}-file-stage is required"
+        if not entrypoint_file:
+            raise ClickException("Entrypoint file path is required")
+        if not scls_file_stage:
+            raise ClickException(f"--{COMMAND_GROUP_NAME}-file-stage is required")
 
         file_name = SclsManager().upload_file_to_stage(entrypoint_file, scls_file_stage)
         # e.g. Spark Application submitted successfully. Spark Application ID: <id>
