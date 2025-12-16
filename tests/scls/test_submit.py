@@ -21,10 +21,7 @@ class TestSclsSubmit:
     @mock.patch(SCLS_MANAGER)
     def test_submit_with_status_flag(self, mock_manager, runner, mock_cursor):
         """Test submit with status --status flag to check the status of the Spark application"""
-        mock_manager().check_status.return_value = mock_cursor(
-            rows=[("app-123", "RUNNING", "2025-01-01")],
-            columns=("ID", "STATUS", "CREATED_AT"),
-        )
+        mock_manager().check_status.return_value = "ID: app-123\nExecution Status: RUNNING\nError Message: None\nError Code: None\nExit Code: None"
 
         result = runner.invoke(["scls", "submit", "--status", "app-123"])
 

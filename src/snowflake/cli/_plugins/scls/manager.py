@@ -22,9 +22,10 @@ log = logging.getLogger(__name__)
 
 
 class SclsManager(SqlExecutionMixin):
+    # todo: remove this once the image is released
     def _set_session_config(self):
         session_config = [
-            """alter session set SPARK_APPLICATION_SPARK_IMAGES = '{"1.0.0":"qa6-scls.awsuswest2qa6.registry-dev.snowflakecomputing.com/scls_test_db/test_schema/scls_test_repo/cli_test:1.0"}'""",
+            """alter session set SPARK_APPLICATION_SPARK_IMAGES = '{"1.0.0":"qa6-scls.awsuswest2qa6.registry-dev.snowflakecomputing.com/scls_test_db/test_schema/scls_test_repo/cli_test:2.0"}'""",
         ]
         for session_config_query in session_config:
             self.execute_query(session_config_query).fetchone()
@@ -41,16 +42,30 @@ class SclsManager(SqlExecutionMixin):
             if not scls_file_stage.endswith("/")
             else f"@{scls_file_stage.rstrip('/')}"
         )
-        log.debug("Submitting Spark application")
+
         query_parts = [
             "EXECUTE SPARK APPLICATION",
             "ENVIRONMENT_RUNTIME_VERSION='1.0-preview'",
             f"STAGE_MOUNTS=('{stage_name}:/tmp/entrypoint')",
             f"ENTRYPOINT_FILE='/tmp/entrypoint/{file_on_stage}'",
-            f"CLASS = '{class_name}'",  # todo: support python
-            "SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle', 'spark.eventLog.enabled' = 'false')",
-            "RESOURCE_CONSTRAINT='CPU_2X_X86'",
         ]
+
+        # Scala/Java applications require a main class name
+        if file_on_stage.endswith(".jar"):
+            if not class_name:
+                raise ClickException(
+                    "Main class name is required for Scala/Java applications"
+                )
+            query_parts.append(f"CLASS = '{class_name}'")
+
+        query_parts.extend(
+            [
+                "SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle', 'spark.eventLog.enabled' = 'false')",
+                "RESOURCE_CONSTRAINT='CPU_2X_X86'",
+            ]
+        )
+
+        log.debug("Submitting Spark application")
         query = " ".join(query_parts)
         try:
             self._set_session_config()
@@ -84,7 +99,15 @@ class SclsManager(SqlExecutionMixin):
     def check_status(self, spark_application_id: str):
         query = f"SELECT * FROM TABLE(snowflake.spark.GET_SPARK_APPLICATION_HISTORY()) WHERE ID = '{spark_application_id}'"
         try:
-            return self.execute_query(query)
+            result = self.execute_query(query).fetchone()
+            status = [
+                f"ID: {result[0]}",
+                f"Execution Status: {result[7]}",
+                f"Error Message: {result[8]}",
+                f"Error Code: {result[15]}",
+                f"Exit Code: {result[16]}",
+            ]
+            return "\n".join(status)
         except Exception as e:
             raise ClickException(
                 f"Failed to check status of {spark_application_id}: {e}"

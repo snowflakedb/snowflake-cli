@@ -146,15 +146,56 @@ class TestSclsManager:
     def test_check_status_success(self, mock_execute_query, mock_cursor):
         """Test successful status check of a Spark application."""
         expected_cursor = mock_cursor(
-            rows=[("app-123", "RUNNING", "2025-01-01 10:00:00")],
-            columns=["ID", "STATUS", "CREATED_AT"],
+            rows=[
+                (
+                    "app-123",
+                    "test-app",
+                    "query-123",
+                    "account-123",
+                    "2025-01-01",
+                    "2025-01-01 10:00:00",
+                    "2025-01-01 10:00:00",
+                    "RUNNING",
+                    "None",
+                    "user",
+                    "USER",
+                    "db",
+                    "123",
+                    "schema",
+                    "123",
+                    "None",
+                    "None",
+                )
+            ],
+            columns=[
+                "ID",
+                "NAME",
+                "QUERY_ID",
+                "ACCOUNT_ID",
+                "CREATED_ON",
+                "STARTED_ON",
+                "COMPLETED_ON",
+                "EXECUTION_STATUS",
+                "ERROR_MESSAGE",
+                "OWNER",
+                "OWNER_ROLE_TYPE",
+                "DATABASE_NAME",
+                "DATABASE_ID",
+                "SCHEMA_NAME",
+                "SCHEMA_ID",
+                "ERROR_CODE",
+                "EXIT_CODE",
+            ],
         )
         mock_execute_query.return_value = expected_cursor
 
         manager = SclsManager()
         result = manager.check_status("app-123")
 
-        assert result == expected_cursor
+        assert (
+            result
+            == "ID: app-123\nExecution Status: RUNNING\nError Message: None\nError Code: None\nExit Code: None"
+        )
         mock_execute_query.assert_called_once_with(
             "SELECT * FROM TABLE(snowflake.spark.GET_SPARK_APPLICATION_HISTORY()) WHERE ID = 'app-123'"
         )
