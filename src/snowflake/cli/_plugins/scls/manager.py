@@ -25,7 +25,7 @@ class SclsManager(SqlExecutionMixin):
     # todo: remove this once the image is released
     def _set_session_config(self):
         session_config = [
-            """alter session set SPARK_APPLICATION_SPARK_IMAGES = '{"1.0.0":"qa6-scls.awsuswest2qa6.registry-dev.snowflakecomputing.com/scls_test_db/test_schema/scls_test_repo/cli_test:2.0"}'""",
+            """alter session set SPARK_APPLICATION_SPARK_IMAGES = '{"1.0.0":"qa6-scls.awsuswest2qa6.registry-dev.snowflakecomputing.com/scls_test_db/test_schema/scls_test_repo/cli_test:1.0"}'""",
         ]
         for session_config_query in session_config:
             self.execute_query(session_config_query).fetchone()
