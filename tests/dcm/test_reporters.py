@@ -23,6 +23,7 @@ from snowflake.cli._plugins.dcm.reporters import (
     TestRow,
     TestStatus,
 )
+from snowflake.cli.api.exceptions import CliError
 
 
 class FakeCursor:
@@ -51,13 +52,20 @@ def capture_reporter_output(reporter, cursor):
         else:
             output.write(str(text))
 
+    error_message = ""
     with mock.patch(
         "snowflake.cli._plugins.dcm.reporters.cli_console.styled_message",
         side_effect=mock_print,
     ):
-        reporter.process(cursor)
+        try:
+            reporter.process(cursor)
+        except CliError as e:
+            error_message = e.message
 
-    return output.getvalue()
+    result = output.getvalue()
+    if error_message:
+        result += f"\n{error_message}\n"
+    return result
 
 
 class TestRefreshReporter:
@@ -394,7 +402,7 @@ class TestTestReporter:
         output = capture_reporter_output(TestReporter(), FakeCursor(data))
         assert output == snapshot
 
-    def test_check_for_errors_returns_true_on_failures(self):
+    def test_process_raises_cli_error_on_failures(self):
         data = {
             "expectations": [
                 {
@@ -410,11 +418,12 @@ class TestTestReporter:
         with mock.patch(
             "snowflake.cli._plugins.dcm.reporters.cli_console.styled_message"
         ):
-            has_errors = reporter.process(cursor)
+            with pytest.raises(CliError) as exc_info:
+                reporter.process(cursor)
 
-        assert has_errors is True
+        assert "1 failed" in exc_info.value.message
 
-    def test_check_for_errors_returns_false_on_success(self):
+    def test_process_does_not_raise_on_success(self):
         data = {
             "expectations": [
                 {
@@ -430,9 +439,7 @@ class TestTestReporter:
         with mock.patch(
             "snowflake.cli._plugins.dcm.reporters.cli_console.styled_message"
         ):
-            has_errors = reporter.process(cursor)
-
-        assert has_errors is False
+            reporter.process(cursor)  # Should not raise
 
 
 class TestTestRow:

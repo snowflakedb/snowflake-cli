@@ -321,9 +321,7 @@ def test(
         result = DCMProjectManager().test(project_identifier=identifier)
 
     reporter = TestReporter()
-    has_errors = reporter.process(result)
-    if has_errors:
-        raise typer.Exit(code=1)
+    reporter.process(result)
     return EmptyResult()
 
 

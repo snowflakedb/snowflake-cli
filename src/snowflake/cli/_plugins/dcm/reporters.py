@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, Generic, Iterator, List, Optional, TypeVar
 
+from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.exceptions import CliError
@@ -49,20 +50,29 @@ class Reporter(ABC, Generic[T]):
         ...
 
     @abstractmethod
-    def print_summary(self) -> None:
-        """Print a summary."""
+    def _is_success(self) -> bool:
+        """Check if underlying operation passed without errors"""
         ...
 
-    def process(self, cursor: SnowflakeCursor) -> bool:
-        """Process cursor data and print results.
+    @abstractmethod
+    def _generate_summary_renderables(self) -> List[Text]:
+        """Generate a list of rich renderables to be printed as success or error message"""
+        ...
 
-        Returns:
-            True if there were errors (e.g., failed tests), False otherwise.
-        """
+    def print_summary(self) -> None:
+        """Print operation summary when the result is successful."""
+        renderables = self._generate_summary_renderables()
+        cli_console.styled_message("\n")
+        for renderable in renderables:
+            cli_console.styled_message(renderable.plain, style=renderable.style)
+        cli_console.styled_message("\n")
+
+    def process(self, cursor: SnowflakeCursor) -> None:
+        """Process cursor data and print results."""
         row = cursor.fetchone()
         if not row:
             cli_console.styled_message("No data.\n")
-            return False
+            return
 
         try:
             result_data = row[0]
@@ -79,11 +89,13 @@ class Reporter(ABC, Generic[T]):
         raw_data = self.extract_data(result_json)
         parsed_data: Iterator[T] = self.parse_data(raw_data)
         self.print_renderables(parsed_data)
-        self.print_summary()
-        return self.check_for_errors()
-
-    def check_for_errors(self) -> bool:
-        return False
+        if self._is_success():
+            self.print_summary()
+        else:
+            message = "".join(
+                renderable.plain for renderable in self._generate_summary_renderables()
+            )
+            raise CliError(message)
 
 
 class TestStatus(Enum):
@@ -207,27 +219,26 @@ class TestReporter(Reporter[TestRow]):
                     f"Got: {row.actual_value} (Metric: {row.metric_name})\n"
                 )
 
-    def print_summary(self) -> None:
-        cli_console.styled_message("\n")
+    def _generate_summary_renderables(self) -> List[Text]:
         total = self._summary.total
         if total == 0:
-            cli_console.styled_message("No expectations found in the project.\n")
-            return
+            return [Text("No expectations found in the project.")]
 
-        cli_console.styled_message(f"{self._summary.passed} passed", styles.PASS_STYLE)
-        cli_console.styled_message(", ")
-        cli_console.styled_message(f"{self._summary.failed} failed", styles.FAIL_STYLE)
+        result = [
+            (Text(f"{self._summary.passed} passed", styles.PASS_STYLE)),
+            (Text(", ")),
+            (Text(f"{self._summary.failed} failed", styles.FAIL_STYLE)),
+        ]
         if self._summary.unknown > 0:
-            cli_console.styled_message(", ")
-            cli_console.styled_message(
-                f"{self._summary.unknown} unknown", styles.FAIL_STYLE
-            )
-        cli_console.styled_message(" out of ")
-        cli_console.styled_message(f"{total}", styles.BOLD_STYLE)
-        cli_console.styled_message(" total.\n")
+            result.append(Text(", "))
+            result.append(Text(f"{self._summary.unknown} unknown", styles.FAIL_STYLE))
+        result.append(Text(" out of "))
+        result.append(Text(f"{total}", styles.BOLD_STYLE))
+        result.append(Text(" total."))
+        return result
 
-    def check_for_errors(self) -> bool:
-        return self._summary.failed + self._summary.unknown > 0
+    def _is_success(self) -> bool:
+        return self._summary.failed + self._summary.unknown == 0
 
 
 class RefreshStatus(Enum):
@@ -426,13 +437,10 @@ class RefreshReporter(Reporter[RefreshRow]):
             cli_console.styled_message(row.dt_name, style=styles.DOMAIN_STYLE)
             cli_console.styled_message("\n")
 
-    def print_summary(self) -> None:
-        cli_console.styled_message("\n")
+    def _generate_summary_renderables(self) -> List[Text]:
         total = self._summary.total
         if total == 0:
-            return cli_console.styled_message(
-                "No dynamic tables found in the project.\n"
-            )
+            return [Text("No dynamic tables found in the project.")]
 
         parts = []
         if (refreshed := self._summary.refreshed) > 0:
@@ -447,6 +455,8 @@ class RefreshReporter(Reporter[RefreshRow]):
             if i > 0:
                 summary += ", "
             summary += part
-        summary += ".\n"
+        summary += "."
+        return [Text(summary)]
 
-        cli_console.styled_message(summary)
+    def _is_success(self) -> bool:
+        return self._summary.unknown == 0

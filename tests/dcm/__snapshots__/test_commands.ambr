@@ -49,8 +49,9 @@
   ✓ PASS      DB.SCHEMA.EMPLOYEES (ROW_COUNT_CHECK)
   ✗ FAIL      DB.SCHEMA.ORDERS (NULL_CHECK)
     └─ Expected: = 0, Got: 15 (Metric: null_count)
-  
-  1 passed, 1 failed out of 2 total.
+  +- Error ----------------------------------------------------------------------+
+  | 1 passed, 1 failed out of 2 total.                                           |
+  +------------------------------------------------------------------------------+
   
   '''
 # ---
