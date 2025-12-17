@@ -95,7 +95,7 @@ class TestSclsSubmit:
 
     def test_submit_missing_entrypoint_file(self, runner):
         """Test that submit fails when entrypoint file is missing."""
-        result = runner.invoke(["scls", "submit", "--scls-file-stage", "@my_stage"])
+        result = runner.invoke(["spark", "submit", "--scls-file-stage", "@my_stage"])
 
         # Should fail because entrypoint_file is required when not using --status
         assert result.exit_code != 0
@@ -106,7 +106,7 @@ class TestSclsSubmit:
         entrypoint = tmp_path / "main.py"
         entrypoint.write_text("print('hello')")
 
-        result = runner.invoke(["scls", "submit", str(entrypoint)])
+        result = runner.invoke(["spark", "submit", str(entrypoint)])
 
         # Should fail because --scls-file-stage is required
         assert result.exit_code != 0

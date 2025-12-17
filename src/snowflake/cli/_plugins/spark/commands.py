@@ -58,6 +58,12 @@ def submit(
         help=f"Check the status of the Spark application by its ID. (e.g. snow {COMMAND_GROUP_NAME} submit --status [id])",
         show_default=False,
     ),
+    jars: Optional[str] = typer.Option(
+        None,
+        "--jars",
+        help="Comma-separated list of JAR files to include in the classpath.",
+        show_default=False,
+    ),
     **options,
 ):
     """
