@@ -21,6 +21,8 @@ from snowflake.cli._plugins.spark.manager import SparkManager
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import MessageResult
 
+from src.snowflake.cli._plugins.spark.manager import SubmitQueryBuilder
+
 app = SnowTyperFactory(
     name="spark",
     help="Manages Spark Applications.",
@@ -83,6 +85,9 @@ def submit(
         )
         # e.g. Spark Application submitted successfully. Spark Application ID: <id>
         result_message = SparkManager().submit(
-            file_name, application_arguments, class_name, scls_file_stage
+            SubmitQueryBuilder(file_name, scls_file_stage)
+            .with_application_arguments(application_arguments)
+            .with_class_name(class_name)
+            .build()
         )
         return MessageResult(result_message)

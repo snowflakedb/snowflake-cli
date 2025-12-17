@@ -21,6 +21,59 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 log = logging.getLogger(__name__)
 
 
+class SubmitQueryBuilder:
+    def __init__(self, file_on_stage: str, scls_file_stage: str):
+        self.file_on_stage = file_on_stage
+        self.scls_file_stage = scls_file_stage
+
+    def with_class_name(self, class_name: Optional[str]) -> "SubmitQueryBuilder":
+        self.class_name = class_name
+        return self
+
+    def with_application_arguments(
+        self, application_arguments: Optional[List[str]]
+    ) -> "SubmitQueryBuilder":
+        self.application_arguments = application_arguments
+        return self
+
+    def build(self) -> str:
+        stage_name = (
+            self.scls_file_stage
+            if not self.scls_file_stage.endswith("/")
+            else f"@{self.scls_file_stage.rstrip('/')}"
+        )
+
+        query_parts = [
+            "EXECUTE SPARK APPLICATION",
+            "ENVIRONMENT_RUNTIME_VERSION='1.0-preview'",
+            f"STAGE_MOUNTS=('{stage_name}:/tmp/entrypoint')",
+            f"ENTRYPOINT_FILE='/tmp/entrypoint/{self.file_on_stage}'",
+        ]
+
+        # Scala/Java applications require a main class name
+        if self.file_on_stage.endswith(".jar"):
+            if not self.class_name:
+                raise ClickException(
+                    "Main class name is required for Scala/Java applications"
+                )
+            query_parts.append(f"CLASS = '{self.class_name}'")
+
+        if self.application_arguments and len(self.application_arguments) > 0:
+            escaped_args = [
+                "'" + arg.replace("'", "\\'") + "'"
+                for arg in self.application_arguments
+            ]
+            query_parts.append(f"ARGUMENTS = ({','.join(escaped_args)})")
+
+        query_parts.extend(
+            [
+                "SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle', 'spark.eventLog.enabled' = 'false')",
+                "RESOURCE_CONSTRAINT='CPU_2X_X86'",
+            ]
+        )
+        return " ".join(query_parts)
+
+
 class SparkManager(SqlExecutionMixin):
     # todo: remove this once the image is released
     def _set_session_config(self):
@@ -32,50 +85,11 @@ class SparkManager(SqlExecutionMixin):
 
     def submit(
         self,
-        file_on_stage: str,
-        application_arguments: Optional[List[str]],
-        class_name: Optional[str],
-        scls_file_stage: str,
+        submit_query: str,
     ):
-        stage_name = (
-            scls_file_stage
-            if not scls_file_stage.endswith("/")
-            else f"@{scls_file_stage.rstrip('/')}"
-        )
-
-        query_parts = [
-            "EXECUTE SPARK APPLICATION",
-            "ENVIRONMENT_RUNTIME_VERSION='1.0-preview'",
-            f"STAGE_MOUNTS=('{stage_name}:/tmp/entrypoint')",
-            f"ENTRYPOINT_FILE='/tmp/entrypoint/{file_on_stage}'",
-        ]
-
-        # Scala/Java applications require a main class name
-        if file_on_stage.endswith(".jar"):
-            if not class_name:
-                raise ClickException(
-                    "Main class name is required for Scala/Java applications"
-                )
-            query_parts.append(f"CLASS = '{class_name}'")
-
-        if application_arguments and len(application_arguments) > 0:
-            escaped_args = [
-                "'" + arg.replace("'", "\\'") + "'" for arg in application_arguments
-            ]
-            query_parts.append(f"ARGUMENTS = ({','.join(escaped_args)})")
-
-        query_parts.extend(
-            [
-                "SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle', 'spark.eventLog.enabled' = 'false')",
-                "RESOURCE_CONSTRAINT='CPU_2X_X86'",
-            ]
-        )
-
-        log.debug("Submitting Spark application")
-        query = " ".join(query_parts)
         try:
             self._set_session_config()
-            result = self.execute_query(query).fetchone()
+            result = self.execute_query(submit_query).fetchone()
             log.debug("Spark application submitted successfully")
             log.debug("Result: %s", result)
             return result[0]
