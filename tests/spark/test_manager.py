@@ -16,9 +16,9 @@ from unittest import mock
 
 import pytest
 from click import ClickException
-from snowflake.cli._plugins.scls.manager import SclsManager
+from snowflake.cli._plugins.spark.manager import SparkManager
 
-SCLS_MANAGER = "snowflake.cli._plugins.scls.manager.SclsManager"
+SCLS_MANAGER = "snowflake.cli._plugins.spark.manager.SparkManager"
 
 
 class TestSclsManager:
@@ -34,7 +34,7 @@ class TestSclsManager:
         )
         mock_set_session_config.return_value = None
 
-        manager = SclsManager()
+        manager = SparkManager()
         result = manager.submit(
             file_on_stage="app.jar",
             application_arguments=None,
@@ -59,7 +59,7 @@ class TestSclsManager:
         )
         mock_set_session_config.return_value = None
 
-        manager = SclsManager()
+        manager = SparkManager()
         result = manager.submit(
             file_on_stage="app.jar",
             application_arguments=None,
@@ -84,7 +84,7 @@ class TestSclsManager:
         )
         mock_set_session_config.return_value = None
 
-        manager = SclsManager()
+        manager = SparkManager()
         result = manager.submit(
             file_on_stage="app.jar",
             application_arguments=["arg1", "arg2", "arg with spaces"],
@@ -105,7 +105,7 @@ class TestSclsManager:
         """Test that submit raises ClickException on failure."""
         mock_execute_query.side_effect = Exception("Connection failed")
         mock_set_session_config.return_value = None
-        manager = SclsManager()
+        manager = SparkManager()
         with pytest.raises(ClickException) as exc_info:
             manager.submit(
                 file_on_stage="app.jar",
@@ -145,7 +145,7 @@ class TestSclsManager:
             ],
         )
 
-        manager = SclsManager()
+        manager = SparkManager()
         result = manager.upload_file_to_stage("/path/to/app.jar", "@my_stage/jars")
 
         assert result == "app.jar"
@@ -160,7 +160,7 @@ class TestSclsManager:
         """Test that upload_file_to_stage raises ClickException on failure."""
         mock_execute_query.side_effect = Exception("Stage not found")
 
-        manager = SclsManager()
+        manager = SparkManager()
         with pytest.raises(ClickException) as exc_info:
             manager.upload_file_to_stage("/path/to/app.jar", "@my_stage")
 
@@ -214,7 +214,7 @@ class TestSclsManager:
         )
         mock_execute_query.return_value = expected_cursor
 
-        manager = SclsManager()
+        manager = SparkManager()
         result = manager.check_status("app-123")
 
         assert (
@@ -230,7 +230,7 @@ class TestSclsManager:
         """Test that check_status raises ClickException on failure."""
         mock_execute_query.side_effect = Exception("Query execution failed")
 
-        manager = SclsManager()
+        manager = SparkManager()
         with pytest.raises(ClickException) as exc_info:
             manager.check_status("app-123")
 

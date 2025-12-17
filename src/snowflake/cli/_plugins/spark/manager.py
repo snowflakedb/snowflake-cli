@@ -21,7 +21,7 @@ from snowflake.cli.api.sql_execution import SqlExecutionMixin
 log = logging.getLogger(__name__)
 
 
-class SclsManager(SqlExecutionMixin):
+class SparkManager(SqlExecutionMixin):
     # todo: remove this once the image is released
     def _set_session_config(self):
         session_config = [

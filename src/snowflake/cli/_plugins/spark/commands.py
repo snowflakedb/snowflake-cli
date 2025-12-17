@@ -16,14 +16,14 @@ from typing import List, Optional
 
 import typer
 from click import ClickException
-from snowflake.cli._plugins.scls import COMMAND_GROUP_NAME
-from snowflake.cli._plugins.scls.manager import SclsManager
+from snowflake.cli._plugins.spark import COMMAND_GROUP_NAME
+from snowflake.cli._plugins.spark.manager import SparkManager
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import MessageResult
 
 app = SnowTyperFactory(
-    name=COMMAND_GROUP_NAME,
-    help="Manages Spark Classic for Snowpark (SCLS) services.",
+    name="spark",
+    help="Manages Spark Applications.",
 )
 
 
@@ -64,7 +64,7 @@ def submit(
     Submit Spark Job to Snowflake.
     """
     if status:
-        return MessageResult(SclsManager().check_status(status))
+        return MessageResult(SparkManager().check_status(status))
     else:
         # validate required arguments
         if not entrypoint_file:
@@ -72,9 +72,11 @@ def submit(
         if not scls_file_stage:
             raise ClickException(f"--{COMMAND_GROUP_NAME}-file-stage is required")
 
-        file_name = SclsManager().upload_file_to_stage(entrypoint_file, scls_file_stage)
+        file_name = SparkManager().upload_file_to_stage(
+            entrypoint_file, scls_file_stage
+        )
         # e.g. Spark Application submitted successfully. Spark Application ID: <id>
-        result_message = SclsManager().submit(
+        result_message = SparkManager().submit(
             file_name, application_arguments, class_name, scls_file_stage
         )
         return MessageResult(result_message)

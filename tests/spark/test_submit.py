@@ -14,7 +14,7 @@
 
 from unittest import mock
 
-SCLS_MANAGER = "snowflake.cli._plugins.scls.commands.SclsManager"
+SCLS_MANAGER = "snowflake.cli._plugins.spark.commands.SparkManager"
 
 
 class TestSclsSubmit:
@@ -23,7 +23,7 @@ class TestSclsSubmit:
         """Test submit with status --status flag to check the status of the Spark application"""
         mock_manager().check_status.return_value = "ID: app-123\nExecution Status: RUNNING\nError Message: None\nError Code: None\nExit Code: None"
 
-        result = runner.invoke(["scls", "submit", "--status", "app-123"])
+        result = runner.invoke(["spark", "submit", "--status", "app-123"])
 
         assert result.exit_code == 0, result.output
         mock_manager().check_status.assert_called_once_with("app-123")
@@ -42,7 +42,7 @@ class TestSclsSubmit:
 
         result = runner.invoke(
             [
-                "scls",
+                "spark",
                 "submit",
                 str(entrypoint),
                 "--class",
@@ -76,7 +76,7 @@ class TestSclsSubmit:
 
         result = runner.invoke(
             [
-                "scls",
+                "spark",
                 "submit",
                 str(entrypoint),
                 "--class",
