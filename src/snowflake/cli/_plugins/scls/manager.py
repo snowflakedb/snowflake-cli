@@ -58,6 +58,12 @@ class SclsManager(SqlExecutionMixin):
                 )
             query_parts.append(f"CLASS = '{class_name}'")
 
+        if application_arguments and len(application_arguments) > 0:
+            escaped_args = [
+                "'" + arg.replace("'", "\\'") + "'" for arg in application_arguments
+            ]
+            query_parts.append(f"ARGUMENTS = ({','.join(escaped_args)})")
+
         query_parts.extend(
             [
                 "SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle', 'spark.eventLog.enabled' = 'false')",

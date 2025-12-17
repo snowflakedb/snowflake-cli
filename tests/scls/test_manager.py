@@ -74,6 +74,31 @@ class TestSclsManager:
 
     @mock.patch(f"{SCLS_MANAGER}._set_session_config")
     @mock.patch(f"{SCLS_MANAGER}.execute_query")
+    def test_submit_success_with_application_arguments(
+        self, mock_execute_query, mock_set_session_config, mock_cursor
+    ):
+        """Test successful submission with application arguments."""
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Spark Application submitted successfully. ID: app-789",)],
+            columns=["result"],
+        )
+        mock_set_session_config.return_value = None
+
+        manager = SclsManager()
+        result = manager.submit(
+            file_on_stage="app.jar",
+            application_arguments=["arg1", "arg2", "arg with spaces"],
+            class_name="com.example.Main",
+            scls_file_stage="@my_stage/jars",
+        )
+
+        assert result == "Spark Application submitted successfully. ID: app-789"
+        mock_execute_query.assert_any_call(
+            "EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@my_stage/jars:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/app.jar' CLASS = 'com.example.Main' ARGUMENTS = ('arg1','arg2','arg with spaces') SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle', 'spark.eventLog.enabled' = 'false') RESOURCE_CONSTRAINT='CPU_2X_X86'"
+        )
+
+    @mock.patch(f"{SCLS_MANAGER}._set_session_config")
+    @mock.patch(f"{SCLS_MANAGER}.execute_query")
     def test_submit_failure_raises_click_exception(
         self, mock_execute_query, mock_set_session_config
     ):
