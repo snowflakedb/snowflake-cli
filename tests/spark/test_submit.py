@@ -47,7 +47,7 @@ class TestSclsSubmit:
                 str(entrypoint),
                 "--class",
                 "com.example.Main",
-                "--scls-file-stage",
+                "--snow-file-stage",
                 "@my_stage/jars",
             ]
         )
@@ -62,7 +62,7 @@ class TestSclsSubmit:
             str(entrypoint), "@my_stage/jars"
         )
         mock_manager().submit.assert_called_once_with(
-            "EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@my_stage/jars:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/test.jar' CLASS = 'com.example.Main' SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle', 'spark.eventLog.enabled' = 'false') RESOURCE_CONSTRAINT='CPU_2X_X86'"
+            "EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@my_stage/jars:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/test.jar' CLASS = 'com.example.Main' SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle') RESOURCE_CONSTRAINT='CPU_2X_X86'"
         )
 
     @mock.patch(SCLS_MANAGER)
@@ -81,7 +81,7 @@ class TestSclsSubmit:
                 str(entrypoint),
                 "--class",
                 "com.example.Main",
-                "--scls-file-stage",
+                "--snow-file-stage",
                 "@stage",
                 "arg1",
                 "arg2",
@@ -90,12 +90,12 @@ class TestSclsSubmit:
 
         assert result.exit_code == 0, result.output
         mock_manager().submit.assert_called_once_with(
-            "EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@stage:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/app.jar' CLASS = 'com.example.Main' ARGUMENTS = ('arg1','arg2') SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle', 'spark.eventLog.enabled' = 'false') RESOURCE_CONSTRAINT='CPU_2X_X86'"
+            "EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@stage:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/app.jar' CLASS = 'com.example.Main' ARGUMENTS = ('arg1','arg2') SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle') RESOURCE_CONSTRAINT='CPU_2X_X86'"
         )
 
     def test_submit_missing_entrypoint_file(self, runner):
         """Test that submit fails when entrypoint file is missing."""
-        result = runner.invoke(["spark", "submit", "--scls-file-stage", "@my_stage"])
+        result = runner.invoke(["spark", "submit", "--snow-file-stage", "@my_stage"])
 
         # Should fail because entrypoint_file is required when not using --status
         assert result.exit_code != 0
@@ -108,6 +108,6 @@ class TestSclsSubmit:
 
         result = runner.invoke(["spark", "submit", str(entrypoint)])
 
-        # Should fail because --scls-file-stage is required
+        # Should fail because --snow-file-stage is required
         assert result.exit_code != 0
-        assert "--scls-file-stage is required" in result.output
+        assert "--snow-file-stage is required" in result.output

@@ -174,7 +174,7 @@ class TestSubmitQueryBuilder:
             "CLASS = 'com.example.Main' "
             "ARGUMENTS = ('arg1','arg2') "
             "SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', "
-            "'spark.snowflake.backend' = 'sparkle', 'spark.eventLog.enabled' = 'false') "
+            "'spark.snowflake.backend' = 'sparkle') "
             "RESOURCE_CONSTRAINT='CPU_2X_X86'"
         )
         assert query == expected

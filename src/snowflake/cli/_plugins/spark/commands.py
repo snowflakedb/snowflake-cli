@@ -16,7 +16,6 @@ from typing import List, Optional
 
 import typer
 from click import ClickException
-from snowflake.cli._plugins.spark import COMMAND_GROUP_NAME
 from snowflake.cli._plugins.spark.manager import SparkManager, SubmitQueryBuilder
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import MessageResult
@@ -48,14 +47,14 @@ def submit(
     ),
     scls_file_stage: Optional[str] = typer.Option(
         None,
-        f"--{COMMAND_GROUP_NAME}-file-stage",
+        f"--snow-file-stage",
         help="The stage to upload the entrypoint file to.",
         show_default=False,
     ),
     status: Optional[str] = typer.Option(
         None,
         "--status",
-        help=f"Check the status of the Spark application by its ID. (e.g. snow {COMMAND_GROUP_NAME} submit --status [id])",
+        help=f"Check the status of the Spark application by its ID. (e.g. snow spark submit --status [id])",
         show_default=False,
     ),
     jars: Optional[str] = typer.Option(
@@ -76,7 +75,7 @@ def submit(
         if not entrypoint_file:
             raise ClickException("Entrypoint file path is required")
         if not scls_file_stage:
-            raise ClickException(f"--{COMMAND_GROUP_NAME}-file-stage is required")
+            raise ClickException(f"--snow-file-stage is required")
 
         file_name = SparkManager().upload_file_to_stage(
             entrypoint_file, scls_file_stage
