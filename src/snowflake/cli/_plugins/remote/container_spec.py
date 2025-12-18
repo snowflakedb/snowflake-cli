@@ -239,6 +239,10 @@ def generate_service_spec(
         "ML_RUNTIME_HEALTH_CHECK_PORT": ML_RUNTIME_HEALTH_CHECK_PORT,
     }
 
+    # If session is using a warehouse, add it to environment variables
+    if session and session.get_current_warehouse():
+        env_vars["SNOWFLAKE_WAREHOUSE"] = session.get_current_warehouse()
+
     # Update environment variables for multi-node job with Ray ports
     env_vars.update(RAY_ENV_VARS)
 
