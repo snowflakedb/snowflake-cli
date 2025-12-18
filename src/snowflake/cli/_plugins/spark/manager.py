@@ -25,6 +25,13 @@ class SubmitQueryBuilder:
     def __init__(self, file_on_stage: str, scls_file_stage: str):
         self.file_on_stage = file_on_stage
         self.scls_file_stage = scls_file_stage
+        self.spark_configurations = {
+            "spark.plugins": "com.snowflake.spark.SnowflakePlugin",
+            "spark.snowflake.backend": "sparkle",
+        }
+
+    def _quote_value(self, value: str) -> str:
+        return "'" + value.replace("'", "\\'") + "'"
 
     def with_class_name(self, class_name: Optional[str]) -> "SubmitQueryBuilder":
         self.class_name = class_name
@@ -34,6 +41,10 @@ class SubmitQueryBuilder:
         self, application_arguments: Optional[List[str]]
     ) -> "SubmitQueryBuilder":
         self.application_arguments = application_arguments
+        return self
+
+    def with_jars(self, jars: Optional[List[str]]) -> "SubmitQueryBuilder":
+        self.jars = jars
         return self
 
     def build(self) -> str:
@@ -60,14 +71,21 @@ class SubmitQueryBuilder:
 
         if self.application_arguments and len(self.application_arguments) > 0:
             escaped_args = [
-                "'" + arg.replace("'", "\\'") + "'"
-                for arg in self.application_arguments
+                self._quote_value(arg) for arg in self.application_arguments
             ]
             query_parts.append(f"ARGUMENTS = ({','.join(escaped_args)})")
 
+        if len(self.spark_configurations) > 0:
+            spark_configurations = [
+                f"{self._quote_value(key)} = {self._quote_value(value)}"
+                for key, value in self.spark_configurations.items()
+            ]
+            query_parts.append(
+                f"SPARK_CONFIGURATIONS=({', '.join(spark_configurations)})"
+            )
+
         query_parts.extend(
             [
-                "SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle')",
                 "RESOURCE_CONSTRAINT='CPU_2X_X86'",
             ]
         )

@@ -68,8 +68,9 @@ def submit(
     """
     Submit Spark Job to Snowflake.
     """
+    manager = SparkManager()
     if status:
-        return MessageResult(SparkManager().check_status(status))
+        return MessageResult(manager.check_status(status))
     else:
         # validate required arguments
         if not entrypoint_file:
@@ -77,14 +78,22 @@ def submit(
         if not scls_file_stage:
             raise ClickException(f"--snow-file-stage is required")
 
-        file_name = SparkManager().upload_file_to_stage(
-            entrypoint_file, scls_file_stage
-        )
-        # e.g. Spark Application submitted successfully. Spark Application ID: <id>
-        result_message = SparkManager().submit(
+        file_name = manager.upload_file_to_stage(entrypoint_file, scls_file_stage)
+
+        query_builder = (
             SubmitQueryBuilder(file_name, scls_file_stage)
             .with_application_arguments(application_arguments)
             .with_class_name(class_name)
-            .build()
         )
+
+        if jars:
+            jar_paths = jars.split(",")
+            uploaded_jars = [
+                manager.upload_file_to_stage(jar_path, scls_file_stage)
+                for jar_path in jar_paths
+            ]
+            query_builder.with_jars(uploaded_jars)
+
+        # e.g. Spark Application submitted successfully. Spark Application ID: <id>
+        result_message = manager.submit(query_builder.build())
         return MessageResult(result_message)
