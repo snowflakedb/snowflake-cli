@@ -17,11 +17,9 @@ from typing import List, Optional
 import typer
 from click import ClickException
 from snowflake.cli._plugins.spark import COMMAND_GROUP_NAME
-from snowflake.cli._plugins.spark.manager import SparkManager
+from snowflake.cli._plugins.spark.manager import SparkManager, SubmitQueryBuilder
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.output.types import MessageResult
-
-from src.snowflake.cli._plugins.spark.manager import SubmitQueryBuilder
 
 app = SnowTyperFactory(
     name="spark",
