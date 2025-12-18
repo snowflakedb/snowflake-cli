@@ -287,8 +287,8 @@ def test_queries_execute_help(mock_print, mock_ctx):
         ("!abort", [_FAKE_QID], AbortCommand(_FAKE_QID)),
         ("!queries", ["amount=3", "user=jdoe"], QueriesCommand(amount=3, user="jdoe")),
         ("!QuERies", ["session"], QueriesCommand(from_current_session=True)),
-        ("!spool", ["output.txt"], SpoolCommand(action="output.txt")),
-        ("!SPOOL", ["off"], SpoolCommand(action="off")),
+        ("!spool", ["output.txt"], SpoolCommand(target="output.txt")),
+        ("!SPOOL", ["off"], SpoolCommand(target="off")),
         (
             "!ResUlT",
             [],

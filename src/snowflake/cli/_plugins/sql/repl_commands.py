@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Generator, Iterable, List, Tuple, Type
+from typing import Any, Dict, Generator, Iterable, List, Literal, Tuple, Type
 from urllib.parse import urlencode
 
 import click
@@ -547,6 +547,9 @@ class EditCommand(ReplCommand):
         return CompileCommandResult(command=cls(sql_content=sql_content))
 
 
+SPOOL_OFF: Literal["off"] = "off"
+
+
 @register_command("!spool")
 @dataclass
 class SpoolCommand(ReplCommand):
@@ -557,12 +560,12 @@ class SpoolCommand(ReplCommand):
         !spool off           - Stop writing output to file
     """
 
-    action: str  # Either a filename to start spooling, or "off" to stop
+    target: str  # Either a filename to start spooling, or "off" to stop
 
     def execute(self, connection: SnowflakeConnection):
         """Execute the spool command.
 
-        If action is "off", stops spooling.
+        If target is "off", stops spooling.
         Otherwise, starts spooling to the specified file.
         """
         if not get_cli_context().is_repl:
@@ -572,7 +575,7 @@ class SpoolCommand(ReplCommand):
         if not repl:
             raise CliError("REPL instance not found.")
 
-        if self.action.lower() == "off":
+        if self.target.lower() == SPOOL_OFF:
             if repl.is_spooling:
                 spool_path = repl.spool_path
                 repl.stop_spool()
@@ -584,7 +587,7 @@ class SpoolCommand(ReplCommand):
                     "[yellow]Spooling is not currently active.[/yellow]"
                 )
         else:
-            spool_path = Path(self.action).expanduser().resolve()
+            spool_path = Path(self.target).expanduser().resolve()
             try:
                 repl.start_spool(spool_path)
             except OSError as e:
@@ -623,7 +626,7 @@ class SpoolCommand(ReplCommand):
                 error_message=f"{amount} arguments passed to 'spool' command. Usage: `!spool <filename>` or `!spool off`"
             )
 
-        return CompileCommandResult(command=cls(action=args[0]))
+        return CompileCommandResult(command=cls(target=args[0]))
 
 
 def detect_command(input_text: str) -> tuple[str, str] | None:

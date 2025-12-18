@@ -341,6 +341,9 @@ class Repl:
         if self._spool_file:
             self.stop_spool()
 
+        secure_path = SecurePath(path)
+        if not secure_path.exists():
+            secure_path.touch() 
         self._spool_file = open(path, "w", encoding="utf-8")
         self._spool_path = path
         log.debug("Started spooling to: %s", path)
