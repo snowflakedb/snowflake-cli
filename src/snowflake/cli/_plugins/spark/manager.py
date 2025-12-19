@@ -45,6 +45,10 @@ class SubmitQueryBuilder:
 
     def with_jars(self, jars: Optional[List[str]]) -> "SubmitQueryBuilder":
         self.jars = jars
+        if jars and len(jars) > 0:
+            self.spark_configurations["spark.jars"] = ",".join(
+                f"/tmp/entrypoint/{jar}" for jar in jars
+            )
         return self
 
     def build(self) -> str:

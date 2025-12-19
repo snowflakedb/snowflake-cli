@@ -178,3 +178,64 @@ class TestSubmitQueryBuilder:
             "RESOURCE_CONSTRAINT='CPU_2X_X86'"
         )
         assert query == expected
+
+    def test_build_with_single_jar(self):
+        """Test building query with a single jar dependency."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_class_name(None).with_application_arguments(None).with_jars(
+            ["dependency.jar"]
+        )
+
+        query = builder.build()
+
+        assert "'spark.jars' = '/tmp/entrypoint/dependency.jar'" in query
+
+    def test_build_with_multiple_jars(self):
+        """Test building query with multiple jar dependencies."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_class_name(None).with_application_arguments(None).with_jars(
+            ["lib1.jar", "lib2.jar", "lib3.jar"]
+        )
+
+        query = builder.build()
+
+        assert (
+            "'spark.jars' = '/tmp/entrypoint/lib1.jar,/tmp/entrypoint/lib2.jar,/tmp/entrypoint/lib3.jar'"
+            in query
+        )
+
+    def test_build_with_empty_jars_list(self):
+        """Test building query with empty jars list does not add spark.jars."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_class_name(None).with_application_arguments(None).with_jars([])
+
+        query = builder.build()
+
+        assert "spark.jars" not in query
+
+    def test_build_with_none_jars(self):
+        """Test building query with None jars does not add spark.jars."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_class_name(None).with_application_arguments(None).with_jars(None)
+
+        query = builder.build()
+
+        assert "spark.jars" not in query
+
+    def test_with_jars_returns_self_for_chaining(self):
+        """Test that with_jars returns self for method chaining."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+
+        result = builder.with_jars(["test.jar"])
+
+        assert result is builder

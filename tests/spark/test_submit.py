@@ -111,3 +111,44 @@ class TestSclsSubmit:
         # Should fail because --snow-file-stage is required
         assert result.exit_code != 0
         assert "--snow-file-stage is required" in result.output
+
+    @mock.patch(SCLS_MANAGER)
+    def test_submit_with_jars_option(self, mock_manager, runner, tmp_path):
+        """Test submitting a Spark application with --jars option."""
+        # Create temp entrypoint file and jar files
+        entrypoint = tmp_path / "app.jar"
+
+        # Mock upload to return file names in order: entrypoint, jar1, jar2
+        mock_manager().upload_file_to_stage.side_effect = [
+            "app.jar",
+            "lib1.jar",
+            "lib2.jar",
+        ]
+        mock_manager().submit.return_value = "Spark Application ID: app-with-jars"
+
+        result = runner.invoke(
+            [
+                "spark",
+                "submit",
+                str(entrypoint),
+                "--class",
+                "com.example.Main",
+                "--snow-file-stage",
+                "@my_stage",
+                "--jars",
+                "lib1.jar,lib2.jar",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Spark Application ID: app-with-jars" in result.output
+
+        # Verify upload_file_to_stage was called 3 times (entrypoint + 2 jars)
+        assert mock_manager().upload_file_to_stage.call_count == 3
+
+        # Verify the submit query contains spark.jars configuration
+        mock_manager().submit.assert_called_once()
+        submit_query = mock_manager().submit.call_args[0][0]
+        assert "spark.jars" in submit_query
+        assert "/tmp/entrypoint/lib1.jar" in submit_query
+        assert "/tmp/entrypoint/lib2.jar" in submit_query
