@@ -166,19 +166,9 @@ class ResolutionHistoryTracker(ResolutionObserver):
         self._discoveries: Dict[str, List[tuple[ConfigValue, datetime]]] = defaultdict(
             list
         )
-        self._enabled = True
 
     def reset(self) -> None:
         self.clear()
-
-    def enable(self) -> None:
-        self._enabled = True
-
-    def disable(self) -> None:
-        self._enabled = False
-
-    def is_enabled(self) -> bool:
-        return self._enabled
 
     def clear(self) -> None:
         self._histories.clear()
@@ -187,8 +177,6 @@ class ResolutionHistoryTracker(ResolutionObserver):
     def record_nested_discovery(
         self, nested_data: Dict[str, Any], source_name: str
     ) -> None:
-        if not self._enabled:
-            return
         flat_data = flatten_nested_dict(nested_data)
         timestamp = datetime.now()
         for flat_key, value in flat_data.items():
@@ -198,13 +186,11 @@ class ResolutionHistoryTracker(ResolutionObserver):
             self._discoveries[flat_key].append((config_value, timestamp))
 
     def record_discovery(self, key: str, config_value: ConfigValue) -> None:
-        if not self._enabled:
-            return
         timestamp = datetime.now()
         self._discoveries[key].append((config_value, timestamp))
 
     def mark_selected(self, key: str, source_name: str) -> None:
-        if not self._enabled or key not in self._discoveries:
+        if key not in self._discoveries:
             return
 
         entries: List[ResolutionEntry] = []
@@ -230,9 +216,6 @@ class ResolutionHistoryTracker(ResolutionObserver):
         )
 
     def mark_default_used(self, key: str, default_value: Any) -> None:
-        if not self._enabled:
-            return
-
         if key in self._histories:
             self._histories[key].default_used = True
             self._histories[key].final_value = default_value
@@ -248,8 +231,6 @@ class ResolutionHistoryTracker(ResolutionObserver):
         return self._histories.copy()
 
     def finalize_with_result(self, final_config: Dict[str, Any]) -> None:
-        if not self._enabled:
-            return
         flat_final = flatten_nested_dict(final_config)
         for flat_key, final_value in flat_final.items():
             if flat_key not in self._discoveries:
@@ -266,8 +247,6 @@ class ResolutionHistoryTracker(ResolutionObserver):
         connection_names: List[str],
         source_name: str,
     ) -> None:
-        if not self._enabled:
-            return
         timestamp = datetime.now()
         for param_key, param_value in general_params.items():
             for conn_name in connection_names:
@@ -280,8 +259,6 @@ class ResolutionHistoryTracker(ResolutionObserver):
     def replicate_root_level_discoveries_to_connection(
         self, param_keys: List[str], connection_name: str
     ) -> None:
-        if not self._enabled:
-            return
         for param_key in param_keys:
             if param_key in self._discoveries:
                 conn_key = f"connections.{connection_name}.{param_key}"

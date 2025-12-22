@@ -163,15 +163,6 @@ class ConfigurationResolver:
         for observer in self._observers:
             getattr(observer, method_name)(*args, **kwargs)
 
-    def add_source(self, source: "ValueSource") -> None:
-        """
-        Add a configuration source to the end of the list (highest priority).
-
-        Args:
-            source: ValueSource to add
-        """
-        self._sources.append(source)
-
     def get_sources(self) -> List["ValueSource"]:
         """Get list of all sources in precedence order (for inspection)."""
         return self._sources.copy()
@@ -606,44 +597,6 @@ class ConfigurationResolver:
 
         return result
 
-    def resolve_value(self, key: str, default: Any = None) -> Any:
-        """
-        Resolve a single configuration value.
-
-        Args:
-            key: Configuration key
-            default: Default value if not found
-
-        Returns:
-            Resolved value or default
-        """
-        resolved = self.resolve(key=key, default=default)
-        return resolved.get(key, default)
-
-    def get_value_metadata(self, key: str) -> Optional[ConfigValue]:
-        """
-        Get metadata for the selected value.
-
-        Args:
-            key: Configuration key
-
-        Returns:
-            ConfigValue for the selected value, or None if not found
-        """
-        tracker = self._history_observer
-        if tracker:
-            history = tracker.get_history(key)
-            if history and history.selected_entry:
-                return history.selected_entry.config_value
-
-        # Fallback to live query if history not available
-        for source in self._sources:
-            values = source.discover(key)
-            if key in values:
-                return values[key]
-
-        return None
-
     def get_tracker(self) -> Optional[ResolutionHistoryTracker]:
         """
         Get the history tracker for direct access to resolution data.
@@ -656,10 +609,6 @@ class ConfigurationResolver:
     def get_source_diagnostics(self) -> List[SourceDiagnostic]:
         """Diagnostics captured during source discovery."""
         return self._source_diagnostics.copy()
-
-    def has_history_tracking(self) -> bool:
-        """Return True when a history observer is attached."""
-        return self._history_observer is not None
 
     def get_resolution_summary(self) -> Dict[str, Any]:
         """

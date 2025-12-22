@@ -27,7 +27,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from snowflake.cli.api.config_ng.constants import ConfigSourceName
 from snowflake.cli.api.config_ng.masking import mask_sensitive_value
@@ -63,34 +63,6 @@ class ConfigValue:
         if self.raw_value is not None and self.raw_value != self.value:
             value_display = f"{self.raw_value} → {self.value}"
         return f"ConfigValue({self.key}={value_display}, from {self.source_name})"
-
-    @classmethod
-    def from_source(
-        cls,
-        key: str,
-        raw_value: str,
-        source_name: ConfigSourceName,
-        value_parser: Optional[Callable[[str], Any]] = None,
-    ) -> ConfigValue:
-        """
-        Factory method to create ConfigValue from a source.
-
-        Args:
-            key: Configuration key
-            raw_value: Raw string value from the source
-            source_name: Name of the configuration source
-            value_parser: Optional parser function; if None, raw_value is used as-is
-
-        Returns:
-            ConfigValue instance with parsed value
-        """
-        parsed_value = value_parser(raw_value) if value_parser else raw_value
-        return cls(
-            key=key,
-            value=parsed_value,
-            source_name=source_name,
-            raw_value=raw_value,
-        )
 
 
 class ValueSource(ABC):
@@ -190,11 +162,6 @@ class ResolutionHistory:
         return [entry.config_value.source_name for entry in self.entries]
 
     @property
-    def values_considered(self) -> List[Any]:
-        """List of all values that were considered."""
-        return [entry.config_value.value for entry in self.entries]
-
-    @property
     def selected_entry(self) -> Optional[ResolutionEntry]:
         """The entry that was ultimately selected."""
         for entry in self.entries:
@@ -206,44 +173,6 @@ class ResolutionHistory:
     def overridden_entries(self) -> List[ResolutionEntry]:
         """All entries that were overridden by higher priority sources."""
         return [entry for entry in self.entries if not entry.was_used]
-
-    def format_chain(self) -> str:
-        """
-        Format the resolution chain as a readable string.
-
-        Example output:
-            account resolution chain (4 sources):
-              1. ❌ snowsql_config: "old_account" (overridden by cli_arguments)
-              2. ❌ toml:connections: "new_account" (overridden by cli_arguments)
-              3. ❌ snowflake_cli_env: "env_account" (overridden by cli_arguments)
-              4. ✅ cli_arguments: "final_account" (SELECTED)
-        """
-        lines = [f"{self.key} resolution chain ({len(self.entries)} sources):"]
-
-        for i, entry in enumerate(self.entries, 1):
-            cv = entry.config_value
-            status_icon = "✅" if entry.was_used else "❌"
-
-            if entry.was_used:
-                status_text = "(SELECTED)"
-            elif entry.overridden_by:
-                status_text = f"(overridden by {entry.overridden_by})"
-            else:
-                status_text = "(not used)"
-
-            # Show raw value if different from parsed value
-            value_display = f'"{cv.value}"'
-            if cv.raw_value is not None and cv.raw_value != cv.value:
-                value_display = f'"{cv.raw_value}" → {cv.value}'
-
-            lines.append(
-                f"  {i}. {status_icon} {cv.source_name}: {value_display} {status_text}"
-            )
-
-        if self.default_used:
-            lines.append(f"  Default value used: {self.final_value}")
-
-        return "\n".join(lines)
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization/export."""

@@ -14,9 +14,8 @@
 
 """Manager for configuration sources."""
 
-from typing import Any, Dict, List, Optional
+from typing import List
 
-from snowflake.cli.api.config_ng.constants import FILE_SOURCE_NAMES
 from snowflake.cli.api.config_ng.core import ValueSource
 
 
@@ -36,46 +35,6 @@ class SourceManager:
             sources: List of sources in precedence order (lowest to highest)
         """
         self._sources = sources
-
-    @classmethod
-    def with_default_sources(
-        cls, cli_context: Optional[Dict[str, Any]] = None
-    ) -> "SourceManager":
-        """
-        Class method constructor with default sources.
-
-        Args:
-            cli_context: Optional CLI context for CliParameters source
-
-        Returns:
-            SourceManager configured with default 7-source stack
-        """
-        from snowflake.cli.api.config_ng.source_factory import create_default_sources
-
-        sources = create_default_sources(cli_context)
-        return cls(sources)
-
-    def get_source_priorities(self) -> Dict[str, int]:
-        """
-        Derive priorities from source list order.
-
-        Priority numbers are 1-indexed (1 = lowest, higher = higher priority).
-        This is dynamically derived from the source list order to eliminate
-        duplication and ensure consistency.
-
-        Returns:
-            Dictionary mapping source names to priority levels
-        """
-        return {s.source_name: idx + 1 for idx, s in enumerate(self._sources)}
-
-    def get_file_sources(self) -> List[ValueSource]:
-        """
-        Get only file-based sources.
-
-        Returns:
-            List of sources that are file-based
-        """
-        return [s for s in self._sources if s.source_name in FILE_SOURCE_NAMES]
 
     def get_sources(self) -> List[ValueSource]:
         """
