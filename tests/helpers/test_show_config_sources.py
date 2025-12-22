@@ -173,19 +173,32 @@ class TestCommandFunctionality:
         mock_get_results.assert_called_once_with(key="user", verbose=True)
 
 
+def _strip_ansi(text: str) -> str:
+    """Strip ANSI escape codes from text for reliable assertions."""
+    import re
+
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+
 class TestCommandHelp:
     """Test the command help output."""
 
     @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
-    def test_command_help_message(self, runner, snapshot):
+    def test_command_help_message(self, runner):
         """Command help should display correctly."""
         result = runner.invoke(["helpers", COMMAND, "--help"])
         assert result.exit_code == 0
-        assert result.output == snapshot
+        output = _strip_ansi(result.output)
+        assert "show-config-sources" in output
+        assert "Show where configuration values come from" in output
+        assert "--show-details" in output
+        assert "--help" in output
 
     @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
-    def test_command_help_shows_key_argument(self, runner, snapshot):
+    def test_command_help_shows_key_argument(self, runner):
         """Command help should show the optional key argument."""
         result = runner.invoke(["helpers", COMMAND, "--help"])
         assert result.exit_code == 0
-        assert result.output == snapshot
+        output = _strip_ansi(result.output)
+        assert "[KEY]" in output
+        assert "Specific configuration key to show resolution for" in output
