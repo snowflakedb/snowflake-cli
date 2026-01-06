@@ -8,6 +8,7 @@
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
   
+  
   '''
 # ---
 # name: test_describe[database-database_example]
@@ -18,6 +19,7 @@
   | ID   | NUMBER(38,0 | COLUMN |
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
+  
   
   '''
 # ---
@@ -30,6 +32,7 @@
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
   
+  
   '''
 # ---
 # name: test_describe[git-repository-git_repository_example]
@@ -40,6 +43,7 @@
   | ID   | NUMBER(38,0 | COLUMN |
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
+  
   
   '''
 # ---
@@ -52,6 +56,7 @@
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
   
+  
   '''
 # ---
 # name: test_describe[network-rule-network_rule_example]
@@ -62,6 +67,7 @@
   | ID   | NUMBER(38,0 | COLUMN |
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
+  
   
   '''
 # ---
@@ -74,6 +80,7 @@
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
   
+  
   '''
 # ---
 # name: test_describe[procedure-procedure_example]
@@ -84,6 +91,7 @@
   | ID   | NUMBER(38,0 | COLUMN |
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
+  
   
   '''
 # ---
@@ -96,6 +104,7 @@
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
   
+  
   '''
 # ---
 # name: test_describe[schema-schema_example]
@@ -106,6 +115,7 @@
   | ID   | NUMBER(38,0 | COLUMN |
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
+  
   
   '''
 # ---
@@ -118,6 +128,7 @@
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
   
+  
   '''
 # ---
 # name: test_describe[service-service_example]
@@ -128,6 +139,7 @@
   | ID   | NUMBER(38,0 | COLUMN |
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
+  
   
   '''
 # ---
@@ -140,6 +152,7 @@
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
   
+  
   '''
 # ---
 # name: test_describe[stream-stream_example]
@@ -150,6 +163,7 @@
   | ID   | NUMBER(38,0 | COLUMN |
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
+  
   
   '''
 # ---
@@ -162,6 +176,7 @@
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
   
+  
   '''
 # ---
 # name: test_describe[table-table_example]
@@ -172,6 +187,7 @@
   | ID   | NUMBER(38,0 | COLUMN |
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
+  
   
   '''
 # ---
@@ -184,6 +200,7 @@
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
   
+  
   '''
 # ---
 # name: test_describe[user-user_example]
@@ -194,6 +211,7 @@
   | ID   | NUMBER(38,0 | COLUMN |
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
+  
   
   '''
 # ---
@@ -206,6 +224,7 @@
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
   
+  
   '''
 # ---
 # name: test_describe[warehouse-warehouse_example]
@@ -216,6 +235,7 @@
   | ID   | NUMBER(38,0 | COLUMN |
   | NAME | VARCHAR(100 | COLUMN |
   +-----------------------------+
+  
   
   '''
 # ---
@@ -235,6 +255,7 @@
   | compute_pool_example successfully dropped. |
   +--------------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop[database-database_example]
@@ -244,6 +265,7 @@
   |----------------------------------------|
   | database_example successfully dropped. |
   +----------------------------------------+
+  
   
   '''
 # ---
@@ -255,6 +277,7 @@
   | function_example successfully dropped. |
   +----------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop[git-repository-git_repository_example]
@@ -264,6 +287,7 @@
   |----------------------------------------------|
   | git_repository_example successfully dropped. |
   +----------------------------------------------+
+  
   
   '''
 # ---
@@ -275,6 +299,7 @@
   | image_repository_example successfully dropped. |
   +------------------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop[integration-integration_example]
@@ -284,6 +309,7 @@
   |-------------------------------------------|
   | integration_example successfully dropped. |
   +-------------------------------------------+
+  
   
   '''
 # ---
@@ -295,6 +321,7 @@
   | network_rule_example successfully dropped. |
   +--------------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop[notebook-notebook_example]
@@ -304,6 +331,7 @@
   |----------------------------------------|
   | notebook_example successfully dropped. |
   +----------------------------------------+
+  
   
   '''
 # ---
@@ -315,6 +343,7 @@
   | procedure_example successfully dropped. |
   +-----------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop[role-role_example]
@@ -324,6 +353,7 @@
   |------------------------------------|
   | role_example successfully dropped. |
   +------------------------------------+
+  
   
   '''
 # ---
@@ -335,6 +365,7 @@
   | schema_example successfully dropped. |
   +--------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop[secret-secret_example]
@@ -344,6 +375,7 @@
   |--------------------------------------|
   | secret_example successfully dropped. |
   +--------------------------------------+
+  
   
   '''
 # ---
@@ -355,6 +387,7 @@
   | service_example successfully dropped. |
   +---------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop[stage-stage_example]
@@ -364,6 +397,7 @@
   |-------------------------------------|
   | stage_example successfully dropped. |
   +-------------------------------------+
+  
   
   '''
 # ---
@@ -375,6 +409,7 @@
   | stream_example successfully dropped. |
   +--------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop[streamlit-streamlit_example]
@@ -384,6 +419,7 @@
   |-----------------------------------------|
   | streamlit_example successfully dropped. |
   +-----------------------------------------+
+  
   
   '''
 # ---
@@ -395,6 +431,7 @@
   | table_example successfully dropped. |
   +-------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop[task-task_example]
@@ -404,6 +441,7 @@
   |------------------------------------|
   | task_example successfully dropped. |
   +------------------------------------+
+  
   
   '''
 # ---
@@ -415,6 +453,7 @@
   | user_example successfully dropped. |
   +------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop[view-view_example]
@@ -424,6 +463,7 @@
   |------------------------------------|
   | view_example successfully dropped. |
   +------------------------------------+
+  
   
   '''
 # ---
@@ -435,6 +475,7 @@
   | warehouse_example successfully dropped. |
   +-----------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop_with_if_exists[compute-pool-compute_pool_example]
@@ -444,6 +485,7 @@
   |--------------------------------------------|
   | compute_pool_example successfully dropped. |
   +--------------------------------------------+
+  
   
   '''
 # ---
@@ -455,6 +497,7 @@
   | database_example successfully dropped. |
   +----------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop_with_if_exists[function-function_example]
@@ -464,6 +507,7 @@
   |----------------------------------------|
   | function_example successfully dropped. |
   +----------------------------------------+
+  
   
   '''
 # ---
@@ -475,6 +519,7 @@
   | git_repository_example successfully dropped. |
   +----------------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop_with_if_exists[image-repository-image_repository_example]
@@ -484,6 +529,7 @@
   |------------------------------------------------|
   | image_repository_example successfully dropped. |
   +------------------------------------------------+
+  
   
   '''
 # ---
@@ -495,6 +541,7 @@
   | integration_example successfully dropped. |
   +-------------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop_with_if_exists[network-rule-network_rule_example]
@@ -504,6 +551,7 @@
   |--------------------------------------------|
   | network_rule_example successfully dropped. |
   +--------------------------------------------+
+  
   
   '''
 # ---
@@ -515,6 +563,7 @@
   | notebook_example successfully dropped. |
   +----------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop_with_if_exists[procedure-procedure_example]
@@ -524,6 +573,7 @@
   |-----------------------------------------|
   | procedure_example successfully dropped. |
   +-----------------------------------------+
+  
   
   '''
 # ---
@@ -535,6 +585,7 @@
   | role_example successfully dropped. |
   +------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop_with_if_exists[schema-schema_example]
@@ -544,6 +595,7 @@
   |--------------------------------------|
   | schema_example successfully dropped. |
   +--------------------------------------+
+  
   
   '''
 # ---
@@ -555,6 +607,7 @@
   | secret_example successfully dropped. |
   +--------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop_with_if_exists[service-service_example]
@@ -564,6 +617,7 @@
   |---------------------------------------|
   | service_example successfully dropped. |
   +---------------------------------------+
+  
   
   '''
 # ---
@@ -575,6 +629,7 @@
   | stage_example successfully dropped. |
   +-------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop_with_if_exists[stream-stream_example]
@@ -584,6 +639,7 @@
   |--------------------------------------|
   | stream_example successfully dropped. |
   +--------------------------------------+
+  
   
   '''
 # ---
@@ -595,6 +651,7 @@
   | streamlit_example successfully dropped. |
   +-----------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop_with_if_exists[table-table_example]
@@ -604,6 +661,7 @@
   |-------------------------------------|
   | table_example successfully dropped. |
   +-------------------------------------+
+  
   
   '''
 # ---
@@ -615,6 +673,7 @@
   | task_example successfully dropped. |
   +------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop_with_if_exists[user-user_example]
@@ -624,6 +683,7 @@
   |------------------------------------|
   | user_example successfully dropped. |
   +------------------------------------+
+  
   
   '''
 # ---
@@ -635,6 +695,7 @@
   | view_example successfully dropped. |
   +------------------------------------+
   
+  
   '''
 # ---
 # name: test_drop_with_if_exists[warehouse-warehouse_example]
@@ -644,6 +705,7 @@
   |-----------------------------------------|
   | warehouse_example successfully dropped. |
   +-----------------------------------------+
+  
   
   '''
 # ---
