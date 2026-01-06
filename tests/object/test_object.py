@@ -335,3 +335,49 @@ def test_show_with_all_options_combined(mock_execute_query, mock_cursor):
 
     expected_query = "show terse tables like 'test%' in database my_db limit 25"
     mock_execute_query.assert_called_once_with(expected_query)
+
+
+@mock.patch("snowflake.connector")
+@pytest.mark.parametrize(
+    "object_type, object_name",
+    DROP_TEST_OBJECTS,
+)
+def test_drop_with_if_exists(
+    mock_connector, object_type, object_name, mock_cursor, runner, os_agnostic_snapshot
+):
+    mock_connector.connect.return_value.execute_stream.return_value = (
+        None,
+        mock_cursor(
+            rows=[(f"{object_name} successfully dropped.",)],
+            columns=["status"],
+        ),
+    )
+
+    result = runner.invoke(["object", "drop", object_type, object_name, "--if-exists"])
+    assert result.exit_code == 0, result.output
+    assert result.output == os_agnostic_snapshot
+
+
+@mock.patch("snowflake.cli._plugins.object.manager.ObjectManager.execute_query")
+@pytest.mark.parametrize(
+    "if_exists, expected_query",
+    [
+        (False, "drop table IDENTIFIER('test_table')"),
+        (True, "drop table if exists IDENTIFIER('test_table')"),
+    ],
+)
+def test_drop_manager_if_exists(
+    mock_execute_query, if_exists, expected_query, mock_cursor
+):
+    """Test ObjectManager.drop method with if_exists parameter."""
+    from snowflake.cli._plugins.object.manager import ObjectManager
+    from snowflake.cli.api.identifiers import FQN
+
+    mock_execute_query.return_value = mock_cursor(["row"], [])
+
+    manager = ObjectManager()
+    manager.drop(
+        object_type="table", fqn=FQN.from_string("test_table"), if_exists=if_exists
+    )
+
+    mock_execute_query.assert_called_once_with(expected_query)

@@ -27,6 +27,7 @@ from snowflake.cli._plugins.object.commands import (
     scope_option,  # noqa: F401
     terse_option_,
 )
+from snowflake.cli.api.commands.flags import IfExistsOption
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.constants import ObjectType
 from snowflake.cli.api.identifiers import FQN
@@ -90,10 +91,15 @@ def add_object_command_aliases(
     if "drop" not in ommit_commands:
 
         @app.command("drop", requires_connection=True)
-        def drop_cmd(name: FQN = name_argument, **options):
+        def drop_cmd(
+            name: FQN = name_argument,
+            if_exists: bool = IfExistsOption(),
+            **options,
+        ):
             return drop(
                 object_type=object_type.value.cli_name,
                 object_name=name,
+                if_exists=if_exists,
                 **options,
             )
 
