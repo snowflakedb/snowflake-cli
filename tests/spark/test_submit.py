@@ -62,7 +62,7 @@ class TestSclsSubmit:
             str(entrypoint), "@my_stage/jars"
         )
         mock_manager().submit.assert_called_once_with(
-            "EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@my_stage/jars:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/test.jar' CLASS = 'com.example.Main' SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle') RESOURCE_CONSTRAINT='CPU_2X_X86'"
+            "EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@my_stage/jars:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/test.jar' CLASS = 'com.example.Main' SPARK_CONFIGURATION=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle') RESOURCE_CONSTRAINT='CPU_2X_X86'"
         )
 
     @mock.patch(SCLS_MANAGER)
@@ -90,7 +90,7 @@ class TestSclsSubmit:
 
         assert result.exit_code == 0, result.output
         mock_manager().submit.assert_called_once_with(
-            "EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@stage:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/app.jar' CLASS = 'com.example.Main' ARGUMENTS = ('arg1','arg2') SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle') RESOURCE_CONSTRAINT='CPU_2X_X86'"
+            "EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@stage:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/app.jar' CLASS = 'com.example.Main' ARGUMENTS = ('arg1','arg2') SPARK_CONFIGURATION=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle') RESOURCE_CONSTRAINT='CPU_2X_X86'"
         )
 
     def test_submit_missing_entrypoint_file(self, runner):

@@ -85,7 +85,7 @@ class SubmitQueryBuilder:
                 for key, value in self.spark_configurations.items()
             ]
             query_parts.append(
-                f"SPARK_CONFIGURATIONS=({', '.join(spark_configurations)})"
+                f"SPARK_CONFIGURATION=({', '.join(spark_configurations)})"
             )
 
         query_parts.extend(
