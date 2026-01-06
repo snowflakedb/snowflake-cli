@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added `--if-exists` option to `snow object drop` command and object-specific drop commands (e.g., `snow stage drop`, `snow table drop`) to drop objects only if they exist, preventing errors when dropping non-existent objects.
 
 ## Fixes and improvements
 * Fix git repository path parsing to allow quotes around both repo and branch names (e.g., `@"example-repo"/branches/"feature/branch"/*`).
