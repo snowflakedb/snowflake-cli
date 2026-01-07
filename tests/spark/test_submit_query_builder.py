@@ -239,3 +239,25 @@ class TestSubmitQueryBuilder:
         result = builder.with_jars(["test.jar"])
 
         assert result is builder
+
+    def test_build_with_py_files(self):
+        """Test building query with py files."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_py_files(["app.zip", "app.egg"])
+
+        query = builder.build()
+        assert "spark.submit.pyFiles" in query
+        assert "/tmp/entrypoint/app.zip" in query
+        assert "/tmp/entrypoint/app.egg" in query
+
+    def test_build_with_empty_py_files_list(self):
+        """Test building query with empty py files list does not add spark.submit.pyFiles."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_py_files([])
+
+        query = builder.build()
+        assert "spark.submit.pyFiles" not in query

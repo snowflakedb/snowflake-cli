@@ -152,3 +152,37 @@ class TestSclsSubmit:
         assert "spark.jars" in submit_query
         assert "/tmp/entrypoint/lib1.jar" in submit_query
         assert "/tmp/entrypoint/lib2.jar" in submit_query
+
+    @mock.patch(SCLS_MANAGER)
+    def test_submit_with_py_files_option(self, mock_manager, runner, tmp_path):
+        """Test submitting a Spark application with --py-files option."""
+        entrypoint = tmp_path / "app.py"
+
+        mock_manager().upload_file_to_stage.side_effect = [
+            "app.py",
+            "app.zip",
+            "app.egg",
+        ]
+        mock_manager().submit.return_value = "Spark Application ID: app-with-py-files"
+
+        result = runner.invoke(
+            [
+                "spark",
+                "submit",
+                str(entrypoint),
+                "--snow-file-stage",
+                "@my_stage",
+                "--py-files",
+                "app.zip,app.egg",
+            ]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert "Spark Application ID: app-with-py-files" in result.output
+
+        assert mock_manager().upload_file_to_stage.call_count == 3
+        assert mock_manager().submit.call_count == 1
+        submit_query = mock_manager().submit.call_args[0][0]
+        assert "spark.submit.pyFiles" in submit_query
+        assert "/tmp/entrypoint/app.zip" in submit_query
+        assert "/tmp/entrypoint/app.egg" in submit_query

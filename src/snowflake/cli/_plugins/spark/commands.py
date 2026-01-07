@@ -63,6 +63,12 @@ def submit(
         help="Comma-separated list of JAR files to include in the classpath.",
         show_default=False,
     ),
+    py_files: Optional[str] = typer.Option(
+        None,
+        "--py-files",
+        help="Comma-separated list of .zip, .egg, or .py files to include in the PYTHONPATH for Python applications.",
+        show_default=False,
+    ),
     **options,
 ):
     """
@@ -93,6 +99,14 @@ def submit(
                 for jar_path in jar_paths
             ]
             query_builder.with_jars(uploaded_jars)
+
+        if py_files:
+            py_file_paths = py_files.split(",")
+            uploaded_py_files = [
+                manager.upload_file_to_stage(py_file_path, scls_file_stage)
+                for py_file_path in py_file_paths
+            ]
+            query_builder.with_py_files(uploaded_py_files)
 
         # e.g. Spark Application submitted successfully. Spark Application ID: <id>
         result_message = manager.submit(query_builder.build())

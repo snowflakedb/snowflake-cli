@@ -29,6 +29,10 @@ class SubmitQueryBuilder:
             "spark.plugins": "com.snowflake.spark.SnowflakePlugin",
             "spark.snowflake.backend": "sparkle",
         }
+        self.class_name: Optional[str] = None
+        self.application_arguments: Optional[List[str]] = None
+        self.jars: Optional[List[str]] = None
+        self.py_files: Optional[List[str]] = None
 
     def _quote_value(self, value: str) -> str:
         return "'" + value.replace("'", "\\'") + "'"
@@ -48,6 +52,14 @@ class SubmitQueryBuilder:
         if jars and len(jars) > 0:
             self.spark_configurations["spark.jars"] = ",".join(
                 f"/tmp/entrypoint/{jar}" for jar in jars
+            )
+        return self
+
+    def with_py_files(self, py_files: Optional[List[str]]) -> "SubmitQueryBuilder":
+        self.py_files = py_files
+        if py_files and len(py_files) > 0:
+            self.spark_configurations["spark.submit.pyFiles"] = ",".join(
+                f"/tmp/entrypoint/{py_file}" for py_file in py_files
             )
         return self
 
