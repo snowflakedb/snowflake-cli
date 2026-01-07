@@ -24,7 +24,6 @@ import pytest
 
 pytestmark = [
     pytest.mark.integration,
-    pytest.mark.qa_only,
 ]
 
 
@@ -158,7 +157,7 @@ def test_decimal_precision_param_overrides_env(runner, reset_decimal_precision):
             os.environ.pop("SNOWFLAKE_DECIMAL_PRECISION", None)
 
 
-def test_decimal_precision_from_config(runner, reset_decimal_precision, temp_dir):
+def test_decimal_precision_from_config(runner, reset_decimal_precision, tmpdir):
     """Test decimal precision reading from config.toml file."""
     sql = """
         SELECT 
@@ -166,7 +165,7 @@ def test_decimal_precision_from_config(runner, reset_decimal_precision, temp_dir
             CAST('3.14159265358979323846' AS DECFLOAT) AS pi_value
     """
 
-    config_path = Path(temp_dir) / "test_config.toml"
+    config_path = Path(tmpdir) / "test_config.toml"
     config_path.write_text(
         "[cli]\n"
         "decimal_precision = 15\n"
@@ -191,7 +190,7 @@ def test_decimal_precision_from_config(runner, reset_decimal_precision, temp_dir
 
 
 def test_decimal_precision_cli_overrides_config(
-    runner, reset_decimal_precision, temp_dir
+    runner, reset_decimal_precision, tmpdir
 ):
     """Test that CLI parameter takes precedence over config file setting."""
     sql = """
@@ -199,7 +198,7 @@ def test_decimal_precision_cli_overrides_config(
             CAST('1234.56789012345678901234567890' AS DECFLOAT) AS test_value
     """
 
-    config_path = Path(temp_dir) / "test_config.toml"
+    config_path = Path(tmpdir) / "test_config.toml"
     config_path.write_text(
         "[cli]\n"
         "decimal_precision = 20\n"

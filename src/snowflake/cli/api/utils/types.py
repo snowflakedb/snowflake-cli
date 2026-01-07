@@ -31,5 +31,24 @@ def try_cast_to_bool(value: Any) -> bool:
     know_booleans_mapping = {"true": True, "false": False, "1": True, "0": False}
 
     if value.lower() not in know_booleans_mapping:
-        raise ValueError(f"Could not case {value} to bool value")
+        raise ValueError(f"Could not cast {value} to bool value")
     return know_booleans_mapping[value.lower()]
+
+
+def try_cast_to_int(value: Any) -> int:
+    if isinstance(value, int) and not isinstance(value, bool):
+        return value
+
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError(f"Could not cast empty string to int value")
+        try:
+            return int(stripped)
+        except ValueError:
+            raise ValueError(f"Could not cast '{value}' to int value")
+
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        raise ValueError(f"Could not cast '{value}' to int value")
