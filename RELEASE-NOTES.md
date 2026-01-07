@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added global `--color` flag to control colored console output. Use `--color off` to disable colors.
 
 ## Fixes and improvements
 * Fix git repository path parsing to allow quotes around both repo and branch names (e.g., `@"example-repo"/branches/"feature/branch"/*`).

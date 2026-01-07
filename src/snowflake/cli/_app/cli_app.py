@@ -24,7 +24,6 @@ from typing import Optional
 
 import click
 import typer
-from click import Context as ClickContext
 from snowflake.cli import __about__
 from snowflake.cli._app.commands_registration.commands_registration_with_callbacks import (
     CommandsRegistrationWithCallbacks,
@@ -54,6 +53,7 @@ INTERNAL_CLI_FLAGS = {
     "docs",
     "structure",
     "info",
+    "color",
     "configuration_file",
     "pycharm_debug_library_path",
     "pycharm_debug_server_host",
@@ -76,7 +76,7 @@ class CliAppFactory:
     def __init__(self):
         self._commands_registration = CommandsRegistrationWithCallbacks()
         self._app: Optional[SnowCliMainTyper] = None
-        self._click_context: Optional[ClickContext] = None
+        self._click_context: Optional[click.Context] = None
 
     def _exit_with_cleanup(self):
         self._commands_registration.reset_running_instance_registration_state()
@@ -173,6 +173,25 @@ class CliAppFactory:
 
         return callback
 
+    @staticmethod
+    def _color_callback():
+        def callback(value: str):
+            try:
+                if click.get_current_context().resilient_parsing:
+                    return
+            except RuntimeError:
+                pass
+
+            if value.lower() == "off":
+                # Set NO_COLOR env which Rich check swhen creating console instances.
+                # This must be set before consoles are created, which is why this callback uses is_eager=True.
+                # Note: rich.reconfigure(no_color=True) only affects the default console,
+                # not consoles created by Typer/Click for help formatting, so we use the
+                # env var approach which affects all console instances.
+                os.environ["NO_COLOR"] = "1"
+
+        return callback
+
     def create_or_get_app(self) -> SnowCliMainTyper:
         if self._app:
             return self._app
@@ -229,6 +248,13 @@ class CliAppFactory:
                 "--info",
                 help="Shows information about the Snowflake CLI",
                 callback=self._info_callback(),
+            ),
+            color: str = typer.Option(
+                "auto",
+                "--color",
+                help="Controls colored output. 'auto' (default) auto-detects terminal capabilities, 'off' disables coloring.",
+                callback=self._color_callback(),
+                is_eager=True,
             ),
             configuration_file: Path = typer.Option(
                 None,
