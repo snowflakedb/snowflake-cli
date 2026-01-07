@@ -681,7 +681,7 @@ define table identifier('{base_table_name}') (
 
 define dynamic table identifier('{dynamic_table_name}')
 target_lag = '1000 minutes'
-WAREHOUSE = xs
+WAREHOUSE = xsmall
 as select * from {base_table_name};
 """
         file_a_path = project_root / "file_a.sql"
