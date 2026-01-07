@@ -69,6 +69,12 @@ def submit(
         help="Comma-separated list of .zip, .egg, or .py files to include in the PYTHONPATH for Python applications.",
         show_default=False,
     ),
+    conf: Optional[List[str]] = typer.Option(
+        None,
+        "--conf",
+        help="Spark configuration properties in the format of key=value.",
+        show_default=False,
+    ),
     **options,
 ):
     """
@@ -107,6 +113,9 @@ def submit(
                 for py_file_path in py_file_paths
             ]
             query_builder.with_py_files(uploaded_py_files)
+
+        if conf:
+            query_builder.with_conf(conf)
 
         # e.g. Spark Application submitted successfully. Spark Application ID: <id>
         result_message = manager.submit(query_builder.build())

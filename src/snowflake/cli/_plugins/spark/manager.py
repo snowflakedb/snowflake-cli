@@ -63,6 +63,14 @@ class SubmitQueryBuilder:
             )
         return self
 
+    def with_conf(self, confs: Optional[List[str]]) -> "SubmitQueryBuilder":
+        self.confs = confs
+        if confs and len(confs) > 0:
+            for conf in confs:
+                key, value = conf.split("=", 1)
+                self.spark_configurations[key] = value
+        return self
+
     def build(self) -> str:
         stage_name = (
             self.scls_file_stage

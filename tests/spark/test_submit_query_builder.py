@@ -261,3 +261,26 @@ class TestSubmitQueryBuilder:
 
         query = builder.build()
         assert "spark.submit.pyFiles" not in query
+
+    def test_build_with_conf(self):
+        """Test building query with conf."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_conf(
+            ["spark.eventLog.enabled=false", "spark.sql.shuffle.partitions=200"]
+        )
+
+        query = builder.build()
+        assert "'spark.eventLog.enabled' = 'false'" in query
+        assert "'spark.sql.shuffle.partitions' = '200'" in query
+
+    def test_build_with_empty_conf_list(self):
+        """Test building query with empty conf list does not add spark.conf."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_conf([])
+
+        query = builder.build()
+        assert "spark.conf" not in query
