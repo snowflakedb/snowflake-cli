@@ -31,7 +31,7 @@ def try_cast_to_bool(value: Any) -> bool:
     know_booleans_mapping = {"true": True, "false": False, "1": True, "0": False}
 
     if value.lower() not in know_booleans_mapping:
-        raise ValueError(f"Could not case {value} to bool value")
+        raise ValueError(f"Could not cast {value} to bool value")
     return know_booleans_mapping[value.lower()]
 
 
