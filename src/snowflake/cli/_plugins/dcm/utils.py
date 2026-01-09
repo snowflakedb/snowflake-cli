@@ -17,7 +17,6 @@ from functools import wraps
 from pathlib import Path
 from typing import Any
 
-import typer
 from snowflake.cli._plugins.dcm.reporters import RefreshReporter, TestReporter
 from snowflake.cli.api.output.types import EmptyResult
 
@@ -81,9 +80,7 @@ def mock_dcm_response(command_name: str):
             reporter_mapping = {"refresh": RefreshReporter, "test": TestReporter}
 
             reporter = reporter_mapping[command_name]()
-            has_errors = reporter.process(cursor)
-            if has_errors:
-                raise typer.Exit(code=1)
+            reporter.process(cursor)
             return EmptyResult()
 
         return wrapper
