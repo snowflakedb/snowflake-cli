@@ -4870,7 +4870,9 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --if-exists            Only apply this operation if the specified object     |
+  |                        exists.                                               |
+  | --help       -h        Show this message and exit.                           |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -7948,7 +7950,9 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --if-exists            Only apply this operation if the specified object     |
+  |                        exists.                                               |
+  | --help       -h        Show this message and exit.                           |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -9136,7 +9140,9 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --if-exists            Only apply this operation if the specified object     |
+  |                        exists.                                               |
+  | --help       -h        Show this message and exit.                           |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -11601,7 +11607,9 @@
   |                             [required]                                       |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --if-exists            Only apply this operation if the specified object     |
+  |                        exists.                                               |
+  | --help       -h        Show this message and exit.                           |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -12531,7 +12539,9 @@
   |                                                   [required]                 |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --if-exists            Only apply this operation if the specified object     |
+  |                        exists.                                               |
+  | --help       -h        Show this message and exit.                           |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -13937,7 +13947,9 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --if-exists            Only apply this operation if the specified object     |
+  |                        exists.                                               |
+  | --help       -h        Show this message and exit.                           |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -15850,7 +15862,9 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --if-exists            Only apply this operation if the specified object     |
+  |                        exists.                                               |
+  | --help       -h        Show this message and exit.                           |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -17073,7 +17087,9 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --if-exists            Only apply this operation if the specified object     |
+  |                        exists.                                               |
+  | --help       -h        Show this message and exit.                           |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -20135,7 +20151,9 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --if-exists            Only apply this operation if the specified object     |
+  |                        exists.                                               |
+  | --help       -h        Show this message and exit.                           |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |
@@ -21189,7 +21207,9 @@
   |                      [required]                                              |
   +------------------------------------------------------------------------------+
   +- Options --------------------------------------------------------------------+
-  | --help  -h        Show this message and exit.                                |
+  | --if-exists            Only apply this operation if the specified object     |
+  |                        exists.                                               |
+  | --help       -h        Show this message and exit.                           |
   +------------------------------------------------------------------------------+
   +- Connection configuration ---------------------------------------------------+
   | --connection,--environment    -c      TEXT     Name of the connection, as    |

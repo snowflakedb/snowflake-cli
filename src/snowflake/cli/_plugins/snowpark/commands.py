@@ -71,6 +71,7 @@ from snowflake.cli.api.commands.decorators import (
 )
 from snowflake.cli.api.commands.flags import (
     ForceReplaceOption,
+    IfExistsOption,
     PruneOption,
     ReplaceOption,
     execution_identifier_argument,
@@ -462,10 +463,16 @@ def list_(
 def drop(
     object_type: SnowparkObject = ObjectTypeArgument,
     identifier: FQN = IdentifierArgument,
+    if_exists: bool = IfExistsOption(),
     **options,
 ):
     """Drop procedure or function."""
-    return object_drop(object_type=object_type.value, object_name=identifier, **options)
+    return object_drop(
+        object_type=object_type.value,
+        object_name=identifier,
+        if_exists=if_exists,
+        **options,
+    )
 
 
 @app.command("describe", requires_connection=True)
