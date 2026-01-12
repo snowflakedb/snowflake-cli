@@ -75,6 +75,12 @@ def submit(
         help="Spark configuration properties in the format of key=value.",
         show_default=False,
     ),
+    name: Optional[str] = typer.Option(
+        None,
+        "--name",
+        help="The name of the Spark application.",
+        show_default=False,
+    ),
     **options,
 ):
     """
@@ -116,6 +122,9 @@ def submit(
 
         if conf:
             query_builder.with_conf(conf)
+
+        if name:
+            query_builder.with_name(name)
 
         # e.g. Spark Application submitted successfully. Spark Application ID: <id>
         result_message = manager.submit(query_builder.build())

@@ -33,6 +33,7 @@ class SubmitQueryBuilder:
         self.application_arguments: Optional[List[str]] = None
         self.jars: Optional[List[str]] = None
         self.py_files: Optional[List[str]] = None
+        self.name: Optional[str] = None
 
     def _quote_value(self, value: str) -> str:
         return "'" + value.replace("'", "\\'") + "'"
@@ -69,6 +70,12 @@ class SubmitQueryBuilder:
             for conf in confs:
                 key, value = conf.split("=", 1)
                 self.spark_configurations[key] = value
+        return self
+
+    def with_name(self, name: Optional[str]) -> "SubmitQueryBuilder":
+        self.name = name
+        if name:
+            self.spark_configurations["spark.app.name"] = name
         return self
 
     def build(self) -> str:

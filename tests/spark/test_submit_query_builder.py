@@ -284,3 +284,23 @@ class TestSubmitQueryBuilder:
 
         query = builder.build()
         assert "spark.conf" not in query
+
+    def test_build_with_name(self):
+        """Test building query with name."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_name("app-name")
+
+        query = builder.build()
+        assert "'spark.app.name' = 'app-name'" in query
+
+    def test_build_with_empty_name(self):
+        """Test building query with empty name does not add spark.app.name."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_name("")
+
+        query = builder.build()
+        assert "spark.app.name" not in query

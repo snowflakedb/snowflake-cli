@@ -213,3 +213,27 @@ class TestSclsSubmit:
         submit_query = mock_manager().submit.call_args[0][0]
         assert "'spark.eventLog.enabled' = 'false'" in submit_query
         assert "'spark.sql.shuffle.partitions' = '200'" in submit_query
+
+    @mock.patch(SCLS_MANAGER)
+    def test_submit_with_name_option(self, mock_manager, runner, tmp_path):
+        """Test submitting a Spark application with --name option."""
+        entrypoint = tmp_path / "app.py"
+
+        mock_manager().upload_file_to_stage.return_value = "app.py"
+        mock_manager().submit.return_value = "Spark Application ID: app-with-name"
+
+        result = runner.invoke(
+            [
+                "spark",
+                "submit",
+                str(entrypoint),
+                "--snow-file-stage",
+                "@my_stage",
+                "--name",
+                "app-name",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Spark Application ID: app-with-name" in result.output
+        submit_query = mock_manager().submit.call_args[0][0]
+        assert "'spark.app.name' = 'app-name'" in submit_query
