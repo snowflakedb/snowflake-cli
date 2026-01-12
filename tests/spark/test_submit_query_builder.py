@@ -304,3 +304,26 @@ class TestSubmitQueryBuilder:
 
         query = builder.build()
         assert "spark.app.name" not in query
+
+    def test_build_with_files(self):
+        """Test building query with files."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_files(["data1.txt", "data2.txt"])
+
+        query = builder.build()
+        assert (
+            "'spark.files' = '/tmp/entrypoint/data1.txt,/tmp/entrypoint/data2.txt'"
+            in query
+        )
+
+    def test_build_with_empty_files_list(self):
+        """Test building query with empty files list does not add spark.files."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_files([])
+
+        query = builder.build()
+        assert "spark.files" not in query

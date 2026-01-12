@@ -81,6 +81,12 @@ def submit(
         help="The name of the Spark application.",
         show_default=False,
     ),
+    files: Optional[str] = typer.Option(
+        None,
+        "--files",
+        help="Comma-separated list of files to include in the Spark application. File paths can be accessed via SparkFiles.get(file_name).",
+        show_default=False,
+    ),
     **options,
 ):
     """
@@ -125,6 +131,14 @@ def submit(
 
         if name:
             query_builder.with_name(name)
+
+        if files:
+            file_paths = files.split(",")
+            uploaded_files = [
+                manager.upload_file_to_stage(file_path, scls_file_stage)
+                for file_path in file_paths
+            ]
+            query_builder.with_files(uploaded_files)
 
         # e.g. Spark Application submitted successfully. Spark Application ID: <id>
         result_message = manager.submit(query_builder.build())

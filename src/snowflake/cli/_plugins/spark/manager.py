@@ -34,6 +34,7 @@ class SubmitQueryBuilder:
         self.jars: Optional[List[str]] = None
         self.py_files: Optional[List[str]] = None
         self.name: Optional[str] = None
+        self.files: Optional[List[str]] = None
 
     def _quote_value(self, value: str) -> str:
         return "'" + value.replace("'", "\\'") + "'"
@@ -76,6 +77,14 @@ class SubmitQueryBuilder:
         self.name = name
         if name:
             self.spark_configurations["spark.app.name"] = name
+        return self
+
+    def with_files(self, files: Optional[List[str]]) -> "SubmitQueryBuilder":
+        self.files = files
+        if files and len(files) > 0:
+            self.spark_configurations["spark.files"] = ",".join(
+                [f"/tmp/entrypoint/{file}" for file in files]
+            )
         return self
 
     def build(self) -> str:

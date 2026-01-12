@@ -237,3 +237,33 @@ class TestSclsSubmit:
         assert "Spark Application ID: app-with-name" in result.output
         submit_query = mock_manager().submit.call_args[0][0]
         assert "'spark.app.name' = 'app-name'" in submit_query
+
+    @mock.patch(SCLS_MANAGER)
+    def test_submit_with_files_option(self, mock_manager, runner, tmp_path):
+        """Test submitting a Spark application with --files option."""
+        entrypoint = tmp_path / "app.py"
+
+        mock_manager().upload_file_to_stage.side_effect = [
+            "app.py",
+            "data1.txt",
+            "data2.txt",
+        ]
+        mock_manager().submit.return_value = "Spark Application ID: app-with-files"
+
+        result = runner.invoke(
+            [
+                "spark",
+                "submit",
+                str(entrypoint),
+                "--snow-file-stage",
+                "@my_stage",
+                "--files",
+                "data1.txt,data2.txt",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Spark Application ID: app-with-files" in result.output
+        submit_query = mock_manager().submit.call_args[0][0]
+        assert "spark.files" in submit_query
+        assert "/tmp/entrypoint/data1.txt" in submit_query
+        assert "/tmp/entrypoint/data2.txt" in submit_query
