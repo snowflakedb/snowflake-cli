@@ -193,18 +193,6 @@ class ConfigurationResolver:
         """
         return [s for s in self._sources if s.source_type is source_type]
 
-    def _record_discoveries(self, source_values: Dict[str, ConfigValue]) -> None:
-        """
-        Record all discovered values in history tracker.
-
-        Args:
-            source_values: Dictionary of discovered configuration values
-        """
-        if self._history_observer is None:
-            return
-        for k, config_value in source_values.items():
-            self._history_observer.record_discovery(k, config_value)
-
     def _collect_source_diagnostics(self, source: "ValueSource") -> None:
         diagnostics = []
         consumer = getattr(source, "consume_diagnostics", None)
