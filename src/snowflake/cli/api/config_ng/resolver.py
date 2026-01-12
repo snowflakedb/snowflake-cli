@@ -142,18 +142,13 @@ class ConfigurationResolver:
         if isinstance(observer, ResolutionHistoryTracker):
             self._history_observer = observer
 
-    def ensure_history_tracking(self) -> bool:
-        """
-        Ensure a history tracker is attached.
-
-        Returns:
-            True if a new tracker was attached and observers should be reset.
-        """
-        if self._history_observer is not None:
-            return False
-        history = ResolutionHistoryTracker()
-        self.attach_observer(history)
-        return True
+    def ensure_history_tracking(self) -> None:
+        """Ensure history tracker is attached and has resolution data."""
+        needs_resolve = self._history_observer is None
+        if needs_resolve:
+            history = ResolutionHistoryTracker()
+            self.attach_observer(history)
+            self.resolve()
 
     def _reset_observers(self) -> None:
         for observer in self._observers:

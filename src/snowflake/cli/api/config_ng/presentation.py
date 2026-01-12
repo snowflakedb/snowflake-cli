@@ -90,8 +90,7 @@ class ResolutionPresenter:
         self._resolver = resolver
 
     def _ensure_tracker(self) -> "ResolutionHistoryTracker":
-        if self._resolver.ensure_history_tracking():
-            self._resolver.resolve()
+        self._resolver.ensure_history_tracking()
 
         tracker = self._resolver.get_tracker()
         if tracker is None:

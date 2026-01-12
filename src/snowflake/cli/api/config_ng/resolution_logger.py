@@ -255,8 +255,7 @@ def check_value_source(key: str) -> Optional[str]:
     if resolver is None:
         return None
 
-    if resolver.ensure_history_tracking():
-        resolver.resolve()
+    resolver.ensure_history_tracking()
 
     history = resolver.get_resolution_history(key)
     if history and history.selected_entry:
