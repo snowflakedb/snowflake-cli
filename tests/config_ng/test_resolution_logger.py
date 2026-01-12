@@ -423,3 +423,95 @@ class TestConfigurationExplanationResults:
         assert isinstance(result, MultipleResults)
         outputs = list(result.result)
         assert outputs == [diag_message, table_result, history_message]
+
+    @mock.patch("snowflake.cli.api.config_ng.resolution_logger.ResolutionPresenter")
+    @mock.patch("snowflake.cli.api.config_ng.resolution_logger.get_resolver")
+    @mock.patch(
+        "snowflake.cli.api.config_ng.resolution_logger.get_config_provider_singleton"
+    )
+    def test_connection_filter_passed_to_presenter_non_verbose(
+        self,
+        mock_provider,
+        mock_get_resolver,
+        mock_presenter_cls,
+        windows_home_env,
+    ):
+        """Connection filter should be passed to presenter.build_sources_table."""
+        from snowflake.cli.api.output.types import CollectionResult
+
+        mock_provider.return_value.read_config.return_value = None
+        mock_get_resolver.return_value = object()
+        presenter = mock_presenter_cls.return_value
+        presenter.build_source_diagnostics_message.return_value = None
+        table_result = CollectionResult([])
+        presenter.build_sources_table.return_value = table_result
+
+        env_vars = {ALTERNATIVE_CONFIG_ENV_VAR: "1", **windows_home_env}
+        with mock.patch.dict(os.environ, env_vars, clear=True):
+            get_configuration_explanation_results(connection="prod")
+
+        presenter.build_sources_table.assert_called_once_with(
+            key=None, connection="prod"
+        )
+
+    @mock.patch("snowflake.cli.api.config_ng.resolution_logger.ResolutionPresenter")
+    @mock.patch("snowflake.cli.api.config_ng.resolution_logger.get_resolver")
+    @mock.patch(
+        "snowflake.cli.api.config_ng.resolution_logger.get_config_provider_singleton"
+    )
+    def test_connection_filter_passed_to_presenter_verbose(
+        self,
+        mock_provider,
+        mock_get_resolver,
+        mock_presenter_cls,
+        windows_home_env,
+    ):
+        """Connection filter should be passed to both presenter methods in verbose mode."""
+        from snowflake.cli.api.output.types import CollectionResult, MessageResult
+
+        mock_provider.return_value.read_config.return_value = None
+        mock_get_resolver.return_value = object()
+        presenter = mock_presenter_cls.return_value
+        presenter.build_source_diagnostics_message.return_value = None
+        presenter.build_sources_table.return_value = CollectionResult([])
+        presenter.format_history_message.return_value = MessageResult("history")
+
+        env_vars = {ALTERNATIVE_CONFIG_ENV_VAR: "1", **windows_home_env}
+        with mock.patch.dict(os.environ, env_vars, clear=True):
+            get_configuration_explanation_results(verbose=True, connection="default")
+
+        presenter.build_sources_table.assert_called_once_with(
+            key=None, connection="default"
+        )
+        presenter.format_history_message.assert_called_once_with(
+            key=None, connection="default"
+        )
+
+    @mock.patch("snowflake.cli.api.config_ng.resolution_logger.ResolutionPresenter")
+    @mock.patch("snowflake.cli.api.config_ng.resolution_logger.get_resolver")
+    @mock.patch(
+        "snowflake.cli.api.config_ng.resolution_logger.get_config_provider_singleton"
+    )
+    def test_key_and_connection_filter_combined(
+        self,
+        mock_provider,
+        mock_get_resolver,
+        mock_presenter_cls,
+        windows_home_env,
+    ):
+        """Both key and connection filters should be passed to presenter."""
+        from snowflake.cli.api.output.types import CollectionResult
+
+        mock_provider.return_value.read_config.return_value = None
+        mock_get_resolver.return_value = object()
+        presenter = mock_presenter_cls.return_value
+        presenter.build_source_diagnostics_message.return_value = None
+        presenter.build_sources_table.return_value = CollectionResult([])
+
+        env_vars = {ALTERNATIVE_CONFIG_ENV_VAR: "1", **windows_home_env}
+        with mock.patch.dict(os.environ, env_vars, clear=True):
+            get_configuration_explanation_results(key="account", connection="prod")
+
+        presenter.build_sources_table.assert_called_once_with(
+            key="account", connection="prod"
+        )

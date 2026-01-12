@@ -84,7 +84,9 @@ class TestCommandFunctionality:
         mock_get_results.return_value = CollectionResult([])
         result = runner.invoke(["helpers", COMMAND])
         assert result.exit_code == 0
-        mock_get_results.assert_called_once_with(key=None, verbose=False)
+        mock_get_results.assert_called_once_with(
+            key=None, verbose=False, connection=None
+        )
 
     @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
     @mock.patch("snowflake.cli.api.config_ng.is_resolution_logging_available")
@@ -101,7 +103,9 @@ class TestCommandFunctionality:
         mock_get_results.return_value = CollectionResult([])
         result = runner.invoke(["helpers", COMMAND, "account"])
         assert result.exit_code == 0
-        mock_get_results.assert_called_once_with(key="account", verbose=False)
+        mock_get_results.assert_called_once_with(
+            key="account", verbose=False, connection=None
+        )
 
     @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
     @mock.patch("snowflake.cli.api.config_ng.is_resolution_logging_available")
@@ -124,7 +128,9 @@ class TestCommandFunctionality:
         )
         result = runner.invoke(["helpers", COMMAND, "--show-details"])
         assert result.exit_code == 0
-        mock_get_results.assert_called_once_with(key=None, verbose=True)
+        mock_get_results.assert_called_once_with(
+            key=None, verbose=True, connection=None
+        )
 
     @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
     @mock.patch("snowflake.cli.api.config_ng.is_resolution_logging_available")
@@ -147,7 +153,9 @@ class TestCommandFunctionality:
         )
         result = runner.invoke(["helpers", COMMAND, "-d"])
         assert result.exit_code == 0
-        mock_get_results.assert_called_once_with(key=None, verbose=True)
+        mock_get_results.assert_called_once_with(
+            key=None, verbose=True, connection=None
+        )
 
     @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
     @mock.patch("snowflake.cli.api.config_ng.is_resolution_logging_available")
@@ -170,7 +178,74 @@ class TestCommandFunctionality:
         )
         result = runner.invoke(["helpers", COMMAND, "user", "--show-details"])
         assert result.exit_code == 0
-        mock_get_results.assert_called_once_with(key="user", verbose=True)
+        mock_get_results.assert_called_once_with(
+            key="user", verbose=True, connection=None
+        )
+
+    @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
+    @mock.patch("snowflake.cli.api.config_ng.is_resolution_logging_available")
+    @mock.patch(
+        "snowflake.cli.api.config_ng.resolution_logger.get_configuration_explanation_results"
+    )
+    def test_command_filters_by_connection(
+        self, mock_get_results, mock_is_available, runner
+    ):
+        """Command should filter by connection when --connection is provided."""
+        from snowflake.cli.api.output.types import CollectionResult
+
+        mock_is_available.return_value = True
+        mock_get_results.return_value = CollectionResult([])
+        result = runner.invoke(["helpers", COMMAND, "--connection", "prod"])
+        assert result.exit_code == 0
+        mock_get_results.assert_called_once_with(
+            key=None, verbose=False, connection="prod"
+        )
+
+    @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
+    @mock.patch("snowflake.cli.api.config_ng.is_resolution_logging_available")
+    @mock.patch(
+        "snowflake.cli.api.config_ng.resolution_logger.get_configuration_explanation_results"
+    )
+    def test_command_filters_by_connection_short_flag(
+        self, mock_get_results, mock_is_available, runner
+    ):
+        """Command should filter by connection when -c is used."""
+        from snowflake.cli.api.output.types import CollectionResult
+
+        mock_is_available.return_value = True
+        mock_get_results.return_value = CollectionResult([])
+        result = runner.invoke(["helpers", COMMAND, "-c", "default"])
+        assert result.exit_code == 0
+        mock_get_results.assert_called_once_with(
+            key=None, verbose=False, connection="default"
+        )
+
+    @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)
+    @mock.patch("snowflake.cli.api.config_ng.is_resolution_logging_available")
+    @mock.patch(
+        "snowflake.cli.api.config_ng.resolution_logger.get_configuration_explanation_results"
+    )
+    def test_command_filters_by_connection_with_key_and_details(
+        self, mock_get_results, mock_is_available, runner
+    ):
+        """Command should combine key, connection filter, and details flag."""
+        from snowflake.cli.api.output.types import (
+            CollectionResult,
+            MessageResult,
+            MultipleResults,
+        )
+
+        mock_is_available.return_value = True
+        mock_get_results.return_value = MultipleResults(
+            [CollectionResult([]), MessageResult("test history")]
+        )
+        result = runner.invoke(
+            ["helpers", COMMAND, "account", "-c", "prod", "--show-details"]
+        )
+        assert result.exit_code == 0
+        mock_get_results.assert_called_once_with(
+            key="account", verbose=True, connection="prod"
+        )
 
 
 def _strip_ansi(text: str) -> str:
@@ -192,6 +267,7 @@ class TestCommandHelp:
         assert "show-config-sources" in output
         assert "Show where configuration values come from" in output
         assert "--show-details" in output
+        assert "--connection" in output
         assert "--help" in output
 
     @mock.patch.dict(os.environ, {ALTERNATIVE_CONFIG_ENV_VAR: "1"}, clear=True)

@@ -315,11 +315,18 @@ def explain_configuration(key: Optional[str] = None, verbose: bool = False) -> N
 
 
 def get_configuration_explanation_results(
-    key: Optional[str] = None, verbose: bool = False
+    key: Optional[str] = None,
+    verbose: bool = False,
+    connection: Optional[str] = None,
 ) -> CommandResult:
     """
     Build CommandResult(s) representing a fixed-column sources table and optional
     masked history message, suitable for Snow's output formats.
+
+    Args:
+        key: Specific key to show resolution for, or None for all keys
+        verbose: If True, include detailed resolution history
+        connection: Filter output to show only configuration for this connection name
 
     Returns:
         - CollectionResult for the table (always)
@@ -342,13 +349,17 @@ def get_configuration_explanation_results(
 
     presenter = ResolutionPresenter(resolver)
     diagnostics_message = presenter.build_source_diagnostics_message()
-    table_result: CollectionResult = presenter.build_sources_table(key)
+    table_result: CollectionResult = presenter.build_sources_table(
+        key=key, connection=connection
+    )
     if not verbose:
         if diagnostics_message:
             return MultipleResults([diagnostics_message, table_result])
         return table_result
 
-    history_message: MessageResult = presenter.format_history_message(key)
+    history_message: MessageResult = presenter.format_history_message(
+        key=key, connection=connection
+    )
     results = [diagnostics_message, table_result, history_message]
     filtered_results = [result for result in results if result is not None]
     return MultipleResults(filtered_results)

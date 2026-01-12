@@ -120,7 +120,9 @@ class ResolutionPresenter:
         """
         return self._resolver.get_resolution_summary()
 
-    def build_sources_table(self, key: Optional[str] = None) -> CollectionResult:
+    def build_sources_table(
+        self, key: Optional[str] = None, connection: Optional[str] = None
+    ) -> CollectionResult:
         """
         Build a tabular view of configuration sources per key.
 
@@ -130,6 +132,7 @@ class ResolutionPresenter:
 
         Args:
             key: Optional specific key to build table for, or None for all keys
+            connection: Optional connection name to filter results for
         """
         tracker = self._ensure_tracker_with_data()
 
@@ -138,6 +141,10 @@ class ResolutionPresenter:
             if key is not None
             else tracker.get_all_histories()
         )
+
+        if connection is not None:
+            prefix = f"connections.{connection}."
+            histories = {k: v for k, v in histories.items() if k.startswith(prefix)}
 
         def _row_items():
             for k, history in histories.items():
@@ -174,13 +181,16 @@ class ResolutionPresenter:
 
         return MessageResult("\n".join(lines))
 
-    def format_history_message(self, key: Optional[str] = None) -> MessageResult:
+    def format_history_message(
+        self, key: Optional[str] = None, connection: Optional[str] = None
+    ) -> MessageResult:
         """
         Build a masked, human-readable history of merging as a single message.
         If key is None, returns concatenated histories for all keys.
 
         Args:
             key: Optional specific key to format, or None for all keys
+            connection: Optional connection name to filter results for
         """
         self._ensure_tracker_with_data()
         histories = (
@@ -188,6 +198,10 @@ class ResolutionPresenter:
             if key is not None
             else self._resolver.get_all_histories()
         )
+
+        if connection is not None:
+            prefix = f"connections.{connection}."
+            histories = {k: v for k, v in histories.items() if k.startswith(prefix)}
 
         if not histories:
             return MessageResult("No resolution history available")

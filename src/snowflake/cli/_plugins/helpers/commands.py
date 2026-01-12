@@ -331,6 +331,12 @@ def show_config_sources(
         None,
         help="Specific configuration key to show resolution for (e.g., 'account', 'user'). If not provided, shows summary for all keys.",
     ),
+    connection: Optional[str] = typer.Option(
+        None,
+        "--connection",
+        "-c",
+        help="Filter output to show only configuration for a specific connection name.",
+    ),
     show_details: bool = typer.Option(
         False,
         "--show-details",
@@ -364,4 +370,6 @@ def show_config_sources(
             f"Then run this command again to see where configuration values come from."
         )
 
-    return get_configuration_explanation_results(key=key, verbose=show_details)
+    return get_configuration_explanation_results(
+        key=key, verbose=show_details, connection=connection
+    )
