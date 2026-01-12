@@ -125,8 +125,8 @@ def test_level5_connection_specific_env_overrides_snowsql_env(config_ng_setup):
         assert conn["role"] == "conn-specific-role"
 
 
-def test_level6_general_env_overrides_connection_specific(config_ng_setup):
-    """SNOWFLAKE_* overrides SNOWFLAKE_CONNECTIONS_*"""
+def test_level6_connection_specific_env_overrides_general_env(config_ng_setup):
+    """SNOWFLAKE_CONNECTIONS_* overrides SNOWFLAKE_*"""
     env_vars = {
         "SNOWFLAKE_CONNECTIONS_TEST_ACCOUNT": "from-conn-specific",
         "SNOWFLAKE_ACCOUNT": "from-general-env",
@@ -137,8 +137,10 @@ def test_level6_general_env_overrides_connection_specific(config_ng_setup):
         from snowflake.cli.api.config import get_connection_dict
 
         conn = get_connection_dict("test")
-        assert conn["account"] == "from-general-env"
-        assert conn["schema"] == "general-schema"
+        assert conn["account"] == "from-conn-specific"  # Connection-specific wins
+        assert (
+            conn["schema"] == "general-schema"
+        )  # General env applies where no specific
 
 
 def test_connection_specific_env_boolean_values_cast(config_ng_setup):
@@ -192,10 +194,10 @@ def test_complete_7_level_chain(config_ng_setup):
     env_vars = {
         "SNOWSQL_ACCOUNT": "level4",
         "SNOWSQL_DATABASE": "level4-db",
-        "SNOWFLAKE_CONNECTIONS_TEST_ACCOUNT": "level5",
-        "SNOWFLAKE_CONNECTIONS_TEST_ROLE": "level5-role",
-        "SNOWFLAKE_ACCOUNT": "level6",
-        "SNOWFLAKE_SCHEMA": "level6-schema",
+        "SNOWFLAKE_ACCOUNT": "level5",
+        "SNOWFLAKE_SCHEMA": "level5-schema",
+        "SNOWFLAKE_CONNECTIONS_TEST_ACCOUNT": "level6",
+        "SNOWFLAKE_CONNECTIONS_TEST_ROLE": "level6-role",
     }
 
     with config_ng_setup(
@@ -208,14 +210,14 @@ def test_complete_7_level_chain(config_ng_setup):
 
         conn = get_connection_dict("test")
 
-        # Level 6 should win for account (general env)
+        # Level 6 should win for account (connection-specific env)
         assert conn["account"] == "level6"
 
-        # Level 6 provides schema (only level with it)
-        assert conn["schema"] == "level6-schema"
+        # Level 5 provides schema (general env, only level with it)
+        assert conn["schema"] == "level5-schema"
 
-        # Level 5 provides role (highest level with it)
-        assert conn["role"] == "level5-role"
+        # Level 6 provides role (connection-specific env)
+        assert conn["role"] == "level6-role"
 
         # Level 4 provides database
         assert conn["database"] == "level4-db"
@@ -496,9 +498,9 @@ def test_all_env_sources_precedence(config_ng_setup):
         conn = get_connection_dict("test")
 
         expected = {
-            "account": "general-env",  # Level 6 wins
-            "schema": "general-schema",  # Level 6 only source
-            "role": "conn-role",  # Level 5 only source
+            "account": "conn-specific",  # Level 6 wins (connection-specific)
+            "schema": "general-schema",  # Level 5 only source (general env)
+            "role": "conn-role",  # Level 6 only source (connection-specific)
             "database": "snowsql-db",  # Level 4 only source
         }
         assert conn == expected
@@ -675,11 +677,11 @@ def test_cli_config_with_all_env_types(config_ng_setup):
         conn = get_connection_dict("test")
 
         expected = {
-            "account": "general-env",  # Level 6 wins
+            "account": "conn-specific",  # Level 6 wins (connection-specific)
             "user": "cli-user",  # Level 2 only
             "database": "snowsql-db",  # Level 4 only
-            "role": "conn-role",  # Level 5 only
-            "schema": "general-schema",  # Level 6 only
+            "role": "conn-role",  # Level 6 only (connection-specific)
+            "schema": "general-schema",  # Level 5 only (general env)
         }
         assert conn == expected
 
@@ -715,11 +717,11 @@ def test_two_files_two_envs_with_gap(config_ng_setup):
         conn = get_connection_dict("test")
 
         expected = {
-            "account": "general-env",  # Level 6 OVERLAY wins
+            "account": "conn-specific",  # Level 6 OVERLAY wins (connection-specific)
             # user NOT inherited - connections_toml replaced entire connection
             "warehouse": "toml-warehouse",  # From connections_toml (FILE)
-            "database": "conn-db",  # Level 5 OVERLAY
-            "schema": "general-schema",  # Level 6 OVERLAY
+            "database": "conn-db",  # Level 6 OVERLAY (connection-specific)
+            "schema": "general-schema",  # Level 5 OVERLAY (general env)
         }
         assert conn == expected
 
@@ -804,12 +806,12 @@ def test_two_files_all_envs(config_ng_setup):
         conn = get_connection_dict("test")
 
         expected = {
-            "account": "general-env",  # Level 6 OVERLAY wins
+            "account": "conn-specific",  # Level 6 OVERLAY wins (connection-specific)
             # user NOT inherited - cli_config (level 2) replaced snowsql connection
             "password": "cli-password",  # From cli_config (FILE)
             "database": "snowsql-db",  # Level 4 OVERLAY
-            "role": "conn-role",  # Level 5 OVERLAY
-            "warehouse": "general-warehouse",  # Level 6 OVERLAY
+            "role": "conn-role",  # Level 6 OVERLAY (connection-specific)
+            "warehouse": "general-warehouse",  # Level 5 OVERLAY (general env)
         }
         assert conn == expected
 
@@ -1045,8 +1047,8 @@ def test_account_parameter_across_all_sources(config_ng_setup):
 
     env_vars = {
         "SNOWSQL_ACCOUNT": "level4-account",
-        "SNOWFLAKE_CONNECTIONS_TEST_ACCOUNT": "level5-account",
-        "SNOWFLAKE_ACCOUNT": "level6-account",
+        "SNOWFLAKE_CONNECTIONS_TEST_ACCOUNT": "level6-account",
+        "SNOWFLAKE_ACCOUNT": "level5-account",
     }
 
     with config_ng_setup(
@@ -1061,6 +1063,133 @@ def test_account_parameter_across_all_sources(config_ng_setup):
 
         # Only account should be present since all sources only provide account
         expected = {
-            "account": "level6-account",  # Level 6 (general env) wins
+            "account": "level6-account",  # Level 6 (connection-specific env) wins
         }
         assert conn == expected
+
+
+def test_cli_args_override_connection_specific_env():
+    """
+    Test CLI args (Level 7) override connection-specific env vars (Level 6).
+
+    This verifies the full precedence chain where CLI arguments have the
+    highest priority and override all other sources including connection-specific
+    environment variables.
+    """
+    from snowflake.cli.api.config_ng import (
+        CliConfigFile,
+        CliEnvironment,
+        CliParameters,
+        ConnectionSpecificEnvironment,
+    )
+    from snowflake.cli.api.config_ng.resolver import ConfigurationResolver
+
+    cli_config = CliConfigFile.from_string(
+        """
+        [connections.test]
+        account = "file-account"
+        user = "file-user"
+        """
+    )
+
+    # Simulate env vars by creating sources with mocked discover
+    class MockCliEnvironment(CliEnvironment):
+        def discover(self, key=None):
+            return {"account": "general-env-account", "database": "general-env-db"}
+
+    class MockConnectionSpecificEnvironment(ConnectionSpecificEnvironment):
+        def discover(self, key=None):
+            return {
+                "connections": {
+                    "test": {
+                        "account": "conn-specific-account",
+                        "warehouse": "conn-specific-warehouse",
+                    }
+                }
+            }
+
+    # CLI args with highest priority
+    cli_params = CliParameters(
+        cli_context={"account": "cli-arg-account", "role": "cli-arg-role"}
+    )
+
+    resolver = ConfigurationResolver(
+        sources=[
+            cli_config,
+            MockCliEnvironment(),
+            MockConnectionSpecificEnvironment(),
+            cli_params,
+        ]
+    )
+
+    resolved = resolver.resolve()
+    conn = resolved.get("connections", {}).get("test", {})
+
+    # CLI args should win for account (overriding both general and connection-specific env)
+    assert conn["account"] == "cli-arg-account"
+    # CLI args should win for role (not in other sources)
+    assert conn["role"] == "cli-arg-role"
+    # Connection-specific env should win for warehouse (no CLI arg)
+    assert conn["warehouse"] == "conn-specific-warehouse"
+    # General env should win for database (no CLI arg, no connection-specific)
+    assert conn["database"] == "general-env-db"
+    # File should win for user (not overridden by any env or CLI arg)
+    assert conn["user"] == "file-user"
+
+
+def test_connection_specific_env_overrides_general_env():
+    """
+    Test connection-specific env vars (Level 6) override general env vars (Level 5).
+
+    This verifies the new precedence where SNOWFLAKE_CONNECTIONS_<name>_<key>
+    takes priority over SNOWFLAKE_<key>.
+    """
+    from snowflake.cli.api.config_ng import (
+        CliConfigFile,
+        CliEnvironment,
+        ConnectionSpecificEnvironment,
+    )
+    from snowflake.cli.api.config_ng.resolver import ConfigurationResolver
+
+    cli_config = CliConfigFile.from_string(
+        """
+        [connections.myconn]
+        user = "file-user"
+        """
+    )
+
+    # Simulate env vars by creating sources with mocked discover
+    class MockCliEnvironment(CliEnvironment):
+        def discover(self, key=None):
+            return {
+                "account": "general-env-account",
+                "warehouse": "general-env-warehouse",
+            }
+
+    class MockConnectionSpecificEnvironment(ConnectionSpecificEnvironment):
+        def discover(self, key=None):
+            return {
+                "connections": {
+                    "myconn": {
+                        "account": "conn-specific-account",
+                    }
+                }
+            }
+
+    resolver = ConfigurationResolver(
+        sources=[
+            cli_config,
+            MockCliEnvironment(),
+            MockConnectionSpecificEnvironment(),
+        ]
+    )
+
+    resolved = resolver.resolve()
+    conn = resolved.get("connections", {}).get("myconn", {})
+
+    # Connection-specific env should override general env for account
+    assert conn["account"] == "conn-specific-account"
+    # General env should apply where no connection-specific value exists
+    assert conn["warehouse"] == "general-env-warehouse"
+    # File value should be preserved
+    assert conn["user"] == "file-user"

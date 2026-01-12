@@ -353,8 +353,9 @@ def test_empty_connection_replacement(config_ng_setup):
 
 def test_overlay_precedence_connection_specific_over_global(config_ng_setup):
     """
-    Test OVERLAY precedence: global env (SNOWFLAKE_*) overrides connection-specific env.
-    Source order: connection_specific_env (#5) < cli_env (#6)
+    Test OVERLAY precedence: connection-specific env (SNOWFLAKE_CONNECTIONS_*)
+    overrides global env (SNOWFLAKE_*).
+    Source order: cli_env (#5) < connection_specific_env (#6)
     """
     cli_config = """
     [connections.test]
@@ -373,8 +374,8 @@ def test_overlay_precedence_connection_specific_over_global(config_ng_setup):
         conn = get_connection_dict("test")
 
         assert conn["account"] == "cli-account"
-        # Global env (later OVERLAY source) overrides connection-specific env
-        assert conn["user"] == "global-user"
+        # Connection-specific env (later OVERLAY source) overrides global env
+        assert conn["user"] == "specific-user"
         # Global env applies when no specific override exists
         assert conn["warehouse"] == "global-warehouse"
 

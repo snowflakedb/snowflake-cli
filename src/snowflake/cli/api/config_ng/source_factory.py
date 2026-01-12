@@ -31,8 +31,8 @@ def create_default_sources(
     2. CLI config.toml (first-found)
     3. Dedicated connections.toml
     4. SnowSQL environment variables (SNOWSQL_*)
-    5. Connection-specific environment variables (SNOWFLAKE_CONNECTIONS_*)
-    6. General CLI environment variables (SNOWFLAKE_*)
+    5. General CLI environment variables (SNOWFLAKE_*)
+    6. Connection-specific environment variables (SNOWFLAKE_CONNECTIONS_*)
     7. CLI command-line arguments (highest priority)
 
     Args:
@@ -56,7 +56,7 @@ def create_default_sources(
         CliConfigFile(),
         ConnectionsConfigFile(),
         SnowSQLEnvironment(),
-        ConnectionSpecificEnvironment(),
         CliEnvironment(),
+        ConnectionSpecificEnvironment(),
         CliParameters(cli_context=cli_context or {}),
     ]
