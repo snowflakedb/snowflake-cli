@@ -25,3 +25,33 @@
   
   '''
 # ---
+# name: TestDCMTest.test_test_all_passing
+  '''
+  
+  ✓ PASS      DB.SCHEMA.EMPLOYEES (ROW_COUNT_CHECK)
+  ✓ PASS      DB.SCHEMA.ORDERS (NULL_CHECK)
+  
+  2 passed, 0 failed out of 2 total.
+  
+  '''
+# ---
+# name: TestDCMTest.test_test_no_expectations
+  '''
+  
+  
+  No expectations found in the project.
+  
+  '''
+# ---
+# name: TestDCMTest.test_test_with_failures
+  '''
+  
+  ✓ PASS      DB.SCHEMA.EMPLOYEES (ROW_COUNT_CHECK)
+  ✗ FAIL      DB.SCHEMA.ORDERS (NULL_CHECK)
+    └─ Expected: = 0, Got: 15 (Metric: null_count)
+  +- Error ----------------------------------------------------------------------+
+  | 1 passed, 1 failed out of 2 total.                                           |
+  +------------------------------------------------------------------------------+
+  
+  '''
+# ---

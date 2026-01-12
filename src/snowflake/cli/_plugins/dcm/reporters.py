@@ -16,8 +16,9 @@ import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Generic, Iterator, List, Optional, TypeVar, Union
+from typing import Any, Dict, Generic, Iterator, List, Optional, TypeVar
 
+from rich.text import Text
 from snowflake.cli._plugins.dcm import styles
 from snowflake.cli.api.console.console import cli_console
 from snowflake.cli.api.exceptions import CliError
@@ -49,11 +50,25 @@ class Reporter(ABC, Generic[T]):
         ...
 
     @abstractmethod
-    def print_summary(self) -> None:
-        """Print a summary."""
+    def _is_success(self) -> bool:
+        """Check if underlying operation passed without errors"""
         ...
 
+    @abstractmethod
+    def _generate_summary_renderables(self) -> List[Text]:
+        """Generate a list of rich renderables to be printed as success or error message"""
+        ...
+
+    def print_summary(self) -> None:
+        """Print operation summary when the result is successful."""
+        renderables = self._generate_summary_renderables()
+        cli_console.styled_message("\n")
+        for renderable in renderables:
+            cli_console.styled_message(renderable.plain, style=renderable.style)
+        cli_console.styled_message("\n")
+
     def process(self, cursor: SnowflakeCursor) -> None:
+        """Process cursor data and print results."""
         row = cursor.fetchone()
         if not row:
             cli_console.styled_message("No data.\n")
@@ -74,7 +89,156 @@ class Reporter(ABC, Generic[T]):
         raw_data = self.extract_data(result_json)
         parsed_data: Iterator[T] = self.parse_data(raw_data)
         self.print_renderables(parsed_data)
-        self.print_summary()
+        if self._is_success():
+            self.print_summary()
+        else:
+            message = "".join(
+                renderable.plain for renderable in self._generate_summary_renderables()
+            )
+            raise CliError(message)
+
+
+class TestStatus(Enum):
+    __test__ = False  # Prevent pytest collection
+
+    UNKNOWN = "UNKNOWN"
+    PASS = "PASS"
+    FAIL = "FAIL"
+
+
+@dataclass
+class TestRow:
+    __test__ = False  # Prevent pytest collection
+
+    table_name: str = "UNKNOWN"
+    expectation_name: str = "UNKNOWN"
+    status: TestStatus = TestStatus.UNKNOWN
+    expectation_expression: str = ""
+    metric_name: str = ""
+    actual_value: str = ""
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> Optional["TestRow"]:
+        def _get(key):
+            return sanitize_for_terminal(str(data.get(key, "UNKNOWN")))
+
+        if not isinstance(data, dict):
+            log.debug("Unexpected test entry type: %s", type(data))
+            return None
+
+        row = cls(
+            table_name=_get("table_name"),
+            expectation_name=_get("expectation_name"),
+            expectation_expression=_get("expectation_expression"),
+            metric_name=_get("metric_name"),
+            actual_value=_get("value"),
+        )
+
+        expectation_violated = data.get("expectation_violated")
+        if expectation_violated is True:
+            row.status = TestStatus.FAIL
+        elif expectation_violated is False:
+            row.status = TestStatus.PASS
+        else:
+            row.status = TestStatus.UNKNOWN
+        return row
+
+
+class TestReporter(Reporter[TestRow]):
+    __test__ = False  # Prevent pytest collection
+
+    STATUS_WIDTH = 11
+    _DATA_KEY = "expectations"
+
+    @dataclass
+    class Summary:
+        passed: int = 0
+        failed: int = 0
+        unknown: int = 0
+
+        @property
+        def total(self):
+            return self.passed + self.failed + self.unknown
+
+    def __init__(self):
+        super().__init__()
+        self.command_name = "test"
+        self._summary = self.Summary()
+
+    def extract_data(self, result_json: Dict[str, Any]) -> List[Dict[str, Any]]:
+        if not isinstance(result_json, dict):
+            log.debug("Unexpected response type: %s, expected dict", type(result_json))
+            raise CliError("Could not process response.")
+
+        expectations = result_json.get(self._DATA_KEY, list())
+
+        if not isinstance(expectations, list):
+            log.warning(
+                "Unexpected expectations type: %s, expected list",
+                type(expectations),
+            )
+            raise CliError("Could not process response.")
+
+        return expectations
+
+    def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[TestRow]:
+        for row in data:
+            parsed = TestRow.from_dict(row)
+            if parsed is not None:
+                if parsed.status == TestStatus.PASS:
+                    self._summary.passed += 1
+                elif parsed.status == TestStatus.FAIL:
+                    self._summary.failed += 1
+                else:
+                    self._summary.unknown += 1
+                yield parsed
+
+    def print_renderables(self, data: Iterator[TestRow]) -> None:
+        for row in data:
+            if row.status == TestStatus.PASS:
+                status_text = "✓ PASS"
+                style = styles.PASS_STYLE
+            elif row.status == TestStatus.FAIL:
+                status_text = "✗ FAIL"
+                style = styles.FAIL_STYLE
+            else:
+                status_text = "? UNKNOWN"
+                style = styles.STATUS_STYLE
+
+            cli_console.styled_message(
+                status_text.ljust(self.STATUS_WIDTH) + " ",
+                style=style,
+            )
+            cli_console.styled_message(row.table_name, style=styles.DOMAIN_STYLE)
+            cli_console.styled_message(f" ({row.expectation_name})")
+            cli_console.styled_message("\n")
+
+            if row.status == TestStatus.FAIL:
+                cli_console.styled_message(
+                    f"  └─ Expected: {row.expectation_expression}, "
+                    f"Got: {row.actual_value} (Metric: {row.metric_name})\n"
+                )
+
+    def _generate_summary_renderables(self) -> List[Text]:
+        total = self._summary.total
+        if total == 0:
+            return [Text("No expectations found in the project.")]
+
+        result = [
+            (Text(f"{self._summary.passed} passed", styles.PASS_STYLE)),
+            (Text(", ")),
+            (Text(f"{self._summary.failed} failed", styles.FAIL_STYLE)),
+        ]
+        if self._summary.unknown > 0:
+            result.append(Text(", "))
+            result.append(Text(f"{self._summary.unknown} unknown", styles.FAIL_STYLE))
+        result.append(Text(" out of "))
+        result.append(Text(f"{total}", styles.BOLD_STYLE))
+        result.append(Text(" total."))
+        return result
+
+    def _is_success(self) -> bool:
+        return self._summary.failed + self._summary.unknown == 0
 
 
 class RefreshStatus(Enum):
@@ -89,6 +253,12 @@ class RefreshRow:
     status: RefreshStatus = RefreshStatus.UNKNOWN
     _inserted: int = field(default=0, repr=False)
     _deleted: int = field(default=0, repr=False)
+
+    _EMPTY_STAT = "No new data"
+    _STATISTICS_KEY = "statistics"
+    _DYNAMIC_TABLE_KEY = "dt_name"
+    _INSERTED_KEY = "insertedRows"
+    _DELETED_KEY = "deletedRows"
 
     @staticmethod
     def _safe_int(value: Any) -> int:
@@ -123,6 +293,46 @@ class RefreshRow:
                 return formatted
 
         return str(num)
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> Optional["RefreshRow"]:
+        if not isinstance(data, dict):
+            log.debug("Unexpected table entry type: %s", type(data))
+            return None
+
+        raw_dt_name = data.get(cls._DYNAMIC_TABLE_KEY, "UNKNOWN")
+        dt_name = sanitize_for_terminal(str(raw_dt_name))
+        row = cls(dt_name=dt_name)
+
+        statistics = data.get(cls._STATISTICS_KEY)
+        if statistics is None:
+            return row
+
+        if isinstance(statistics, dict):
+            row.inserted = statistics.get(cls._INSERTED_KEY, 0)
+            row.deleted = statistics.get(cls._DELETED_KEY, 0)
+        elif isinstance(statistics, str):
+            if statistics == cls._EMPTY_STAT:
+                row.inserted = 0
+                row.deleted = 0
+            elif statistics.startswith("{"):
+                try:
+                    stats_data = json.loads(statistics)
+                    row.inserted = stats_data.get(cls._INSERTED_KEY, 0)
+                    row.deleted = stats_data.get(cls._DELETED_KEY, 0)
+                except json.JSONDecodeError:
+                    log.debug("Failed to parse statistics JSON: %r", statistics)
+                    return row
+            else:
+                log.debug("Unexpected statistics format: %r", statistics)
+                return row
+
+        if row.inserted == 0 and row.deleted == 0:
+            row.status = RefreshStatus.UP_TO_DATE
+        else:
+            row.status = RefreshStatus.REFRESHED
+
+        return row
 
     @property
     def inserted(self) -> int:
@@ -162,12 +372,7 @@ class RefreshRow:
 class RefreshReporter(Reporter[RefreshRow]):
     STATUS_WIDTH = 11
     STATS_WIDTH = 7
-    _EMPTY_STAT = "No new data"
     _DATA_KEY = "refreshed_tables"
-    _STATISTICS_KEY = "statistics"
-    _DYNAMIC_TABLE_KEY = "dt_name"
-    _INSERTED_KEY = "insertedRows"
-    _DELETED_KEY = "deletedRows"
 
     @dataclass
     class Summary:
@@ -200,59 +405,20 @@ class RefreshReporter(Reporter[RefreshRow]):
 
         return refreshed_tables
 
-    def _parse_statistics(
-        self, row: Union[Dict[str, Any], Any]
-    ) -> Optional[RefreshRow]:
-        """Parse statistics from various formats into a normalized dict."""
-        if not isinstance(row, dict):
-            log.debug("Unexpected table entry type: %s", type(row))
-            self._summary.unknown += 1
-            return None
-
-        raw_dt_name = row.get(self._DYNAMIC_TABLE_KEY, "UNKNOWN")
-        dt_name = sanitize_for_terminal(raw_dt_name)
-        new_row = RefreshRow(dt_name=dt_name)
-        statistics = row.get(self._STATISTICS_KEY, None)
-
-        if statistics is None:
-            self._summary.unknown += 1
-            return RefreshRow(dt_name=dt_name)
-
-        if isinstance(statistics, dict):
-            new_row.inserted = statistics.get(self._INSERTED_KEY, 0)
-            new_row.deleted = statistics.get(self._DELETED_KEY, 0)
-
-        if isinstance(statistics, str):
-            if statistics == self._EMPTY_STAT:
-                new_row.inserted = 0
-                new_row.deleted = 0
-            elif statistics.startswith("{"):
-                try:
-                    data = json.loads(statistics)
-                    new_row.inserted = data.get(self._INSERTED_KEY, 0)
-                    new_row.deleted = data.get(self._DELETED_KEY, 0)
-                except json.JSONDecodeError:
-                    log.debug("Failed to parse statistics JSON: %r", statistics)
-                    self._summary.unknown += 1
-                    return RefreshRow(dt_name=dt_name)
-            else:
-                log.debug("Unexpected statistics format: %r", statistics)
-                self._summary.unknown += 1
-                return RefreshRow(dt_name=dt_name)
-
-        if new_row.inserted == 0 and new_row.deleted == 0:
-            new_row.status = RefreshStatus.UP_TO_DATE
-            self._summary.up_to_date += 1
-        else:
-            new_row.status = RefreshStatus.REFRESHED
-            self._summary.refreshed += 1
-        return new_row
-
     def parse_data(self, data: List[Dict[str, Any]]) -> Iterator[RefreshRow]:
         for row in data:
-            parsed = self._parse_statistics(row)
-            if parsed is not None:
-                yield parsed
+            parsed = RefreshRow.from_dict(row)
+            if parsed is None:
+                self._summary.unknown += 1
+                continue
+
+            if parsed.status == RefreshStatus.UP_TO_DATE:
+                self._summary.up_to_date += 1
+            elif parsed.status == RefreshStatus.REFRESHED:
+                self._summary.refreshed += 1
+            else:
+                self._summary.unknown += 1
+            yield parsed
 
     def print_renderables(self, data: Iterator[RefreshRow]) -> None:
         for row in data:
@@ -271,13 +437,10 @@ class RefreshReporter(Reporter[RefreshRow]):
             cli_console.styled_message(row.dt_name, style=styles.DOMAIN_STYLE)
             cli_console.styled_message("\n")
 
-    def print_summary(self) -> None:
-        cli_console.styled_message("\n")
+    def _generate_summary_renderables(self) -> List[Text]:
         total = self._summary.total
         if total == 0:
-            return cli_console.styled_message(
-                "No dynamic tables found in the project.\n"
-            )
+            return [Text("No dynamic tables found in the project.")]
 
         parts = []
         if (refreshed := self._summary.refreshed) > 0:
@@ -292,6 +455,8 @@ class RefreshReporter(Reporter[RefreshRow]):
             if i > 0:
                 summary += ", "
             summary += part
-        summary += ".\n"
+        summary += "."
+        return [Text(summary)]
 
-        cli_console.styled_message(summary)
+    def _is_success(self) -> bool:
+        return self._summary.unknown == 0
