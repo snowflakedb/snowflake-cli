@@ -40,6 +40,12 @@ def submit(
         help="Application arguments.",
         show_default=False,
     ),
+    image: Optional[str] = typer.Option(
+        None,
+        "--image",
+        help="The docker image to use for the Spark application. (for development only)",
+        show_default=False,
+    ),
     class_name: Optional[str] = typer.Option(
         None,
         "--class",
@@ -141,5 +147,5 @@ def submit(
             query_builder.with_files(uploaded_files)
 
         # e.g. Spark Application submitted successfully. Spark Application ID: <id>
-        result_message = manager.submit(query_builder.build())
+        result_message = manager.submit(query_builder.build(), image)
         return MessageResult(result_message)
