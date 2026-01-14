@@ -451,3 +451,52 @@ def test_object_create_if_not_exist_and_replace(runner, test_database):
     )
     assert result.exit_code == 0, result.output
     assert "successfully created" in result.output
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "object_type,create_sql_template",
+    [
+        ("table", "CREATE TABLE {name} (id NUMBER)"),
+        ("schema", "CREATE SCHEMA {name}"),
+    ],
+)
+def test_drop_if_exists(runner, test_database, object_type, create_sql_template):
+    """Test that --if-exists flag prevents errors when dropping non-existent objects."""
+    object_name = ObjectNameProvider(
+        f"Test_Drop_If_Exists_{object_type}"
+    ).create_and_get_next_object_name()
+
+    # Create the object using SQL command via CLI
+    create_sql = create_sql_template.format(name=object_name)
+    result = runner.invoke_with_connection(["sql", "-q", create_sql])
+    assert result.exit_code == 0, result.output
+
+    # Drop with --if-exists (object exists) - should succeed
+    result = runner.invoke_with_connection(
+        ["object", "drop", object_type, object_name, "--if-exists"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "successfully dropped" in result.output.lower()
+
+    # Drop again with --if-exists (object already gone) - should still succeed
+    result = runner.invoke_with_connection(
+        ["object", "drop", object_type, object_name, "--if-exists"]
+    )
+    assert result.exit_code == 0, result.output
+    assert "already dropped" in result.output.lower()
+
+
+@pytest.mark.integration
+def test_drop_without_if_exists_fails_for_nonexistent_object(runner, test_database):
+    """Test that drop without --if-exists fails when object doesn't exist."""
+    object_name = ObjectNameProvider(
+        "Test_Drop_No_If_Exists"
+    ).create_and_get_next_object_name()
+
+    # Try to drop a non-existent table without --if-exists - should fail
+    result = runner.invoke_with_connection(
+        ["object", "drop", "table", object_name], catch_exceptions=True
+    )
+    assert result.exit_code == 1, result.output
+    assert "does not exist" in result.output.lower()

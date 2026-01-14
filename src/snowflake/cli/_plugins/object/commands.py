@@ -21,6 +21,7 @@ from click import ClickException
 from snowflake.cli._plugins.object.manager import ObjectManager
 from snowflake.cli.api.commands.flags import (
     IdentifierType,
+    IfExistsOption,
     IfNotExistsOption,
     ReplaceOption,
     like_option,
@@ -148,8 +149,17 @@ def list_(
     help=f"Drops Snowflake object of given name and type. {SUPPORTED_TYPES_MSG}",
     requires_connection=True,
 )
-def drop(object_type: str = ObjectArgument, object_name: FQN = NameArgument, **options):
-    return QueryResult(ObjectManager().drop(object_type=object_type, fqn=object_name))
+def drop(
+    object_type: str = ObjectArgument,
+    object_name: FQN = NameArgument,
+    if_exists: bool = IfExistsOption(),
+    **options,
+):
+    return QueryResult(
+        ObjectManager().drop(
+            object_type=object_type, fqn=object_name, if_exists=if_exists
+        )
+    )
 
 
 # Image repository is the only supported object that does not have a DESCRIBE command.

@@ -437,6 +437,216 @@
   
   '''
 # ---
+# name: test_drop_with_if_exists[compute-pool-compute_pool_example]
+  '''
+  +--------------------------------------------+
+  | status                                     |
+  |--------------------------------------------|
+  | compute_pool_example successfully dropped. |
+  +--------------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[database-database_example]
+  '''
+  +----------------------------------------+
+  | status                                 |
+  |----------------------------------------|
+  | database_example successfully dropped. |
+  +----------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[function-function_example]
+  '''
+  +----------------------------------------+
+  | status                                 |
+  |----------------------------------------|
+  | function_example successfully dropped. |
+  +----------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[git-repository-git_repository_example]
+  '''
+  +----------------------------------------------+
+  | status                                       |
+  |----------------------------------------------|
+  | git_repository_example successfully dropped. |
+  +----------------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[image-repository-image_repository_example]
+  '''
+  +------------------------------------------------+
+  | status                                         |
+  |------------------------------------------------|
+  | image_repository_example successfully dropped. |
+  +------------------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[integration-integration_example]
+  '''
+  +-------------------------------------------+
+  | status                                    |
+  |-------------------------------------------|
+  | integration_example successfully dropped. |
+  +-------------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[network-rule-network_rule_example]
+  '''
+  +--------------------------------------------+
+  | status                                     |
+  |--------------------------------------------|
+  | network_rule_example successfully dropped. |
+  +--------------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[notebook-notebook_example]
+  '''
+  +----------------------------------------+
+  | status                                 |
+  |----------------------------------------|
+  | notebook_example successfully dropped. |
+  +----------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[procedure-procedure_example]
+  '''
+  +-----------------------------------------+
+  | status                                  |
+  |-----------------------------------------|
+  | procedure_example successfully dropped. |
+  +-----------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[role-role_example]
+  '''
+  +------------------------------------+
+  | status                             |
+  |------------------------------------|
+  | role_example successfully dropped. |
+  +------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[schema-schema_example]
+  '''
+  +--------------------------------------+
+  | status                               |
+  |--------------------------------------|
+  | schema_example successfully dropped. |
+  +--------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[secret-secret_example]
+  '''
+  +--------------------------------------+
+  | status                               |
+  |--------------------------------------|
+  | secret_example successfully dropped. |
+  +--------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[service-service_example]
+  '''
+  +---------------------------------------+
+  | status                                |
+  |---------------------------------------|
+  | service_example successfully dropped. |
+  +---------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[stage-stage_example]
+  '''
+  +-------------------------------------+
+  | status                              |
+  |-------------------------------------|
+  | stage_example successfully dropped. |
+  +-------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[stream-stream_example]
+  '''
+  +--------------------------------------+
+  | status                               |
+  |--------------------------------------|
+  | stream_example successfully dropped. |
+  +--------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[streamlit-streamlit_example]
+  '''
+  +-----------------------------------------+
+  | status                                  |
+  |-----------------------------------------|
+  | streamlit_example successfully dropped. |
+  +-----------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[table-table_example]
+  '''
+  +-------------------------------------+
+  | status                              |
+  |-------------------------------------|
+  | table_example successfully dropped. |
+  +-------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[task-task_example]
+  '''
+  +------------------------------------+
+  | status                             |
+  |------------------------------------|
+  | task_example successfully dropped. |
+  +------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[user-user_example]
+  '''
+  +------------------------------------+
+  | status                             |
+  |------------------------------------|
+  | user_example successfully dropped. |
+  +------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[view-view_example]
+  '''
+  +------------------------------------+
+  | status                             |
+  |------------------------------------|
+  | view_example successfully dropped. |
+  +------------------------------------+
+  
+  '''
+# ---
+# name: test_drop_with_if_exists[warehouse-warehouse_example]
+  '''
+  +-----------------------------------------+
+  | status                                  |
+  |-----------------------------------------|
+  | warehouse_example successfully dropped. |
+  +-----------------------------------------+
+  
+  '''
+# ---
 # name: test_replace_and_not_exists_cannot_be_used_together
   '''
   Usage: root object create [OPTIONS] OBJECT_TYPE [OBJECT_ATTRIBUTES]...
