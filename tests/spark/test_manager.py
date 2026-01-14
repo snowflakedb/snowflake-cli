@@ -36,12 +36,13 @@ class TestSclsManager:
 
         manager = SparkManager()
         result = manager.submit(
-            submit_query="EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@my_stage/jars:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/app.jar' CLASS = 'com.example.Main' SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle', 'spark.eventLog.enabled' = 'false') RESOURCE_CONSTRAINT='CPU_2X_X86'"
+            submit_query="EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@my_stage/jars:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/app.jar' CLASS = 'com.example.Main' SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle', 'spark.eventLog.enabled' = 'false') RESOURCE_CONSTRAINT='CPU_2X_X86'",
+            image=None,
         )
 
         assert result == "Spark Application submitted successfully. ID: app-123"
         mock_execute_query.assert_any_call(
-            "EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@my_stage/jars:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/app.jar' CLASS = 'com.example.Main' SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle', 'spark.eventLog.enabled' = 'false') RESOURCE_CONSTRAINT='CPU_2X_X86'"
+            "EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@my_stage/jars:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/app.jar' CLASS = 'com.example.Main' SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle', 'spark.eventLog.enabled' = 'false') RESOURCE_CONSTRAINT='CPU_2X_X86'",
         )
 
     @mock.patch(f"{SCLS_MANAGER}._set_session_config")
@@ -55,7 +56,8 @@ class TestSclsManager:
         manager = SparkManager()
         with pytest.raises(ClickException) as exc_info:
             manager.submit(
-                submit_query="EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@my_stage/jars:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/app.jar' CLASS = 'com.example.Main' SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle', 'spark.eventLog.enabled' = 'false') RESOURCE_CONSTRAINT='CPU_2X_X86'"
+                submit_query="EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@my_stage/jars:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/app.jar' CLASS = 'com.example.Main' SPARK_CONFIGURATIONS=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle', 'spark.eventLog.enabled' = 'false') RESOURCE_CONSTRAINT='CPU_2X_X86'",
+                image=None,
             )
 
         assert "Failed to submit Spark application" in str(exc_info.value.message)

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import logging
-from typing import List, Optional
+from typing import Dict, List, Optional, Union
 
 from click import ClickException
 from snowflake.cli.api.sql_execution import SqlExecutionMixin
@@ -65,12 +65,17 @@ class SubmitQueryBuilder:
             )
         return self
 
-    def with_conf(self, confs: Optional[List[str]]) -> "SubmitQueryBuilder":
-        self.confs = confs
-        if confs and len(confs) > 0:
-            for conf in confs:
-                key, value = conf.split("=", 1)
-                self.spark_configurations[key] = value
+    def with_conf(
+        self, confs: Optional[Union[List[str], Dict[str, str]]]
+    ) -> "SubmitQueryBuilder":
+        if confs:
+            if isinstance(confs, dict):
+                for key, value in confs.items():
+                    self.spark_configurations[key] = value
+            else:
+                for conf in confs:
+                    key, value = conf.split("=", 1)
+                    self.spark_configurations[key] = value
         return self
 
     def with_name(self, name: Optional[str]) -> "SubmitQueryBuilder":
@@ -146,7 +151,7 @@ class SparkManager(SqlExecutionMixin):
     def submit(
         self,
         submit_query: str,
-        image: Optional[str] = None,
+        image: Optional[str],
     ):
         try:
             self._set_session_config(image)

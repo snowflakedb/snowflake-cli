@@ -62,7 +62,8 @@ class TestSclsSubmit:
             str(entrypoint), "@my_stage/jars"
         )
         mock_manager().submit.assert_called_once_with(
-            "EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@my_stage/jars:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/test.jar' CLASS = 'com.example.Main' SPARK_CONFIGURATION=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle') RESOURCE_CONSTRAINT='CPU_2X_X86'"
+            "EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@my_stage/jars:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/test.jar' CLASS = 'com.example.Main' SPARK_CONFIGURATION=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle') RESOURCE_CONSTRAINT='CPU_2X_X86'",
+            None,
         )
 
     @mock.patch(SCLS_MANAGER)
@@ -90,7 +91,8 @@ class TestSclsSubmit:
 
         assert result.exit_code == 0, result.output
         mock_manager().submit.assert_called_once_with(
-            "EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@stage:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/app.jar' CLASS = 'com.example.Main' ARGUMENTS = ('arg1','arg2') SPARK_CONFIGURATION=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle') RESOURCE_CONSTRAINT='CPU_2X_X86'"
+            "EXECUTE SPARK APPLICATION ENVIRONMENT_RUNTIME_VERSION='1.0-preview' STAGE_MOUNTS=('@stage:/tmp/entrypoint') ENTRYPOINT_FILE='/tmp/entrypoint/app.jar' CLASS = 'com.example.Main' ARGUMENTS = ('arg1','arg2') SPARK_CONFIGURATION=('spark.plugins' = 'com.snowflake.spark.SnowflakePlugin', 'spark.snowflake.backend' = 'sparkle') RESOURCE_CONSTRAINT='CPU_2X_X86'",
+            None,
         )
 
     def test_submit_missing_entrypoint_file(self, runner):
@@ -267,3 +269,42 @@ class TestSclsSubmit:
         assert "spark.files" in submit_query
         assert "/tmp/entrypoint/data1.txt" in submit_query
         assert "/tmp/entrypoint/data2.txt" in submit_query
+
+    @mock.patch(SCLS_MANAGER)
+    def test_submit_with_properties_file_option(self, mock_manager, runner, tmp_path):
+        """Test submitting a Spark application with --properties-file option."""
+        entrypoint = tmp_path / "app.py"
+        properties_file = tmp_path / "test.conf"
+        entrypoint.write_text("print('hello')")
+        properties_file.write_text(
+            """
+        # comment 1
+        spark.a 1
+        spark.c    "hello"
+        # comment 2
+        spark.b     true
+        """
+        )
+
+        mock_manager().upload_file_to_stage.return_value = "app.py"
+        mock_manager().submit.return_value = (
+            "Spark Application ID: app-with-properties-file"
+        )
+
+        result = runner.invoke(
+            [
+                "spark",
+                "submit",
+                str(entrypoint),
+                "--snow-file-stage",
+                "@my_stage",
+                "--properties-file",
+                "test.conf",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Spark Application ID: app-with-properties-file" in result.output
+        submit_query = mock_manager().submit.call_args[0][0]
+        assert "'spark.a' = '1'" in submit_query
+        assert "'spark.b' = 'true'" in submit_query
+        assert "'spark.c' = 'hello'" in submit_query

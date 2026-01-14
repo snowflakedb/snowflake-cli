@@ -93,6 +93,12 @@ def submit(
         help="Comma-separated list of files to include in the Spark application. File paths can be accessed via SparkFiles.get(file_name).",
         show_default=False,
     ),
+    properties_file: Optional[str] = typer.Option(
+        None,
+        "--properties-file",
+        help="The path to the properties file to include in the Spark application.  The configuration loaded from the file will override the configuration passed in via --conf.",
+        show_default=False,
+    ),
     **options,
 ):
     """
@@ -115,6 +121,10 @@ def submit(
             .with_application_arguments(application_arguments)
             .with_class_name(class_name)
         )
+
+        if properties_file:
+            conf_dict = _read_properties_file(properties_file)
+            query_builder.with_conf(conf_dict)
 
         if jars:
             jar_paths = jars.split(",")
@@ -149,3 +159,24 @@ def submit(
         # e.g. Spark Application submitted successfully. Spark Application ID: <id>
         result_message = manager.submit(query_builder.build(), image)
         return MessageResult(result_message)
+
+
+def _read_properties_file(file_path: str) -> dict:
+    """
+    Read a spark-submit properties file and return the content as a dict.
+    The file format is expected to be key followed by spaces and then value, one per line.
+    Lines starting with # are treated as comments and ignored.
+    """
+    conf_dict = {}
+    with open(file_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            # Skip empty lines and comments
+            if not line or line.startswith("#"):
+                continue
+            # Parse key-value pairs separated by whitespace
+            parts = line.split(None, 1)  # Split on whitespace, max 2 parts
+            if len(parts) == 2:
+                key, value = parts
+                conf_dict[key] = value.rstrip()
+    return conf_dict
