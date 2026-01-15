@@ -299,7 +299,7 @@ class TestSclsSubmit:
                 "--snow-file-stage",
                 "@my_stage",
                 "--properties-file",
-                "test.conf",
+                str(properties_file),
             ]
         )
         assert result.exit_code == 0, result.output
@@ -308,3 +308,31 @@ class TestSclsSubmit:
         assert "'spark.a' = '1'" in submit_query
         assert "'spark.b' = 'true'" in submit_query
         assert "'spark.c' = 'hello'" in submit_query
+
+    @mock.patch(SCLS_MANAGER)
+    def test_submit_with_driver_java_options_option(
+        self, mock_manager, runner, tmp_path
+    ):
+        """Test submitting a Spark application with --driver-java-options option."""
+        entrypoint = tmp_path / "app.py"
+
+        mock_manager().upload_file_to_stage.return_value = "app.py"
+        mock_manager().submit.return_value = (
+            "Spark Application ID: app-with-driver-java-options"
+        )
+
+        result = runner.invoke(
+            [
+                "spark",
+                "submit",
+                str(entrypoint),
+                "--snow-file-stage",
+                "@my_stage",
+                "--driver-java-options",
+                "-Xmx1024m",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Spark Application ID: app-with-driver-java-options" in result.output
+        submit_query = mock_manager().submit.call_args[0][0]
+        assert "'spark.driver.extraJavaOptions' = '-Xmx1024m'" in submit_query

@@ -35,6 +35,7 @@ class SubmitQueryBuilder:
         self.py_files: Optional[List[str]] = None
         self.name: Optional[str] = None
         self.files: Optional[List[str]] = None
+        self.driver_java_options: Optional[str] = None
 
     def _quote_value(self, value: str) -> str:
         if value.startswith('"') and value.endswith('"'):
@@ -94,6 +95,16 @@ class SubmitQueryBuilder:
             self.spark_configurations["spark.files"] = ",".join(
                 [f"/tmp/entrypoint/{file}" for file in files]
             )
+        return self
+
+    def with_driver_java_options(
+        self, driver_java_options: Optional[str]
+    ) -> "SubmitQueryBuilder":
+        self.driver_java_options = driver_java_options
+        if driver_java_options:
+            self.spark_configurations[
+                "spark.driver.extraJavaOptions"
+            ] = driver_java_options
         return self
 
     def build(self) -> str:

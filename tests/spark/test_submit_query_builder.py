@@ -354,3 +354,23 @@ class TestSubmitQueryBuilder:
         assert "'spark.a' = '1'" in query
         assert "'spark.c' = 'hello'" in query
         assert "'spark.b' = 'true'" in query
+
+    def test_build_with_driver_java_options(self):
+        """Test building query with driver java options."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_driver_java_options("-Xmx1024m")
+
+        query = builder.build()
+        assert "'spark.driver.extraJavaOptions' = '-Xmx1024m'" in query
+
+    def test_build_with_empty_driver_java_options(self):
+        """Test building query with empty driver java options does not add spark.driver.extraJavaOptions."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_driver_java_options("")
+
+        query = builder.build()
+        assert "spark.driver.extraJavaOptions" not in query

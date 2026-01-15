@@ -99,6 +99,12 @@ def submit(
         help="The path to the properties file to include in the Spark application.  The configuration loaded from the file will override the configuration passed in via --conf.",
         show_default=False,
     ),
+    driver_java_options: Optional[str] = typer.Option(
+        None,
+        "--driver-java-options",
+        help="Java options for the driver process.",
+        show_default=False,
+    ),
     **options,
 ):
     """
@@ -155,6 +161,8 @@ def submit(
                 for file_path in file_paths
             ]
             query_builder.with_files(uploaded_files)
+        if driver_java_options:
+            query_builder.with_driver_java_options(driver_java_options)
 
         # e.g. Spark Application submitted successfully. Spark Application ID: <id>
         result_message = manager.submit(query_builder.build(), image)
