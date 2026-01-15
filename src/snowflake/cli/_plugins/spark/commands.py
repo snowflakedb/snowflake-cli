@@ -63,6 +63,12 @@ def submit(
         help=f"Check the status of the Spark application by its ID. (e.g. snow spark submit --status [id])",
         show_default=False,
     ),
+    kill: Optional[str] = typer.Option(
+        None,
+        "--kill",
+        help=f"Kill the Spark application by its ID. (e.g. snow spark submit --kill [id])",
+        show_default=False,
+    ),
     jars: Optional[str] = typer.Option(
         None,
         "--jars",
@@ -113,6 +119,8 @@ def submit(
     manager = SparkManager()
     if status:
         return MessageResult(manager.check_status(status))
+    elif kill:
+        return MessageResult(manager.kill(kill))
     else:
         # validate required arguments
         if not entrypoint_file:

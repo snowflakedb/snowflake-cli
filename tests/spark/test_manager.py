@@ -182,3 +182,27 @@ class TestSclsManager:
 
         assert "Failed to check status of app-123" in str(exc_info.value.message)
         assert "Query execution failed" in str(exc_info.value.message)
+
+    @mock.patch(f"{SCLS_MANAGER}.execute_query")
+    def test_kill_success(self, mock_execute_query, mock_cursor):
+        """Test successful killing of a Spark application."""
+        mock_execute_query.return_value = mock_cursor(
+            rows=[("Spark Application killed successfully",)],
+            columns=["result"],
+        )
+        manager = SparkManager()
+        result = manager.kill("app-123")
+        assert result == "Spark Application killed successfully"
+        mock_execute_query.assert_called_once_with(
+            "CALL SYSTEM$CANCEL_SPARK_APPLICATION('app-123')"
+        )
+
+    @mock.patch(f"{SCLS_MANAGER}.execute_query")
+    def test_kill_failure_raises_click_exception(self, mock_execute_query):
+        """Test that kill raises ClickException on failure."""
+        mock_execute_query.side_effect = Exception("Query execution failed")
+        manager = SparkManager()
+        with pytest.raises(ClickException) as exc_info:
+            manager.kill("app-123")
+        assert "Failed to kill app-123" in str(exc_info.value.message)
+        assert "Query execution failed" in str(exc_info.value.message)

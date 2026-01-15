@@ -213,3 +213,11 @@ class SparkManager(SqlExecutionMixin):
             raise ClickException(
                 f"Failed to check status of {spark_application_id}: {e}"
             )
+
+    def kill(self, spark_application_id: str):
+        query = f"CALL SYSTEM$CANCEL_SPARK_APPLICATION('{spark_application_id}')"
+        try:
+            result = self.execute_query(query).fetchone()
+            return result[0]
+        except Exception as e:
+            raise ClickException(f"Failed to kill {spark_application_id}: {e}")

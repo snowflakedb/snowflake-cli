@@ -336,3 +336,22 @@ class TestSclsSubmit:
         assert "Spark Application ID: app-with-driver-java-options" in result.output
         submit_query = mock_manager().submit.call_args[0][0]
         assert "'spark.driver.extraJavaOptions' = '-Xmx1024m'" in submit_query
+
+    @mock.patch(SCLS_MANAGER)
+    def test_submit_with_kill_option(self, mock_manager, runner, tmp_path):
+        """Test submitting a Spark application with --kill option."""
+        entrypoint = tmp_path / "app.py"
+
+        mock_manager().kill.return_value = "Spark Application killed successfully"
+
+        result = runner.invoke(
+            [
+                "spark",
+                "submit",
+                "--kill",
+                "app-123",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Spark Application killed successfully" in result.output
+        mock_manager().kill.assert_called_once_with("app-123")
