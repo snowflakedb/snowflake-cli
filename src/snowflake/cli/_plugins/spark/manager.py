@@ -37,6 +37,10 @@ class SubmitQueryBuilder:
         self.files: Optional[List[str]] = None
 
     def _quote_value(self, value: str) -> str:
+        if value.startswith('"') and value.endswith('"'):
+            value = value.strip('"')
+        elif value.startswith("'") and value.endswith("'"):
+            value = value.strip("'")
         return "'" + value.replace("'", "\\'") + "'"
 
     def with_class_name(self, class_name: Optional[str]) -> "SubmitQueryBuilder":

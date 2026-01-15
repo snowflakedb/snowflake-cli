@@ -327,3 +327,30 @@ class TestSubmitQueryBuilder:
 
         query = builder.build()
         assert "spark.files" not in query
+
+    def test_build_with_quoted_value(self):
+        """Test building query with quoted value."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_conf(["spark.a='1'"])
+
+        query = builder.build()
+        assert "'spark.a' = '1'" in query
+
+    def test_build_with_properties_file(self):
+        """Test building query with properties file."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        conf_dict = {
+            "spark.a": "1",
+            "spark.c": "hello",
+            "spark.b": "true",
+        }
+        builder.with_conf(conf_dict)
+
+        query = builder.build()
+        assert "'spark.a' = '1'" in query
+        assert "'spark.c' = 'hello'" in query
+        assert "'spark.b' = 'true'" in query
