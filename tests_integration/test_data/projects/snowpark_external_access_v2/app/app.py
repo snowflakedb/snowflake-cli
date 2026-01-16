@@ -1,5 +1,6 @@
-import _snowflake
 from http.client import HTTPSConnection
+
+import _snowflake
 from snowflake.snowpark import Session
 
 
@@ -17,6 +18,13 @@ def _check_secret_and_get_status():
 
     host = "docs.snowflake.com"
     conn = HTTPSConnection(host)
-    conn.request("GET", "/")
+    conn.request(
+        "GET",
+        "/",
+        headers={
+            "User-Agent": "snowpark-external-access-debug/1.0",
+            "Accept": "*/*",
+        },
+    )
     response = conn.getresponse()
     return response.status
