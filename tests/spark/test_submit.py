@@ -355,3 +355,32 @@ class TestSclsSubmit:
         assert result.exit_code == 0, result.output
         assert "Spark Application killed successfully" in result.output
         mock_manager().kill.assert_called_once_with("app-123")
+
+    @mock.patch(SCLS_MANAGER)
+    def test_submit_with_snow_stage_mount_option(self, mock_manager, runner, tmp_path):
+        """Test submitting a Spark application with --snow-stage-mount option."""
+        entrypoint = tmp_path / "app.py"
+
+        mock_manager().upload_file_to_stage.return_value = "app.py"
+        mock_manager().submit.return_value = (
+            "Spark Application ID: app-with-snow-stage-mount"
+        )
+
+        result = runner.invoke(
+            [
+                "spark",
+                "submit",
+                str(entrypoint),
+                "--snow-file-stage",
+                "@my_stage",
+                "--snow-stage-mount",
+                "@stage1:path1,@stage2:path2",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Spark Application ID: app-with-snow-stage-mount" in result.output
+        submit_query = mock_manager().submit.call_args[0][0]
+        assert (
+            "STAGE_MOUNTS=('@stage1:path1','@stage2:path2','@my_stage:/tmp/entrypoint')"
+            in submit_query
+        )

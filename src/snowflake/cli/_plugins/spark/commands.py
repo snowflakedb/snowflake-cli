@@ -51,7 +51,7 @@ def submit(
         "--class",
         help="The name of the main class to execute. Used and required by Java/Scala applications only.",
     ),
-    scls_file_stage: Optional[str] = typer.Option(
+    snow_file_stage: Optional[str] = typer.Option(
         None,
         f"--snow-file-stage",
         help="The stage to upload the entrypoint file to.",
@@ -111,6 +111,12 @@ def submit(
         help="Java options for the driver process.",
         show_default=False,
     ),
+    snow_stage_mount: Optional[str] = typer.Option(
+        None,
+        "--snow-stage-mount",
+        help="Comma-separated list of stage mounts to include in the Spark application. The format is stage_name:path.",
+        show_default=False,
+    ),
     **options,
 ):
     """
@@ -125,13 +131,13 @@ def submit(
         # validate required arguments
         if not entrypoint_file:
             raise ClickException("Entrypoint file path is required")
-        if not scls_file_stage:
+        if not snow_file_stage:
             raise ClickException(f"--snow-file-stage is required")
 
-        file_name = manager.upload_file_to_stage(entrypoint_file, scls_file_stage)
+        file_name = manager.upload_file_to_stage(entrypoint_file, snow_file_stage)
 
         query_builder = (
-            SubmitQueryBuilder(file_name, scls_file_stage)
+            SubmitQueryBuilder(file_name, snow_file_stage)
             .with_application_arguments(application_arguments)
             .with_class_name(class_name)
         )
@@ -140,10 +146,16 @@ def submit(
             conf_dict = _read_properties_file(properties_file)
             query_builder.with_conf(conf_dict)
 
+        if conf:
+            query_builder.with_conf(conf)
+
+        if name:
+            query_builder.with_name(name)
+
         if jars:
             jar_paths = jars.split(",")
             uploaded_jars = [
-                manager.upload_file_to_stage(jar_path, scls_file_stage)
+                manager.upload_file_to_stage(jar_path, snow_file_stage)
                 for jar_path in jar_paths
             ]
             query_builder.with_jars(uploaded_jars)
@@ -151,26 +163,23 @@ def submit(
         if py_files:
             py_file_paths = py_files.split(",")
             uploaded_py_files = [
-                manager.upload_file_to_stage(py_file_path, scls_file_stage)
+                manager.upload_file_to_stage(py_file_path, snow_file_stage)
                 for py_file_path in py_file_paths
             ]
             query_builder.with_py_files(uploaded_py_files)
 
-        if conf:
-            query_builder.with_conf(conf)
-
-        if name:
-            query_builder.with_name(name)
-
         if files:
             file_paths = files.split(",")
             uploaded_files = [
-                manager.upload_file_to_stage(file_path, scls_file_stage)
+                manager.upload_file_to_stage(file_path, snow_file_stage)
                 for file_path in file_paths
             ]
             query_builder.with_files(uploaded_files)
         if driver_java_options:
             query_builder.with_driver_java_options(driver_java_options)
+
+        if snow_stage_mount:
+            query_builder.with_snow_stage_mount(snow_stage_mount)
 
         # e.g. Spark Application submitted successfully. Spark Application ID: <id>
         result_message = manager.submit(query_builder.build(), image)

@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 class SubmitQueryBuilder:
     def __init__(self, file_on_stage: str, scls_file_stage: str):
         self.file_on_stage = file_on_stage
-        self.scls_file_stage = scls_file_stage
+        self.snow_file_stage = scls_file_stage
         self.spark_configurations = {
             "spark.plugins": "com.snowflake.spark.SnowflakePlugin",
             "spark.snowflake.backend": "sparkle",
@@ -36,6 +36,7 @@ class SubmitQueryBuilder:
         self.name: Optional[str] = None
         self.files: Optional[List[str]] = None
         self.driver_java_options: Optional[str] = None
+        self.snow_stage_mount: dict[str, str] = {}
 
     def _quote_value(self, value: str) -> str:
         if value.startswith('"') and value.endswith('"'):
@@ -107,19 +108,34 @@ class SubmitQueryBuilder:
             ] = driver_java_options
         return self
 
+    def with_snow_stage_mount(self, mount: Optional[str]) -> "SubmitQueryBuilder":
+        if mount:
+            mount_list = mount.split(",")
+            for mount in mount_list:
+                stage_name, path = mount.split(":")
+                self.snow_stage_mount[stage_name] = path
+        return self
+
     def build(self) -> str:
         stage_name = (
-            self.scls_file_stage
-            if not self.scls_file_stage.endswith("/")
-            else f"@{self.scls_file_stage.rstrip('/')}"
+            self.snow_file_stage
+            if not self.snow_file_stage.endswith("/")
+            else f"@{self.snow_file_stage.rstrip('/')}"
         )
+
+        self.snow_stage_mount[stage_name] = "/tmp/entrypoint"
 
         query_parts = [
             "EXECUTE SPARK APPLICATION",
             "ENVIRONMENT_RUNTIME_VERSION='1.0-preview'",
-            f"STAGE_MOUNTS=('{stage_name}:/tmp/entrypoint')",
-            f"ENTRYPOINT_FILE='/tmp/entrypoint/{self.file_on_stage}'",
         ]
+        mount_str = ",".join(
+            f"'{stage_name}:{path}'"
+            for stage_name, path in self.snow_stage_mount.items()
+        )
+        query_parts.append(f"STAGE_MOUNTS=({mount_str})")
+
+        query_parts.append(f"ENTRYPOINT_FILE='/tmp/entrypoint/{self.file_on_stage}'")
 
         # Scala/Java applications require a main class name
         if self.file_on_stage.endswith(".jar"):

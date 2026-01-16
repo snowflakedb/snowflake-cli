@@ -374,3 +374,26 @@ class TestSubmitQueryBuilder:
 
         query = builder.build()
         assert "spark.driver.extraJavaOptions" not in query
+
+    def test_build_with_snow_stage_mount(self):
+        """Test building query with snow stage mount."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_snow_stage_mount("@stage1:path1,@stage2:path2")
+
+        query = builder.build()
+        assert (
+            "STAGE_MOUNTS=('@stage1:path1','@stage2:path2','@my_stage:/tmp/entrypoint')"
+            in query
+        )
+
+    def test_build_with_empty_snow_stage_mount(self):
+        """Test building query with empty snow stage mount does not add snow stage mount."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_snow_stage_mount("")
+
+        query = builder.build()
+        assert "STAGE_MOUNTS=('@my_stage:/tmp/entrypoint')" in query
