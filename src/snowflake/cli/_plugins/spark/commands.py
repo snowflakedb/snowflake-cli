@@ -129,6 +129,12 @@ def submit(
         help="Comma-separated list of Python packages to include in the Spark application. The packages will be installed from PyPI.",
         show_default=False,
     ),
+    snow_external_access_integrations: Optional[str] = typer.Option(
+        None,
+        "--snow-external-access-integrations",
+        help="Comma-separated list of external access integrations to include in the Spark application.",
+        show_default=False,
+    ),
     **options,
 ):
     """
@@ -200,6 +206,11 @@ def submit(
 
         if snow_packages:
             query_builder.with_snow_packages(snow_packages)
+
+        if snow_external_access_integrations:
+            query_builder.with_snow_external_access_integrations(
+                snow_external_access_integrations
+            )
 
         # e.g. Spark Application submitted successfully. Spark Application ID: <id>
         result_message = manager.submit(query_builder.build(), image)

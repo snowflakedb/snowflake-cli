@@ -397,3 +397,63 @@ class TestSubmitQueryBuilder:
 
         query = builder.build()
         assert "STAGE_MOUNTS=('@my_stage:/tmp/entrypoint')" in query
+
+    def test_build_with_snow_environment_runtime_version(self):
+        """Test building query with snow environment runtime version."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_snow_environment_runtime_version("1.0")
+
+        query = builder.build()
+        assert "ENVIRONMENT_RUNTIME_VERSION='1.0'" in query
+
+    def test_build_with_empty_snow_environment_runtime_version(self):
+        """Test building query with empty snow environment runtime version does not add snow environment runtime version."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_snow_environment_runtime_version("")
+
+        query = builder.build()
+        assert "ENVIRONMENT_RUNTIME_VERSION='1.0-preview'" in query
+
+    def test_build_with_snow_packages(self):
+        """Test building query with snow packages."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_snow_packages("package1,package2")
+
+        query = builder.build()
+        assert "PACKAGES=('package1','package2')" in query
+
+    def test_build_with_empty_snow_packages(self):
+        """Test building query with empty snow packages does not add snow packages."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_snow_packages("")
+
+        query = builder.build()
+        assert "PACKAGES" not in query
+
+    def test_build_with_snow_external_access_integrations(self):
+        """Test building query with snow external access integrations."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_snow_external_access_integrations("eai1,eai2")
+
+        query = builder.build()
+        assert "EXTERNAL_ACCESS_INTEGRATIONS=(eai1,eai2)" in query
+
+    def test_build_with_empty_snow_external_access_integrations(self):
+        """Test building query with empty snow external access integrations does not add snow external access integrations."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_snow_external_access_integrations("")
+
+        query = builder.build()
+        assert "EXTERNAL_ACCESS_INTEGRATIONS" not in query

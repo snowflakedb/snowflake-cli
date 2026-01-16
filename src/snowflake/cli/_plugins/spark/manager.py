@@ -39,6 +39,7 @@ class SubmitQueryBuilder:
         self.snow_stage_mount: dict[str, str] = {}
         self.snow_environment_runtime_version: str = "1.0-preview"
         self.snow_packages: List[str] = []
+        self.snow_external_access_integrations: List[str] = []
 
     def _quote_value(self, value: str) -> str:
         if value.startswith('"') and value.endswith('"'):
@@ -132,6 +133,15 @@ class SubmitQueryBuilder:
                 self.snow_packages.append(package)
         return self
 
+    def with_snow_external_access_integrations(
+        self, eais: Optional[str]
+    ) -> "SubmitQueryBuilder":
+        if eais:
+            eai_list = eais.split(",")
+            for eai in eai_list:
+                self.snow_external_access_integrations.append(eai)
+        return self
+
     def build(self) -> str:
         stage_name = (
             self.snow_file_stage
@@ -179,6 +189,11 @@ class SubmitQueryBuilder:
         if self.snow_packages:
             packages = [f"'{package}'" for package in self.snow_packages]
             query_parts.append(f"PACKAGES=({','.join(packages)})")
+
+        if self.snow_external_access_integrations:
+            query_parts.append(
+                f"EXTERNAL_ACCESS_INTEGRATIONS=({','.join(self.snow_external_access_integrations)})"
+            )
 
         query_parts.extend(
             [
