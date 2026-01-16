@@ -123,6 +123,12 @@ def submit(
         help="The environment runtime version to use for the Spark application.",
         show_default=False,
     ),
+    snow_packages: Optional[str] = typer.Option(
+        None,
+        "--snow-packages",
+        help="Comma-separated list of Python packages to include in the Spark application. The packages will be installed from PyPI.",
+        show_default=False,
+    ),
     **options,
 ):
     """
@@ -191,6 +197,9 @@ def submit(
             query_builder.with_snow_environment_runtime_version(
                 snow_environment_runtime_version
             )
+
+        if snow_packages:
+            query_builder.with_snow_packages(snow_packages)
 
         # e.g. Spark Application submitted successfully. Spark Application ID: <id>
         result_message = manager.submit(query_builder.build(), image)

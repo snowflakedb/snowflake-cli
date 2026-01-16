@@ -38,6 +38,7 @@ class SubmitQueryBuilder:
         self.driver_java_options: Optional[str] = None
         self.snow_stage_mount: dict[str, str] = {}
         self.snow_environment_runtime_version: str = "1.0-preview"
+        self.snow_packages: List[str] = []
 
     def _quote_value(self, value: str) -> str:
         if value.startswith('"') and value.endswith('"'):
@@ -124,6 +125,13 @@ class SubmitQueryBuilder:
             self.snow_environment_runtime_version = version
         return self
 
+    def with_snow_packages(self, packages: Optional[str]) -> "SubmitQueryBuilder":
+        if packages:
+            package_list = packages.split(",")
+            for package in package_list:
+                self.snow_packages.append(package)
+        return self
+
     def build(self) -> str:
         stage_name = (
             self.snow_file_stage
@@ -167,6 +175,10 @@ class SubmitQueryBuilder:
             query_parts.append(
                 f"SPARK_CONFIGURATION=({', '.join(spark_configurations)})"
             )
+
+        if self.snow_packages:
+            packages = [f"'{package}'" for package in self.snow_packages]
+            query_parts.append(f"PACKAGES=({','.join(packages)})")
 
         query_parts.extend(
             [
