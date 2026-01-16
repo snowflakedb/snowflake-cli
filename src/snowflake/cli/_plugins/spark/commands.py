@@ -117,6 +117,12 @@ def submit(
         help="Comma-separated list of stage mounts to include in the Spark application. The format is stage_name:path.",
         show_default=False,
     ),
+    snow_environment_runtime_version: Optional[str] = typer.Option(
+        None,
+        "--snow-environment-runtime-version",
+        help="The environment runtime version to use for the Spark application.",
+        show_default=False,
+    ),
     **options,
 ):
     """
@@ -180,6 +186,11 @@ def submit(
 
         if snow_stage_mount:
             query_builder.with_snow_stage_mount(snow_stage_mount)
+
+        if snow_environment_runtime_version:
+            query_builder.with_snow_environment_runtime_version(
+                snow_environment_runtime_version
+            )
 
         # e.g. Spark Application submitted successfully. Spark Application ID: <id>
         result_message = manager.submit(query_builder.build(), image)

@@ -37,6 +37,7 @@ class SubmitQueryBuilder:
         self.files: Optional[List[str]] = None
         self.driver_java_options: Optional[str] = None
         self.snow_stage_mount: dict[str, str] = {}
+        self.snow_environment_runtime_version: str = "1.0-preview"
 
     def _quote_value(self, value: str) -> str:
         if value.startswith('"') and value.endswith('"'):
@@ -116,6 +117,13 @@ class SubmitQueryBuilder:
                 self.snow_stage_mount[stage_name] = path
         return self
 
+    def with_snow_environment_runtime_version(
+        self, version: Optional[str]
+    ) -> "SubmitQueryBuilder":
+        if version:
+            self.snow_environment_runtime_version = version
+        return self
+
     def build(self) -> str:
         stage_name = (
             self.snow_file_stage
@@ -127,7 +135,7 @@ class SubmitQueryBuilder:
 
         query_parts = [
             "EXECUTE SPARK APPLICATION",
-            "ENVIRONMENT_RUNTIME_VERSION='1.0-preview'",
+            f"ENVIRONMENT_RUNTIME_VERSION='{self.snow_environment_runtime_version}'",
         ]
         mount_str = ",".join(
             f"'{stage_name}:{path}'"
