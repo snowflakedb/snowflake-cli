@@ -457,3 +457,23 @@ class TestSubmitQueryBuilder:
 
         query = builder.build()
         assert "EXTERNAL_ACCESS_INTEGRATIONS" not in query
+
+    def test_build_with_snow_secrets(self):
+        """Test building query with snow secrets."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_snow_secrets("secret1=secret1_value,secret2=secret2_value")
+
+        query = builder.build()
+        assert "SECRETS=('secret1' = secret1_value, 'secret2' = secret2_value)" in query
+
+    def test_build_with_empty_snow_secrets(self):
+        """Test building query with empty snow secrets does not add snow secrets."""
+        builder = SubmitQueryBuilder(
+            file_on_stage="app.py", scls_file_stage="@my_stage"
+        )
+        builder.with_snow_secrets("")
+
+        query = builder.build()
+        assert "SECRETS" not in query

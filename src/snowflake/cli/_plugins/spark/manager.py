@@ -40,6 +40,7 @@ class SubmitQueryBuilder:
         self.snow_environment_runtime_version: str = "1.0-preview"
         self.snow_packages: List[str] = []
         self.snow_external_access_integrations: List[str] = []
+        self.snow_secrets: dict[str, str] = {}
 
     def _quote_value(self, value: str) -> str:
         if value.startswith('"') and value.endswith('"'):
@@ -142,6 +143,14 @@ class SubmitQueryBuilder:
                 self.snow_external_access_integrations.append(eai)
         return self
 
+    def with_snow_secrets(self, secrets: Optional[str]) -> "SubmitQueryBuilder":
+        if secrets:
+            secret_list = secrets.split(",")
+            for secret in secret_list:
+                reference_name, secret_name = secret.split("=")
+                self.snow_secrets[reference_name] = secret_name
+        return self
+
     def build(self) -> str:
         stage_name = (
             self.snow_file_stage
@@ -194,6 +203,13 @@ class SubmitQueryBuilder:
             query_parts.append(
                 f"EXTERNAL_ACCESS_INTEGRATIONS=({','.join(self.snow_external_access_integrations)})"
             )
+
+        if self.snow_secrets:
+            secrets = [
+                f"{self._quote_value(reference_name)} = {secret_name}"
+                for reference_name, secret_name in self.snow_secrets.items()
+            ]
+            query_parts.append(f"SECRETS=({', '.join(secrets)})")
 
         query_parts.extend(
             [

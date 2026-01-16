@@ -135,6 +135,12 @@ def submit(
         help="Comma-separated list of external access integrations to include in the Spark application.",
         show_default=False,
     ),
+    snow_secrets: Optional[str] = typer.Option(
+        None,
+        "--snow-secrets",
+        help="Comma-separated list of secrets to include in the Spark application. The format is reference_name=secret_name.",
+        show_default=False,
+    ),
     **options,
 ):
     """
@@ -211,6 +217,9 @@ def submit(
             query_builder.with_snow_external_access_integrations(
                 snow_external_access_integrations
             )
+
+        if snow_secrets:
+            query_builder.with_snow_secrets(snow_secrets)
 
         # e.g. Spark Application submitted successfully. Spark Application ID: <id>
         result_message = manager.submit(query_builder.build(), image)

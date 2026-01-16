@@ -472,3 +472,32 @@ class TestSclsSubmit:
         )
         submit_query = mock_manager().submit.call_args[0][0]
         assert "EXTERNAL_ACCESS_INTEGRATIONS=(eai1,eai2)" in submit_query
+
+    @mock.patch(SCLS_MANAGER)
+    def test_submit_with_snow_secrets_option(self, mock_manager, runner, tmp_path):
+        """Test submitting a Spark application with --snow-secrets option."""
+        entrypoint = tmp_path / "app.py"
+
+        mock_manager().upload_file_to_stage.return_value = "app.py"
+        mock_manager().submit.return_value = (
+            "Spark Application ID: app-with-snow-secrets"
+        )
+
+        result = runner.invoke(
+            [
+                "spark",
+                "submit",
+                str(entrypoint),
+                "--snow-file-stage",
+                "@my_stage",
+                "--snow-secrets",
+                "secret1=secret1_value,secret2=secret2_value",
+            ]
+        )
+        assert result.exit_code == 0, result.output
+        assert "Spark Application ID: app-with-snow-secrets" in result.output
+        submit_query = mock_manager().submit.call_args[0][0]
+        assert (
+            "SECRETS=('secret1' = secret1_value, 'secret2' = secret2_value)"
+            in submit_query
+        )
