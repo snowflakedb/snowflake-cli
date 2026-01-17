@@ -5,7 +5,8 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Generator, Iterable, List, Tuple, Type
+from pathlib import Path
+from typing import Any, Dict, Generator, Iterable, List, Literal, Tuple, Type
 from urllib.parse import urlencode
 
 import click
@@ -544,6 +545,88 @@ class EditCommand(ReplCommand):
         """
         sql_content = " ".join(args) if args else ""
         return CompileCommandResult(command=cls(sql_content=sql_content))
+
+
+SPOOL_OFF: Literal["off"] = "off"
+
+
+@register_command("!spool")
+@dataclass
+class SpoolCommand(ReplCommand):
+    """Command to spool (write) query output to a file.
+
+    Usage:
+        !spool filename.txt  - Start writing output to file
+        !spool off           - Stop writing output to file
+    """
+
+    target: str  # Either a filename to start spooling, or "off" to stop
+
+    def execute(self, connection: SnowflakeConnection):
+        """Execute the spool command.
+
+        If target is "off", stops spooling.
+        Otherwise, starts spooling to the specified file.
+        """
+        if not get_cli_context().is_repl:
+            raise CliError("The spool command can only be used in interactive mode.")
+
+        repl = get_cli_context().repl
+        if not repl:
+            raise CliError("REPL instance not found.")
+
+        if self.target.lower() == SPOOL_OFF:
+            if repl.is_spooling:
+                spool_path = repl.spool_path
+                repl.stop_spool()
+                cli_console.message(
+                    f"[green]Spooling stopped. Output saved to: {spool_path}[/green]"
+                )
+            else:
+                cli_console.message(
+                    "[yellow]Spooling is not currently active.[/yellow]"
+                )
+        else:
+            spool_path = Path(self.target).expanduser().resolve()
+            try:
+                repl.start_spool(spool_path)
+            except OSError as e:
+                raise CliError(f"Cannot open spool file '{spool_path}': {e.strerror}")
+            cli_console.message(
+                f"[green]Spooling started. Output will be written to: {spool_path}[/green]"
+            )
+
+    @classmethod
+    def from_args(cls, raw_args, kwargs=None) -> CompileCommandResult:
+        """Parse arguments and create SpoolCommand instance.
+
+        Supports:
+        - !spool filename.txt - start spooling to file
+        - !spool off - stop spooling
+        """
+        if isinstance(raw_args, str):
+            try:
+                args, kwargs = cls._parse_args(raw_args)
+            except ValueError as e:
+                return CompileCommandResult(error_message=str(e))
+        else:
+            args, kwargs = raw_args, kwargs or {}
+
+        return cls._from_parsed_args(args, kwargs)
+
+    @classmethod
+    def _from_parsed_args(cls, args, kwargs) -> CompileCommandResult:
+        kwargs_error = _validate_kwargs_empty("spool", kwargs)
+        if kwargs_error:
+            return CompileCommandResult(error_message=kwargs_error)
+
+        if len(args) != 1:
+            amount = "Too many" if len(args) > 1 else "No"
+            return CompileCommandResult(
+                error_message=f"{amount} arguments passed to 'spool' command. Usage: `!spool <filename>` or `!spool off`"
+            )
+
+        return CompileCommandResult(command=cls(target=args[0]))
 
 
 def detect_command(input_text: str) -> tuple[str, str] | None:
