@@ -92,12 +92,19 @@ def test_executing_command_sends_telemetry_usage_data(
 @pytest.mark.parametrize(
     "ci_type, env_var",
     [
+        ("SF_GITHUB_ACTION", "SF_GITHUB_ACTION"),
         ("GITHUB_ACTIONS", "GITHUB_ACTIONS"),
         ("GITLAB_CI", "GITLAB_CI"),
         ("CIRCLECI", "CIRCLECI"),
         ("JENKINS", "JENKINS_URL"),
         ("JENKINS", "HUDSON_URL"),
         ("AZURE_DEVOPS", "TF_BUILD"),
+        ("BITBUCKET_PIPELINES", "BITBUCKET_BUILD_NUMBER"),
+        ("AWS_CODEBUILD", "CODEBUILD_BUILD_ID"),
+        ("TEAMCITY", "TEAMCITY_VERSION"),
+        ("BUILDKITE", "BUILDKITE"),
+        ("CODEFRESH", "CF_BUILD_ID"),
+        ("TRAVIS_CI", "TRAVIS"),
     ],
 )
 @mock.patch("snowflake.connector.connect")
@@ -117,6 +124,87 @@ def test_executing_command_sends_ci_usage_data(_, mock_conn, runner, env_var, ci
     )
 
     assert usage_command_event["message"]["command_ci_environment"] == ci_type
+
+
+@pytest.mark.parametrize(
+    "ci_value",
+    ["true", "True", "TRUE", "1"],
+)
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._plugins.connection.commands.ObjectManager")
+def test_generic_ci_env_variable_returns_unknown_ci(_, mock_conn, runner, ci_value):
+    """Test that generic CI=true/1 returns UNKNOWN_CI when no specific CI is detected."""
+    with mock.patch.dict(os.environ, {"CI": ci_value}, clear=True):
+        result = runner.invoke(["connection", "test"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    usage_command_event = (
+        mock_conn.return_value._telemetry.try_add_log_to_batch.call_args_list[  # noqa: SLF001
+            0
+        ]
+        .args[0]
+        .to_dict()
+    )
+
+    assert usage_command_event["message"]["command_ci_environment"] == "UNKNOWN_CI"
+
+
+def test_is_interactive_terminal_returns_true_when_tty():
+    """Test _is_interactive_terminal returns True when both stdin and stdout are TTYs."""
+    from snowflake.cli._app.telemetry import _is_interactive_terminal
+
+    with mock.patch("sys.stdin") as mock_stdin, mock.patch("sys.stdout") as mock_stdout:
+        mock_stdin.isatty.return_value = True
+        mock_stdout.isatty.return_value = True
+        assert _is_interactive_terminal() is True
+
+
+def test_is_interactive_terminal_returns_false_when_not_tty():
+    """Test _is_interactive_terminal returns False when stdin or stdout is not a TTY."""
+    from snowflake.cli._app.telemetry import _is_interactive_terminal
+
+    # stdin is not a TTY
+    with mock.patch("sys.stdin") as mock_stdin, mock.patch("sys.stdout") as mock_stdout:
+        mock_stdin.isatty.return_value = False
+        mock_stdout.isatty.return_value = True
+        assert _is_interactive_terminal() is False
+
+    # stdout is not a TTY
+    with mock.patch("sys.stdin") as mock_stdin, mock.patch("sys.stdout") as mock_stdout:
+        mock_stdin.isatty.return_value = True
+        mock_stdout.isatty.return_value = False
+        assert _is_interactive_terminal() is False
+
+
+def test_is_interactive_terminal_returns_false_on_exception():
+    """Test _is_interactive_terminal returns False when isatty() raises an exception."""
+    from snowflake.cli._app.telemetry import _is_interactive_terminal
+
+    with mock.patch("sys.stdin") as mock_stdin:
+        mock_stdin.isatty.side_effect = Exception("No TTY available")
+        assert _is_interactive_terminal() is False
+
+
+def test_get_ci_environment_type_returns_local_for_interactive_terminal():
+    """Test that LOCAL is returned when running in an interactive terminal."""
+    from snowflake.cli._app.telemetry import _get_ci_environment_type
+
+    with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch(
+            "snowflake.cli._app.telemetry._is_interactive_terminal", return_value=True
+        ):
+            assert _get_ci_environment_type() == "LOCAL"
+
+
+def test_get_ci_environment_type_returns_unknown_for_non_interactive_non_ci():
+    """Test that UNKNOWN is returned when not in CI and not in an interactive terminal."""
+    from snowflake.cli._app.telemetry import _get_ci_environment_type
+
+    with mock.patch.dict(os.environ, {}, clear=True):
+        with mock.patch(
+            "snowflake.cli._app.telemetry._is_interactive_terminal", return_value=False
+        ):
+            assert _get_ci_environment_type() == "UNKNOWN"
 
 
 @mock.patch(
