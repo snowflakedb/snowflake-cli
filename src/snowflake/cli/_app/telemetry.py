@@ -197,7 +197,16 @@ def _get_definition_version() -> str | None:
     return None
 
 
+def _is_interactive_terminal() -> bool:
+    """Check if stdin and stdout are connected to a TTY."""
+    try:
+        return sys.stdin.isatty() and sys.stdout.isatty()
+    except Exception:
+        return False
+
+
 def _get_ci_environment_type() -> str:
+    """Detect CI/CD environment type based on environment variables."""
     if "SF_GITHUB_ACTION" in os.environ:
         return "SF_GITHUB_ACTION"
     if "GITHUB_ACTIONS" in os.environ:
@@ -210,6 +219,22 @@ def _get_ci_environment_type() -> str:
         return "JENKINS"
     if "TF_BUILD" in os.environ:
         return "AZURE_DEVOPS"
+    if "BITBUCKET_BUILD_NUMBER" in os.environ:
+        return "BITBUCKET_PIPELINES"
+    if "CODEBUILD_BUILD_ID" in os.environ:
+        return "AWS_CODEBUILD"
+    if "TEAMCITY_VERSION" in os.environ:
+        return "TEAMCITY"
+    if "BUILDKITE" in os.environ:
+        return "BUILDKITE"
+    if "CF_BUILD_ID" in os.environ:
+        return "CODEFRESH"
+    if "TRAVIS" in os.environ:
+        return "TRAVIS_CI"
+    if os.environ.get("CI", "").lower() in ("true", "1"):
+        return "UNKNOWN_CI"
+    if _is_interactive_terminal():
+        return "LOCAL"
     return "UNKNOWN"
 
 
