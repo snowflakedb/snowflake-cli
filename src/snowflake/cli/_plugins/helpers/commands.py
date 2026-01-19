@@ -19,9 +19,9 @@ import os
 from pathlib import Path
 from typing import Any, List, Optional
 
+import click
 import typer
 import yaml
-from click import ClickException
 from snowflake.cli._plugins.helpers.snowsl_vars_reader import check_env_vars
 from snowflake.cli.api.commands.snow_typer import SnowTyperFactory
 from snowflake.cli.api.config import (
@@ -30,6 +30,7 @@ from snowflake.cli.api.config import (
     get_all_connections,
     set_config_value,
 )
+from snowflake.cli.api.config_provider import ALTERNATIVE_CONFIG_ENV_VAR
 from snowflake.cli.api.console import cli_console
 from snowflake.cli.api.output.types import (
     CollectionResult,
@@ -76,7 +77,7 @@ def v1_to_v2(
     has_local_yml = local_yml_path in manager.project_config_paths
     if has_local_yml:
         if migrate_local_yml is None:
-            raise ClickException(
+            raise click.ClickException(
                 "snowflake.local.yml file detected, "
                 "please specify --migrate-local-overrides to include "
                 "or --no-migrate-local-overrides to exclude its values."
@@ -317,3 +318,58 @@ def check_snowsql_env_vars(**options):
 
     results.append(MessageResult(summary))
     return MultipleResults(results)
+
+
+@app.command(
+    name="show-config-sources",
+    requires_connection=False,
+    hidden=os.environ.get(ALTERNATIVE_CONFIG_ENV_VAR, "").lower()
+    not in ("1", "true", "yes", "on"),
+)
+def show_config_sources(
+    key: Optional[str] = typer.Argument(
+        None,
+        help="Specific configuration key to show resolution for (e.g., 'account', 'user'). If not provided, shows summary for all keys.",
+    ),
+    connection: Optional[str] = typer.Option(
+        None,
+        "--connection",
+        "-c",
+        help="Filter output to show only configuration for a specific connection name.",
+    ),
+    show_details: bool = typer.Option(
+        False,
+        "--show-details",
+        "-d",
+        help="Show detailed resolution chains for all sources consulted.",
+    ),
+    **options,
+) -> CommandResult:
+    """
+    Show where configuration values come from.
+
+    This command displays the configuration resolution process, showing which
+    source (CLI arguments, environment variables, or config files) provided
+    each configuration value. Useful for debugging configuration issues.
+
+    Note: This command requires the enhanced configuration system to be enabled.
+    Set SNOWFLAKE_CLI_CONFIG_V2_ENABLED=true to enable it.
+    """
+    from snowflake.cli.api.config_ng import (
+        is_resolution_logging_available,
+    )
+    from snowflake.cli.api.config_ng.resolution_logger import (
+        get_configuration_explanation_results,
+    )
+
+    if not is_resolution_logging_available():
+        return MessageResult(
+            f"⚠️  Configuration resolution logging is not available.\n\n"
+            f"To enable it, set the environment variable:\n"
+            f"    export {ALTERNATIVE_CONFIG_ENV_VAR}=true\n\n"
+            f"Then run this command again to see where configuration values come from."
+        )
+
+    return get_configuration_explanation_results(
+        key=key, verbose=show_details, connection=connection
+    )

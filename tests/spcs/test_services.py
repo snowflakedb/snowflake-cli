@@ -68,14 +68,22 @@ EXECUTE_QUERY = (
 
 @pytest.fixture()
 def enable_events_and_metrics_config():
+    from snowflake.cli.api.utils.path_utils import path_resolver
+
+    from tests.conftest import clean_logging_handlers
+
     with TemporaryDirectory() as tempdir:
-        config_toml = Path(tempdir) / "config.toml"
+        resolved_tempdir = path_resolver(tempdir)
+        config_toml = Path(resolved_tempdir) / "config.toml"
         config_toml.write_text(
             "[cli.features]\n"
             "enable_spcs_service_events = true\n"
             "enable_spcs_service_metrics = true\n"
         )
-        yield config_toml
+        try:
+            yield config_toml
+        finally:
+            clean_logging_handlers()
 
 
 @patch(EXECUTE_QUERY)

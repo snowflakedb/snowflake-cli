@@ -54,6 +54,7 @@ pytest_plugins = [
     "tests_integration.snowflake_connector",
 ]
 
+
 TEST_DIR = Path(__file__).parent
 DEFAULT_TEST_CONFIG = "connection_configs.toml"
 WORLD_READABLE_CONFIG = "world_readable.toml"
@@ -85,6 +86,21 @@ def test_snowcli_config_provider():
             if config_file.name != WORLD_READABLE_CONFIG:
                 config_file.chmod(0o600)  # Make config file private
         yield TestConfigProvider(temp_dst)
+
+
+@pytest.fixture
+def secure_test_config(tmp_path):
+    """
+    Copy a test config to a private location so strict permission checks pass.
+    """
+
+    def _copy(source_path: Path) -> Path:
+        destination = tmp_path / source_path.name
+        shutil.copy2(source_path, destination)
+        destination.chmod(0o600)
+        return destination
+
+    return _copy
 
 
 @pytest.fixture(scope="session")
@@ -119,6 +135,12 @@ class SnowCLIRunner(CliRunner):
         if "catch_exceptions" not in kw:
             kw.update(catch_exceptions=False)
         kw = self._with_env_vars(kw)
+
+        # Reset config provider to ensure fresh config resolution
+        # This is critical for tests that set environment variables
+        from snowflake.cli.api.config_provider import reset_config_provider
+
+        reset_config_provider()
 
         # between every invocation, we need to reset the CLI context
         # and ensure no connections are cached going forward (to prevent

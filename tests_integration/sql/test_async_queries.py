@@ -1,6 +1,8 @@
 import pytest
 from time import sleep
-from typing import Set
+from typing import Final, Set
+
+async_query_check_delays: Final[tuple[float, ...]] = (0, 0.2, 0.5, 1, 2, 3, 5)
 
 
 class TableForTesting:
@@ -17,17 +19,15 @@ class TableForTesting:
         return f"INSERT INTO {self.name} VALUES ('{value}')"
 
     def assert_contents(self, expected_contents: Set[str]):
-        # as very rarely the result of the last async query is not yet visible on the server side,
-        # we wait short amount of time and repeat the check before failing the test
-        for time_to_wait in [0, 0.1, 0.3, 0.5, 1]:
+        # allow extra time for async queries on slower runners (Windows GitHub Actions)
+        contents: Set[str] = set()
+        for time_to_wait in async_query_check_delays:
             sleep(time_to_wait)
             result = self.runner.invoke_with_connection_json(
                 ["sql", "-q", f"SELECT {self.col} FROM {self.name}"]
             )
             assert result.exit_code == 0, result.output
-            contents = set()
-            for row in result.json:
-                contents.add(row[self.col])
+            contents = {row[self.col] for row in result.json}
             if contents == expected_contents:
                 return
         assert contents == expected_contents
@@ -46,9 +46,9 @@ def test_only_async_queries(runner, test_database):
         [
             "sql",
             "-q",
-            f"""{table.add_value_query('async query 1')};>
-            {table.add_value_query('async query 2')};>
-            {table.add_value_query('async query 3')};>
+            f"""{table.add_value_query("async query 1")};>
+            {table.add_value_query("async query 2")};>
+            {table.add_value_query("async query 3")};>
             """,
         ]
     )
@@ -71,9 +71,9 @@ def test_mix(runner, test_database):
         [
             "sql",
             "-q",
-            f"""{table.add_value_query('async query before')};>
+            f"""{table.add_value_query("async query before")};>
             select 4;
-            {table.add_value_query('async query after')};>
+            {table.add_value_query("async query after")};>
             """,
         ]
     )
@@ -89,11 +89,11 @@ def test_mix(runner, test_database):
         [
             "sql",
             "-q",
-            f"""{table.add_value_query('async before')};>
+            f"""{table.add_value_query("async before")};>
             select 15;
-            {table.add_value_query('async mid')};>
+            {table.add_value_query("async mid")};>
             select 6;
-            {table.add_value_query('async after')};>
+            {table.add_value_query("async after")};>
             """,
         ]
     )

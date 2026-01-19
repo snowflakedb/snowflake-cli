@@ -20,7 +20,15 @@ import warnings
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import (
+    Any,
+    Dict,
+    Final,
+    List,
+    Literal,
+    Optional,
+    Union,
+)
 
 import tomlkit
 from click import ClickException
@@ -29,16 +37,17 @@ from snowflake.cli.api.exceptions import (
     MissingConfigurationError,
     UnsupportedConfigSectionTypeError,
 )
+from snowflake.cli.api.sanitizers import sanitize_source_error
 from snowflake.cli.api.secure_path import SecurePath
 from snowflake.cli.api.secure_utils import (
     file_permissions_are_strict,
     windows_get_not_whitelisted_users_with_access,
 )
 from snowflake.cli.api.utils.dict_utils import remove_key_from_nested_dict_if_exists
+from snowflake.cli.api.utils.path_utils import path_resolver
 from snowflake.cli.api.utils.types import try_cast_to_bool
 from snowflake.connector.compat import IS_WINDOWS
-from snowflake.connector.config_manager import CONFIG_MANAGER
-from snowflake.connector.constants import CONFIG_FILE, CONNECTIONS_FILE
+from snowflake.connector.constants import CONFIG_FILE
 from snowflake.connector.errors import ConfigSourceError, MissingConfigOptionError
 from tomlkit import TOMLDocument, dump
 from tomlkit.container import Container
@@ -46,6 +55,26 @@ from tomlkit.exceptions import NonExistentKey
 from tomlkit.items import Table
 
 log = logging.getLogger(__name__)
+
+
+def get_connections_file():
+    """
+    Dynamically get the current CONNECTIONS_FILE path.
+    This ensures we get the updated value after module reloads in tests.
+    """
+    from snowflake.connector.constants import CONNECTIONS_FILE as _CONNECTIONS_FILE
+
+    return _CONNECTIONS_FILE
+
+
+def get_config_manager():
+    """
+    Get the current configuration manager from CLI context.
+    This replaces direct CONFIG_MANAGER access throughout the codebase.
+    """
+    from snowflake.cli.api.cli_global_context import get_cli_context_manager
+
+    return get_cli_context_manager().config_manager
 
 
 class Empty:
@@ -63,11 +92,11 @@ PLUGINS_SECTION_PATH = [CLI_SECTION, PLUGINS_SECTION]
 PLUGIN_ENABLED_KEY = "enabled"
 FEATURE_FLAGS_SECTION_PATH = [CLI_SECTION, "features"]
 
-CONFIG_MANAGER.add_option(
-    name=CLI_SECTION,
-    parse_str=tomlkit.parse,
-    default=dict(),
-)
+
+LEGACY_OAUTH_PKCE_KEY: Literal["oatuh_enable_pkce"] = "oatuh_enable_pkce"
+LEGACY_CONNECTION_SETTING_ALIASES: Final[dict[str, str]] = {
+    LEGACY_OAUTH_PKCE_KEY: "oauth_enable_pkce",
+}
 
 
 @dataclass
@@ -85,6 +114,11 @@ class ConnectionConfig:
     authenticator: Optional[str] = None
     workload_identity_provider: Optional[str] = None
     private_key_file: Optional[str] = None
+    private_key_raw: Optional[str] = field(default=None, repr=False)
+    private_key_passphrase: Optional[str] = field(default=None, repr=False)
+    token: Optional[str] = field(default=None, repr=False)
+    session_token: Optional[str] = field(default=None, repr=False)
+    master_token: Optional[str] = field(default=None, repr=False)
     token_file_path: Optional[str] = None
     oauth_client_id: Optional[str] = None
     oauth_client_secret: Optional[str] = None
@@ -92,7 +126,7 @@ class ConnectionConfig:
     oauth_token_request_url: Optional[str] = None
     oauth_redirect_uri: Optional[str] = None
     oauth_scope: Optional[str] = None
-    oatuh_enable_pkce: Optional[bool] = None
+    oauth_enable_pkce: Optional[bool] = None
     oauth_enable_refresh_tokens: Optional[bool] = None
     oauth_enable_single_use_refresh_tokens: Optional[bool] = None
     client_store_temporary_credential: Optional[bool] = None
@@ -104,11 +138,16 @@ class ConnectionConfig:
         known_settings = {}
         other_settings = {}
         for key, value in config_dict.items():
-            if key in cls.__dict__:
-                known_settings[key] = value
+            normalized_key = cls._normalize_setting_key(key)
+            if normalized_key in cls.__dict__:
+                known_settings[normalized_key] = value
             else:
                 other_settings[key] = value
         return cls(**known_settings, _other_settings=other_settings)
+
+    @staticmethod
+    def _normalize_setting_key(key: str) -> str:
+        return LEGACY_CONNECTION_SETTING_ALIASES.get(key, key)
 
     def to_dict_of_known_non_empty_values(self) -> dict:
         return {
@@ -133,64 +172,91 @@ def config_init(config_file: Optional[Path]):
     If config file does not exist we create an empty one.
     """
     from snowflake.cli._app.loggers import create_initial_loggers
+    from snowflake.cli.api.cli_global_context import get_cli_context_manager
 
     if config_file:
-        CONFIG_MANAGER.file_path = config_file
+        get_cli_context_manager().config_file_override = config_file
     else:
         _check_default_config_files_permissions()
-    if not CONFIG_MANAGER.file_path.exists():
-        _initialise_config(CONFIG_MANAGER.file_path)
+
+    config_manager = get_config_manager()
+    if not config_manager.file_path.exists():
+        _initialise_config(config_manager.file_path)
     _read_config_file()
     create_initial_loggers()
 
 
 def add_connection_to_proper_file(name: str, connection_config: ConnectionConfig):
-    if CONNECTIONS_FILE.exists():
+    connections_file = get_connections_file()
+    if connections_file.exists():
         existing_connections = _read_connections_toml()
         existing_connections.update(
             {name: connection_config.to_dict_of_all_non_empty_values()}
         )
         _update_connections_toml(existing_connections)
-        return CONNECTIONS_FILE
+        return connections_file
     else:
         set_config_value(
             path=[CONNECTIONS_SECTION, name],
             value=connection_config.to_dict_of_all_non_empty_values(),
         )
-        return CONFIG_MANAGER.file_path
+        return get_config_manager().file_path
 
 
 def remove_connection_from_proper_file(name: str):
-    if CONNECTIONS_FILE.exists():
+    connections_file = get_connections_file()
+    if connections_file.exists():
         existing_connections = _read_connections_toml()
         if name not in existing_connections:
             raise MissingConfigurationError(f"Connection {name} is not configured")
         del existing_connections[name]
         _update_connections_toml(existing_connections)
-        return CONNECTIONS_FILE
+        return connections_file
     else:
         unset_config_value(path=[CONNECTIONS_SECTION, name])
-        return CONFIG_MANAGER.file_path
+        return get_config_manager().file_path
 
 
-_DEFAULT_LOGS_CONFIG = {
-    "save_logs": True,
-    "path": str(CONFIG_MANAGER.file_path.parent / "logs"),
-    "level": "info",
-}
+def _get_default_logs_config() -> dict:
+    """Get default logs configuration with lazy evaluation to avoid circular imports."""
+    config_parent_path = get_config_manager().file_path.parent
+    resolved_parent_path = path_resolver(str(config_parent_path))
 
-_DEFAULT_CLI_CONFIG = {LOGS_SECTION: _DEFAULT_LOGS_CONFIG}
+    return {
+        "save_logs": True,
+        "path": str(Path(resolved_parent_path) / "logs"),
+        "level": "info",
+    }
+
+
+def _get_default_cli_config() -> dict:
+    """Get default CLI configuration with lazy evaluation."""
+    return {LOGS_SECTION: _get_default_logs_config()}
 
 
 @contextmanager
 def _config_file():
     _read_config_file()
-    conf_file_cache = CONFIG_MANAGER.conf_file_cache
+    config_manager = get_config_manager()
+    conf_file_cache = config_manager.conf_file_cache
     yield conf_file_cache
     _dump_config(conf_file_cache)
 
+    # Reset config provider cache after writing to ensure it re-reads on next access
+    try:
+        from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+        provider = get_config_provider_singleton()
+        if hasattr(provider, "invalidate_cache"):
+            provider.invalidate_cache()
+    except Exception as exc:
+        sanitized_error = sanitize_source_error(exc)
+        log.error("Failed to invalidate configuration cache: %s", sanitized_error)
+        raise
+
 
 def _read_config_file():
+    config_manager = get_config_manager()
     with warnings.catch_warnings():
         if IS_WINDOWS:
             warnings.filterwarnings(
@@ -199,19 +265,19 @@ def _read_config_file():
                 module="snowflake.connector.config_manager",
             )
 
-            if not file_permissions_are_strict(CONFIG_MANAGER.file_path):
+            if not file_permissions_are_strict(config_manager.file_path):
                 users = ", ".join(
                     windows_get_not_whitelisted_users_with_access(
-                        CONFIG_MANAGER.file_path
+                        config_manager.file_path
                     )
                 )
                 warnings.warn(
-                    f"Unauthorized users ({users}) have access to configuration file {CONFIG_MANAGER.file_path}.\n"
-                    f'Run `icacls "{CONFIG_MANAGER.file_path}" /remove:g <USER_ID>` on those users to restrict permissions.'
+                    f"Unauthorized users ({users}) have access to configuration file {config_manager.file_path}.\n"
+                    f'Run `icacls "{config_manager.file_path}" /remove:g <USER_ID>` on those users to restrict permissions.'
                 )
 
         try:
-            CONFIG_MANAGER.read_config()
+            config_manager.read_config()
         except ConfigSourceError as exception:
             raise ClickException(
                 f"Configuration file seems to be corrupted. {str(exception.__cause__)}"
@@ -220,7 +286,7 @@ def _read_config_file():
 
 def _initialise_logs_section():
     with _config_file() as conf_file_cache:
-        conf_file_cache[CLI_SECTION][LOGS_SECTION] = _DEFAULT_LOGS_CONFIG
+        conf_file_cache[CLI_SECTION][LOGS_SECTION] = _get_default_logs_config()
 
 
 def _initialise_cli_section():
@@ -253,7 +319,7 @@ def unset_config_value(path: List[str]) -> None:
 
 
 def get_logs_config() -> dict:
-    logs_config = _DEFAULT_LOGS_CONFIG.copy()
+    logs_config = _get_default_logs_config().copy()
     if config_section_exists(*LOGS_SECTION_PATH):
         logs_config.update(**get_config_section(*LOGS_SECTION_PATH))
     return logs_config
@@ -279,23 +345,23 @@ def config_section_exists(*path) -> bool:
 
 
 def get_all_connections() -> dict[str, ConnectionConfig]:
-    return {
-        k: ConnectionConfig.from_dict(connection_dict)
-        for k, connection_dict in get_config_section("connections").items()
-    }
+    from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+    provider = get_config_provider_singleton()
+    return provider.get_all_connections()
 
 
 def get_connection_dict(connection_name: str) -> dict:
-    try:
-        return get_config_section(CONNECTIONS_SECTION, connection_name)
-    except KeyError:
-        raise MissingConfigurationError(
-            f"Connection {connection_name} is not configured"
-        )
+    from snowflake.cli.api.config_provider import get_config_provider_singleton
+
+    provider = get_config_provider_singleton()
+    connection_raw = provider.get_connection_dict(connection_name)
+    connection = ConnectionConfig.from_dict(connection_raw)
+    return connection.to_dict_of_all_non_empty_values()
 
 
 def get_default_connection_name() -> str:
-    return CONFIG_MANAGER["default_connection_name"]
+    return get_config_manager()["default_connection_name"]
 
 
 def get_default_connection_dict() -> dict:
@@ -350,7 +416,9 @@ def _initialise_config(config_file: Path) -> None:
     config_file.touch()
     _initialise_cli_section()
     _initialise_logs_section()
-    log.info("Created Snowflake configuration file at %s", CONFIG_MANAGER.file_path)
+    log.info(
+        "Created Snowflake configuration file at %s", get_config_manager().file_path
+    )
 
 
 def get_env_variable_name(*path, key: str) -> str:
@@ -362,7 +430,7 @@ def get_env_value(*path, key: str) -> str | None:
 
 
 def _find_section(*path) -> TOMLDocument:
-    section = CONFIG_MANAGER
+    section = get_config_manager()
     idx = 0
     while idx < len(path):
         section = section[path[idx]]
@@ -392,7 +460,8 @@ def _get_envs_for_path(*path) -> dict:
 def _dump_config(config_and_connections: Dict):
     config_toml_dict = config_and_connections.copy()
 
-    if CONNECTIONS_FILE.exists():
+    connections_file = get_connections_file()
+    if connections_file.exists():
         # update connections in connections.toml
         # it will add only connections (maybe updated) which were originally read from connections.toml
         # it won't add connections from config.toml
@@ -405,21 +474,19 @@ def _dump_config(config_and_connections: Dict):
         else:
             config_toml_dict.pop("connections", None)
 
-    with SecurePath(CONFIG_MANAGER.file_path).open("w+") as fh:
+    with SecurePath(get_config_manager().file_path).open("w+") as fh:
         dump(config_toml_dict, fh)
 
 
 def _check_default_config_files_permissions() -> None:
     if not IS_WINDOWS:
-        if CONNECTIONS_FILE.exists() and not file_permissions_are_strict(
-            CONNECTIONS_FILE
+        connections_file = get_connections_file()
+        if connections_file.exists() and not file_permissions_are_strict(
+            connections_file
         ):
-            raise ConfigFileTooWidePermissionsError(CONNECTIONS_FILE)
+            raise ConfigFileTooWidePermissionsError(connections_file)
         if CONFIG_FILE.exists() and not file_permissions_are_strict(CONFIG_FILE):
             raise ConfigFileTooWidePermissionsError(CONFIG_FILE)
-
-
-from typing import Literal
 
 
 def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
@@ -438,13 +505,13 @@ def get_feature_flags_section() -> Dict[str, bool | Literal["UNKNOWN"]]:
 
 
 def _read_config_file_toml() -> dict:
-    return tomlkit.loads(CONFIG_MANAGER.file_path.read_text()).unwrap()
+    return tomlkit.loads(get_config_manager().file_path.read_text()).unwrap()
 
 
 def _read_connections_toml() -> dict:
-    return tomlkit.loads(CONNECTIONS_FILE.read_text()).unwrap()
+    return tomlkit.loads(get_connections_file().read_text()).unwrap()
 
 
 def _update_connections_toml(connections: dict):
-    with open(CONNECTIONS_FILE, "w") as f:
+    with open(get_connections_file(), "w") as f:
         f.write(tomlkit.dumps(connections))
