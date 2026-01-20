@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 import yaml
 from snowflake.cli._plugins.dbt.constants import PROFILES_FILENAME
-from snowflake.cli._plugins.dbt.manager import DBTManager
+from snowflake.cli._plugins.dbt.manager import DBTDeployAttributes, DBTManager
 from snowflake.cli.api.exceptions import CliError
 from snowflake.cli.api.identifiers import FQN
 from snowflake.cli.api.secure_path import SecurePath
@@ -46,6 +46,7 @@ class TestDeploy:
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
+            attrs=DBTDeployAttributes(),
         )
 
         expected_query = f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()}"
@@ -71,6 +72,7 @@ class TestDeploy:
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=True,
+            attrs=DBTDeployAttributes(),
         )
 
         expected_query = (
@@ -101,6 +103,7 @@ class TestDeploy:
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
+            attrs=DBTDeployAttributes(),
         )
 
         expected_query = (
@@ -127,6 +130,7 @@ class TestDeploy:
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
+            attrs=DBTDeployAttributes(),
         )
 
         expected_query = f'CREATE DBT PROJECT "MockDaTaBaSe"."PuBlIc"."caseSenSITIVEnAME"\nFROM @TestDB.TestSchema.DBT_PROJECT_caseSenSITIVEnAME_{mock_time()}_STAGE'
@@ -152,10 +156,12 @@ class TestDeploy:
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            external_access_integrations=[
-                "google_apis_access_integration",
-                "dbt_hub_integration",
-            ],
+            attrs=DBTDeployAttributes(
+                external_access_integrations=[
+                    "google_apis_access_integration",
+                    "dbt_hub_integration",
+                ],
+            ),
         )
 
         expected_query = f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()}\nEXTERNAL_ACCESS_INTEGRATIONS = (google_apis_access_integration, dbt_hub_integration)"
@@ -185,10 +191,12 @@ class TestDeploy:
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            external_access_integrations=[
-                "google_apis_access_integration",
-                "dbt_hub_integration",
-            ],
+            attrs=DBTDeployAttributes(
+                external_access_integrations=[
+                    "google_apis_access_integration",
+                    "dbt_hub_integration",
+                ],
+            ),
         )
 
         assert mock_execute_query.call_count == 2
@@ -226,11 +234,13 @@ class TestDeploy:
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            default_target="prod",
-            external_access_integrations=[
-                "google_apis_access_integration",
-                "dbt_hub_integration",
-            ],
+            attrs=DBTDeployAttributes(
+                default_target="prod",
+                external_access_integrations=[
+                    "google_apis_access_integration",
+                    "dbt_hub_integration",
+                ],
+            ),
         )
 
         assert mock_execute_query.call_count == 2
@@ -271,10 +281,12 @@ class TestDeploy:
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            external_access_integrations=[
-                "google_apis_access_integration",
-                "dbt_hub_integration",
-            ],
+            attrs=DBTDeployAttributes(
+                external_access_integrations=[
+                    "google_apis_access_integration",
+                    "dbt_hub_integration",
+                ],
+            ),
         )
 
         assert mock_execute_query.call_count == 1
@@ -304,8 +316,7 @@ class TestDeploy:
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            external_access_integrations=None,
-            install_local_deps=True,
+            attrs=DBTDeployAttributes(install_local_deps=True),
         )
 
         expected_query = f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()}\nEXTERNAL_ACCESS_INTEGRATIONS = ()"
@@ -331,8 +342,10 @@ class TestDeploy:
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            external_access_integrations=["github_integration"],
-            install_local_deps=True,
+            attrs=DBTDeployAttributes(
+                external_access_integrations=["github_integration"],
+                install_local_deps=True,
+            ),
         )
 
         expected_query = f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()}\nEXTERNAL_ACCESS_INTEGRATIONS = (github_integration)"
@@ -350,6 +363,7 @@ class TestDeploy:
                 path=SecurePath(dbt_project_path),
                 profiles_path=SecurePath(dbt_project_path),
                 force=False,
+                attrs=DBTDeployAttributes(),
             )
 
         assert "dbt_project.yml does not exist in directory" in exc_info.value.message
@@ -366,6 +380,7 @@ class TestDeploy:
                 path=SecurePath(dbt_project_path),
                 profiles_path=SecurePath(dbt_project_path),
                 force=False,
+                attrs=DBTDeployAttributes(),
             )
 
         assert "`profile` is not defined in dbt_project.yml" in exc_info.value.message
@@ -388,7 +403,7 @@ class TestDeploy:
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            default_target="prod",
+            attrs=DBTDeployAttributes(default_target="prod"),
         )
 
         expected_query = f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()} DEFAULT_TARGET='prod'"
@@ -417,7 +432,7 @@ class TestDeploy:
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            default_target="prod",
+            attrs=DBTDeployAttributes(default_target="prod"),
         )
 
         calls = [call.args[0] for call in mock_execute_query.call_args_list]
@@ -450,7 +465,7 @@ class TestDeploy:
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            default_target="prod",
+            attrs=DBTDeployAttributes(default_target="prod"),
         )
 
         query = mock_execute_query.call_args_list[0].args[0]
@@ -483,7 +498,7 @@ class TestDeploy:
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            unset_default_target=True,
+            attrs=DBTDeployAttributes(unset_default_target=True),
         )
 
         calls = [call.args[0] for call in mock_execute_query.call_args_list]
@@ -516,7 +531,7 @@ class TestDeploy:
             path=SecurePath(dbt_project_path),
             profiles_path=SecurePath(dbt_project_path),
             force=False,
-            unset_default_target=True,
+            attrs=DBTDeployAttributes(unset_default_target=True),
         )
 
         query = mock_execute_query.call_args_list[0].args[0]
@@ -681,6 +696,128 @@ dev
         assert "does not exist or is not accessible" in exc_info.value.message
         assert "test_role" in exc_info.value.message
 
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_create_with_dbt_version(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            attrs=DBTDeployAttributes(dbt_version="1.9.0"),
+        )
+
+        expected_query = f"CREATE DBT PROJECT test_project\nFROM {mock_from_resource()} DBT_VERSION='1.9.0'"
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_create_or_replace_with_dbt_version(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=True,
+            attrs=DBTDeployAttributes(dbt_version="2.0.0"),
+        )
+
+        expected_query = f"CREATE OR REPLACE DBT PROJECT test_project\nFROM {mock_from_resource()} DBT_VERSION='2.0.0'"
+        mock_execute_query.assert_called_once_with(expected_query)
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_alter_with_dbt_version_change(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": None,
+            "external_access_integrations": None,
+            "dbt_version": "1.8.0",
+        }
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            attrs=DBTDeployAttributes(dbt_version="1.9.0"),
+        )
+
+        assert mock_execute_query.call_count == 2
+        calls = mock_execute_query.call_args_list
+        assert (
+            calls[0][0][0]
+            == f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
+        )
+        assert (
+            calls[1][0][0] == "ALTER DBT PROJECT test_project SET DBT_VERSION='1.9.0'"
+        )
+
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.create")
+    @mock.patch("snowflake.cli._plugins.dbt.manager.StageManager.put_recursive")
+    def test_deploy_alter_with_same_dbt_version_does_update(
+        self,
+        _mock_put_recursive,
+        _mock_create,
+        dbt_project_path,
+        mock_get_dbt_object_attributes,
+        mock_execute_query,
+        mock_get_cli_context,
+        mock_from_resource,
+        mock_validate_role,
+    ):
+        mock_get_dbt_object_attributes.return_value = {
+            "default_target": None,
+            "external_access_integrations": None,
+            "dbt_version": "1.9.0",
+        }
+
+        DBTManager().deploy(
+            fqn=FQN.from_string("test_project"),
+            path=SecurePath(dbt_project_path),
+            profiles_path=SecurePath(dbt_project_path),
+            force=False,
+            attrs=DBTDeployAttributes(dbt_version="1.9.0"),
+        )
+
+        assert mock_execute_query.call_count == 2
+        calls = mock_execute_query.call_args_list
+        assert (
+            calls[0][0][0]
+            == f"ALTER DBT PROJECT test_project ADD VERSION\nFROM {mock_from_resource()}"
+        )
+        assert (
+            calls[1][0][0] == "ALTER DBT PROJECT test_project SET DBT_VERSION='1.9.0'"
+        )
+
 
 class TestGetDBTObjectAttributes:
     @pytest.fixture
@@ -752,6 +889,21 @@ class TestGetDBTObjectAttributes:
         assert (
             result["default_target"] is None
         )  # Should default to None when key is missing
+
+    def test_get_dbt_object_attributes_with_dbt_version(self, mock_describe):
+        fqn = FQN.from_string("test_project")
+        mock_describe.return_value.description = [
+            ("dbt_version",),
+        ]
+        mock_row = ("1.9.0",)
+        mock_describe.return_value.__iter__ = mock.MagicMock(
+            return_value=iter([mock_row])
+        )
+
+        result = DBTManager.get_dbt_object_attributes(fqn)
+
+        assert result is not None
+        assert result["dbt_version"] == "1.9.0"
 
 
 class TestValidateRole:
