@@ -90,6 +90,8 @@ def _mask_sensitive_parameters(connection_params: dict):
         connection_params["password"] = "****"
     if "oauth_client_secret" in connection_params:
         connection_params["oauth_client_secret"] = "****"
+    if "private_key_file_pwd" in connection_params:
+        connection_params["private_key_file_pwd"] = "****"
     return connection_params
 
 
@@ -412,7 +414,8 @@ def generate_jwt(
     if not connection_details.private_key_file:
         raise UsageError(msq_template.format("Private key file"))
 
-    passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE", None)
+    env_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE")
+    passphrase = env_passphrase if env_passphrase is not None else connection_details.private_key_file_pwd
 
     def _decrypt(passphrase: str | None):
         return connector.auth.get_token_from_private_key(

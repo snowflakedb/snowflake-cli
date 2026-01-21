@@ -19,6 +19,7 @@
 ## Deprecations
 
 ## New additions
+* Added support for `private_key_file_pwd` in connection configuration to specify the private key passphrase. The `PRIVATE_KEY_PASSPHRASE` environment variable takes precedence for backward compatibility.
 
 ## Fixes and improvements
 
