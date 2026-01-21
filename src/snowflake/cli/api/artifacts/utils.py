@@ -21,18 +21,24 @@ def symlink_or_copy(src: Path, dst: Path, deploy_root: Path) -> None:
     sdst = SecurePath(dst)
     sdst.parent.mkdir(parents=True, exist_ok=True)
 
+    absolute_src = resolve_without_follow(src)
+    if absolute_src.is_file():
+        # Delete any existing file/symlink at dst before validation.
+        # This is necessary because if dst is an existing symlink, dst.resolve()
+        # would follow it to the original source file (outside deploy_root),
+        # causing a false positive in the deploy root check below.
+        delete(dst)
+
     # Verify that the mapping isn't accidentally trying to create a file in the project source through symlinks.
     # We need to ensure we're resolving symlinks for this check to be effective.
     # We are unlikely to hit this if calling the function through bundle map, keeping it here for other future use cases outside bundle.
-    resolved_dst = dst.resolve()
+    resolved_dst = dst.resolve() if dst.exists() else resolve_without_follow(dst)
     resolved_deploy_root = deploy_root.resolve()
     dst_is_deploy_root = resolved_deploy_root == resolved_dst
     if (not dst_is_deploy_root) and (resolved_deploy_root not in resolved_dst.parents):
         raise NotInDeployRootError(dest_path=dst, deploy_root=deploy_root, src_path=src)
 
-    absolute_src = resolve_without_follow(src)
     if absolute_src.is_file():
-        delete(dst)
         try:
             os.symlink(absolute_src, dst)
         except OSError:

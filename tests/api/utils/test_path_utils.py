@@ -57,35 +57,28 @@ def test_symlink_or_copy_raises_error(temporary_directory, os_agnostic_snapshot)
     assert file_in_deploy_root.exists() and file_in_deploy_root.is_symlink()
     assert file_in_deploy_root.read_text(encoding="utf-8") == os_agnostic_snapshot
 
-    # Since file_in_deploy_root is a symlink
-    # it resolves to project_dir/GrandA/ParentA/ChildA, which is not in deploy root
-    with pytest.raises(NotInDeployRootError):
-        symlink_or_copy(
-            src=Path("GrandA", "ParentA", "ChildA"),
-            dst=file_in_deploy_root,
-            deploy_root=deploy_root,
-        )
-
-    # Unlink the symlink file and create a file with the same name and path
-    # This should pass since src.is_file() always begins by deleting the dst.
-    os.unlink(file_in_deploy_root)
-    touch(file_in_deploy_root)
+    # Re-deploying to the same destination (existing symlink) should succeed.
+    # The function should delete the existing symlink before validation.
     symlink_or_copy(
         src=Path("GrandA", "ParentA", "ChildA"),
         dst=file_in_deploy_root,
         deploy_root=deploy_root,
     )
-
-    # dst is an existing symlink, will resolve to the src during NotInDeployRootError check.
-    touch("GrandA/ParentA/ChildB")
-    with pytest.raises(NotInDeployRootError):
-        symlink_or_copy(
-            src=Path("GrandA/ParentA/ChildB"),
-            dst=file_in_deploy_root,
-            deploy_root=deploy_root,
-        )
     assert file_in_deploy_root.exists() and file_in_deploy_root.is_symlink()
     assert file_in_deploy_root.read_text(encoding="utf-8") == os_agnostic_snapshot
+
+    # Deploying a different source to existing symlink destination should also work
+    touch("GrandA/ParentA/ChildB")
+    with open(Path(temporary_directory, "GrandA/ParentA/ChildB"), "w") as f:
+        f.write("Test 2")
+    symlink_or_copy(
+        src=Path("GrandA/ParentA/ChildB"),
+        dst=file_in_deploy_root,
+        deploy_root=deploy_root,
+    )
+    assert file_in_deploy_root.exists() and file_in_deploy_root.is_symlink()
+    # Now it points to ChildB
+    assert file_in_deploy_root.read_text(encoding="utf-8") == "Test 2"
 
 
 @pytest.mark.skipif(
