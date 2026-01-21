@@ -184,7 +184,69 @@ def test_private_key_loading_and_aliases(
         )
         if expected_private_key_file_value is not None:
             mock_load_pem_from_file.assert_called_with(expected_private_key_file_value)
-            mock_load_pem_to_der.assert_called_with(key)
+            mock_load_pem_to_der.assert_called_with(key, passphrase=None)
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.cli._app.snow_connector._load_pem_to_der")
+@mock.patch("snowflake.cli._app.snow_connector._load_pem_from_file")
+def test_private_key_file_pwd_from_config(
+    mock_load_pem_from_file,
+    mock_load_pem_to_der,
+    mock_command_info,
+    mock_connect,
+    test_snowcli_config,
+):
+    """
+    Ensures that private_key_file_pwd from config is passed to _load_pem_to_der.
+    """
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    key = SecretType(b"bytes")
+    mock_command_info.return_value = "SNOWCLI.SQL"
+    mock_load_pem_from_file.return_value = key
+    mock_load_pem_to_der.return_value = key
+
+    with mock.patch.dict(os.environ, {}, clear=True):
+        connect_to_snowflake(connection_name="jwt_with_pwd")
+        mock_load_pem_from_file.assert_called_with("/private/key")
+        mock_load_pem_to_der.assert_called_with(key, passphrase="config_passphrase")
+
+
+@mock.patch("snowflake.connector.connect")
+@mock.patch("snowflake.cli._app.snow_connector.command_info")
+@mock.patch("snowflake.cli._app.snow_connector._load_pem_to_der")
+@mock.patch("snowflake.cli._app.snow_connector._load_pem_from_file")
+def test_private_key_file_pwd_config_fallback(
+    mock_load_pem_from_file,
+    mock_load_pem_to_der,
+    mock_command_info,
+    mock_connect,
+    test_snowcli_config,
+):
+    """
+    Ensures that private_key_file_pwd from config is used as fallback when PRIVATE_KEY_PASSPHRASE env var is not set.
+    """
+    from snowflake.cli._app.snow_connector import connect_to_snowflake
+    from snowflake.cli.api.config import config_init
+
+    config_init(test_snowcli_config)
+
+    key = SecretType(b"bytes")
+    mock_command_info.return_value = "SNOWCLI.SQL"
+    mock_load_pem_from_file.return_value = key
+    mock_load_pem_to_der.return_value = key
+
+    # jwt connection does not have private_key_file_pwd, so passphrase=None is passed
+    with mock.patch.dict(os.environ, {}, clear=True):
+        connect_to_snowflake(connection_name="jwt")
+        mock_load_pem_from_file.assert_called_with("/private/key")
+        mock_load_pem_to_der.assert_called_with(key, passphrase=None)
+
 
 
 @mock.patch.dict(os.environ, {}, clear=True)

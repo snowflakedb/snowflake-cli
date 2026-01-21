@@ -362,6 +362,17 @@ def test_lists_connection_information(mock_get_default_conn_name, runner):
                 "user": "jdoe",
             },
         },
+        {
+            "connection_name": "jwt_with_pwd",
+            "is_default": False,
+            "parameters": {
+                "account": "testing_account",
+                "authenticator": "SNOWFLAKE_JWT",
+                "private_key_file": "/private/key",
+                "private_key_file_pwd": "****",  # masked
+                "user": "jdoe",
+            },
+        },
     ]
 
 
@@ -444,6 +455,17 @@ def test_connection_list_does_not_print_too_many_env_variables(
                 "account": "testing_account",
                 "authenticator": "SNOWFLAKE_JWT",
                 "private_key_file": "/private/key",
+                "user": "jdoe",
+            },
+        },
+        {
+            "connection_name": "jwt_with_pwd",
+            "is_default": False,
+            "parameters": {
+                "account": "testing_account",
+                "authenticator": "SNOWFLAKE_JWT",
+                "private_key_file": "/private/key",
+                "private_key_file_pwd": "****",  # masked
                 "user": "jdoe",
             },
         },
@@ -1302,6 +1324,55 @@ def test_generate_jwt_uses_config(mocked_get_token, runner, named_temporary_file
         account="testing_account",
         privatekey_path="/private/key",
         key_password=None,
+    )
+
+
+@mock.patch(
+    "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
+)
+@mock.patch.dict(os.environ, {}, clear=True)
+def test_generate_jwt_uses_private_key_file_pwd_from_config(mocked_get_token, runner, named_temporary_file):
+    """Test that private_key_file_pwd from config is used for generate_jwt."""
+    mocked_get_token.return_value = "funny token"
+
+    with named_temporary_file() as f:
+        f.write_text("secret from file")
+        result = runner.invoke(
+            ["connection", "generate-jwt", "--connection", "jwt_with_pwd"],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert result.output == "funny token\n"
+    mocked_get_token.assert_called_once_with(
+        user="jdoe",
+        account="testing_account",
+        privatekey_path="/private/key",
+        key_password="config_passphrase",
+    )
+
+
+@mock.patch(
+    "snowflake.cli._plugins.connection.commands.connector.auth.get_token_from_private_key"
+)
+@mock.patch.dict(os.environ, {"PRIVATE_KEY_PASSPHRASE": "env_passphrase"}, clear=True)
+def test_generate_jwt_env_passphrase_takes_precedence_over_config(mocked_get_token, runner, named_temporary_file):
+    """Test that PRIVATE_KEY_PASSPHRASE env var takes precedence over private_key_file_pwd from config for backward compatibility."""
+    mocked_get_token.return_value = "funny token"
+
+    with named_temporary_file() as f:
+        f.write_text("secret from file")
+        result = runner.invoke(
+            ["connection", "generate-jwt", "--connection", "jwt_with_pwd"],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert result.output == "funny token\n"
+    # Env var should be used for backward compatibility, not the config passphrase
+    mocked_get_token.assert_called_once_with(
+        user="jdoe",
+        account="testing_account",
+        privatekey_path="/private/key",
+        key_password="env_passphrase",
     )
 
 

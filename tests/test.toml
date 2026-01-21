@@ -53,6 +53,13 @@ account = "testing_account"
 authenticator = "SNOWFLAKE_JWT"
 private_key_file = "/private/key"
 
+[connections.jwt_with_pwd]
+user = "jdoe"
+account = "testing_account"
+authenticator = "SNOWFLAKE_JWT"
+private_key_file = "/private/key"
+private_key_file_pwd = "config_passphrase"
+
 [cli.features]
 dummy_flag = true
 wrong_type_flag = "not_true"
