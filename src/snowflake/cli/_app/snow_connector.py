@@ -64,6 +64,7 @@ SUPPORTED_ENV_OVERRIDES = [
     "authenticator",
     "workload_identity_provider",
     "private_key_file",
+    "private_key_file_pwd",
     "private_key_path",
     "private_key_raw",
     "database",
@@ -291,7 +292,8 @@ def _load_private_key(connection_parameters: Dict, private_key_var_name: str) ->
         private_key_pem = _load_pem_from_file(
             connection_parameters[private_key_var_name]
         )
-        private_key = _load_pem_to_der(private_key_pem)
+        passphrase = connection_parameters.pop("private_key_file_pwd", None)
+        private_key = _load_pem_to_der(private_key_pem, passphrase=passphrase)
         connection_parameters["private_key"] = private_key.value
         del connection_parameters[private_key_var_name]
     else:
@@ -343,12 +345,15 @@ def _load_pem_from_parameters(private_key_raw: str) -> SecretType:
     return SecretType(private_key_raw.encode("utf-8"))
 
 
-def _load_pem_to_der(private_key_pem: SecretType) -> SecretType:
+def _load_pem_to_der(
+    private_key_pem: SecretType, passphrase: Optional[str] = None
+) -> SecretType:
     """
     Given a private key file path (in PEM format), decode key data into DER
     format
     """
-    private_key_passphrase = SecretType(os.getenv("PRIVATE_KEY_PASSPHRASE", None))
+    passphrase_value = os.getenv("PRIVATE_KEY_PASSPHRASE") or passphrase
+    private_key_passphrase = SecretType(passphrase_value)
     if (
         private_key_pem.value.startswith(ENCRYPTED_PKCS8_PK_HEADER)
         and private_key_passphrase.value is None

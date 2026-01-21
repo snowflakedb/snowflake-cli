@@ -85,6 +85,7 @@ class ConnectionConfig:
     authenticator: Optional[str] = None
     workload_identity_provider: Optional[str] = None
     private_key_file: Optional[str] = None
+    private_key_file_pwd: Optional[str] = field(default=None, repr=False)
     token_file_path: Optional[str] = None
     oauth_client_id: Optional[str] = None
     oauth_client_secret: Optional[str] = None

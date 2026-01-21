@@ -47,6 +47,7 @@ class ConnectionContext:
     authenticator: Optional[str] = None
     workload_identity_provider: Optional[str] = None
     private_key_file: Optional[str] = None
+    private_key_file_pwd: Optional[str] = field(default=None, repr=False)
     warehouse: Optional[str] = None
     mfa_passcode: Optional[str] = None
     token: Optional[str] = None
