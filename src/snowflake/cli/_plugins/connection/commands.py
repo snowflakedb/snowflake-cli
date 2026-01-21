@@ -414,7 +414,8 @@ def generate_jwt(
     if not connection_details.private_key_file:
         raise UsageError(msq_template.format("Private key file"))
 
-    passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE") or connection_details.private_key_file_pwd
+    env_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE")
+    passphrase = env_passphrase if env_passphrase is not None else connection_details.private_key_file_pwd
 
     def _decrypt(passphrase: str | None):
         return connector.auth.get_token_from_private_key(

@@ -352,7 +352,8 @@ def _load_pem_to_der(
     Given a private key file path (in PEM format), decode key data into DER
     format
     """
-    passphrase_value = os.getenv("PRIVATE_KEY_PASSPHRASE") or passphrase
+    env_passphrase = os.getenv("PRIVATE_KEY_PASSPHRASE")
+    passphrase_value = env_passphrase if env_passphrase is None else passphrase
     private_key_passphrase = SecretType(passphrase_value)
     if (
         private_key_pem.value.startswith(ENCRYPTED_PKCS8_PK_HEADER)
