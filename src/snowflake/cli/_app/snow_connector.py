@@ -292,7 +292,7 @@ def _load_private_key(connection_parameters: Dict, private_key_var_name: str) ->
         private_key_pem = _load_pem_from_file(
             connection_parameters[private_key_var_name]
         )
-        passphrase = connection_parameters.pop("private_key_file_pwd", None)
+        passphrase = connection_parameters.get("private_key_file_pwd")
         private_key = _load_pem_to_der(private_key_pem, passphrase=passphrase)
         connection_parameters["private_key"] = private_key.value
         del connection_parameters[private_key_var_name]
