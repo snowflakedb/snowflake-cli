@@ -1,0 +1,210 @@
+# Copyright (c) 2024 Snowflake Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+"""
+Core abstractions for the enhanced configuration system.
+
+This module implements the foundational data structures and interfaces:
+- ConfigValue: Immutable value container with provenance
+- ValueSource: Common protocol for all configuration sources
+- ResolutionHistory: Tracks the complete resolution process
+"""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional
+
+from snowflake.cli.api.config_ng.constants import ConfigSourceName
+from snowflake.cli.api.config_ng.masking import mask_sensitive_value
+
+
+class SourceType(Enum):
+    """
+    Classification of configuration sources by merging behavior.
+
+    FILE sources use connection-level replacement (later file replaces entire connection).
+    OVERLAY sources use field-level overlay (add/override individual fields).
+    """
+
+    FILE = "file"
+    OVERLAY = "overlay"
+
+
+@dataclass(frozen=True)
+class ConfigValue:
+    """
+    Immutable configuration value with full provenance tracking.
+    Stores both parsed value and original raw value.
+    """
+
+    key: str
+    value: Any
+    source_name: ConfigSourceName
+    raw_value: Optional[Any] = None
+
+    def __repr__(self) -> str:
+        """Readable representation showing conversion if applicable."""
+        value_display = f"{self.value}"
+        if self.raw_value is not None and self.raw_value != self.value:
+            value_display = f"{self.raw_value} → {self.value}"
+        return f"ConfigValue({self.key}={value_display}, from {self.source_name})"
+
+
+class ValueSource(ABC):
+    """
+    Common interface for all configuration sources.
+    All implementations are READ-ONLY discovery mechanisms.
+    Precedence is determined by the order sources are provided to the resolver.
+    """
+
+    # Allowed source names for config resolution
+    SourceName = ConfigSourceName
+
+    @property
+    @abstractmethod
+    def source_name(self) -> ConfigSourceName:
+        """
+        Unique identifier for this source.
+        Examples: "cli_arguments", "snowsql_config", "cli_env"
+        """
+        ...
+
+    @property
+    @abstractmethod
+    def source_type(self) -> SourceType:
+        """
+        Classification of this source for merging behavior.
+        FILE sources replace entire connections, OVERLAY sources merge per-field.
+        """
+        ...
+
+    @abstractmethod
+    def discover(self, key: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Discover configuration values as nested dict structure.
+
+        Sources return configuration as nested dictionaries that reflect
+        the natural structure of the configuration. For example:
+            {"connections": {"prod": {"account": "val"}}}
+
+        Empty connections are represented as empty dicts:
+            {"connections": {"prod": {}}}
+
+        General parameters (not connection-specific) are at the root level:
+            {"database": "mydb", "role": "myrole"}
+
+        Args:
+            key: Specific key path to discover (dot-separated), or None for all
+
+        Returns:
+            Nested dictionary of configuration values. Returns empty dict
+            if no values found.
+        """
+        ...
+
+    @abstractmethod
+    def supports_key(self, key: str) -> bool:
+        """
+        Check if this source can provide the given configuration key.
+
+        Args:
+            key: Configuration key to check
+
+        Returns:
+            True if this source supports the key, False otherwise
+        """
+        ...
+
+
+@dataclass(frozen=True)
+class ResolutionEntry:
+    """
+    Represents a single value discovery during resolution.
+    Immutable record of what was found where and when.
+    """
+
+    config_value: ConfigValue
+    timestamp: datetime
+    was_used: bool
+    overridden_by: Optional[ConfigSourceName] = None
+
+
+@dataclass
+class ResolutionHistory:
+    """
+    Complete resolution history for a single configuration key.
+    Shows the full precedence chain from lowest to highest priority.
+    """
+
+    key: str
+    entries: List[ResolutionEntry] = field(default_factory=list)
+    final_value: Optional[Any] = None
+    default_used: bool = False
+
+    @property
+    def sources_consulted(self) -> List[ConfigSourceName]:
+        """List of all source names that were consulted."""
+        return [entry.config_value.source_name for entry in self.entries]
+
+    @property
+    def selected_entry(self) -> Optional[ResolutionEntry]:
+        """The entry that was ultimately selected."""
+        for entry in self.entries:
+            if entry.was_used:
+                return entry
+        return None
+
+    @property
+    def overridden_entries(self) -> List[ResolutionEntry]:
+        """All entries that were overridden by higher priority sources."""
+        return [entry for entry in self.entries if not entry.was_used]
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization/export."""
+        return {
+            "key": self.key,
+            "final_value": mask_sensitive_value(self.key, self.final_value),
+            "default_used": self.default_used,
+            "sources_consulted": self.sources_consulted,
+            "entries": [
+                {
+                    "source": entry.config_value.source_name,
+                    "value": mask_sensitive_value(
+                        entry.config_value.key, entry.config_value.value
+                    ),
+                    "raw_value": mask_sensitive_value(
+                        entry.config_value.key, entry.config_value.raw_value
+                    ),
+                    "was_used": entry.was_used,
+                    "overridden_by": entry.overridden_by,
+                    "timestamp": entry.timestamp.isoformat(),
+                }
+                for entry in self.entries
+            ],
+        }
+
+
+@dataclass(frozen=True)
+class SourceDiagnostic:
+    """
+    Diagnostic message emitted while discovering configuration sources.
+    """
+
+    source_name: str
+    level: Literal["info", "warning", "error"]
+    message: str

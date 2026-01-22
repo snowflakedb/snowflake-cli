@@ -23,6 +23,7 @@ from unittest import mock
 
 import pytest
 import yaml
+from syrupy.extensions.amber import AmberSnapshotExtension
 
 from snowflake.cli._plugins.streamlit.streamlit_entity import StreamlitEntity
 from snowflake.cli._plugins.streamlit.streamlit_entity_model import StreamlitEntityModel
@@ -35,14 +36,19 @@ PROJECT_DIR = Path(__file__).parent / "test_data" / "projects"
 
 @pytest.fixture
 def temporary_directory():
+    from snowflake.cli.api.utils.path_utils import path_resolver
+    from tests.conftest import clean_logging_handlers
+
     initial_dir = os.getcwd()
 
     with tempfile.TemporaryDirectory() as tmp_dir:
+        resolved_tmp_dir = path_resolver(tmp_dir)
         try:
-            os.chdir(tmp_dir)
-            yield tmp_dir
+            os.chdir(resolved_tmp_dir)
+            yield resolved_tmp_dir
         finally:
             os.chdir(initial_dir)
+            clean_logging_handlers()
 
 
 # Borrowed from tests_integration/test_utils.py
@@ -100,6 +106,7 @@ def snowflake_home(monkeypatch):
             sys.modules["snowflake.connector.config_manager"],
             sys.modules["snowflake.connector.log_configuration"],
             sys.modules["snowflake.cli.api.config"],
+            sys.modules["snowflake.cli.api.cli_global_context"],
         ]:
             importlib.reload(module)
 
@@ -138,3 +145,23 @@ skip_snowpark_on_newest_python = pytest.mark.skipif(
     sys.version_info >= PYTHON_3_12,
     reason="requires python3.11 or lower",
 )
+
+
+class ConfigModeSnapshotExtension(AmberSnapshotExtension):
+    """Snapshot extension that includes config mode in snapshot file name."""
+
+    @classmethod
+    def _get_file_basename(cls, *, test_location, index):
+        """Generate snapshot filename with config mode suffix."""
+        config_mode = (
+            "config_ng" if os.getenv("SNOWFLAKE_CLI_CONFIG_V2_ENABLED") else "legacy"
+        )
+        basename = super()._get_file_basename(test_location=test_location, index=index)
+        # Insert config mode before .ambr extension
+        return f"{basename}_{config_mode}"
+
+
+@pytest.fixture()
+def config_snapshot(snapshot):
+    """Config-mode-aware snapshot fixture for tests that differ between legacy and config_ng."""
+    return snapshot.use_extension(ConfigModeSnapshotExtension)

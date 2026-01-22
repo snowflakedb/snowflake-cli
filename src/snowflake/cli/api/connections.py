@@ -47,6 +47,8 @@ class ConnectionContext:
     authenticator: Optional[str] = None
     workload_identity_provider: Optional[str] = None
     private_key_file: Optional[str] = None
+    private_key_raw: Optional[str] = field(default=None, repr=False)
+    private_key_passphrase: Optional[str] = field(default=None, repr=False)
     warehouse: Optional[str] = None
     mfa_passcode: Optional[str] = None
     token: Optional[str] = None
@@ -68,11 +70,18 @@ class ConnectionContext:
     oauth_enable_single_use_refresh_tokens: Optional[bool] = None
     client_store_temporary_credential: Optional[bool] = None
 
+    # Internal flag to track if config has been loaded
+    _config_loaded: bool = field(default=False, repr=False, init=False)
+
     VALIDATED_FIELD_NAMES = ["schema"]
 
     def present_values_as_dict(self) -> dict:
         """Dictionary representation of this ConnectionContext for values that are not None"""
-        return {k: v for (k, v) in asdict(self).items() if v is not None}
+        return {
+            k: v
+            for (k, v) in asdict(self).items()
+            if v is not None and not k.startswith("_")
+        }
 
     def clone(self) -> ConnectionContext:
         return replace(self)
@@ -111,6 +120,7 @@ class ConnectionContext:
             del connection_config["private_key_path"]
 
         self.merge_with_config(**connection_config)
+        self._config_loaded = True
         return self
 
     def __repr__(self) -> str:
@@ -137,6 +147,8 @@ class ConnectionContext:
     def validate_and_complete(self):
         """
         Ensure we can create a connection from this context.
+        Sets default connection name if needed, but does not load configuration.
+        Configuration is loaded lazily in build_connection().
         """
         if not self.temporary_connection and not self.connection_name:
             self.connection_name = get_default_connection_name()
@@ -153,7 +165,38 @@ class ConnectionContext:
                 module="snowflake.connector.config_manager",
             )
 
-        return connect_to_snowflake(**self.present_values_as_dict())
+        if self.temporary_connection:
+            # For temporary connections, pass all parameters
+            # connect_to_snowflake will use these directly without loading config
+            conn_params = self.present_values_as_dict()
+        else:
+            # For named connections, pass connection_name and all override parameters
+            # connect_to_snowflake will load the connection config internally and apply overrides
+            all_params = self.present_values_as_dict()
+            control_params = {
+                "connection_name",
+                "enable_diag",
+                "diag_log_path",
+                "diag_allowlist_path",
+                "temporary_connection",
+                "mfa_passcode",
+            }
+
+            # Separate control parameters from connection overrides
+            conn_params = {}
+            overrides = {}
+
+            for k, v in all_params.items():
+                if k in control_params:
+                    conn_params[k] = v
+                else:
+                    # These are connection parameters that should override config values
+                    overrides[k] = v
+
+            # Merge overrides into conn_params
+            conn_params.update(overrides)
+
+        return connect_to_snowflake(**conn_params)
 
 
 class OpenConnectionCache:

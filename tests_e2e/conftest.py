@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import shutil
 import subprocess
 import sys
@@ -88,9 +89,12 @@ def test_root_path():
 def disable_colors_and_styles_in_output(monkeypatch):
     """
     Colors and styles in output cause mismatches in asserts,
-    this environment variable turn off styling
+    this environment variable turn off styling.
+    Also set consistent terminal width to avoid snapshot mismatches.
     """
     monkeypatch.setenv("TERM", "unknown")
+    width = 81 if IS_WINDOWS else 80
+    monkeypatch.setenv("COLUMNS", str(width))
 
 
 @pytest.fixture(scope="session")
@@ -109,6 +113,21 @@ def snowcli(test_root_path):
 @pytest.fixture(autouse=True)
 def isolate_default_config_location(monkeypatch, temporary_directory):
     monkeypatch.setenv("SNOWFLAKE_HOME", temporary_directory)
+
+
+@pytest.fixture(autouse=True)
+def isolate_environment_variables(monkeypatch):
+    """
+    Clear Snowflake-specific environment variables that could interfere with e2e tests.
+    This ensures tests run in a clean environment and only use the config files they specify.
+    Exception: Keep INTEGRATION connection vars for e2e testing.
+    """
+    # Clear all SNOWFLAKE_CONNECTIONS_* environment variables except INTEGRATION
+    for env_var in list(os.environ.keys()):
+        if env_var.startswith(("SNOWFLAKE_CONNECTIONS_", "SNOWSQL_")):
+            # Preserve all INTEGRATION connection environment variables
+            if not env_var.startswith("SNOWFLAKE_CONNECTIONS_INTEGRATION_"):
+                monkeypatch.delenv(env_var, raising=False)
 
 
 def _create_venv(tmp_dir: Path) -> None:

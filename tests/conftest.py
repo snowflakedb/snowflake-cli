@@ -104,8 +104,23 @@ def os_agnostic_snapshot(snapshot):
 # In addition to its own CliContextManager, each test gets its own OpenConnectionCache
 # which is cleared after the test completes.
 def reset_global_context_and_setup_config_and_logging_levels(
-    request, test_snowcli_config
+    request, test_snowcli_config, monkeypatch
 ):
+    # Reset config provider singleton to prevent test interference
+    from snowflake.cli.api.config_provider import reset_config_provider
+
+    reset_config_provider()
+
+    # Clear SNOWFLAKE_CONNECTIONS_* env vars for test isolation with config_ng
+    # These may be set in CI/dev environments and interfere with tests
+    import os
+
+    for key in list(os.environ.keys()):
+        if key.startswith("SNOWFLAKE_CONNECTIONS_") or key.startswith(
+            "SNOWSQL_CONNECTIONS_"
+        ):
+            monkeypatch.delenv(key, raising=False)
+
     with fork_cli_context():
         connection_cache = OpenConnectionCache()
         cli_context_manager = get_cli_context_manager()
@@ -113,7 +128,10 @@ def reset_global_context_and_setup_config_and_logging_levels(
         cli_context_manager.verbose = False
         cli_context_manager.enable_tracebacks = False
         cli_context_manager.connection_cache = connection_cache
-        config_init(test_snowcli_config)
+
+        cli_context_manager.config_file_override = test_snowcli_config
+
+        config_init(None)
         loggers.create_loggers(verbose=False, debug=False)
         try:
             yield
@@ -232,6 +250,96 @@ class SnowCLIRunner(CliRunner):
 @pytest.fixture
 def app_zip(temporary_directory) -> Generator:
     yield create_temp_file(".zip", temporary_directory, [])
+
+
+@pytest.fixture
+def config_manager():
+    """
+    Direct access to current config manager.
+    Returns a proxy that always fetches the current manager from context,
+    ensuring tests see config changes after config_init() calls.
+    """
+    from snowflake.cli.api.config import get_config_manager
+
+    class ConfigManagerProxy:
+        def __getitem__(self, key):
+            return get_config_manager()[key]
+
+        def __setitem__(self, key, value):
+            get_config_manager()[key] = value
+
+        def __contains__(self, key):
+            return key in get_config_manager()
+
+        def __getattr__(self, name):
+            return getattr(get_config_manager(), name)
+
+        def __repr__(self):
+            return repr(get_config_manager())
+
+        def get(self, key, default=None):
+            return get_config_manager().get(key, default)
+
+    return ConfigManagerProxy()
+
+
+@pytest.fixture
+def with_custom_config():
+    """Context manager for custom config testing"""
+
+    @contextmanager
+    def _with_custom_config(config_data: dict):
+        import tempfile
+        from pathlib import Path
+
+        import tomlkit
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".toml", delete=False) as f:
+            tomlkit.dump(config_data, f)
+            config_file = Path(f.name)
+
+        try:
+            with fork_cli_context() as ctx:
+                ctx.config_file_override = config_file
+                yield ctx.config_manager
+        finally:
+            config_file.unlink(missing_ok=True)
+
+    return _with_custom_config
+
+
+@pytest.fixture
+def config_manager_factory():
+    """Factory for creating config managers with specific settings"""
+    import tempfile
+    from pathlib import Path
+
+    import tomlkit
+
+    created_files = []
+
+    def _create_manager(
+        config_data: Optional[dict] = None,
+        config_file: Optional[Path] = None,
+    ):
+        with fork_cli_context() as ctx:
+            if config_file:
+                ctx.config_file_override = config_file
+            elif config_data:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".toml", delete=False
+                ) as f:
+                    tomlkit.dump(config_data, f)
+                    config_file = Path(f.name)
+                    created_files.append(config_file)
+                    ctx.config_file_override = config_file
+
+            return ctx.config_manager
+
+    yield _create_manager
+
+    for file in created_files:
+        file.unlink(missing_ok=True)
 
 
 @pytest.fixture
@@ -423,11 +531,18 @@ def build_runner(app_factory, test_snowcli_config):
 @contextmanager
 def _named_temporary_file(suffix=None, prefix=None):
     with tempfile.TemporaryDirectory() as tmp_dir:
+        from snowflake.cli.api.utils.path_utils import path_resolver
+
+        resolved_tmp_dir = path_resolver(tmp_dir)
+
         suffix = suffix or ""
         prefix = prefix or ""
-        f = Path(tmp_dir) / f"{prefix}tmp_file{suffix}"
+        f = Path(resolved_tmp_dir) / f"{prefix}tmp_file{suffix}"
         f.touch()
-        yield f
+        try:
+            yield f
+        finally:
+            clean_logging_handlers()
 
 
 @pytest.fixture()

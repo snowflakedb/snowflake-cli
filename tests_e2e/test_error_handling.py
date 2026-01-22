@@ -48,9 +48,12 @@ def test_corrupted_config_in_default_location(
     snowcli,
     temporary_directory,
     isolate_default_config_location,
-    test_root_path,
-    snapshot,
+    config_file,
 ):
+    healthy_config = Path(temporary_directory) / "healthy_config.toml"
+    healthy_config.write_text(Path(config_file).read_text())
+    restrict_file_permissions(healthy_config)
+
     default_config = Path(temporary_directory) / "config.toml"
     default_config.write_text("[connections.demo]\n[connections.demo]")
     restrict_file_permissions(default_config)
@@ -64,7 +67,6 @@ def test_corrupted_config_in_default_location(
     )
 
     # corrupted config in default location should not influence one passed with --config-file flag
-    healthy_config = test_root_path / "config" / "config.toml"
     result_healthy = subprocess_run(
         [snowcli, "--config-file", healthy_config, "connection", "list"],
     )

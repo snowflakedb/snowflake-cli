@@ -122,7 +122,7 @@ def test_find_and_execute_processors_exception(test_proj_def, test_compiler):
         test_compiler.compile_artifacts()
 
 
-class TestProcessor(ArtifactProcessor):
+class AcmeProcessor(ArtifactProcessor):
     NAME = "test_processor"
 
     def __init__(self, *args, **kwargs):
@@ -148,7 +148,7 @@ def test_skips_disabled_processors(test_proj_def, test_compiler):
         {"dest": "./", "src": "app/*", "processors": ["test_processor"]}
     ]
     test_compiler = NativeAppCompiler(_get_bundle_context(pkg_model))
-    test_compiler.register(TestProcessor)
+    test_compiler.register(AcmeProcessor)
 
-    # TestProcessor is never invoked, otherwise calling its methods will make the test fail
+    # AcmeProcessor is never invoked, otherwise calling its methods will make the test fail
     test_compiler.compile_artifacts()
